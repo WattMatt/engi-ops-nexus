@@ -14,6 +14,156 @@ export type Database = {
   }
   public: {
     Tables: {
+      cable_routes: {
+        Row: {
+          cable_spec: string | null
+          color: string | null
+          created_at: string | null
+          floor_plan_id: string
+          id: string
+          length_meters: number | null
+          name: string | null
+          points: Json
+          route_type: Database["public"]["Enums"]["cable_type"]
+          size: string | null
+          supply_from: string | null
+          supply_to: string | null
+        }
+        Insert: {
+          cable_spec?: string | null
+          color?: string | null
+          created_at?: string | null
+          floor_plan_id: string
+          id?: string
+          length_meters?: number | null
+          name?: string | null
+          points: Json
+          route_type: Database["public"]["Enums"]["cable_type"]
+          size?: string | null
+          supply_from?: string | null
+          supply_to?: string | null
+        }
+        Update: {
+          cable_spec?: string | null
+          color?: string | null
+          created_at?: string | null
+          floor_plan_id?: string
+          id?: string
+          length_meters?: number | null
+          name?: string | null
+          points?: Json
+          route_type?: Database["public"]["Enums"]["cable_type"]
+          size?: string | null
+          supply_from?: string | null
+          supply_to?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cable_routes_floor_plan_id_fkey"
+            columns: ["floor_plan_id"]
+            isOneToOne: false
+            referencedRelation: "floor_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      equipment_placements: {
+        Row: {
+          created_at: string | null
+          equipment_type: string
+          floor_plan_id: string
+          id: string
+          name: string | null
+          properties: Json | null
+          rotation: number | null
+          x_position: number
+          y_position: number
+        }
+        Insert: {
+          created_at?: string | null
+          equipment_type: string
+          floor_plan_id: string
+          id?: string
+          name?: string | null
+          properties?: Json | null
+          rotation?: number | null
+          x_position: number
+          y_position: number
+        }
+        Update: {
+          created_at?: string | null
+          equipment_type?: string
+          floor_plan_id?: string
+          id?: string
+          name?: string | null
+          properties?: Json | null
+          rotation?: number | null
+          x_position?: number
+          y_position?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "equipment_placements_floor_plan_id_fkey"
+            columns: ["floor_plan_id"]
+            isOneToOne: false
+            referencedRelation: "floor_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      floor_plans: {
+        Row: {
+          created_at: string | null
+          created_by: string
+          design_purpose: Database["public"]["Enums"]["design_purpose"]
+          id: string
+          name: string
+          pdf_url: string
+          project_id: string
+          pv_panel_length: number | null
+          pv_panel_wattage: number | null
+          pv_panel_width: number | null
+          scale_meters_per_pixel: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by: string
+          design_purpose?: Database["public"]["Enums"]["design_purpose"]
+          id?: string
+          name: string
+          pdf_url: string
+          project_id: string
+          pv_panel_length?: number | null
+          pv_panel_wattage?: number | null
+          pv_panel_width?: number | null
+          scale_meters_per_pixel?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string
+          design_purpose?: Database["public"]["Enums"]["design_purpose"]
+          id?: string
+          name?: string
+          pdf_url?: string
+          project_id?: string
+          pv_panel_length?: number | null
+          pv_panel_wattage?: number | null
+          pv_panel_width?: number | null
+          scale_meters_per_pixel?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "floor_plans_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -121,6 +271,50 @@ export type Database = {
           },
         ]
       }
+      pv_arrays: {
+        Row: {
+          columns: number
+          created_at: string | null
+          floor_plan_id: string
+          id: string
+          orientation: string
+          rotation: number | null
+          rows: number
+          x_position: number
+          y_position: number
+        }
+        Insert: {
+          columns: number
+          created_at?: string | null
+          floor_plan_id: string
+          id?: string
+          orientation: string
+          rotation?: number | null
+          rows: number
+          x_position: number
+          y_position: number
+        }
+        Update: {
+          columns?: number
+          created_at?: string | null
+          floor_plan_id?: string
+          id?: string
+          orientation?: string
+          rotation?: number | null
+          rows?: number
+          x_position?: number
+          y_position?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pv_arrays_floor_plan_id_fkey"
+            columns: ["floor_plan_id"]
+            isOneToOne: false
+            referencedRelation: "floor_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       site_diary_entries: {
         Row: {
           attachments: Json | null
@@ -199,6 +393,53 @@ export type Database = {
         }
         Relationships: []
       }
+      zones: {
+        Row: {
+          area_sqm: number | null
+          color: string | null
+          created_at: string | null
+          floor_plan_id: string
+          id: string
+          name: string | null
+          points: Json
+          roof_azimuth: number | null
+          roof_pitch: number | null
+          zone_type: string
+        }
+        Insert: {
+          area_sqm?: number | null
+          color?: string | null
+          created_at?: string | null
+          floor_plan_id: string
+          id?: string
+          name?: string | null
+          points: Json
+          roof_azimuth?: number | null
+          roof_pitch?: number | null
+          zone_type: string
+        }
+        Update: {
+          area_sqm?: number | null
+          color?: string | null
+          created_at?: string | null
+          floor_plan_id?: string
+          id?: string
+          name?: string | null
+          points?: Json
+          roof_azimuth?: number | null
+          roof_pitch?: number | null
+          zone_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zones_floor_plan_id_fkey"
+            columns: ["floor_plan_id"]
+            isOneToOne: false
+            referencedRelation: "floor_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -214,6 +455,19 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user"
+      cable_type:
+        | "mv"
+        | "lv_ac"
+        | "dc"
+        | "tray"
+        | "basket"
+        | "trunking"
+        | "sleeve"
+      design_purpose:
+        | "budget_markup"
+        | "pv_design"
+        | "line_shop_measurements"
+        | "general"
       user_role: "admin" | "user"
     }
     CompositeTypes: {
@@ -343,6 +597,13 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
+      cable_type: ["mv", "lv_ac", "dc", "tray", "basket", "trunking", "sleeve"],
+      design_purpose: [
+        "budget_markup",
+        "pv_design",
+        "line_shop_measurements",
+        "general",
+      ],
       user_role: ["admin", "user"],
     },
   },

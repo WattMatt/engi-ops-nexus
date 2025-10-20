@@ -8,6 +8,7 @@ import Auth from "./pages/Auth";
 import ProjectSelect from "./pages/ProjectSelect";
 import DashboardLayout from "./pages/DashboardLayout";
 import SiteDiary from "./pages/SiteDiary";
+import FloorPlan from "./pages/FloorPlan";
 import Settings from "./pages/Settings";
 import UserManagement from "./pages/UserManagement";
 import NotFound from "./pages/NotFound";
@@ -26,6 +27,7 @@ const App = () => (
           <Route path="/projects" element={<ProjectSelect />} />
           <Route path="/dashboard/*" element={<DashboardLayout />}>
             <Route path="site-diary" element={<SiteDiary />} />
+            <Route path="floor-plan" element={<FloorPlan />} />
             <Route path="settings" element={<Settings />} />
             <Route path="users" element={<UserManagement />} />
           </Route>
