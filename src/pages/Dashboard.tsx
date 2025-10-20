@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { useUserRole } from "@/hooks/useUserRole";
 import { 
   FileText, 
   DollarSign, 
@@ -26,8 +27,8 @@ interface Module {
 
 const Dashboard = () => {
   const navigate = useNavigate();
-  const [userRole, setUserRole] = useState<string | null>(null);
   const [projectName, setProjectName] = useState<string>("");
+  const { isAdmin } = useUserRole();
 
   useEffect(() => {
     checkAuth();
@@ -40,14 +41,6 @@ const Dashboard = () => {
       navigate("/auth");
       return;
     }
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("role")
-      .eq("id", session.user.id)
-      .single();
-
-    setUserRole(profile?.role || null);
   };
 
   const loadProjectInfo = async () => {
@@ -113,7 +106,7 @@ const Dashboard = () => {
   ];
 
   const visibleModules = modules.filter(
-    (module) => !module.adminOnly || userRole === "admin"
+    (module) => !module.adminOnly || isAdmin
   );
 
   return (
@@ -151,7 +144,7 @@ const Dashboard = () => {
           <h2 className="text-3xl font-bold text-foreground mb-2">{projectName}</h2>
           <p className="text-muted-foreground">
             Select a module to get started
-            {userRole === "admin" && <span className="ml-2 text-accent font-medium">(Administrator)</span>}
+            {isAdmin && <span className="ml-2 text-accent font-medium">(Administrator)</span>}
           </p>
         </div>
 

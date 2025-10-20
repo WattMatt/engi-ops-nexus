@@ -3,8 +3,10 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Folder, LogOut, Plus } from "lucide-react";
+import { Folder, LogOut } from "lucide-react";
 import { toast } from "sonner";
+import { useUserRole } from "@/hooks/useUserRole";
+import { CreateProjectDialog } from "@/components/CreateProjectDialog";
 
 interface Project {
   id: string;
@@ -17,6 +19,7 @@ const ProjectSelect = () => {
   const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const { isAdmin, loading: roleLoading } = useUserRole();
 
   useEffect(() => {
     loadProjects();
@@ -48,7 +51,7 @@ const ProjectSelect = () => {
     navigate("/auth");
   };
 
-  if (loading) {
+  if (loading || roleLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p className="text-muted-foreground">Loading projects...</p>
@@ -64,10 +67,13 @@ const ProjectSelect = () => {
             <h1 className="text-3xl font-bold text-foreground mb-2">Select a Project</h1>
             <p className="text-muted-foreground">Choose a project to access its modules and data</p>
           </div>
-          <Button variant="outline" onClick={handleLogout}>
-            <LogOut className="h-4 w-4 mr-2" />
-            Logout
-          </Button>
+          <div className="flex gap-3">
+            {isAdmin && <CreateProjectDialog onProjectCreated={loadProjects} />}
+            <Button variant="outline" onClick={handleLogout}>
+              <LogOut className="h-4 w-4 mr-2" />
+              Logout
+            </Button>
+          </div>
         </div>
 
         {projects.length === 0 ? (
