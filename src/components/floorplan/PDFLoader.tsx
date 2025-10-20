@@ -15,8 +15,13 @@ export const PDFLoader = ({ onPDFLoaded }: PDFLoaderProps) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log("File input changed");
     const file = event.target.files?.[0];
-    if (!file) return;
+    if (!file) {
+      console.log("No file selected");
+      return;
+    }
+    console.log("File selected:", file.name, file.type);
 
     if (file.type !== "application/pdf") {
       toast.error("Please select a PDF file");
@@ -64,7 +69,10 @@ export const PDFLoader = ({ onPDFLoaded }: PDFLoaderProps) => {
         className="hidden"
         onChange={handleFileSelect}
       />
-      <Button onClick={() => fileInputRef.current?.click()}>
+      <Button onClick={() => {
+        console.log("Load PDF button clicked");
+        fileInputRef.current?.click();
+      }}>
         <Upload className="h-4 w-4 mr-2" />
         Load PDF
       </Button>

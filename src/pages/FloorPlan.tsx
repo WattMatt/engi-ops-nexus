@@ -38,29 +38,42 @@ const FloorPlan = () => {
   useEffect(() => {
     if (!canvasRef.current || fabricCanvas) return;
 
+    console.log("Initializing Fabric canvas");
     const canvas = new FabricCanvas(canvasRef.current, {
       width: 1200,
       height: 800,
       backgroundColor: "#f5f5f5",
     });
 
+    console.log("Fabric canvas created:", canvas);
     setFabricCanvas(canvas);
 
     return () => {
+      console.log("Disposing canvas");
       canvas.dispose();
     };
   }, []);
 
   // Load PDF image onto canvas
   const handlePDFLoaded = async (imageUrl: string) => {
-    if (!fabricCanvas) return;
+    console.log("handlePDFLoaded called, fabricCanvas:", !!fabricCanvas);
+    
+    if (!fabricCanvas) {
+      console.error("Canvas not initialized yet!");
+      toast.error("Canvas not ready, please try again");
+      return;
+    }
 
     setPdfImageUrl(imageUrl);
 
     FabricImage.fromURL(imageUrl, {
       crossOrigin: "anonymous",
     }).then((img) => {
-      if (!fabricCanvas) return;
+      console.log("Image loaded from URL");
+      if (!fabricCanvas) {
+        console.error("Canvas disappeared!");
+        return;
+      }
 
       // Scale image to fit canvas
       const scale = Math.min(
