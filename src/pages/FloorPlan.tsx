@@ -36,42 +36,63 @@ const FloorPlan = () => {
 
   // Initialize canvas
   useEffect(() => {
-    if (!canvasRef.current || fabricCanvas) return;
-
-    console.log("Initializing Fabric canvas");
-    const canvas = new FabricCanvas(canvasRef.current, {
-      width: 1200,
-      height: 800,
-      backgroundColor: "#f5f5f5",
-    });
-
-    console.log("Fabric canvas created:", canvas);
-    setFabricCanvas(canvas);
-
-    return () => {
-      console.log("Disposing canvas");
-      canvas.dispose();
-    };
-  }, []);
-
-  // Load PDF image onto canvas
-  const handlePDFLoaded = async (imageUrl: string) => {
-    console.log("handlePDFLoaded called, fabricCanvas:", !!fabricCanvas);
+    if (!canvasRef.current) {
+      console.log("Canvas ref not ready yet");
+      return;
+    }
     
-    if (!fabricCanvas) {
-      console.error("Canvas not initialized yet!");
-      toast.error("Canvas not ready, please try again");
+    if (fabricCanvas) {
+      console.log("Canvas already initialized");
       return;
     }
 
-    setPdfImageUrl(imageUrl);
+    console.log("Initializing Fabric canvas...");
+    try {
+      const canvas = new FabricCanvas(canvasRef.current, {
+        width: 1200,
+        height: 800,
+        backgroundColor: "#f5f5f5",
+      });
 
-    FabricImage.fromURL(imageUrl, {
-      crossOrigin: "anonymous",
-    }).then((img) => {
-      console.log("Image loaded from URL");
+      console.log("Fabric canvas created successfully");
+      setFabricCanvas(canvas);
+    } catch (error) {
+      console.error("Error creating Fabric canvas:", error);
+      toast.error("Failed to initialize canvas");
+    }
+
+    return () => {
+      if (fabricCanvas) {
+        console.log("Disposing canvas");
+        fabricCanvas.dispose();
+      }
+    };
+  }, [fabricCanvas]);
+
+  // Load PDF image onto canvas
+  const handlePDFLoaded = async (imageUrl: string) => {
+    console.log("=== handlePDFLoaded called ===");
+    console.log("fabricCanvas exists:", !!fabricCanvas);
+    console.log("imageUrl length:", imageUrl?.length);
+    
+    if (!fabricCanvas) {
+      console.error("Canvas not initialized yet!");
+      toast.error("Canvas not ready. Please refresh the page and try again.");
+      return;
+    }
+
+    try {
+      setPdfImageUrl(imageUrl);
+      console.log("Loading image into Fabric canvas...");
+
+      const img = await FabricImage.fromURL(imageUrl, {
+        crossOrigin: "anonymous",
+      });
+
+      console.log("Image loaded, dimensions:", img.width, "x", img.height);
+
       if (!fabricCanvas) {
-        console.error("Canvas disappeared!");
+        console.error("Canvas disappeared during image load!");
         return;
       }
 
@@ -80,6 +101,8 @@ const FloorPlan = () => {
         (fabricCanvas.width! - 40) / img.width!,
         (fabricCanvas.height! - 40) / img.height!
       );
+
+      console.log("Calculated scale:", scale);
 
       img.set({
         scaleX: scale,
@@ -95,11 +118,12 @@ const FloorPlan = () => {
       fabricCanvas.sendObjectToBack(img);
       fabricCanvas.renderAll();
 
-      // Show design purpose dialog
-      if (!designPurpose) {
-        // Design purpose dialog will show
-      }
-    });
+      console.log("Image added to canvas successfully");
+      toast.success("Floor plan loaded!");
+    } catch (error) {
+      console.error("Error adding image to canvas:", error);
+      toast.error("Failed to display PDF on canvas");
+    }
   };
 
   const handleToolSelect = (tool: Tool) => {
