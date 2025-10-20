@@ -14,19 +14,22 @@ import {
   Cable,
   ClipboardList,
   PieChart,
-  Layers,
   FileStack,
   UsersRound,
+  Wallet,
+  Image,
 } from "lucide-react";
 import {
   Sidebar,
   SidebarContent,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
   useSidebar,
 } from "@/components/ui/sidebar";
 import { useUserRole } from "@/hooks/useUserRole";
@@ -39,11 +42,23 @@ const mainModules = [
     url: "/dashboard",
     icon: LayoutDashboard,
   },
-  {
-    title: "Reports",
-    url: "/dashboard/reports",
-    icon: FileCheck,
-  },
+];
+
+const reportsModule = {
+  title: "Reports",
+  icon: FileCheck,
+  items: [
+    { title: "Bulk Services", url: "/dashboard/reports/bulk-services" },
+    { title: "Metering Specification", url: "/dashboard/reports/metering" },
+    { title: "Generator Report", url: "/dashboard/reports/generator" },
+    { title: "Electrical Tariffs", url: "/dashboard/reports/tariffs" },
+    { title: "Tender Adjudications", url: "/dashboard/reports/tender" },
+    { title: "Lighting Specification", url: "/dashboard/reports/lighting" },
+    { title: "Handover Documents", url: "/dashboard/reports/handover" },
+  ],
+};
+
+const singleModules = [
   {
     title: "AI Tools",
     url: "/dashboard/ai-tools",
@@ -54,11 +69,18 @@ const mainModules = [
     url: "/dashboard/cable-sizing",
     icon: Cable,
   },
-  {
-    title: "Budgets",
-    url: "/dashboard/budgets",
-    icon: DollarSign,
-  },
+];
+
+const budgetsModule = {
+  title: "Budgets",
+  icon: Wallet,
+  items: [
+    { title: "Electrical", url: "/dashboard/budgets/electrical" },
+    { title: "Solar Proposals", url: "/dashboard/budgets/solar" },
+  ],
+};
+
+const operationalModules = [
   {
     title: "Bills of Quantities",
     url: "/dashboard/boq",
@@ -77,7 +99,7 @@ const mainModules = [
   {
     title: "Floor Plan Markup",
     url: "/dashboard/floor-plan",
-    icon: Layers,
+    icon: Image,
   },
   {
     title: "Site Diary",
@@ -132,6 +154,10 @@ export function AppSidebar() {
     return currentPath.startsWith(path);
   };
 
+  const isGroupActive = (items: { url: string }[]) => {
+    return items.some((item) => currentPath.startsWith(item.url));
+  };
+
   const getNavCls = (path: string) =>
     isActive(path)
       ? "bg-primary/10 text-primary font-medium hover:bg-primary/20"
@@ -163,10 +189,87 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
+              {/* Dashboard */}
               {mainModules.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
-                    <NavLink to={item.url} end={item.url === "/dashboard"} className={getNavCls(item.url)}>
+                    <NavLink to={item.url} end className={getNavCls(item.url)}>
+                      <item.icon className="h-4 w-4" />
+                      {!collapsed && <span>{item.title}</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+
+              {/* Reports - Collapsible */}
+              <Collapsible defaultOpen={isGroupActive(reportsModule.items)}>
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton className="hover:bg-muted/50">
+                      <reportsModule.icon className="h-4 w-4" />
+                      {!collapsed && <span>{reportsModule.title}</span>}
+                      {!collapsed && <ChevronDown className="ml-auto h-4 w-4" />}
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {reportsModule.items.map((item) => (
+                        <SidebarMenuSubItem key={item.title}>
+                          <SidebarMenuSubButton asChild>
+                            <NavLink to={item.url} className={getNavCls(item.url)}>
+                              <span>{item.title}</span>
+                            </NavLink>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
+
+              {/* AI Tools & Cable Sizing */}
+              {singleModules.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild>
+                    <NavLink to={item.url} className={getNavCls(item.url)}>
+                      <item.icon className="h-4 w-4" />
+                      {!collapsed && <span>{item.title}</span>}
+                    </NavLink>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+
+              {/* Budgets - Collapsible */}
+              <Collapsible defaultOpen={isGroupActive(budgetsModule.items)}>
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton className="hover:bg-muted/50">
+                      <budgetsModule.icon className="h-4 w-4" />
+                      {!collapsed && <span>{budgetsModule.title}</span>}
+                      {!collapsed && <ChevronDown className="ml-auto h-4 w-4" />}
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {budgetsModule.items.map((item) => (
+                        <SidebarMenuSubItem key={item.title}>
+                          <SidebarMenuSubButton asChild>
+                            <NavLink to={item.url} className={getNavCls(item.url)}>
+                              <span>{item.title}</span>
+                            </NavLink>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
+
+              {/* Operational Modules */}
+              {operationalModules.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild>
+                    <NavLink to={item.url} className={getNavCls(item.url)}>
                       <item.icon className="h-4 w-4" />
                       {!collapsed && <span>{item.title}</span>}
                     </NavLink>
@@ -183,31 +286,33 @@ export function AppSidebar() {
             <Separator className="my-2" />
             <Collapsible defaultOpen={false}>
               <SidebarGroup>
-                <CollapsibleTrigger className="w-full">
-                  <SidebarGroupLabel className="flex items-center justify-between cursor-pointer hover:bg-muted/50 rounded px-2 py-1.5">
-                    <div className="flex items-center gap-2">
-                      <Settings className="h-4 w-4" />
-                      {!collapsed && <span>Admin</span>}
-                    </div>
-                    {!collapsed && <ChevronDown className="h-4 w-4" />}
-                  </SidebarGroupLabel>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <SidebarGroupContent>
-                    <SidebarMenu>
-                      {adminModules.map((item) => (
-                        <SidebarMenuItem key={item.title}>
-                          <SidebarMenuButton asChild>
-                            <NavLink to={item.url} className={getNavCls(item.url)}>
-                              <item.icon className="h-4 w-4" />
-                              {!collapsed && <span>{item.title}</span>}
-                            </NavLink>
-                          </SidebarMenuButton>
-                        </SidebarMenuItem>
-                      ))}
-                    </SidebarMenu>
-                  </SidebarGroupContent>
-                </CollapsibleContent>
+                <SidebarGroupContent>
+                  <SidebarMenu>
+                    <SidebarMenuItem>
+                      <CollapsibleTrigger asChild>
+                        <SidebarMenuButton className="hover:bg-muted/50 cursor-pointer">
+                          <Settings className="h-4 w-4" />
+                          {!collapsed && <span>Admin</span>}
+                          {!collapsed && <ChevronDown className="ml-auto h-4 w-4" />}
+                        </SidebarMenuButton>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <SidebarMenuSub>
+                          {adminModules.map((item) => (
+                            <SidebarMenuSubItem key={item.title}>
+                              <SidebarMenuSubButton asChild>
+                                <NavLink to={item.url} className={getNavCls(item.url)}>
+                                  <item.icon className="h-4 w-4" />
+                                  {!collapsed && <span>{item.title}</span>}
+                                </NavLink>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                          ))}
+                        </SidebarMenuSub>
+                      </CollapsibleContent>
+                    </SidebarMenuItem>
+                  </SidebarMenu>
+                </SidebarGroupContent>
               </SidebarGroup>
             </Collapsible>
           </div>
