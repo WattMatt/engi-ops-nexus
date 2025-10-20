@@ -108,29 +108,18 @@ export const PDFLoader = ({ onPDFLoaded }: PDFLoaderProps) => {
   };
 
   return (
-    <div>
+    <>
       <input
         ref={fileInputRef}
         type="file"
         accept="application/pdf,.pdf"
         onChange={handleFileSelect}
-        style={{
-          position: 'absolute',
-          width: '1px',
-          height: '1px',
-          padding: 0,
-          margin: '-1px',
-          overflow: 'hidden',
-          clip: 'rect(0,0,0,0)',
-          whiteSpace: 'nowrap',
-          border: 0,
-        }}
-        aria-hidden="true"
+        className="hidden"
       />
-      <Button onClick={handleButtonClick}>
+      <Button onClick={handleButtonClick} type="button">
         <Upload className="h-4 w-4 mr-2" />
         Load PDF
       </Button>
-    </div>
+    </>
   );
 };
