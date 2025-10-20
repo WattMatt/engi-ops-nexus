@@ -113,7 +113,8 @@ const FloorPlan = () => {
         evented: false,
       });
 
-      fabricCanvas.clear();
+      // Clear existing objects and add the image
+      fabricCanvas.remove(...fabricCanvas.getObjects());
       fabricCanvas.add(img);
       fabricCanvas.sendObjectToBack(img);
       fabricCanvas.renderAll();
