@@ -28,6 +28,7 @@ interface Module {
 const Dashboard = () => {
   const navigate = useNavigate();
   const [projectName, setProjectName] = useState<string>("");
+  const [projectNumber, setProjectNumber] = useState<string>("");
   const { isAdmin } = useUserRole();
 
   useEffect(() => {
@@ -52,11 +53,12 @@ const Dashboard = () => {
 
     const { data: project } = await supabase
       .from("projects")
-      .select("name")
+      .select("name, project_number")
       .eq("id", projectId)
       .single();
 
     setProjectName(project?.name || "");
+    setProjectNumber(project?.project_number || "");
   };
 
   const handleLogout = async () => {
@@ -141,6 +143,9 @@ const Dashboard = () => {
       {/* Main Content */}
       <main className="container mx-auto px-6 py-8">
         <div className="mb-8">
+          <div className="text-sm font-medium text-muted-foreground mb-1">
+            {projectNumber}
+          </div>
           <h2 className="text-3xl font-bold text-foreground mb-2">{projectName}</h2>
           <p className="text-muted-foreground">
             Select a module to get started

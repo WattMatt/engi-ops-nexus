@@ -87,6 +87,7 @@ export type Database = {
           description: string | null
           id: string
           name: string
+          project_number: string
           status: string | null
           updated_at: string
         }
@@ -96,6 +97,7 @@ export type Database = {
           description?: string | null
           id?: string
           name: string
+          project_number: string
           status?: string | null
           updated_at?: string
         }
@@ -105,6 +107,7 @@ export type Database = {
           description?: string | null
           id?: string
           name?: string
+          project_number?: string
           status?: string | null
           updated_at?: string
         }

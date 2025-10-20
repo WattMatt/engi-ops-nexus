@@ -10,6 +10,7 @@ import { CreateProjectDialog } from "@/components/CreateProjectDialog";
 
 interface Project {
   id: string;
+  project_number: string;
   name: string;
   description: string | null;
   status: string;
@@ -30,7 +31,7 @@ const ProjectSelect = () => {
       const { data, error } = await supabase
         .from("projects")
         .select("*")
-        .order("created_at", { ascending: false });
+        .order("project_number", { ascending: true });
 
       if (error) throw error;
       setProjects(data || []);
@@ -103,7 +104,12 @@ const ProjectSelect = () => {
                       {project.status}
                     </span>
                   </div>
-                  <CardTitle className="mt-4">{project.name}</CardTitle>
+                  <div className="mt-4">
+                    <div className="text-sm font-medium text-muted-foreground mb-1">
+                      {project.project_number}
+                    </div>
+                    <CardTitle>{project.name}</CardTitle>
+                  </div>
                   <CardDescription>
                     {project.description || "No description"}
                   </CardDescription>

@@ -26,6 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 
 const projectSchema = z.object({
+  project_number: z.string().min(1, "Project number is required").max(50),
   name: z.string().min(1, "Project name is required").max(100),
   description: z.string().max(500).optional(),
 });
@@ -43,6 +44,7 @@ export const CreateProjectDialog = ({ onProjectCreated }: CreateProjectDialogPro
   const form = useForm<ProjectFormData>({
     resolver: zodResolver(projectSchema),
     defaultValues: {
+      project_number: "",
       name: "",
       description: "",
     },
@@ -59,6 +61,7 @@ export const CreateProjectDialog = ({ onProjectCreated }: CreateProjectDialogPro
       }
 
       const { error } = await supabase.from("projects").insert({
+        project_number: data.project_number,
         name: data.name,
         description: data.description || null,
         created_by: user.id,
@@ -96,6 +99,19 @@ export const CreateProjectDialog = ({ onProjectCreated }: CreateProjectDialogPro
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="project_number"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Project Number</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g., PROJ-001 or WM2025-01" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             <FormField
               control={form.control}
               name="name"
