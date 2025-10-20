@@ -66,12 +66,17 @@ export const PDFLoader = ({ onPDFLoaded }: PDFLoaderProps) => {
         ref={fileInputRef}
         type="file"
         accept=".pdf"
-        className="hidden"
         onChange={handleFileSelect}
+        style={{ display: 'none' }}
       />
       <Button onClick={() => {
-        console.log("Load PDF button clicked");
-        fileInputRef.current?.click();
+        console.log("Load PDF button clicked, fileInputRef:", fileInputRef.current);
+        if (fileInputRef.current) {
+          console.log("Triggering file input click");
+          fileInputRef.current.click();
+        } else {
+          console.error("File input ref is null!");
+        }
       }}>
         <Upload className="h-4 w-4 mr-2" />
         Load PDF
