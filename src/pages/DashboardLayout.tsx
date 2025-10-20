@@ -4,13 +4,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
-import { LogOut, Building2 } from "lucide-react";
+import { ProjectDropdown } from "@/components/ProjectDropdown";
+import { LogOut } from "lucide-react";
 
 const DashboardLayout = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [projectName, setProjectName] = useState<string>("");
   const [projectNumber, setProjectNumber] = useState<string>("");
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     checkAuth();
@@ -36,10 +38,13 @@ const DashboardLayout = () => {
       .from("projects")
       .select("name, project_number")
       .eq("id", projectId)
-      .single();
+      .maybeSingle();
 
-    setProjectName(project?.name || "");
-    setProjectNumber(project?.project_number || "");
+    if (project) {
+      setProjectName(project.name || "");
+      setProjectNumber(project.project_number || "");
+    }
+    setLoading(false);
   };
 
   const handleLogout = async () => {
@@ -60,25 +65,15 @@ const DashboardLayout = () => {
           <header className="h-14 border-b bg-card flex items-center justify-between px-6 sticky top-0 z-10">
             <div className="flex items-center gap-4">
               <SidebarTrigger />
-              <div className="flex items-center gap-3">
-                <div className="p-1.5 rounded-lg bg-primary/10">
-                  <Building2 className="h-4 w-4 text-primary" />
-                </div>
-                <div className="hidden sm:block">
-                  <div className="text-xs text-muted-foreground leading-none">
-                    {projectNumber}
-                  </div>
-                  <div className="text-sm font-medium leading-none mt-0.5">
-                    {projectName}
-                  </div>
-                </div>
-              </div>
             </div>
             
-            <Button variant="outline" size="sm" onClick={handleLogout}>
-              <LogOut className="h-4 w-4 mr-2" />
-              Logout
-            </Button>
+            <div className="flex items-center gap-3">
+              <ProjectDropdown />
+              <Button variant="outline" size="sm" onClick={handleLogout}>
+                <LogOut className="h-4 w-4 mr-2" />
+                Logout
+              </Button>
+            </div>
           </header>
 
           {/* Main Content */}

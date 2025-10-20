@@ -35,11 +35,20 @@ type ProjectFormData = z.infer<typeof projectSchema>;
 
 interface CreateProjectDialogProps {
   onProjectCreated: () => void;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export const CreateProjectDialog = ({ onProjectCreated }: CreateProjectDialogProps) => {
-  const [open, setOpen] = useState(false);
+export const CreateProjectDialog = ({ 
+  onProjectCreated, 
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange 
+}: CreateProjectDialogProps) => {
+  const [internalOpen, setInternalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const open = controlledOpen !== undefined ? controlledOpen : internalOpen;
+  const setOpen = controlledOnOpenChange || setInternalOpen;
 
   const form = useForm<ProjectFormData>({
     resolver: zodResolver(projectSchema),
@@ -84,12 +93,14 @@ export const CreateProjectDialog = ({ onProjectCreated }: CreateProjectDialogPro
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button>
-          <Plus className="h-4 w-4 mr-2" />
-          Create Project
-        </Button>
-      </DialogTrigger>
+      {controlledOpen === undefined && (
+        <DialogTrigger asChild>
+          <Button>
+            <Plus className="h-4 w-4 mr-2" />
+            Create Project
+          </Button>
+        </DialogTrigger>
+      )}
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Create New Project</DialogTitle>
