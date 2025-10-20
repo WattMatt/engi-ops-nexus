@@ -7,6 +7,7 @@ import { Folder, LogOut } from "lucide-react";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/useUserRole";
 import { CreateProjectDialog } from "@/components/CreateProjectDialog";
+import { EditProjectDialog } from "@/components/EditProjectDialog";
 
 interface Project {
   id: string;
@@ -100,9 +101,17 @@ const ProjectSelect = () => {
                     <div className="p-2 rounded-lg bg-primary/10">
                       <Folder className="h-6 w-6 text-primary" />
                     </div>
-                    <span className="text-xs px-2 py-1 rounded-full bg-secondary text-secondary-foreground">
-                      {project.status}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {isAdmin && (
+                        <EditProjectDialog 
+                          project={project} 
+                          onProjectUpdated={loadProjects}
+                        />
+                      )}
+                      <span className="text-xs px-2 py-1 rounded-full bg-secondary text-secondary-foreground">
+                        {project.status}
+                      </span>
+                    </div>
                   </div>
                   <div className="mt-4">
                     <div className="text-sm font-medium text-muted-foreground mb-1">
