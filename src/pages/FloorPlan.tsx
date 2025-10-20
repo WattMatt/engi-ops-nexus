@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FileText, Save, Sparkles } from "lucide-react";
 import { toast } from "sonner";
-import { Canvas as FabricCanvas, Image as FabricImage } from "fabric";
+import { Canvas as FabricCanvas, Image as FabricImage, Point } from "fabric";
 import { PDFLoader } from "@/components/floorplan/PDFLoader";
 import { Toolbar } from "@/components/floorplan/Toolbar";
 import { ProjectOverview } from "@/components/floorplan/ProjectOverview";
@@ -52,6 +52,59 @@ const FloorPlan = () => {
         width: 1200,
         height: 800,
         backgroundColor: "#f5f5f5",
+      });
+
+      // Enable zoom with mouse wheel
+      canvas.on("mouse:wheel", (opt) => {
+        const delta = opt.e.deltaY;
+        let zoom = canvas.getZoom();
+        zoom *= 0.999 ** delta;
+        
+        // Limit zoom level
+        if (zoom > 20) zoom = 20;
+        if (zoom < 0.1) zoom = 0.1;
+        
+        const point = new Point(opt.e.offsetX, opt.e.offsetY);
+        canvas.zoomToPoint(point, zoom);
+        opt.e.preventDefault();
+        opt.e.stopPropagation();
+      });
+
+      // Enable panning with mouse drag (Alt/Option key + drag)
+      let isPanning = false;
+      let lastPosX = 0;
+      let lastPosY = 0;
+
+      canvas.on("mouse:down", (opt) => {
+        const evt = opt.e as MouseEvent;
+        if (evt.altKey === true) {
+          isPanning = true;
+          canvas.selection = false;
+          lastPosX = evt.clientX;
+          lastPosY = evt.clientY;
+          canvas.defaultCursor = "grab";
+        }
+      });
+
+      canvas.on("mouse:move", (opt) => {
+        if (isPanning) {
+          const evt = opt.e as MouseEvent;
+          const vpt = canvas.viewportTransform;
+          if (vpt) {
+            vpt[4] += evt.clientX - lastPosX;
+            vpt[5] += evt.clientY - lastPosY;
+            canvas.requestRenderAll();
+          }
+          lastPosX = evt.clientX;
+          lastPosY = evt.clientY;
+        }
+      });
+
+      canvas.on("mouse:up", () => {
+        canvas.setViewportTransform(canvas.viewportTransform);
+        isPanning = false;
+        canvas.selection = true;
+        canvas.defaultCursor = "default";
       });
 
       console.log("Fabric canvas created successfully");
