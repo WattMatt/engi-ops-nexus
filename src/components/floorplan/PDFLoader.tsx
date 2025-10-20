@@ -4,8 +4,8 @@ import { Upload } from "lucide-react";
 import { toast } from "sonner";
 import * as pdfjsLib from "pdfjs-dist";
 
-// Set worker path
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// Set worker path - using unpkg for better reliability
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
 interface PDFLoaderProps {
   onPDFLoaded: (imageUrl: string) => void;
@@ -38,9 +38,15 @@ export const PDFLoader = ({ onPDFLoaded }: PDFLoaderProps) => {
       const arrayBuffer = await file.arrayBuffer();
       console.log("ArrayBuffer created, size:", arrayBuffer.byteLength);
 
-      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
+      console.log("Creating PDF loading task...");
+      const loadingTask = pdfjsLib.getDocument({ 
+        data: arrayBuffer,
+        verbosity: 0
+      });
+      
+      console.log("Waiting for PDF to load...");
       const pdf = await loadingTask.promise;
-      console.log("PDF loaded, pages:", pdf.numPages);
+      console.log("PDF loaded successfully, pages:", pdf.numPages);
 
       const page = await pdf.getPage(1);
       console.log("First page loaded");
