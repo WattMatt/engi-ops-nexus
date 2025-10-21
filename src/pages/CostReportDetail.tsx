@@ -3,17 +3,20 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Download } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { CostReportOverview } from "@/components/cost-reports/CostReportOverview";
 import { CostCategoriesManager } from "@/components/cost-reports/CostCategoriesManager";
 import { CostVariationsManager } from "@/components/cost-reports/CostVariationsManager";
+import { ExportPDFButton } from "@/components/cost-reports/ExportPDFButton";
+import { CompareReportsDialog } from "@/components/cost-reports/CompareReportsDialog";
+import { ImportExcelDialog } from "@/components/cost-reports/ImportExcelDialog";
 import { Card, CardContent } from "@/components/ui/card";
 
 const CostReportDetail = () => {
   const { reportId } = useParams();
   const navigate = useNavigate();
 
-  const { data: report, isLoading } = useQuery({
+  const { data: report, isLoading, refetch } = useQuery({
     queryKey: ["cost-report", reportId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -76,10 +79,14 @@ const CostReportDetail = () => {
             <p className="text-muted-foreground">{report.project_name}</p>
           </div>
         </div>
-        <Button>
-          <Download className="mr-2 h-4 w-4" />
-          Export PDF
-        </Button>
+        <div className="flex gap-2">
+          <ImportExcelDialog reportId={report.id} onSuccess={refetch} />
+          <CompareReportsDialog
+            currentReportId={report.id}
+            projectId={report.project_id}
+          />
+          <ExportPDFButton report={report} />
+        </div>
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">
