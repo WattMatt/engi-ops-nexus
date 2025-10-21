@@ -52,12 +52,12 @@ export const CostCategoriesManager = ({ reportId }: CostCategoriesManagerProps) 
           {/* Column Headers */}
           <div className="grid grid-cols-12 gap-2 text-xs font-semibold text-muted-foreground pb-2 px-4 border-b-2">
             <div className="col-span-1">CODE</div>
-            <div className="col-span-3">DESCRIPTION</div>
-            <div className="col-span-2 text-right">ORIGINAL<br/>BUDGET</div>
-            <div className="col-span-2 text-right">PREVIOUS<br/>COST REPORT</div>
-            <div className="col-span-2 text-right">ANTICIPATED<br/>FINAL COST</div>
-            <div className="col-span-1 text-right">CURRENT<br/>(SAVING)/<br/>EXTRA</div>
-            <div className="col-span-1 text-right">(SAVING)/<br/>EXTRA<br/>ORIGINAL<br/>BUDGET</div>
+            <div className="col-span-2">DESCRIPTION</div>
+            <div className="col-span-2 text-right">ORIGINAL BUDGET</div>
+            <div className="col-span-2 text-right">PREVIOUS COST REPORT</div>
+            <div className="col-span-2 text-right">ANTICIPATED FINAL COST</div>
+            <div className="col-span-2 text-right">CURRENT (SAVING)/ EXTRA</div>
+            <div className="col-span-1 text-right">(SAVING)/ EXTRA ORIGINAL BUDGET</div>
           </div>
 
           {categories.map((category) => (

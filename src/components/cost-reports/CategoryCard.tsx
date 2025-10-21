@@ -115,7 +115,7 @@ export const CategoryCard = ({ category, onUpdate }: CategoryCardProps) => {
                   </div>
                 </CollapsibleTrigger>
                 <CollapsibleTrigger asChild>
-                  <div className="col-span-3 cursor-pointer">{category.description}</div>
+                  <div className="col-span-2 cursor-pointer">{category.description}</div>
                 </CollapsibleTrigger>
                 <CollapsibleTrigger asChild>
                   <div className="col-span-2 text-right cursor-pointer">
@@ -133,7 +133,7 @@ export const CategoryCard = ({ category, onUpdate }: CategoryCardProps) => {
                   </div>
                 </CollapsibleTrigger>
                 <CollapsibleTrigger asChild>
-                  <div className="col-span-1 text-right cursor-pointer">
+                  <div className="col-span-2 text-right cursor-pointer">
                     {categoryVarianceCurrent < 0 ? "-" : "+"}R
                     {Math.abs(categoryVarianceCurrent).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
                   </div>
