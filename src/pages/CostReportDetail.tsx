@@ -8,6 +8,7 @@ import { CostReportOverview } from "@/components/cost-reports/CostReportOverview
 import { CostCategoriesManager } from "@/components/cost-reports/CostCategoriesManager";
 import { CostVariationsManager } from "@/components/cost-reports/CostVariationsManager";
 import { CoverPageManager } from "@/components/cost-reports/CoverPageManager";
+import { ReportDetailsManager } from "@/components/cost-reports/ReportDetailsManager";
 import { ExportPDFButton } from "@/components/cost-reports/ExportPDFButton";
 import { CompareReportsDialog } from "@/components/cost-reports/CompareReportsDialog";
 import { ImportExcelDialog } from "@/components/cost-reports/ImportExcelDialog";
@@ -94,6 +95,7 @@ const CostReportDetail = () => {
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="cover">Cover Page</TabsTrigger>
+          <TabsTrigger value="details">Report Details</TabsTrigger>
           <TabsTrigger value="categories">Categories & Line Items</TabsTrigger>
           <TabsTrigger value="variations">Variations</TabsTrigger>
         </TabsList>
@@ -104,6 +106,10 @@ const CostReportDetail = () => {
 
         <TabsContent value="cover">
           <CoverPageManager report={report} />
+        </TabsContent>
+
+        <TabsContent value="details">
+          <ReportDetailsManager report={report} />
         </TabsContent>
 
         <TabsContent value="categories">

@@ -161,6 +161,47 @@ export type Database = {
           },
         ]
       }
+      cost_report_details: {
+        Row: {
+          cost_report_id: string
+          created_at: string | null
+          display_order: number
+          id: string
+          section_content: string | null
+          section_number: number
+          section_title: string
+          updated_at: string | null
+        }
+        Insert: {
+          cost_report_id: string
+          created_at?: string | null
+          display_order?: number
+          id?: string
+          section_content?: string | null
+          section_number: number
+          section_title: string
+          updated_at?: string | null
+        }
+        Update: {
+          cost_report_id?: string
+          created_at?: string | null
+          display_order?: number
+          id?: string
+          section_content?: string | null
+          section_number?: number
+          section_title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cost_report_details_cost_report_id_fkey"
+            columns: ["cost_report_id"]
+            isOneToOne: false
+            referencedRelation: "cost_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cost_reports: {
         Row: {
           cctv_contractor: string | null
