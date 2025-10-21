@@ -1,12 +1,24 @@
 import { useState } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, ChevronDown, ChevronUp } from "lucide-react";
+import { Plus, ChevronDown, ChevronUp, Pencil, Trash2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AddLineItemDialog } from "./AddLineItemDialog";
 import { LineItemRow } from "./LineItemRow";
+import { EditCategoryDialog } from "./EditCategoryDialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
 
 interface CategoryCardProps {
   category: any;
@@ -14,8 +26,12 @@ interface CategoryCardProps {
 }
 
 export const CategoryCard = ({ category, onUpdate }: CategoryCardProps) => {
+  const { toast } = useToast();
   const [addLineItemOpen, setAddLineItemOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isOpen, setIsOpen] = useState(true);
+  const [deleting, setDeleting] = useState(false);
 
   const { data: lineItems = [], refetch: refetchLineItems } = useQuery({
     queryKey: ["cost-line-items", category.id],
@@ -47,6 +63,43 @@ export const CategoryCard = ({ category, onUpdate }: CategoryCardProps) => {
   const categoryVarianceCurrent = categoryAnticipatedFinal - categoryPreviousReport;
   const categoryVarianceOriginal = categoryAnticipatedFinal - categoryOriginalBudget;
 
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      // First delete all line items
+      const { error: lineItemsError } = await supabase
+        .from("cost_line_items")
+        .delete()
+        .eq("category_id", category.id);
+
+      if (lineItemsError) throw lineItemsError;
+
+      // Then delete the category
+      const { error: categoryError } = await supabase
+        .from("cost_categories")
+        .delete()
+        .eq("id", category.id);
+
+      if (categoryError) throw categoryError;
+
+      toast({
+        title: "Success",
+        description: "Category deleted successfully",
+      });
+
+      onUpdate();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
+      setDeleteDialogOpen(false);
+    }
+  };
+
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
       <Card className="overflow-hidden">
@@ -54,32 +107,72 @@ export const CategoryCard = ({ category, onUpdate }: CategoryCardProps) => {
           <CardContent className="p-0">
             <div className="w-full">
               {/* Category Header Row */}
-              <CollapsibleTrigger asChild>
-                <div className="grid grid-cols-12 gap-2 bg-cyan-400 text-black font-bold text-sm py-3 px-4 cursor-pointer hover:bg-cyan-500 transition-colors">
-                  <div className="col-span-1 flex items-center gap-2">
+              <div className="grid grid-cols-12 gap-2 bg-cyan-400 text-black font-bold text-sm py-3 px-4">
+                <CollapsibleTrigger asChild>
+                  <div className="col-span-1 flex items-center gap-2 cursor-pointer">
                     {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                     {category.code}
                   </div>
-                  <div className="col-span-3">{category.description}</div>
-                  <div className="col-span-2 text-right">
+                </CollapsibleTrigger>
+                <CollapsibleTrigger asChild>
+                  <div className="col-span-3 cursor-pointer">{category.description}</div>
+                </CollapsibleTrigger>
+                <CollapsibleTrigger asChild>
+                  <div className="col-span-2 text-right cursor-pointer">
                     R{categoryOriginalBudget.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
                   </div>
-                  <div className="col-span-2 text-right">
+                </CollapsibleTrigger>
+                <CollapsibleTrigger asChild>
+                  <div className="col-span-2 text-right cursor-pointer">
                     R{categoryPreviousReport.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
                   </div>
-                  <div className="col-span-2 text-right">
+                </CollapsibleTrigger>
+                <CollapsibleTrigger asChild>
+                  <div className="col-span-2 text-right cursor-pointer">
                     R{categoryAnticipatedFinal.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
                   </div>
-                  <div className="col-span-1 text-right">
+                </CollapsibleTrigger>
+                <CollapsibleTrigger asChild>
+                  <div className="col-span-1 text-right cursor-pointer">
                     {categoryVarianceCurrent < 0 ? "-" : "+"}R
                     {Math.abs(categoryVarianceCurrent).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
                   </div>
-                  <div className="col-span-1 text-right">
+                </CollapsibleTrigger>
+                <CollapsibleTrigger asChild>
+                  <div className="col-span-1 text-right cursor-pointer">
                     {categoryVarianceOriginal < 0 ? "-" : "+"}R
                     {Math.abs(categoryVarianceOriginal).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
                   </div>
+                </CollapsibleTrigger>
+                
+                {/* Action Buttons */}
+                <div className="col-span-12 flex items-center gap-2 mt-2 pt-2 border-t border-black/10">
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setEditDialogOpen(true);
+                    }}
+                    className="h-7 text-black hover:bg-black/10"
+                  >
+                    <Pencil className="h-3 w-3 mr-1" />
+                    Edit
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDeleteDialogOpen(true);
+                    }}
+                    className="h-7 text-black hover:bg-red-500/20"
+                  >
+                    <Trash2 className="h-3 w-3 mr-1" />
+                    Delete
+                  </Button>
                 </div>
-              </CollapsibleTrigger>
+              </div>
 
               {/* Line Items */}
               {lineItems.length === 0 ? (
@@ -124,6 +217,38 @@ export const CategoryCard = ({ category, onUpdate }: CategoryCardProps) => {
           setAddLineItemOpen(false);
         }}
       />
+
+      <EditCategoryDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        category={category}
+        onSuccess={() => {
+          onUpdate();
+          setEditDialogOpen(false);
+        }}
+      />
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Category</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete category "{category.code} - {category.description}"?
+              This will also delete all line items within this category. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Collapsible>
   );
 };
