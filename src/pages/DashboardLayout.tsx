@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useNavigate, Outlet, useLocation } from "react-router-dom";
+import { useNavigate, Outlet } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
@@ -9,7 +9,6 @@ import { LogOut } from "lucide-react";
 
 const DashboardLayout = () => {
   const navigate = useNavigate();
-  const location = useLocation();
   const [projectName, setProjectName] = useState<string>("");
   const [projectNumber, setProjectNumber] = useState<string>("");
   const [loading, setLoading] = useState(true);
@@ -53,8 +52,6 @@ const DashboardLayout = () => {
     navigate("/auth");
   };
 
-  const isDashboardHome = location.pathname === "/dashboard";
-
   return (
     <SidebarProvider>
       <div className="min-h-screen flex w-full">
@@ -78,21 +75,7 @@ const DashboardLayout = () => {
 
           {/* Main Content */}
           <main className="flex-1 p-6 bg-background overflow-auto">
-            {isDashboardHome ? (
-              <div>
-                <div className="mb-8">
-                  <div className="text-sm font-medium text-muted-foreground mb-1">
-                    {projectNumber}
-                  </div>
-                  <h2 className="text-3xl font-bold text-foreground mb-2">{projectName}</h2>
-                  <p className="text-muted-foreground">
-                    Welcome to your project dashboard. Use the sidebar to navigate between modules.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <Outlet />
-            )}
+            <Outlet />
           </main>
         </div>
       </div>
