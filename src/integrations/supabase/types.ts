@@ -777,6 +777,56 @@ export type Database = {
         }
         Relationships: []
       }
+      variation_line_items: {
+        Row: {
+          amount: number
+          comments: string | null
+          created_at: string | null
+          description: string
+          display_order: number
+          id: string
+          line_number: number
+          quantity: number
+          rate: number
+          updated_at: string | null
+          variation_id: string
+        }
+        Insert: {
+          amount?: number
+          comments?: string | null
+          created_at?: string | null
+          description: string
+          display_order?: number
+          id?: string
+          line_number: number
+          quantity?: number
+          rate?: number
+          updated_at?: string | null
+          variation_id: string
+        }
+        Update: {
+          amount?: number
+          comments?: string | null
+          created_at?: string | null
+          description?: string
+          display_order?: number
+          id?: string
+          line_number?: number
+          quantity?: number
+          rate?: number
+          updated_at?: string | null
+          variation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "variation_line_items_variation_id_fkey"
+            columns: ["variation_id"]
+            isOneToOne: false
+            referencedRelation: "cost_variations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       zones: {
         Row: {
           area_sqm: number | null

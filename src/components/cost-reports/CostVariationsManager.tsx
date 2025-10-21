@@ -3,8 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, FileText } from "lucide-react";
 import { AddVariationDialog } from "./AddVariationDialog";
+import { VariationSheetDialog } from "./VariationSheetDialog";
 
 interface CostVariationsManagerProps {
   reportId: string;
@@ -16,6 +17,8 @@ export const CostVariationsManager = ({
   projectId,
 }: CostVariationsManagerProps) => {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [sheetDialogOpen, setSheetDialogOpen] = useState(false);
+  const [selectedVariationId, setSelectedVariationId] = useState<string | null>(null);
 
   const { data: variations = [], refetch } = useQuery({
     queryKey: ["cost-variations", reportId],
@@ -79,6 +82,7 @@ export const CostVariationsManager = ({
                     <th className="p-4">Tenant</th>
                     <th className="p-4 text-right">Amount</th>
                     <th className="p-4">Type</th>
+                    <th className="p-4">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -112,6 +116,19 @@ export const CostVariationsManager = ({
                           {variation.is_credit ? "Credit" : "Extra"}
                         </span>
                       </td>
+                      <td className="p-4">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setSelectedVariationId(variation.id);
+                            setSheetDialogOpen(true);
+                          }}
+                        >
+                          <FileText className="mr-2 h-4 w-4" />
+                          View Sheet
+                        </Button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -131,6 +148,18 @@ export const CostVariationsManager = ({
           setAddDialogOpen(false);
         }}
       />
+
+      {selectedVariationId && (
+        <VariationSheetDialog
+          open={sheetDialogOpen}
+          onOpenChange={setSheetDialogOpen}
+          variationId={selectedVariationId}
+          costReportId={reportId}
+          onSuccess={() => {
+            refetch();
+          }}
+        />
+      )}
     </div>
   );
 };
