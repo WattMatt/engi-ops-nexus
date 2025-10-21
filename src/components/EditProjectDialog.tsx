@@ -66,12 +66,12 @@ export const EditProjectDialog = ({ project, onProjectUpdated }: EditProjectDial
 
   // Sync form data when dialog opens or project changes
   useEffect(() => {
-    if (open) {
+    if (open && project) {
       setFormData({
-        project_number: project.project_number,
-        name: project.name,
+        project_number: project.project_number || "",
+        name: project.name || "",
         description: project.description || "",
-        status: project.status,
+        status: project.status || "active",
         client_name: project.client_name || "",
         site_handover_date: project.site_handover_date || "",
         practical_completion_date: project.practical_completion_date || "",
@@ -152,7 +152,7 @@ export const EditProjectDialog = ({ project, onProjectUpdated }: EditProjectDial
                   id="project_number"
                   value={formData.project_number}
                   onChange={(e) =>
-                    setFormData({ ...formData, project_number: e.target.value })
+                    setFormData(prev => ({ ...prev, project_number: e.target.value }))
                   }
                   placeholder="WM-2024-001"
                   required
@@ -165,7 +165,7 @@ export const EditProjectDialog = ({ project, onProjectUpdated }: EditProjectDial
                   id="name"
                   value={formData.name}
                   onChange={(e) =>
-                    setFormData({ ...formData, name: e.target.value })
+                    setFormData(prev => ({ ...prev, name: e.target.value }))
                   }
                   required
                 />
@@ -177,7 +177,7 @@ export const EditProjectDialog = ({ project, onProjectUpdated }: EditProjectDial
                   id="client_name"
                   value={formData.client_name}
                   onChange={(e) =>
-                    setFormData({ ...formData, client_name: e.target.value })
+                    setFormData(prev => ({ ...prev, client_name: e.target.value }))
                   }
                   placeholder="Moolman Group"
                 />
@@ -189,7 +189,7 @@ export const EditProjectDialog = ({ project, onProjectUpdated }: EditProjectDial
                   id="description"
                   value={formData.description}
                   onChange={(e) =>
-                    setFormData({ ...formData, description: e.target.value })
+                    setFormData(prev => ({ ...prev, description: e.target.value }))
                   }
                   rows={3}
                 />
@@ -203,7 +203,7 @@ export const EditProjectDialog = ({ project, onProjectUpdated }: EditProjectDial
                     type="date"
                     value={formData.site_handover_date}
                     onChange={(e) =>
-                      setFormData({ ...formData, site_handover_date: e.target.value })
+                      setFormData(prev => ({ ...prev, site_handover_date: e.target.value }))
                     }
                   />
                 </div>
@@ -215,10 +215,10 @@ export const EditProjectDialog = ({ project, onProjectUpdated }: EditProjectDial
                     type="date"
                     value={formData.practical_completion_date}
                     onChange={(e) =>
-                      setFormData({
-                        ...formData,
+                      setFormData(prev => ({
+                        ...prev,
                         practical_completion_date: e.target.value,
-                      })
+                      }))
                     }
                   />
                 </div>
@@ -233,10 +233,10 @@ export const EditProjectDialog = ({ project, onProjectUpdated }: EditProjectDial
                       id="electrical_contractor"
                       value={formData.electrical_contractor}
                       onChange={(e) =>
-                        setFormData({
-                          ...formData,
+                        setFormData(prev => ({
+                          ...prev,
                           electrical_contractor: e.target.value,
-                        })
+                        }))
                       }
                       placeholder="KHULU"
                     />
@@ -248,10 +248,10 @@ export const EditProjectDialog = ({ project, onProjectUpdated }: EditProjectDial
                       id="earthing_contractor"
                       value={formData.earthing_contractor}
                       onChange={(e) =>
-                        setFormData({
-                          ...formData,
+                        setFormData(prev => ({
+                          ...prev,
                           earthing_contractor: e.target.value,
-                        })
+                        }))
                       }
                       placeholder="MITRONIC"
                     />
@@ -263,10 +263,10 @@ export const EditProjectDialog = ({ project, onProjectUpdated }: EditProjectDial
                       id="standby_plants_contractor"
                       value={formData.standby_plants_contractor}
                       onChange={(e) =>
-                        setFormData({
-                          ...formData,
+                        setFormData(prev => ({
+                          ...prev,
                           standby_plants_contractor: e.target.value,
-                        })
+                        }))
                       }
                     />
                   </div>
@@ -277,7 +277,7 @@ export const EditProjectDialog = ({ project, onProjectUpdated }: EditProjectDial
                       id="cctv_contractor"
                       value={formData.cctv_contractor}
                       onChange={(e) =>
-                        setFormData({ ...formData, cctv_contractor: e.target.value })
+                        setFormData(prev => ({ ...prev, cctv_contractor: e.target.value }))
                       }
                       placeholder="East End"
                     />
@@ -309,7 +309,7 @@ export const EditProjectDialog = ({ project, onProjectUpdated }: EditProjectDial
                 <Select
                   value={formData.status}
                   onValueChange={(value) =>
-                    setFormData({ ...formData, status: value })
+                    setFormData(prev => ({ ...prev, status: value }))
                   }
                 >
                   <SelectTrigger className="bg-background">
