@@ -4,7 +4,6 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { CheckCircle2, Clock, FileText, Package } from "lucide-react";
 import MallLayout from "./MallLayout";
-import SiteDiary from "./SiteDiary";
 import { TenantDialog } from "@/components/tenant/TenantDialog";
 import { TenantList } from "@/components/tenant/TenantList";
 
@@ -42,7 +41,6 @@ const Dashboard = () => {
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="mall-layout">Mall Layout</TabsTrigger>
           <TabsTrigger value="tenants">Tenant Details</TabsTrigger>
-          <TabsTrigger value="diary">Site Diary</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -154,10 +152,6 @@ const Dashboard = () => {
               <TenantList tenants={tenants} projectId={projectId!} onUpdate={refetchTenants} />
             </CardContent>
           </Card>
-        </TabsContent>
-
-        <TabsContent value="diary">
-          <SiteDiary />
         </TabsContent>
       </Tabs>
     </div>
