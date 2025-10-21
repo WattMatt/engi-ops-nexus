@@ -147,46 +147,46 @@ export const CategoryCard = ({ category, onUpdate }: CategoryCardProps) => {
           <CardContent className="p-0">
             <div className="w-full">
               {/* Category Header Row */}
-              <div className="grid grid-cols-12 gap-2 bg-cyan-400 text-black font-bold text-sm py-3 px-4">
+              <div className="grid grid-cols-24 gap-2 bg-cyan-400 text-black font-bold text-sm py-3 px-4">
                 <CollapsibleTrigger asChild>
-                  <div className="col-span-1 flex items-center gap-2 cursor-pointer">
+                  <div className="col-span-2 flex items-center gap-2 cursor-pointer">
                     {isOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
                     {category.code}
                   </div>
                 </CollapsibleTrigger>
                 <CollapsibleTrigger asChild>
-                  <div className="col-span-2 cursor-pointer">{category.description}</div>
+                  <div className="col-span-5 cursor-pointer">{category.description}</div>
                 </CollapsibleTrigger>
                 <CollapsibleTrigger asChild>
-                  <div className="col-span-2 text-right cursor-pointer">
+                  <div className="col-span-3 text-right cursor-pointer">
                     R{categoryOriginalBudget.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
                   </div>
                 </CollapsibleTrigger>
                 <CollapsibleTrigger asChild>
-                  <div className="col-span-2 text-right cursor-pointer">
+                  <div className="col-span-3 text-right cursor-pointer">
                     R{categoryPreviousReport.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
                   </div>
                 </CollapsibleTrigger>
                 <CollapsibleTrigger asChild>
-                  <div className="col-span-2 text-right cursor-pointer">
+                  <div className="col-span-3 text-right cursor-pointer">
                     R{categoryAnticipatedFinal.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
                   </div>
                 </CollapsibleTrigger>
                 <CollapsibleTrigger asChild>
-                  <div className="col-span-2 text-right cursor-pointer">
+                  <div className="col-span-4 text-right cursor-pointer">
                     {categoryVarianceCurrent < 0 ? "-" : "+"}R
                     {Math.abs(categoryVarianceCurrent).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
                   </div>
                 </CollapsibleTrigger>
                 <CollapsibleTrigger asChild>
-                  <div className="col-span-1 text-right cursor-pointer">
+                  <div className="col-span-4 text-right cursor-pointer">
                     {categoryVarianceOriginal < 0 ? "-" : "+"}R
                     {Math.abs(categoryVarianceOriginal).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
                   </div>
                 </CollapsibleTrigger>
                 
                 {/* Action Buttons */}
-                <div className="col-span-12 flex items-center gap-2 mt-2 pt-2 border-t border-black/10">
+                <div className="col-span-24 flex items-center gap-2 mt-2 pt-2 border-t border-black/10">
                   <Button
                     size="sm"
                     variant="ghost"
@@ -230,23 +230,23 @@ export const CategoryCard = ({ category, onUpdate }: CategoryCardProps) => {
                       {variations.map((variation, index) => (
                         <div 
                           key={variation.id} 
-                          className={`grid grid-cols-12 gap-2 text-sm py-2 px-4 border-b ${
+                          className={`grid grid-cols-24 gap-2 text-sm py-2 px-4 border-b ${
                             index % 2 === 0 ? 'bg-background' : 'bg-muted/20'
                           } hover:bg-muted/40 transition-colors`}
                         >
-                          <div className="col-span-1 font-medium pl-4">{variation.code}</div>
-                          <div className="col-span-2">{variation.description}</div>
-                          <div className="col-span-2 text-right">-</div>
-                          <div className="col-span-2 text-right">-</div>
-                          <div className="col-span-2 text-right font-medium">
+                          <div className="col-span-2 font-medium">{variation.code}</div>
+                          <div className="col-span-5">{variation.description}</div>
+                          <div className="col-span-3 text-right">-</div>
+                          <div className="col-span-3 text-right">-</div>
+                          <div className="col-span-3 text-right font-medium">
                             {variation.is_credit ? "-" : "+"}R
                             {Number(variation.amount).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
                           </div>
-                          <div className="col-span-2 text-right">
+                          <div className="col-span-4 text-right">
                             {variation.is_credit ? "-" : "+"}R
                             {Number(variation.amount).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
                           </div>
-                          <div className="col-span-1 text-right">
+                          <div className="col-span-4 text-right">
                             {variation.is_credit ? "-" : "+"}R
                             {Number(variation.amount).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
                           </div>
