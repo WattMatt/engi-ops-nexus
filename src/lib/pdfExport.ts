@@ -14,6 +14,8 @@ interface CostReport {
   standby_plants_contractor?: string;
   cctv_contractor?: string;
   notes?: string;
+  project_logo_url?: string;
+  client_logo_url?: string;
 }
 
 interface Category {
@@ -52,6 +54,31 @@ export const generateCostReportPDF = (
   const doc = new jsPDF();
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
+
+  // Title Page with logos if available
+  if (report.project_logo_url || report.client_logo_url) {
+    let yOffset = 20;
+    
+    // Add project logo if available
+    if (report.project_logo_url) {
+      try {
+        doc.addImage(report.project_logo_url, "PNG", pageWidth / 2 - 25, yOffset, 50, 30);
+        yOffset += 35;
+      } catch (e) {
+        console.warn("Could not load project logo");
+      }
+    }
+
+    // Add client logo if available
+    if (report.client_logo_url) {
+      try {
+        doc.addImage(report.client_logo_url, "PNG", pageWidth / 2 - 25, yOffset, 50, 30);
+        yOffset += 35;
+      } catch (e) {
+        console.warn("Could not load client logo");
+      }
+    }
+  }
 
   // Title Page
   doc.setFontSize(20);

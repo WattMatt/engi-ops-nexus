@@ -28,6 +28,15 @@ interface Project {
   name: string;
   description: string | null;
   status: string;
+  client_name?: string | null;
+  site_handover_date?: string | null;
+  practical_completion_date?: string | null;
+  electrical_contractor?: string | null;
+  earthing_contractor?: string | null;
+  standby_plants_contractor?: string | null;
+  cctv_contractor?: string | null;
+  project_logo_url?: string | null;
+  client_logo_url?: string | null;
 }
 
 interface EditProjectDialogProps {
@@ -43,6 +52,15 @@ export const EditProjectDialog = ({ project, onProjectUpdated }: EditProjectDial
     name: project.name,
     description: project.description || "",
     status: project.status,
+    client_name: project.client_name || "",
+    site_handover_date: project.site_handover_date || "",
+    practical_completion_date: project.practical_completion_date || "",
+    electrical_contractor: project.electrical_contractor || "",
+    earthing_contractor: project.earthing_contractor || "",
+    standby_plants_contractor: project.standby_plants_contractor || "",
+    cctv_contractor: project.cctv_contractor || "",
+    project_logo_url: project.project_logo_url || "",
+    client_logo_url: project.client_logo_url || "",
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -57,6 +75,15 @@ export const EditProjectDialog = ({ project, onProjectUpdated }: EditProjectDial
           name: formData.name,
           description: formData.description || null,
           status: formData.status,
+          client_name: formData.client_name || null,
+          site_handover_date: formData.site_handover_date || null,
+          practical_completion_date: formData.practical_completion_date || null,
+          electrical_contractor: formData.electrical_contractor || null,
+          earthing_contractor: formData.earthing_contractor || null,
+          standby_plants_contractor: formData.standby_plants_contractor || null,
+          cctv_contractor: formData.cctv_contractor || null,
+          project_logo_url: formData.project_logo_url || null,
+          client_logo_url: formData.client_logo_url || null,
           updated_at: new Date().toISOString(),
         })
         .eq("id", project.id);
@@ -87,11 +114,11 @@ export const EditProjectDialog = ({ project, onProjectUpdated }: EditProjectDial
       </Button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-[500px] bg-background">
+        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto bg-background">
           <DialogHeader>
             <DialogTitle>Edit Project</DialogTitle>
             <DialogDescription>
-              Update the project details below
+              Update project details, contractors, and logos
             </DialogDescription>
           </DialogHeader>
 
@@ -105,6 +132,7 @@ export const EditProjectDialog = ({ project, onProjectUpdated }: EditProjectDial
                   onChange={(e) =>
                     setFormData({ ...formData, project_number: e.target.value })
                   }
+                  placeholder="WM-2024-001"
                   required
                 />
               </div>
@@ -122,6 +150,18 @@ export const EditProjectDialog = ({ project, onProjectUpdated }: EditProjectDial
               </div>
 
               <div className="grid gap-2">
+                <Label htmlFor="client_name">Client Name</Label>
+                <Input
+                  id="client_name"
+                  value={formData.client_name}
+                  onChange={(e) =>
+                    setFormData({ ...formData, client_name: e.target.value })
+                  }
+                  placeholder="Moolman Group"
+                />
+              </div>
+
+              <div className="grid gap-2">
                 <Label htmlFor="description">Description</Label>
                 <Textarea
                   id="description"
@@ -131,6 +171,128 @@ export const EditProjectDialog = ({ project, onProjectUpdated }: EditProjectDial
                   }
                   rows={3}
                 />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="site_handover_date">Site Handover</Label>
+                  <Input
+                    id="site_handover_date"
+                    type="date"
+                    value={formData.site_handover_date}
+                    onChange={(e) =>
+                      setFormData({ ...formData, site_handover_date: e.target.value })
+                    }
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="practical_completion_date">Practical Completion</Label>
+                  <Input
+                    id="practical_completion_date"
+                    type="date"
+                    value={formData.practical_completion_date}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        practical_completion_date: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+              </div>
+
+              <div className="border-t pt-4 space-y-4">
+                <h3 className="font-medium text-sm">Contractors</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="electrical_contractor">Electrical</Label>
+                    <Input
+                      id="electrical_contractor"
+                      value={formData.electrical_contractor}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          electrical_contractor: e.target.value,
+                        })
+                      }
+                      placeholder="KHULU"
+                    />
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="earthing_contractor">Earthing & Lightning</Label>
+                    <Input
+                      id="earthing_contractor"
+                      value={formData.earthing_contractor}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          earthing_contractor: e.target.value,
+                        })
+                      }
+                      placeholder="MITRONIC"
+                    />
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="standby_plants_contractor">Standby Plants</Label>
+                    <Input
+                      id="standby_plants_contractor"
+                      value={formData.standby_plants_contractor}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          standby_plants_contractor: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="cctv_contractor">CCTV & Access</Label>
+                    <Input
+                      id="cctv_contractor"
+                      value={formData.cctv_contractor}
+                      onChange={(e) =>
+                        setFormData({ ...formData, cctv_contractor: e.target.value })
+                      }
+                      placeholder="East End"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="border-t pt-4 space-y-4">
+                <h3 className="font-medium text-sm">Logos (URLs)</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="project_logo_url">Project Logo</Label>
+                    <Input
+                      id="project_logo_url"
+                      value={formData.project_logo_url}
+                      onChange={(e) =>
+                        setFormData({ ...formData, project_logo_url: e.target.value })
+                      }
+                      placeholder="https://..."
+                    />
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="client_logo_url">Client Logo</Label>
+                    <Input
+                      id="client_logo_url"
+                      value={formData.client_logo_url}
+                      onChange={(e) =>
+                        setFormData({ ...formData, client_logo_url: e.target.value })
+                      }
+                      placeholder="https://..."
+                    />
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Upload logos to storage and paste the public URL here
+                </p>
               </div>
 
               <div className="grid gap-2">

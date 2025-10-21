@@ -448,32 +448,59 @@ export type Database = {
       }
       projects: {
         Row: {
+          cctv_contractor: string | null
+          client_logo_url: string | null
+          client_name: string | null
           created_at: string
           created_by: string
           description: string | null
+          earthing_contractor: string | null
+          electrical_contractor: string | null
           id: string
           name: string
+          practical_completion_date: string | null
+          project_logo_url: string | null
           project_number: string
+          site_handover_date: string | null
+          standby_plants_contractor: string | null
           status: string | null
           updated_at: string
         }
         Insert: {
+          cctv_contractor?: string | null
+          client_logo_url?: string | null
+          client_name?: string | null
           created_at?: string
           created_by: string
           description?: string | null
+          earthing_contractor?: string | null
+          electrical_contractor?: string | null
           id?: string
           name: string
+          practical_completion_date?: string | null
+          project_logo_url?: string | null
           project_number: string
+          site_handover_date?: string | null
+          standby_plants_contractor?: string | null
           status?: string | null
           updated_at?: string
         }
         Update: {
+          cctv_contractor?: string | null
+          client_logo_url?: string | null
+          client_name?: string | null
           created_at?: string
           created_by?: string
           description?: string | null
+          earthing_contractor?: string | null
+          electrical_contractor?: string | null
           id?: string
           name?: string
+          practical_completion_date?: string | null
+          project_logo_url?: string | null
           project_number?: string
+          site_handover_date?: string | null
+          standby_plants_contractor?: string | null
           status?: string | null
           updated_at?: string
         }

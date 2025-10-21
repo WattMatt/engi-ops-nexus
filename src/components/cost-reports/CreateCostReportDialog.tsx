@@ -6,6 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { useQuery } from "@tanstack/react-query";
 
 interface CreateCostReportDialogProps {
   open: boolean;
@@ -25,16 +26,22 @@ export const CreateCostReportDialog = ({
   const [formData, setFormData] = useState({
     report_number: "",
     report_date: new Date().toISOString().split("T")[0],
-    project_number: "",
-    project_name: "",
-    client_name: "",
-    site_handover_date: "",
-    practical_completion_date: "",
-    electrical_contractor: "",
-    earthing_contractor: "",
-    standby_plants_contractor: "",
-    cctv_contractor: "",
     notes: "",
+  });
+
+  // Fetch project data to auto-populate fields
+  const { data: project } = useQuery({
+    queryKey: ["project", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("projects")
+        .select("*")
+        .eq("id", projectId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: open && !!projectId,
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -49,15 +56,15 @@ export const CreateCostReportDialog = ({
         project_id: projectId,
         report_number: parseInt(formData.report_number),
         report_date: formData.report_date,
-        project_number: formData.project_number,
-        project_name: formData.project_name,
-        client_name: formData.client_name,
-        site_handover_date: formData.site_handover_date || null,
-        practical_completion_date: formData.practical_completion_date || null,
-        electrical_contractor: formData.electrical_contractor || null,
-        earthing_contractor: formData.earthing_contractor || null,
-        standby_plants_contractor: formData.standby_plants_contractor || null,
-        cctv_contractor: formData.cctv_contractor || null,
+        project_number: project?.project_number || "",
+        project_name: project?.name || "",
+        client_name: project?.client_name || "",
+        site_handover_date: project?.site_handover_date || null,
+        practical_completion_date: project?.practical_completion_date || null,
+        electrical_contractor: project?.electrical_contractor || null,
+        earthing_contractor: project?.earthing_contractor || null,
+        standby_plants_contractor: project?.standby_plants_contractor || null,
+        cctv_contractor: project?.cctv_contractor || null,
         notes: formData.notes || null,
         created_by: userData.user.id,
       });
@@ -73,15 +80,6 @@ export const CreateCostReportDialog = ({
       setFormData({
         report_number: "",
         report_date: new Date().toISOString().split("T")[0],
-        project_number: "",
-        project_name: "",
-        client_name: "",
-        site_handover_date: "",
-        practical_completion_date: "",
-        electrical_contractor: "",
-        earthing_contractor: "",
-        standby_plants_contractor: "",
-        cctv_contractor: "",
         notes: "",
       });
     } catch (error: any) {
@@ -102,6 +100,33 @@ export const CreateCostReportDialog = ({
           <DialogTitle>Create New Cost Report</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
+          <div className="bg-muted/50 p-4 rounded-lg space-y-2">
+            <h3 className="font-medium text-sm">Project Information (Auto-populated)</h3>
+            <div className="grid grid-cols-2 gap-2 text-sm">
+              <div>
+                <span className="text-muted-foreground">Project:</span>
+                <p className="font-medium">{project?.project_number || "Not set"}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Name:</span>
+                <p className="font-medium">{project?.name || "Not set"}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Client:</span>
+                <p className="font-medium">{project?.client_name || "Not set"}</p>
+              </div>
+              <div>
+                <span className="text-muted-foreground">Contractor:</span>
+                <p className="font-medium">{project?.electrical_contractor || "Not set"}</p>
+              </div>
+            </div>
+            {(!project?.project_number || !project?.client_name) && (
+              <p className="text-xs text-amber-600">
+                ⚠️ Some project fields are missing. Update them in Project Settings.
+              </p>
+            )}
+          </div>
+
           <div className="grid grid-cols-2 gap-4">
             <div>
               <Label htmlFor="report_number">Report Number *</Label>
@@ -125,125 +150,6 @@ export const CreateCostReportDialog = ({
                   setFormData({ ...formData, report_date: e.target.value })
                 }
                 required
-              />
-            </div>
-          </div>
-
-          <div>
-            <Label htmlFor="project_number">Project Number *</Label>
-            <Input
-              id="project_number"
-              value={formData.project_number}
-              onChange={(e) =>
-                setFormData({ ...formData, project_number: e.target.value })
-              }
-              required
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="project_name">Project Name *</Label>
-            <Input
-              id="project_name"
-              value={formData.project_name}
-              onChange={(e) =>
-                setFormData({ ...formData, project_name: e.target.value })
-              }
-              required
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="client_name">Client Name *</Label>
-            <Input
-              id="client_name"
-              value={formData.client_name}
-              onChange={(e) =>
-                setFormData({ ...formData, client_name: e.target.value })
-              }
-              required
-            />
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="site_handover_date">Site Handover Date</Label>
-              <Input
-                id="site_handover_date"
-                type="date"
-                value={formData.site_handover_date}
-                onChange={(e) =>
-                  setFormData({ ...formData, site_handover_date: e.target.value })
-                }
-              />
-            </div>
-            <div>
-              <Label htmlFor="practical_completion_date">Practical Completion Date</Label>
-              <Input
-                id="practical_completion_date"
-                type="date"
-                value={formData.practical_completion_date}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    practical_completion_date: e.target.value,
-                  })
-                }
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="electrical_contractor">Electrical Contractor</Label>
-              <Input
-                id="electrical_contractor"
-                value={formData.electrical_contractor}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    electrical_contractor: e.target.value,
-                  })
-                }
-              />
-            </div>
-            <div>
-              <Label htmlFor="earthing_contractor">Earthing Contractor</Label>
-              <Input
-                id="earthing_contractor"
-                value={formData.earthing_contractor}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    earthing_contractor: e.target.value,
-                  })
-                }
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="standby_plants_contractor">Standby Plants Contractor</Label>
-              <Input
-                id="standby_plants_contractor"
-                value={formData.standby_plants_contractor}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    standby_plants_contractor: e.target.value,
-                  })
-                }
-              />
-            </div>
-            <div>
-              <Label htmlFor="cctv_contractor">CCTV Contractor</Label>
-              <Input
-                id="cctv_contractor"
-                value={formData.cctv_contractor}
-                onChange={(e) =>
-                  setFormData({ ...formData, cctv_contractor: e.target.value })
-                }
               />
             </div>
           </div>
