@@ -288,23 +288,19 @@ export const EditProjectDialog = ({ project, onProjectUpdated }: EditProjectDial
               <div className="border-t pt-4 space-y-4">
                 <h3 className="font-medium text-sm">Logos</h3>
                 <div className="grid gap-6">
-                  {open && (
-                    <>
-                      <LogoUpload
-                        currentUrl={formData.project_logo_url}
-                        onUrlChange={(url) => setFormData({ ...formData, project_logo_url: url })}
-                        label="Project Logo"
-                        id="project_logo"
-                      />
-                      
-                      <LogoUpload
-                        currentUrl={formData.client_logo_url}
-                        onUrlChange={(url) => setFormData({ ...formData, client_logo_url: url })}
-                        label="Client Logo"
-                        id="client_logo"
-                      />
-                    </>
-                  )}
+                  <LogoUpload
+                    currentUrl={formData.project_logo_url || ""}
+                    onUrlChange={(url) => setFormData({ ...formData, project_logo_url: url })}
+                    label="Project Logo"
+                    id="project_logo"
+                  />
+                  
+                  <LogoUpload
+                    currentUrl={formData.client_logo_url || ""}
+                    onUrlChange={(url) => setFormData({ ...formData, client_logo_url: url })}
+                    label="Client Logo"
+                    id="client_logo"
+                  />
                 </div>
               </div>
 

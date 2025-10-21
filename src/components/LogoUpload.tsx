@@ -15,44 +15,49 @@ interface LogoUploadProps {
 
 export const LogoUpload = ({ currentUrl, onUrlChange, label, id }: LogoUploadProps) => {
   const [uploading, setUploading] = useState(false);
-  const [preview, setPreview] = useState(currentUrl || "");
+  const [preview, setPreview] = useState("");
   const { toast } = useToast();
 
   // Update preview when currentUrl prop changes
   useEffect(() => {
+    console.log(`LogoUpload [${id}] - currentUrl changed:`, currentUrl);
     setPreview(currentUrl || "");
-  }, [currentUrl]);
+  }, [currentUrl, id]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Validate file type
-    if (!file.type.startsWith("image/")) {
-      toast({
-        title: "Invalid file type",
-        description: "Please upload an image file",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    // Validate file size (max 2MB)
-    if (file.size > 2 * 1024 * 1024) {
-      toast({
-        title: "File too large",
-        description: "Please upload an image smaller than 2MB",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setUploading(true);
-
     try {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      
+      console.log(`LogoUpload [${id}] - File selected:`, file.name, file.type, file.size);
+
+      // Validate file type
+      if (!file.type.startsWith("image/")) {
+        toast({
+          title: "Invalid file type",
+          description: "Please upload an image file",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // Validate file size (max 2MB)
+      if (file.size > 2 * 1024 * 1024) {
+        toast({
+          title: "File too large",
+          description: "Please upload an image smaller than 2MB",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setUploading(true);
+
       const fileExt = file.name.split(".").pop();
       const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
       const filePath = `${fileName}`;
+
+      console.log(`LogoUpload [${id}] - Uploading to:`, filePath);
 
       const { error: uploadError } = await supabase.storage
         .from("project-logos")
@@ -67,6 +72,8 @@ export const LogoUpload = ({ currentUrl, onUrlChange, label, id }: LogoUploadPro
         .from("project-logos")
         .getPublicUrl(filePath);
 
+      console.log(`LogoUpload [${id}] - Upload successful:`, publicUrl);
+
       setPreview(publicUrl);
       onUrlChange(publicUrl);
 
@@ -75,7 +82,7 @@ export const LogoUpload = ({ currentUrl, onUrlChange, label, id }: LogoUploadPro
         description: "Logo uploaded successfully",
       });
     } catch (error: any) {
-      console.error("Upload error:", error);
+      console.error(`LogoUpload [${id}] - Upload error:`, error);
       toast({
         title: "Upload failed",
         description: error.message || "Failed to upload logo",
