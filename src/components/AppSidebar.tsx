@@ -38,9 +38,9 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 
 const mainModules = [
   {
-    title: "Dashboard",
+    title: "Tenant Tracker",
     url: "/dashboard",
-    icon: LayoutDashboard,
+    icon: UsersRound,
   },
 ];
 
@@ -102,19 +102,9 @@ const operationalModules = [
     icon: Image,
   },
   {
-    title: "Site Diary",
-    url: "/dashboard/site-diary",
-    icon: FileText,
-  },
-  {
     title: "Equipment Tracking",
     url: "/dashboard/equipment",
     icon: Package,
-  },
-  {
-    title: "Tenant Tracker",
-    url: "/dashboard/tenant-tracker",
-    icon: UsersRound,
   },
 ];
 
