@@ -51,14 +51,14 @@ export const CostCategoriesManager = ({ reportId, projectId }: CostCategoriesMan
       ) : (
         <div className="space-y-4">
           {/* Column Headers */}
-          <div className="grid grid-cols-14 gap-2 text-xs font-semibold text-muted-foreground pb-2 px-4 border-b-2">
+          <div className="grid grid-cols-12 gap-2 text-xs font-semibold text-muted-foreground pb-2 px-4 border-b-2">
             <div className="col-span-1">CODE</div>
-            <div className="col-span-3">DESCRIPTION</div>
+            <div className="col-span-2">DESCRIPTION</div>
             <div className="col-span-2 text-right">ORIGINAL BUDGET</div>
             <div className="col-span-2 text-right">PREVIOUS COST REPORT</div>
             <div className="col-span-2 text-right">ANTICIPATED FINAL COST</div>
             <div className="col-span-2 text-right">CURRENT (SAVING)/ EXTRA</div>
-            <div className="col-span-2 text-right">(SAVING)/ EXTRA ORIGINAL BUDGET</div>
+            <div className="col-span-1 text-right">(SAVING)/ EXTRA ORIGINAL BUDGET</div>
           </div>
 
           {categories.map((category) => (

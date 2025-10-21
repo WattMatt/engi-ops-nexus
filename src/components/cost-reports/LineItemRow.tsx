@@ -59,9 +59,9 @@ export const LineItemRow = ({ item, onUpdate, isEven }: LineItemRowProps) => {
 
   return (
     <>
-      <div className={`grid grid-cols-14 gap-2 text-sm py-2 px-4 border-b ${isEven ? 'bg-background' : 'bg-muted/20'} hover:bg-muted/40 transition-colors group`}>
+      <div className={`grid grid-cols-12 gap-2 text-sm py-2 px-4 border-b ${isEven ? 'bg-background' : 'bg-muted/20'} hover:bg-muted/40 transition-colors group`}>
         <div className="col-span-1 font-medium pl-4">{item.code}</div>
-        <div className="col-span-3">{item.description}</div>
+        <div className="col-span-2">{item.description}</div>
         <div className="col-span-2 text-right">
           R{Number(item.original_budget).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
         </div>
@@ -75,7 +75,7 @@ export const LineItemRow = ({ item, onUpdate, isEven }: LineItemRowProps) => {
           {varianceCurrent < 0 ? "-" : "+"}R
           {Math.abs(varianceCurrent).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
         </div>
-        <div className="col-span-2 text-right flex items-center justify-end gap-1">
+        <div className="col-span-1 text-right flex items-center justify-end gap-1">
           <span>
             {varianceOriginal < 0 ? "-" : "+"}R
             {Math.abs(varianceOriginal).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
