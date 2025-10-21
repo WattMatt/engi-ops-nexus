@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -40,6 +40,7 @@ export const VariationSheetDialog = ({
   onSuccess,
 }: VariationSheetDialogProps) => {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
   const [lineItems, setLineItems] = useState<LineItem[]>([
     { line_number: 1, description: "", comments: "", quantity: "0", rate: "0", amount: 0 },
@@ -191,6 +192,11 @@ export const VariationSheetDialog = ({
         description: "Variation sheet saved successfully",
       });
 
+      // Invalidate all related queries to update totals across the app
+      queryClient.invalidateQueries({ queryKey: ["cost-variations", costReportId] });
+      queryClient.invalidateQueries({ queryKey: ["cost-variations-overview", costReportId] });
+      queryClient.invalidateQueries({ queryKey: ["variation-line-items", variationId] });
+      
       refetchLineItems();
       onSuccess();
     } catch (error: any) {
