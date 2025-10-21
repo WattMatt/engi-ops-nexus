@@ -63,22 +63,23 @@ export const ImportExcelDialog = ({
     try {
       const excelData = await parseExcelData(file);
 
-      // Find the header row that contains "CODE" and "DESCRIPTION"
+      // Find the data start - look for first row with single letter code (like A, B, C)
       let dataStartIndex = -1;
       for (let i = 0; i < excelData.length; i++) {
         const row = excelData[i];
         if (row && row.length > 1) {
-          const firstCell = row[0]?.toString().toUpperCase().trim();
-          const secondCell = row[1]?.toString().toUpperCase().trim();
-          if (firstCell === "CODE" && secondCell === "DESCRIPTION") {
-            dataStartIndex = i + 1; // Start after the header row
+          const code = row[0]?.toString().trim();
+          const description = row[1]?.toString().trim();
+          // Look for category-like pattern: single letter code with a description
+          if (code && code.match(/^[A-Z]$/) && description && description.length > 3) {
+            dataStartIndex = i;
             break;
           }
         }
       }
 
       if (dataStartIndex === -1) {
-        throw new Error("Could not find data header row with CODE and DESCRIPTION columns");
+        throw new Error("Could not find cost data in the Excel file. Please ensure it contains categories with codes like A, B, C.");
       }
 
       // Parse the Excel structure
