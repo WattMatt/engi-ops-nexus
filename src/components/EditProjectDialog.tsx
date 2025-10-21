@@ -49,19 +49,19 @@ export const EditProjectDialog = ({ project, onProjectUpdated }: EditProjectDial
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    project_number: project.project_number,
-    name: project.name,
-    description: project.description || "",
-    status: project.status,
-    client_name: project.client_name || "",
-    site_handover_date: project.site_handover_date || "",
-    practical_completion_date: project.practical_completion_date || "",
-    electrical_contractor: project.electrical_contractor || "",
-    earthing_contractor: project.earthing_contractor || "",
-    standby_plants_contractor: project.standby_plants_contractor || "",
-    cctv_contractor: project.cctv_contractor || "",
-    project_logo_url: project.project_logo_url || "",
-    client_logo_url: project.client_logo_url || "",
+    project_number: "",
+    name: "",
+    description: "",
+    status: "active",
+    client_name: "",
+    site_handover_date: "",
+    practical_completion_date: "",
+    electrical_contractor: "",
+    earthing_contractor: "",
+    standby_plants_contractor: "",
+    cctv_contractor: "",
+    project_logo_url: "",
+    client_logo_url: "",
   });
 
   // Sync form data when dialog opens or project changes
