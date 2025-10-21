@@ -126,25 +126,23 @@ export const LogoUpload = ({ currentUrl, onUrlChange, label, id }: LogoUploadPro
         )}
         
         <div className="flex-1">
-          <div onClick={(e) => e.preventDefault()}>
-            <Label htmlFor={`${id}-file`} className="cursor-pointer">
-              <div className="flex items-center justify-center gap-2 rounded-md border border-input bg-background px-4 py-2 text-sm font-medium ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground">
-                <Upload className="h-4 w-4" />
-                {uploading ? "Uploading..." : "Upload Logo"}
-              </div>
-            </Label>
-            <Input
-              id={`${id}-file`}
-              type="file"
-              accept="image/*"
-              onChange={handleFileUpload}
-              disabled={uploading}
-              className="hidden"
-            />
-            <p className="text-xs text-muted-foreground mt-2">
-              PNG, JPG up to 2MB
-            </p>
-          </div>
+          <Label htmlFor={`${id}-file`} className="cursor-pointer">
+            <div className="flex items-center justify-center gap-2 rounded-md border border-input bg-background px-4 py-2 text-sm font-medium ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground">
+              <Upload className="h-4 w-4" />
+              {uploading ? "Uploading..." : "Upload Logo"}
+            </div>
+          </Label>
+          <Input
+            id={`${id}-file`}
+            type="file"
+            accept="image/*"
+            onChange={handleFileUpload}
+            disabled={uploading}
+            className="hidden"
+          />
+          <p className="text-xs text-muted-foreground mt-2">
+            PNG, JPG up to 2MB
+          </p>
         </div>
       </div>
     </div>
