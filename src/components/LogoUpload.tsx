@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -15,8 +15,13 @@ interface LogoUploadProps {
 
 export const LogoUpload = ({ currentUrl, onUrlChange, label, id }: LogoUploadProps) => {
   const [uploading, setUploading] = useState(false);
-  const [preview, setPreview] = useState(currentUrl);
+  const [preview, setPreview] = useState(currentUrl || "");
   const { toast } = useToast();
+
+  // Update preview when currentUrl prop changes
+  useEffect(() => {
+    setPreview(currentUrl || "");
+  }, [currentUrl]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -81,7 +86,9 @@ export const LogoUpload = ({ currentUrl, onUrlChange, label, id }: LogoUploadPro
     }
   };
 
-  const handleRemove = () => {
+  const handleRemove = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
     setPreview("");
     onUrlChange("");
   };
@@ -90,12 +97,17 @@ export const LogoUpload = ({ currentUrl, onUrlChange, label, id }: LogoUploadPro
     <div className="space-y-2">
       <Label htmlFor={id}>{label}</Label>
       <div className="flex items-center gap-4">
-        {preview ? (
+        {preview && preview.trim() !== "" ? (
           <div className="relative w-32 h-32 border rounded-lg overflow-hidden">
             <img
               src={preview}
               alt={label}
               className="w-full h-full object-contain bg-muted"
+              onError={(e) => {
+                console.error("Failed to load image:", preview);
+                e.currentTarget.src = "";
+                setPreview("");
+              }}
             />
             <Button
               type="button"
@@ -114,23 +126,25 @@ export const LogoUpload = ({ currentUrl, onUrlChange, label, id }: LogoUploadPro
         )}
         
         <div className="flex-1">
-          <Label htmlFor={`${id}-file`} className="cursor-pointer">
-            <div className="flex items-center justify-center gap-2 rounded-md border border-input bg-background px-4 py-2 text-sm font-medium ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground">
-              <Upload className="h-4 w-4" />
-              {uploading ? "Uploading..." : "Upload Logo"}
-            </div>
-          </Label>
-          <Input
-            id={`${id}-file`}
-            type="file"
-            accept="image/*"
-            onChange={handleFileUpload}
-            disabled={uploading}
-            className="hidden"
-          />
-          <p className="text-xs text-muted-foreground mt-2">
-            PNG, JPG up to 2MB
-          </p>
+          <div onClick={(e) => e.preventDefault()}>
+            <Label htmlFor={`${id}-file`} className="cursor-pointer">
+              <div className="flex items-center justify-center gap-2 rounded-md border border-input bg-background px-4 py-2 text-sm font-medium ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground">
+                <Upload className="h-4 w-4" />
+                {uploading ? "Uploading..." : "Upload Logo"}
+              </div>
+            </Label>
+            <Input
+              id={`${id}-file`}
+              type="file"
+              accept="image/*"
+              onChange={handleFileUpload}
+              disabled={uploading}
+              className="hidden"
+            />
+            <p className="text-xs text-muted-foreground mt-2">
+              PNG, JPG up to 2MB
+            </p>
+          </div>
         </div>
       </div>
     </div>

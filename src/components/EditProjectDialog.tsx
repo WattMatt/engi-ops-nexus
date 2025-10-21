@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -63,6 +63,27 @@ export const EditProjectDialog = ({ project, onProjectUpdated }: EditProjectDial
     project_logo_url: project.project_logo_url || "",
     client_logo_url: project.client_logo_url || "",
   });
+
+  // Sync form data when dialog opens or project changes
+  useEffect(() => {
+    if (open) {
+      setFormData({
+        project_number: project.project_number,
+        name: project.name,
+        description: project.description || "",
+        status: project.status,
+        client_name: project.client_name || "",
+        site_handover_date: project.site_handover_date || "",
+        practical_completion_date: project.practical_completion_date || "",
+        electrical_contractor: project.electrical_contractor || "",
+        earthing_contractor: project.earthing_contractor || "",
+        standby_plants_contractor: project.standby_plants_contractor || "",
+        cctv_contractor: project.cctv_contractor || "",
+        project_logo_url: project.project_logo_url || "",
+        client_logo_url: project.client_logo_url || "",
+      });
+    }
+  }, [open, project]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -267,19 +288,23 @@ export const EditProjectDialog = ({ project, onProjectUpdated }: EditProjectDial
               <div className="border-t pt-4 space-y-4">
                 <h3 className="font-medium text-sm">Logos</h3>
                 <div className="grid gap-6">
-                  <LogoUpload
-                    currentUrl={formData.project_logo_url}
-                    onUrlChange={(url) => setFormData({ ...formData, project_logo_url: url })}
-                    label="Project Logo"
-                    id="project_logo"
-                  />
-                  
-                  <LogoUpload
-                    currentUrl={formData.client_logo_url}
-                    onUrlChange={(url) => setFormData({ ...formData, client_logo_url: url })}
-                    label="Client Logo"
-                    id="client_logo"
-                  />
+                  {open && (
+                    <>
+                      <LogoUpload
+                        currentUrl={formData.project_logo_url}
+                        onUrlChange={(url) => setFormData({ ...formData, project_logo_url: url })}
+                        label="Project Logo"
+                        id="project_logo"
+                      />
+                      
+                      <LogoUpload
+                        currentUrl={formData.client_logo_url}
+                        onUrlChange={(url) => setFormData({ ...formData, client_logo_url: url })}
+                        label="Client Logo"
+                        id="client_logo"
+                      />
+                    </>
+                  )}
                 </div>
               </div>
 
