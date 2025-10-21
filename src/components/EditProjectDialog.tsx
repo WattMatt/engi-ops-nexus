@@ -21,6 +21,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Pencil } from "lucide-react";
+import { LogoUpload } from "./LogoUpload";
 
 interface Project {
   id: string;
@@ -264,35 +265,22 @@ export const EditProjectDialog = ({ project, onProjectUpdated }: EditProjectDial
               </div>
 
               <div className="border-t pt-4 space-y-4">
-                <h3 className="font-medium text-sm">Logos (URLs)</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="project_logo_url">Project Logo</Label>
-                    <Input
-                      id="project_logo_url"
-                      value={formData.project_logo_url}
-                      onChange={(e) =>
-                        setFormData({ ...formData, project_logo_url: e.target.value })
-                      }
-                      placeholder="https://..."
-                    />
-                  </div>
-
-                  <div className="grid gap-2">
-                    <Label htmlFor="client_logo_url">Client Logo</Label>
-                    <Input
-                      id="client_logo_url"
-                      value={formData.client_logo_url}
-                      onChange={(e) =>
-                        setFormData({ ...formData, client_logo_url: e.target.value })
-                      }
-                      placeholder="https://..."
-                    />
-                  </div>
+                <h3 className="font-medium text-sm">Logos</h3>
+                <div className="grid gap-6">
+                  <LogoUpload
+                    currentUrl={formData.project_logo_url}
+                    onUrlChange={(url) => setFormData({ ...formData, project_logo_url: url })}
+                    label="Project Logo"
+                    id="project_logo"
+                  />
+                  
+                  <LogoUpload
+                    currentUrl={formData.client_logo_url}
+                    onUrlChange={(url) => setFormData({ ...formData, client_logo_url: url })}
+                    label="Client Logo"
+                    id="client_logo"
+                  />
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Upload logos to storage and paste the public URL here
-                </p>
               </div>
 
               <div className="grid gap-2">
