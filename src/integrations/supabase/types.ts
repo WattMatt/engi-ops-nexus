@@ -372,6 +372,106 @@ export type Database = {
           },
         ]
       }
+      tenant_field_config: {
+        Row: {
+          created_at: string | null
+          field_order: Json | null
+          id: string
+          project_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          field_order?: Json | null
+          id?: string
+          project_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          field_order?: Json | null
+          id?: string
+          project_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_field_config_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: true
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tenants: {
+        Row: {
+          area: number | null
+          created_at: string | null
+          custom_fields: Json | null
+          db_cost: number | null
+          db_ordered: boolean | null
+          db_size: string | null
+          id: string
+          layout_received: boolean | null
+          lighting_cost: number | null
+          lighting_ordered: boolean | null
+          project_id: string
+          shop_name: string
+          shop_number: string
+          sow_received: boolean | null
+          updated_at: string | null
+          zone_color: string | null
+          zone_points: Json | null
+        }
+        Insert: {
+          area?: number | null
+          created_at?: string | null
+          custom_fields?: Json | null
+          db_cost?: number | null
+          db_ordered?: boolean | null
+          db_size?: string | null
+          id?: string
+          layout_received?: boolean | null
+          lighting_cost?: number | null
+          lighting_ordered?: boolean | null
+          project_id: string
+          shop_name: string
+          shop_number: string
+          sow_received?: boolean | null
+          updated_at?: string | null
+          zone_color?: string | null
+          zone_points?: Json | null
+        }
+        Update: {
+          area?: number | null
+          created_at?: string | null
+          custom_fields?: Json | null
+          db_cost?: number | null
+          db_ordered?: boolean | null
+          db_size?: string | null
+          id?: string
+          layout_received?: boolean | null
+          lighting_cost?: number | null
+          lighting_ordered?: boolean | null
+          project_id?: string
+          shop_name?: string
+          shop_number?: string
+          sow_received?: boolean | null
+          updated_at?: string | null
+          zone_color?: string | null
+          zone_points?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenants_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           created_at: string | null
