@@ -42,6 +42,11 @@ const mainModules = [
     url: "/dashboard",
     icon: UsersRound,
   },
+  {
+    title: "Project Settings",
+    url: "/dashboard/project-settings",
+    icon: Settings,
+  },
 ];
 
 const reportsModule = {

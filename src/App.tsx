@@ -11,6 +11,7 @@ import SiteDiary from "./pages/SiteDiary";
 import Dashboard from "./pages/Dashboard";
 import FloorPlan from "./pages/FloorPlan";
 import Settings from "./pages/Settings";
+import ProjectSettings from "./pages/ProjectSettings";
 import UserManagement from "./pages/UserManagement";
 import CostReports from "./pages/CostReports";
 import CostReportDetail from "./pages/CostReportDetail";
@@ -34,6 +35,7 @@ const App = () => (
             <Route path="site-diary" element={<SiteDiary />} />
             <Route path="cost-reports" element={<CostReports />} />
             <Route path="cost-reports/:reportId" element={<CostReportDetail />} />
+            <Route path="project-settings" element={<ProjectSettings />} />
             <Route path="settings" element={<Settings />} />
             <Route path="users" element={<UserManagement />} />
           </Route>
