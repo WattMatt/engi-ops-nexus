@@ -5,17 +5,20 @@ import { supabase } from "@/integrations/supabase/client";
 import { CheckCircle2, Clock, FileText, Package } from "lucide-react";
 import MallLayout from "./MallLayout";
 import SiteDiary from "./SiteDiary";
+import { TenantDialog } from "@/components/tenant/TenantDialog";
+import { TenantList } from "@/components/tenant/TenantList";
 
 const Dashboard = () => {
   const projectId = localStorage.getItem("selectedProjectId");
 
-  const { data: tenants = [] } = useQuery({
+  const { data: tenants = [], refetch: refetchTenants } = useQuery({
     queryKey: ["tenants", projectId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tenants")
         .select("*")
-        .eq("project_id", projectId);
+        .eq("project_id", projectId)
+        .order("shop_number", { ascending: true });
       if (error) throw error;
       return data || [];
     },
@@ -143,11 +146,12 @@ const Dashboard = () => {
 
         <TabsContent value="tenants">
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between">
               <CardTitle>Tenant Details</CardTitle>
+              <TenantDialog projectId={projectId!} onSuccess={refetchTenants} />
             </CardHeader>
             <CardContent>
-              <p className="text-muted-foreground">Tenant management interface coming soon.</p>
+              <TenantList tenants={tenants} projectId={projectId!} onUpdate={refetchTenants} />
             </CardContent>
           </Card>
         </TabsContent>
