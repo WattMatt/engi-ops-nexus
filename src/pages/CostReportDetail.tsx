@@ -113,7 +113,7 @@ const CostReportDetail = () => {
         </TabsContent>
 
         <TabsContent value="categories">
-          <CostCategoriesManager reportId={report.id} />
+          <CostCategoriesManager reportId={report.id} projectId={report.project_id} />
         </TabsContent>
 
         <TabsContent value="variations">

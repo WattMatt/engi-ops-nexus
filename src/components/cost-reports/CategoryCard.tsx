@@ -5,6 +5,7 @@ import { Plus, ChevronDown, ChevronUp, Pencil, Trash2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AddLineItemDialog } from "./AddLineItemDialog";
+import { AddVariationDialog } from "./AddVariationDialog";
 import { LineItemRow } from "./LineItemRow";
 import { EditCategoryDialog } from "./EditCategoryDialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
@@ -28,10 +29,35 @@ interface CategoryCardProps {
 export const CategoryCard = ({ category, onUpdate }: CategoryCardProps) => {
   const { toast } = useToast();
   const [addLineItemOpen, setAddLineItemOpen] = useState(false);
+  const [addVariationOpen, setAddVariationOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isOpen, setIsOpen] = useState(true);
   const [deleting, setDeleting] = useState(false);
+
+  // Check if this is the Variations category
+  const isVariationsCategory = category.description?.toUpperCase().includes("VARIATION");
+
+  // Fetch variations if this is the Variations category
+  const { data: variations = [], refetch: refetchVariations } = useQuery({
+    queryKey: ["cost-variations-for-category", category.cost_report_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("cost_variations")
+        .select(`
+          *,
+          tenants (
+            shop_name,
+            shop_number
+          )
+        `)
+        .eq("cost_report_id", category.cost_report_id)
+        .order("display_order");
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: isVariationsCategory,
+  });
 
   const { data: lineItems = [], refetch: refetchLineItems } = useQuery({
     queryKey: ["cost-line-items", category.id],
@@ -44,21 +70,35 @@ export const CategoryCard = ({ category, onUpdate }: CategoryCardProps) => {
       if (error) throw error;
       return data || [];
     },
+    enabled: !isVariationsCategory,
   });
 
-  // Calculate category totals from line items
-  const categoryOriginalBudget = lineItems.reduce(
-    (sum, item) => sum + Number(item.original_budget),
-    0
-  );
-  const categoryPreviousReport = lineItems.reduce(
-    (sum, item) => sum + Number(item.previous_report),
-    0
-  );
-  const categoryAnticipatedFinal = lineItems.reduce(
-    (sum, item) => sum + Number(item.anticipated_final),
-    0
-  );
+  // Calculate category totals
+  let categoryOriginalBudget = 0;
+  let categoryPreviousReport = 0;
+  let categoryAnticipatedFinal = 0;
+
+  if (isVariationsCategory) {
+    // For variations, calculate based on credits and extras
+    categoryAnticipatedFinal = variations.reduce(
+      (sum, v) => sum + (v.is_credit ? -Number(v.amount) : Number(v.amount)),
+      0
+    );
+  } else {
+    // For regular line items
+    categoryOriginalBudget = lineItems.reduce(
+      (sum, item) => sum + Number(item.original_budget),
+      0
+    );
+    categoryPreviousReport = lineItems.reduce(
+      (sum, item) => sum + Number(item.previous_report),
+      0
+    );
+    categoryAnticipatedFinal = lineItems.reduce(
+      (sum, item) => sum + Number(item.anticipated_final),
+      0
+    );
+  }
 
   const categoryVarianceCurrent = categoryAnticipatedFinal - categoryPreviousReport;
   const categoryVarianceOriginal = categoryAnticipatedFinal - categoryOriginalBudget;
@@ -174,35 +214,83 @@ export const CategoryCard = ({ category, onUpdate }: CategoryCardProps) => {
                 </div>
               </div>
 
-              {/* Line Items */}
-              {lineItems.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground bg-muted/30">
-                  <p className="mb-4">No line items added yet</p>
-                  <Button size="sm" onClick={() => setAddLineItemOpen(true)}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Add Line Item
-                  </Button>
-                </div>
+              {/* Line Items or Variations */}
+              {isVariationsCategory ? (
+                <>
+                  {variations.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground bg-muted/30">
+                      <p className="mb-4">No variations added yet</p>
+                      <Button size="sm" onClick={() => setAddVariationOpen(true)}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Variation
+                      </Button>
+                    </div>
+                  ) : (
+                    <div>
+                      {variations.map((variation, index) => (
+                        <div 
+                          key={variation.id} 
+                          className={`grid grid-cols-12 gap-2 text-sm py-2 px-4 border-b ${
+                            index % 2 === 0 ? 'bg-background' : 'bg-muted/20'
+                          } hover:bg-muted/40 transition-colors`}
+                        >
+                          <div className="col-span-1 font-medium pl-4">{variation.code}</div>
+                          <div className="col-span-2">{variation.description}</div>
+                          <div className="col-span-2 text-right">-</div>
+                          <div className="col-span-2 text-right">-</div>
+                          <div className="col-span-2 text-right font-medium">
+                            {variation.is_credit ? "-" : "+"}R
+                            {Number(variation.amount).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
+                          </div>
+                          <div className="col-span-2 text-right">
+                            {variation.is_credit ? "-" : "+"}R
+                            {Number(variation.amount).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
+                          </div>
+                          <div className="col-span-1 text-right">
+                            {variation.is_credit ? "-" : "+"}R
+                            {Number(variation.amount).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="px-4 py-2 border-t bg-muted/20">
+                    <Button size="sm" variant="outline" onClick={() => setAddVariationOpen(true)}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Variation
+                    </Button>
+                  </div>
+                </>
               ) : (
-                <div>
-                  {lineItems.map((item, index) => (
-                    <LineItemRow 
-                      key={item.id} 
-                      item={item} 
-                      onUpdate={refetchLineItems}
-                      isEven={index % 2 === 0}
-                    />
-                  ))}
-                </div>
+                <>
+                  {lineItems.length === 0 ? (
+                    <div className="text-center py-8 text-muted-foreground bg-muted/30">
+                      <p className="mb-4">No line items added yet</p>
+                      <Button size="sm" onClick={() => setAddLineItemOpen(true)}>
+                        <Plus className="mr-2 h-4 w-4" />
+                        Add Line Item
+                      </Button>
+                    </div>
+                  ) : (
+                    <div>
+                      {lineItems.map((item, index) => (
+                        <LineItemRow 
+                          key={item.id} 
+                          item={item} 
+                          onUpdate={refetchLineItems}
+                          isEven={index % 2 === 0}
+                        />
+                      ))}
+                    </div>
+                  )}
+                  <div className="px-4 py-2 border-t bg-muted/20">
+                    <Button size="sm" variant="outline" onClick={() => setAddLineItemOpen(true)}>
+                      <Plus className="mr-2 h-4 w-4" />
+                      Add Line Item
+                    </Button>
+                  </div>
+                </>
               )}
-
-              {/* Add Line Item Button */}
-              <div className="px-4 py-2 border-t bg-muted/20">
-                <Button size="sm" variant="outline" onClick={() => setAddLineItemOpen(true)}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Line Item
-                </Button>
-              </div>
             </div>
           </CardContent>
         </CollapsibleContent>
@@ -215,6 +303,18 @@ export const CategoryCard = ({ category, onUpdate }: CategoryCardProps) => {
         onSuccess={() => {
           refetchLineItems();
           setAddLineItemOpen(false);
+        }}
+      />
+
+      <AddVariationDialog
+        open={addVariationOpen}
+        onOpenChange={setAddVariationOpen}
+        reportId={category.cost_report_id}
+        projectId={category.project_id}
+        onSuccess={() => {
+          refetchVariations();
+          onUpdate();
+          setAddVariationOpen(false);
         }}
       />
 

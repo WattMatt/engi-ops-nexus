@@ -9,9 +9,10 @@ import { CategoryCard } from "./CategoryCard";
 
 interface CostCategoriesManagerProps {
   reportId: string;
+  projectId: string;
 }
 
-export const CostCategoriesManager = ({ reportId }: CostCategoriesManagerProps) => {
+export const CostCategoriesManager = ({ reportId, projectId }: CostCategoriesManagerProps) => {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
 
   const { data: categories = [], refetch } = useQuery({
@@ -61,7 +62,11 @@ export const CostCategoriesManager = ({ reportId }: CostCategoriesManagerProps) 
           </div>
 
           {categories.map((category) => (
-            <CategoryCard key={category.id} category={category} onUpdate={refetch} />
+            <CategoryCard 
+              key={category.id} 
+              category={{ ...category, project_id: projectId }} 
+              onUpdate={refetch} 
+            />
           ))}
         </div>
       )}
