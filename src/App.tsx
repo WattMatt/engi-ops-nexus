@@ -31,11 +31,11 @@ const App = () => (
           <Route path="/projects" element={<ProjectSelect />} />
           <Route path="/dashboard" element={<DashboardLayout />}>
             <Route index element={<Dashboard />} />
+            <Route path="project-settings" element={<ProjectSettings />} />
             <Route path="floor-plan" element={<FloorPlan />} />
             <Route path="site-diary" element={<SiteDiary />} />
             <Route path="cost-reports" element={<CostReports />} />
             <Route path="cost-reports/:reportId" element={<CostReportDetail />} />
-            <Route path="project-settings" element={<ProjectSettings />} />
             <Route path="settings" element={<Settings />} />
             <Route path="users" element={<UserManagement />} />
           </Route>
