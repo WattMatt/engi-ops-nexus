@@ -24,9 +24,6 @@ export const AddCategoryDialog = ({
   const [formData, setFormData] = useState({
     code: "",
     description: "",
-    original_budget: "",
-    previous_report: "",
-    anticipated_final: "",
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -38,9 +35,9 @@ export const AddCategoryDialog = ({
         cost_report_id: reportId,
         code: formData.code,
         description: formData.description,
-        original_budget: parseFloat(formData.original_budget) || 0,
-        previous_report: parseFloat(formData.previous_report) || 0,
-        anticipated_final: parseFloat(formData.anticipated_final) || 0,
+        original_budget: 0,
+        previous_report: 0,
+        anticipated_final: 0,
         display_order: 0,
       });
 
@@ -55,9 +52,6 @@ export const AddCategoryDialog = ({
       setFormData({
         code: "",
         description: "",
-        original_budget: "",
-        previous_report: "",
-        anticipated_final: "",
       });
     } catch (error: any) {
       toast({
@@ -77,71 +71,34 @@ export const AddCategoryDialog = ({
           <DialogTitle>Add Cost Category</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="code">Code *</Label>
-              <Input
-                id="code"
-                value={formData.code}
-                onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                placeholder="A, B, C..."
-                required
-              />
-            </div>
-            <div>
-              <Label htmlFor="description">Description *</Label>
-              <Input
-                id="description"
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
-                placeholder="Electrical Connection"
-                required
-              />
-            </div>
+          <div>
+            <Label htmlFor="code">Code *</Label>
+            <Input
+              id="code"
+              value={formData.code}
+              onChange={(e) => setFormData({ ...formData, code: e.target.value })}
+              placeholder="A, B, C..."
+              required
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Single letter or number to identify this category
+            </p>
           </div>
 
           <div>
-            <Label htmlFor="original_budget">Original Budget</Label>
+            <Label htmlFor="description">Description *</Label>
             <Input
-              id="original_budget"
-              type="number"
-              step="0.01"
-              value={formData.original_budget}
+              id="description"
+              value={formData.description}
               onChange={(e) =>
-                setFormData({ ...formData, original_budget: e.target.value })
+                setFormData({ ...formData, description: e.target.value })
               }
-              placeholder="0.00"
+              placeholder="Electrical Connection"
+              required
             />
-          </div>
-
-          <div>
-            <Label htmlFor="previous_report">Previous Report</Label>
-            <Input
-              id="previous_report"
-              type="number"
-              step="0.01"
-              value={formData.previous_report}
-              onChange={(e) =>
-                setFormData({ ...formData, previous_report: e.target.value })
-              }
-              placeholder="0.00"
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="anticipated_final">Anticipated Final Cost</Label>
-            <Input
-              id="anticipated_final"
-              type="number"
-              step="0.01"
-              value={formData.anticipated_final}
-              onChange={(e) =>
-                setFormData({ ...formData, anticipated_final: e.target.value })
-              }
-              placeholder="0.00"
-            />
+            <p className="text-xs text-muted-foreground mt-1">
+              Category values will be calculated from line items
+            </p>
           </div>
 
           <div className="flex justify-end gap-2">
