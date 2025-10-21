@@ -7,72 +7,58 @@ import { useToast } from "@/hooks/use-toast";
 import { Upload, X, Image as ImageIcon } from "lucide-react";
 
 interface LogoUploadProps {
-  currentUrl: string;
+  currentUrl?: string;
   onUrlChange: (url: string) => void;
   label: string;
   id: string;
 }
 
-export const LogoUpload = ({ currentUrl, onUrlChange, label, id }: LogoUploadProps) => {
+export const LogoUpload = ({ currentUrl = "", onUrlChange, label, id }: LogoUploadProps) => {
   const [uploading, setUploading] = useState(false);
-  const [preview, setPreview] = useState("");
+  const [preview, setPreview] = useState(currentUrl);
   const { toast } = useToast();
 
-  // Update preview when currentUrl prop changes
   useEffect(() => {
-    console.log(`LogoUpload [${id}] - currentUrl changed:`, currentUrl);
-    setPreview(currentUrl || "");
-  }, [currentUrl, id]);
+    setPreview(currentUrl);
+  }, [currentUrl]);
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      toast({
+        title: "Invalid file type",
+        description: "Please upload an image file",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (file.size > 2 * 1024 * 1024) {
+      toast({
+        title: "File too large",
+        description: "Please upload an image smaller than 2MB",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setUploading(true);
+
     try {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      
-      console.log(`LogoUpload [${id}] - File selected:`, file.name, file.type, file.size);
-
-      // Validate file type
-      if (!file.type.startsWith("image/")) {
-        toast({
-          title: "Invalid file type",
-          description: "Please upload an image file",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      // Validate file size (max 2MB)
-      if (file.size > 2 * 1024 * 1024) {
-        toast({
-          title: "File too large",
-          description: "Please upload an image smaller than 2MB",
-          variant: "destructive",
-        });
-        return;
-      }
-
-      setUploading(true);
-
       const fileExt = file.name.split(".").pop();
-      const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`;
-      const filePath = `${fileName}`;
-
-      console.log(`LogoUpload [${id}] - Uploading to:`, filePath);
+      const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from("project-logos")
-        .upload(filePath, file, {
-          cacheControl: "3600",
-          upsert: false,
-        });
+        .upload(fileName, file);
 
       if (uploadError) throw uploadError;
 
       const { data: { publicUrl } } = supabase.storage
         .from("project-logos")
-        .getPublicUrl(filePath);
-
-      console.log(`LogoUpload [${id}] - Upload successful:`, publicUrl);
+        .getPublicUrl(fileName);
 
       setPreview(publicUrl);
       onUrlChange(publicUrl);
@@ -82,10 +68,10 @@ export const LogoUpload = ({ currentUrl, onUrlChange, label, id }: LogoUploadPro
         description: "Logo uploaded successfully",
       });
     } catch (error: any) {
-      console.error(`LogoUpload [${id}] - Upload error:`, error);
+      console.error("Upload error:", error);
       toast({
         title: "Upload failed",
-        description: error.message || "Failed to upload logo",
+        description: error.message,
         variant: "destructive",
       });
     } finally {
@@ -93,48 +79,26 @@ export const LogoUpload = ({ currentUrl, onUrlChange, label, id }: LogoUploadPro
     }
   };
 
-  const handleRemove = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleRemove = () => {
     setPreview("");
     onUrlChange("");
   };
 
   return (
     <div className="space-y-2">
-      <Label htmlFor={id}>{label}</Label>
+      <Label>{label}</Label>
       <div className="flex items-center gap-4">
-        {preview && preview.trim() !== "" ? (
-          <div className="relative w-32 h-32 border rounded-lg overflow-hidden">
-            <img
-              src={preview}
-              alt={label}
-              className="w-full h-full object-contain bg-muted"
-              onError={(e) => {
-                console.error("Failed to load image:", preview);
-                e.currentTarget.src = "";
-                setPreview("");
-              }}
-            />
-            <Button
-              type="button"
-              variant="destructive"
-              size="icon"
-              className="absolute top-1 right-1 h-6 w-6"
-              onClick={handleRemove}
-            >
-              <X className="h-4 w-4" />
-            </Button>
-          </div>
-        ) : (
-          <div className="w-32 h-32 border rounded-lg flex items-center justify-center bg-muted">
+        <div className="w-32 h-32 border rounded-lg flex items-center justify-center bg-muted overflow-hidden">
+          {preview ? (
+            <img src={preview} alt={label} className="w-full h-full object-contain" />
+          ) : (
             <ImageIcon className="h-8 w-8 text-muted-foreground" />
-          </div>
-        )}
+          )}
+        </div>
         
-        <div className="flex-1">
+        <div className="flex-1 space-y-2">
           <Label htmlFor={`${id}-file`} className="cursor-pointer">
-            <div className="flex items-center justify-center gap-2 rounded-md border border-input bg-background px-4 py-2 text-sm font-medium ring-offset-background transition-colors hover:bg-accent hover:text-accent-foreground">
+            <div className="flex items-center justify-center gap-2 rounded-md border border-input bg-background px-4 py-2 text-sm font-medium hover:bg-accent">
               <Upload className="h-4 w-4" />
               {uploading ? "Uploading..." : "Upload Logo"}
             </div>
@@ -147,7 +111,19 @@ export const LogoUpload = ({ currentUrl, onUrlChange, label, id }: LogoUploadPro
             disabled={uploading}
             className="hidden"
           />
-          <p className="text-xs text-muted-foreground mt-2">
+          {preview && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={handleRemove}
+              className="w-full"
+            >
+              <X className="h-4 w-4 mr-2" />
+              Remove
+            </Button>
+          )}
+          <p className="text-xs text-muted-foreground">
             PNG, JPG up to 2MB
           </p>
         </div>
