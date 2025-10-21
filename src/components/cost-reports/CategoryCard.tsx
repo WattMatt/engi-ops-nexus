@@ -30,8 +30,22 @@ export const CategoryCard = ({ category, onUpdate }: CategoryCardProps) => {
     },
   });
 
-  const categoryVarianceCurrent = Number(category.anticipated_final) - Number(category.previous_report);
-  const categoryVarianceOriginal = Number(category.anticipated_final) - Number(category.original_budget);
+  // Calculate category totals from line items
+  const categoryOriginalBudget = lineItems.reduce(
+    (sum, item) => sum + Number(item.original_budget),
+    0
+  );
+  const categoryPreviousReport = lineItems.reduce(
+    (sum, item) => sum + Number(item.previous_report),
+    0
+  );
+  const categoryAnticipatedFinal = lineItems.reduce(
+    (sum, item) => sum + Number(item.anticipated_final),
+    0
+  );
+
+  const categoryVarianceCurrent = categoryAnticipatedFinal - categoryPreviousReport;
+  const categoryVarianceOriginal = categoryAnticipatedFinal - categoryOriginalBudget;
 
   return (
     <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -48,13 +62,13 @@ export const CategoryCard = ({ category, onUpdate }: CategoryCardProps) => {
                   </div>
                   <div className="col-span-3">{category.description}</div>
                   <div className="col-span-2 text-right">
-                    R{Number(category.original_budget).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
+                    R{categoryOriginalBudget.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
                   </div>
                   <div className="col-span-2 text-right">
-                    R{Number(category.previous_report).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
+                    R{categoryPreviousReport.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
                   </div>
                   <div className="col-span-2 text-right">
-                    R{Number(category.anticipated_final).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
+                    R{categoryAnticipatedFinal.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
                   </div>
                   <div className="col-span-1 text-right">
                     {categoryVarianceCurrent < 0 ? "-" : "+"}R
