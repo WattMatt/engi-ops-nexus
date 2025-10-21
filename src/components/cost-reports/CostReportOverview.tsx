@@ -22,14 +22,34 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
     },
   });
 
+  const { data: variations = [] } = useQuery({
+    queryKey: ["cost-variations-overview", report.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("cost_variations")
+        .select("*")
+        .eq("cost_report_id", report.id);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   const totalOriginalBudget = categories.reduce(
     (sum, cat) => sum + Number(cat.original_budget),
     0
   );
-  const totalAnticipatedFinal = categories.reduce(
+  
+  const categoriesAnticipatedTotal = categories.reduce(
     (sum, cat) => sum + Number(cat.anticipated_final),
     0
   );
+  
+  const totalVariations = variations.reduce(
+    (sum, v) => sum + (v.is_credit ? -Number(v.amount) : Number(v.amount)),
+    0
+  );
+  
+  const totalAnticipatedFinal = categoriesAnticipatedTotal + totalVariations;
   const totalVariance = totalAnticipatedFinal - totalOriginalBudget;
 
   return (
