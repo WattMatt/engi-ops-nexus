@@ -216,6 +216,7 @@ export const generateCostReportPDF = (
   doc.addPage();
   yPos = 20;
 
+  // Calculate category totals
   const totalOriginalBudget = categories.reduce(
     (sum, cat) => sum + Number(cat.original_budget),
     0
@@ -224,10 +225,19 @@ export const generateCostReportPDF = (
     (sum, cat) => sum + Number(cat.previous_report),
     0
   );
-  const totalAnticipatedFinal = categories.reduce(
+  const categoriesAnticipatedTotal = categories.reduce(
     (sum, cat) => sum + Number(cat.anticipated_final),
     0
   );
+  
+  // Calculate variations total
+  const totalVariations = variations.reduce(
+    (sum, v) => sum + (v.is_credit ? -Number(v.amount) : Number(v.amount)),
+    0
+  );
+  
+  // Calculate final totals including variations
+  const totalAnticipatedFinal = categoriesAnticipatedTotal + totalVariations;
   const currentExtra = totalAnticipatedFinal - totalPreviousReport;
   const extraFromOriginal = totalAnticipatedFinal - totalOriginalBudget;
 
@@ -245,7 +255,7 @@ export const generateCostReportPDF = (
       const catCurrentExtra = Number(cat.anticipated_final) - Number(cat.previous_report);
       const catExtraFromOriginal = Number(cat.anticipated_final) - Number(cat.original_budget);
       return [
-        `${cat.code} - ${cat.description}`,
+        `${cat.code}\t${cat.description}`,
         formatCurrency(cat.original_budget),
         formatCurrency(cat.previous_report),
         formatCurrency(cat.anticipated_final),
@@ -253,6 +263,15 @@ export const generateCostReportPDF = (
         formatCurrency(catExtraFromOriginal),
       ];
     }),
+    // Add variations row if there are variations
+    ...(variations.length > 0 ? [[
+      "G\tVARIATIONS",
+      formatCurrency(0),
+      formatCurrency(0),
+      formatCurrency(totalVariations),
+      formatCurrency(totalVariations),
+      formatCurrency(totalVariations),
+    ]] : []),
   ];
 
   autoTable(doc, {
@@ -286,6 +305,20 @@ export const generateCostReportPDF = (
       3: { cellWidth: 25, halign: "right" },
       4: { cellWidth: 25, halign: "right" },
       5: { cellWidth: 25, halign: "right" },
+    },
+    didParseCell: (data) => {
+      // Color negative amounts (savings) in red
+      if (data.section === 'body' && data.column.index >= 1) {
+        const cellValue = data.cell.text[0];
+        if (cellValue && cellValue.includes('(') && cellValue.includes(')')) {
+          data.cell.styles.textColor = [255, 0, 0]; // Red color for savings
+        }
+      }
+      // Make OVERALL SUMMARY row bold and with cyan background
+      if (data.section === 'body' && data.row.index === 0) {
+        data.cell.styles.fontStyle = 'bold';
+        data.cell.styles.fillColor = [0, 188, 212]; // Cyan color
+      }
     },
   });
 
