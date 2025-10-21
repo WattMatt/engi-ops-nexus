@@ -67,6 +67,222 @@ export type Database = {
           },
         ]
       }
+      cost_categories: {
+        Row: {
+          anticipated_final: number
+          code: string
+          cost_report_id: string
+          created_at: string | null
+          description: string
+          display_order: number
+          id: string
+          original_budget: number
+          previous_report: number
+          updated_at: string | null
+        }
+        Insert: {
+          anticipated_final?: number
+          code: string
+          cost_report_id: string
+          created_at?: string | null
+          description: string
+          display_order?: number
+          id?: string
+          original_budget?: number
+          previous_report?: number
+          updated_at?: string | null
+        }
+        Update: {
+          anticipated_final?: number
+          code?: string
+          cost_report_id?: string
+          created_at?: string | null
+          description?: string
+          display_order?: number
+          id?: string
+          original_budget?: number
+          previous_report?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cost_categories_cost_report_id_fkey"
+            columns: ["cost_report_id"]
+            isOneToOne: false
+            referencedRelation: "cost_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cost_line_items: {
+        Row: {
+          anticipated_final: number
+          category_id: string
+          code: string
+          created_at: string | null
+          description: string
+          display_order: number
+          id: string
+          original_budget: number
+          previous_report: number
+          updated_at: string | null
+        }
+        Insert: {
+          anticipated_final?: number
+          category_id: string
+          code: string
+          created_at?: string | null
+          description: string
+          display_order?: number
+          id?: string
+          original_budget?: number
+          previous_report?: number
+          updated_at?: string | null
+        }
+        Update: {
+          anticipated_final?: number
+          category_id?: string
+          code?: string
+          created_at?: string | null
+          description?: string
+          display_order?: number
+          id?: string
+          original_budget?: number
+          previous_report?: number
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cost_line_items_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "cost_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cost_reports: {
+        Row: {
+          cctv_contractor: string | null
+          client_name: string
+          created_at: string | null
+          created_by: string
+          earthing_contractor: string | null
+          electrical_contractor: string | null
+          id: string
+          notes: string | null
+          practical_completion_date: string | null
+          project_id: string
+          project_name: string
+          project_number: string
+          report_date: string
+          report_number: number
+          site_handover_date: string | null
+          standby_plants_contractor: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          cctv_contractor?: string | null
+          client_name: string
+          created_at?: string | null
+          created_by: string
+          earthing_contractor?: string | null
+          electrical_contractor?: string | null
+          id?: string
+          notes?: string | null
+          practical_completion_date?: string | null
+          project_id: string
+          project_name: string
+          project_number: string
+          report_date: string
+          report_number: number
+          site_handover_date?: string | null
+          standby_plants_contractor?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          cctv_contractor?: string | null
+          client_name?: string
+          created_at?: string | null
+          created_by?: string
+          earthing_contractor?: string | null
+          electrical_contractor?: string | null
+          id?: string
+          notes?: string | null
+          practical_completion_date?: string | null
+          project_id?: string
+          project_name?: string
+          project_number?: string
+          report_date?: string
+          report_number?: number
+          site_handover_date?: string | null
+          standby_plants_contractor?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cost_reports_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      cost_variations: {
+        Row: {
+          amount: number
+          code: string
+          cost_report_id: string
+          created_at: string | null
+          description: string
+          display_order: number
+          id: string
+          is_credit: boolean | null
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          amount: number
+          code: string
+          cost_report_id: string
+          created_at?: string | null
+          description: string
+          display_order?: number
+          id?: string
+          is_credit?: boolean | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          amount?: number
+          code?: string
+          cost_report_id?: string
+          created_at?: string | null
+          description?: string
+          display_order?: number
+          id?: string
+          is_credit?: boolean | null
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cost_variations_cost_report_id_fkey"
+            columns: ["cost_report_id"]
+            isOneToOne: false
+            referencedRelation: "cost_reports"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cost_variations_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       equipment_placements: {
         Row: {
           created_at: string | null

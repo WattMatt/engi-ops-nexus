@@ -12,6 +12,8 @@ import Dashboard from "./pages/Dashboard";
 import FloorPlan from "./pages/FloorPlan";
 import Settings from "./pages/Settings";
 import UserManagement from "./pages/UserManagement";
+import CostReports from "./pages/CostReports";
+import CostReportDetail from "./pages/CostReportDetail";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -30,6 +32,8 @@ const App = () => (
             <Route index element={<Dashboard />} />
             <Route path="floor-plan" element={<FloorPlan />} />
             <Route path="site-diary" element={<SiteDiary />} />
+            <Route path="cost-reports" element={<CostReports />} />
+            <Route path="cost-reports/:reportId" element={<CostReportDetail />} />
             <Route path="settings" element={<Settings />} />
             <Route path="users" element={<UserManagement />} />
           </Route>

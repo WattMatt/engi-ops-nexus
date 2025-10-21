@@ -92,9 +92,14 @@ const operationalModules = [
     icon: TrendingUp,
   },
   {
-    title: "Cost Reporting",
-    url: "/dashboard/cost-reporting",
+    title: "Cost Reports",
+    url: "/dashboard/cost-reports",
     icon: PieChart,
+  },
+  {
+    title: "Site Diary",
+    url: "/dashboard/site-diary",
+    icon: FileText,
   },
   {
     title: "Floor Plan Markup",

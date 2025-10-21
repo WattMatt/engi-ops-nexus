@@ -1,0 +1,108 @@
+import { useParams, useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft, Download } from "lucide-react";
+import { CostReportOverview } from "@/components/cost-reports/CostReportOverview";
+import { CostCategoriesManager } from "@/components/cost-reports/CostCategoriesManager";
+import { CostVariationsManager } from "@/components/cost-reports/CostVariationsManager";
+import { Card, CardContent } from "@/components/ui/card";
+
+const CostReportDetail = () => {
+  const { reportId } = useParams();
+  const navigate = useNavigate();
+
+  const { data: report, isLoading } = useQuery({
+    queryKey: ["cost-report", reportId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("cost_reports")
+        .select("*")
+        .eq("id", reportId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!reportId,
+  });
+
+  if (isLoading) {
+    return (
+      <div className="flex-1 p-8">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-muted rounded w-1/3"></div>
+          <div className="h-64 bg-muted rounded"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!report) {
+    return (
+      <div className="flex-1 p-8">
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <p className="text-muted-foreground">Cost report not found</p>
+            <Button
+              variant="outline"
+              onClick={() => navigate("/dashboard/cost-reports")}
+              className="mt-4"
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back to Cost Reports
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate("/dashboard/cost-reports")}
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
+          <div>
+            <h2 className="text-3xl font-bold tracking-tight">
+              Cost Report #{report.report_number}
+            </h2>
+            <p className="text-muted-foreground">{report.project_name}</p>
+          </div>
+        </div>
+        <Button>
+          <Download className="mr-2 h-4 w-4" />
+          Export PDF
+        </Button>
+      </div>
+
+      <Tabs defaultValue="overview" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="categories">Categories & Line Items</TabsTrigger>
+          <TabsTrigger value="variations">Variations</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="overview">
+          <CostReportOverview report={report} />
+        </TabsContent>
+
+        <TabsContent value="categories">
+          <CostCategoriesManager reportId={report.id} />
+        </TabsContent>
+
+        <TabsContent value="variations">
+          <CostVariationsManager reportId={report.id} projectId={report.project_id} />
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+};
+
+export default CostReportDetail;
