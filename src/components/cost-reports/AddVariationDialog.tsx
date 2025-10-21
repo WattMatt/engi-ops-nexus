@@ -28,7 +28,7 @@ export const AddVariationDialog = ({
   const [formData, setFormData] = useState({
     code: "",
     description: "",
-    tenant_id: "",
+    tenant_id: "none",
     amount: "",
     is_credit: "true",
   });
@@ -54,7 +54,7 @@ export const AddVariationDialog = ({
     try {
       const { error } = await supabase.from("cost_variations").insert({
         cost_report_id: reportId,
-        tenant_id: formData.tenant_id || null,
+        tenant_id: formData.tenant_id === "none" ? null : formData.tenant_id,
         code: formData.code,
         description: formData.description,
         amount: parseFloat(formData.amount),
@@ -73,7 +73,7 @@ export const AddVariationDialog = ({
       setFormData({
         code: "",
         description: "",
-        tenant_id: "",
+        tenant_id: "none",
         amount: "",
         is_credit: "true",
       });
@@ -150,7 +150,7 @@ export const AddVariationDialog = ({
                 <SelectValue placeholder="Select tenant (optional)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">None (General)</SelectItem>
+                <SelectItem value="none">None (General)</SelectItem>
                 {tenants.map((tenant) => (
                   <SelectItem key={tenant.id} value={tenant.id}>
                     {tenant.shop_number} - {tenant.shop_name}
