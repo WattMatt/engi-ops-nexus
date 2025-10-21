@@ -27,8 +27,11 @@ const App = () => (
           <Route path="/projects" element={<ProjectSelect />} />
           <Route path="/dashboard" element={<DashboardLayout />}>
             <Route index element={<Dashboard />} />
+            <Route path="site-diary" element={<SiteDiary />} />
             <Route path="settings" element={<Settings />} />
             <Route path="users" element={<UserManagement />} />
+            {/* Placeholder routes - coming soon */}
+            <Route path="*" element={<Dashboard />} />
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
