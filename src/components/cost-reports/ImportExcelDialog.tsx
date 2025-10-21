@@ -63,14 +63,30 @@ export const ImportExcelDialog = ({
     try {
       const excelData = await parseExcelData(file);
 
+      // Find the header row that contains "CODE" and "DESCRIPTION"
+      let dataStartIndex = -1;
+      for (let i = 0; i < excelData.length; i++) {
+        const row = excelData[i];
+        if (row && row.length > 1) {
+          const firstCell = row[0]?.toString().toUpperCase().trim();
+          const secondCell = row[1]?.toString().toUpperCase().trim();
+          if (firstCell === "CODE" && secondCell === "DESCRIPTION") {
+            dataStartIndex = i + 1; // Start after the header row
+            break;
+          }
+        }
+      }
+
+      if (dataStartIndex === -1) {
+        throw new Error("Could not find data header row with CODE and DESCRIPTION columns");
+      }
+
       // Parse the Excel structure
-      // Looking for pattern: CODE | DESCRIPTION | ORIGINAL BUDGET | PREVIOUS REPORT | ANTICIPATED FINAL
       const categories: any[] = [];
       const lineItems: any[] = [];
-      let currentCategoryId: string | null = null;
       let displayOrder = 0;
 
-      for (let i = 0; i < excelData.length; i++) {
+      for (let i = dataStartIndex; i < excelData.length; i++) {
         const row = excelData[i];
         if (!row || row.length === 0) continue;
 
@@ -78,15 +94,29 @@ export const ImportExcelDialog = ({
         const description = row[1]?.toString().trim();
 
         if (!code || !description) continue;
+        
+        // Skip summary rows or rows with "OVERALL" in description
+        if (description.toUpperCase().includes("OVERALL") || 
+            description.toUpperCase().includes("SUMMARY")) {
+          continue;
+        }
+
+        // Parse numeric values, handling possible formatting
+        const parseAmount = (val: any): number => {
+          if (!val) return 0;
+          const str = val.toString().replace(/[,\s]/g, '');
+          const num = parseFloat(str);
+          return isNaN(num) ? 0 : num;
+        };
 
         // Check if it's a category (single letter code like A, B, C)
         if (code.match(/^[A-Z]$/)) {
           const category = {
             code,
             description,
-            original_budget: parseFloat(row[2]) || 0,
-            previous_report: parseFloat(row[3]) || 0,
-            anticipated_final: parseFloat(row[4]) || 0,
+            original_budget: parseAmount(row[2]),
+            previous_report: parseAmount(row[3]),
+            anticipated_final: parseAmount(row[4]),
             display_order: displayOrder++,
           };
           categories.push(category);
@@ -98,9 +128,9 @@ export const ImportExcelDialog = ({
             category_code: categoryCode,
             code,
             description,
-            original_budget: parseFloat(row[2]) || 0,
-            previous_report: parseFloat(row[3]) || 0,
-            anticipated_final: parseFloat(row[4]) || 0,
+            original_budget: parseAmount(row[2]),
+            previous_report: parseAmount(row[3]),
+            anticipated_final: parseAmount(row[4]),
             display_order: displayOrder++,
           };
           lineItems.push(lineItem);
