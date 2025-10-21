@@ -7,6 +7,7 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -48,42 +49,30 @@ interface EditProjectDialogProps {
 export const EditProjectDialog = ({ project, onProjectUpdated }: EditProjectDialogProps) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    project_number: "",
-    name: "",
-    description: "",
-    status: "active",
-    client_name: "",
-    site_handover_date: "",
-    practical_completion_date: "",
-    electrical_contractor: "",
-    earthing_contractor: "",
-    standby_plants_contractor: "",
-    cctv_contractor: "",
-    project_logo_url: "",
-    client_logo_url: "",
+  
+  const getInitialFormData = () => ({
+    project_number: project?.project_number || "",
+    name: project?.name || "",
+    description: project?.description || "",
+    status: project?.status || "active",
+    client_name: project?.client_name || "",
+    site_handover_date: project?.site_handover_date || "",
+    practical_completion_date: project?.practical_completion_date || "",
+    electrical_contractor: project?.electrical_contractor || "",
+    earthing_contractor: project?.earthing_contractor || "",
+    standby_plants_contractor: project?.standby_plants_contractor || "",
+    cctv_contractor: project?.cctv_contractor || "",
+    project_logo_url: project?.project_logo_url || "",
+    client_logo_url: project?.client_logo_url || "",
   });
 
-  // Sync form data when dialog opens or project changes
+  const [formData, setFormData] = useState(getInitialFormData());
+
   useEffect(() => {
-    if (open && project) {
-      setFormData({
-        project_number: project.project_number || "",
-        name: project.name || "",
-        description: project.description || "",
-        status: project.status || "active",
-        client_name: project.client_name || "",
-        site_handover_date: project.site_handover_date || "",
-        practical_completion_date: project.practical_completion_date || "",
-        electrical_contractor: project.electrical_contractor || "",
-        earthing_contractor: project.earthing_contractor || "",
-        standby_plants_contractor: project.standby_plants_contractor || "",
-        cctv_contractor: project.cctv_contractor || "",
-        project_logo_url: project.project_logo_url || "",
-        client_logo_url: project.client_logo_url || "",
-      });
+    if (open) {
+      setFormData(getInitialFormData());
     }
-  }, [open, project]);
+  }, [open]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,225 +111,188 @@ export const EditProjectDialog = ({ project, onProjectUpdated }: EditProjectDial
     }
   };
 
+  const updateField = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
   return (
-    <>
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={(e) => {
-          e.stopPropagation();
-          setOpen(true);
-        }}
-      >
-        <Pencil className="h-4 w-4" />
-      </Button>
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="ghost" size="icon">
+          <Pencil className="h-4 w-4" />
+        </Button>
+      </DialogTrigger>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto bg-background">
-          <DialogHeader>
-            <DialogTitle>Edit Project</DialogTitle>
-            <DialogDescription>
-              Update project details, contractors, and logos
-            </DialogDescription>
-          </DialogHeader>
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Edit Project</DialogTitle>
+          <DialogDescription>
+            Update project details, contractors, and logos
+          </DialogDescription>
+        </DialogHeader>
 
-          <form onSubmit={handleSubmit}>
-            <div className="grid gap-4 py-4">
+        <form onSubmit={handleSubmit}>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="project_number">Project Number</Label>
+              <Input
+                id="project_number"
+                value={formData.project_number}
+                onChange={(e) => updateField("project_number", e.target.value)}
+                placeholder="WM-2024-001"
+                required
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="name">Project Name</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => updateField("name", e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="client_name">Client Name</Label>
+              <Input
+                id="client_name"
+                value={formData.client_name}
+                onChange={(e) => updateField("client_name", e.target.value)}
+                placeholder="Moolman Group"
+              />
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
+                id="description"
+                value={formData.description}
+                onChange={(e) => updateField("description", e.target.value)}
+                rows={3}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
-                <Label htmlFor="project_number">Project Number</Label>
+                <Label htmlFor="site_handover_date">Site Handover</Label>
                 <Input
-                  id="project_number"
-                  value={formData.project_number}
-                  onChange={(e) =>
-                    setFormData(prev => ({ ...prev, project_number: e.target.value }))
-                  }
-                  placeholder="WM-2024-001"
-                  required
+                  id="site_handover_date"
+                  type="date"
+                  value={formData.site_handover_date}
+                  onChange={(e) => updateField("site_handover_date", e.target.value)}
                 />
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="name">Project Name</Label>
+                <Label htmlFor="practical_completion_date">Practical Completion</Label>
                 <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) =>
-                    setFormData(prev => ({ ...prev, name: e.target.value }))
-                  }
-                  required
+                  id="practical_completion_date"
+                  type="date"
+                  value={formData.practical_completion_date}
+                  onChange={(e) => updateField("practical_completion_date", e.target.value)}
                 />
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="client_name">Client Name</Label>
-                <Input
-                  id="client_name"
-                  value={formData.client_name}
-                  onChange={(e) =>
-                    setFormData(prev => ({ ...prev, client_name: e.target.value }))
-                  }
-                  placeholder="Moolman Group"
-                />
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) =>
-                    setFormData(prev => ({ ...prev, description: e.target.value }))
-                  }
-                  rows={3}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="site_handover_date">Site Handover</Label>
-                  <Input
-                    id="site_handover_date"
-                    type="date"
-                    value={formData.site_handover_date}
-                    onChange={(e) =>
-                      setFormData(prev => ({ ...prev, site_handover_date: e.target.value }))
-                    }
-                  />
-                </div>
-
-                <div className="grid gap-2">
-                  <Label htmlFor="practical_completion_date">Practical Completion</Label>
-                  <Input
-                    id="practical_completion_date"
-                    type="date"
-                    value={formData.practical_completion_date}
-                    onChange={(e) =>
-                      setFormData(prev => ({
-                        ...prev,
-                        practical_completion_date: e.target.value,
-                      }))
-                    }
-                  />
-                </div>
-              </div>
-
-              <div className="border-t pt-4 space-y-4">
-                <h3 className="font-medium text-sm">Contractors</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="electrical_contractor">Electrical</Label>
-                    <Input
-                      id="electrical_contractor"
-                      value={formData.electrical_contractor}
-                      onChange={(e) =>
-                        setFormData(prev => ({
-                          ...prev,
-                          electrical_contractor: e.target.value,
-                        }))
-                      }
-                      placeholder="KHULU"
-                    />
-                  </div>
-
-                  <div className="grid gap-2">
-                    <Label htmlFor="earthing_contractor">Earthing & Lightning</Label>
-                    <Input
-                      id="earthing_contractor"
-                      value={formData.earthing_contractor}
-                      onChange={(e) =>
-                        setFormData(prev => ({
-                          ...prev,
-                          earthing_contractor: e.target.value,
-                        }))
-                      }
-                      placeholder="MITRONIC"
-                    />
-                  </div>
-
-                  <div className="grid gap-2">
-                    <Label htmlFor="standby_plants_contractor">Standby Plants</Label>
-                    <Input
-                      id="standby_plants_contractor"
-                      value={formData.standby_plants_contractor}
-                      onChange={(e) =>
-                        setFormData(prev => ({
-                          ...prev,
-                          standby_plants_contractor: e.target.value,
-                        }))
-                      }
-                    />
-                  </div>
-
-                  <div className="grid gap-2">
-                    <Label htmlFor="cctv_contractor">CCTV & Access</Label>
-                    <Input
-                      id="cctv_contractor"
-                      value={formData.cctv_contractor}
-                      onChange={(e) =>
-                        setFormData(prev => ({ ...prev, cctv_contractor: e.target.value }))
-                      }
-                      placeholder="East End"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div className="border-t pt-4 space-y-4">
-                <h3 className="font-medium text-sm">Logos</h3>
-                <div className="grid gap-6">
-                  <LogoUpload
-                    currentUrl={formData.project_logo_url}
-                    onUrlChange={(url) => setFormData(prev => ({ ...prev, project_logo_url: url }))}
-                    label="Project Logo"
-                    id="project_logo"
-                  />
-                  
-                  <LogoUpload
-                    currentUrl={formData.client_logo_url}
-                    onUrlChange={(url) => setFormData(prev => ({ ...prev, client_logo_url: url }))}
-                    label="Client Logo"
-                    id="client_logo"
-                  />
-                </div>
-              </div>
-
-              <div className="grid gap-2">
-                <Label htmlFor="status">Status</Label>
-                <Select
-                  value={formData.status}
-                  onValueChange={(value) =>
-                    setFormData(prev => ({ ...prev, status: value }))
-                  }
-                >
-                  <SelectTrigger className="bg-background">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-background">
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="completed">Completed</SelectItem>
-                    <SelectItem value="on-hold">On Hold</SelectItem>
-                    <SelectItem value="cancelled">Cancelled</SelectItem>
-                  </SelectContent>
-                </Select>
               </div>
             </div>
 
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setOpen(false)}
-                disabled={loading}
+            <div className="border-t pt-4 space-y-4">
+              <h3 className="font-medium text-sm">Contractors</h3>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="electrical_contractor">Electrical</Label>
+                  <Input
+                    id="electrical_contractor"
+                    value={formData.electrical_contractor}
+                    onChange={(e) => updateField("electrical_contractor", e.target.value)}
+                    placeholder="KHULU"
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="earthing_contractor">Earthing & Lightning</Label>
+                  <Input
+                    id="earthing_contractor"
+                    value={formData.earthing_contractor}
+                    onChange={(e) => updateField("earthing_contractor", e.target.value)}
+                    placeholder="MITRONIC"
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="standby_plants_contractor">Standby Plants</Label>
+                  <Input
+                    id="standby_plants_contractor"
+                    value={formData.standby_plants_contractor}
+                    onChange={(e) => updateField("standby_plants_contractor", e.target.value)}
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="cctv_contractor">CCTV & Access</Label>
+                  <Input
+                    id="cctv_contractor"
+                    value={formData.cctv_contractor}
+                    onChange={(e) => updateField("cctv_contractor", e.target.value)}
+                    placeholder="East End"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="border-t pt-4 space-y-4">
+              <h3 className="font-medium text-sm">Logos</h3>
+              <div className="grid gap-6">
+                <LogoUpload
+                  currentUrl={formData.project_logo_url}
+                  onUrlChange={(url) => updateField("project_logo_url", url)}
+                  label="Project Logo"
+                  id="project_logo"
+                />
+                
+                <LogoUpload
+                  currentUrl={formData.client_logo_url}
+                  onUrlChange={(url) => updateField("client_logo_url", url)}
+                  label="Client Logo"
+                  id="client_logo"
+                />
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="status">Status</Label>
+              <Select
+                value={formData.status}
+                onValueChange={(value) => updateField("status", value)}
               >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={loading}>
-                {loading ? "Updating..." : "Update Project"}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
-    </>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="on-hold">On Hold</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setOpen(false)}
+              disabled={loading}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" disabled={loading}>
+              {loading ? "Updating..." : "Update Project"}
+            </Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
   );
 };
