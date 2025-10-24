@@ -47,6 +47,23 @@ export const AddCableEntryDialog = ({
     total_cost: "",
   });
 
+  // Auto-generate cable_tag
+  useEffect(() => {
+    const parts = [
+      formData.from_location,
+      formData.to_location,
+      formData.voltage,
+      formData.cable_number,
+    ].filter(part => part && part.trim() !== "");
+    
+    if (parts.length > 0) {
+      setFormData((prev) => ({
+        ...prev,
+        cable_tag: parts.join("-"),
+      }));
+    }
+  }, [formData.from_location, formData.to_location, formData.voltage, formData.cable_number]);
+
   // Auto-calculate total_length
   useEffect(() => {
     const extra = parseFloat(formData.extra_length) || 0;
@@ -140,15 +157,14 @@ export const AddCableEntryDialog = ({
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="cable_tag">Cable Tag *</Label>
+              <Label htmlFor="cable_tag">Cable Tag (Auto-generated) *</Label>
               <Input
                 id="cable_tag"
                 value={formData.cable_tag}
-                onChange={(e) =>
-                  setFormData({ ...formData, cable_tag: e.target.value })
-                }
+                readOnly
                 required
-                placeholder="e.g., MINI SUB 1-MAIN BOARD 1.1-240-1"
+                className="bg-muted"
+                placeholder="Will be generated from: From-To-Voltage-Number"
               />
             </div>
             <div className="space-y-2">
