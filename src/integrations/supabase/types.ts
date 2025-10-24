@@ -403,6 +403,8 @@ export type Database = {
         Row: {
           budget_date: string
           budget_number: string
+          client_logo_url: string | null
+          consultant_logo_url: string | null
           created_at: string
           created_by: string
           id: string
@@ -418,6 +420,8 @@ export type Database = {
         Insert: {
           budget_date: string
           budget_number: string
+          client_logo_url?: string | null
+          consultant_logo_url?: string | null
           created_at?: string
           created_by: string
           id?: string
@@ -433,6 +437,8 @@ export type Database = {
         Update: {
           budget_date?: string
           budget_number?: string
+          client_logo_url?: string | null
+          consultant_logo_url?: string | null
           created_at?: string
           created_by?: string
           id?: string

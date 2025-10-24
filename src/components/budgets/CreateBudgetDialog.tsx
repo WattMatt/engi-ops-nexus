@@ -8,6 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
+import { LogoUpload } from "@/components/LogoUpload";
 
 interface CreateBudgetDialogProps {
   open: boolean;
@@ -33,6 +34,8 @@ export const CreateBudgetDialog = ({
     prepared_for_contact: "",
     prepared_for_tel: "",
     notes: "",
+    consultant_logo_url: "",
+    client_logo_url: "",
   });
 
   const { data: project } = useQuery({
@@ -68,6 +71,8 @@ export const CreateBudgetDialog = ({
           prepared_for_contact: formData.prepared_for_contact || null,
           prepared_for_tel: formData.prepared_for_tel || null,
           notes: formData.notes || null,
+          consultant_logo_url: formData.consultant_logo_url || null,
+          client_logo_url: formData.client_logo_url || null,
           created_by: user.id,
         })
         .select()
@@ -137,6 +142,34 @@ export const CreateBudgetDialog = ({
               }
               required
             />
+          </div>
+
+          <div className="space-y-4 border-t pt-4">
+            <h4 className="font-medium">Company Logos</h4>
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Consultant Logo (Your Company)</Label>
+                <LogoUpload
+                  currentUrl={formData.consultant_logo_url}
+                  onUrlChange={(url) =>
+                    setFormData({ ...formData, consultant_logo_url: url })
+                  }
+                  label="Upload Logo"
+                  id="consultant-logo"
+                />
+              </div>
+              <div>
+                <Label>Client Logo</Label>
+                <LogoUpload
+                  currentUrl={formData.client_logo_url}
+                  onUrlChange={(url) =>
+                    setFormData({ ...formData, client_logo_url: url })
+                  }
+                  label="Upload Logo"
+                  id="client-logo"
+                />
+              </div>
+            </div>
           </div>
 
           {project && (
