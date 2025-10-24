@@ -85,6 +85,14 @@ const budgetsModule = {
   ],
 };
 
+const specificationsModule = {
+  title: "Specifications",
+  icon: FileStack,
+  items: [
+    { title: "All Specifications", url: "/dashboard/specifications" },
+  ],
+};
+
 const operationalModules = [
   {
     title: "Bills of Quantities",
@@ -252,6 +260,32 @@ export function AppSidebar() {
                   <CollapsibleContent>
                     <SidebarMenuSub>
                       {budgetsModule.items.map((item) => (
+                        <SidebarMenuSubItem key={item.title}>
+                          <SidebarMenuSubButton asChild>
+                            <NavLink to={item.url} className={getNavCls(item.url)}>
+                              <span>{item.title}</span>
+                            </NavLink>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
+
+              {/* Specifications - Collapsible */}
+              <Collapsible defaultOpen={isGroupActive(specificationsModule.items)}>
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton className="hover:bg-muted/50">
+                      <specificationsModule.icon className="h-4 w-4" />
+                      {!collapsed && <span>{specificationsModule.title}</span>}
+                      {!collapsed && <ChevronDown className="ml-auto h-4 w-4" />}
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {specificationsModule.items.map((item) => (
                         <SidebarMenuSubItem key={item.title}>
                           <SidebarMenuSubButton asChild>
                             <NavLink to={item.url} className={getNavCls(item.url)}>

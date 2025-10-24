@@ -616,6 +616,69 @@ export type Database = {
           },
         ]
       }
+      project_specifications: {
+        Row: {
+          client_logo_url: string | null
+          consultant_logo_url: string | null
+          created_at: string
+          created_by: string
+          id: string
+          notes: string | null
+          prepared_for_company: string | null
+          prepared_for_contact: string | null
+          prepared_for_email: string | null
+          prepared_for_tel: string | null
+          project_id: string
+          revision: string
+          spec_date: string
+          spec_number: string
+          spec_type: string
+          status: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          client_logo_url?: string | null
+          consultant_logo_url?: string | null
+          created_at?: string
+          created_by: string
+          id?: string
+          notes?: string | null
+          prepared_for_company?: string | null
+          prepared_for_contact?: string | null
+          prepared_for_email?: string | null
+          prepared_for_tel?: string | null
+          project_id: string
+          revision?: string
+          spec_date: string
+          spec_number: string
+          spec_type: string
+          status?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          client_logo_url?: string | null
+          consultant_logo_url?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          notes?: string | null
+          prepared_for_company?: string | null
+          prepared_for_contact?: string | null
+          prepared_for_email?: string | null
+          prepared_for_tel?: string | null
+          project_id?: string
+          revision?: string
+          spec_date?: string
+          spec_number?: string
+          spec_type?: string
+          status?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       projects: {
         Row: {
           cctv_contractor: string | null
@@ -784,6 +847,99 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      specification_sections: {
+        Row: {
+          created_at: string
+          display_order: number
+          id: string
+          section_content: string | null
+          section_number: string
+          section_title: string
+          spec_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          section_content?: string | null
+          section_number: string
+          section_title: string
+          spec_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          section_content?: string | null
+          section_number?: string
+          section_title?: string
+          spec_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      specification_tables: {
+        Row: {
+          created_at: string
+          display_order: number
+          id: string
+          section_id: string
+          table_data: Json
+          table_title: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          section_id: string
+          table_data?: Json
+          table_title: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          section_id?: string
+          table_data?: Json
+          table_title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      specification_terms: {
+        Row: {
+          created_at: string
+          definition: string
+          display_order: number
+          id: string
+          spec_id: string
+          term: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          definition: string
+          display_order?: number
+          id?: string
+          spec_id: string
+          term: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          definition?: string
+          display_order?: number
+          id?: string
+          spec_id?: string
+          term?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       tenant_field_config: {
         Row: {
