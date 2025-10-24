@@ -1,10 +1,8 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
-import { AddCableEntryDialog } from "./AddCableEntryDialog";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Table,
   TableBody,
@@ -13,13 +11,31 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Plus, Pencil, Trash2 } from "lucide-react";
+import { AddCableEntryDialog } from "./AddCableEntryDialog";
+import { EditCableEntryDialog } from "./EditCableEntryDialog";
+import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 interface CableEntriesManagerProps {
   scheduleId: string;
 }
 
 export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) => {
+  const { toast } = useToast();
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [selectedEntry, setSelectedEntry] = useState<any>(null);
 
   const { data: entries, refetch } = useQuery({
     queryKey: ["cable-entries", scheduleId],
@@ -36,14 +52,51 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
     enabled: !!scheduleId,
   });
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat("en-ZA", {
-      style: "currency",
-      currency: "ZAR",
-    }).format(value);
+  const formatCurrency = (value: number | null) => {
+    if (value === null || value === undefined) return "R 0.00";
+    return `R ${value.toFixed(2)}`;
   };
 
   const totalCost = entries?.reduce((sum, entry) => sum + (entry.total_cost || 0), 0) || 0;
+
+  const handleEdit = (entry: any) => {
+    setSelectedEntry(entry);
+    setShowEditDialog(true);
+  };
+
+  const handleDeleteClick = (entry: any) => {
+    setSelectedEntry(entry);
+    setShowDeleteDialog(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!selectedEntry) return;
+
+    try {
+      const { error } = await supabase
+        .from("cable_entries")
+        .delete()
+        .eq("id", selectedEntry.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Cable entry deleted successfully",
+      });
+
+      refetch();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setShowDeleteDialog(false);
+      setSelectedEntry(null);
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -71,13 +124,16 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
                       <TableHead>Cable Tag</TableHead>
                       <TableHead>From</TableHead>
                       <TableHead>To</TableHead>
-                      <TableHead className="text-right">Voltage</TableHead>
-                      <TableHead className="text-right">Load (A)</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead className="text-right">Measured (m)</TableHead>
-                      <TableHead className="text-right">Total (m)</TableHead>
-                      <TableHead className="text-right">Volt Drop</TableHead>
-                      <TableHead className="text-right">Total Cost</TableHead>
+                      <TableHead>Voltage</TableHead>
+                      <TableHead>Load (A)</TableHead>
+                      <TableHead>Cable Type</TableHead>
+                      <TableHead>Cable Size</TableHead>
+                      <TableHead>Length (m)</TableHead>
+                      <TableHead>Supply Cost</TableHead>
+                      <TableHead>Install Cost</TableHead>
+                      <TableHead>Total Cost</TableHead>
+                      <TableHead>Notes</TableHead>
+                      <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -86,20 +142,32 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
                         <TableCell className="font-medium">{entry.cable_tag}</TableCell>
                         <TableCell>{entry.from_location}</TableCell>
                         <TableCell>{entry.to_location}</TableCell>
-                        <TableCell className="text-right">{entry.voltage}</TableCell>
-                        <TableCell className="text-right">{entry.load_amps}</TableCell>
-                        <TableCell>{entry.cable_type}</TableCell>
+                        <TableCell>{entry.voltage || "-"}</TableCell>
+                        <TableCell>{entry.load_amps || "-"}</TableCell>
+                        <TableCell>{entry.cable_type || "-"}</TableCell>
+                        <TableCell>{entry.cable_size || "-"}</TableCell>
+                        <TableCell>{entry.total_length?.toFixed(2) || "0.00"}</TableCell>
+                        <TableCell>{formatCurrency(entry.supply_cost)}</TableCell>
+                        <TableCell>{formatCurrency(entry.install_cost)}</TableCell>
+                        <TableCell>{formatCurrency(entry.total_cost)}</TableCell>
+                        <TableCell>{entry.notes || "-"}</TableCell>
                         <TableCell className="text-right">
-                          {entry.measured_length?.toFixed(2)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {entry.total_length?.toFixed(2)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {entry.volt_drop?.toFixed(2)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {formatCurrency(entry.total_cost || 0)}
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleEdit(entry)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDeleteClick(entry)}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -130,6 +198,34 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
           setShowAddDialog(false);
         }}
       />
+
+      {selectedEntry && (
+        <EditCableEntryDialog
+          open={showEditDialog}
+          onOpenChange={setShowEditDialog}
+          entry={selectedEntry}
+          onSuccess={() => {
+            refetch();
+            setShowEditDialog(false);
+            setSelectedEntry(null);
+          }}
+        />
+      )}
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Cable Entry</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this cable entry? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
