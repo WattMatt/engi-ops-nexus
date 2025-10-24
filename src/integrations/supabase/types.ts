@@ -14,6 +14,81 @@ export type Database = {
   }
   public: {
     Tables: {
+      budget_line_items: {
+        Row: {
+          area: number | null
+          area_unit: string | null
+          base_rate: number | null
+          created_at: string
+          description: string
+          display_order: number
+          id: string
+          item_number: string | null
+          section_id: string
+          ti_rate: number | null
+          total: number
+          updated_at: string
+        }
+        Insert: {
+          area?: number | null
+          area_unit?: string | null
+          base_rate?: number | null
+          created_at?: string
+          description: string
+          display_order?: number
+          id?: string
+          item_number?: string | null
+          section_id: string
+          ti_rate?: number | null
+          total?: number
+          updated_at?: string
+        }
+        Update: {
+          area?: number | null
+          area_unit?: string | null
+          base_rate?: number | null
+          created_at?: string
+          description?: string
+          display_order?: number
+          id?: string
+          item_number?: string | null
+          section_id?: string
+          ti_rate?: number | null
+          total?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      budget_sections: {
+        Row: {
+          budget_id: string
+          created_at: string
+          display_order: number
+          id: string
+          section_code: string
+          section_name: string
+          updated_at: string
+        }
+        Insert: {
+          budget_id: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          section_code: string
+          section_name: string
+          updated_at?: string
+        }
+        Update: {
+          budget_id?: string
+          created_at?: string
+          display_order?: number
+          id?: string
+          section_code?: string
+          section_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       cable_routes: {
         Row: {
           cable_spec: string | null
@@ -323,6 +398,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      electrical_budgets: {
+        Row: {
+          budget_date: string
+          budget_number: string
+          created_at: string
+          created_by: string
+          id: string
+          notes: string | null
+          prepared_by_contact: string | null
+          prepared_for_company: string | null
+          prepared_for_contact: string | null
+          prepared_for_tel: string | null
+          project_id: string
+          revision: string
+          updated_at: string
+        }
+        Insert: {
+          budget_date: string
+          budget_number: string
+          created_at?: string
+          created_by: string
+          id?: string
+          notes?: string | null
+          prepared_by_contact?: string | null
+          prepared_for_company?: string | null
+          prepared_for_contact?: string | null
+          prepared_for_tel?: string | null
+          project_id: string
+          revision?: string
+          updated_at?: string
+        }
+        Update: {
+          budget_date?: string
+          budget_number?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          notes?: string | null
+          prepared_by_contact?: string | null
+          prepared_for_company?: string | null
+          prepared_for_contact?: string | null
+          prepared_for_tel?: string | null
+          project_id?: string
+          revision?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       equipment_placements: {
         Row: {

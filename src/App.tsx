@@ -15,6 +15,8 @@ import ProjectSettings from "./pages/ProjectSettings";
 import UserManagement from "./pages/UserManagement";
 import CostReports from "./pages/CostReports";
 import CostReportDetail from "./pages/CostReportDetail";
+import ElectricalBudgets from "./pages/ElectricalBudgets";
+import ElectricalBudgetDetail from "./pages/ElectricalBudgetDetail";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -36,6 +38,8 @@ const App = () => (
             <Route path="site-diary" element={<SiteDiary />} />
             <Route path="cost-reports" element={<CostReports />} />
             <Route path="cost-reports/:reportId" element={<CostReportDetail />} />
+            <Route path="budgets/electrical" element={<ElectricalBudgets />} />
+            <Route path="budgets/electrical/:budgetId" element={<ElectricalBudgetDetail />} />
             <Route path="settings" element={<Settings />} />
             <Route path="users" element={<UserManagement />} />
           </Route>
