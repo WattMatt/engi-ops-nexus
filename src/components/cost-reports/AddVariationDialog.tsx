@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,6 +46,39 @@ export const AddVariationDialog = ({
     },
     enabled: !!projectId,
   });
+
+  const { data: variations = [] } = useQuery({
+    queryKey: ["cost-variations", reportId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("cost_variations")
+        .select("code")
+        .eq("cost_report_id", reportId)
+        .order("code");
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!reportId && open,
+  });
+
+  // Auto-calculate next variation code when dialog opens
+  useEffect(() => {
+    if (open && variations.length >= 0) {
+      // Extract numbers from existing codes (e.g., "G1" -> 1, "G2" -> 2)
+      const existingNumbers = variations
+        .map(v => {
+          const match = v.code.match(/G(\d+)/);
+          return match ? parseInt(match[1]) : 0;
+        })
+        .filter(n => n > 0);
+      
+      const nextNumber = existingNumbers.length > 0 
+        ? Math.max(...existingNumbers) + 1 
+        : 1;
+      
+      setFormData(prev => ({ ...prev, code: `G${nextNumber}` }));
+    }
+  }, [open, variations]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
