@@ -63,11 +63,6 @@ const singleModules = [
     url: "/dashboard/ai-tools",
     icon: Zap,
   },
-  {
-    title: "Cable Sizing",
-    url: "/dashboard/cable-sizing",
-    icon: Cable,
-  },
 ];
 
 const budgetsModule = {
