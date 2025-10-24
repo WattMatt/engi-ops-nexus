@@ -50,16 +50,10 @@ const mainModules = [
 ];
 
 const reportsModule = {
-  title: "Reports",
-  icon: FileCheck,
+  title: "Cost Reports",
+  icon: PieChart,
   items: [
-    { title: "Bulk Services", url: "/dashboard/reports/bulk-services" },
-    { title: "Metering Specification", url: "/dashboard/reports/metering" },
-    { title: "Generator Report", url: "/dashboard/reports/generator" },
-    { title: "Electrical Tariffs", url: "/dashboard/reports/tariffs" },
-    { title: "Tender Adjudications", url: "/dashboard/reports/tender" },
-    { title: "Lighting Specification", url: "/dashboard/reports/lighting" },
-    { title: "Handover Documents", url: "/dashboard/reports/handover" },
+    { title: "All Cost Reports", url: "/dashboard/cost-reports" },
   ],
 };
 
@@ -95,21 +89,6 @@ const specificationsModule = {
 
 const operationalModules = [
   {
-    title: "Bills of Quantities",
-    url: "/dashboard/boq",
-    icon: ClipboardList,
-  },
-  {
-    title: "Progress Payments",
-    url: "/dashboard/progress-payments",
-    icon: TrendingUp,
-  },
-  {
-    title: "Cost Reports",
-    url: "/dashboard/cost-reports",
-    icon: PieChart,
-  },
-  {
     title: "Site Diary",
     url: "/dashboard/site-diary",
     icon: FileText,
@@ -118,11 +97,6 @@ const operationalModules = [
     title: "Floor Plan Markup",
     url: "/dashboard/floor-plan",
     icon: Image,
-  },
-  {
-    title: "Equipment Tracking",
-    url: "/dashboard/equipment",
-    icon: Package,
   },
 ];
 
