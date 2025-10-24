@@ -21,6 +21,7 @@ import Specifications from "./pages/Specifications";
 import SpecificationDetail from "./pages/SpecificationDetail";
 import CableSchedules from "./pages/CableSchedules";
 import CableScheduleDetail from "./pages/CableScheduleDetail";
+import StaffManagement from "./pages/StaffManagement";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -48,6 +49,7 @@ const App = () => (
             <Route path="specifications/:specId" element={<SpecificationDetail />} />
             <Route path="cable-schedules" element={<CableSchedules />} />
             <Route path="cable-schedules/:scheduleId" element={<CableScheduleDetail />} />
+            <Route path="staff" element={<StaffManagement />} />
             <Route path="settings" element={<Settings />} />
             <Route path="users" element={<UserManagement />} />
           </Route>
