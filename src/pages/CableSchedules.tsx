@@ -10,7 +10,7 @@ import { CreateCableScheduleDialog } from "@/components/cable-schedules/CreateCa
 const CableSchedules = () => {
   const navigate = useNavigate();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
-  const projectId = sessionStorage.getItem("selectedProjectId");
+  const projectId = localStorage.getItem("selectedProjectId");
 
   const { data: schedules, isLoading, refetch } = useQuery({
     queryKey: ["cable-schedules", projectId],

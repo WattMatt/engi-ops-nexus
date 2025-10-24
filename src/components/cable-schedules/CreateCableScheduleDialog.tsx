@@ -39,8 +39,8 @@ export const CreateCableScheduleDialog = ({
     setLoading(true);
 
     try {
-      const projectId = sessionStorage.getItem("selectedProjectId");
-      console.log("Project ID from sessionStorage:", projectId);
+      const projectId = localStorage.getItem("selectedProjectId");
+      console.log("Project ID from localStorage:", projectId);
       
       const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       console.log("Session:", session);
