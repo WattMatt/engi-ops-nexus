@@ -89,6 +89,81 @@ export type Database = {
         }
         Relationships: []
       }
+      cable_entries: {
+        Row: {
+          cable_number: number | null
+          cable_size: string | null
+          cable_tag: string
+          cable_type: string | null
+          created_at: string
+          display_order: number
+          extra_length: number | null
+          from_location: string
+          id: string
+          install_cost: number | null
+          load_amps: number | null
+          measured_length: number | null
+          notes: string | null
+          ohm_per_km: number | null
+          schedule_id: string
+          supply_cost: number | null
+          to_location: string
+          total_cost: number | null
+          total_length: number | null
+          updated_at: string
+          volt_drop: number | null
+          voltage: number | null
+        }
+        Insert: {
+          cable_number?: number | null
+          cable_size?: string | null
+          cable_tag: string
+          cable_type?: string | null
+          created_at?: string
+          display_order?: number
+          extra_length?: number | null
+          from_location: string
+          id?: string
+          install_cost?: number | null
+          load_amps?: number | null
+          measured_length?: number | null
+          notes?: string | null
+          ohm_per_km?: number | null
+          schedule_id: string
+          supply_cost?: number | null
+          to_location: string
+          total_cost?: number | null
+          total_length?: number | null
+          updated_at?: string
+          volt_drop?: number | null
+          voltage?: number | null
+        }
+        Update: {
+          cable_number?: number | null
+          cable_size?: string | null
+          cable_tag?: string
+          cable_type?: string | null
+          created_at?: string
+          display_order?: number
+          extra_length?: number | null
+          from_location?: string
+          id?: string
+          install_cost?: number | null
+          load_amps?: number | null
+          measured_length?: number | null
+          notes?: string | null
+          ohm_per_km?: number | null
+          schedule_id?: string
+          supply_cost?: number | null
+          to_location?: string
+          total_cost?: number | null
+          total_length?: number | null
+          updated_at?: string
+          volt_drop?: number | null
+          voltage?: number | null
+        }
+        Relationships: []
+      }
       cable_routes: {
         Row: {
           cable_spec: string | null
@@ -141,6 +216,48 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      cable_schedules: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          layout_name: string | null
+          notes: string | null
+          project_id: string
+          revision: string
+          schedule_date: string
+          schedule_name: string
+          schedule_number: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          layout_name?: string | null
+          notes?: string | null
+          project_id: string
+          revision?: string
+          schedule_date: string
+          schedule_name: string
+          schedule_number: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          layout_name?: string | null
+          notes?: string | null
+          project_id?: string
+          revision?: string
+          schedule_date?: string
+          schedule_name?: string
+          schedule_number?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       cost_categories: {
         Row: {

@@ -87,6 +87,14 @@ const specificationsModule = {
   ],
 };
 
+const cableSchedulesModule = {
+  title: "Cable Schedules",
+  icon: Cable,
+  items: [
+    { title: "All Cable Schedules", url: "/dashboard/cable-schedules" },
+  ],
+};
+
 const operationalModules = [
   {
     title: "Site Diary",
@@ -260,6 +268,32 @@ export function AppSidebar() {
                   <CollapsibleContent>
                     <SidebarMenuSub>
                       {specificationsModule.items.map((item) => (
+                        <SidebarMenuSubItem key={item.title}>
+                          <SidebarMenuSubButton asChild>
+                            <NavLink to={item.url} className={getNavCls(item.url)}>
+                              <span>{item.title}</span>
+                            </NavLink>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
+
+              {/* Cable Schedules - Collapsible */}
+              <Collapsible defaultOpen={isGroupActive(cableSchedulesModule.items)}>
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton className="hover:bg-muted/50">
+                      <cableSchedulesModule.icon className="h-4 w-4" />
+                      {!collapsed && <span>{cableSchedulesModule.title}</span>}
+                      {!collapsed && <ChevronDown className="ml-auto h-4 w-4" />}
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {cableSchedulesModule.items.map((item) => (
                         <SidebarMenuSubItem key={item.title}>
                           <SidebarMenuSubButton asChild>
                             <NavLink to={item.url} className={getNavCls(item.url)}>

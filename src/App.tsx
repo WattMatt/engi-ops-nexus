@@ -19,6 +19,8 @@ import ElectricalBudgets from "./pages/ElectricalBudgets";
 import ElectricalBudgetDetail from "./pages/ElectricalBudgetDetail";
 import Specifications from "./pages/Specifications";
 import SpecificationDetail from "./pages/SpecificationDetail";
+import CableSchedules from "./pages/CableSchedules";
+import CableScheduleDetail from "./pages/CableScheduleDetail";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -44,6 +46,8 @@ const App = () => (
             <Route path="budgets/electrical/:budgetId" element={<ElectricalBudgetDetail />} />
             <Route path="specifications" element={<Specifications />} />
             <Route path="specifications/:specId" element={<SpecificationDetail />} />
+            <Route path="cable-schedules" element={<CableSchedules />} />
+            <Route path="cable-schedules/:scheduleId" element={<CableScheduleDetail />} />
             <Route path="settings" element={<Settings />} />
             <Route path="users" element={<UserManagement />} />
           </Route>
