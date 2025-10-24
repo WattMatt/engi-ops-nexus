@@ -40,12 +40,29 @@ export const CreateCableScheduleDialog = ({
 
     try {
       const projectId = sessionStorage.getItem("selectedProjectId");
-      const { data: { user } } = await supabase.auth.getUser();
+      console.log("Project ID from sessionStorage:", projectId);
+      
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      console.log("Session:", session);
+      console.log("Session error:", sessionError);
 
-      if (!user || !projectId) {
+      if (sessionError) {
+        throw new Error(`Authentication error: ${sessionError.message}`);
+      }
+
+      if (!session?.user) {
         toast({
           title: "Error",
-          description: "You must be logged in and have a project selected",
+          description: "You must be logged in. Please log out and log in again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!projectId) {
+        toast({
+          title: "Error",
+          description: "No project selected. Please select a project first.",
           variant: "destructive",
         });
         return;
@@ -54,7 +71,7 @@ export const CreateCableScheduleDialog = ({
       const { error } = await supabase.from("cable_schedules").insert({
         ...formData,
         project_id: projectId,
-        created_by: user.id,
+        created_by: session.user.id,
       });
 
       if (error) throw error;
@@ -74,6 +91,7 @@ export const CreateCableScheduleDialog = ({
         notes: "",
       });
     } catch (error: any) {
+      console.error("Cable schedule creation error:", error);
       toast({
         title: "Error",
         description: error.message,
