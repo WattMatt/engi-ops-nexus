@@ -6,8 +6,10 @@ import { Users, Calendar, DollarSign, Award, FileText, Gift, Building } from "lu
 import { useToast } from "@/hooks/use-toast";
 import { AddEmployeeDialog } from "@/components/hr/AddEmployeeDialog";
 import { EmployeeList } from "@/components/hr/EmployeeList";
+import { useQueryClient } from "@tanstack/react-query";
 
 const StaffManagement = () => {
+  const queryClient = useQueryClient();
   const [stats, setStats] = useState({
     totalEmployees: 0,
     departments: 0,
@@ -15,6 +17,12 @@ const StaffManagement = () => {
     activeGoals: 0,
   });
   const { toast } = useToast();
+
+  const handleEmployeeAdded = () => {
+    // Invalidate and refetch employee-related queries
+    queryClient.invalidateQueries({ queryKey: ["employees"] });
+    loadStats();
+  };
 
   useEffect(() => {
     loadStats();
@@ -47,7 +55,7 @@ const StaffManagement = () => {
           <h1 className="text-3xl font-bold">HR Management Portal</h1>
           <p className="text-muted-foreground">Manage your workforce and HR operations</p>
         </div>
-        <AddEmployeeDialog onSuccess={loadStats} />
+        <AddEmployeeDialog onSuccess={handleEmployeeAdded} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

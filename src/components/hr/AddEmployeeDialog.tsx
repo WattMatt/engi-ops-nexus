@@ -84,27 +84,13 @@ export function AddEmployeeDialog({ onSuccess }: AddEmployeeDialogProps) {
   // Load next employee number when dialog opens
   const loadNextEmployeeNumber = async () => {
     try {
+      // Use the database function instead of querying directly
       const { data, error } = await supabase
-        .from("employees")
-        .select("employee_number")
-        .order("employee_number", { ascending: false })
-        .limit(1);
+        .rpc('get_next_employee_number');
       
       if (error) throw error;
       
-      if (data && data.length > 0) {
-        // Extract number from last employee number (e.g., "EM001" -> 1)
-        const lastNumber = data[0].employee_number;
-        const match = lastNumber.match(/\d+$/);
-        if (match) {
-          const nextNum = parseInt(match[0]) + 1;
-          setNextEmployeeNumber(`EM${String(nextNum).padStart(3, '0')}`);
-        } else {
-          setNextEmployeeNumber("EM001");
-        }
-      } else {
-        setNextEmployeeNumber("EM001");
-      }
+      setNextEmployeeNumber(data || "EM001");
     } catch (error) {
       console.error("Error loading employee number:", error);
       setNextEmployeeNumber("EM001");
@@ -233,7 +219,11 @@ export function AddEmployeeDialog({ onSuccess }: AddEmployeeDialogProps) {
       setCreateAuthAccount(false);
       setError(null);
       setOpen(false);
-      onSuccess?.();
+      
+      // Call onSuccess to refresh the employee list
+      if (onSuccess) {
+        onSuccess();
+      }
     } catch (error: any) {
       let errorMessage = error.message;
       
