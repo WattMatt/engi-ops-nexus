@@ -49,6 +49,17 @@ const employeeSchema = z.object({
   password: z.string()
     .min(8, "Password must be at least 8 characters")
     .optional(),
+  staff_id_number: z.string()
+    .max(50, "ID number must be less than 50 characters")
+    .optional(),
+  secondary_phone: z.string()
+    .max(20, "Phone number must be less than 20 characters")
+    .optional(),
+  secondary_email: z.string()
+    .email("Invalid email address")
+    .max(255, "Email must be less than 255 characters")
+    .optional()
+    .or(z.literal("")),
 });
 
 interface AddEmployeeDialogProps {
@@ -114,14 +125,32 @@ export function AddEmployeeDialog({ onSuccess }: AddEmployeeDialogProps) {
       phone: formData.get("phone") as string,
       hire_date: formData.get("hire_date") as string,
       password: formData.get("password") as string,
+      staff_id_number: formData.get("staff_id_number") as string,
+      address: formData.get("address") as string,
+      city: formData.get("city") as string,
+      state: formData.get("state") as string,
+      postal_code: formData.get("postal_code") as string,
+      country: formData.get("country") as string,
+      secondary_phone: formData.get("secondary_phone") as string,
+      secondary_email: formData.get("secondary_email") as string,
+      emergency_contact_name: formData.get("emergency_contact_name") as string,
+      emergency_contact_phone: formData.get("emergency_contact_phone") as string,
+      emergency_contact_relationship: formData.get("emergency_contact_relationship") as string,
     };
 
     try {
       // Validate input
       const validated = employeeSchema.parse({
-        ...rawData,
+        employee_number: rawData.employee_number,
+        first_name: rawData.first_name,
+        last_name: rawData.last_name,
+        email: rawData.email,
+        hire_date: rawData.hire_date,
         phone: rawData.phone || undefined,
         password: createAuthAccount ? rawData.password : undefined,
+        staff_id_number: rawData.staff_id_number || undefined,
+        secondary_phone: rawData.secondary_phone || undefined,
+        secondary_email: rawData.secondary_email || undefined,
       });
 
       // Check if employee number already exists
@@ -190,6 +219,17 @@ export function AddEmployeeDialog({ onSuccess }: AddEmployeeDialogProps) {
         department_id: formData.get("department_id") || null,
         position_id: formData.get("position_id") || null,
         employment_status: "active",
+        staff_id_number: validated.staff_id_number || null,
+        address: rawData.address || null,
+        city: rawData.city || null,
+        state: rawData.state || null,
+        postal_code: rawData.postal_code || null,
+        country: rawData.country || null,
+        secondary_phone: validated.secondary_phone || null,
+        secondary_email: validated.secondary_email || null,
+        emergency_contact_name: rawData.emergency_contact_name || null,
+        emergency_contact_phone: rawData.emergency_contact_phone || null,
+        emergency_contact_relationship: rawData.emergency_contact_relationship || null,
       };
 
       // Only add user_id if we created an auth account
@@ -366,15 +406,118 @@ export function AddEmployeeDialog({ onSuccess }: AddEmployeeDialogProps) {
               </div>
             )}
 
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="phone">Primary Phone</Label>
+                <Input
+                  id="phone"
+                  name="phone"
+                  type="tel"
+                  maxLength={20}
+                  placeholder="+1 234 567 8900"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="secondary_phone">Secondary Phone</Label>
+                <Input
+                  id="secondary_phone"
+                  name="secondary_phone"
+                  type="tel"
+                  maxLength={20}
+                  placeholder="+1 234 567 8900"
+                />
+              </div>
+            </div>
+
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone</Label>
+              <Label htmlFor="secondary_email">Secondary Email</Label>
               <Input
-                id="phone"
-                name="phone"
-                type="tel"
-                maxLength={20}
-                placeholder="+1 234 567 8900"
+                id="secondary_email"
+                name="secondary_email"
+                type="email"
+                maxLength={255}
+                placeholder="secondary@company.com"
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="staff_id_number">Staff ID Number</Label>
+              <Input
+                id="staff_id_number"
+                name="staff_id_number"
+                maxLength={50}
+                placeholder="National ID, Passport, etc."
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Residential Address</Label>
+              <Input
+                name="address"
+                placeholder="Street address"
+                maxLength={255}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Input
+                  name="city"
+                  placeholder="City"
+                  maxLength={100}
+                />
+              </div>
+              <div className="space-y-2">
+                <Input
+                  name="state"
+                  placeholder="State/Province"
+                  maxLength={100}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Input
+                  name="postal_code"
+                  placeholder="Postal code"
+                  maxLength={20}
+                />
+              </div>
+              <div className="space-y-2">
+                <Input
+                  name="country"
+                  placeholder="Country"
+                  maxLength={100}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Emergency Contact Information</Label>
+              <Input
+                name="emergency_contact_name"
+                placeholder="Emergency contact name"
+                maxLength={255}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Input
+                  name="emergency_contact_phone"
+                  type="tel"
+                  placeholder="Emergency contact phone"
+                  maxLength={20}
+                />
+              </div>
+              <div className="space-y-2">
+                <Input
+                  name="emergency_contact_relationship"
+                  placeholder="Relationship (e.g., Spouse, Parent)"
+                  maxLength={50}
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">

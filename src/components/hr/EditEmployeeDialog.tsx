@@ -65,6 +65,17 @@ export function EditEmployeeDialog({ employee, open, onOpenChange, onSuccess }: 
     department_id: "",
     position_id: "",
     employment_status: "active",
+    staff_id_number: "",
+    address: "",
+    city: "",
+    state: "",
+    postal_code: "",
+    country: "",
+    secondary_phone: "",
+    secondary_email: "",
+    emergency_contact_name: "",
+    emergency_contact_phone: "",
+    emergency_contact_relationship: "",
   });
 
   const { data: departments = [] } = useQuery({
@@ -97,6 +108,17 @@ export function EditEmployeeDialog({ employee, open, onOpenChange, onSuccess }: 
         department_id: employee.department_id || "",
         position_id: employee.position_id || "",
         employment_status: employee.employment_status || "active",
+        staff_id_number: employee.staff_id_number || "",
+        address: employee.address || "",
+        city: employee.city || "",
+        state: employee.state || "",
+        postal_code: employee.postal_code || "",
+        country: employee.country || "",
+        secondary_phone: employee.secondary_phone || "",
+        secondary_email: employee.secondary_email || "",
+        emergency_contact_name: employee.emergency_contact_name || "",
+        emergency_contact_phone: employee.emergency_contact_phone || "",
+        emergency_contact_relationship: employee.emergency_contact_relationship || "",
       });
     }
   }, [employee, open]);
@@ -128,6 +150,17 @@ export function EditEmployeeDialog({ employee, open, onOpenChange, onSuccess }: 
           department_id: formData.department_id || null,
           position_id: formData.position_id || null,
           employment_status: formData.employment_status as "active" | "inactive" | "on_leave" | "terminated",
+          staff_id_number: formData.staff_id_number || null,
+          address: formData.address || null,
+          city: formData.city || null,
+          state: formData.state || null,
+          postal_code: formData.postal_code || null,
+          country: formData.country || null,
+          secondary_phone: formData.secondary_phone || null,
+          secondary_email: formData.secondary_email || null,
+          emergency_contact_name: formData.emergency_contact_name || null,
+          emergency_contact_phone: formData.emergency_contact_phone || null,
+          emergency_contact_relationship: formData.emergency_contact_relationship || null,
         })
         .eq("id", employee.id);
 
@@ -238,15 +271,128 @@ export function EditEmployeeDialog({ employee, open, onOpenChange, onSuccess }: 
               />
             </div>
 
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="phone">Primary Phone</Label>
+                <Input
+                  id="phone"
+                  type="tel"
+                  value={formData.phone}
+                  onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                  maxLength={20}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="secondary_phone">Secondary Phone</Label>
+                <Input
+                  id="secondary_phone"
+                  type="tel"
+                  value={formData.secondary_phone}
+                  onChange={(e) => setFormData(prev => ({ ...prev, secondary_phone: e.target.value }))}
+                  maxLength={20}
+                />
+              </div>
+            </div>
+
             <div className="space-y-2">
-              <Label htmlFor="phone">Phone</Label>
+              <Label htmlFor="secondary_email">Secondary Email</Label>
               <Input
-                id="phone"
-                type="tel"
-                value={formData.phone}
-                onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
-                maxLength={20}
+                id="secondary_email"
+                type="email"
+                value={formData.secondary_email}
+                onChange={(e) => setFormData(prev => ({ ...prev, secondary_email: e.target.value }))}
+                maxLength={255}
+                placeholder="secondary@company.com"
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="staff_id_number">Staff ID Number</Label>
+              <Input
+                id="staff_id_number"
+                value={formData.staff_id_number}
+                onChange={(e) => setFormData(prev => ({ ...prev, staff_id_number: e.target.value }))}
+                maxLength={50}
+                placeholder="National ID, Passport, etc."
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label>Residential Address</Label>
+              <Input
+                value={formData.address}
+                onChange={(e) => setFormData(prev => ({ ...prev, address: e.target.value }))}
+                placeholder="Street address"
+                maxLength={255}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Input
+                  value={formData.city}
+                  onChange={(e) => setFormData(prev => ({ ...prev, city: e.target.value }))}
+                  placeholder="City"
+                  maxLength={100}
+                />
+              </div>
+              <div className="space-y-2">
+                <Input
+                  value={formData.state}
+                  onChange={(e) => setFormData(prev => ({ ...prev, state: e.target.value }))}
+                  placeholder="State/Province"
+                  maxLength={100}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Input
+                  value={formData.postal_code}
+                  onChange={(e) => setFormData(prev => ({ ...prev, postal_code: e.target.value }))}
+                  placeholder="Postal code"
+                  maxLength={20}
+                />
+              </div>
+              <div className="space-y-2">
+                <Input
+                  value={formData.country}
+                  onChange={(e) => setFormData(prev => ({ ...prev, country: e.target.value }))}
+                  placeholder="Country"
+                  maxLength={100}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Emergency Contact Information</Label>
+              <Input
+                value={formData.emergency_contact_name}
+                onChange={(e) => setFormData(prev => ({ ...prev, emergency_contact_name: e.target.value }))}
+                placeholder="Emergency contact name"
+                maxLength={255}
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Input
+                  value={formData.emergency_contact_phone}
+                  onChange={(e) => setFormData(prev => ({ ...prev, emergency_contact_phone: e.target.value }))}
+                  type="tel"
+                  placeholder="Emergency contact phone"
+                  maxLength={20}
+                />
+              </div>
+              <div className="space-y-2">
+                <Input
+                  value={formData.emergency_contact_relationship}
+                  onChange={(e) => setFormData(prev => ({ ...prev, emergency_contact_relationship: e.target.value }))}
+                  placeholder="Relationship (e.g., Spouse, Parent)"
+                  maxLength={50}
+                />
+              </div>
             </div>
 
             <div className="grid grid-cols-2 gap-4">

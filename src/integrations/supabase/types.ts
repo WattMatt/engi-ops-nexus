@@ -815,6 +815,9 @@ export type Database = {
           photo_url: string | null
           position_id: string | null
           postal_code: string | null
+          secondary_email: string | null
+          secondary_phone: string | null
+          staff_id_number: string | null
           state: string | null
           updated_at: string
           user_id: string | null
@@ -841,6 +844,9 @@ export type Database = {
           photo_url?: string | null
           position_id?: string | null
           postal_code?: string | null
+          secondary_email?: string | null
+          secondary_phone?: string | null
+          staff_id_number?: string | null
           state?: string | null
           updated_at?: string
           user_id?: string | null
@@ -867,6 +873,9 @@ export type Database = {
           photo_url?: string | null
           position_id?: string | null
           postal_code?: string | null
+          secondary_email?: string | null
+          secondary_phone?: string | null
+          staff_id_number?: string | null
           state?: string | null
           updated_at?: string
           user_id?: string | null
