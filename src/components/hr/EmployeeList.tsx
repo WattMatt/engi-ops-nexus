@@ -18,7 +18,7 @@ export function EmployeeList() {
         .from("employees")
         .select(`
           *,
-          departments (name),
+          departments!employees_department_id_fkey (name),
           positions (title)
         `)
         .order("created_at", { ascending: false });
