@@ -68,20 +68,30 @@ const ProjectSelect = () => {
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-bold text-foreground mb-2">
-              {isAdminRoute ? "Select Project or Manage Organization" : "Select a Project"}
+              {isAdminRoute ? "Admin Portal" : "Select a Project"}
             </h1>
             <p className="text-muted-foreground">
               {isAdminRoute 
-                ? "Choose a project to work on or manage organization-wide settings" 
+                ? "Manage organization-wide settings or select a project" 
                 : "Choose a project to access its modules and data"}
             </p>
           </div>
           <div className="flex gap-3">
+            {!isAdminRoute && (
+              <Button variant="outline" onClick={() => navigate("/admin/projects")}>
+                <Settings className="h-4 w-4 mr-2" />
+                Admin Portal
+              </Button>
+            )}
             {isAdminRoute && (
               <>
                 <Button variant="outline" onClick={() => navigate("/admin/staff")}>
                   <Users className="h-4 w-4 mr-2" />
-                  Staff
+                  Staff Management
+                </Button>
+                <Button variant="outline" onClick={() => navigate("/admin/users")}>
+                  <Users className="h-4 w-4 mr-2" />
+                  User Management
                 </Button>
                 <Button variant="outline" onClick={() => navigate("/admin/settings")}>
                   <Settings className="h-4 w-4 mr-2" />

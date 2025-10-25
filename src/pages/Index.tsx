@@ -32,13 +32,21 @@ const Index = () => {
               <p className="text-sm text-white/80">Engineering Excellence</p>
             </div>
           </div>
-          <Button 
-            variant="secondary" 
-            onClick={() => navigate("/auth")}
-            className="bg-white text-primary hover:bg-white/90"
-          >
-            Login
-          </Button>
+          <div className="flex gap-3">
+            <Button 
+              variant="outline" 
+              onClick={() => navigate("/auth")}
+              className="bg-white/10 text-white border-white/20 hover:bg-white/20"
+            >
+              Login
+            </Button>
+            <Button 
+              onClick={() => navigate("/admin/projects")}
+              className="bg-white text-primary hover:bg-white/90"
+            >
+              Admin Portal
+            </Button>
+          </div>
         </div>
 
         {/* Hero Section */}
