@@ -1,4 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Table,
@@ -9,8 +10,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Pencil } from "lucide-react";
+import { EditEmployeeDialog } from "./EditEmployeeDialog";
 
 export function EmployeeList() {
+  const queryClient = useQueryClient();
+  const [editingEmployee, setEditingEmployee] = useState<any>(null);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  
   const { data: employees = [], isLoading, error } = useQuery({
     queryKey: ["employees"],
     queryFn: async () => {
@@ -30,6 +38,15 @@ export function EmployeeList() {
       return data || [];
     },
   });
+
+  const handleEdit = (employee: any) => {
+    setEditingEmployee(employee);
+    setEditDialogOpen(true);
+  };
+
+  const handleEditSuccess = () => {
+    queryClient.invalidateQueries({ queryKey: ["employees"] });
+  };
 
   if (error) {
     return (
@@ -52,7 +69,8 @@ export function EmployeeList() {
   }
 
   return (
-    <Table>
+    <>
+      <Table>
       <TableHeader>
         <TableRow>
           <TableHead>Employee #</TableHead>
@@ -62,6 +80,7 @@ export function EmployeeList() {
           <TableHead>Position</TableHead>
           <TableHead>Status</TableHead>
           <TableHead>Hire Date</TableHead>
+          <TableHead className="text-right">Actions</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -88,9 +107,28 @@ export function EmployeeList() {
               </Badge>
             </TableCell>
             <TableCell>{new Date(employee.hire_date).toLocaleDateString()}</TableCell>
+            <TableCell className="text-right">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => handleEdit(employee)}
+              >
+                <Pencil className="h-4 w-4" />
+              </Button>
+            </TableCell>
           </TableRow>
         ))}
       </TableBody>
     </Table>
+
+    {editingEmployee && (
+      <EditEmployeeDialog
+        employee={editingEmployee}
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        onSuccess={handleEditSuccess}
+      />
+    )}
+    </>
   );
 }
