@@ -75,59 +75,80 @@ export function ImportExcelDialog({ open, onOpenChange, onSuccess }: ImportExcel
 
       const excelData = await parseExcelData(file) as any[];
       
+      console.log('=== EXCEL IMPORT DEBUG ===');
       console.log('Total rows parsed:', excelData.length);
-      console.log('Sample rows:', excelData.slice(0, 5));
+      console.log('First 3 rows:', JSON.stringify(excelData.slice(0, 3), null, 2));
+      console.log('Column headers from row 1:', Object.keys(excelData[0] || {}));
+      console.log('Sample data row:', excelData[1]);
       
-      // Handle column name variations (case-insensitive matching)
+      // Handle column name variations (case-insensitive matching, handle colons)
       const getColumnValue = (row: any, possibleNames: string[]) => {
         // First try direct key match
         for (const name of possibleNames) {
-          const key = Object.keys(row).find(k => 
-            k.toLowerCase().trim() === name.toLowerCase().trim()
-          );
-          if (key && row[key]) return row[key];
+          const key = Object.keys(row).find(k => {
+            const cleanKey = k.toLowerCase().trim().replace(/:/g, '');
+            const cleanName = name.toLowerCase().trim().replace(/:/g, '');
+            return cleanKey === cleanName;
+          });
+          if (key && row[key] !== undefined && row[key] !== '') return row[key];
         }
-        // Try partial match for keys like "AGREED FEE:" 
+        // Try partial match for first word
         for (const name of possibleNames) {
+          const firstWord = name.toLowerCase().split(' ')[0];
           const key = Object.keys(row).find(k => 
-            k.toLowerCase().includes(name.toLowerCase().split(' ')[0])
+            k.toLowerCase().replace(/:/g, '').includes(firstWord)
           );
-          if (key && row[key]) return row[key];
+          if (key && row[key] !== undefined && row[key] !== '') return row[key];
         }
         return null;
       };
 
       const projectsToImport = excelData.map((row: any, index: number) => {
         // Get project name - try various columns, including unnamed first column
-        const firstColumnKey = Object.keys(row)[0]; // Often the unnamed column with project names
+        const allKeys = Object.keys(row);
+        const firstColumnKey = allKeys[0]; // Often the unnamed column with project names
+        
+        // Try to find project name in various ways
         const projectNameRaw = getColumnValue(row, ['NAME', 'Project', 'PROJECT', 'Project Name', 'PROJECT NAME']) || 
                                row[firstColumnKey] ||
-                               row['__EMPTY']; // XLSX sometimes uses __EMPTY for unnamed columns
+                               row['__EMPTY'] || // XLSX sometimes uses __EMPTY for unnamed columns
+                               row['__EMPTY_1']; // Or numbered empty columns
         const projectName = projectNameRaw ? String(projectNameRaw).trim() : '';
         
-        console.log(`Row ${index}: Project="${projectName}", First col key="${firstColumnKey}", Value="${row[firstColumnKey]}"`);
-
-        // Get agreed fee - handle various formats
-        const agreedFeeValue = getColumnValue(row, ['AGREED FEE', 'Agreed Fee', 'AGREED_FEE', 'Fee']);
+        if (index < 5) {
+          console.log(`Row ${index}:`, {
+            projectName,
+            firstColumnKey,
+            firstColumnValue: row[firstColumnKey],
+            allKeys: allKeys.slice(0, 5),
+            rawRow: row
+          });
+        }
+        // Get agreed fee - handle various formats including "AGREED FEE:"
+        const agreedFeeValue = getColumnValue(row, ['AGREED FEE', 'Agreed Fee', 'AGREED_FEE', 'AGREED FEE:', 'Fee']);
         let agreedFee = 0;
         if (agreedFeeValue) {
           const cleanValue = String(agreedFeeValue).replace(/[R,\s]/g, '');
           agreedFee = parseFloat(cleanValue) || 0;
         }
 
-        // Get invoiced to date (previous billing)
-        const invoicedValue = getColumnValue(row, ['INVOICED TO DATE', 'Previous Billing', 'PREVIOUS BILLING', 'Invoiced']);
+        // Get invoiced to date
+        const invoicedValue = getColumnValue(row, ['INVOICED TO DATE', 'INVOICED TO DATE:', 'Previous Billing', 'PREVIOUS BILLING', 'Invoiced']);
         let invoicedToDate = 0;
         if (invoicedValue) {
           const cleanValue = String(invoicedValue).replace(/[R,\s]/g, '');
           invoicedToDate = parseFloat(cleanValue) || 0;
         }
 
-        // Client name - use project name if not provided
+        // Client name
         const clientNameRaw = getColumnValue(row, ['Client', 'CLIENT', 'Client Name', 'CLIENT NAME']);
         const clientName = clientNameRaw 
           ? String(clientNameRaw).trim()
           : (projectName.includes('-') ? projectName.split('-')[0].trim() : projectName || 'Unknown Client');
+
+        if (index < 3) {
+          console.log(`Row ${index} values:`, { projectName, agreedFee, invoicedToDate, clientName });
+        }
 
         return {
           project_name: projectName,
