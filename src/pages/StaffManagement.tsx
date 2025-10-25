@@ -2,9 +2,10 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { Users, UserPlus, Calendar, DollarSign, Award, FileText, Gift, Building } from "lucide-react";
+import { Users, Calendar, DollarSign, Award, FileText, Gift, Building } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { AddEmployeeDialog } from "@/components/hr/AddEmployeeDialog";
+import { EmployeeList } from "@/components/hr/EmployeeList";
 
 const StaffManagement = () => {
   const [stats, setStats] = useState({
@@ -46,10 +47,7 @@ const StaffManagement = () => {
           <h1 className="text-3xl font-bold">HR Management Portal</h1>
           <p className="text-muted-foreground">Manage your workforce and HR operations</p>
         </div>
-        <Button>
-          <UserPlus className="mr-2 h-4 w-4" />
-          Add Employee
-        </Button>
+        <AddEmployeeDialog onSuccess={loadStats} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -137,7 +135,7 @@ const StaffManagement = () => {
               <CardDescription>View and manage all employees</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">Employee list will be displayed here</p>
+              <EmployeeList />
             </CardContent>
           </Card>
         </TabsContent>
