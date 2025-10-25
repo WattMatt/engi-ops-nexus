@@ -116,7 +116,9 @@ export function AddEmployeeDialog({ onSuccess }: AddEmployeeDialogProps) {
     setLoading(true);
     setError(null);
 
-    const formData = new FormData(e.currentTarget);
+    // Capture form element before async operations
+    const form = e.currentTarget;
+    const formData = new FormData(form);
     
     const rawData = {
       employee_number: formData.get("employee_number") as string,
@@ -227,7 +229,7 @@ export function AddEmployeeDialog({ onSuccess }: AddEmployeeDialogProps) {
       });
 
       // Reset form and close dialog
-      e.currentTarget.reset();
+      form.reset();
       setCreateAuthAccount(false);
       setError(null);
       setOpen(false);
