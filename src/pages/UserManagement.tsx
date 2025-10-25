@@ -2,13 +2,17 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, UserPlus, Mail, Shield } from "lucide-react";
+import { Users, Mail, Shield, User } from "lucide-react";
 import { toast } from "sonner";
+import { InviteUserDialog } from "@/components/users/InviteUserDialog";
+import { ManageUserDialog } from "@/components/users/ManageUserDialog";
+import { Badge } from "@/components/ui/badge";
 
 interface UserProfile {
   id: string;
   full_name: string;
   email: string;
+  role?: string;
 }
 
 const UserManagement = () => {
@@ -23,7 +27,7 @@ const UserManagement = () => {
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("id, full_name, email")
+        .select("id, full_name, email, role")
         .order("full_name");
 
       if (error) throw error;
@@ -53,10 +57,7 @@ const UserManagement = () => {
             Manage team members, roles, and permissions
           </p>
         </div>
-        <Button>
-          <UserPlus className="h-4 w-4 mr-2" />
-          Invite User
-        </Button>
+        <InviteUserDialog onInvited={loadUsers} />
       </div>
 
       <Card>
@@ -82,19 +83,30 @@ const UserManagement = () => {
               >
                 <div className="flex items-center gap-4">
                   <div className="p-2 rounded-full bg-primary/10">
-                    <Shield className="h-5 w-5 text-primary" />
+                    {user.role === 'admin' ? (
+                      <Shield className="h-5 w-5 text-primary" />
+                    ) : (
+                      <User className="h-5 w-5 text-primary" />
+                    )}
                   </div>
                   <div>
-                    <p className="font-medium">{user.full_name}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-medium">{user.full_name}</p>
+                      <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
+                        {user.role || 'user'}
+                      </Badge>
+                    </div>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground">
                       <Mail className="h-3 w-3" />
                       {user.email}
                     </div>
                   </div>
                 </div>
-                <Button variant="outline" size="sm">
-                  Manage
-                </Button>
+                <ManageUserDialog user={user} onUpdated={loadUsers}>
+                  <Button variant="outline" size="sm">
+                    Manage
+                  </Button>
+                </ManageUserDialog>
               </div>
             ))}
           </div>
