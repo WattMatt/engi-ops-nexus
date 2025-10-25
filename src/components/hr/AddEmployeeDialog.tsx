@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -23,6 +23,33 @@ import {
 } from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { z } from "zod";
+
+const employeeSchema = z.object({
+  employee_number: z.string()
+    .min(1, "Employee number is required")
+    .max(20, "Employee number must be less than 20 characters")
+    .regex(/^[A-Z0-9]+$/, "Employee number must contain only uppercase letters and numbers"),
+  first_name: z.string()
+    .trim()
+    .min(1, "First name is required")
+    .max(100, "First name must be less than 100 characters"),
+  last_name: z.string()
+    .trim()
+    .min(1, "Last name is required")
+    .max(100, "Last name must be less than 100 characters"),
+  email: z.string()
+    .email("Invalid email address")
+    .max(255, "Email must be less than 255 characters"),
+  phone: z.string()
+    .max(20, "Phone number must be less than 20 characters")
+    .optional(),
+  hire_date: z.string().min(1, "Hire date is required"),
+  password: z.string()
+    .min(8, "Password must be at least 8 characters")
+    .optional(),
+});
 
 interface AddEmployeeDialogProps {
   onSuccess?: () => void;
@@ -33,6 +60,7 @@ export function AddEmployeeDialog({ onSuccess }: AddEmployeeDialogProps) {
   const [loading, setLoading] = useState(false);
   const [createAuthAccount, setCreateAuthAccount] = useState(false);
   const [nextEmployeeNumber, setNextEmployeeNumber] = useState("");
+  const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
   const { data: departments = [] } = useQuery({
@@ -86,34 +114,70 @@ export function AddEmployeeDialog({ onSuccess }: AddEmployeeDialogProps) {
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
+    setError(null);
 
     const formData = new FormData(e.currentTarget);
-    const email = formData.get("email") as string;
+    
+    const rawData = {
+      employee_number: formData.get("employee_number") as string,
+      first_name: formData.get("first_name") as string,
+      last_name: formData.get("last_name") as string,
+      email: formData.get("email") as string,
+      phone: formData.get("phone") as string,
+      hire_date: formData.get("hire_date") as string,
+      password: formData.get("password") as string,
+    };
 
     try {
+      // Validate input
+      const validated = employeeSchema.parse({
+        ...rawData,
+        phone: rawData.phone || undefined,
+        password: createAuthAccount ? rawData.password : undefined,
+      });
+
+      // Check if employee number already exists
+      const { data: existingEmployee } = await supabase
+        .from("employees")
+        .select("employee_number")
+        .eq("employee_number", validated.employee_number)
+        .maybeSingle();
+
+      if (existingEmployee) {
+        throw new Error("This employee number is already in use. Please use a different number.");
+      }
+
+      // Check if email already exists in employees
+      const { data: existingEmail } = await supabase
+        .from("employees")
+        .select("email")
+        .eq("email", validated.email)
+        .maybeSingle();
+
+      if (existingEmail) {
+        throw new Error("This email is already registered in the system.");
+      }
+
       let userId: string | null = null;
 
       // Only create auth account if checkbox is checked
       if (createAuthAccount) {
-        const password = formData.get("password") as string;
-        
-        if (!password) {
-          throw new Error("Password is required when creating an auth account");
+        if (!validated.password) {
+          throw new Error("Password is required when creating a login account");
         }
 
         const { data: authData, error: authError } = await supabase.auth.signUp({
-          email,
-          password,
+          email: validated.email,
+          password: validated.password,
           options: {
             data: {
-              full_name: `${formData.get("first_name")} ${formData.get("last_name")}`,
+              full_name: `${validated.first_name} ${validated.last_name}`,
             },
             emailRedirectTo: `${window.location.origin}/`,
           },
         });
 
         if (authError) {
-          // Handle user already exists more gracefully
           if (authError.message.includes("already registered")) {
             throw new Error("This email is already registered. Uncheck 'Create Login Account' to add as employee only.");
           }
@@ -129,12 +193,12 @@ export function AddEmployeeDialog({ onSuccess }: AddEmployeeDialogProps) {
 
       // Create employee record
       const employeeData: any = {
-        employee_number: formData.get("employee_number") as string,
-        first_name: formData.get("first_name") as string,
-        last_name: formData.get("last_name") as string,
-        email,
-        phone: formData.get("phone") as string || null,
-        hire_date: formData.get("hire_date") as string,
+        employee_number: validated.employee_number,
+        first_name: validated.first_name,
+        last_name: validated.last_name,
+        email: validated.email,
+        phone: validated.phone || null,
+        hire_date: validated.hire_date,
         department_id: formData.get("department_id") || null,
         position_id: formData.get("position_id") || null,
         employment_status: "active",
@@ -149,7 +213,11 @@ export function AddEmployeeDialog({ onSuccess }: AddEmployeeDialogProps) {
         .from("employees")
         .insert(employeeData);
 
-      if (employeeError) throw employeeError;
+      if (employeeError) {
+        // If employee creation fails and we created an auth user, we should ideally delete the auth user
+        // but that requires admin privileges, so we just show the error
+        throw employeeError;
+      }
 
       toast({
         title: "Success",
@@ -158,21 +226,28 @@ export function AddEmployeeDialog({ onSuccess }: AddEmployeeDialogProps) {
           : "Employee added successfully (no login access)",
       });
 
-      // Reset form before closing dialog
+      // Reset form and close dialog
       e.currentTarget.reset();
       setCreateAuthAccount(false);
+      setError(null);
       setOpen(false);
       onSuccess?.();
     } catch (error: any) {
       let errorMessage = error.message;
       
-      // Better error messages
-      if (errorMessage.includes("employee_number")) {
-        errorMessage = "This employee number is already in use. Please use a different number.";
-      } else if (errorMessage.includes("email")) {
-        errorMessage = "This email is already registered in the system.";
+      // Handle specific error cases
+      if (error instanceof z.ZodError) {
+        errorMessage = error.errors[0].message;
+      } else if (errorMessage.includes("23505")) {
+        // PostgreSQL unique violation error code
+        if (errorMessage.includes("employee_number")) {
+          errorMessage = "This employee number is already in use. Please use a different number.";
+        } else if (errorMessage.includes("email")) {
+          errorMessage = "This email is already registered in the system.";
+        }
       }
       
+      setError(errorMessage);
       toast({
         title: "Error",
         description: errorMessage,
@@ -186,6 +261,7 @@ export function AddEmployeeDialog({ onSuccess }: AddEmployeeDialogProps) {
   return (
     <Dialog open={open} onOpenChange={(isOpen) => {
       setOpen(isOpen);
+      setError(null);
       if (isOpen) {
         loadNextEmployeeNumber();
       }
@@ -204,6 +280,11 @@ export function AddEmployeeDialog({ onSuccess }: AddEmployeeDialogProps) {
           </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
+          {error && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -212,6 +293,7 @@ export function AddEmployeeDialog({ onSuccess }: AddEmployeeDialogProps) {
                   id="employee_number"
                   name="employee_number"
                   required
+                  maxLength={20}
                   defaultValue={nextEmployeeNumber}
                   placeholder="EM001"
                 />
@@ -234,6 +316,7 @@ export function AddEmployeeDialog({ onSuccess }: AddEmployeeDialogProps) {
                   id="first_name"
                   name="first_name"
                   required
+                  maxLength={100}
                   placeholder="John"
                 />
               </div>
@@ -243,6 +326,7 @@ export function AddEmployeeDialog({ onSuccess }: AddEmployeeDialogProps) {
                   id="last_name"
                   name="last_name"
                   required
+                  maxLength={100}
                   placeholder="Doe"
                 />
               </div>
@@ -255,6 +339,7 @@ export function AddEmployeeDialog({ onSuccess }: AddEmployeeDialogProps) {
                 name="email"
                 type="email"
                 required
+                maxLength={255}
                 placeholder="john.doe@company.com"
               />
             </div>
@@ -282,8 +367,9 @@ export function AddEmployeeDialog({ onSuccess }: AddEmployeeDialogProps) {
                   id="password"
                   name="password"
                   type="password"
+                  minLength={8}
                   required={createAuthAccount}
-                  placeholder="••••••••"
+                  placeholder="Min. 8 characters"
                 />
               </div>
             )}
@@ -293,6 +379,8 @@ export function AddEmployeeDialog({ onSuccess }: AddEmployeeDialogProps) {
               <Input
                 id="phone"
                 name="phone"
+                type="tel"
+                maxLength={20}
                 placeholder="+1 234 567 8900"
               />
             </div>
