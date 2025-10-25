@@ -11,7 +11,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 
 export function EmployeeList() {
-  const { data: employees = [], isLoading } = useQuery({
+  const { data: employees = [], isLoading, error } = useQuery({
     queryKey: ["employees"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -22,10 +22,22 @@ export function EmployeeList() {
           positions (title)
         `)
         .order("created_at", { ascending: false });
-      if (error) throw error;
-      return data;
+      
+      if (error) {
+        console.error("Error loading employees:", error);
+        throw error;
+      }
+      return data || [];
     },
   });
+
+  if (error) {
+    return (
+      <div className="text-center py-8 text-destructive">
+        Error loading employees: {error.message}
+      </div>
+    );
+  }
 
   if (isLoading) {
     return <div className="text-center py-8 text-muted-foreground">Loading...</div>;
