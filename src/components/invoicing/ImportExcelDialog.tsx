@@ -39,7 +39,15 @@ export function ImportExcelDialog({ open, onOpenChange, onSuccess }: ImportExcel
           const workbook = XLSX.read(data, { type: "binary" });
           const sheetName = workbook.SheetNames[0];
           const worksheet = workbook.Sheets[sheetName];
-          const jsonData = XLSX.utils.sheet_to_json(worksheet);
+          
+          // Parse with header row detection - skip initial rows
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { 
+            defval: "",
+            raw: false // Get formatted values
+          });
+          
+          console.log('Raw Excel data:', jsonData.slice(0, 3));
+          console.log('First row keys:', Object.keys(jsonData[0] || {}));
           resolve(jsonData);
         } catch (error) {
           reject(error);
@@ -67,23 +75,38 @@ export function ImportExcelDialog({ open, onOpenChange, onSuccess }: ImportExcel
 
       const excelData = await parseExcelData(file) as any[];
       
+      console.log('Total rows parsed:', excelData.length);
+      console.log('Sample rows:', excelData.slice(0, 5));
+      
       // Handle column name variations (case-insensitive matching)
       const getColumnValue = (row: any, possibleNames: string[]) => {
+        // First try direct key match
         for (const name of possibleNames) {
           const key = Object.keys(row).find(k => 
             k.toLowerCase().trim() === name.toLowerCase().trim()
           );
           if (key && row[key]) return row[key];
         }
+        // Try partial match for keys like "AGREED FEE:" 
+        for (const name of possibleNames) {
+          const key = Object.keys(row).find(k => 
+            k.toLowerCase().includes(name.toLowerCase().split(' ')[0])
+          );
+          if (key && row[key]) return row[key];
+        }
         return null;
       };
 
-      const projectsToImport = excelData.map((row: any) => {
-        // Get project name from various possible column names
+      const projectsToImport = excelData.map((row: any, index: number) => {
+        // Get project name - try various columns, including unnamed first column
+        const firstColumnKey = Object.keys(row)[0]; // Often the unnamed column with project names
         const projectNameRaw = getColumnValue(row, ['NAME', 'Project', 'PROJECT', 'Project Name', 'PROJECT NAME']) || 
-                               row[Object.keys(row)[0]]; // Fallback to first column
+                               row[firstColumnKey] ||
+                               row['__EMPTY']; // XLSX sometimes uses __EMPTY for unnamed columns
         const projectName = projectNameRaw ? String(projectNameRaw).trim() : '';
         
+        console.log(`Row ${index}: Project="${projectName}", First col key="${firstColumnKey}", Value="${row[firstColumnKey]}"`);
+
         // Get agreed fee - handle various formats
         const agreedFeeValue = getColumnValue(row, ['AGREED FEE', 'Agreed Fee', 'AGREED_FEE', 'Fee']);
         let agreedFee = 0;
