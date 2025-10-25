@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Folder, LogOut } from "lucide-react";
+import { Folder, LogOut, Users, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/useUserRole";
 import { CreateProjectDialog } from "@/components/CreateProjectDialog";
@@ -18,9 +18,11 @@ interface Project {
 
 const ProjectSelect = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const { isAdmin, loading: roleLoading } = useUserRole();
+  const isAdminRoute = location.pathname.startsWith('/admin');
 
   useEffect(() => {
     loadProjects();
@@ -65,10 +67,28 @@ const ProjectSelect = () => {
       <div className="max-w-6xl mx-auto">
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-foreground mb-2">Select a Project</h1>
-            <p className="text-muted-foreground">Choose a project to access its modules and data</p>
+            <h1 className="text-3xl font-bold text-foreground mb-2">
+              {isAdminRoute ? "Select Project or Manage Organization" : "Select a Project"}
+            </h1>
+            <p className="text-muted-foreground">
+              {isAdminRoute 
+                ? "Choose a project to work on or manage organization-wide settings" 
+                : "Choose a project to access its modules and data"}
+            </p>
           </div>
           <div className="flex gap-3">
+            {isAdminRoute && (
+              <>
+                <Button variant="outline" onClick={() => navigate("/admin/staff")}>
+                  <Users className="h-4 w-4 mr-2" />
+                  Staff
+                </Button>
+                <Button variant="outline" onClick={() => navigate("/admin/settings")}>
+                  <Settings className="h-4 w-4 mr-2" />
+                  Settings
+                </Button>
+              </>
+            )}
             {isAdmin && <CreateProjectDialog onProjectCreated={loadProjects} />}
             <Button variant="outline" onClick={handleLogout}>
               <LogOut className="h-4 w-4 mr-2" />

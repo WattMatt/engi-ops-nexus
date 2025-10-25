@@ -7,6 +7,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import ProjectSelect from "./pages/ProjectSelect";
 import DashboardLayout from "./pages/DashboardLayout";
+import AdminLayout from "./pages/AdminLayout";
 import SiteDiary from "./pages/SiteDiary";
 import Dashboard from "./pages/Dashboard";
 import FloorPlan from "./pages/FloorPlan";
@@ -36,6 +37,17 @@ const App = () => (
           <Route path="/" element={<Index />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/projects" element={<ProjectSelect />} />
+          
+          {/* Admin routes - no project required */}
+          <Route path="/admin" element={<AdminLayout />}>
+            <Route index element={<ProjectSelect />} />
+            <Route path="projects" element={<ProjectSelect />} />
+            <Route path="staff" element={<StaffManagement />} />
+            <Route path="users" element={<UserManagement />} />
+            <Route path="settings" element={<Settings />} />
+          </Route>
+
+          {/* Project-specific routes */}
           <Route path="/dashboard" element={<DashboardLayout />}>
             <Route index element={<Dashboard />} />
             <Route path="project-settings" element={<ProjectSettings />} />
@@ -49,9 +61,6 @@ const App = () => (
             <Route path="specifications/:specId" element={<SpecificationDetail />} />
             <Route path="cable-schedules" element={<CableSchedules />} />
             <Route path="cable-schedules/:scheduleId" element={<CableScheduleDetail />} />
-            <Route path="staff" element={<StaffManagement />} />
-            <Route path="settings" element={<Settings />} />
-            <Route path="users" element={<UserManagement />} />
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
