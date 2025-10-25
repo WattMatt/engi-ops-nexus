@@ -80,8 +80,9 @@ export function ImportExcelDialog({ open, onOpenChange, onSuccess }: ImportExcel
 
       const projectsToImport = excelData.map((row: any) => {
         // Get project name from various possible column names
-        const projectName = getColumnValue(row, ['NAME', 'Project', 'PROJECT', 'Project Name', 'PROJECT NAME']) || 
-                           row[Object.keys(row)[0]]; // Fallback to first column
+        const projectNameRaw = getColumnValue(row, ['NAME', 'Project', 'PROJECT', 'Project Name', 'PROJECT NAME']) || 
+                               row[Object.keys(row)[0]]; // Fallback to first column
+        const projectName = projectNameRaw ? String(projectNameRaw).trim() : '';
         
         // Get agreed fee
         const agreedFeeValue = getColumnValue(row, ['AGREED FEE', 'Agreed Fee', 'AGREED_FEE', 'Fee']);
@@ -96,9 +97,10 @@ export function ImportExcelDialog({ open, onOpenChange, onSuccess }: ImportExcel
           : parseFloat(invoicedValue || 0);
 
         // Client name - use project name if not provided
-        const clientName = getColumnValue(row, ['Client', 'CLIENT', 'Client Name', 'CLIENT NAME']) || 
-                          projectName?.split('-')[0]?.trim() || 
-                          'Unknown Client';
+        const clientNameRaw = getColumnValue(row, ['Client', 'CLIENT', 'Client Name', 'CLIENT NAME']);
+        const clientName = clientNameRaw 
+          ? String(clientNameRaw).trim()
+          : (projectName.includes('-') ? projectName.split('-')[0].trim() : projectName || 'Unknown Client');
 
         return {
           project_name: projectName,
