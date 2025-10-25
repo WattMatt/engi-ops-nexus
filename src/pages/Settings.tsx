@@ -1,4 +1,6 @@
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CompanySettings } from "@/components/settings/CompanySettings";
+import { InvoiceSettings } from "@/components/settings/InvoiceSettings";
 
 const Settings = () => {
   return (
@@ -10,7 +12,20 @@ const Settings = () => {
         </p>
       </div>
 
-      <CompanySettings />
+      <Tabs defaultValue="company" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="company">Company</TabsTrigger>
+          <TabsTrigger value="invoice">Invoice Settings</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="company">
+          <CompanySettings />
+        </TabsContent>
+
+        <TabsContent value="invoice">
+          <InvoiceSettings />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

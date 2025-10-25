@@ -1028,6 +1028,176 @@ export type Database = {
           },
         ]
       }
+      invoice_projects: {
+        Row: {
+          agreed_fee: number
+          client_address: string | null
+          client_name: string
+          client_vat_number: string | null
+          created_at: string | null
+          created_by: string
+          id: string
+          outstanding_amount: number
+          project_name: string
+          status: string | null
+          total_invoiced: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          agreed_fee: number
+          client_address?: string | null
+          client_name: string
+          client_vat_number?: string | null
+          created_at?: string | null
+          created_by: string
+          id?: string
+          outstanding_amount: number
+          project_name: string
+          status?: string | null
+          total_invoiced?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          agreed_fee?: number
+          client_address?: string | null
+          client_name?: string
+          client_vat_number?: string | null
+          created_at?: string | null
+          created_by?: string
+          id?: string
+          outstanding_amount?: number
+          project_name?: string
+          status?: string | null
+          total_invoiced?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      invoice_settings: {
+        Row: {
+          address_line1: string | null
+          address_line2: string | null
+          bank_account_name: string | null
+          bank_account_no: string | null
+          bank_branch: string | null
+          bank_branch_code: string | null
+          bank_name: string | null
+          cell: string | null
+          company_name: string
+          company_reg_no: string | null
+          created_at: string | null
+          email: string | null
+          id: string
+          logo_url: string | null
+          phone: string | null
+          postal_address: string | null
+          updated_at: string | null
+          vat_number: string | null
+        }
+        Insert: {
+          address_line1?: string | null
+          address_line2?: string | null
+          bank_account_name?: string | null
+          bank_account_no?: string | null
+          bank_branch?: string | null
+          bank_branch_code?: string | null
+          bank_name?: string | null
+          cell?: string | null
+          company_name?: string
+          company_reg_no?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          logo_url?: string | null
+          phone?: string | null
+          postal_address?: string | null
+          updated_at?: string | null
+          vat_number?: string | null
+        }
+        Update: {
+          address_line1?: string | null
+          address_line2?: string | null
+          bank_account_name?: string | null
+          bank_account_no?: string | null
+          bank_branch?: string | null
+          bank_branch_code?: string | null
+          bank_name?: string | null
+          cell?: string | null
+          company_name?: string
+          company_reg_no?: string | null
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          logo_url?: string | null
+          phone?: string | null
+          postal_address?: string | null
+          updated_at?: string | null
+          vat_number?: string | null
+        }
+        Relationships: []
+      }
+      invoices: {
+        Row: {
+          claim_number: number
+          created_at: string | null
+          created_by: string
+          current_amount: number
+          id: string
+          invoice_date: string
+          invoice_number: string
+          notes: string | null
+          payment_date: string | null
+          payment_status: string | null
+          previously_invoiced: number | null
+          project_id: string
+          total_amount: number
+          updated_at: string | null
+          vat_amount: number
+        }
+        Insert: {
+          claim_number: number
+          created_at?: string | null
+          created_by: string
+          current_amount: number
+          id?: string
+          invoice_date: string
+          invoice_number: string
+          notes?: string | null
+          payment_date?: string | null
+          payment_status?: string | null
+          previously_invoiced?: number | null
+          project_id: string
+          total_amount: number
+          updated_at?: string | null
+          vat_amount: number
+        }
+        Update: {
+          claim_number?: number
+          created_at?: string | null
+          created_by?: string
+          current_amount?: number
+          id?: string
+          invoice_date?: string
+          invoice_number?: string
+          notes?: string | null
+          payment_date?: string | null
+          payment_status?: string | null
+          previously_invoiced?: number | null
+          project_id?: string
+          total_amount?: number
+          updated_at?: string | null
+          vat_amount?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoices_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       leave_balances: {
         Row: {
           created_at: string
@@ -1181,6 +1351,48 @@ export type Database = {
           requires_approval?: boolean | null
         }
         Relationships: []
+      }
+      monthly_payments: {
+        Row: {
+          amount: number
+          created_at: string | null
+          id: string
+          invoice_id: string | null
+          payment_month: string
+          project_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          id?: string
+          invoice_id?: string | null
+          payment_month: string
+          project_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          id?: string
+          invoice_id?: string | null
+          payment_month?: string
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monthly_payments_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monthly_payments_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       onboarding_progress: {
         Row: {
