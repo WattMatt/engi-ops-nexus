@@ -1,6 +1,8 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import {
   Table,
@@ -10,9 +12,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Award, Target } from "lucide-react";
+import { Award, Plus } from "lucide-react";
+import { AddPerformanceGoalDialog } from "./AddPerformanceGoalDialog";
 
 export function PerformanceManager() {
+  const [goalDialogOpen, setGoalDialogOpen] = useState(false);
+  const queryClient = useQueryClient();
   const { data: performanceGoals = [], isLoading } = useQuery({
     queryKey: ["performance-goals"],
     queryFn: async () => {
@@ -48,12 +53,18 @@ export function PerformanceManager() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h3 className="text-lg font-semibold flex items-center gap-2">
-          <Award className="h-5 w-5" />
-          Performance Goals
-        </h3>
-        <p className="text-sm text-muted-foreground">Track employee performance and objectives</p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            <Award className="h-5 w-5" />
+            Performance Goals
+          </h3>
+          <p className="text-sm text-muted-foreground">Track employee performance and objectives</p>
+        </div>
+        <Button onClick={() => setGoalDialogOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          Add Goal
+        </Button>
       </div>
 
       <Table>
@@ -108,6 +119,12 @@ export function PerformanceManager() {
           )}
         </TableBody>
       </Table>
+
+      <AddPerformanceGoalDialog
+        open={goalDialogOpen}
+        onOpenChange={setGoalDialogOpen}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: ["performance-goals"] })}
+      />
     </div>
   );
 }
