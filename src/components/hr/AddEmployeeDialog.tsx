@@ -127,9 +127,10 @@ export function AddEmployeeDialog({ onSuccess }: AddEmployeeDialogProps) {
           : "Employee added successfully (no login access)",
       });
 
-      setOpen(false);
+      // Reset form before closing dialog
       e.currentTarget.reset();
       setCreateAuthAccount(false);
+      setOpen(false);
       onSuccess?.();
     } catch (error: any) {
       toast({
