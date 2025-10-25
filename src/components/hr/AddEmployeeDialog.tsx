@@ -32,6 +32,7 @@ export function AddEmployeeDialog({ onSuccess }: AddEmployeeDialogProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [createAuthAccount, setCreateAuthAccount] = useState(false);
+  const [nextEmployeeNumber, setNextEmployeeNumber] = useState("");
   const { toast } = useToast();
 
   const { data: departments = [] } = useQuery({
@@ -51,6 +52,36 @@ export function AddEmployeeDialog({ onSuccess }: AddEmployeeDialogProps) {
       return data;
     },
   });
+
+  // Load next employee number when dialog opens
+  const loadNextEmployeeNumber = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("employees")
+        .select("employee_number")
+        .order("employee_number", { ascending: false })
+        .limit(1);
+      
+      if (error) throw error;
+      
+      if (data && data.length > 0) {
+        // Extract number from last employee number (e.g., "EM001" -> 1)
+        const lastNumber = data[0].employee_number;
+        const match = lastNumber.match(/\d+$/);
+        if (match) {
+          const nextNum = parseInt(match[0]) + 1;
+          setNextEmployeeNumber(`EM${String(nextNum).padStart(3, '0')}`);
+        } else {
+          setNextEmployeeNumber("EM001");
+        }
+      } else {
+        setNextEmployeeNumber("EM001");
+      }
+    } catch (error) {
+      console.error("Error loading employee number:", error);
+      setNextEmployeeNumber("EM001");
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -133,9 +164,18 @@ export function AddEmployeeDialog({ onSuccess }: AddEmployeeDialogProps) {
       setOpen(false);
       onSuccess?.();
     } catch (error: any) {
+      let errorMessage = error.message;
+      
+      // Better error messages
+      if (errorMessage.includes("employee_number")) {
+        errorMessage = "This employee number is already in use. Please use a different number.";
+      } else if (errorMessage.includes("email")) {
+        errorMessage = "This email is already registered in the system.";
+      }
+      
       toast({
         title: "Error",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -144,7 +184,12 @@ export function AddEmployeeDialog({ onSuccess }: AddEmployeeDialogProps) {
   };
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(isOpen) => {
+      setOpen(isOpen);
+      if (isOpen) {
+        loadNextEmployeeNumber();
+      }
+    }}>
       <DialogTrigger asChild>
         <Button>
           <UserPlus className="mr-2 h-4 w-4" />
@@ -167,7 +212,8 @@ export function AddEmployeeDialog({ onSuccess }: AddEmployeeDialogProps) {
                   id="employee_number"
                   name="employee_number"
                   required
-                  placeholder="EMP001"
+                  defaultValue={nextEmployeeNumber}
+                  placeholder="EM001"
                 />
               </div>
               <div className="space-y-2">
