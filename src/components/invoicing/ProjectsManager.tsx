@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Plus, FileText, Upload, Calendar } from "lucide-react";
+import { Plus, FileText, Upload, Calendar, Edit, Trash2 } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -16,14 +16,29 @@ import { CreateProjectDialog } from "./CreateProjectDialog";
 import { CreateInvoiceDialog } from "./CreateInvoiceDialog";
 import { ImportExcelDialog } from "./ImportExcelDialog";
 import { ProjectDetailsDialog } from "./ProjectDetailsDialog";
+import { EditProjectDialog } from "./EditProjectDialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
 
 export function ProjectsManager() {
   const [createProjectOpen, setCreateProjectOpen] = useState(false);
   const [createInvoiceOpen, setCreateInvoiceOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<any>(null);
   const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const { data: projects = [], isLoading } = useQuery({
     queryKey: ["invoice-projects"],
@@ -55,6 +70,27 @@ export function ProjectsManager() {
         {status.replace("_", " ").toUpperCase()}
       </Badge>
     );
+  };
+
+  const handleDelete = async () => {
+    try {
+      const { error } = await supabase
+        .from("invoice_projects")
+        .delete()
+        .eq("id", selectedProject.id);
+
+      if (error) throw error;
+
+      toast({ title: "Project deleted successfully" });
+      queryClient.invalidateQueries({ queryKey: ["invoice-projects"] });
+      setDeleteDialogOpen(false);
+    } catch (error: any) {
+      toast({
+        title: "Error deleting project",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -108,7 +144,17 @@ export function ProjectsManager() {
                   <TableCell>{formatCurrency(project.outstanding_amount)}</TableCell>
                   <TableCell>{getStatusBadge(project.status)}</TableCell>
                   <TableCell className="text-right">
-                    <div className="flex gap-2 justify-end">
+                    <div className="flex gap-1 justify-end">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedProject(project);
+                          setEditDialogOpen(true);
+                        }}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
                       <Button
                         variant="ghost"
                         size="sm"
@@ -117,8 +163,7 @@ export function ProjectsManager() {
                           setDetailsDialogOpen(true);
                         }}
                       >
-                        <Calendar className="h-4 w-4 mr-2" />
-                        Schedule
+                        <Calendar className="h-4 w-4" />
                       </Button>
                       <Button
                         variant="ghost"
@@ -128,8 +173,17 @@ export function ProjectsManager() {
                           setCreateInvoiceOpen(true);
                         }}
                       >
-                        <FileText className="h-4 w-4 mr-2" />
-                        Invoice
+                        <FileText className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedProject(project);
+                          setDeleteDialogOpen(true);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </div>
                   </TableCell>
@@ -165,12 +219,38 @@ export function ProjectsManager() {
       />
 
       {selectedProject && (
-        <ProjectDetailsDialog
-          project={selectedProject}
-          open={detailsDialogOpen}
-          onOpenChange={setDetailsDialogOpen}
-        />
+        <>
+          <ProjectDetailsDialog
+            project={selectedProject}
+            open={detailsDialogOpen}
+            onOpenChange={setDetailsDialogOpen}
+          />
+
+          <EditProjectDialog
+            project={selectedProject}
+            open={editDialogOpen}
+            onOpenChange={setEditDialogOpen}
+            onSuccess={() => queryClient.invalidateQueries({ queryKey: ["invoice-projects"] })}
+          />
+        </>
       )}
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Project</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{selectedProject?.project_name}"? This action cannot be undone and will also delete all associated invoices and payment schedules.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
