@@ -253,14 +253,13 @@ export function EditEmployeeDialog({ employee, open, onOpenChange, onSuccess }: 
               <div className="space-y-2">
                 <Label htmlFor="department_id">Department</Label>
                 <Select 
-                  value={formData.department_id} 
+                  value={formData.department_id || undefined} 
                   onValueChange={(value) => setFormData(prev => ({ ...prev, department_id: value }))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select department" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
                     {departments.map((dept: any) => (
                       <SelectItem key={dept.id} value={dept.id}>
                         {dept.name}
@@ -272,14 +271,13 @@ export function EditEmployeeDialog({ employee, open, onOpenChange, onSuccess }: 
               <div className="space-y-2">
                 <Label htmlFor="position_id">Position</Label>
                 <Select 
-                  value={formData.position_id} 
+                  value={formData.position_id || undefined} 
                   onValueChange={(value) => setFormData(prev => ({ ...prev, position_id: value }))}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Select position" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
                     {positions.map((pos: any) => (
                       <SelectItem key={pos.id} value={pos.id}>
                         {pos.title}
