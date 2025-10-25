@@ -19,13 +19,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Check, X, Eye } from "lucide-react";
+import { Check, X, Eye, Plus } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { AddLeaveRequestDialog } from "./AddLeaveRequestDialog";
 
 export function LeaveManager() {
   const [selectedLeave, setSelectedLeave] = useState<any>(null);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [reviewNotes, setReviewNotes] = useState("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
@@ -107,9 +109,15 @@ export function LeaveManager() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h3 className="text-lg font-semibold">Leave Requests</h3>
-        <p className="text-sm text-muted-foreground">Review and manage employee leave requests</p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h3 className="text-lg font-semibold">Leave Requests</h3>
+          <p className="text-sm text-muted-foreground">Review and manage employee leave requests</p>
+        </div>
+        <Button onClick={() => setAddDialogOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          Add Leave Request
+        </Button>
       </div>
 
       <Table>
@@ -239,6 +247,12 @@ export function LeaveManager() {
           )}
         </DialogContent>
       </Dialog>
+
+      <AddLeaveRequestDialog
+        open={addDialogOpen}
+        onOpenChange={setAddDialogOpen}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: ["leave-requests"] })}
+      />
     </div>
   );
 }
