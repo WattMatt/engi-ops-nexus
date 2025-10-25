@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,7 +21,7 @@ export function CompanySettings() {
         .from("company_settings")
         .select("*")
         .limit(1)
-        .single();
+        .maybeSingle();
       
       if (error) throw error;
       return data;
@@ -29,9 +29,18 @@ export function CompanySettings() {
   });
 
   const [formData, setFormData] = useState({
-    company_name: settings?.company_name || "",
-    company_tagline: settings?.company_tagline || "",
+    company_name: "",
+    company_tagline: "",
   });
+
+  useEffect(() => {
+    if (settings) {
+      setFormData({
+        company_name: settings.company_name || "",
+        company_tagline: settings.company_tagline || "",
+      });
+    }
+  }, [settings]);
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
