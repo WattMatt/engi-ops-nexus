@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Building2 } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -17,6 +18,20 @@ const Auth = () => {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [session, setSession] = useState<Session | null>(null);
+
+  const { data: companySettings } = useQuery({
+    queryKey: ["company-settings"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("company_settings")
+        .select("*")
+        .limit(1)
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+  });
 
   useEffect(() => {
     // Set up auth state listener FIRST
@@ -92,12 +107,24 @@ const Auth = () => {
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
-            <div className="p-3 rounded-full bg-primary/10">
-              <Building2 className="h-8 w-8 text-primary" />
-            </div>
+            {companySettings?.company_logo_url ? (
+              <img 
+                src={companySettings.company_logo_url} 
+                alt={companySettings.company_name || "Company Logo"}
+                className="h-20 w-auto object-contain"
+              />
+            ) : (
+              <div className="p-3 rounded-full bg-primary/10">
+                <Building2 className="h-8 w-8 text-primary" />
+              </div>
+            )}
           </div>
-          <CardTitle className="text-2xl font-bold">WM Consulting</CardTitle>
-          <CardDescription>Engineering Operations Platform</CardDescription>
+          <CardTitle className="text-2xl font-bold">
+            {companySettings?.company_name || "WM Consulting"}
+          </CardTitle>
+          <CardDescription>
+            {companySettings?.company_tagline || "Engineering Operations Platform"}
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="login" className="w-full">

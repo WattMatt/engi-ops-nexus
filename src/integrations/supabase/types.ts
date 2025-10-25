@@ -348,6 +348,33 @@ export type Database = {
         }
         Relationships: []
       }
+      company_settings: {
+        Row: {
+          company_logo_url: string | null
+          company_name: string
+          company_tagline: string | null
+          created_at: string | null
+          id: string
+          updated_at: string | null
+        }
+        Insert: {
+          company_logo_url?: string | null
+          company_name?: string
+          company_tagline?: string | null
+          created_at?: string | null
+          id?: string
+          updated_at?: string | null
+        }
+        Update: {
+          company_logo_url?: string | null
+          company_name?: string
+          company_tagline?: string | null
+          created_at?: string | null
+          id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       cost_categories: {
         Row: {
           anticipated_final: number
