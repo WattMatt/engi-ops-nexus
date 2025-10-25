@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,11 +13,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Calendar as CalendarIcon } from "lucide-react";
+import { Plus } from "lucide-react";
 import { format } from "date-fns";
+import { AddAttendanceDialog } from "./AddAttendanceDialog";
 
 export function AttendanceManager() {
   const [selectedDate, setSelectedDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const queryClient = useQueryClient();
 
   const { data: attendanceRecords = [], isLoading } = useQuery({
     queryKey: ["attendance", selectedDate],
@@ -72,6 +75,10 @@ export function AttendanceManager() {
             onChange={(e) => setSelectedDate(e.target.value)}
             className="w-auto"
           />
+          <Button onClick={() => setDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Record
+          </Button>
         </div>
       </div>
 
@@ -125,6 +132,12 @@ export function AttendanceManager() {
           )}
         </TableBody>
       </Table>
+
+      <AddAttendanceDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: ["attendance", selectedDate] })}
+      />
     </div>
   );
 }

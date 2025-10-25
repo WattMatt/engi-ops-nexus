@@ -1,6 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Plus, Gift } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -9,9 +12,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Gift } from "lucide-react";
+import { AddBenefitDialog } from "./AddBenefitDialog";
 
 export function BenefitsManager() {
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const queryClient = useQueryClient();
   const { data: benefits = [], isLoading } = useQuery({
     queryKey: ["benefits"],
     queryFn: async () => {
@@ -48,12 +53,18 @@ export function BenefitsManager() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h3 className="text-lg font-semibold flex items-center gap-2">
-          <Gift className="h-5 w-5" />
-          Benefits Catalog
-        </h3>
-        <p className="text-sm text-muted-foreground">Available employee benefits and perks</p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            <Gift className="h-5 w-5" />
+            Benefits Catalog
+          </h3>
+          <p className="text-sm text-muted-foreground">Available employee benefits and perks</p>
+        </div>
+        <Button onClick={() => setDialogOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          Add Benefit
+        </Button>
       </div>
 
       <Table>
@@ -104,6 +115,12 @@ export function BenefitsManager() {
           )}
         </TableBody>
       </Table>
+
+      <AddBenefitDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: ["benefits"] })}
+      />
     </div>
   );
 }

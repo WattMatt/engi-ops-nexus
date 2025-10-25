@@ -1,6 +1,9 @@
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -9,8 +12,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { AddPayrollDialog } from "./AddPayrollDialog";
 
 export function PayrollManager() {
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const queryClient = useQueryClient();
   const { data: payrollRecords = [], isLoading } = useQuery({
     queryKey: ["payroll-records"],
     queryFn: async () => {
@@ -45,9 +51,15 @@ export function PayrollManager() {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h3 className="text-lg font-semibold">Payroll Records</h3>
-        <p className="text-sm text-muted-foreground">View employee compensation details</p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h3 className="text-lg font-semibold">Payroll Records</h3>
+          <p className="text-sm text-muted-foreground">View employee compensation details</p>
+        </div>
+        <Button onClick={() => setDialogOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          Add Payroll Record
+        </Button>
       </div>
 
       <Table>
@@ -92,6 +104,12 @@ export function PayrollManager() {
           )}
         </TableBody>
       </Table>
+
+      <AddPayrollDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: ["payroll-records"] })}
+      />
     </div>
   );
 }
