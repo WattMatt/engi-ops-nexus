@@ -1975,10 +1975,12 @@ export type Database = {
       site_diary_entries: {
         Row: {
           attachments: Json | null
+          attendees: Json | null
           created_at: string
           created_by: string
           entry_date: string
           id: string
+          meeting_minutes: string | null
           notes: string | null
           project_id: string
           queries: string | null
@@ -1988,10 +1990,12 @@ export type Database = {
         }
         Insert: {
           attachments?: Json | null
+          attendees?: Json | null
           created_at?: string
           created_by: string
           entry_date: string
           id?: string
+          meeting_minutes?: string | null
           notes?: string | null
           project_id: string
           queries?: string | null
@@ -2001,10 +2005,12 @@ export type Database = {
         }
         Update: {
           attachments?: Json | null
+          attendees?: Json | null
           created_at?: string
           created_by?: string
           entry_date?: string
           id?: string
+          meeting_minutes?: string | null
           notes?: string | null
           project_id?: string
           queries?: string | null
@@ -2022,6 +2028,81 @@ export type Database = {
           },
           {
             foreignKeyName: "site_diary_entries_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      site_diary_tasks: {
+        Row: {
+          actual_hours: number | null
+          assigned_by: string
+          assigned_to: string | null
+          completion_date: string | null
+          created_at: string
+          dependencies: Json | null
+          description: string | null
+          diary_entry_id: string | null
+          due_date: string | null
+          estimated_hours: number | null
+          id: string
+          priority: Database["public"]["Enums"]["task_priority"]
+          project_id: string
+          start_date: string | null
+          status: Database["public"]["Enums"]["task_status"]
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          actual_hours?: number | null
+          assigned_by: string
+          assigned_to?: string | null
+          completion_date?: string | null
+          created_at?: string
+          dependencies?: Json | null
+          description?: string | null
+          diary_entry_id?: string | null
+          due_date?: string | null
+          estimated_hours?: number | null
+          id?: string
+          priority?: Database["public"]["Enums"]["task_priority"]
+          project_id: string
+          start_date?: string | null
+          status?: Database["public"]["Enums"]["task_status"]
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          actual_hours?: number | null
+          assigned_by?: string
+          assigned_to?: string | null
+          completion_date?: string | null
+          created_at?: string
+          dependencies?: Json | null
+          description?: string | null
+          diary_entry_id?: string | null
+          due_date?: string | null
+          estimated_hours?: number | null
+          id?: string
+          priority?: Database["public"]["Enums"]["task_priority"]
+          project_id?: string
+          start_date?: string | null
+          status?: Database["public"]["Enums"]["task_status"]
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "site_diary_tasks_diary_entry_id_fkey"
+            columns: ["diary_entry_id"]
+            isOneToOne: false
+            referencedRelation: "site_diary_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_diary_tasks_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
@@ -2121,6 +2202,38 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      task_comments: {
+        Row: {
+          comment: string
+          created_at: string
+          id: string
+          task_id: string
+          user_id: string
+        }
+        Insert: {
+          comment: string
+          created_at?: string
+          id?: string
+          task_id: string
+          user_id: string
+        }
+        Update: {
+          comment?: string
+          created_at?: string
+          id?: string
+          task_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_comments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "site_diary_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       tenant_field_config: {
         Row: {
@@ -2256,6 +2369,57 @@ export type Database = {
             columns: ["invited_by"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_reminders: {
+        Row: {
+          created_at: string
+          id: string
+          is_read: boolean | null
+          message: string | null
+          project_id: string
+          reminder_date: string
+          task_id: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_read?: boolean | null
+          message?: string | null
+          project_id: string
+          reminder_date: string
+          task_id?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_read?: boolean | null
+          message?: string | null
+          project_id?: string
+          reminder_date?: string
+          task_id?: string | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_reminders_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_reminders_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "site_diary_tasks"
             referencedColumns: ["id"]
           },
         ]
@@ -2412,6 +2576,8 @@ export type Database = {
       leave_status: "pending" | "approved" | "rejected" | "cancelled"
       onboarding_status: "not_started" | "in_progress" | "completed"
       review_status: "draft" | "pending" | "completed"
+      task_priority: "low" | "medium" | "high" | "urgent"
+      task_status: "pending" | "in_progress" | "completed" | "cancelled"
       user_role: "admin" | "user"
     }
     CompositeTypes: {
@@ -2553,6 +2719,8 @@ export const Constants = {
       leave_status: ["pending", "approved", "rejected", "cancelled"],
       onboarding_status: ["not_started", "in_progress", "completed"],
       review_status: ["draft", "pending", "completed"],
+      task_priority: ["low", "medium", "high", "urgent"],
+      task_status: ["pending", "in_progress", "completed", "cancelled"],
       user_role: ["admin", "user"],
     },
   },
