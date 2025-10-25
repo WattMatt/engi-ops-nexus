@@ -9,15 +9,24 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Pencil } from "lucide-react";
+import { Pencil, FileText } from "lucide-react";
+import { EmployeeDocuments } from "./EmployeeDocuments";
 import { EditEmployeeDialog } from "./EditEmployeeDialog";
 
 export function EmployeeList() {
   const queryClient = useQueryClient();
   const [editingEmployee, setEditingEmployee] = useState<any>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [documentsEmployee, setDocumentsEmployee] = useState<any>(null);
+  const [documentsDialogOpen, setDocumentsDialogOpen] = useState(false);
   
   const { data: employees = [], isLoading, error } = useQuery({
     queryKey: ["employees"],
@@ -108,13 +117,27 @@ export function EmployeeList() {
             </TableCell>
             <TableCell>{new Date(employee.hire_date).toLocaleDateString()}</TableCell>
             <TableCell className="text-right">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => handleEdit(employee)}
-              >
-                <Pencil className="h-4 w-4" />
-              </Button>
+              <div className="flex justify-end gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setDocumentsEmployee(employee);
+                    setDocumentsDialogOpen(true);
+                  }}
+                  title="View Documents"
+                >
+                  <FileText className="h-4 w-4" />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => handleEdit(employee)}
+                  title="Edit Employee"
+                >
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              </div>
             </TableCell>
           </TableRow>
         ))}
@@ -128,6 +151,19 @@ export function EmployeeList() {
         onOpenChange={setEditDialogOpen}
         onSuccess={handleEditSuccess}
       />
+    )}
+
+    {documentsEmployee && (
+      <Dialog open={documentsDialogOpen} onOpenChange={setDocumentsDialogOpen}>
+        <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>
+              Documents - {documentsEmployee.first_name} {documentsEmployee.last_name}
+            </DialogTitle>
+          </DialogHeader>
+          <EmployeeDocuments employeeId={documentsEmployee.id} />
+        </DialogContent>
+      </Dialog>
     )}
     </>
   );
