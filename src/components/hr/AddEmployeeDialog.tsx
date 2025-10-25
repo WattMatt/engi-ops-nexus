@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface AddEmployeeDialogProps {
   onSuccess?: () => void;
@@ -30,6 +31,7 @@ interface AddEmployeeDialogProps {
 export function AddEmployeeDialog({ onSuccess }: AddEmployeeDialogProps) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [createAuthAccount, setCreateAuthAccount] = useState(false);
   const { toast } = useToast();
 
   const { data: departments = [] } = useQuery({
@@ -56,27 +58,46 @@ export function AddEmployeeDialog({ onSuccess }: AddEmployeeDialogProps) {
 
     const formData = new FormData(e.currentTarget);
     const email = formData.get("email") as string;
-    const password = formData.get("password") as string;
 
     try {
-      // Create auth user
-      const { data: authData, error: authError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: `${formData.get("first_name")} ${formData.get("last_name")}`,
+      let userId: string | null = null;
+
+      // Only create auth account if checkbox is checked
+      if (createAuthAccount) {
+        const password = formData.get("password") as string;
+        
+        if (!password) {
+          throw new Error("Password is required when creating an auth account");
+        }
+
+        const { data: authData, error: authError } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            data: {
+              full_name: `${formData.get("first_name")} ${formData.get("last_name")}`,
+            },
+            emailRedirectTo: `${window.location.origin}/`,
           },
-        },
-      });
+        });
 
-      if (authError) throw authError;
+        if (authError) {
+          // Handle user already exists more gracefully
+          if (authError.message.includes("already registered")) {
+            throw new Error("This email is already registered. Uncheck 'Create Login Account' to add as employee only.");
+          }
+          throw authError;
+        }
 
-      if (!authData.user) throw new Error("User creation failed");
+        if (!authData.user) {
+          throw new Error("User creation failed");
+        }
+
+        userId = authData.user.id;
+      }
 
       // Create employee record
       const employeeData: any = {
-        user_id: authData.user.id,
         employee_number: formData.get("employee_number") as string,
         first_name: formData.get("first_name") as string,
         last_name: formData.get("last_name") as string,
@@ -88,6 +109,11 @@ export function AddEmployeeDialog({ onSuccess }: AddEmployeeDialogProps) {
         employment_status: "active",
       };
 
+      // Only add user_id if we created an auth account
+      if (userId) {
+        employeeData.user_id = userId;
+      }
+
       const { error: employeeError } = await supabase
         .from("employees")
         .insert(employeeData);
@@ -96,10 +122,14 @@ export function AddEmployeeDialog({ onSuccess }: AddEmployeeDialogProps) {
 
       toast({
         title: "Success",
-        description: "Employee added successfully",
+        description: createAuthAccount 
+          ? "Employee added with login account successfully" 
+          : "Employee added successfully (no login access)",
       });
 
       setOpen(false);
+      e.currentTarget.reset();
+      setCreateAuthAccount(false);
       onSuccess?.();
     } catch (error: any) {
       toast({
@@ -182,16 +212,34 @@ export function AddEmployeeDialog({ onSuccess }: AddEmployeeDialogProps) {
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="password">Initial Password</Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                required
-                placeholder="••••••••"
+            <div className="flex items-center space-x-2 p-4 bg-muted rounded-lg">
+              <Checkbox
+                id="create_auth"
+                checked={createAuthAccount}
+                onCheckedChange={(checked) => setCreateAuthAccount(checked === true)}
               />
+              <div className="space-y-1">
+                <Label htmlFor="create_auth" className="cursor-pointer">
+                  Create login account for this employee
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Enable if this employee needs to access the system
+                </p>
+              </div>
             </div>
+
+            {createAuthAccount && (
+              <div className="space-y-2">
+                <Label htmlFor="password">Initial Password *</Label>
+                <Input
+                  id="password"
+                  name="password"
+                  type="password"
+                  required={createAuthAccount}
+                  placeholder="••••••••"
+                />
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="phone">Phone</Label>
