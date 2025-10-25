@@ -84,17 +84,21 @@ export function ImportExcelDialog({ open, onOpenChange, onSuccess }: ImportExcel
                                row[Object.keys(row)[0]]; // Fallback to first column
         const projectName = projectNameRaw ? String(projectNameRaw).trim() : '';
         
-        // Get agreed fee
+        // Get agreed fee - handle various formats
         const agreedFeeValue = getColumnValue(row, ['AGREED FEE', 'Agreed Fee', 'AGREED_FEE', 'Fee']);
-        const agreedFee = typeof agreedFeeValue === 'string' 
-          ? parseFloat(agreedFeeValue.replace(/[R,\s]/g, '')) 
-          : parseFloat(agreedFeeValue || 0);
+        let agreedFee = 0;
+        if (agreedFeeValue) {
+          const cleanValue = String(agreedFeeValue).replace(/[R,\s]/g, '');
+          agreedFee = parseFloat(cleanValue) || 0;
+        }
 
         // Get invoiced to date (previous billing)
         const invoicedValue = getColumnValue(row, ['INVOICED TO DATE', 'Previous Billing', 'PREVIOUS BILLING', 'Invoiced']);
-        const invoicedToDate = typeof invoicedValue === 'string'
-          ? parseFloat(invoicedValue.replace(/[R,\s]/g, ''))
-          : parseFloat(invoicedValue || 0);
+        let invoicedToDate = 0;
+        if (invoicedValue) {
+          const cleanValue = String(invoicedValue).replace(/[R,\s]/g, '');
+          invoicedToDate = parseFloat(cleanValue) || 0;
+        }
 
         // Client name - use project name if not provided
         const clientNameRaw = getColumnValue(row, ['Client', 'CLIENT', 'Client Name', 'CLIENT NAME']);
@@ -109,22 +113,29 @@ export function ImportExcelDialog({ open, onOpenChange, onSuccess }: ImportExcel
           client_address: getColumnValue(row, ['Address', 'CLIENT ADDRESS', 'Client Address']),
           agreed_fee: agreedFee,
           total_invoiced: invoicedToDate,
-          outstanding_amount: agreedFee - invoicedToDate,
+          outstanding_amount: Math.max(0, agreedFee - invoicedToDate),
           status: "active",
           created_by: user.id,
         };
       });
 
-      // Filter out invalid rows
-      const validProjects = projectsToImport.filter(p => 
-        p.project_name && 
-        !p.project_name.toString().includes('TOTAL') && 
-        !p.project_name.toString().includes('NAME:') &&
-        p.agreed_fee > 0
-      );
+      // Filter out invalid rows - be more lenient
+      const validProjects = projectsToImport.filter(p => {
+        const hasName = p.project_name && 
+                       p.project_name.length > 0 &&
+                       !p.project_name.includes('TOTAL') && 
+                       !p.project_name.includes('NAME:') &&
+                       !p.project_name.startsWith('||');
+        const hasFee = !isNaN(p.agreed_fee) && p.agreed_fee > 0;
+        return hasName && hasFee;
+      });
+
+      console.log('Total rows:', excelData.length);
+      console.log('Valid projects:', validProjects.length);
+      console.log('Sample valid project:', validProjects[0]);
 
       if (validProjects.length === 0) {
-        throw new Error("No valid project data found in Excel file. Please check column names and data format.");
+        throw new Error(`No valid project data found. Checked ${excelData.length} rows. Please ensure your Excel has columns: NAME, AGREED FEE, and valid numeric fee values.`);
       }
 
       // Import projects
