@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Plus, FileText } from "lucide-react";
+import { Plus, FileText, Upload } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -14,10 +14,12 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { CreateProjectDialog } from "./CreateProjectDialog";
 import { CreateInvoiceDialog } from "./CreateInvoiceDialog";
+import { ImportExcelDialog } from "./ImportExcelDialog";
 
 export function ProjectsManager() {
   const [createProjectOpen, setCreateProjectOpen] = useState(false);
   const [createInvoiceOpen, setCreateInvoiceOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<any>(null);
   const queryClient = useQueryClient();
 
@@ -63,10 +65,16 @@ export function ProjectsManager() {
               Manage projects and generate invoices
             </p>
           </div>
-          <Button onClick={() => setCreateProjectOpen(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Create Project
-          </Button>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setImportDialogOpen(true)}>
+              <Upload className="mr-2 h-4 w-4" />
+              Import Excel
+            </Button>
+            <Button onClick={() => setCreateProjectOpen(true)}>
+              <Plus className="mr-2 h-4 w-4" />
+              Create Project
+            </Button>
+          </div>
         </div>
 
         <Table>
@@ -134,6 +142,12 @@ export function ProjectsManager() {
           }}
         />
       )}
+
+      <ImportExcelDialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: ["invoice-projects"] })}
+      />
     </>
   );
 }
