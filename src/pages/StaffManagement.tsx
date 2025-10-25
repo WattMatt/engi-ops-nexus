@@ -6,6 +6,13 @@ import { Users, Calendar, DollarSign, Award, FileText, Gift, Building } from "lu
 import { useToast } from "@/hooks/use-toast";
 import { AddEmployeeDialog } from "@/components/hr/AddEmployeeDialog";
 import { EmployeeList } from "@/components/hr/EmployeeList";
+import { DepartmentsManager } from "@/components/hr/DepartmentsManager";
+import { LeaveManager } from "@/components/hr/LeaveManager";
+import { AttendanceManager } from "@/components/hr/AttendanceManager";
+import { PayrollManager } from "@/components/hr/PayrollManager";
+import { PerformanceManager } from "@/components/hr/PerformanceManager";
+import { OnboardingManager } from "@/components/hr/OnboardingManager";
+import { BenefitsManager } from "@/components/hr/BenefitsManager";
 import { useQueryClient } from "@tanstack/react-query";
 
 const StaffManagement = () => {
@@ -155,7 +162,7 @@ const StaffManagement = () => {
               <CardDescription>Manage organizational structure</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">Department structure will be displayed here</p>
+              <DepartmentsManager />
             </CardContent>
           </Card>
         </TabsContent>
@@ -167,7 +174,7 @@ const StaffManagement = () => {
               <CardDescription>Track and approve leave requests</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">Leave requests will be displayed here</p>
+              <LeaveManager />
             </CardContent>
           </Card>
         </TabsContent>
@@ -179,7 +186,7 @@ const StaffManagement = () => {
               <CardDescription>Monitor employee attendance</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">Attendance records will be displayed here</p>
+              <AttendanceManager />
             </CardContent>
           </Card>
         </TabsContent>
@@ -191,7 +198,7 @@ const StaffManagement = () => {
               <CardDescription>Process payroll and manage compensation</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">Payroll information will be displayed here</p>
+              <PayrollManager />
             </CardContent>
           </Card>
         </TabsContent>
@@ -203,7 +210,7 @@ const StaffManagement = () => {
               <CardDescription>Track performance and goals</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">Performance data will be displayed here</p>
+              <PerformanceManager />
             </CardContent>
           </Card>
         </TabsContent>
@@ -215,7 +222,7 @@ const StaffManagement = () => {
               <CardDescription>Manage employee lifecycle</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">Onboarding progress will be displayed here</p>
+              <OnboardingManager />
             </CardContent>
           </Card>
         </TabsContent>
@@ -227,7 +234,7 @@ const StaffManagement = () => {
               <CardDescription>Manage employee benefits and perks</CardDescription>
             </CardHeader>
             <CardContent>
-              <p className="text-sm text-muted-foreground">Benefits information will be displayed here</p>
+              <BenefitsManager />
             </CardContent>
           </Card>
         </TabsContent>
