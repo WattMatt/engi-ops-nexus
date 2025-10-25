@@ -222,8 +222,6 @@ export function ImportExcelDialog({ open, onOpenChange, onSuccess }: ImportExcel
             }
           }
         }
-
-        }
       }
 
       // Import current invoices if data exists
