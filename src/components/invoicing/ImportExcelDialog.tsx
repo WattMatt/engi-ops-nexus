@@ -67,24 +67,62 @@ export function ImportExcelDialog({ open, onOpenChange, onSuccess }: ImportExcel
 
       const excelData = await parseExcelData(file) as any[];
       
-      // Expected columns: Project, Client, VAT No, Agreed Fee, Previous Billing, Claim No, Current Billing
-      const projectsToImport = excelData.map((row: any) => ({
-        project_name: row.Project || row.PROJECT || "",
-        client_name: row.Client || row.CLIENT || "",
-        client_vat_number: row["VAT No"] || row["VAT NO"] || null,
-        client_address: null,
-        agreed_fee: parseFloat(row["Agreed Fee"] || row["AGREED FEE"] || 0),
-        total_invoiced: parseFloat(row["Previous Billing"] || row["PREVIOUS BILLING"] || 0),
-        outstanding_amount: 0,
-        status: "active",
-        created_by: user.id,
-      }));
+      // Handle column name variations (case-insensitive matching)
+      const getColumnValue = (row: any, possibleNames: string[]) => {
+        for (const name of possibleNames) {
+          const key = Object.keys(row).find(k => 
+            k.toLowerCase().trim() === name.toLowerCase().trim()
+          );
+          if (key && row[key]) return row[key];
+        }
+        return null;
+      };
 
-      // Filter out empty rows
-      const validProjects = projectsToImport.filter(p => p.project_name && p.client_name);
+      const projectsToImport = excelData.map((row: any) => {
+        // Get project name from various possible column names
+        const projectName = getColumnValue(row, ['NAME', 'Project', 'PROJECT', 'Project Name', 'PROJECT NAME']) || 
+                           row[Object.keys(row)[0]]; // Fallback to first column
+        
+        // Get agreed fee
+        const agreedFeeValue = getColumnValue(row, ['AGREED FEE', 'Agreed Fee', 'AGREED_FEE', 'Fee']);
+        const agreedFee = typeof agreedFeeValue === 'string' 
+          ? parseFloat(agreedFeeValue.replace(/[R,\s]/g, '')) 
+          : parseFloat(agreedFeeValue || 0);
+
+        // Get invoiced to date (previous billing)
+        const invoicedValue = getColumnValue(row, ['INVOICED TO DATE', 'Previous Billing', 'PREVIOUS BILLING', 'Invoiced']);
+        const invoicedToDate = typeof invoicedValue === 'string'
+          ? parseFloat(invoicedValue.replace(/[R,\s]/g, ''))
+          : parseFloat(invoicedValue || 0);
+
+        // Client name - use project name if not provided
+        const clientName = getColumnValue(row, ['Client', 'CLIENT', 'Client Name', 'CLIENT NAME']) || 
+                          projectName?.split('-')[0]?.trim() || 
+                          'Unknown Client';
+
+        return {
+          project_name: projectName,
+          client_name: clientName,
+          client_vat_number: getColumnValue(row, ['VAT No', 'VAT NO', 'VAT Number', 'VAT_NUMBER']),
+          client_address: getColumnValue(row, ['Address', 'CLIENT ADDRESS', 'Client Address']),
+          agreed_fee: agreedFee,
+          total_invoiced: invoicedToDate,
+          outstanding_amount: agreedFee - invoicedToDate,
+          status: "active",
+          created_by: user.id,
+        };
+      });
+
+      // Filter out invalid rows
+      const validProjects = projectsToImport.filter(p => 
+        p.project_name && 
+        !p.project_name.toString().includes('TOTAL') && 
+        !p.project_name.toString().includes('NAME:') &&
+        p.agreed_fee > 0
+      );
 
       if (validProjects.length === 0) {
-        throw new Error("No valid project data found in Excel file");
+        throw new Error("No valid project data found in Excel file. Please check column names and data format.");
       }
 
       // Import projects
@@ -95,31 +133,46 @@ export function ImportExcelDialog({ open, onOpenChange, onSuccess }: ImportExcel
 
       if (projectError) throw projectError;
 
-      // Import invoices if claim data exists
+      // Import current invoices if data exists
       let invoiceCount = 0;
       for (let i = 0; i < excelData.length; i++) {
         const row = excelData[i];
-        const project = insertedProjects?.[i];
+        const project = insertedProjects?.find((p, idx) => idx === i);
         
         if (!project) continue;
 
-        const claimNo = row["Claim No"] || row["CLAIM NO"];
-        const currentBilling = parseFloat(row["Current Billing"] || row["CURRENT BILLING"] || 0);
-        const previousBilling = parseFloat(row["Previous Billing"] || row["PREVIOUS BILLING"] || 0);
+        // Get column value helper
+        const getVal = (names: string[]) => getColumnValue(row, names);
 
-        if (claimNo && currentBilling > 0) {
-          const vatAmount = currentBilling * 0.15;
-          const totalAmount = currentBilling + vatAmount;
+        const claimNoValue = getVal(['INVOICE NUMBER', 'Claim No', 'CLAIM NO', 'Invoice No']);
+        const currentInvoiceValue = getVal(['CURRENT INVOICE', 'Current Billing', 'CURRENT BILLING']);
+        const invoicedToDateValue = getVal(['INVOICED TO DATE', 'Previous Billing', 'PREVIOUS BILLING']);
+
+        const claimNo = typeof claimNoValue === 'string' 
+          ? parseInt(claimNoValue.replace(/[^\d]/g, '')) 
+          : parseInt(claimNoValue || 0);
+          
+        const currentInvoice = typeof currentInvoiceValue === 'string'
+          ? parseFloat(currentInvoiceValue.replace(/[R,\s]/g, ''))
+          : parseFloat(currentInvoiceValue || 0);
+          
+        const previouslyInvoiced = typeof invoicedToDateValue === 'string'
+          ? parseFloat(invoicedToDateValue.replace(/[R,\s]/g, ''))
+          : parseFloat(invoicedToDateValue || 0);
+
+        if (claimNo && currentInvoice > 0) {
+          const vatAmount = currentInvoice * 0.15;
+          const totalAmount = currentInvoice + vatAmount;
 
           const { error: invoiceError } = await supabase
             .from("invoices")
             .insert({
               project_id: project.id,
               invoice_number: `INV${String(claimNo).padStart(4, '0')}`,
-              claim_number: parseInt(claimNo),
+              claim_number: claimNo,
               invoice_date: new Date().toISOString().split('T')[0],
-              previously_invoiced: previousBilling,
-              current_amount: currentBilling,
+              previously_invoiced: previouslyInvoiced,
+              current_amount: currentInvoice,
               vat_amount: vatAmount,
               total_amount: totalAmount,
               payment_status: "pending",
@@ -132,7 +185,7 @@ export function ImportExcelDialog({ open, onOpenChange, onSuccess }: ImportExcel
 
       toast({
         title: "Import successful",
-        description: `Imported ${validProjects.length} projects and ${invoiceCount} invoices`,
+        description: `Imported ${validProjects.length} projects${invoiceCount > 0 ? ` and ${invoiceCount} invoices` : ''}`,
       });
 
       onOpenChange(false);
@@ -191,15 +244,14 @@ export function ImportExcelDialog({ open, onOpenChange, onSuccess }: ImportExcel
           </div>
 
           <div className="text-xs text-muted-foreground space-y-1">
-            <p className="font-medium">Expected columns:</p>
-            <ul className="list-disc list-inside space-y-1 ml-2">
-              <li>Project</li>
-              <li>Client</li>
-              <li>VAT No (optional)</li>
-              <li>Agreed Fee</li>
-              <li>Previous Billing</li>
-              <li>Claim No</li>
-              <li>Current Billing</li>
+            <p className="font-medium">Supported column names (case-insensitive):</p>
+            <ul className="list-disc list-inside space-y-1 ml-2 text-xs">
+              <li><strong>Project:</strong> NAME, Project, Project Name</li>
+              <li><strong>Client:</strong> Client, Client Name (optional - uses project name if missing)</li>
+              <li><strong>Agreed Fee:</strong> AGREED FEE, Agreed Fee, Fee</li>
+              <li><strong>Invoiced:</strong> INVOICED TO DATE, Previous Billing</li>
+              <li><strong>Claim No:</strong> INVOICE NUMBER, Claim No</li>
+              <li><strong>Current:</strong> CURRENT INVOICE, Current Billing (optional)</li>
             </ul>
           </div>
         </div>
