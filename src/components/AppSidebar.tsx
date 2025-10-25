@@ -4,7 +4,6 @@ import {
   FileCheck,
   DollarSign,
   Package,
-  Users,
   Settings,
   Building2,
   LayoutDashboard,
@@ -32,8 +31,6 @@ import {
   SidebarMenuSubButton,
   useSidebar,
 } from "@/components/ui/sidebar";
-import { useUserRole } from "@/hooks/useUserRole";
-import { Separator } from "@/components/ui/separator";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 const mainModules = [
@@ -103,33 +100,10 @@ const operationalModules = [
   },
 ];
 
-const adminModules = [
-  {
-    title: "Finance",
-    url: "/dashboard/finance",
-    icon: DollarSign,
-  },
-  {
-    title: "Staff Details",
-    url: "/dashboard/staff",
-    icon: FileStack,
-  },
-  {
-    title: "User Management",
-    url: "/dashboard/users",
-    icon: Users,
-  },
-  {
-    title: "Settings",
-    url: "/dashboard/settings",
-    icon: Settings,
-  },
-];
 
 export function AppSidebar() {
   const { state } = useSidebar();
   const location = useLocation();
-  const { isAdmin } = useUserRole();
   const currentPath = location.pathname;
 
   const isActive = (path: string) => {
@@ -316,44 +290,6 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-
-        {/* Admin Section at Bottom */}
-        {isAdmin && (
-          <div className="mt-auto">
-            <Separator className="my-2" />
-            <Collapsible defaultOpen={false}>
-              <SidebarGroup>
-                <SidebarGroupContent>
-                  <SidebarMenu>
-                    <SidebarMenuItem>
-                      <CollapsibleTrigger asChild>
-                        <SidebarMenuButton className="hover:bg-muted/50 cursor-pointer">
-                          <Settings className="h-4 w-4" />
-                          {!collapsed && <span>Admin</span>}
-                          {!collapsed && <ChevronDown className="ml-auto h-4 w-4" />}
-                        </SidebarMenuButton>
-                      </CollapsibleTrigger>
-                      <CollapsibleContent>
-                        <SidebarMenuSub>
-                          {adminModules.map((item) => (
-                            <SidebarMenuSubItem key={item.title}>
-                              <SidebarMenuSubButton asChild>
-                                <NavLink to={item.url} className={getNavCls(item.url)}>
-                                  <item.icon className="h-4 w-4" />
-                                  {!collapsed && <span>{item.title}</span>}
-                                </NavLink>
-                              </SidebarMenuSubButton>
-                            </SidebarMenuSubItem>
-                          ))}
-                        </SidebarMenuSub>
-                      </CollapsibleContent>
-                    </SidebarMenuItem>
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
-            </Collapsible>
-          </div>
-        )}
       </SidebarContent>
     </Sidebar>
   );
