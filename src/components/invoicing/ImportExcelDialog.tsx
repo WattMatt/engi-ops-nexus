@@ -169,6 +169,63 @@ export function ImportExcelDialog({ open, onOpenChange, onSuccess }: ImportExcel
 
       if (projectError) throw projectError;
 
+      // Import monthly payments from Excel columns
+      const monthColumns = Object.keys(excelData[0] || {}).filter(key => 
+        /^(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)/i.test(key)
+      );
+
+      console.log('Found month columns:', monthColumns);
+
+      let paymentCount = 0;
+      for (let i = 0; i < excelData.length; i++) {
+        const row = excelData[i];
+        const project = insertedProjects?.find((p, idx) => idx === i);
+        if (!project) continue;
+
+        // Import monthly payments
+        for (const monthCol of monthColumns) {
+          const amountRaw = row[monthCol];
+          if (!amountRaw) continue;
+
+          const amount = typeof amountRaw === 'string'
+            ? parseFloat(amountRaw.replace(/[R,\s]/g, ''))
+            : parseFloat(amountRaw || 0);
+
+          if (amount > 0) {
+            // Parse month from column name (e.g., "FEB 2025" or "MARCH 2024")
+            const monthMatch = monthCol.match(/(\w+)\s*(\d{4})?/);
+            if (monthMatch) {
+              const monthName = monthMatch[1];
+              const year = monthMatch[2] || new Date().getFullYear().toString();
+              
+              const monthMap: Record<string, number> = {
+                JAN: 0, FEB: 1, MAR: 2, MARCH: 2, APR: 3, APRIL: 3,
+                MAY: 4, MEI: 4, JUN: 5, JUNE: 5, JUL: 6, JULY: 6,
+                AUG: 7, AUGUST: 7, SEP: 8, SEPT: 8, SEPTEMBER: 8,
+                OCT: 9, OCTOBER: 9, NOV: 10, DEC: 11
+              };
+
+              const monthNum = monthMap[monthName.toUpperCase()];
+              if (monthNum !== undefined) {
+                const paymentDate = new Date(parseInt(year), monthNum, 1);
+                
+                const { error: paymentError } = await supabase
+                  .from("monthly_payments")
+                  .insert({
+                    project_id: project.id,
+                    payment_month: paymentDate.toISOString().split('T')[0],
+                    amount: amount,
+                  });
+
+                if (!paymentError) paymentCount++;
+              }
+            }
+          }
+        }
+
+        }
+      }
+
       // Import current invoices if data exists
       let invoiceCount = 0;
       for (let i = 0; i < excelData.length; i++) {
@@ -221,7 +278,7 @@ export function ImportExcelDialog({ open, onOpenChange, onSuccess }: ImportExcel
 
       toast({
         title: "Import successful",
-        description: `Imported ${validProjects.length} projects${invoiceCount > 0 ? ` and ${invoiceCount} invoices` : ''}`,
+        description: `Imported ${validProjects.length} projects, ${invoiceCount} invoices, and ${paymentCount} scheduled payments`,
       });
 
       onOpenChange(false);

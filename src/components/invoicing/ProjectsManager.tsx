@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Plus, FileText, Upload } from "lucide-react";
+import { Plus, FileText, Upload, Calendar } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -15,11 +15,13 @@ import { Badge } from "@/components/ui/badge";
 import { CreateProjectDialog } from "./CreateProjectDialog";
 import { CreateInvoiceDialog } from "./CreateInvoiceDialog";
 import { ImportExcelDialog } from "./ImportExcelDialog";
+import { ProjectDetailsDialog } from "./ProjectDetailsDialog";
 
 export function ProjectsManager() {
   const [createProjectOpen, setCreateProjectOpen] = useState(false);
   const [createInvoiceOpen, setCreateInvoiceOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<any>(null);
   const queryClient = useQueryClient();
 
@@ -106,17 +108,30 @@ export function ProjectsManager() {
                   <TableCell>{formatCurrency(project.outstanding_amount)}</TableCell>
                   <TableCell>{getStatusBadge(project.status)}</TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setSelectedProject(project);
-                        setCreateInvoiceOpen(true);
-                      }}
-                    >
-                      <FileText className="h-4 w-4 mr-2" />
-                      Create Invoice
-                    </Button>
+                    <div className="flex gap-2 justify-end">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedProject(project);
+                          setDetailsDialogOpen(true);
+                        }}
+                      >
+                        <Calendar className="h-4 w-4 mr-2" />
+                        Schedule
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedProject(project);
+                          setCreateInvoiceOpen(true);
+                        }}
+                      >
+                        <FileText className="h-4 w-4 mr-2" />
+                        Invoice
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -148,6 +163,14 @@ export function ProjectsManager() {
         onOpenChange={setImportDialogOpen}
         onSuccess={() => queryClient.invalidateQueries({ queryKey: ["invoice-projects"] })}
       />
+
+      {selectedProject && (
+        <ProjectDetailsDialog
+          project={selectedProject}
+          open={detailsDialogOpen}
+          onOpenChange={setDetailsDialogOpen}
+        />
+      )}
     </>
   );
 }
