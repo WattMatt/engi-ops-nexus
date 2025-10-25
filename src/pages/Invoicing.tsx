@@ -1,7 +1,8 @@
 import { ProjectsManager } from "@/components/invoicing/ProjectsManager";
 import { InvoicesList } from "@/components/invoicing/InvoicesList";
+import { CashFlowProjection } from "@/components/invoicing/CashFlowProjection";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FolderKanban, FileText } from "lucide-react";
+import { FolderKanban, FileText, TrendingUp } from "lucide-react";
 
 const Invoicing = () => {
   return (
@@ -17,6 +18,10 @@ const Invoicing = () => {
             <FolderKanban className="h-4 w-4 mr-2" />
             Projects
           </TabsTrigger>
+          <TabsTrigger value="cashflow">
+            <TrendingUp className="h-4 w-4 mr-2" />
+            Cash Flow
+          </TabsTrigger>
           <TabsTrigger value="invoices">
             <FileText className="h-4 w-4 mr-2" />
             Invoices
@@ -25,6 +30,10 @@ const Invoicing = () => {
 
         <TabsContent value="projects">
           <ProjectsManager />
+        </TabsContent>
+
+        <TabsContent value="cashflow">
+          <CashFlowProjection />
         </TabsContent>
 
         <TabsContent value="invoices">
