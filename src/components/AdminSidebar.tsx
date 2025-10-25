@@ -1,4 +1,4 @@
-import { Users, Settings, Building2, FolderKanban } from "lucide-react";
+import { Users, Settings, Building2, FolderKanban, Receipt } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   Sidebar,
@@ -14,6 +14,7 @@ import {
 
 const adminItems = [
   { title: "Projects", url: "/admin/projects", icon: FolderKanban },
+  { title: "Invoicing", url: "/admin/invoicing", icon: Receipt },
   { title: "Staff Management", url: "/admin/staff", icon: Users },
   { title: "User Management", url: "/admin/users", icon: Users },
   { title: "Settings", url: "/admin/settings", icon: Settings },

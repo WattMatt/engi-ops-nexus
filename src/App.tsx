@@ -23,6 +23,7 @@ import SpecificationDetail from "./pages/SpecificationDetail";
 import CableSchedules from "./pages/CableSchedules";
 import CableScheduleDetail from "./pages/CableScheduleDetail";
 import StaffManagement from "./pages/StaffManagement";
+import Invoicing from "./pages/Invoicing";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -42,6 +43,7 @@ const App = () => (
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<ProjectSelect />} />
             <Route path="projects" element={<ProjectSelect />} />
+            <Route path="invoicing" element={<Invoicing />} />
             <Route path="staff" element={<StaffManagement />} />
             <Route path="users" element={<UserManagement />} />
             <Route path="settings" element={<Settings />} />
