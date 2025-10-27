@@ -1567,9 +1567,30 @@ const FloorPlan = () => {
     if (fabricCanvas && scaleObjects.line && scaleObjects.markers.length === 2) {
       const [marker1, marker2] = scaleObjects.markers;
       
-      // Lock the markers
-      marker1.set({ selectable: false, evented: false });
-      marker2.set({ selectable: false, evented: false });
+      console.log('🎯 Locking scale markers and adding label');
+      console.log('Marker 1 position:', marker1.left, marker1.top);
+      console.log('Marker 2 position:', marker2.left, marker2.top);
+      console.log('Line exists:', !!scaleObjects.line);
+      
+      // Lock the markers but keep them visible
+      marker1.set({ 
+        selectable: false, 
+        evented: false,
+        visible: true,
+        opacity: 1
+      });
+      marker2.set({ 
+        selectable: false, 
+        evented: false,
+        visible: true,
+        opacity: 1
+      });
+      
+      // Ensure line is visible
+      scaleObjects.line.set({
+        visible: true,
+        opacity: 1
+      });
       
       // Calculate midpoint in canvas coordinates
       const midX = (marker1.left! + marker2.left!) / 2;
@@ -1592,17 +1613,31 @@ const FloorPlan = () => {
       });
       
       fabricCanvas.add(scaleLabel);
-      fabricCanvas.bringObjectToFront(scaleLabel);
       
-      // Ensure PDF background stays at the back
+      // Ensure proper layering
       const pdfImage = fabricCanvas.getObjects().find(obj => obj instanceof FabricImage);
       if (pdfImage) {
         fabricCanvas.sendObjectToBack(pdfImage);
       }
       
+      // Bring scale objects to front
+      fabricCanvas.bringObjectToFront(scaleObjects.line);
+      fabricCanvas.bringObjectToFront(marker1);
+      fabricCanvas.bringObjectToFront(marker2);
+      fabricCanvas.bringObjectToFront(scaleLabel);
+      
       fabricCanvas.renderAll();
       
+      console.log('✅ Scale objects locked, label added, canvas rendered');
+      console.log('Total objects on canvas:', fabricCanvas.getObjects().length);
+      
       setScaleObjects(prev => ({ ...prev, label: scaleLabel }));
+    } else {
+      console.error('❌ Scale objects incomplete:', {
+        hasCanvas: !!fabricCanvas,
+        hasLine: !!scaleObjects.line,
+        markerCount: scaleObjects.markers.length
+      });
     }
     
     // Save to database - store PDF coordinates
