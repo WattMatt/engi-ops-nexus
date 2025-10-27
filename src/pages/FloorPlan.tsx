@@ -97,15 +97,17 @@ const FloorPlan = () => {
       }
     });
 
-    // Simple and reliable panning with middle mouse button
+    // Panning with middle mouse button (works even during drawing)
     let isPanning = false;
     let lastPosX = 0;
     let lastPosY = 0;
+    let hasMoved = false;
 
     canvas.on('mouse:down', (opt) => {
       const evt = opt.e as MouseEvent;
-      if (evt.button === 1) { // Middle button
+      if (evt.button === 1) { // Middle button - always enable panning
         isPanning = true;
+        hasMoved = false;
         canvas.selection = false;
         lastPosX = evt.clientX;
         lastPosY = evt.clientY;
@@ -116,6 +118,7 @@ const FloorPlan = () => {
     canvas.on('mouse:move', (opt) => {
       if (isPanning) {
         const evt = opt.e as MouseEvent;
+        hasMoved = true;
         canvas.setCursor('grabbing');
         const vpt = canvas.viewportTransform;
         if (vpt) {
@@ -125,15 +128,26 @@ const FloorPlan = () => {
         }
         lastPosX = evt.clientX;
         lastPosY = evt.clientY;
+        // Stop event propagation to prevent drawing while panning
+        opt.e.preventDefault();
+        opt.e.stopPropagation();
       }
     });
 
-    canvas.on('mouse:up', () => {
-      if (isPanning) {
+    canvas.on('mouse:up', (opt) => {
+      const evt = opt.e as MouseEvent;
+      if (isPanning && evt.button === 1) {
         canvas.setViewportTransform(canvas.viewportTransform);
         isPanning = false;
         canvas.selection = true;
         canvas.setCursor('default');
+        
+        // Prevent click event if we moved during pan
+        if (hasMoved) {
+          setTimeout(() => {
+            hasMoved = false;
+          }, 50);
+        }
       }
     });
 
@@ -150,7 +164,20 @@ const FloorPlan = () => {
   useEffect(() => {
     if (!fabricCanvas) return;
 
+    // Track if we just finished panning to prevent accidental clicks
+    let justPanned = false;
+
     const handleCanvasClick = (opt: any) => {
+      // Ignore clicks right after panning
+      if (justPanned) {
+        justPanned = false;
+        return;
+      }
+      
+      // Ignore clicks from middle button
+      const evt = opt.e as MouseEvent;
+      if (evt.button === 1) return;
+      
       if (activeTool === "pan" || activeTool === "select") return;
       
       const pointer = fabricCanvas.getPointer(opt.e);
