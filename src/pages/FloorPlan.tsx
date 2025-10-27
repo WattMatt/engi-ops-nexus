@@ -106,8 +106,17 @@ const FloorPlan = () => {
 
     // Use native DOM events for more reliable middle button detection
     const canvasElement = canvas.getElement();
+    const canvasWrapper = canvasElement.parentElement;
+    
+    // Handle middle button with auxclick (better for middle button)
+    const handleAuxClick = (evt: MouseEvent) => {
+      console.log("AuxClick detected - button:", evt.button);
+      evt.preventDefault();
+    };
     
     const handleMouseDown = (evt: MouseEvent) => {
+      console.log("MouseDown - button:", evt.button, "alt:", evt.altKey, "target:", evt.target);
+      
       // Middle button (button 1) or Alt+Left click for panning
       if (evt.button === 1 || evt.altKey === true) {
         console.log("Starting pan - button:", evt.button, "alt:", evt.altKey);
@@ -159,23 +168,34 @@ const FloorPlan = () => {
 
     // Prevent context menu on middle click
     const handleContextMenu = (evt: MouseEvent) => {
-      if (evt.button === 1) {
-        evt.preventDefault();
-      }
+      evt.preventDefault();
     };
 
-    canvasElement.addEventListener('mousedown', handleMouseDown);
+    // Listen on both canvas and wrapper for better detection
+    canvasElement.addEventListener('auxclick', handleAuxClick, true);
+    canvasElement.addEventListener('mousedown', handleMouseDown, true);
     canvasElement.addEventListener('mousemove', handleMouseMove);
     canvasElement.addEventListener('mouseup', handleMouseUp);
     canvasElement.addEventListener('contextmenu', handleContextMenu);
+    
+    if (canvasWrapper) {
+      canvasWrapper.addEventListener('auxclick', handleAuxClick, true);
+      canvasWrapper.addEventListener('mousedown', handleMouseDown, true);
+    }
 
     setFabricCanvas(canvas);
 
     return () => {
-      canvasElement.removeEventListener('mousedown', handleMouseDown);
+      canvasElement.removeEventListener('auxclick', handleAuxClick, true);
+      canvasElement.removeEventListener('mousedown', handleMouseDown, true);
       canvasElement.removeEventListener('mousemove', handleMouseMove);
       canvasElement.removeEventListener('mouseup', handleMouseUp);
       canvasElement.removeEventListener('contextmenu', handleContextMenu);
+      
+      if (canvasWrapper) {
+        canvasWrapper.removeEventListener('auxclick', handleAuxClick, true);
+        canvasWrapper.removeEventListener('mousedown', handleMouseDown, true);
+      }
       
       if (fabricCanvas) {
         fabricCanvas.dispose();
