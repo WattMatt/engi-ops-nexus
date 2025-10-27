@@ -811,28 +811,43 @@ const FloorPlan = () => {
           
           // Load PDF image FIRST
           if (fp.pdf_url) {
-            const img = await FabricImage.fromURL(fp.pdf_url, { crossOrigin: "anonymous" });
-            const scale = Math.min(
-              (fabricCanvas.width! - 40) / img.width!,
-              (fabricCanvas.height! - 40) / img.height!
-            );
+            console.log('🔍 Loading PDF from:', fp.pdf_url);
+            try {
+              const img = await FabricImage.fromURL(fp.pdf_url, { crossOrigin: "anonymous" });
+              console.log('✅ PDF loaded, dimensions:', img.width, 'x', img.height);
+              
+              const scale = Math.min(
+                (fabricCanvas.width! - 40) / img.width!,
+                (fabricCanvas.height! - 40) / img.height!
+              );
+              
+              console.log('📐 PDF scale factor:', scale);
 
-            img.set({
-              scaleX: scale,
-              scaleY: scale,
-              left: 20,
-              top: 20,
-              selectable: false,
-              evented: false,
-            });
+              img.set({
+                scaleX: scale,
+                scaleY: scale,
+                left: 20,
+                top: 20,
+                selectable: false,
+                evented: false,
+              });
 
-            fabricCanvas.add(img);
-            fabricCanvas.sendObjectToBack(img);
-            setPdfImageUrl(fp.pdf_url);
+              fabricCanvas.add(img);
+              fabricCanvas.sendObjectToBack(img);
+              setPdfImageUrl(fp.pdf_url);
+              
+              console.log('✅ PDF added to canvas');
+            } catch (err) {
+              console.error('❌ Failed to load PDF:', err);
+              toast.error('Failed to load PDF image');
+            }
+          } else {
+            console.log('⚠️ No PDF URL found');
           }
           
           // NOW add scale markers ON TOP of PDF
           if (fp.scale_point1 && fp.scale_point2) {
+            console.log('🎯 Adding scale markers at:', fp.scale_point1, fp.scale_point2);
             const point1 = fp.scale_point1 as { x: number; y: number };
             const point2 = fp.scale_point2 as { x: number; y: number };
             
