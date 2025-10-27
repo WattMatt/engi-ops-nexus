@@ -152,7 +152,7 @@ const FloorPlan = () => {
             project_id: projectId,
             name: `Floor Plan ${new Date().toLocaleDateString()}`,
             pdf_url: uploadedPdfUrl,
-            design_purpose: "general",
+            design_purpose: "budget_markup",
             created_by: user.user.id,
           })
           .select()

@@ -1,4 +1,4 @@
-export type DesignPurpose = "general" | "budget_markup" | "pv_design" | "line_shop";
+export type DesignPurpose = "budget_markup" | "line_shop" | "pv_design" | "prelim_design" | "cable_schedule" | "final_account";
 
 export type Tool = 
   | "select" 

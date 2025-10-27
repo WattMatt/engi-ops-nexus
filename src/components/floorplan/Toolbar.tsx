@@ -130,7 +130,7 @@ export const Toolbar = ({
         </TabsContent>
 
         <TabsContent value="equipment" className="space-y-2 mt-4">
-          {(designPurpose === "budget_markup" || designPurpose === "general") && (
+          {(designPurpose === "budget_markup" || designPurpose === "prelim_design" || designPurpose === "final_account") && (
             <>
               <div className="text-xs font-semibold text-muted-foreground mb-2">High-Level Equipment</div>
               <ToolButton tool="rmu" icon={Box} label="Ring Main Unit" />
@@ -151,7 +151,7 @@ export const Toolbar = ({
             </>
           )}
 
-          {(designPurpose === "line_shop" || designPurpose === "general") && (
+          {(designPurpose === "line_shop" || designPurpose === "final_account") && (
             <>
               <div className="text-xs font-semibold text-muted-foreground mb-2">Lighting & Switches</div>
               <ToolButton tool="light-switch" icon={Circle} label="Light Switch" />
@@ -186,6 +186,15 @@ export const Toolbar = ({
               <ToolButton tool="manhole" icon={Square} label="Manhole" />
               <ToolButton tool="drawbox-50mm" icon={Navigation} label="Drawbox 50mm" />
               <ToolButton tool="drawbox-100mm" icon={Navigation} label="Drawbox 100mm" />
+            </>
+          )}
+          
+          {(designPurpose === "cable_schedule") && (
+            <>
+              <div className="text-xs font-semibold text-muted-foreground mb-2">Boards & Equipment</div>
+              <ToolButton tool="main-board" icon={Zap} label="Main Board" />
+              <ToolButton tool="sub-board" icon={Zap} label="Sub Board" />
+              <ToolButton tool="distribution-board" icon={HardDrive} label="Distribution Board" />
             </>
           )}
         </TabsContent>
