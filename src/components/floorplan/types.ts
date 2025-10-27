@@ -23,19 +23,52 @@ export type Tool =
   | EquipmentType;
 
 export type EquipmentType =
+  // High-Level Equipment (Budget Markup, Prelim Design)
+  | "rmu"
+  | "miniature-substation"
   | "main-board"
   | "sub-board"
   | "generator"
+  | "pole-light"
+  
+  // PV Design Equipment
   | "inverter"
+  | "dc-combiner-box"
+  | "ac-disconnect"
+  
+  // Lighting & Switches
   | "light-switch"
+  | "dimmer-switch"
+  | "two-way-switch"
+  | "watertight-switch"
+  | "motion-sensor"
+  | "led-strip"
+  | "ceiling-light"
+  | "wall-light"
+  | "recessed-600x600"
+  | "recessed-1200x600"
+  | "floodlight"
+  | "photo-cell"
+  
+  // Sockets & Outlets
+  | "16a-socket"
   | "double-socket"
-  | "single-socket"
-  | "cctv"
+  | "clean-power-outlet"
+  | "ups-socket"
+  | "emergency-socket"
   | "data-outlet"
-  | "light-point"
-  | "emergency-light"
-  | "fan"
-  | "air-conditioner";
+  | "telephone-outlet"
+  | "single-phase-outlet"
+  | "three-phase-outlet"
+  | "tv-outlet"
+  | "flush-floor-outlet"
+  
+  // Other Building Services
+  | "distribution-board"
+  | "cctv"
+  | "manhole"
+  | "drawbox-50mm"
+  | "drawbox-100mm";
 
 export type CableType = "1.5mm" | "2.5mm" | "4mm" | "6mm" | "10mm" | "16mm" | "25mm" | "35mm";
 export type ContainmentSize = "50mm" | "100mm" | "150mm" | "200mm" | "300mm" | "450mm" | "600mm";
