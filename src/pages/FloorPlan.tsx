@@ -929,44 +929,24 @@ const FloorPlan = () => {
             
             setScaleObjects({ line, markers: [marker1, marker2], label });
             
-            // Pan canvas to show scale markers
-            const viewportCenter = new Point(
-              fabricCanvas.width! / 2,
-              fabricCanvas.height! / 2
-            );
-            const scaleCenter = new Point(
-              (point1.x + point2.x) / 2,
-              (point1.y + point2.y) / 2
-            );
-            
-            // Calculate offset needed to center scale markers
-            const offsetX = viewportCenter.x - scaleCenter.x;
-            const offsetY = viewportCenter.y - scaleCenter.y;
-            
-            fabricCanvas.relativePan(new Point(offsetX, offsetY));
-            fabricCanvas.setZoom(3); // Zoom in more to make markers highly visible
+            // Reset viewport to default - no pan, zoom 1
+            fabricCanvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
+            fabricCanvas.setZoom(1);
             fabricCanvas.renderAll();
             
-            // Flash animation to draw attention
-            let flashCount = 0;
-            const flashInterval = setInterval(() => {
-              marker1.set({ opacity: flashCount % 2 === 0 ? 1 : 0.3 });
-              marker2.set({ opacity: flashCount % 2 === 0 ? 1 : 0.3 });
-              fabricCanvas.renderAll();
-              flashCount++;
-              if (flashCount > 6) {
-                clearInterval(flashInterval);
-                marker1.set({ opacity: 1 });
-                marker2.set({ opacity: 1 });
-                fabricCanvas.renderAll();
-              }
-            }, 300);
+            console.log('✅ Scale markers added, viewport reset to default');
             
-            console.log('✅ Scale markers displayed ON TOP of PDF - RED CIRCLES with label');
-            toast.success(`🎯 RED SCALE MARKERS NOW VISIBLE ON PDF!`, {
-              duration: 8000,
-              description: `Look for flashing red circles at (${Math.round(point1.x)}, ${Math.round(point1.y)})`
+            toast.success(`✅ Floor plan loaded - scroll to see scale markers`, {
+              duration: 5000,
+              description: `Red circles at coordinates (${Math.round(point1.x)}, ${Math.round(point1.y)}). Use mouse wheel to zoom, Alt+drag to pan.`
             });
+          } else {
+            // No scale markers, just reset viewport
+            fabricCanvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
+            fabricCanvas.setZoom(1);
+            fabricCanvas.renderAll();
+            
+            console.log('✅ PDF loaded, no scale markers');
           }
           
           // Load all markups
