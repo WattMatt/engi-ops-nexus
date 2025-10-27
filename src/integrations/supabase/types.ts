@@ -1865,6 +1865,7 @@ export type Database = {
           cctv_contractor: string | null
           client_logo_url: string | null
           client_name: string | null
+          consultant_logo_url: string | null
           created_at: string
           created_by: string
           description: string | null
@@ -1884,6 +1885,7 @@ export type Database = {
           cctv_contractor?: string | null
           client_logo_url?: string | null
           client_name?: string | null
+          consultant_logo_url?: string | null
           created_at?: string
           created_by: string
           description?: string | null
@@ -1903,6 +1905,7 @@ export type Database = {
           cctv_contractor?: string | null
           client_logo_url?: string | null
           client_name?: string | null
+          consultant_logo_url?: string | null
           created_at?: string
           created_by?: string
           description?: string | null
