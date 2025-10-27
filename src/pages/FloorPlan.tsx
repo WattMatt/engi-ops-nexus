@@ -82,10 +82,33 @@ const FloorPlan = () => {
     const canvas = new FabricCanvas(canvasRef.current, {
       width: 1200,
       height: 800,
-      backgroundColor: "#f5f5f5",
-      fireMiddleClick: true, // CRITICAL: Enable middle button events
-      stopContextMenu: true, // Prevent right-click menu
+      backgroundColor: "#ffffff",
+      fireMiddleClick: true,
+      stopContextMenu: true,
     });
+
+    // Add a test rectangle to verify canvas is working
+    const testRect = new Rect({
+      left: 50,
+      top: 50,
+      width: 200,
+      height: 100,
+      fill: '#22c55e',
+      stroke: '#16a34a',
+      strokeWidth: 3,
+    });
+    const testText = new Text('✅ Canvas Working', {
+      left: 150,
+      top: 100,
+      fontSize: 20,
+      fill: 'white',
+      fontWeight: 'bold',
+      originX: 'center',
+      originY: 'center',
+    });
+    canvas.add(testRect, testText);
+    canvas.renderAll();
+    console.log('✅ Test rectangle added to canvas');
 
     // Enhanced zoom with mouse wheel
     canvas.on("mouse:wheel", (opt) => {
@@ -1482,56 +1505,79 @@ const FloorPlan = () => {
     setScaleCalibrationPoints(scalePoints);
     setScaleDialogOpen(false);
     setScaleLinePixels(0);
-    // Don't clear scalePoints - keep them for the markers
     setActiveTool("select");
     
-    // The scale line and markers are already on the canvas and editable
-    // Update their appearance and add annotation label
+    // Make the scale line and markers HIGHLY VISIBLE immediately
     if (fabricCanvas && scaleObjects.line && scaleObjects.markers.length === 2) {
       const [marker1, marker2] = scaleObjects.markers;
       
+      // Update to MASSIVE size
+      marker1.set({
+        radius: 40,
+        fill: "#ef4444",
+        stroke: "#fbbf24",
+        strokeWidth: 8,
+      });
+      
+      marker2.set({
+        radius: 40,
+        fill: "#ef4444",
+        stroke: "#fbbf24",
+        strokeWidth: 8,
+      });
+      
       scaleObjects.line.set({
-        stroke: "#22c55e",
-        strokeWidth: 3 / currentZoom,
+        stroke: "#ef4444",
+        strokeWidth: 10,
+        strokeDashArray: [20, 10],
       });
       
-      scaleObjects.markers.forEach(marker => {
-        marker.set({
-          fill: "#22c55e",
-          stroke: "#16a34a",
-          radius: 10 / currentZoom,
-          strokeWidth: 3 / currentZoom,
-        });
-      });
-      
-      // Calculate midpoint for label placement
+      // Calculate midpoint for label
       const midX = (marker1.left! + marker2.left!) / 2;
       const midY = (marker1.top! + marker2.top!) / 2;
       
-      // Create annotation label showing scale with dynamic sizing
-      const scaleLabel = new Text(`SCALE: ${metersValue.toFixed(2)}m\n1px = ${metersPerPixel.toFixed(4)}m`, {
+      // Create HUGE label
+      const scaleLabel = new Text(`🎯 SCALE: ${metersValue.toFixed(2)}m 🎯\n1px = ${metersPerPixel.toFixed(4)}m`, {
         left: midX,
-        top: midY - 40 / currentZoom,
-        fontSize: 16 / currentZoom,
+        top: midY - 80,
+        fontSize: 32,
         fontWeight: 'bold',
-        fill: '#22c55e',
-        backgroundColor: 'rgba(255, 255, 255, 0.9)',
-        padding: 8 / currentZoom,
+        fill: '#dc2626',
+        backgroundColor: '#fef2f2',
+        padding: 20,
         textAlign: 'center',
         selectable: false,
         evented: false,
-        stroke: '#16a34a',
-        strokeWidth: 0.5 / currentZoom,
+        stroke: '#991b1b',
+        strokeWidth: 3,
+        originX: 'center',
+        originY: 'center',
       });
       
       fabricCanvas.add(scaleLabel);
+      fabricCanvas.bringObjectToFront(scaleObjects.line);
+      fabricCanvas.bringObjectToFront(marker1);
+      fabricCanvas.bringObjectToFront(marker2);
+      fabricCanvas.bringObjectToFront(scaleLabel);
+      
       setScaleObjects(prev => ({ ...prev, label: scaleLabel }));
       
+      // Zoom to show the scale markers
+      const centerX = (marker1.left! + marker2.left!) / 2;
+      const centerY = (marker1.top! + marker2.top!) / 2;
+      fabricCanvas.setZoom(3);
+      fabricCanvas.absolutePan(new Point(
+        centerX - fabricCanvas.width! / 6,
+        centerY - fabricCanvas.height! / 6
+      ));
+      
       fabricCanvas.renderAll();
+      
+      console.log('✅ SCALE MARKERS NOW MASSIVE AND VISIBLE');
     }
     
     // Save scale to database if floor plan exists
-    if (floorPlanId) {
+    if (floorPlanId && scaleObjects.markers.length === 2) {
       const { error } = await supabase
         .from("floor_plans")
         .update({ 
@@ -1545,10 +1591,16 @@ const FloorPlan = () => {
         console.error("Error saving scale:", error);
         toast.error("Scale set but failed to save to database");
       } else {
-        toast.success(`Scale calibrated and saved: 1px = ${metersPerPixel.toFixed(4)}m (drag markers to adjust)`);
+        toast.success(`✅ SCALE SET AND VISIBLE: ${metersValue.toFixed(2)}m`, {
+          duration: 5000,
+          description: 'Look for the HUGE red circles on the canvas'
+        });
       }
     } else {
-      toast.success(`Scale calibrated: 1px = ${metersPerPixel.toFixed(4)}m (drag markers to adjust)`);
+      toast.success(`✅ SCALE SET: ${metersValue.toFixed(2)}m`, {
+        duration: 5000,
+        description: 'Markers are now MASSIVE and visible'
+      });
     }
   };
 
