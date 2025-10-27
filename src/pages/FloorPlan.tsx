@@ -15,6 +15,7 @@ import { ScaleDialog } from "@/components/floorplan/ScaleDialog";
 import { ScaleEditDialog } from "@/components/floorplan/ScaleEditDialog";
 import { CableDetailsDialog } from "@/components/floorplan/CableDetailsDialog";
 import { ContainmentSizeDialog } from "@/components/floorplan/ContainmentSizeDialog";
+import { ModificationDialog } from "@/components/floorplan/ModificationDialog";
 import { EQUIPMENT_SIZES } from "@/components/floorplan/equipmentSizes";
 import { CABLE_STYLES, SPECIAL_CABLE_STYLES } from "@/components/floorplan/cableStyles";
 import { createIECSymbol } from "@/components/floorplan/iecSymbols";
@@ -46,6 +47,11 @@ const FloorPlan = () => {
   const [cableDialogOpen, setCableDialogOpen] = useState(false);
   const [containmentDialogOpen, setContainmentDialogOpen] = useState(false);
   const [currentContainmentType, setCurrentContainmentType] = useState("");
+  const [modificationDialogOpen, setModificationDialogOpen] = useState(false);
+  const [modificationType, setModificationType] = useState<"scale" | "cable" | "zone" | "containment">("scale");
+  const [modificationData, setModificationData] = useState<{ oldValue?: string; newValue?: string; onConfirm: () => void }>({
+    onConfirm: () => {},
+  });
   const [projectData, setProjectData] = useState<ProjectData>({
     equipment: [],
     cables: [],
@@ -211,28 +217,40 @@ const FloorPlan = () => {
 
       // Update scale calibration if it was already set
       if (scaleCalibration.isSet && scaleCalibration.metersPerPixel > 0) {
-        // Save to database after short delay (debounce)
+        const oldScale = scaleCalibration.metersPerPixel;
+        const oldDistance = distance * oldScale;
+        
+        // Debounce the dialog to avoid showing it on every small movement
         clearTimeout(saveTimeout);
-        saveTimeout = setTimeout(async () => {
-          try {
-            const [marker1, marker2] = scaleObjects.markers;
-            const { error } = await supabase
-              .from("floor_plans")
-              .update({ 
-                scale_meters_per_pixel: scaleCalibration.metersPerPixel,
-                scale_point1: { x: marker1.left, y: marker1.top },
-                scale_point2: { x: marker2.left, y: marker2.top }
-              })
-              .eq("id", floorPlanId);
-            
-            if (!error) {
-              toast.success(`Scale updated: 1px = ${scaleCalibration.metersPerPixel.toFixed(4)}m`, {
-                duration: 1500
-              });
+        saveTimeout = setTimeout(() => {
+          // Show modification dialog for scale change
+          setModificationType("scale");
+          setModificationData({
+            oldValue: `${oldDistance.toFixed(2)}m (1px = ${oldScale.toFixed(4)}m)`,
+            newValue: `Distance changed - position updated`,
+            onConfirm: async () => {
+              try {
+                const [marker1, marker2] = scaleObjects.markers;
+                const { error } = await supabase
+                  .from("floor_plans")
+                  .update({ 
+                    scale_meters_per_pixel: scaleCalibration.metersPerPixel,
+                    scale_point1: { x: marker1.left, y: marker1.top },
+                    scale_point2: { x: marker2.left, y: marker2.top }
+                  })
+                  .eq("id", floorPlanId);
+                
+                if (!error) {
+                  toast.success(`Scale markers updated`);
+                }
+              } catch (err) {
+                console.error("Error saving scale:", err);
+              }
+              
+              setModificationDialogOpen(false);
             }
-          } catch (err) {
-            console.error("Error saving scale:", err);
-          }
+          });
+          setModificationDialogOpen(true);
         }, 1000);
       }
     };
@@ -986,28 +1004,42 @@ const FloorPlan = () => {
       // Handle line point modifications
       line.on('modified', async () => {
         const points = line.points?.map(p => ({ x: p.x, y: p.y })) || [];
+        const fabricPoints = points.map(p => new Point(p.x, p.y));
+        const newLength = calculatePathLength(fabricPoints) * scaleCalibration.metersPerPixel;
+        const oldLength = cable.lengthMeters || 0;
         
-        // Update local state
-        setProjectData(prev => ({
-          ...prev,
-          cables: prev.cables.map(c => 
-            c.id === cable.id ? { ...c, points } : c
-          )
-        }));
-        
-        // Save to database
-        try {
-          const { error } = await supabase
-            .from('cable_routes')
-            .update({ points: points })
-            .eq('id', cable.id);
+        // Show modification dialog
+        setModificationType("cable");
+        setModificationData({
+          oldValue: `${oldLength.toFixed(2)}m`,
+          newValue: `${newLength.toFixed(2)}m`,
+          onConfirm: async () => {
+            // Update local state
+            setProjectData(prev => ({
+              ...prev,
+              cables: prev.cables.map(c => 
+                c.id === cable.id ? { ...c, points, lengthMeters: newLength } : c
+              )
+            }));
             
-          if (!error) {
-            toast.success('Cable updated', { duration: 1000 });
+            // Save to database
+            try {
+              const { error } = await supabase
+                .from('cable_routes')
+                .update({ points: points, length_meters: newLength })
+                .eq('id', cable.id);
+                
+              if (!error) {
+                toast.success('Cable route updated');
+              }
+            } catch (err) {
+              console.error('Error updating cable:', err);
+            }
+            
+            setModificationDialogOpen(false);
           }
-        } catch (err) {
-          console.error('Error updating cable:', err);
-        }
+        });
+        setModificationDialogOpen(true);
       });
       
       fabricCanvas.add(line);
@@ -1037,16 +1069,26 @@ const FloorPlan = () => {
       // Handle zone modifications
       polygon.on('modified', async () => {
         const points = polygon.points?.map(p => ({ x: p.x, y: p.y })) || [];
+        const pointCount = points.length;
         
-        setProjectData(prev => ({
-          ...prev,
-          zones: prev.zones.map(z => 
-            z.id === zone.id ? { ...z, points } : z
-          )
-        }));
-        
-        // Zones are saved in floor_plan_data table, trigger a full save
-        toast.success('Zone updated - click Save to persist changes', { duration: 2000 });
+        // Show modification dialog
+        setModificationType("zone");
+        setModificationData({
+          oldValue: `${zone.points.length} points`,
+          newValue: `${pointCount} points`,
+          onConfirm: async () => {
+            setProjectData(prev => ({
+              ...prev,
+              zones: prev.zones.map(z => 
+                z.id === zone.id ? { ...z, points } : z
+              )
+            }));
+            
+            toast.success('Zone updated - click Save to persist changes');
+            setModificationDialogOpen(false);
+          }
+        });
+        setModificationDialogOpen(true);
       });
       
       fabricCanvas.add(polygon);
@@ -1077,16 +1119,28 @@ const FloorPlan = () => {
       // Handle containment modifications
       line.on('modified', async () => {
         const points = line.points?.map(p => ({ x: p.x, y: p.y })) || [];
+        const fabricPoints = points.map(p => new Point(p.x, p.y));
+        const newLength = calculatePathLength(fabricPoints) * scaleCalibration.metersPerPixel;
+        const oldLength = route.lengthMeters || 0;
         
-        setProjectData(prev => ({
-          ...prev,
-          containment: prev.containment.map(c => 
-            c.id === route.id ? { ...c, points } : c
-          )
-        }));
-        
-        // Containment is saved in floor_plan_data table, trigger a full save
-        toast.success('Containment updated - click Save to persist changes', { duration: 2000 });
+        // Show modification dialog
+        setModificationType("containment");
+        setModificationData({
+          oldValue: `${oldLength.toFixed(2)}m`,
+          newValue: `${newLength.toFixed(2)}m`,
+          onConfirm: async () => {
+            setProjectData(prev => ({
+              ...prev,
+              containment: prev.containment.map(c => 
+                c.id === route.id ? { ...c, points, lengthMeters: newLength } : c
+              )
+            }));
+            
+            toast.success('Containment updated - click Save to persist changes');
+            setModificationDialogOpen(false);
+          }
+        });
+        setModificationDialogOpen(true);
       });
       
       fabricCanvas.add(line);
@@ -1850,6 +1904,21 @@ const FloorPlan = () => {
           setContainmentDialogOpen(false);
           pendingContainmentPointsRef.current = [];
           setCurrentContainmentType("");
+        }}
+      />
+
+      <ModificationDialog
+        open={modificationDialogOpen}
+        type={modificationType}
+        oldValue={modificationData.oldValue}
+        newValue={modificationData.newValue}
+        onConfirm={modificationData.onConfirm}
+        onCancel={() => {
+          setModificationDialogOpen(false);
+          // Reload the floor plan to revert changes
+          if (floorPlanId) {
+            window.location.reload();
+          }
         }}
       />
     </div>
