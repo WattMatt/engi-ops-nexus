@@ -73,81 +73,48 @@ const FloorPlan = () => {
       backgroundColor: "#f5f5f5",
     });
 
-    // TEST: Global listener to verify middle button works at all
-    const globalTest = (evt: PointerEvent) => {
-      console.log("GLOBAL POINTER - button:", evt.button, "pointerType:", evt.pointerType);
-      if (evt.button === 1) {
-        toast("Middle button detected globally!", { duration: 1000 });
-      }
-    };
-    document.addEventListener('pointerdown', globalTest);
-
-    // Enhanced zoom with mouse wheel (center scroll)
+    // Enhanced zoom with mouse wheel
     canvas.on("mouse:wheel", (opt) => {
       const delta = opt.e.deltaY;
       let zoom = canvas.getZoom();
       
-      // Smoother zoom
       zoom *= 0.999 ** delta;
       
-      // Clamp zoom levels
       if (zoom > 20) zoom = 20;
       if (zoom < 0.05) zoom = 0.05;
       
-      // Zoom to pointer position for intuitive zooming
       const point = new Point(opt.e.offsetX, opt.e.offsetY);
       canvas.zoomToPoint(point, zoom);
       
       opt.e.preventDefault();
       opt.e.stopPropagation();
       
-      // Show zoom level briefly
       const zoomPercent = Math.round(zoom * 100);
       if (zoomPercent % 10 === 0 || delta > 50) {
         toast(`Zoom: ${zoomPercent}%`, { duration: 500 });
       }
     });
 
-    // Enhanced panning with middle mouse button OR Alt+drag
+    // Simple and reliable panning with middle mouse button
     let isPanning = false;
     let lastPosX = 0;
     let lastPosY = 0;
 
-    // Use POINTER events for better middle button detection
-    const canvasElement = canvas.getElement();
-    const canvasWrapper = canvasElement.parentElement;
-    
-    console.log("Canvas element:", canvasElement, "Parent:", canvasWrapper);
-    
-    const handlePointerDown = (evt: PointerEvent) => {
-      console.log("Canvas PointerDown - button:", evt.button, "pointerType:", evt.pointerType, "alt:", evt.altKey);
-      
-      // Middle button (button 1) or Alt+Left click for panning
-      if (evt.button === 1 || evt.altKey === true) {
-        console.log("Starting pan - button:", evt.button, "alt:", evt.altKey);
+    canvas.on('mouse:down', (opt) => {
+      const evt = opt.e as MouseEvent;
+      if (evt.button === 1) { // Middle button
         isPanning = true;
         canvas.selection = false;
-        canvas.discardActiveObject();
         lastPosX = evt.clientX;
         lastPosY = evt.clientY;
-        
-        canvasElement.style.cursor = "grab";
-        canvas.defaultCursor = "grab";
-        
-        // Capture pointer to receive all events even outside canvas
-        canvasElement.setPointerCapture(evt.pointerId);
-        
-        evt.preventDefault();
-        evt.stopPropagation();
-        
-        toast("Pan mode active", { duration: 800 });
+        canvas.setCursor('grab');
       }
-    };
+    });
 
-    const handlePointerMove = (evt: PointerEvent) => {
+    canvas.on('mouse:move', (opt) => {
       if (isPanning) {
-        canvasElement.style.cursor = "grabbing";
-        
+        const evt = opt.e as MouseEvent;
+        canvas.setCursor('grabbing');
         const vpt = canvas.viewportTransform;
         if (vpt) {
           vpt[4] += evt.clientX - lastPosX;
@@ -156,49 +123,21 @@ const FloorPlan = () => {
         }
         lastPosX = evt.clientX;
         lastPosY = evt.clientY;
-        
-        evt.preventDefault();
       }
-    };
+    });
 
-    const handlePointerUp = (evt: PointerEvent) => {
+    canvas.on('mouse:up', () => {
       if (isPanning) {
-        console.log("Ending pan mode");
         canvas.setViewportTransform(canvas.viewportTransform);
         isPanning = false;
         canvas.selection = true;
-        
-        canvasElement.style.cursor = "default";
-        canvas.defaultCursor = "default";
-        canvas.renderAll();
-        
-        // Release pointer capture
-        if (canvasElement.hasPointerCapture(evt.pointerId)) {
-          canvasElement.releasePointerCapture(evt.pointerId);
-        }
+        canvas.setCursor('default');
       }
-    };
-
-    // Prevent context menu
-    const handleContextMenu = (evt: Event) => {
-      evt.preventDefault();
-    };
-
-    // Use pointer events for better cross-device support
-    canvasElement.addEventListener('pointerdown', handlePointerDown, true);
-    canvasElement.addEventListener('pointermove', handlePointerMove);
-    canvasElement.addEventListener('pointerup', handlePointerUp);
-    canvasElement.addEventListener('contextmenu', handleContextMenu);
+    });
 
     setFabricCanvas(canvas);
 
     return () => {
-      document.removeEventListener('pointerdown', globalTest);
-      canvasElement.removeEventListener('pointerdown', handlePointerDown, true);
-      canvasElement.removeEventListener('pointermove', handlePointerMove);
-      canvasElement.removeEventListener('pointerup', handlePointerUp);
-      canvasElement.removeEventListener('contextmenu', handleContextMenu);
-      
       if (fabricCanvas) {
         fabricCanvas.dispose();
       }
