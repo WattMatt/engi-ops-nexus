@@ -298,14 +298,14 @@ const FloorPlan = () => {
 
       // Scale tool (works even when scale is not set)
       if (activeTool === "scale") {
-        // Draw a BIG VISIBLE marker at click point
+        // Draw a SMALL marker for precise placement
         const marker = new Circle({
           left: point.x,
           top: point.y,
-          radius: 20,
+          radius: 6,
           fill: "#ef4444",
           stroke: "#fbbf24",
-          strokeWidth: 5,
+          strokeWidth: 2,
           selectable: true,
           hasControls: false,
           hasBorders: false,
@@ -326,23 +326,23 @@ const FloorPlan = () => {
           // Get the first marker that was already added
           const firstMarker = scaleObjects.markers[0];
           
-          // Draw THICK, VISIBLE line that stays on canvas
+          // Draw line connecting the two points
           const line = new Line([scalePoints[0].x, scalePoints[0].y, point.x, point.y], {
             stroke: "#ef4444",
-            strokeWidth: 10,
+            strokeWidth: 3,
             selectable: false,
             evented: false,
-            strokeDashArray: [20, 10],
+            strokeDashArray: [10, 5],
           });
           
-          // Add line and bring everything to front in correct order
+          // Add line BEHIND markers so markers are visible on top
           fabricCanvas.add(line);
-          fabricCanvas.bringObjectToFront(line);
+          fabricCanvas.sendObjectToBack(line);
           fabricCanvas.bringObjectToFront(firstMarker);
           fabricCanvas.bringObjectToFront(marker);
           fabricCanvas.renderAll();
           
-          // Store all objects - markers remain SELECTABLE for adjustment
+          // Store all objects - they will stay on canvas permanently
           setScaleObjects({ 
             line, 
             markers: [firstMarker, marker],
@@ -356,7 +356,7 @@ const FloorPlan = () => {
           setScaleLinePixels(distance);
           setScaleDialogOpen(true);
           
-          console.log('✅ Scale line drawn - markers stay selectable until you confirm the scale');
+          console.log('✅ Scale line and markers drawn and permanently visible on canvas');
         }
         return;
       }
