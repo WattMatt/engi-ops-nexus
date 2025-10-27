@@ -1,9 +1,10 @@
 import { useState, useRef, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, Save, Sparkles } from "lucide-react";
+import { FileText, Save, Sparkles, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Canvas as FabricCanvas, Image as FabricImage, Point } from "fabric";
+import { supabase } from "@/integrations/supabase/client";
 import { PDFLoader } from "@/components/floorplan/PDFLoader";
 import { Toolbar } from "@/components/floorplan/Toolbar";
 import { ProjectOverview } from "@/components/floorplan/ProjectOverview";
@@ -13,6 +14,9 @@ import { DesignPurpose, Tool, ProjectData, ScaleCalibration } from "@/components
 
 const FloorPlan = () => {
   const [projectId] = useState(localStorage.getItem("selectedProjectId"));
+  const [floorPlanId, setFloorPlanId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [fabricCanvas, setFabricCanvas] = useState<FabricCanvas | null>(null);
   const [pdfImageUrl, setPdfImageUrl] = useState<string | null>(null);
@@ -105,8 +109,8 @@ const FloorPlan = () => {
     };
   }, [fabricCanvas]);
 
-  const handlePDFLoaded = async (imageUrl: string) => {
-    if (!fabricCanvas) {
+  const handlePDFLoaded = async (imageUrl: string, uploadedPdfUrl?: string) => {
+    if (!fabricCanvas || !projectId) {
       toast.error("Canvas not ready. Please refresh the page and try again.");
       return;
     }
@@ -134,9 +138,140 @@ const FloorPlan = () => {
       fabricCanvas.sendObjectToBack(img);
       fabricCanvas.renderAll();
 
-      toast.success("Floor plan loaded!");
+      // Create or get floor plan record
+      if (uploadedPdfUrl) {
+        const { data: user } = await supabase.auth.getUser();
+        if (!user.user) {
+          toast.error("User not authenticated");
+          return;
+        }
+
+        const { data: floorPlan, error: createError } = await supabase
+          .from("floor_plans")
+          .insert({
+            project_id: projectId,
+            name: `Floor Plan ${new Date().toLocaleDateString()}`,
+            pdf_url: uploadedPdfUrl,
+            design_purpose: "general",
+            created_by: user.user.id,
+          })
+          .select()
+          .single();
+
+        if (createError) {
+          console.error("Error creating floor plan:", createError);
+          toast.error("Failed to create floor plan record");
+        } else {
+          setFloorPlanId(floorPlan.id);
+          toast.success("Floor plan loaded!");
+        }
+      }
     } catch (error) {
       toast.error("Failed to display PDF on canvas");
+    }
+  };
+
+  const loadExistingMarkups = async (fpId: string) => {
+    setLoading(true);
+    try {
+      // Load equipment
+      const { data: equipment } = await supabase
+        .from("equipment_placements")
+        .select("*")
+        .eq("floor_plan_id", fpId);
+
+      // Load cables (excluding containment routes stored as 'tray')
+      const { data: cables } = await supabase
+        .from("cable_routes")
+        .select("*")
+        .eq("floor_plan_id", fpId)
+        .neq("route_type", "tray");
+
+      // Load zones (may not exist yet in types)
+      let zonesQuery: any[] = [];
+      try {
+        const { data } = await supabase
+          .from("zones" as any)
+          .select("*")
+          .eq("floor_plan_id", fpId);
+        zonesQuery = data || [];
+      } catch (e) {
+        console.log("Zones table not ready yet");
+      }
+
+      // Load PV arrays (may not exist yet in types)
+      let pvQuery: any[] = [];
+      try {
+        const { data } = await supabase
+          .from("pv_arrays" as any)
+          .select("*")
+          .eq("floor_plan_id", fpId);
+        pvQuery = data || [];
+      } catch (e) {
+        console.log("PV arrays table not ready yet");
+      }
+
+      // Load containment from cable_routes with type 'tray'
+      const { data: containmentQuery } = await supabase
+        .from("cable_routes")
+        .select("*")
+        .eq("floor_plan_id", fpId)
+        .eq("route_type", "tray");
+
+      // Update project data
+      setProjectData({
+        equipment: equipment?.map((item: any) => ({
+          id: item.id,
+          type: item.equipment_type as any,
+          x: Number(item.x_position),
+          y: Number(item.y_position),
+          rotation: item.rotation || 0,
+          properties: item.properties as any,
+        })) || [],
+        cables: cables?.map((cable: any) => ({
+          id: cable.id,
+          type: cable.route_type === "lv_ac" ? "lv" : cable.route_type,
+          points: cable.points as any,
+          cableType: cable.cable_spec as any,
+          supplyFrom: cable.supply_from,
+          supplyTo: cable.supply_to,
+          color: cable.color,
+          lengthMeters: Number(cable.length_meters),
+        })) || [],
+        zones: zonesQuery?.map((zone: any) => ({
+          id: zone.id,
+          type: zone.zone_type as any,
+          name: zone.name,
+          points: zone.points as any,
+          color: zone.color,
+          areaSqm: Number(zone.area_sqm),
+          roofPitch: Number(zone.roof_pitch),
+          roofAzimuth: Number(zone.roof_azimuth),
+        })) || [],
+        containment: containmentQuery?.map((route: any) => ({
+          id: route.id,
+          type: route.name || "cable-tray",
+          points: route.points as any,
+          size: route.size as any,
+          lengthMeters: Number(route.length_meters),
+        })) || [],
+        pvArrays: pvQuery?.map((array: any) => ({
+          id: array.id,
+          x: Number(array.x_position),
+          y: Number(array.y_position),
+          rows: array.rows,
+          columns: array.columns,
+          rotation: array.rotation || 0,
+          orientation: array.orientation as any,
+        })) || [],
+      });
+
+      toast.success("Loaded existing markups");
+    } catch (error: any) {
+      console.error("Load error:", error);
+      toast.error("Failed to load existing markups");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -166,11 +301,152 @@ const FloorPlan = () => {
   };
 
   const handleSave = async () => {
-    if (!projectId) {
-      toast.error("No project selected");
+    if (!projectId || !floorPlanId) {
+      toast.error("No project or floor plan selected");
       return;
     }
-    toast.success("Saved to project");
+
+    setSaving(true);
+    try {
+      // Save equipment placements
+      const { error: equipmentError } = await supabase
+        .from("equipment_placements")
+        .delete()
+        .eq("floor_plan_id", floorPlanId);
+
+      if (equipmentError) throw equipmentError;
+
+      if (projectData.equipment.length > 0) {
+        const { error: insertEquipmentError } = await supabase
+          .from("equipment_placements")
+          .insert(
+            projectData.equipment.map((item) => ({
+              floor_plan_id: floorPlanId,
+              equipment_type: item.type,
+              x_position: item.x,
+              y_position: item.y,
+              rotation: item.rotation,
+              properties: item.properties || {},
+              name: item.properties?.name,
+            }))
+          );
+
+        if (insertEquipmentError) throw insertEquipmentError;
+      }
+
+      // Save cable routes
+      const { error: cablesError } = await supabase
+        .from("cable_routes")
+        .delete()
+        .eq("floor_plan_id", floorPlanId);
+
+      if (cablesError) throw cablesError;
+
+      if (projectData.cables.length > 0) {
+        const { error: insertCablesError } = await supabase
+          .from("cable_routes")
+          .insert(
+            projectData.cables.map((cable) => ({
+              floor_plan_id: floorPlanId,
+              route_type: (cable.type === "lv" ? "lv_ac" : cable.type) as "dc" | "lv_ac" | "mv",
+              points: cable.points as any,
+              cable_spec: cable.cableType,
+              supply_from: cable.supplyFrom,
+              supply_to: cable.supplyTo,
+              color: cable.color,
+              length_meters: cable.lengthMeters,
+            }))
+          );
+
+        if (insertCablesError) throw insertCablesError;
+      }
+
+      // Save zones
+      const { error: zonesError } = await supabase
+        .from("zones")
+        .delete()
+        .eq("floor_plan_id", floorPlanId);
+
+      if (zonesError) throw zonesError;
+
+      if (projectData.zones.length > 0) {
+        const { error: insertZonesError } = await supabase
+          .from("zones")
+          .insert(
+            projectData.zones.map((zone) => ({
+              floor_plan_id: floorPlanId,
+              zone_type: zone.type,
+              name: zone.name,
+              points: zone.points,
+              color: zone.color,
+              area_sqm: zone.areaSqm,
+              roof_pitch: zone.roofPitch,
+              roof_azimuth: zone.roofAzimuth,
+            }))
+          );
+
+        if (insertZonesError) throw insertZonesError;
+      }
+
+      // Save containment routes
+      if (projectData.containment.length > 0) {
+        // Save as cable_routes with tray type since containment_routes table may not be in types yet
+        for (const route of projectData.containment) {
+          await supabase.from("cable_routes").insert({
+            floor_plan_id: floorPlanId,
+            route_type: "tray" as const,
+            points: route.points as any,
+            size: route.size,
+            length_meters: route.lengthMeters,
+            name: route.type,
+          });
+        }
+      }
+
+      // Save PV arrays
+      const { error: pvError } = await supabase
+        .from("pv_arrays")
+        .delete()
+        .eq("floor_plan_id", floorPlanId);
+
+      if (pvError) throw pvError;
+
+      if (projectData.pvArrays.length > 0) {
+        const { error: insertPvError } = await supabase
+          .from("pv_arrays")
+          .insert(
+            projectData.pvArrays.map((array) => ({
+              floor_plan_id: floorPlanId,
+              x_position: array.x,
+              y_position: array.y,
+              rows: array.rows,
+              columns: array.columns,
+              rotation: array.rotation,
+              orientation: array.orientation,
+              total_panels: array.rows * array.columns,
+            }))
+          );
+
+        if (insertPvError) throw insertPvError;
+      }
+
+      // Update floor plan scale
+      const { error: updateError } = await supabase
+        .from("floor_plans")
+        .update({
+          scale_meters_per_pixel: scaleCalibration.metersPerPixel,
+        })
+        .eq("id", floorPlanId);
+
+      if (updateError) throw updateError;
+
+      toast.success("All markups saved successfully!");
+    } catch (error: any) {
+      console.error("Save error:", error);
+      toast.error(error.message || "Failed to save markups");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleExportPDF = () => {
@@ -219,9 +495,18 @@ const FloorPlan = () => {
         </div>
         <div className="flex gap-2">
           <PDFLoader onPDFLoaded={handlePDFLoaded} />
-          <Button variant="outline" onClick={handleSave}>
-            <Save className="h-4 w-4 mr-2" />
-            Save
+          <Button variant="outline" onClick={handleSave} disabled={saving || !floorPlanId}>
+            {saving ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                <Save className="h-4 w-4 mr-2" />
+                Save
+              </>
+            )}
           </Button>
           <Button variant="outline" onClick={handleExportPDF}>
             <FileText className="h-4 w-4 mr-2" />

@@ -1,58 +1,54 @@
-import { useRef } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Upload } from "lucide-react";
+import { Upload, Loader2 } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 import * as pdfjsLib from "pdfjs-dist";
 
-// Set worker path - using unpkg for better reliability
 pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
 interface PDFLoaderProps {
-  onPDFLoaded: (imageUrl: string) => void;
+  onPDFLoaded: (imageUrl: string, uploadedPdfUrl?: string) => void;
 }
 
 export const PDFLoader = ({ onPDFLoaded }: PDFLoaderProps) => {
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [loading, setLoading] = useState(false);
 
-  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    console.log("File input change event triggered");
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    
-    if (!file) {
-      console.log("No file selected");
-      return;
-    }
-
-    console.log("File selected:", file.name, file.type, file.size);
+    if (!file) return;
 
     if (file.type !== "application/pdf") {
-      console.error("Invalid file type:", file.type);
-      toast.error("Please select a PDF file");
+      toast.error("Please upload a PDF file");
       return;
     }
 
+    setLoading(true);
+    let uploadedPdfUrl: string | undefined;
+    
     try {
-      toast.info("Loading PDF...");
-      console.log("Starting PDF processing...");
+      // Upload PDF to Supabase Storage
+      const fileName = `${Date.now()}-${file.name}`;
+      const { error: uploadError } = await supabase.storage
+        .from("floor-plans")
+        .upload(fileName, file);
 
+      if (uploadError) {
+        console.error("Upload error:", uploadError);
+        toast.error("Failed to upload PDF to storage");
+      } else {
+        const { data: { publicUrl } } = supabase.storage
+          .from("floor-plans")
+          .getPublicUrl(fileName);
+        uploadedPdfUrl = publicUrl;
+      }
+
+      // Convert PDF to image
       const arrayBuffer = await file.arrayBuffer();
-      console.log("ArrayBuffer created, size:", arrayBuffer.byteLength);
-
-      console.log("Creating PDF loading task...");
-      const loadingTask = pdfjsLib.getDocument({ 
-        data: arrayBuffer,
-        verbosity: 0
-      });
-      
-      console.log("Waiting for PDF to load...");
+      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer, verbosity: 0 });
       const pdf = await loadingTask.promise;
-      console.log("PDF loaded successfully, pages:", pdf.numPages);
-
       const page = await pdf.getPage(1);
-      console.log("First page loaded");
-
       const viewport = page.getViewport({ scale: 2 });
-      console.log("Viewport created:", viewport.width, "x", viewport.height);
 
       const canvas = document.createElement("canvas");
       const context = canvas.getContext("2d");
@@ -64,61 +60,45 @@ export const PDFLoader = ({ onPDFLoaded }: PDFLoaderProps) => {
       canvas.width = viewport.width;
       canvas.height = viewport.height;
 
-      const renderContext = {
+      await page.render({
         canvasContext: context,
         viewport: viewport,
-      };
-
-      await page.render(renderContext as any).promise;
-      console.log("Page rendered to canvas");
+      } as any).promise;
 
       const imageUrl = canvas.toDataURL("image/png");
-      console.log("Image URL created, length:", imageUrl.length);
-
-      onPDFLoaded(imageUrl);
+      onPDFLoaded(imageUrl, uploadedPdfUrl);
       toast.success("PDF loaded successfully");
     } catch (error) {
       console.error("Error loading PDF:", error);
-      toast.error(`Failed to load PDF: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      toast.error("Failed to load PDF");
     } finally {
-      // Reset file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = "";
-      }
-    }
-  };
-
-  const handleButtonClick = () => {
-    console.log("Load PDF button clicked");
-    console.log("File input ref:", fileInputRef.current);
-    
-    if (!fileInputRef.current) {
-      console.error("File input ref is null!");
-      toast.error("File input not initialized");
-      return;
-    }
-
-    try {
-      fileInputRef.current.click();
-      console.log("File input click triggered");
-    } catch (error) {
-      console.error("Error triggering file input:", error);
-      toast.error("Could not open file dialog");
+      setLoading(false);
     }
   };
 
   return (
     <>
       <input
-        ref={fileInputRef}
+        id="pdf-upload"
         type="file"
         accept="application/pdf,.pdf"
-        onChange={handleFileSelect}
+        onChange={handleFileChange}
         className="hidden"
       />
-      <Button onClick={handleButtonClick} type="button">
-        <Upload className="h-4 w-4 mr-2" />
-        Load PDF
+      <Button variant="outline" disabled={loading} asChild>
+        <label htmlFor="pdf-upload" className="cursor-pointer">
+          {loading ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Loading...
+            </>
+          ) : (
+            <>
+              <Upload className="h-4 w-4 mr-2" />
+              Load PDF
+            </>
+          )}
+        </label>
       </Button>
     </>
   );
