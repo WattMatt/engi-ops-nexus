@@ -29,19 +29,28 @@ export const PDFLoader = ({ onPDFLoaded }: PDFLoaderProps) => {
     try {
       // Upload PDF to Supabase Storage
       const fileName = `${Date.now()}-${file.name}`;
-      const { error: uploadError } = await supabase.storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from("floor-plans")
         .upload(fileName, file);
 
       if (uploadError) {
         console.error("Upload error:", uploadError);
-        toast.error("Failed to upload PDF to storage");
-      } else {
-        const { data: { publicUrl } } = supabase.storage
-          .from("floor-plans")
-          .getPublicUrl(fileName);
-        uploadedPdfUrl = publicUrl;
+        toast.error(`Failed to upload PDF: ${uploadError.message}`);
+        throw uploadError;
       }
+      
+      if (!uploadData) {
+        toast.error("Upload failed - no data returned");
+        throw new Error("Upload failed");
+      }
+
+      // Get public URL for the uploaded file
+      const { data: { publicUrl } } = supabase.storage
+        .from("floor-plans")
+        .getPublicUrl(fileName);
+      
+      uploadedPdfUrl = publicUrl;
+      console.log("PDF uploaded successfully:", uploadedPdfUrl);
 
       // Convert PDF to image
       const arrayBuffer = await file.arrayBuffer();
