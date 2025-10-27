@@ -1927,11 +1927,39 @@ const FloorPlan = () => {
     const pdfDistance = Math.sqrt(dx * dx + dy * dy);
     const realWorldDistance = pdfDistance * newScale;
     
-    // Update the label if it exists
-    if (scaleObjects.label) {
-      scaleObjects.label.set('text', `${realWorldDistance.toFixed(2)}m`);
-      fabricCanvas.renderAll();
+    // Update the line if it exists - connect current marker positions
+    if (scaleObjects.line && scaleObjects.markers.length === 2) {
+      scaleObjects.line.set({
+        x1: scaleObjects.markers[0].left!,
+        y1: scaleObjects.markers[0].top!,
+        x2: scaleObjects.markers[1].left!,
+        y2: scaleObjects.markers[1].top!,
+      });
     }
+    
+    // Update the label if it exists
+    if (scaleObjects.label && scaleObjects.markers.length === 2) {
+      const midX = (scaleObjects.markers[0].left! + scaleObjects.markers[1].left!) / 2;
+      const midY = (scaleObjects.markers[0].top! + scaleObjects.markers[1].top!) / 2;
+      
+      const currentZoom = fabricCanvas.getZoom();
+      const angle = Math.atan2(
+        scaleObjects.markers[1].top! - scaleObjects.markers[0].top!,
+        scaleObjects.markers[1].left! - scaleObjects.markers[0].left!
+      );
+      
+      const offsetDistance = 30 / currentZoom;
+      const labelX = midX - Math.sin(angle) * offsetDistance;
+      const labelY = midY + Math.cos(angle) * offsetDistance;
+      
+      scaleObjects.label.set({
+        text: `${realWorldDistance.toFixed(2)}m`,
+        left: labelX,
+        top: labelY
+      });
+    }
+    
+    fabricCanvas.renderAll();
     
     // Rescale all equipment
     const rescaledEquipment = projectData.equipment.map(eq => ({
