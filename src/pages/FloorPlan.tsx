@@ -16,6 +16,7 @@ import { ScaleEditDialog } from "@/components/floorplan/ScaleEditDialog";
 import { CableDetailsDialog } from "@/components/floorplan/CableDetailsDialog";
 import { ContainmentSizeDialog } from "@/components/floorplan/ContainmentSizeDialog";
 import { ModificationDialog } from "@/components/floorplan/ModificationDialog";
+import { LineEditDialog } from "@/components/floorplan/LineEditDialog";
 import { EQUIPMENT_SIZES } from "@/components/floorplan/equipmentSizes";
 import { CABLE_STYLES, SPECIAL_CABLE_STYLES } from "@/components/floorplan/cableStyles";
 import { createIECSymbol } from "@/components/floorplan/iecSymbols";
@@ -57,6 +58,8 @@ const FloorPlan = () => {
   const [containmentDialogOpen, setContainmentDialogOpen] = useState(false);
   const [currentContainmentType, setCurrentContainmentType] = useState("");
   const [modificationDialogOpen, setModificationDialogOpen] = useState(false);
+  const [lineEditDialogOpen, setLineEditDialogOpen] = useState(false);
+  const [selectedLine, setSelectedLine] = useState<any>(null);
   const [modificationType, setModificationType] = useState<"scale" | "cable" | "zone" | "containment">("scale");
   const [modificationData, setModificationData] = useState<{ oldValue?: string; newValue?: string; onConfirm: () => void }>({
     onConfirm: () => {},
@@ -170,6 +173,23 @@ const FloorPlan = () => {
             hasMoved = false;
           }, 50);
         }
+      }
+    });
+
+    // Handle object selection for line editing
+    canvas.on('selection:created', (e) => {
+      const selected = e.selected?.[0];
+      if (selected && selected.get('isEditableLine') && activeTool === 'select') {
+        setSelectedLine(selected);
+        setLineEditDialogOpen(true);
+      }
+    });
+
+    canvas.on('selection:updated', (e) => {
+      const selected = e.selected?.[0];
+      if (selected && selected.get('isEditableLine') && activeTool === 'select') {
+        setSelectedLine(selected);
+        setLineEditDialogOpen(true);
       }
     });
 
@@ -452,10 +472,17 @@ const FloorPlan = () => {
         
         const line = new Polyline(newPoints.map(p => ({ x: p.x, y: p.y })), {
           stroke: getToolColor(activeTool),
-          strokeWidth: 2,
+          strokeWidth: 3,
           fill: null,
-          selectable: false,
-          evented: false,
+          selectable: true,
+          evented: true,
+          hoverCursor: 'pointer',
+        });
+        
+        // Store metadata on the line
+        line.set({
+          lineType: activeTool,
+          isEditableLine: true,
         });
         
         setPreviewLine(line);
@@ -510,10 +537,17 @@ const FloorPlan = () => {
         const allPoints = [...drawingPoints, point];
         const line = new Polyline(allPoints.map(p => ({ x: p.x, y: p.y })), {
           stroke: getToolColor(activeTool),
-          strokeWidth: 2,
+          strokeWidth: 3,
           fill: null,
-          selectable: false,
-          evented: false,
+          selectable: true,
+          evented: true,
+          hoverCursor: 'pointer',
+        });
+        
+        // Store metadata on the line
+        line.set({
+          lineType: activeTool,
+          isEditableLine: true,
         });
         
         setPreviewLine(line);
@@ -825,6 +859,40 @@ const FloorPlan = () => {
     pendingContainmentPointsRef.current = [];
     setCurrentContainmentType("");
     toast.success(`${currentContainmentType} added: ${lengthMeters.toFixed(2)}m (${size})`);
+  };
+
+  const handleLineEdit = (updatedData: {
+    type: string;
+    cableType?: CableType;
+    cableSize?: string;
+    cableCount?: number;
+    containmentSize?: string;
+  }) => {
+    if (!selectedLine || !fabricCanvas) return;
+
+    // Update visual properties
+    selectedLine.set({
+      stroke: getToolColor(updatedData.type as Tool),
+      lineType: updatedData.type,
+      cableType: updatedData.cableType,
+      cableSize: updatedData.cableSize,
+      cableCount: updatedData.cableCount,
+      containmentSize: updatedData.containmentSize,
+    });
+
+    fabricCanvas.renderAll();
+    toast.success("Line updated successfully");
+  };
+
+  const handleLineDelete = () => {
+    if (!selectedLine || !fabricCanvas) return;
+
+    fabricCanvas.remove(selectedLine);
+    fabricCanvas.renderAll();
+    
+    setSelectedLine(null);
+    setLineEditDialogOpen(false);
+    toast.success("Line deleted");
   };
 
   // Load existing floor plan and markups on component mount
@@ -2102,6 +2170,20 @@ const FloorPlan = () => {
             window.location.reload();
           }
         }}
+      />
+
+      <LineEditDialog
+        open={lineEditDialogOpen}
+        onOpenChange={setLineEditDialogOpen}
+        lineData={{
+          type: selectedLine?.get('lineType') || 'line-lv',
+          cableType: selectedLine?.get('cableType'),
+          cableSize: selectedLine?.get('cableSize'),
+          cableCount: selectedLine?.get('cableCount'),
+          containmentSize: selectedLine?.get('containmentSize'),
+        }}
+        onConfirm={handleLineEdit}
+        onDelete={handleLineDelete}
       />
     </div>
   );
