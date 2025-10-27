@@ -129,17 +129,41 @@ const FloorPlan = () => {
     if (!fabricCanvas) return;
 
     const handleCanvasClick = (opt: any) => {
-      if (activeTool === "pan" || activeTool === "select" || !scaleCalibration.isSet) return;
+      if (activeTool === "pan" || activeTool === "select") return;
       
       const pointer = fabricCanvas.getPointer(opt.e);
       const point = new Point(pointer.x, pointer.y);
 
-      // Scale tool
+      // Scale tool (works even when scale is not set)
       if (activeTool === "scale") {
+        // Draw a visual marker at click point
+        const marker = new Circle({
+          left: point.x - 5,
+          top: point.y - 5,
+          radius: 5,
+          fill: "#ef4444",
+          stroke: "#dc2626",
+          strokeWidth: 2,
+          selectable: false,
+          evented: false,
+        });
+        fabricCanvas.add(marker);
+        fabricCanvas.renderAll();
+        
         if (scalePoints.length === 0) {
           setScalePoints([point]);
           toast.info("Click the end point of the known distance");
         } else {
+          // Draw line between the two points
+          const line = new Line([scalePoints[0].x, scalePoints[0].y, point.x, point.y], {
+            stroke: "#ef4444",
+            strokeWidth: 3,
+            selectable: false,
+            evented: false,
+          });
+          fabricCanvas.add(line);
+          fabricCanvas.renderAll();
+          
           const distance = Math.sqrt(
             Math.pow(point.x - scalePoints[0].x, 2) + 
             Math.pow(point.y - scalePoints[0].y, 2)
@@ -148,6 +172,12 @@ const FloorPlan = () => {
           setScaleDialogOpen(true);
           setScalePoints([]);
         }
+        return;
+      }
+      
+      // All other tools require scale to be set
+      if (!scaleCalibration.isSet) {
+        toast.error("Please set the scale first using the Scale tool");
         return;
       }
 
@@ -181,6 +211,19 @@ const FloorPlan = () => {
         const newPoints = [...drawingPoints, point];
         setDrawingPoints(newPoints);
         
+        // Draw a visual marker at click point
+        const marker = new Circle({
+          left: point.x - 4,
+          top: point.y - 4,
+          radius: 4,
+          fill: getToolColor(activeTool),
+          stroke: "#ffffff",
+          strokeWidth: 2,
+          selectable: false,
+          evented: false,
+        });
+        fabricCanvas.add(marker);
+        
         // Update preview
         if (previewLine) {
           fabricCanvas.remove(previewLine);
@@ -197,6 +240,10 @@ const FloorPlan = () => {
         setPreviewLine(line);
         fabricCanvas.add(line);
         fabricCanvas.renderAll();
+        
+        if (newPoints.length === 1) {
+          toast.info("Continue clicking to draw. Press Enter to finish or Escape to cancel");
+        }
       }
     };
 
@@ -817,7 +864,7 @@ const FloorPlan = () => {
     toast.success(`Design purpose set to: ${purpose.replace(/_/g, " ")}`);
   };
 
-  const handleScaleSet = (metersValue: number) => {
+  const handleScaleSet = async (metersValue: number) => {
     if (!scaleLinePixels || scaleLinePixels === 0) {
       toast.error("Invalid scale line drawn");
       return;
@@ -826,8 +873,26 @@ const FloorPlan = () => {
     const metersPerPixel = metersValue / scaleLinePixels;
     setScaleCalibration({ metersPerPixel, isSet: true });
     setScaleDialogOpen(false);
+    setScaleLinePixels(0);
+    setScalePoints([]);
     setActiveTool("select");
-    toast.success(`Scale calibrated: 1 pixel = ${metersPerPixel.toFixed(4)} meters. You can now draw and place equipment!`);
+    
+    // Save scale to database if floor plan exists
+    if (floorPlanId) {
+      const { error } = await supabase
+        .from("floor_plans")
+        .update({ scale_meters_per_pixel: metersPerPixel })
+        .eq("id", floorPlanId);
+      
+      if (error) {
+        console.error("Error saving scale:", error);
+        toast.error("Scale set but failed to save to database");
+      } else {
+        toast.success(`Scale calibrated and saved: 1 pixel = ${metersPerPixel.toFixed(4)} meters`);
+      }
+    } else {
+      toast.success(`Scale calibrated: 1 pixel = ${metersPerPixel.toFixed(4)} meters`);
+    }
   };
 
   const handleSave = async () => {
@@ -1146,7 +1211,10 @@ const FloorPlan = () => {
         onConfirm={handleScaleSet}
         onCancel={() => {
           setScaleDialogOpen(false);
+          setScaleLinePixels(0);
+          setScalePoints([]);
           setActiveTool("select");
+          toast.info("Scale calibration cancelled");
         }}
       />
 
