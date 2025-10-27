@@ -18,7 +18,7 @@ import { ContainmentSizeDialog } from "@/components/floorplan/ContainmentSizeDia
 import { EQUIPMENT_SIZES } from "@/components/floorplan/equipmentSizes";
 import { CABLE_STYLES, SPECIAL_CABLE_STYLES } from "@/components/floorplan/cableStyles";
 import { createIECSymbol } from "@/components/floorplan/iecSymbols";
-import { DesignPurpose, Tool, ProjectData, ScaleCalibration, EquipmentType, CableType, ContainmentSize } from "@/components/floorplan/types";
+import { DesignPurpose, Tool, ProjectData, ScaleCalibration, EquipmentType, CableType, ContainmentSize, Zone } from "@/components/floorplan/types";
 
 const FloorPlan = () => {
   const { floorPlanId: routeFloorPlanId } = useParams();
@@ -379,7 +379,7 @@ const FloorPlan = () => {
         fabricCanvas.renderAll();
         
         if (newPoints.length === 1) {
-          toast.info("Continue clicking to draw. Press Enter to finish or Escape to cancel");
+          toast.info("Continue clicking to draw. Double-click to finish");
         }
       }
     };
@@ -439,6 +439,54 @@ const FloorPlan = () => {
     };
 
     fabricCanvas.on("mouse:down", handleCanvasClick);
+    
+    // Double-click to finish drawing
+    fabricCanvas.on("mouse:dblclick", (opt) => {
+      if (!isDrawing || drawingPoints.length < 2) return;
+      
+      const lineTools: Tool[] = ["line-mv", "line-lv", "line-dc"];
+      const isCableTool = lineTools.includes(activeTool);
+      
+      if (isCableTool) {
+        // For cables, store points and open dialog for from/to details
+        pendingCablePointsRef.current = drawingPoints;
+        setCableDialogOpen(true);
+      } else if (activeTool === "zone") {
+        // For zones, save immediately with default type
+        const newZone: Zone = {
+          id: crypto.randomUUID(),
+          type: "supply",
+          points: drawingPoints,
+          color: "#10b981",
+        };
+        
+        setProjectData(prev => ({
+          ...prev,
+          zones: [...prev.zones, newZone],
+        }));
+        
+        toast.success("Zone created");
+      } else {
+        // For containment types, store points and open dialog
+        const containmentTools: Tool[] = ["cable-tray", "telkom-basket", "security-basket", "sleeves", "powerskirting", "p2000", "p8000", "p9000"];
+        if (containmentTools.includes(activeTool)) {
+          pendingContainmentPointsRef.current = drawingPoints;
+          setCurrentContainmentType(activeTool);
+          setContainmentDialogOpen(true);
+        }
+      }
+      
+      // Clean up drawing state
+      setIsDrawing(false);
+      setDrawingPoints([]);
+      if (previewLine) {
+        fabricCanvas.remove(previewLine);
+        setPreviewLine(null);
+      }
+      fabricCanvas.renderAll();
+      
+      toast.success("Line completed - enter details");
+    });
     fabricCanvas.on("mouse:move", handleMouseMove);
 
     return () => {
@@ -637,14 +685,26 @@ const FloorPlan = () => {
     const pathLength = calculatePathLength(points) * scaleCalibration.metersPerPixel;
     const totalLength = pathLength + details.startHeight + details.endHeight;
 
+    // Determine cable type based on which tool was used
+    let cableRouteType: "lv" | "mv" | "dc" = "lv";
+    let colorOverride = getToolColor("line-lv");
+    
+    if (activeTool === "line-mv") {
+      cableRouteType = "mv";
+      colorOverride = SPECIAL_CABLE_STYLES.mv.color;
+    } else if (activeTool === "line-dc") {
+      cableRouteType = "dc";
+      colorOverride = SPECIAL_CABLE_STYLES.dc.color;
+    }
+
     const newCable = {
       id: crypto.randomUUID(),
-      type: "lv" as const,
+      type: cableRouteType,
       points: points.map(p => ({ x: p.x, y: p.y })),
       cableType: details.cableType,
       supplyFrom: details.supplyFrom,
       supplyTo: details.supplyTo,
-      color: getToolColor("line-lv"),
+      color: colorOverride,
       lengthMeters: totalLength,
     };
     
@@ -655,7 +715,7 @@ const FloorPlan = () => {
     
     setCableDialogOpen(false);
     pendingCablePointsRef.current = [];
-    toast.success(`LV Cable added: ${totalLength.toFixed(2)}m`);
+    toast.success(`${cableRouteType.toUpperCase()} Cable added: ${details.supplyFrom} → ${details.supplyTo} (${totalLength.toFixed(2)}m)`);
   };
 
   const handleContainmentSize = (size: ContainmentSize) => {
