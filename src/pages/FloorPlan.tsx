@@ -104,46 +104,32 @@ const FloorPlan = () => {
     let lastPosX = 0;
     let lastPosY = 0;
 
-    canvas.on("mouse:down", (opt) => {
-      const evt = opt.e as MouseEvent;
-      console.log("Mouse down - button:", evt.button, "altKey:", evt.altKey);
-      
-      // Enable panning with middle mouse button (button 1) or Alt key
+    // Use native DOM events for more reliable middle button detection
+    const canvasElement = canvas.getElement();
+    
+    const handleMouseDown = (evt: MouseEvent) => {
+      // Middle button (button 1) or Alt+Left click for panning
       if (evt.button === 1 || evt.altKey === true) {
-        console.log("Starting pan mode");
+        console.log("Starting pan - button:", evt.button, "alt:", evt.altKey);
         isPanning = true;
         canvas.selection = false;
         canvas.discardActiveObject();
         lastPosX = evt.clientX;
         lastPosY = evt.clientY;
         
-        // Force cursor change on the canvas element
-        const canvasElement = canvas.getElement();
-        if (canvasElement) {
-          canvasElement.style.cursor = "grab";
-        }
+        canvasElement.style.cursor = "grab";
         canvas.defaultCursor = "grab";
-        canvas.hoverCursor = "grab";
-        canvas.renderAll();
         
-        opt.e.preventDefault();
-        opt.e.stopPropagation();
+        evt.preventDefault();
+        evt.stopPropagation();
         
-        toast("Pan mode active - drag to move", { duration: 1000 });
+        toast("Pan mode active", { duration: 800 });
       }
-    });
+    };
 
-    canvas.on("mouse:move", (opt) => {
+    const handleMouseMove = (evt: MouseEvent) => {
       if (isPanning) {
-        const evt = opt.e as MouseEvent;
-        
-        // Update cursor
-        const canvasElement = canvas.getElement();
-        if (canvasElement) {
-          canvasElement.style.cursor = "grabbing";
-        }
-        canvas.defaultCursor = "grabbing";
-        canvas.hoverCursor = "grabbing";
+        canvasElement.style.cursor = "grabbing";
         
         const vpt = canvas.viewportTransform;
         if (vpt) {
@@ -153,39 +139,44 @@ const FloorPlan = () => {
         }
         lastPosX = evt.clientX;
         lastPosY = evt.clientY;
+        
+        evt.preventDefault();
       }
-    });
+    };
 
-    canvas.on("mouse:up", (opt) => {
+    const handleMouseUp = (evt: MouseEvent) => {
       if (isPanning) {
         console.log("Ending pan mode");
         canvas.setViewportTransform(canvas.viewportTransform);
         isPanning = false;
         canvas.selection = true;
         
-        // Reset cursor
-        const canvasElement = canvas.getElement();
-        if (canvasElement) {
-          canvasElement.style.cursor = "default";
-        }
+        canvasElement.style.cursor = "default";
         canvas.defaultCursor = "default";
-        canvas.hoverCursor = "move";
         canvas.renderAll();
       }
-    });
+    };
 
-    // Also listen for context menu to prevent it when using middle button
-    canvas.on("mouse:down:before", (opt) => {
-      const evt = opt.e as MouseEvent;
+    // Prevent context menu on middle click
+    const handleContextMenu = (evt: MouseEvent) => {
       if (evt.button === 1) {
         evt.preventDefault();
-        return false;
       }
-    });
+    };
+
+    canvasElement.addEventListener('mousedown', handleMouseDown);
+    canvasElement.addEventListener('mousemove', handleMouseMove);
+    canvasElement.addEventListener('mouseup', handleMouseUp);
+    canvasElement.addEventListener('contextmenu', handleContextMenu);
 
     setFabricCanvas(canvas);
 
     return () => {
+      canvasElement.removeEventListener('mousedown', handleMouseDown);
+      canvasElement.removeEventListener('mousemove', handleMouseMove);
+      canvasElement.removeEventListener('mouseup', handleMouseUp);
+      canvasElement.removeEventListener('contextmenu', handleContextMenu);
+      
       if (fabricCanvas) {
         fabricCanvas.dispose();
       }
