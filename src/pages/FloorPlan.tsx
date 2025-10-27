@@ -166,9 +166,11 @@ const FloorPlan = () => {
 
   // Handle scale marker movement to update calibration
   useEffect(() => {
-    if (!fabricCanvas || scaleObjects.markers.length !== 2) return;
+    if (!fabricCanvas || scaleObjects.markers.length !== 2 || !floorPlanId) return;
 
-    const updateScaleLine = () => {
+    let saveTimeout: NodeJS.Timeout;
+
+    const updateScaleLine = async () => {
       const [marker1, marker2] = scaleObjects.markers;
       const line = scaleObjects.line;
       
@@ -188,15 +190,31 @@ const FloorPlan = () => {
         Math.pow(marker2.top! - marker1.top!, 2)
       );
 
-      // Update scale if it was already set
-      if (scaleCalibration.isSet && scaleCalibration.metersPerPixel > 0) {
-        const realWorldDistance = distance * scaleCalibration.metersPerPixel;
-        toast(`Scale updated: ${distance.toFixed(0)}px = ${realWorldDistance.toFixed(2)}m`, { 
-          duration: 2000 
-        });
-      }
-
       fabricCanvas.renderAll();
+
+      // Update scale calibration if it was already set
+      if (scaleCalibration.isSet && scaleCalibration.metersPerPixel > 0) {
+        const originalRealWorldDistance = distance * scaleCalibration.metersPerPixel;
+        
+        // Save to database after short delay (debounce)
+        clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(async () => {
+          try {
+            const { error } = await supabase
+              .from("floor_plans")
+              .update({ scale_meters_per_pixel: scaleCalibration.metersPerPixel })
+              .eq("id", floorPlanId);
+            
+            if (!error) {
+              toast.success(`Scale updated: 1px = ${scaleCalibration.metersPerPixel.toFixed(4)}m`, {
+                duration: 1500
+              });
+            }
+          } catch (err) {
+            console.error("Error saving scale:", err);
+          }
+        }, 1000);
+      }
     };
 
     const handleMarkerMove = () => {
@@ -209,12 +227,13 @@ const FloorPlan = () => {
     });
 
     return () => {
+      clearTimeout(saveTimeout);
       scaleObjects.markers.forEach(marker => {
         marker.off('moving', handleMarkerMove);
         marker.off('modified', handleMarkerMove);
       });
     };
-  }, [fabricCanvas, scaleObjects, scaleCalibration]);
+  }, [fabricCanvas, scaleObjects, scaleCalibration, floorPlanId]);
 
   // Handle canvas drawing interactions
   useEffect(() => {
@@ -783,11 +802,45 @@ const FloorPlan = () => {
           strokeDashArray: dashArray,
           fill: null,
           selectable: true,
+          hasControls: true,
+          hasBorders: true,
+          cornerSize: 10,
+          cornerColor: strokeStyle,
+          cornerStyle: 'circle',
+          transparentCorners: false,
+          objectCaching: false,
         }
       );
       
-      // Store cable data for reference
-      line.set({ cableId: cable.id, cableType: cable.cableType, cableCategory: cable.type });
+      // Store cable ID on the line for updates
+      line.set('cableId', cable.id);
+      
+      // Handle line point modifications
+      line.on('modified', async () => {
+        const points = line.points?.map(p => ({ x: p.x, y: p.y })) || [];
+        
+        // Update local state
+        setProjectData(prev => ({
+          ...prev,
+          cables: prev.cables.map(c => 
+            c.id === cable.id ? { ...c, points } : c
+          )
+        }));
+        
+        // Save to database
+        try {
+          const { error } = await supabase
+            .from('cable_routes')
+            .update({ points: points })
+            .eq('id', cable.id);
+            
+          if (!error) {
+            toast.success('Cable updated', { duration: 1000 });
+          }
+        } catch (err) {
+          console.error('Error updating cable:', err);
+        }
+      });
       
       fabricCanvas.add(line);
     });
@@ -801,8 +854,33 @@ const FloorPlan = () => {
           strokeWidth: 2,
           fill: `${zone.color || "#10b981"}33`,
           selectable: true,
+          hasControls: true,
+          hasBorders: true,
+          cornerSize: 10,
+          cornerColor: zone.color || "#10b981",
+          cornerStyle: 'circle',
+          transparentCorners: false,
+          objectCaching: false,
         }
       );
+      
+      polygon.set('zoneId', zone.id);
+      
+      // Handle zone modifications
+      polygon.on('modified', async () => {
+        const points = polygon.points?.map(p => ({ x: p.x, y: p.y })) || [];
+        
+        setProjectData(prev => ({
+          ...prev,
+          zones: prev.zones.map(z => 
+            z.id === zone.id ? { ...z, points } : z
+          )
+        }));
+        
+        // Zones are saved in floor_plan_data table, trigger a full save
+        toast.success('Zone updated - click Save to persist changes', { duration: 2000 });
+      });
+      
       fabricCanvas.add(polygon);
     });
     
@@ -816,8 +894,33 @@ const FloorPlan = () => {
           strokeDashArray: [5, 5],
           fill: null,
           selectable: true,
+          hasControls: true,
+          hasBorders: true,
+          cornerSize: 10,
+          cornerColor: getToolColor(route.type),
+          cornerStyle: 'circle',
+          transparentCorners: false,
+          objectCaching: false,
         }
       );
+      
+      line.set('containmentId', route.id);
+      
+      // Handle containment modifications
+      line.on('modified', async () => {
+        const points = line.points?.map(p => ({ x: p.x, y: p.y })) || [];
+        
+        setProjectData(prev => ({
+          ...prev,
+          containment: prev.containment.map(c => 
+            c.id === route.id ? { ...c, points } : c
+          )
+        }));
+        
+        // Containment is saved in floor_plan_data table, trigger a full save
+        toast.success('Containment updated - click Save to persist changes', { duration: 2000 });
+      });
+      
       fabricCanvas.add(line);
     });
     
