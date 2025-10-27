@@ -71,6 +71,8 @@ const FloorPlan = () => {
       width: 1200,
       height: 800,
       backgroundColor: "#f5f5f5",
+      fireMiddleClick: true, // CRITICAL: Enable middle button events
+      stopContextMenu: true, // Prevent right-click menu
     });
 
     // Enhanced zoom with mouse wheel
