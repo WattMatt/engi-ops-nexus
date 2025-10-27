@@ -20,6 +20,7 @@ import { EQUIPMENT_SIZES } from "@/components/floorplan/equipmentSizes";
 import { CABLE_STYLES, SPECIAL_CABLE_STYLES } from "@/components/floorplan/cableStyles";
 import { createIECSymbol } from "@/components/floorplan/iecSymbols";
 import { DesignPurpose, Tool, ProjectData, ScaleCalibration, EquipmentType, CableType, ContainmentSize, Zone } from "@/components/floorplan/types";
+import { canvasToPDF, pdfToCanvas, calculateMetersPerPDFUnit, PDFPoint } from "@/lib/pdfCoordinates";
 
 const FloorPlan = () => {
   const { floorPlanId: routeFloorPlanId } = useParams();
@@ -32,6 +33,14 @@ const FloorPlan = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [fabricCanvas, setFabricCanvas] = useState<FabricCanvas | null>(null);
   const [pdfImageUrl, setPdfImageUrl] = useState<string | null>(null);
+  
+  // PDF coordinate system - the source of truth
+  const [pdfDimensions, setPdfDimensions] = useState<{
+    width: number;
+    height: number;
+    canvasScale: number; // Scale factor applied to fit PDF on canvas
+  } | null>(null);
+  
   const [designPurpose, setDesignPurpose] = useState<DesignPurpose | null>(null);
   const [activeTool, setActiveTool] = useState<Tool>("select");
   const [rotation, setRotation] = useState(0);
@@ -296,10 +305,18 @@ const FloorPlan = () => {
       const pointer = fabricCanvas.getPointer(opt.e);
       const point = new Point(pointer.x, pointer.y);
 
-      // Scale tool (works even when scale is not set)
+      // Scale tool (works even when scale is not set, uses PDF coordinates)
       if (activeTool === "scale") {
-        // Draw marker with size adjusted for current zoom
-        const baseRadius = 6;
+        if (!pdfDimensions) {
+          toast.error("PDF dimensions not loaded");
+          return;
+        }
+
+        // Convert canvas click to PDF coordinates
+        const pdfPoint = canvasToPDF(point, pdfDimensions, fabricCanvas);
+        
+        // Draw marker at canvas position (will be zoom-responsive)
+        const baseRadius = 8;
         const marker = new Circle({
           left: point.x,
           top: point.y,
@@ -315,20 +332,27 @@ const FloorPlan = () => {
           originY: 'center',
         });
         
+        // Store PDF coordinates on the marker
+        marker.set('pdfX', pdfPoint.x);
+        marker.set('pdfY', pdfPoint.y);
+        
         fabricCanvas.add(marker);
         fabricCanvas.bringObjectToFront(marker);
         fabricCanvas.renderAll();
         
         if (scalePoints.length === 0) {
-          setScalePoints([point]);
+          setScalePoints([new Point(pdfPoint.x, pdfPoint.y)]);
           setScaleObjects(prev => ({ ...prev, markers: [marker] }));
           toast.info("Click the end point of the known distance");
         } else {
-          // Get the first marker
+          // Get the first marker's PDF coordinates
           const firstMarker = scaleObjects.markers[0];
+          const firstPdfX = firstMarker.get('pdfX');
+          const firstPdfY = firstMarker.get('pdfY');
           
-          // Draw line with zoom-adjusted width
-          const line = new Line([scalePoints[0].x, scalePoints[0].y, point.x, point.y], {
+          // Draw line between PDF points (converted to canvas)
+          const firstCanvasPoint = pdfToCanvas({ x: firstPdfX, y: firstPdfY }, pdfDimensions);
+          const line = new Line([firstCanvasPoint.x, firstCanvasPoint.y, point.x, point.y], {
             stroke: "#ef4444",
             strokeWidth: 3 / currentZoom,
             selectable: false,
@@ -343,6 +367,11 @@ const FloorPlan = () => {
           fabricCanvas.bringObjectToFront(marker);
           fabricCanvas.renderAll();
           
+          // Calculate distance in PDF coordinate space
+          const dx = pdfPoint.x - firstPdfX;
+          const dy = pdfPoint.y - firstPdfY;
+          const pdfDistance = Math.sqrt(dx * dx + dy * dy);
+          
           // Store objects
           setScaleObjects({ 
             line, 
@@ -350,14 +379,15 @@ const FloorPlan = () => {
             label: null
           });
           
-          const distance = Math.sqrt(
-            Math.pow(point.x - scalePoints[0].x, 2) + 
-            Math.pow(point.y - scalePoints[0].y, 2)
-          );
-          setScaleLinePixels(distance);
+          setScaleLinePixels(pdfDistance); // This is now PDF distance, not pixel distance
+          setScalePoints([new Point(firstPdfX, firstPdfY), new Point(pdfPoint.x, pdfPoint.y)]);
           setScaleDialogOpen(true);
           
-          console.log('✅ Scale line drawn with zoom-responsive sizing');
+          console.log('✅ Scale line drawn in PDF coordinates:', { 
+            point1: { x: firstPdfX, y: firstPdfY },
+            point2: pdfPoint,
+            pdfDistance 
+          });
         }
         return;
       }
@@ -891,22 +921,28 @@ const FloorPlan = () => {
             toast.error('No PDF found for this floor plan');
           }
           
-          // NOW add scale markers ON TOP of PDF
-          if (fp.scale_point1 && fp.scale_point2) {
-            console.log('🎯 Adding scale markers at:', fp.scale_point1, fp.scale_point2);
-            const point1 = fp.scale_point1 as { x: number; y: number };
-            const point2 = fp.scale_point2 as { x: number; y: number };
+          // NOW add scale markers ON TOP of PDF - convert PDF coords to canvas
+          if (fp.scale_point1 && fp.scale_point2 && pdfDimensions) {
+            console.log('🎯 Restoring scale markers from PDF coordinates:', fp.scale_point1, fp.scale_point2);
+            
+            // These are PDF coordinates from the database
+            const pdfPoint1 = fp.scale_point1 as { x: number; y: number };
+            const pdfPoint2 = fp.scale_point2 as { x: number; y: number };
+            
+            // Convert PDF coordinates to canvas coordinates
+            const canvasPoint1 = pdfToCanvas(pdfPoint1, pdfDimensions);
+            const canvasPoint2 = pdfToCanvas(pdfPoint2, pdfDimensions);
             
             const currentCanvasZoom = fabricCanvas.getZoom();
             
-            // Recreate scale line and markers from saved data
+            // Create markers at canvas positions
             const marker1 = new Circle({
-              left: point1.x,
-              top: point1.y,
-              radius: 6,
+              left: canvasPoint1.x,
+              top: canvasPoint1.y,
+              radius: 8 / currentCanvasZoom,
               fill: "#ef4444",
               stroke: "#fbbf24",
-              strokeWidth: 2,
+              strokeWidth: 2 / currentCanvasZoom,
               selectable: false,
               hasControls: false,
               hasBorders: false,
@@ -915,14 +951,18 @@ const FloorPlan = () => {
               originX: 'center',
               originY: 'center',
             });
+            
+            // Store PDF coordinates on the marker
+            marker1.set('pdfX', pdfPoint1.x);
+            marker1.set('pdfY', pdfPoint1.y);
             
             const marker2 = new Circle({
-              left: point2.x,
-              top: point2.y,
-              radius: 6,
+              left: canvasPoint2.x,
+              top: canvasPoint2.y,
+              radius: 8 / currentCanvasZoom,
               fill: "#ef4444",
               stroke: "#fbbf24",
-              strokeWidth: 2,
+              strokeWidth: 2 / currentCanvasZoom,
               selectable: false,
               hasControls: false,
               hasBorders: false,
@@ -932,33 +972,37 @@ const FloorPlan = () => {
               originY: 'center',
             });
             
-            // Create scale line
-            const line = new Line([point1.x, point1.y, point2.x, point2.y], {
+            // Store PDF coordinates on the marker
+            marker2.set('pdfX', pdfPoint2.x);
+            marker2.set('pdfY', pdfPoint2.y);
+            
+            // Create scale line in canvas coordinates
+            const line = new Line([canvasPoint1.x, canvasPoint1.y, canvasPoint2.x, canvasPoint2.y], {
               stroke: "#ef4444",
-              strokeWidth: 3,
+              strokeWidth: 3 / currentCanvasZoom,
               selectable: false,
               evented: false,
-              strokeDashArray: [10, 5],
+              strokeDashArray: [10 / currentCanvasZoom, 5 / currentCanvasZoom],
             });
             
-            // Calculate distance for label
-            const distance = Math.sqrt(
-              Math.pow(point2.x - point1.x, 2) + 
-              Math.pow(point2.y - point1.y, 2)
-            );
-            const realWorldDistance = distance * fp.scale_meters_per_pixel;
-            const midX = (point1.x + point2.x) / 2;
-            const midY = (point1.y + point2.y) / 2;
+            // Calculate distance in PDF space (not canvas)
+            const dx = pdfPoint2.x - pdfPoint1.x;
+            const dy = pdfPoint2.y - pdfPoint1.y;
+            const pdfDistance = Math.sqrt(dx * dx + dy * dy);
+            const realWorldDistance = pdfDistance * fp.scale_meters_per_pixel;
+            
+            const midX = (canvasPoint1.x + canvasPoint2.x) / 2;
+            const midY = (canvasPoint1.y + canvasPoint2.y) / 2;
             
             // Create label
             const label = new Text(`${realWorldDistance.toFixed(2)}m`, {
               left: midX,
               top: midY - 30,
-              fontSize: 16,
+              fontSize: 14 / currentCanvasZoom,
               fontWeight: 'bold',
               fill: '#dc2626',
               backgroundColor: '#fef2f2',
-              padding: 8,
+              padding: 6 / currentCanvasZoom,
               textAlign: 'center',
               selectable: false,
               evented: false,
@@ -978,24 +1022,13 @@ const FloorPlan = () => {
             fabricCanvas.renderAll();
             
             setScaleObjects({ line, markers: [marker1, marker2], label });
-            setScaleCalibrationPoints([new Point(point1.x, point1.y), new Point(point2.x, point2.y)]);
+            setScaleCalibrationPoints([new Point(pdfPoint1.x, pdfPoint1.y), new Point(pdfPoint2.x, pdfPoint2.y)]);
             
-            console.log('✅ Scale line and markers restored from database');
-            fabricCanvas.renderAll(); // Force render after viewport reset
-            
-            console.log('✅ Scale markers added, viewport reset to default, rendered');
-            
-            toast.success(`✅ Floor plan with scale markers loaded`, {
-              duration: 5000,
-              description: `Look for red circles. Use mouse wheel to zoom, Alt+drag to pan.`
-            });
+            console.log('✅ Scale line and markers restored from PDF coordinates');
+            toast.success('Floor plan loaded with scale');
           } else {
-            // No scale markers, just reset viewport
-            fabricCanvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
-            fabricCanvas.setZoom(1);
-            fabricCanvas.renderAll(); // Force render
-            
-            console.log('✅ PDF loaded, no scale markers, viewport reset, rendered');
+            // No scale markers, just show floor plan
+            console.log('✅ PDF loaded, no scale markers');
             toast.success('Floor plan loaded');
           }
           
@@ -1501,13 +1534,23 @@ const FloorPlan = () => {
       return;
     }
     
-    const metersPerPixel = metersValue / scaleLinePixels;
-    setScaleCalibration({ metersPerPixel, isSet: true });
+    if (!pdfDimensions) {
+      toast.error("PDF dimensions not available");
+      return;
+    }
+    
+    // scaleLinePixels is now PDF distance
+    const metersPerPDFUnit = metersValue / scaleLinePixels;
+    
+    setScaleCalibration({ 
+      metersPerPixel: metersPerPDFUnit, // This is actually meters per PDF unit now
+      isSet: true 
+    });
     setScaleCalibrationPoints(scalePoints);
     setScaleDialogOpen(false);
     setActiveTool("select");
     
-    // Lock markers and add label with zoom-responsive sizing
+    // Lock markers and add label
     if (fabricCanvas && scaleObjects.line && scaleObjects.markers.length === 2) {
       const [marker1, marker2] = scaleObjects.markers;
       
@@ -1515,7 +1558,7 @@ const FloorPlan = () => {
       marker1.set({ selectable: false, evented: false });
       marker2.set({ selectable: false, evented: false });
       
-      // Calculate midpoint for label
+      // Calculate midpoint in canvas coordinates
       const midX = (marker1.left! + marker2.left!) / 2;
       const midY = (marker1.top! + marker2.top!) / 2;
       
@@ -1523,11 +1566,11 @@ const FloorPlan = () => {
       const scaleLabel = new Text(`${metersValue.toFixed(2)}m`, {
         left: midX,
         top: midY - 30,
-        fontSize: 16 / currentZoom,
+        fontSize: 14 / currentZoom,
         fontWeight: 'bold',
         fill: '#dc2626',
         backgroundColor: '#fef2f2',
-        padding: 8 / currentZoom,
+        padding: 6 / currentZoom,
         textAlign: 'center',
         selectable: false,
         evented: false,
@@ -1549,14 +1592,14 @@ const FloorPlan = () => {
       setScaleObjects(prev => ({ ...prev, label: scaleLabel }));
     }
     
-    // Save to database
-    if (floorPlanId && scaleObjects.markers.length === 2) {
+    // Save to database - store PDF coordinates
+    if (floorPlanId && scaleObjects.markers.length === 2 && scalePoints.length === 2) {
       const { error } = await supabase
         .from("floor_plans")
         .update({ 
-          scale_meters_per_pixel: metersPerPixel,
-          scale_point1: { x: scaleObjects.markers[0].left, y: scaleObjects.markers[0].top },
-          scale_point2: { x: scaleObjects.markers[1].left, y: scaleObjects.markers[1].top }
+          scale_meters_per_pixel: metersPerPDFUnit, // This is meters per PDF unit
+          scale_point1: { x: scalePoints[0].x, y: scalePoints[0].y }, // PDF coordinates
+          scale_point2: { x: scalePoints[1].x, y: scalePoints[1].y }  // PDF coordinates
         })
         .eq("id", floorPlanId);
       
@@ -1564,7 +1607,12 @@ const FloorPlan = () => {
         console.error("Error saving scale:", error);
         toast.error("Scale set but failed to save to database");
       } else {
-        toast.success(`Scale set: ${metersValue.toFixed(2)}m`);
+        toast.success(`Scale set: ${metersValue.toFixed(2)}m (PDF coordinate system)`);
+        console.log('✅ Scale saved in PDF coordinates:', {
+          metersPerPDFUnit,
+          point1: scalePoints[0],
+          point2: scalePoints[1]
+        });
       }
     } else {
       toast.success(`Scale set: ${metersValue.toFixed(2)}m`);
