@@ -308,12 +308,16 @@ const FloorPlan = () => {
       // Scale tool (works even when scale is not set, uses PDF coordinates)
       if (activeTool === "scale") {
         if (!pdfDimensions) {
-          toast.error("PDF dimensions not loaded");
+          console.error('❌ PDF dimensions not available:', { pdfDimensions, pdfImageUrl });
+          toast.error("Please wait for PDF to finish loading");
           return;
         }
 
+        console.log('✅ Using PDF dimensions:', pdfDimensions);
+
         // Convert canvas click to PDF coordinates
         const pdfPoint = canvasToPDF(point, pdfDimensions, fabricCanvas);
+        console.log('Canvas point:', point, '→ PDF point:', pdfPoint);
         
         // Draw marker at canvas position (will be zoom-responsive)
         const baseRadius = 8;
@@ -872,6 +876,15 @@ const FloorPlan = () => {
               );
               
               console.log('📐 Calculated scale:', scale);
+              
+              // CRITICAL: Store PDF dimensions for coordinate system
+              const pdfDims = {
+                width: img.width!,
+                height: img.height!,
+                canvasScale: scale
+              };
+              setPdfDimensions(pdfDims);
+              console.log('✅ PDF dimensions stored:', pdfDims);
 
               img.set({
                 scaleX: scale,
