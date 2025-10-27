@@ -819,10 +819,10 @@ const FloorPlan = () => {
               const marker1 = new Circle({
                 left: point1.x,
                 top: point1.y,
-                radius: 12,
-                fill: "#22c55e",
-                stroke: "#16a34a",
-                strokeWidth: 4,
+                radius: 20,
+                fill: "#ef4444",
+                stroke: "#dc2626",
+                strokeWidth: 5,
                 selectable: true,
                 hasControls: false,
                 hasBorders: false,
@@ -834,10 +834,10 @@ const FloorPlan = () => {
               const marker2 = new Circle({
                 left: point2.x,
                 top: point2.y,
-                radius: 12,
-                fill: "#22c55e",
-                stroke: "#16a34a",
-                strokeWidth: 4,
+                radius: 20,
+                fill: "#ef4444",
+                stroke: "#dc2626",
+                strokeWidth: 5,
                 selectable: true,
                 hasControls: false,
                 hasBorders: false,
@@ -848,11 +848,11 @@ const FloorPlan = () => {
               
               // Create line with thicker stroke for visibility
               const line = new Line([point1.x, point1.y, point2.x, point2.y], {
-                stroke: "#22c55e",
-                strokeWidth: 4,
+                stroke: "#ef4444",
+                strokeWidth: 6,
                 selectable: false,
                 evented: false,
-                strokeDashArray: [10, 5],
+                strokeDashArray: [15, 10],
               });
               
               // Calculate distance for label
@@ -865,19 +865,19 @@ const FloorPlan = () => {
               const midY = (point1.y + point2.y) / 2;
               
               // Create label with better visibility
-              const label = new Text(`SCALE: ${realWorldDistance.toFixed(2)}m\n1px = ${fp.scale_meters_per_pixel.toFixed(4)}m`, {
+              const label = new Text(`⚠️ SCALE REFERENCE ⚠️\n${realWorldDistance.toFixed(2)}m\n1px = ${fp.scale_meters_per_pixel.toFixed(4)}m`, {
                 left: midX,
-                top: midY - 50,
-                fontSize: 18,
+                top: midY - 60,
+                fontSize: 24,
                 fontWeight: 'bold',
-                fill: '#22c55e',
-                backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                padding: 10,
+                fill: '#dc2626',
+                backgroundColor: 'rgba(254, 242, 242, 0.98)',
+                padding: 15,
                 textAlign: 'center',
                 selectable: false,
                 evented: false,
-                stroke: '#16a34a',
-                strokeWidth: 1,
+                stroke: '#991b1b',
+                strokeWidth: 2,
                 originX: 'center',
                 originY: 'center',
               });
@@ -907,12 +907,28 @@ const FloorPlan = () => {
               const offsetY = viewportCenter.y - scaleCenter.y;
               
               fabricCanvas.relativePan(new Point(offsetX, offsetY));
-              fabricCanvas.setZoom(2); // Zoom in to make markers more visible
+              fabricCanvas.setZoom(3); // Zoom in more to make markers highly visible
               fabricCanvas.renderAll();
               
-              toast.success(`Scale markers visible (green circles) - zoomed to location`, {
-                duration: 5000,
-                description: `Coordinates: (${Math.round(point1.x)}, ${Math.round(point1.y)}) to (${Math.round(point2.x)}, ${Math.round(point2.y)})`
+              // Flash animation to draw attention
+              let flashCount = 0;
+              const flashInterval = setInterval(() => {
+                marker1.set({ opacity: flashCount % 2 === 0 ? 1 : 0.3 });
+                marker2.set({ opacity: flashCount % 2 === 0 ? 1 : 0.3 });
+                fabricCanvas.renderAll();
+                flashCount++;
+                if (flashCount > 6) {
+                  clearInterval(flashInterval);
+                  marker1.set({ opacity: 1 });
+                  marker2.set({ opacity: 1 });
+                  fabricCanvas.renderAll();
+                }
+              }, 300);
+              
+              console.log('✅ Scale markers displayed - RED CIRCLES with label');
+              toast.success(`🎯 Scale markers visible! Look for the RED CIRCLES with glowing effect`, {
+                duration: 8000,
+                description: `Location: (${Math.round(point1.x)}, ${Math.round(point1.y)}) to (${Math.round(point2.x)}, ${Math.round(point2.y)}). Drag markers to adjust.`
               });
             } else {
               toast.success(`Scale loaded: 1px = ${fp.scale_meters_per_pixel.toFixed(4)}m (no visual reference)`);
