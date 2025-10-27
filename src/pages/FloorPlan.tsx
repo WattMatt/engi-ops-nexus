@@ -1031,6 +1031,8 @@ const FloorPlan = () => {
               lockRotation: true,
               originX: 'center',
               originY: 'center',
+              visible: true,
+              opacity: 1
             });
             
             // Store PDF coordinates on the marker
@@ -1051,6 +1053,8 @@ const FloorPlan = () => {
               lockRotation: true,
               originX: 'center',
               originY: 'center',
+              visible: true,
+              opacity: 1
             });
             
             // Store PDF coordinates on the marker
@@ -1064,6 +1068,8 @@ const FloorPlan = () => {
               selectable: false,
               evented: false,
               strokeDashArray: [10 / currentCanvasZoom, 5 / currentCanvasZoom],
+              visible: true,
+              opacity: 1
             });
             
             // Calculate distance in PDF space (not canvas)
@@ -1640,24 +1646,33 @@ const FloorPlan = () => {
       console.log('Marker 2 position:', marker2.left, marker2.top);
       console.log('Line exists:', !!scaleObjects.line);
       
-      // Lock the markers but keep them visible
+      // Lock the markers but keep them visible with red styling
       marker1.set({ 
         selectable: false, 
         evented: false,
         visible: true,
-        opacity: 1
+        opacity: 1,
+        fill: "#ef4444",
+        stroke: "#fbbf24",
+        strokeWidth: 2 / currentZoom
       });
       marker2.set({ 
         selectable: false, 
         evented: false,
         visible: true,
-        opacity: 1
+        opacity: 1,
+        fill: "#ef4444",
+        stroke: "#fbbf24",
+        strokeWidth: 2 / currentZoom
       });
       
-      // Ensure line is visible
+      // Ensure line is visible with red styling
       scaleObjects.line.set({
         visible: true,
-        opacity: 1
+        opacity: 1,
+        stroke: "#ef4444",
+        strokeWidth: 3 / currentZoom,
+        strokeDashArray: [10 / currentZoom, 5 / currentZoom]
       });
       
       // Calculate midpoint in canvas coordinates
