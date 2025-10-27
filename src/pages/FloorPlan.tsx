@@ -1947,6 +1947,14 @@ const FloorPlan = () => {
       return;
     }
 
+    console.log('💾 Saving projectData:', {
+      equipment: projectData.equipment.length,
+      cables: projectData.cables.length,
+      zones: projectData.zones.length,
+      containment: projectData.containment.length,
+      pvArrays: projectData.pvArrays.length
+    });
+
     setSaving(true);
     try {
       // Save scale to floor plan
