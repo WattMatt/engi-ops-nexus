@@ -213,9 +213,14 @@ const FloorPlan = () => {
         clearTimeout(saveTimeout);
         saveTimeout = setTimeout(async () => {
           try {
+            const [marker1, marker2] = scaleObjects.markers;
             const { error } = await supabase
               .from("floor_plans")
-              .update({ scale_meters_per_pixel: scaleCalibration.metersPerPixel })
+              .update({ 
+                scale_meters_per_pixel: scaleCalibration.metersPerPixel,
+                scale_point1: { x: marker1.left, y: marker1.top },
+                scale_point2: { x: marker2.left, y: marker2.top }
+              })
               .eq("id", floorPlanId);
             
             if (!error) {
@@ -776,13 +781,92 @@ const FloorPlan = () => {
           setFloorPlanName(fp.name);
           setDesignPurpose(fp.design_purpose as DesignPurpose);
           
-          // Load scale
+          // Load scale and recreate visual indicators
           if (fp.scale_meters_per_pixel) {
             setScaleCalibration({
               metersPerPixel: fp.scale_meters_per_pixel,
               isSet: true,
             });
-            toast.success(`Scale loaded: 1px = ${fp.scale_meters_per_pixel.toFixed(4)}m`);
+            
+            // Recreate scale line and markers if points are saved
+            if (fp.scale_point1 && fp.scale_point2) {
+              const point1 = fp.scale_point1 as { x: number; y: number };
+              const point2 = fp.scale_point2 as { x: number; y: number };
+              
+              // Create markers
+              const marker1 = new Circle({
+                left: point1.x,
+                top: point1.y,
+                radius: 10,
+                fill: "#22c55e",
+                stroke: "#16a34a",
+                strokeWidth: 3,
+                selectable: true,
+                hasControls: false,
+                hasBorders: false,
+                lockRotation: true,
+                originX: 'center',
+                originY: 'center',
+              });
+              
+              const marker2 = new Circle({
+                left: point2.x,
+                top: point2.y,
+                radius: 10,
+                fill: "#22c55e",
+                stroke: "#16a34a",
+                strokeWidth: 3,
+                selectable: true,
+                hasControls: false,
+                hasBorders: false,
+                lockRotation: true,
+                originX: 'center',
+                originY: 'center',
+              });
+              
+              // Create line
+              const line = new Line([point1.x, point1.y, point2.x, point2.y], {
+                stroke: "#22c55e",
+                strokeWidth: 3,
+                selectable: false,
+                evented: false,
+                strokeDashArray: [10, 5],
+              });
+              
+              // Calculate distance for label
+              const distance = Math.sqrt(
+                Math.pow(point2.x - point1.x, 2) + 
+                Math.pow(point2.y - point1.y, 2)
+              );
+              const realWorldDistance = distance * fp.scale_meters_per_pixel;
+              const midX = (point1.x + point2.x) / 2;
+              const midY = (point1.y + point2.y) / 2;
+              
+              // Create label
+              const label = new Text(`SCALE: ${realWorldDistance.toFixed(2)}m\n1px = ${fp.scale_meters_per_pixel.toFixed(4)}m`, {
+                left: midX,
+                top: midY - 40,
+                fontSize: 16,
+                fontWeight: 'bold',
+                fill: '#22c55e',
+                backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                padding: 8,
+                textAlign: 'center',
+                selectable: false,
+                evented: false,
+                stroke: '#16a34a',
+                strokeWidth: 0.5,
+                originX: 'center',
+                originY: 'center',
+              });
+              
+              fabricCanvas.add(line, marker1, marker2, label);
+              setScaleObjects({ line, markers: [marker1, marker2], label });
+              
+              toast.success(`Scale loaded: 1px = ${fp.scale_meters_per_pixel.toFixed(4)}m`);
+            } else {
+              toast.success(`Scale loaded: 1px = ${fp.scale_meters_per_pixel.toFixed(4)}m (no visual reference)`);
+            }
           }
           
           // Load PDF image
@@ -1257,7 +1341,11 @@ const FloorPlan = () => {
     if (floorPlanId) {
       const { error } = await supabase
         .from("floor_plans")
-        .update({ scale_meters_per_pixel: metersPerPixel })
+        .update({ 
+          scale_meters_per_pixel: metersPerPixel,
+          scale_point1: { x: scaleObjects.markers[0].left, y: scaleObjects.markers[0].top },
+          scale_point2: { x: scaleObjects.markers[1].left, y: scaleObjects.markers[1].top }
+        })
         .eq("id", floorPlanId);
       
       if (error) {

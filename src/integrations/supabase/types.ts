@@ -988,6 +988,8 @@ export type Database = {
           pv_panel_wattage: number | null
           pv_panel_width: number | null
           scale_meters_per_pixel: number | null
+          scale_point1: Json | null
+          scale_point2: Json | null
           updated_at: string | null
         }
         Insert: {
@@ -1002,6 +1004,8 @@ export type Database = {
           pv_panel_wattage?: number | null
           pv_panel_width?: number | null
           scale_meters_per_pixel?: number | null
+          scale_point1?: Json | null
+          scale_point2?: Json | null
           updated_at?: string | null
         }
         Update: {
@@ -1016,6 +1020,8 @@ export type Database = {
           pv_panel_wattage?: number | null
           pv_panel_width?: number | null
           scale_meters_per_pixel?: number | null
+          scale_point1?: Json | null
+          scale_point2?: Json | null
           updated_at?: string | null
         }
         Relationships: [
