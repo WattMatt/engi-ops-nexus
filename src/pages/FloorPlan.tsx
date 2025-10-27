@@ -2,18 +2,22 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, Save, Sparkles, Loader2, ArrowLeft } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { FileText, Save, Sparkles, Loader2, ArrowLeft, Ruler, Edit } from "lucide-react";
 import { toast } from "sonner";
-import { Canvas as FabricCanvas, Image as FabricImage, Point, Line, Circle, Polyline, Rect } from "fabric";
+import { Canvas as FabricCanvas, Image as FabricImage, Point, Line, Circle, Polyline, Rect, Group } from "fabric";
 import { supabase } from "@/integrations/supabase/client";
 import { PDFLoader } from "@/components/floorplan/PDFLoader";
 import { Toolbar } from "@/components/floorplan/Toolbar";
 import { ProjectOverview } from "@/components/floorplan/ProjectOverview";
 import { DesignPurposeDialog } from "@/components/floorplan/DesignPurposeDialog";
 import { ScaleDialog } from "@/components/floorplan/ScaleDialog";
+import { ScaleEditDialog } from "@/components/floorplan/ScaleEditDialog";
 import { CableDetailsDialog } from "@/components/floorplan/CableDetailsDialog";
 import { ContainmentSizeDialog } from "@/components/floorplan/ContainmentSizeDialog";
 import { EQUIPMENT_SIZES } from "@/components/floorplan/equipmentSizes";
+import { CABLE_STYLES, SPECIAL_CABLE_STYLES } from "@/components/floorplan/cableStyles";
+import { createIECSymbol } from "@/components/floorplan/iecSymbols";
 import { DesignPurpose, Tool, ProjectData, ScaleCalibration, EquipmentType, CableType, ContainmentSize } from "@/components/floorplan/types";
 
 const FloorPlan = () => {
@@ -36,7 +40,9 @@ const FloorPlan = () => {
     isSet: false,
   });
   const [scaleDialogOpen, setScaleDialogOpen] = useState(false);
+  const [scaleEditDialogOpen, setScaleEditDialogOpen] = useState(false);
   const [scaleLinePixels, setScaleLinePixels] = useState(0);
+  const [scaleCalibrationPoints, setScaleCalibrationPoints] = useState<Point[]>([]);
   const [cableDialogOpen, setCableDialogOpen] = useState(false);
   const [containmentDialogOpen, setContainmentDialogOpen] = useState(false);
   const [currentContainmentType, setCurrentContainmentType] = useState("");
@@ -67,34 +73,47 @@ const FloorPlan = () => {
       backgroundColor: "#f5f5f5",
     });
 
-    // Enable zoom with mouse wheel
+    // Enhanced zoom with mouse wheel (center scroll)
     canvas.on("mouse:wheel", (opt) => {
       const delta = opt.e.deltaY;
       let zoom = canvas.getZoom();
+      
+      // Smoother zoom
       zoom *= 0.999 ** delta;
       
+      // Clamp zoom levels
       if (zoom > 20) zoom = 20;
-      if (zoom < 0.1) zoom = 0.1;
+      if (zoom < 0.05) zoom = 0.05;
       
+      // Zoom to pointer position for intuitive zooming
       const point = new Point(opt.e.offsetX, opt.e.offsetY);
       canvas.zoomToPoint(point, zoom);
+      
       opt.e.preventDefault();
       opt.e.stopPropagation();
+      
+      // Show zoom level briefly
+      const zoomPercent = Math.round(zoom * 100);
+      if (zoomPercent % 10 === 0 || delta > 50) {
+        toast(`Zoom: ${zoomPercent}%`, { duration: 500 });
+      }
     });
 
-    // Enable panning
+    // Enhanced panning with middle mouse button OR Alt+drag
     let isPanning = false;
     let lastPosX = 0;
     let lastPosY = 0;
 
     canvas.on("mouse:down", (opt) => {
       const evt = opt.e as MouseEvent;
-      if (evt.altKey === true) {
+      // Enable panning with middle mouse button (button 1) or Alt key
+      if (evt.button === 1 || evt.altKey === true) {
         isPanning = true;
         canvas.selection = false;
         lastPosX = evt.clientX;
         lastPosY = evt.clientY;
-        canvas.defaultCursor = "grab";
+        canvas.defaultCursor = "grabbing";
+        opt.e.preventDefault();
       }
     });
 
@@ -112,11 +131,13 @@ const FloorPlan = () => {
       }
     });
 
-    canvas.on("mouse:up", () => {
-      canvas.setViewportTransform(canvas.viewportTransform);
-      isPanning = false;
-      canvas.selection = true;
-      canvas.defaultCursor = "default";
+    canvas.on("mouse:up", (opt) => {
+      if (isPanning) {
+        canvas.setViewportTransform(canvas.viewportTransform);
+        isPanning = false;
+        canvas.selection = true;
+        canvas.defaultCursor = "default";
+      }
     });
 
     setFabricCanvas(canvas);
@@ -354,19 +375,26 @@ const FloorPlan = () => {
     const realSize = EQUIPMENT_SIZES[equipment.type as EquipmentType];
     const pixelSize = realSize / scaleCalibration.metersPerPixel;
     
-    const symbol = new Circle({
-      left: equipment.x - pixelSize / 2,
-      top: equipment.y - pixelSize / 2,
-      radius: pixelSize / 2,
-      fill: "#3b82f6",
-      stroke: "#1e40af",
-      strokeWidth: 1,
+    // Calculate scale factor for IEC symbol rendering
+    // Base IEC symbols are designed at 20px, scale them proportionally
+    const symbolScale = pixelSize / 20;
+    
+    // Create IEC 60617 compliant symbol
+    const symbol = createIECSymbol(equipment.type as EquipmentType, symbolScale);
+    
+    symbol.set({
+      left: equipment.x,
+      top: equipment.y,
+      angle: equipment.rotation || 0,
       selectable: true,
-      angle: equipment.rotation,
+      hasControls: true,
+      hasBorders: true,
     });
     
+    // Store equipment data with the symbol for later reference
+    symbol.set({ equipmentId: equipment.id, equipmentType: equipment.type });
+    
     fabricCanvas.add(symbol);
-    fabricCanvas.renderAll();
   };
 
   const finishDrawing = () => {
@@ -626,17 +654,48 @@ const FloorPlan = () => {
       drawEquipmentSymbol(equipment);
     });
     
-    // Render cables
+    // Render cables with color-coded sizes and line types
     projectData.cables.forEach(cable => {
+      let strokeStyle, strokeWidth, dashArray;
+      
+      // Determine cable style based on type and size
+      if (cable.type === "mv") {
+        const style = SPECIAL_CABLE_STYLES.mv;
+        strokeStyle = style.color;
+        strokeWidth = style.strokeWidth;
+        dashArray = style.dashArray;
+      } else if (cable.type === "dc") {
+        const style = SPECIAL_CABLE_STYLES.dc;
+        strokeStyle = style.color;
+        strokeWidth = style.strokeWidth;
+        dashArray = style.dashArray;
+      } else if (cable.cableType) {
+        // LV cable with specific size
+        const style = CABLE_STYLES[cable.cableType];
+        strokeStyle = style.color;
+        strokeWidth = style.strokeWidth;
+        dashArray = style.dashArray;
+      } else {
+        // Default LV cable
+        strokeStyle = "#2563EB";
+        strokeWidth = 2;
+        dashArray = undefined;
+      }
+      
       const line = new Polyline(
         cable.points.map(p => ({ x: p.x, y: p.y })),
         {
-          stroke: cable.color || getToolColor(`line-${cable.type}`),
-          strokeWidth: 2,
+          stroke: strokeStyle,
+          strokeWidth: strokeWidth,
+          strokeDashArray: dashArray,
           fill: null,
           selectable: true,
         }
       );
+      
+      // Store cable data for reference
+      line.set({ cableId: cable.id, cableType: cable.cableType, cableCategory: cable.type });
+      
       fabricCanvas.add(line);
     });
     
@@ -874,10 +933,42 @@ const FloorPlan = () => {
     
     const metersPerPixel = metersValue / scaleLinePixels;
     setScaleCalibration({ metersPerPixel, isSet: true });
+    setScaleCalibrationPoints(scalePoints);
     setScaleDialogOpen(false);
     setScaleLinePixels(0);
     setScalePoints([]);
     setActiveTool("select");
+    
+    // Draw permanent markers at calibration points for reference
+    if (fabricCanvas && scalePoints.length === 2) {
+      scalePoints.forEach((point, index) => {
+        const marker = new Circle({
+          left: point.x - 6,
+          top: point.y - 6,
+          radius: 6,
+          fill: "#22c55e",
+          stroke: "#16a34a",
+          strokeWidth: 2,
+          selectable: false,
+          evented: false,
+        });
+        fabricCanvas.add(marker);
+      });
+      
+      // Draw reference line
+      const refLine = new Line(
+        [scalePoints[0].x, scalePoints[0].y, scalePoints[1].x, scalePoints[1].y],
+        {
+          stroke: "#22c55e",
+          strokeWidth: 2,
+          strokeDashArray: [10, 5],
+          selectable: false,
+          evented: false,
+        }
+      );
+      fabricCanvas.add(refLine);
+      fabricCanvas.renderAll();
+    }
     
     // Save scale to database if floor plan exists
     if (floorPlanId) {
@@ -894,6 +985,56 @@ const FloorPlan = () => {
       }
     } else {
       toast.success(`Scale calibrated: 1 pixel = ${metersPerPixel.toFixed(4)} meters`);
+    }
+  };
+
+  const handleScaleEdit = async (newScale: number) => {
+    if (newScale <= 0) {
+      toast.error("Invalid scale value");
+      return;
+    }
+    
+    const oldScale = scaleCalibration.metersPerPixel;
+    const scaleFactor = oldScale / newScale;
+    
+    // Update scale calibration
+    setScaleCalibration({ metersPerPixel: newScale, isSet: true });
+    setScaleEditDialogOpen(false);
+    
+    // Rescale all equipment
+    const rescaledEquipment = projectData.equipment.map(eq => ({
+      ...eq,
+      // Equipment positions don't change, but their rendered size will
+    }));
+    
+    // Recalculate cable lengths
+    const rescaledCables = projectData.cables.map(cable => {
+      if (cable.lengthMeters) {
+        // Length in meters stays the same, but pixel length changes
+        return cable;
+      }
+      return cable;
+    });
+    
+    setProjectData(prev => ({
+      ...prev,
+      equipment: rescaledEquipment,
+      cables: rescaledCables,
+    }));
+    
+    // Save new scale to database
+    if (floorPlanId) {
+      const { error } = await supabase
+        .from("floor_plans")
+        .update({ scale_meters_per_pixel: newScale })
+        .eq("id", floorPlanId);
+      
+      if (error) {
+        console.error("Error saving scale:", error);
+        toast.error("Failed to save new scale");
+      } else {
+        toast.success(`Scale updated: 1 pixel = ${newScale.toFixed(6)} meters. All equipment rescaled.`);
+      }
     }
   };
 
@@ -1101,6 +1242,21 @@ const FloorPlan = () => {
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Floor Plans
           </Button>
+          
+          {scaleCalibration.isSet && (
+            <Button 
+              variant="outline" 
+              onClick={() => setScaleEditDialogOpen(true)}
+              className="gap-2"
+            >
+              <Ruler className="h-4 w-4" />
+              <Badge variant="secondary">
+                1:{Math.round(1 / scaleCalibration.metersPerPixel)}
+              </Badge>
+              <Edit className="h-3 w-3" />
+            </Button>
+          )}
+          
           <PDFLoader onPDFLoaded={handlePDFLoaded} />
           <Button variant="outline" onClick={handleSave} disabled={saving || !floorPlanId}>
             {saving ? (
@@ -1224,6 +1380,14 @@ const FloorPlan = () => {
           setActiveTool("select");
           toast.info("Scale calibration cancelled");
         }}
+      />
+
+      <ScaleEditDialog
+        open={scaleEditDialogOpen}
+        currentScale={scaleCalibration.metersPerPixel}
+        calibrationPoints={scaleCalibrationPoints}
+        onConfirm={handleScaleEdit}
+        onCancel={() => setScaleEditDialogOpen(false)}
       />
 
       <CableDetailsDialog
