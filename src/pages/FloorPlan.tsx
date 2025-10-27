@@ -441,11 +441,14 @@ const FloorPlan = () => {
       // Equipment placement
       const equipmentTools: Tool[] = Object.keys(EQUIPMENT_SIZES) as EquipmentType[];
       if (equipmentTools.includes(activeTool)) {
+        // Convert canvas coordinates to PDF coordinates for storage
+        const pdfPoint = canvasToPDF(point, pdfDimensions!, fabricCanvas);
+        
         const newEquipment = {
           id: crypto.randomUUID(),
           type: activeTool as EquipmentType,
-          x: point.x,
-          y: point.y,
+          x: pdfPoint.x,  // Store PDF coordinates
+          y: pdfPoint.y,  // Store PDF coordinates
           rotation,
           properties: {},
         };
@@ -689,7 +692,10 @@ const FloorPlan = () => {
   };
 
   const drawEquipmentSymbol = (equipment: any) => {
-    if (!fabricCanvas || !scaleCalibration.isSet) return;
+    if (!fabricCanvas || !scaleCalibration.isSet || !pdfDimensions) return;
+    
+    // Convert PDF coordinates to canvas coordinates for rendering
+    const canvasPoint = pdfToCanvas({ x: equipment.x, y: equipment.y }, pdfDimensions);
     
     const realSize = EQUIPMENT_SIZES[equipment.type as EquipmentType];
     const pixelSize = realSize / scaleCalibration.metersPerPixel;
@@ -702,8 +708,8 @@ const FloorPlan = () => {
     const symbol = createIECSymbol(equipment.type as EquipmentType, symbolScale);
     
     symbol.set({
-      left: equipment.x,
-      top: equipment.y,
+      left: canvasPoint.x,  // Use canvas coordinates for display
+      top: canvasPoint.y,   // Use canvas coordinates for display
       angle: equipment.rotation || 0,
       selectable: true,
       hasControls: true,
@@ -717,7 +723,7 @@ const FloorPlan = () => {
   };
 
   const finishDrawing = () => {
-    if (drawingPoints.length < 2) {
+    if (drawingPoints.length < 2 || !pdfDimensions || !fabricCanvas) {
       toast.error("Draw at least 2 points");
       return;
     }
@@ -735,19 +741,25 @@ const FloorPlan = () => {
 
     // Handle containment with size selection
     if (["cable-tray", "telkom-basket", "security-basket"].includes(activeTool)) {
-      pendingContainmentPointsRef.current = drawingPoints;
+      pendingCablePointsRef.current = drawingPoints;
       setCurrentContainmentType(activeTool);
       setContainmentDialogOpen(true);
       cleanupDrawing();
       return;
     }
 
-    // Handle other line types
+    // Handle other line types (MV/DC cables)
     if (["line-mv", "line-dc"].includes(activeTool)) {
+      // Convert canvas coordinates to PDF coordinates for storage
+      const pdfPoints = drawingPoints.map(p => {
+        const pdfPoint = canvasToPDF(p, pdfDimensions, fabricCanvas);
+        return { x: pdfPoint.x, y: pdfPoint.y };
+      });
+      
       const newCable = {
         id: crypto.randomUUID(),
         type: activeTool.replace("line-", "") as "mv" | "dc",
-        points: drawingPoints.map(p => ({ x: p.x, y: p.y })),
+        points: pdfPoints,  // Store PDF coordinates
         color: getToolColor(activeTool),
         lengthMeters,
       };
@@ -762,10 +774,16 @@ const FloorPlan = () => {
 
     // Handle other containment types (no size needed)
     if (["sleeves", "powerskirting", "p2000", "p8000", "p9000"].includes(activeTool)) {
+      // Convert canvas coordinates to PDF coordinates for storage
+      const pdfPoints = drawingPoints.map(p => {
+        const pdfPoint = canvasToPDF(p, pdfDimensions, fabricCanvas);
+        return { x: pdfPoint.x, y: pdfPoint.y };
+      });
+      
       const newContainment = {
         id: crypto.randomUUID(),
         type: activeTool as any,
-        points: drawingPoints.map(p => ({ x: p.x, y: p.y })),
+        points: pdfPoints,  // Store PDF coordinates
         lengthMeters,
       };
       
@@ -782,10 +800,16 @@ const FloorPlan = () => {
       const area = calculatePolygonArea(drawingPoints);
       const areaSqm = area * Math.pow(scaleCalibration.metersPerPixel, 2);
       
+      // Convert canvas coordinates to PDF coordinates for storage
+      const pdfPoints = drawingPoints.map(p => {
+        const pdfPoint = canvasToPDF(p, pdfDimensions, fabricCanvas);
+        return { x: pdfPoint.x, y: pdfPoint.y };
+      });
+      
       const newZone = {
         id: crypto.randomUUID(),
         type: "supply" as const,
-        points: drawingPoints.map(p => ({ x: p.x, y: p.y })),
+        points: pdfPoints,  // Store PDF coordinates
         color: getToolColor(activeTool),
         areaSqm,
       };
@@ -839,7 +863,7 @@ const FloorPlan = () => {
 
   const handleCableDetails = (details: any) => {
     const points = pendingCablePointsRef.current;
-    if (points.length < 2) return;
+    if (points.length < 2 || !pdfDimensions) return;
 
     const pathLength = calculatePathLength(points) * scaleCalibration.metersPerPixel;
     const totalLength = pathLength + details.startHeight + details.endHeight;
@@ -856,10 +880,16 @@ const FloorPlan = () => {
       colorOverride = SPECIAL_CABLE_STYLES.dc.color;
     }
 
+    // Convert all canvas points to PDF coordinates for storage
+    const pdfPoints = points.map(p => {
+      const pdfPoint = canvasToPDF(p, pdfDimensions, fabricCanvas!);
+      return { x: pdfPoint.x, y: pdfPoint.y };
+    });
+
     const newCable = {
       id: crypto.randomUUID(),
       type: cableRouteType,
-      points: points.map(p => ({ x: p.x, y: p.y })),
+      points: pdfPoints,  // Store PDF coordinates
       cableType: details.cableType,
       supplyFrom: details.supplyFrom,
       supplyTo: details.supplyTo,
@@ -879,14 +909,20 @@ const FloorPlan = () => {
 
   const handleContainmentSize = (size: ContainmentSize) => {
     const points = pendingContainmentPointsRef.current;
-    if (points.length < 2) return;
+    if (points.length < 2 || !pdfDimensions || !fabricCanvas) return;
 
     const lengthMeters = calculatePathLength(points) * scaleCalibration.metersPerPixel;
+
+    // Convert canvas coordinates to PDF coordinates for storage
+    const pdfPoints = points.map(p => {
+      const pdfPoint = canvasToPDF(p, pdfDimensions, fabricCanvas);
+      return { x: pdfPoint.x, y: pdfPoint.y };
+    });
 
     const newContainment = {
       id: crypto.randomUUID(),
       type: currentContainmentType as any,
-      points: points.map(p => ({ x: p.x, y: p.y })),
+      points: pdfPoints,  // Store PDF coordinates
       size,
       lengthMeters,
     };
@@ -1202,6 +1238,8 @@ const FloorPlan = () => {
     
     // Render cables with color-coded sizes and line types
     projectData.cables.forEach(cable => {
+      if (!pdfDimensions) return;
+      
       let strokeStyle, strokeWidth, dashArray;
       
       // Determine cable style based on type and size
@@ -1228,8 +1266,14 @@ const FloorPlan = () => {
         dashArray = undefined;
       }
       
+      // Convert PDF coordinates to canvas coordinates for rendering
+      const canvasPoints = cable.points.map(p => {
+        const canvasPoint = pdfToCanvas({ x: p.x, y: p.y }, pdfDimensions);
+        return { x: canvasPoint.x, y: canvasPoint.y };
+      });
+      
       const line = new Polyline(
-        cable.points.map(p => ({ x: p.x, y: p.y })),
+        canvasPoints,  // Use canvas coordinates for display
         {
           stroke: strokeStyle,
           strokeWidth: strokeWidth / currentZoom,
@@ -1295,8 +1339,16 @@ const FloorPlan = () => {
     
     // Render zones with dynamic node sizing
     projectData.zones.forEach(zone => {
+      if (!pdfDimensions) return;
+      
+      // Convert PDF coordinates to canvas coordinates for rendering
+      const canvasPoints = zone.points.map(p => {
+        const canvasPoint = pdfToCanvas({ x: p.x, y: p.y }, pdfDimensions);
+        return { x: canvasPoint.x, y: canvasPoint.y };
+      });
+      
       const polygon = new Polyline(
-        zone.points.map(p => ({ x: p.x, y: p.y })),
+        canvasPoints,  // Use canvas coordinates for display
         {
           stroke: zone.color || "#10b981",
           strokeWidth: 2 / currentZoom,
@@ -1344,8 +1396,16 @@ const FloorPlan = () => {
     
     // Render containment with dynamic node sizing
     projectData.containment.forEach(route => {
+      if (!pdfDimensions) return;
+      
+      // Convert PDF coordinates to canvas coordinates for rendering
+      const canvasPoints = route.points.map(p => {
+        const canvasPoint = pdfToCanvas({ x: p.x, y: p.y }, pdfDimensions);
+        return { x: canvasPoint.x, y: canvasPoint.y };
+      });
+      
       const line = new Polyline(
-        route.points.map(p => ({ x: p.x, y: p.y })),
+        canvasPoints,  // Use canvas coordinates for display
         {
           stroke: getToolColor(route.type),
           strokeWidth: 3 / currentZoom,
