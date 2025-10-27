@@ -1292,6 +1292,12 @@ const FloorPlan = () => {
       }
     });
 
+    // Ensure PDF background stays at the back after all updates
+    const pdfImage = fabricCanvas.getObjects().find(obj => obj instanceof FabricImage);
+    if (pdfImage) {
+      fabricCanvas.sendObjectToBack(pdfImage);
+    }
+
     fabricCanvas.renderAll();
   }, [currentZoom, fabricCanvas, scaleObjects]);
 
@@ -1531,6 +1537,13 @@ const FloorPlan = () => {
       
       fabricCanvas.add(scaleLabel);
       fabricCanvas.bringObjectToFront(scaleLabel);
+      
+      // Ensure PDF background stays at the back
+      const pdfImage = fabricCanvas.getObjects().find(obj => obj instanceof FabricImage);
+      if (pdfImage) {
+        fabricCanvas.sendObjectToBack(pdfImage);
+      }
+      
       fabricCanvas.renderAll();
       
       setScaleObjects(prev => ({ ...prev, label: scaleLabel }));
