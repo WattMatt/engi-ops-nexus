@@ -1180,10 +1180,17 @@ const FloorPlan = () => {
   useEffect(() => {
     if (!fabricCanvas || !scaleCalibration.isSet) return;
     
-    // Clear existing objects (except PDF background)
+    // Clear existing objects (except PDF background and scale objects)
     const objects = fabricCanvas.getObjects();
+    const isScaleObject = (obj: any) => {
+      return obj === scaleObjects.line || 
+             scaleObjects.markers.includes(obj) || 
+             obj === scaleObjects.label;
+    };
+    
     objects.forEach(obj => {
-      if (obj !== objects[0]) { // Keep first object (PDF image)
+      // Keep PDF image (first object) and scale objects
+      if (obj !== objects[0] && !isScaleObject(obj)) {
         fabricCanvas.remove(obj);
       }
     });
@@ -1388,7 +1395,7 @@ const FloorPlan = () => {
     });
     
     fabricCanvas.renderAll();
-  }, [projectData, fabricCanvas, scaleCalibration]);
+  }, [projectData, fabricCanvas, scaleCalibration, currentZoom, scaleObjects]);
 
   // Update node sizes when zoom changes - keep scale indicators constant screen size
   useEffect(() => {
