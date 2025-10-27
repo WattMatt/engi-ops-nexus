@@ -1158,10 +1158,20 @@ const FloorPlan = () => {
             const midX = (canvasPoint1.x + canvasPoint2.x) / 2;
             const midY = (canvasPoint1.y + canvasPoint2.y) / 2;
             
+            // Calculate angle of the line to position label perpendicular
+            const canvasDx = canvasPoint2.x - canvasPoint1.x;
+            const canvasDy = canvasPoint2.y - canvasPoint1.y;
+            const angle = Math.atan2(canvasDy, canvasDx);
+            
+            // Position label perpendicular to the line (30px offset)
+            const offsetDistance = 30 / currentCanvasZoom;
+            const labelX = midX - Math.sin(angle) * offsetDistance;
+            const labelY = midY + Math.cos(angle) * offsetDistance;
+            
             // Create label
             const label = new Text(`${realWorldDistance.toFixed(2)}m`, {
-              left: midX,
-              top: midY - 30,
+              left: labelX,
+              top: labelY,
               fontSize: 14 / currentCanvasZoom,
               fontWeight: 'bold',
               fill: '#dc2626',
@@ -1811,14 +1821,24 @@ const FloorPlan = () => {
         strokeDashArray: [10 / currentZoom, 5 / currentZoom]
       });
       
-      // Calculate midpoint in canvas coordinates
+      // Calculate midpoint and perpendicular offset for label
       const midX = (marker1.left! + marker2.left!) / 2;
       const midY = (marker1.top! + marker2.top!) / 2;
       
+      // Calculate angle of the line to position label perpendicular
+      const dx = marker2.left! - marker1.left!;
+      const dy = marker2.top! - marker1.top!;
+      const angle = Math.atan2(dy, dx);
+      
+      // Position label perpendicular to the line (30px offset)
+      const offsetDistance = 30 / currentZoom;
+      const labelX = midX - Math.sin(angle) * offsetDistance;
+      const labelY = midY + Math.cos(angle) * offsetDistance;
+      
       // Add label with zoom-responsive sizing
       const scaleLabel = new Text(`${metersValue.toFixed(2)}m`, {
-        left: midX,
-        top: midY - 30,
+        left: labelX,
+        top: labelY,
         fontSize: 14 / currentZoom,
         fontWeight: 'bold',
         fill: '#dc2626',
@@ -1892,12 +1912,26 @@ const FloorPlan = () => {
       return;
     }
     
-    const oldScale = scaleCalibration.metersPerPixel;
-    const scaleFactor = oldScale / newScale;
+    if (!fabricCanvas || !scaleCalibrationPoints.length || !pdfDimensions) {
+      toast.error("Scale calibration not complete");
+      return;
+    }
     
     // Update scale calibration
     setScaleCalibration({ metersPerPixel: newScale, isSet: true });
     setScaleEditDialogOpen(false);
+    
+    // Recalculate the real-world distance based on PDF coordinates
+    const dx = scaleCalibrationPoints[1].x - scaleCalibrationPoints[0].x;
+    const dy = scaleCalibrationPoints[1].y - scaleCalibrationPoints[0].y;
+    const pdfDistance = Math.sqrt(dx * dx + dy * dy);
+    const realWorldDistance = pdfDistance * newScale;
+    
+    // Update the label if it exists
+    if (scaleObjects.label) {
+      scaleObjects.label.set('text', `${realWorldDistance.toFixed(2)}m`);
+      fabricCanvas.renderAll();
+    }
     
     // Rescale all equipment
     const rescaledEquipment = projectData.equipment.map(eq => ({
@@ -1931,7 +1965,7 @@ const FloorPlan = () => {
         console.error("Error saving scale:", error);
         toast.error("Failed to save new scale");
       } else {
-        toast.success(`Scale updated: 1 pixel = ${newScale.toFixed(6)} meters. All equipment rescaled.`);
+        toast.success(`Scale updated to ${realWorldDistance.toFixed(2)}m`);
       }
     }
   };
