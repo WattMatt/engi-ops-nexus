@@ -1229,34 +1229,36 @@ const FloorPlan = () => {
     fabricCanvas.renderAll();
   }, [projectData, fabricCanvas, scaleCalibration]);
 
-  // Update node sizes when zoom changes
+  // Update node sizes when zoom changes - keep scale indicators constant screen size
   useEffect(() => {
     if (!fabricCanvas) return;
 
-    const baseRadius = 6;
-    const baseStrokeWidth = 2;
-    const baseLineWidth = 3;
-    const baseFontSize = 16;
+    const constantRadius = 8; // Constant screen size
+    const constantStrokeWidth = 2;
+    const constantLineWidth = 3;
+    const constantFontSize = 14;
 
-    // Update scale markers and line with zoom-responsive sizing
+    // Update scale markers and line to maintain constant screen size
     if (scaleObjects.markers.length === 2 && scaleObjects.line) {
       scaleObjects.markers.forEach(marker => {
         marker.set({
-          radius: baseRadius / currentZoom,
-          strokeWidth: baseStrokeWidth / currentZoom,
+          radius: constantRadius / currentZoom,
+          strokeWidth: constantStrokeWidth / currentZoom,
         });
+        marker.setCoords();
       });
       
       scaleObjects.line.set({
-        strokeWidth: baseLineWidth / currentZoom,
+        strokeWidth: constantLineWidth / currentZoom,
         strokeDashArray: [10 / currentZoom, 5 / currentZoom],
       });
       
       if (scaleObjects.label) {
         scaleObjects.label.set({
-          fontSize: baseFontSize / currentZoom,
-          padding: 8 / currentZoom,
+          fontSize: constantFontSize / currentZoom,
+          padding: 6 / currentZoom,
         });
+        scaleObjects.label.setCoords();
       }
     }
 
@@ -1271,7 +1273,7 @@ const FloorPlan = () => {
         if (isZone) {
           baseStrokeWidth = 2;
         } else if (isCable) {
-          baseStrokeWidth = obj.strokeWidth ? obj.strokeWidth * currentZoom : 2;
+          baseStrokeWidth = 2;
         }
         
         obj.set({
@@ -1285,6 +1287,8 @@ const FloorPlan = () => {
             strokeDashArray: [baseDashLength / currentZoom, baseDashLength / currentZoom],
           });
         }
+        
+        obj.setCoords();
       }
     });
 
