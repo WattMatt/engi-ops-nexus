@@ -891,7 +891,29 @@ const FloorPlan = () => {
               setScaleObjects({ line, markers: [marker1, marker2], label });
               
               console.log('Scale markers loaded at:', point1, point2);
-              toast.success(`Scale reference visible at coordinates (${Math.round(point1.x)}, ${Math.round(point1.y)})`);
+              
+              // Pan canvas to show scale markers
+              const viewportCenter = new Point(
+                fabricCanvas.width! / 2,
+                fabricCanvas.height! / 2
+              );
+              const scaleCenter = new Point(
+                (point1.x + point2.x) / 2,
+                (point1.y + point2.y) / 2
+              );
+              
+              // Calculate offset needed to center scale markers
+              const offsetX = viewportCenter.x - scaleCenter.x;
+              const offsetY = viewportCenter.y - scaleCenter.y;
+              
+              fabricCanvas.relativePan(new Point(offsetX, offsetY));
+              fabricCanvas.setZoom(2); // Zoom in to make markers more visible
+              fabricCanvas.renderAll();
+              
+              toast.success(`Scale markers visible (green circles) - zoomed to location`, {
+                duration: 5000,
+                description: `Coordinates: (${Math.round(point1.x)}, ${Math.round(point1.y)}) to (${Math.round(point2.x)}, ${Math.round(point2.y)})`
+              });
             } else {
               toast.success(`Scale loaded: 1px = ${fp.scale_meters_per_pixel.toFixed(4)}m (no visual reference)`);
             }
