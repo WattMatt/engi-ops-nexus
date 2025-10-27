@@ -106,26 +106,45 @@ const FloorPlan = () => {
 
     canvas.on("mouse:down", (opt) => {
       const evt = opt.e as MouseEvent;
+      console.log("Mouse down - button:", evt.button, "altKey:", evt.altKey);
+      
       // Enable panning with middle mouse button (button 1) or Alt key
       if (evt.button === 1 || evt.altKey === true) {
+        console.log("Starting pan mode");
         isPanning = true;
         canvas.selection = false;
         canvas.discardActiveObject();
         lastPosX = evt.clientX;
         lastPosY = evt.clientY;
+        
+        // Force cursor change on the canvas element
+        const canvasElement = canvas.getElement();
+        if (canvasElement) {
+          canvasElement.style.cursor = "grab";
+        }
         canvas.defaultCursor = "grab";
         canvas.hoverCursor = "grab";
         canvas.renderAll();
+        
         opt.e.preventDefault();
         opt.e.stopPropagation();
+        
+        toast("Pan mode active - drag to move", { duration: 1000 });
       }
     });
 
     canvas.on("mouse:move", (opt) => {
       if (isPanning) {
         const evt = opt.e as MouseEvent;
+        
+        // Update cursor
+        const canvasElement = canvas.getElement();
+        if (canvasElement) {
+          canvasElement.style.cursor = "grabbing";
+        }
         canvas.defaultCursor = "grabbing";
         canvas.hoverCursor = "grabbing";
+        
         const vpt = canvas.viewportTransform;
         if (vpt) {
           vpt[4] += evt.clientX - lastPosX;
@@ -139,12 +158,28 @@ const FloorPlan = () => {
 
     canvas.on("mouse:up", (opt) => {
       if (isPanning) {
+        console.log("Ending pan mode");
         canvas.setViewportTransform(canvas.viewportTransform);
         isPanning = false;
         canvas.selection = true;
+        
+        // Reset cursor
+        const canvasElement = canvas.getElement();
+        if (canvasElement) {
+          canvasElement.style.cursor = "default";
+        }
         canvas.defaultCursor = "default";
         canvas.hoverCursor = "move";
         canvas.renderAll();
+      }
+    });
+
+    // Also listen for context menu to prevent it when using middle button
+    canvas.on("mouse:down:before", (opt) => {
+      const evt = opt.e as MouseEvent;
+      if (evt.button === 1) {
+        evt.preventDefault();
+        return false;
       }
     });
 
