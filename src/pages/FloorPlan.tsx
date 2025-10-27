@@ -65,6 +65,7 @@ const FloorPlan = () => {
     markers: [],
     label: null
   });
+  const [currentZoom, setCurrentZoom] = useState(1);
   const pendingCablePointsRef = useRef<Point[]>([]);
   const pendingContainmentPointsRef = useRef<Point[]>([]);
 
@@ -92,6 +93,7 @@ const FloorPlan = () => {
       
       const point = new Point(opt.e.offsetX, opt.e.offsetY);
       canvas.zoomToPoint(point, zoom);
+      setCurrentZoom(zoom);
       
       opt.e.preventDefault();
       opt.e.stopPropagation();
@@ -793,14 +795,14 @@ const FloorPlan = () => {
               const point1 = fp.scale_point1 as { x: number; y: number };
               const point2 = fp.scale_point2 as { x: number; y: number };
               
-              // Create markers
+              // Create markers with dynamic sizing
               const marker1 = new Circle({
                 left: point1.x,
                 top: point1.y,
-                radius: 10,
+                radius: 10 / currentZoom,
                 fill: "#22c55e",
                 stroke: "#16a34a",
-                strokeWidth: 3,
+                strokeWidth: 3 / currentZoom,
                 selectable: true,
                 hasControls: false,
                 hasBorders: false,
@@ -812,10 +814,10 @@ const FloorPlan = () => {
               const marker2 = new Circle({
                 left: point2.x,
                 top: point2.y,
-                radius: 10,
+                radius: 10 / currentZoom,
                 fill: "#22c55e",
                 stroke: "#16a34a",
-                strokeWidth: 3,
+                strokeWidth: 3 / currentZoom,
                 selectable: true,
                 hasControls: false,
                 hasBorders: false,
@@ -824,13 +826,13 @@ const FloorPlan = () => {
                 originY: 'center',
               });
               
-              // Create line
+              // Create line with dynamic stroke width
               const line = new Line([point1.x, point1.y, point2.x, point2.y], {
                 stroke: "#22c55e",
-                strokeWidth: 3,
+                strokeWidth: 3 / currentZoom,
                 selectable: false,
                 evented: false,
-                strokeDashArray: [10, 5],
+                strokeDashArray: [10 / currentZoom, 5 / currentZoom],
               });
               
               // Calculate distance for label
@@ -842,20 +844,20 @@ const FloorPlan = () => {
               const midX = (point1.x + point2.x) / 2;
               const midY = (point1.y + point2.y) / 2;
               
-              // Create label
+              // Create label with dynamic sizing
               const label = new Text(`SCALE: ${realWorldDistance.toFixed(2)}m\n1px = ${fp.scale_meters_per_pixel.toFixed(4)}m`, {
                 left: midX,
-                top: midY - 40,
-                fontSize: 16,
+                top: midY - 40 / currentZoom,
+                fontSize: 16 / currentZoom,
                 fontWeight: 'bold',
                 fill: '#22c55e',
                 backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                padding: 8,
+                padding: 8 / currentZoom,
                 textAlign: 'center',
                 selectable: false,
                 evented: false,
                 stroke: '#16a34a',
-                strokeWidth: 0.5,
+                strokeWidth: 0.5 / currentZoom,
                 originX: 'center',
                 originY: 'center',
               });
@@ -956,13 +958,13 @@ const FloorPlan = () => {
         cable.points.map(p => ({ x: p.x, y: p.y })),
         {
           stroke: strokeStyle,
-          strokeWidth: strokeWidth,
-          strokeDashArray: dashArray,
+          strokeWidth: strokeWidth / currentZoom,
+          strokeDashArray: dashArray ? dashArray.map(d => d / currentZoom) : undefined,
           fill: null,
           selectable: true,
           hasControls: true,
           hasBorders: true,
-          cornerSize: 10,
+          cornerSize: 10 / currentZoom,
           cornerColor: strokeStyle,
           cornerStyle: 'circle',
           transparentCorners: false,
@@ -1003,18 +1005,18 @@ const FloorPlan = () => {
       fabricCanvas.add(line);
     });
     
-    // Render zones
+    // Render zones with dynamic node sizing
     projectData.zones.forEach(zone => {
       const polygon = new Polyline(
         zone.points.map(p => ({ x: p.x, y: p.y })),
         {
           stroke: zone.color || "#10b981",
-          strokeWidth: 2,
+          strokeWidth: 2 / currentZoom,
           fill: `${zone.color || "#10b981"}33`,
           selectable: true,
           hasControls: true,
           hasBorders: true,
-          cornerSize: 10,
+          cornerSize: 10 / currentZoom,
           cornerColor: zone.color || "#10b981",
           cornerStyle: 'circle',
           transparentCorners: false,
@@ -1042,19 +1044,19 @@ const FloorPlan = () => {
       fabricCanvas.add(polygon);
     });
     
-    // Render containment
+    // Render containment with dynamic node sizing
     projectData.containment.forEach(route => {
       const line = new Polyline(
         route.points.map(p => ({ x: p.x, y: p.y })),
         {
           stroke: getToolColor(route.type),
-          strokeWidth: 3,
-          strokeDashArray: [5, 5],
+          strokeWidth: 3 / currentZoom,
+          strokeDashArray: [5 / currentZoom, 5 / currentZoom],
           fill: null,
           selectable: true,
           hasControls: true,
           hasBorders: true,
-          cornerSize: 10,
+          cornerSize: 10 / currentZoom,
           cornerColor: getToolColor(route.type),
           cornerStyle: 'circle',
           transparentCorners: false,
@@ -1084,6 +1086,67 @@ const FloorPlan = () => {
     
     fabricCanvas.renderAll();
   }, [projectData, fabricCanvas, scaleCalibration]);
+
+  // Update node sizes when zoom changes
+  useEffect(() => {
+    if (!fabricCanvas) return;
+
+    // Update scale markers and line
+    if (scaleObjects.markers.length === 2 && scaleObjects.line) {
+      scaleObjects.markers.forEach(marker => {
+        marker.set({
+          radius: 10 / currentZoom,
+          strokeWidth: 3 / currentZoom,
+        });
+      });
+      
+      scaleObjects.line.set({
+        strokeWidth: 3 / currentZoom,
+        strokeDashArray: [10 / currentZoom, 5 / currentZoom],
+      });
+      
+      if (scaleObjects.label) {
+        scaleObjects.label.set({
+          fontSize: 16 / currentZoom,
+          padding: 8 / currentZoom,
+          strokeWidth: 0.5 / currentZoom,
+        });
+      }
+    }
+
+    // Update all polylines (cables, zones, and containment)
+    fabricCanvas.getObjects().forEach(obj => {
+      if (obj instanceof Polyline) {
+        const isCable = obj.get('cableId');
+        const isZone = obj.get('zoneId');
+        const isContainment = obj.get('containmentId');
+        
+        // Different stroke widths for different types
+        let baseStrokeWidth = 3;
+        if (isZone) {
+          baseStrokeWidth = 2;
+        } else if (isCable) {
+          // Cables might have different widths based on type
+          baseStrokeWidth = obj.strokeWidth ? obj.strokeWidth * currentZoom : 2;
+        }
+        
+        obj.set({
+          strokeWidth: baseStrokeWidth / currentZoom,
+          cornerSize: 10 / currentZoom,
+        });
+        
+        // Update dash arrays if present
+        if (obj.strokeDashArray && obj.strokeDashArray.length > 0) {
+          const baseDashLength = isContainment ? 5 : 10;
+          obj.set({
+            strokeDashArray: [baseDashLength / currentZoom, baseDashLength / currentZoom],
+          });
+        }
+      }
+    });
+
+    fabricCanvas.renderAll();
+  }, [currentZoom, fabricCanvas, scaleObjects]);
 
   const handlePDFLoaded = async (imageUrl: string, uploadedPdfUrl?: string) => {
     // This function is now only for replacing the PDF on an existing floor plan
@@ -1300,14 +1363,15 @@ const FloorPlan = () => {
       
       scaleObjects.line.set({
         stroke: "#22c55e",
-        strokeWidth: 3,
+        strokeWidth: 3 / currentZoom,
       });
       
       scaleObjects.markers.forEach(marker => {
         marker.set({
           fill: "#22c55e",
           stroke: "#16a34a",
-          radius: 10,
+          radius: 10 / currentZoom,
+          strokeWidth: 3 / currentZoom,
         });
       });
       
@@ -1315,20 +1379,20 @@ const FloorPlan = () => {
       const midX = (marker1.left! + marker2.left!) / 2;
       const midY = (marker1.top! + marker2.top!) / 2;
       
-      // Create annotation label showing scale
+      // Create annotation label showing scale with dynamic sizing
       const scaleLabel = new Text(`SCALE: ${metersValue.toFixed(2)}m\n1px = ${metersPerPixel.toFixed(4)}m`, {
         left: midX,
-        top: midY - 40,
-        fontSize: 16,
+        top: midY - 40 / currentZoom,
+        fontSize: 16 / currentZoom,
         fontWeight: 'bold',
         fill: '#22c55e',
         backgroundColor: 'rgba(255, 255, 255, 0.9)',
-        padding: 8,
+        padding: 8 / currentZoom,
         textAlign: 'center',
         selectable: false,
         evented: false,
         stroke: '#16a34a',
-        strokeWidth: 0.5,
+        strokeWidth: 0.5 / currentZoom,
       });
       
       fabricCanvas.add(scaleLabel);
