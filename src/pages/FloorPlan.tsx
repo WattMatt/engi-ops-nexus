@@ -898,17 +898,18 @@ const FloorPlan = () => {
             
             const currentCanvasZoom = fabricCanvas.getZoom();
             
-            // Create markers - MASSIVE SIZE so impossible to miss
+            // Recreate scale line and markers from saved data
             const marker1 = new Circle({
               left: point1.x,
               top: point1.y,
-              radius: 40, // HUGE
+              radius: 6,
               fill: "#ef4444",
               stroke: "#fbbf24",
-              strokeWidth: 8,
-              selectable: true,
+              strokeWidth: 2,
+              selectable: false,
               hasControls: false,
               hasBorders: false,
+              evented: false,
               lockRotation: true,
               originX: 'center',
               originY: 'center',
@@ -917,25 +918,26 @@ const FloorPlan = () => {
             const marker2 = new Circle({
               left: point2.x,
               top: point2.y,
-              radius: 40, // HUGE
+              radius: 6,
               fill: "#ef4444",
               stroke: "#fbbf24",
-              strokeWidth: 8,
-              selectable: true,
+              strokeWidth: 2,
+              selectable: false,
               hasControls: false,
               hasBorders: false,
+              evented: false,
               lockRotation: true,
               originX: 'center',
               originY: 'center',
             });
             
-            // Create line - THICK
+            // Create scale line
             const line = new Line([point1.x, point1.y, point2.x, point2.y], {
               stroke: "#ef4444",
-              strokeWidth: 10,
+              strokeWidth: 3,
               selectable: false,
               evented: false,
-              strokeDashArray: [20, 10],
+              strokeDashArray: [10, 5],
             });
             
             // Calculate distance for label
@@ -947,37 +949,37 @@ const FloorPlan = () => {
             const midX = (point1.x + point2.x) / 2;
             const midY = (point1.y + point2.y) / 2;
             
-            // Create label - MASSIVE
-            const label = new Text(`🎯 SCALE: ${realWorldDistance.toFixed(2)}m 🎯\n1px = ${fp.scale_meters_per_pixel.toFixed(4)}m`, {
+            // Create label
+            const label = new Text(`${realWorldDistance.toFixed(2)}m`, {
               left: midX,
-              top: midY - 80,
-              fontSize: 32,
+              top: midY - 30,
+              fontSize: 16,
               fontWeight: 'bold',
               fill: '#dc2626',
               backgroundColor: '#fef2f2',
-              padding: 20,
+              padding: 8,
               textAlign: 'center',
               selectable: false,
               evented: false,
-              stroke: '#991b1b',
-              strokeWidth: 3,
               originX: 'center',
               originY: 'center',
             });
             
-            // Add all objects ON TOP
-            fabricCanvas.add(line, label, marker1, marker2);
+            // Add all objects to canvas
+            fabricCanvas.add(line);
+            fabricCanvas.add(marker1);
+            fabricCanvas.add(marker2);
+            fabricCanvas.add(label);
             fabricCanvas.bringObjectToFront(line);
-            fabricCanvas.bringObjectToFront(label);
             fabricCanvas.bringObjectToFront(marker1);
             fabricCanvas.bringObjectToFront(marker2);
-            fabricCanvas.renderAll(); // Force render after adding markers
+            fabricCanvas.bringObjectToFront(label);
+            fabricCanvas.renderAll();
             
             setScaleObjects({ line, markers: [marker1, marker2], label });
+            setScaleCalibrationPoints([new Point(point1.x, point1.y), new Point(point2.x, point2.y)]);
             
-            // Reset viewport to default - no pan, zoom 1
-            fabricCanvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
-            fabricCanvas.setZoom(1);
+            console.log('✅ Scale line and markers restored from database');
             fabricCanvas.renderAll(); // Force render after viewport reset
             
             console.log('✅ Scale markers added, viewport reset to default, rendered');
