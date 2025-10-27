@@ -888,14 +888,14 @@ const FloorPlan = () => {
             
             const currentCanvasZoom = fabricCanvas.getZoom();
             
-            // Create markers with dynamic sizing - larger for visibility
+            // Create markers - MASSIVE SIZE so impossible to miss
             const marker1 = new Circle({
               left: point1.x,
               top: point1.y,
-              radius: 20,
+              radius: 40, // HUGE
               fill: "#ef4444",
-              stroke: "#dc2626",
-              strokeWidth: 5,
+              stroke: "#fbbf24",
+              strokeWidth: 8,
               selectable: true,
               hasControls: false,
               hasBorders: false,
@@ -907,10 +907,10 @@ const FloorPlan = () => {
             const marker2 = new Circle({
               left: point2.x,
               top: point2.y,
-              radius: 20,
+              radius: 40, // HUGE
               fill: "#ef4444",
-              stroke: "#dc2626",
-              strokeWidth: 5,
+              stroke: "#fbbf24",
+              strokeWidth: 8,
               selectable: true,
               hasControls: false,
               hasBorders: false,
@@ -919,13 +919,13 @@ const FloorPlan = () => {
               originY: 'center',
             });
             
-            // Create line with thicker stroke for visibility
+            // Create line - THICK
             const line = new Line([point1.x, point1.y, point2.x, point2.y], {
               stroke: "#ef4444",
-              strokeWidth: 6,
+              strokeWidth: 10,
               selectable: false,
               evented: false,
-              strokeDashArray: [15, 10],
+              strokeDashArray: [20, 10],
             });
             
             // Calculate distance for label
@@ -937,20 +937,20 @@ const FloorPlan = () => {
             const midX = (point1.x + point2.x) / 2;
             const midY = (point1.y + point2.y) / 2;
             
-            // Create label with better visibility
-            const label = new Text(`⚠️ SCALE REFERENCE ⚠️\n${realWorldDistance.toFixed(2)}m\n1px = ${fp.scale_meters_per_pixel.toFixed(4)}m`, {
+            // Create label - MASSIVE
+            const label = new Text(`🎯 SCALE: ${realWorldDistance.toFixed(2)}m 🎯\n1px = ${fp.scale_meters_per_pixel.toFixed(4)}m`, {
               left: midX,
-              top: midY - 60,
-              fontSize: 24,
+              top: midY - 80,
+              fontSize: 32,
               fontWeight: 'bold',
               fill: '#dc2626',
-              backgroundColor: 'rgba(254, 242, 242, 0.98)',
-              padding: 15,
+              backgroundColor: '#fef2f2',
+              padding: 20,
               textAlign: 'center',
               selectable: false,
               evented: false,
               stroke: '#991b1b',
-              strokeWidth: 2,
+              strokeWidth: 3,
               originX: 'center',
               originY: 'center',
             });
@@ -1863,7 +1863,37 @@ const FloorPlan = () => {
         <div className="col-span-7">
           <Card>
             <CardHeader>
-              <CardTitle>Canvas</CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle>Canvas</CardTitle>
+                {scaleCalibration.isSet && scaleObjects.markers.length > 0 && (
+                  <Button
+                    size="sm"
+                    variant="destructive"
+                    onClick={() => {
+                      if (!fabricCanvas || scaleObjects.markers.length !== 2) return;
+                      
+                      const [m1, m2] = scaleObjects.markers;
+                      const centerX = (m1.left! + m2.left!) / 2;
+                      const centerY = (m1.top! + m2.top!) / 2;
+                      
+                      // Calculate how to center the markers in viewport
+                      const viewportCenterX = fabricCanvas.width! / 2;
+                      const viewportCenterY = fabricCanvas.height! / 2;
+                      
+                      fabricCanvas.setZoom(3);
+                      fabricCanvas.absolutePan(new Point(
+                        centerX - viewportCenterX / 3,
+                        centerY - viewportCenterY / 3
+                      ));
+                      fabricCanvas.renderAll();
+                      
+                      toast.success('Zoomed to scale markers', { duration: 2000 });
+                    }}
+                  >
+                    📍 Show Scale Markers
+                  </Button>
+                )}
+              </div>
               {scaleCalibration.isSet ? (
                 <p className="text-xs text-muted-foreground">
                   Scale: {scaleCalibration.metersPerPixel.toFixed(4)} m/px | 
