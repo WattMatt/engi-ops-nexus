@@ -298,14 +298,14 @@ const FloorPlan = () => {
 
       // Scale tool (works even when scale is not set)
       if (activeTool === "scale") {
-        // Draw a moveable marker at click point
+        // Draw a BIG VISIBLE marker at click point
         const marker = new Circle({
           left: point.x,
           top: point.y,
-          radius: 8,
+          radius: 20,
           fill: "#ef4444",
-          stroke: "#dc2626",
-          strokeWidth: 3,
+          stroke: "#fbbf24",
+          strokeWidth: 5,
           selectable: true,
           hasControls: false,
           hasBorders: false,
@@ -315,6 +315,7 @@ const FloorPlan = () => {
         });
         
         fabricCanvas.add(marker);
+        fabricCanvas.bringObjectToFront(marker);
         fabricCanvas.renderAll();
         
         if (scalePoints.length === 0) {
@@ -322,15 +323,16 @@ const FloorPlan = () => {
           setScaleObjects(prev => ({ ...prev, markers: [marker] }));
           toast.info("Click the end point of the known distance");
         } else {
-          // Draw line between the two points
+          // Draw PERMANENT line between the two points - THICK and VISIBLE
           const line = new Line([scalePoints[0].x, scalePoints[0].y, point.x, point.y], {
             stroke: "#ef4444",
-            strokeWidth: 3,
+            strokeWidth: 10,
             selectable: false,
             evented: false,
-            strokeDashArray: [10, 5],
+            strokeDashArray: [20, 10],
           });
           fabricCanvas.add(line);
+          fabricCanvas.bringObjectToFront(line); // Make sure it's on top
           
           // Update scale objects
           setScaleObjects(prev => ({ 
@@ -339,12 +341,19 @@ const FloorPlan = () => {
             label: null
           }));
           
+          // Bring all markers to front
+          fabricCanvas.bringObjectToFront(scaleObjects.markers[0]);
+          fabricCanvas.bringObjectToFront(marker);
+          fabricCanvas.renderAll();
+          
           const distance = Math.sqrt(
             Math.pow(point.x - scalePoints[0].x, 2) + 
             Math.pow(point.y - scalePoints[0].y, 2)
           );
           setScaleLinePixels(distance);
           setScaleDialogOpen(true);
+          
+          console.log('✅ Scale line drawn and visible on canvas');
           
           // Don't clear points yet - keep them for editing
         }
