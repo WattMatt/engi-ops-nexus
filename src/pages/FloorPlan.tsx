@@ -75,7 +75,7 @@ const FloorPlan = () => {
   // Drawing state
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawingPoints, setDrawingPoints] = useState<Point[]>([]);
-  const [previewLine, setPreviewLine] = useState<Polyline | null>(null);
+  const [previewLine, setPreviewLine] = useState<Polyline | Line | null>(null);
   const [equipmentPreview, setEquipmentPreview] = useState<Circle | Rect | null>(null);
   const [scalePoints, setScalePoints] = useState<Point[]>([]);
   const [scaleObjects, setScaleObjects] = useState<{ line: Line | null; markers: Circle[]; label: Text | null }>({
@@ -374,19 +374,35 @@ const FloorPlan = () => {
           const firstPdfX = firstMarker.get('pdfX');
           const firstPdfY = firstMarker.get('pdfY');
           
+          // Remove preview line
+          if (previewLine) {
+            fabricCanvas.remove(previewLine);
+            setPreviewLine(null);
+          }
+          
           // Draw line between PDF points (converted to canvas)
           const firstCanvasPoint = pdfToCanvas({ x: firstPdfX, y: firstPdfY }, pdfDimensions);
           const line = new Line([firstCanvasPoint.x, firstCanvasPoint.y, point.x, point.y], {
-            stroke: "#ef4444",
+            stroke: "#ef4444", // Red color for final scale line
             strokeWidth: 3 / currentZoom,
             selectable: false,
             evented: false,
             strokeDashArray: [10 / currentZoom, 5 / currentZoom],
+            visible: true,
+            opacity: 1,
           });
           
-          // Add line and bring to front
+          // Add line and ensure it's visible above PDF
           fabricCanvas.add(line);
-          fabricCanvas.sendObjectToBack(line);
+          
+          // Ensure PDF stays at the back
+          const pdfImage = fabricCanvas.getObjects().find(obj => obj instanceof FabricImage);
+          if (pdfImage) {
+            fabricCanvas.sendObjectToBack(pdfImage);
+          }
+          
+          // Bring markers and line to front
+          fabricCanvas.bringObjectToFront(line);
           fabricCanvas.bringObjectToFront(firstMarker);
           fabricCanvas.bringObjectToFront(marker);
           fabricCanvas.renderAll();
@@ -496,10 +512,35 @@ const FloorPlan = () => {
     };
 
     const handleMouseMove = (opt: any) => {
-      if (!scaleCalibration.isSet) return;
-      
       const pointer = fabricCanvas.getPointer(opt.e);
       const point = new Point(pointer.x, pointer.y);
+      
+      // Scale tool live preview - show green line while drawing
+      if (activeTool === "scale" && scaleObjects.markers.length === 1 && !scaleDialogOpen) {
+        if (previewLine) {
+          fabricCanvas.remove(previewLine);
+        }
+        
+        const firstMarker = scaleObjects.markers[0];
+        const preview = new Line([firstMarker.left!, firstMarker.top!, point.x, point.y], {
+          stroke: "#22c55e", // Green color for scale preview
+          strokeWidth: 3 / currentZoom,
+          selectable: false,
+          evented: false,
+          strokeDashArray: [10 / currentZoom, 5 / currentZoom],
+          opacity: 0.7,
+          visible: true,
+        });
+        
+        setPreviewLine(preview);
+        fabricCanvas.add(preview);
+        fabricCanvas.bringObjectToFront(preview);
+        fabricCanvas.bringObjectToFront(firstMarker);
+        fabricCanvas.renderAll();
+        return;
+      }
+      
+      if (!scaleCalibration.isSet) return;
 
       // Equipment preview
       const equipmentTools: Tool[] = Object.keys(EQUIPMENT_SIZES) as EquipmentType[];
