@@ -795,14 +795,16 @@ const FloorPlan = () => {
               const point1 = fp.scale_point1 as { x: number; y: number };
               const point2 = fp.scale_point2 as { x: number; y: number };
               
-              // Create markers with dynamic sizing
+              const currentCanvasZoom = fabricCanvas.getZoom();
+              
+              // Create markers with dynamic sizing - larger for visibility
               const marker1 = new Circle({
                 left: point1.x,
                 top: point1.y,
-                radius: 10 / currentZoom,
+                radius: 12,
                 fill: "#22c55e",
                 stroke: "#16a34a",
-                strokeWidth: 3 / currentZoom,
+                strokeWidth: 4,
                 selectable: true,
                 hasControls: false,
                 hasBorders: false,
@@ -814,10 +816,10 @@ const FloorPlan = () => {
               const marker2 = new Circle({
                 left: point2.x,
                 top: point2.y,
-                radius: 10 / currentZoom,
+                radius: 12,
                 fill: "#22c55e",
                 stroke: "#16a34a",
-                strokeWidth: 3 / currentZoom,
+                strokeWidth: 4,
                 selectable: true,
                 hasControls: false,
                 hasBorders: false,
@@ -826,13 +828,13 @@ const FloorPlan = () => {
                 originY: 'center',
               });
               
-              // Create line with dynamic stroke width
+              // Create line with thicker stroke for visibility
               const line = new Line([point1.x, point1.y, point2.x, point2.y], {
                 stroke: "#22c55e",
-                strokeWidth: 3 / currentZoom,
+                strokeWidth: 4,
                 selectable: false,
                 evented: false,
-                strokeDashArray: [10 / currentZoom, 5 / currentZoom],
+                strokeDashArray: [10, 5],
               });
               
               // Calculate distance for label
@@ -844,28 +846,34 @@ const FloorPlan = () => {
               const midX = (point1.x + point2.x) / 2;
               const midY = (point1.y + point2.y) / 2;
               
-              // Create label with dynamic sizing
+              // Create label with better visibility
               const label = new Text(`SCALE: ${realWorldDistance.toFixed(2)}m\n1px = ${fp.scale_meters_per_pixel.toFixed(4)}m`, {
                 left: midX,
-                top: midY - 40 / currentZoom,
-                fontSize: 16 / currentZoom,
+                top: midY - 50,
+                fontSize: 18,
                 fontWeight: 'bold',
                 fill: '#22c55e',
-                backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                padding: 8 / currentZoom,
+                backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                padding: 10,
                 textAlign: 'center',
                 selectable: false,
                 evented: false,
                 stroke: '#16a34a',
-                strokeWidth: 0.5 / currentZoom,
+                strokeWidth: 1,
                 originX: 'center',
                 originY: 'center',
               });
               
-              fabricCanvas.add(line, marker1, marker2, label);
+              // Add all objects and bring them to front for visibility
+              fabricCanvas.add(line, label, marker1, marker2);
+              fabricCanvas.bringObjectToFront(marker1);
+              fabricCanvas.bringObjectToFront(marker2);
+              fabricCanvas.bringObjectToFront(label);
+              
               setScaleObjects({ line, markers: [marker1, marker2], label });
               
-              toast.success(`Scale loaded: 1px = ${fp.scale_meters_per_pixel.toFixed(4)}m`);
+              console.log('Scale markers loaded at:', point1, point2);
+              toast.success(`Scale reference visible at coordinates (${Math.round(point1.x)}, ${Math.round(point1.y)})`);
             } else {
               toast.success(`Scale loaded: 1px = ${fp.scale_meters_per_pixel.toFixed(4)}m (no visual reference)`);
             }
