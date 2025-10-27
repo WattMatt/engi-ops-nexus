@@ -809,19 +809,28 @@ const FloorPlan = () => {
             });
           }
           
-          // Load PDF image FIRST
+          // Load PDF image FIRST - with better error handling
           if (fp.pdf_url) {
-            console.log('🔍 Loading PDF from:', fp.pdf_url);
+            console.log('🔍 Starting PDF load from:', fp.pdf_url);
+            
             try {
-              const img = await FabricImage.fromURL(fp.pdf_url, { crossOrigin: "anonymous" });
-              console.log('✅ PDF loaded, dimensions:', img.width, 'x', img.height);
+              // Load the image
+              const img = await FabricImage.fromURL(fp.pdf_url, { 
+                crossOrigin: "anonymous"
+              });
+              
+              if (!img || !img.width || !img.height) {
+                throw new Error('Invalid image loaded');
+              }
+              
+              console.log('✅ PDF loaded successfully:', img.width, 'x', img.height);
               
               const scale = Math.min(
                 (fabricCanvas.width! - 40) / img.width!,
                 (fabricCanvas.height! - 40) / img.height!
               );
               
-              console.log('📐 PDF scale factor:', scale);
+              console.log('📐 Calculated scale:', scale);
 
               img.set({
                 scaleX: scale,
@@ -834,17 +843,41 @@ const FloorPlan = () => {
 
               fabricCanvas.add(img);
               fabricCanvas.sendObjectToBack(img);
-              fabricCanvas.renderAll(); // Force render after adding PDF
+              fabricCanvas.requestRenderAll();
+              
               setPdfImageUrl(fp.pdf_url);
               
-              console.log('✅ PDF added to canvas and rendered');
-              toast.success('PDF loaded successfully');
-            } catch (err) {
-              console.error('❌ Failed to load PDF:', err);
-              toast.error('Failed to load PDF image');
+              console.log('✅ PDF rendered on canvas');
+              toast.success('PDF loaded', { duration: 2000 });
+              
+            } catch (err: any) {
+              console.error('❌ PDF Load Error:', err);
+              toast.error(`Failed to load PDF: ${err.message}`);
+              
+              // Add a visible error rectangle so user knows canvas is working
+              const errorRect = new Rect({
+                left: 50,
+                top: 50,
+                width: 300,
+                height: 100,
+                fill: '#fee2e2',
+                stroke: '#dc2626',
+                strokeWidth: 2,
+              });
+              const errorText = new Text('PDF Failed to Load\nCheck console for details', {
+                left: 200,
+                top: 100,
+                fontSize: 16,
+                fill: '#dc2626',
+                originX: 'center',
+                originY: 'center',
+              });
+              fabricCanvas.add(errorRect, errorText);
+              fabricCanvas.requestRenderAll();
             }
           } else {
-            console.log('⚠️ No PDF URL found');
+            console.log('⚠️ No PDF URL in database');
+            toast.error('No PDF found for this floor plan');
           }
           
           // NOW add scale markers ON TOP of PDF
