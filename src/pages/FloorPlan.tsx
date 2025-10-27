@@ -110,16 +110,22 @@ const FloorPlan = () => {
       if (evt.button === 1 || evt.altKey === true) {
         isPanning = true;
         canvas.selection = false;
+        canvas.discardActiveObject();
         lastPosX = evt.clientX;
         lastPosY = evt.clientY;
-        canvas.defaultCursor = "grabbing";
+        canvas.defaultCursor = "grab";
+        canvas.hoverCursor = "grab";
+        canvas.renderAll();
         opt.e.preventDefault();
+        opt.e.stopPropagation();
       }
     });
 
     canvas.on("mouse:move", (opt) => {
       if (isPanning) {
         const evt = opt.e as MouseEvent;
+        canvas.defaultCursor = "grabbing";
+        canvas.hoverCursor = "grabbing";
         const vpt = canvas.viewportTransform;
         if (vpt) {
           vpt[4] += evt.clientX - lastPosX;
@@ -137,6 +143,8 @@ const FloorPlan = () => {
         isPanning = false;
         canvas.selection = true;
         canvas.defaultCursor = "default";
+        canvas.hoverCursor = "move";
+        canvas.renderAll();
       }
     });
 

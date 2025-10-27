@@ -70,7 +70,6 @@ export const Toolbar = ({
 
         <TabsContent value="general" className="space-y-2 mt-4">
           <ToolButton tool="select" icon={MousePointer} label="Select" />
-          <ToolButton tool="pan" icon={Hand} label="Pan (Alt+Drag)" />
           <ToolButton tool="scale" icon={Ruler} label="Set Scale" />
           <div className="relative">
             <Button
