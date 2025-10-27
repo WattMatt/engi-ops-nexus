@@ -323,7 +323,20 @@ const FloorPlan = () => {
           setScaleObjects(prev => ({ ...prev, markers: [marker] }));
           toast.info("Click the end point of the known distance");
         } else {
-          // Draw PERMANENT line between the two points - THICK and VISIBLE
+          // Get the first marker that was already added
+          const firstMarker = scaleObjects.markers[0];
+          
+          // Update BOTH markers to be permanent and unselectable
+          firstMarker.set({
+            selectable: false,
+            evented: false,
+          });
+          marker.set({
+            selectable: false,
+            evented: false,
+          });
+          
+          // Draw THICK, PERMANENT line
           const line = new Line([scalePoints[0].x, scalePoints[0].y, point.x, point.y], {
             stroke: "#ef4444",
             strokeWidth: 10,
@@ -331,20 +344,20 @@ const FloorPlan = () => {
             evented: false,
             strokeDashArray: [20, 10],
           });
+          
+          // Add line and bring everything to front in correct order
           fabricCanvas.add(line);
-          fabricCanvas.bringObjectToFront(line); // Make sure it's on top
-          
-          // Update scale objects
-          setScaleObjects(prev => ({ 
-            line, 
-            markers: [...prev.markers, marker],
-            label: null
-          }));
-          
-          // Bring all markers to front
-          fabricCanvas.bringObjectToFront(scaleObjects.markers[0]);
+          fabricCanvas.bringObjectToFront(line);
+          fabricCanvas.bringObjectToFront(firstMarker);
           fabricCanvas.bringObjectToFront(marker);
           fabricCanvas.renderAll();
+          
+          // Store all objects
+          setScaleObjects({ 
+            line, 
+            markers: [firstMarker, marker],
+            label: null
+          });
           
           const distance = Math.sqrt(
             Math.pow(point.x - scalePoints[0].x, 2) + 
@@ -353,9 +366,7 @@ const FloorPlan = () => {
           setScaleLinePixels(distance);
           setScaleDialogOpen(true);
           
-          console.log('✅ Scale line drawn and visible on canvas');
-          
-          // Don't clear points yet - keep them for editing
+          console.log('✅ PERMANENT scale line with markers drawn - WILL STAY VISIBLE');
         }
         return;
       }
@@ -1490,69 +1501,40 @@ const FloorPlan = () => {
     setScaleCalibration({ metersPerPixel, isSet: true });
     setScaleCalibrationPoints(scalePoints);
     setScaleDialogOpen(false);
-    setScaleLinePixels(0);
     setActiveTool("select");
     
-    // Make the scale line and markers HIGHLY VISIBLE immediately
+    // The line and markers are ALREADY visible on canvas - just add a label
     if (fabricCanvas && scaleObjects.line && scaleObjects.markers.length === 2) {
       const [marker1, marker2] = scaleObjects.markers;
-      
-      // Update to MASSIVE, ALWAYS VISIBLE markers
-      marker1.set({
-        radius: 40,
-        fill: "#ef4444",
-        stroke: "#fbbf24",
-        strokeWidth: 8,
-      });
-      
-      marker2.set({
-        radius: 40,
-        fill: "#ef4444",
-        stroke: "#fbbf24",
-        strokeWidth: 8,
-      });
-      
-      scaleObjects.line.set({
-        stroke: "#ef4444",
-        strokeWidth: 10,
-        strokeDashArray: [20, 10],
-      });
       
       // Calculate midpoint for label
       const midX = (marker1.left! + marker2.left!) / 2;
       const midY = (marker1.top! + marker2.top!) / 2;
       
-      // Create HUGE label that stays visible
-      const scaleLabel = new Text(`🎯 SCALE: ${metersValue.toFixed(2)}m\n1px = ${metersPerPixel.toFixed(4)}m`, {
+      // Add a label above the line
+      const scaleLabel = new Text(`${metersValue.toFixed(2)}m`, {
         left: midX,
-        top: midY - 80,
-        fontSize: 32,
+        top: midY - 30,
+        fontSize: 16,
         fontWeight: 'bold',
         fill: '#dc2626',
         backgroundColor: '#fef2f2',
-        padding: 20,
+        padding: 8,
         textAlign: 'center',
         selectable: false,
         evented: false,
-        stroke: '#991b1b',
-        strokeWidth: 3,
         originX: 'center',
         originY: 'center',
       });
       
       fabricCanvas.add(scaleLabel);
-      fabricCanvas.bringObjectToFront(scaleObjects.line);
-      fabricCanvas.bringObjectToFront(marker1);
-      fabricCanvas.bringObjectToFront(marker2);
       fabricCanvas.bringObjectToFront(scaleLabel);
       fabricCanvas.renderAll();
       
       setScaleObjects(prev => ({ ...prev, label: scaleLabel }));
-      
-      console.log('✅ SCALE LINE AND MARKERS NOW PERMANENTLY VISIBLE ON CANVAS');
     }
     
-    // Save scale to database if floor plan exists
+    // Save scale to database
     if (floorPlanId && scaleObjects.markers.length === 2) {
       const { error } = await supabase
         .from("floor_plans")
@@ -1567,17 +1549,13 @@ const FloorPlan = () => {
         console.error("Error saving scale:", error);
         toast.error("Scale set but failed to save to database");
       } else {
-        toast.success(`✅ SCALE SET AND VISIBLE: ${metersValue.toFixed(2)}m`, {
-          duration: 5000,
-          description: 'Look for the HUGE red circles on the canvas'
-        });
+        toast.success(`Scale set: ${metersValue.toFixed(2)}m`);
       }
     } else {
-      toast.success(`✅ SCALE SET: ${metersValue.toFixed(2)}m`, {
-        duration: 5000,
-        description: 'Markers are now MASSIVE and visible'
-      });
+      toast.success(`Scale set: ${metersValue.toFixed(2)}m`);
     }
+    
+    // Don't clear scale points - keep them for reference
   };
 
   const handleScaleEdit = async (newScale: number) => {
