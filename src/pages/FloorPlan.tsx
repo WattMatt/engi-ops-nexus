@@ -834,9 +834,11 @@ const FloorPlan = () => {
 
               fabricCanvas.add(img);
               fabricCanvas.sendObjectToBack(img);
+              fabricCanvas.renderAll(); // Force render after adding PDF
               setPdfImageUrl(fp.pdf_url);
               
-              console.log('✅ PDF added to canvas');
+              console.log('✅ PDF added to canvas and rendered');
+              toast.success('PDF loaded successfully');
             } catch (err) {
               console.error('❌ Failed to load PDF:', err);
               toast.error('Failed to load PDF image');
@@ -926,27 +928,29 @@ const FloorPlan = () => {
             fabricCanvas.bringObjectToFront(label);
             fabricCanvas.bringObjectToFront(marker1);
             fabricCanvas.bringObjectToFront(marker2);
+            fabricCanvas.renderAll(); // Force render after adding markers
             
             setScaleObjects({ line, markers: [marker1, marker2], label });
             
             // Reset viewport to default - no pan, zoom 1
             fabricCanvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
             fabricCanvas.setZoom(1);
-            fabricCanvas.renderAll();
+            fabricCanvas.renderAll(); // Force render after viewport reset
             
-            console.log('✅ Scale markers added, viewport reset to default');
+            console.log('✅ Scale markers added, viewport reset to default, rendered');
             
-            toast.success(`✅ Floor plan loaded - scroll to see scale markers`, {
+            toast.success(`✅ Floor plan with scale markers loaded`, {
               duration: 5000,
-              description: `Red circles at coordinates (${Math.round(point1.x)}, ${Math.round(point1.y)}). Use mouse wheel to zoom, Alt+drag to pan.`
+              description: `Look for red circles. Use mouse wheel to zoom, Alt+drag to pan.`
             });
           } else {
             // No scale markers, just reset viewport
             fabricCanvas.setViewportTransform([1, 0, 0, 1, 0, 0]);
             fabricCanvas.setZoom(1);
-            fabricCanvas.renderAll();
+            fabricCanvas.renderAll(); // Force render
             
-            console.log('✅ PDF loaded, no scale markers');
+            console.log('✅ PDF loaded, no scale markers, viewport reset, rendered');
+            toast.success('Floor plan loaded');
           }
           
           // Load all markups
