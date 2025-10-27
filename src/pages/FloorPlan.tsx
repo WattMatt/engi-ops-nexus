@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { FileText, Save, Sparkles, Loader2, ArrowLeft, Ruler, Edit } from "lucide-react";
 import { toast } from "sonner";
-import { Canvas as FabricCanvas, Image as FabricImage, Point, Line, Circle, Polyline, Rect, Group } from "fabric";
+import { Canvas as FabricCanvas, Image as FabricImage, Point, Line, Circle, Polyline, Rect, Group, Text } from "fabric";
 import { supabase } from "@/integrations/supabase/client";
 import { PDFLoader } from "@/components/floorplan/PDFLoader";
 import { Toolbar } from "@/components/floorplan/Toolbar";
@@ -60,9 +60,10 @@ const FloorPlan = () => {
   const [previewLine, setPreviewLine] = useState<Polyline | null>(null);
   const [equipmentPreview, setEquipmentPreview] = useState<Circle | Rect | null>(null);
   const [scalePoints, setScalePoints] = useState<Point[]>([]);
-  const [scaleObjects, setScaleObjects] = useState<{ line: Line | null; markers: Circle[] }>({
+  const [scaleObjects, setScaleObjects] = useState<{ line: Line | null; markers: Circle[]; label: Text | null }>({
     line: null,
-    markers: []
+    markers: [],
+    label: null
   });
   const pendingCablePointsRef = useRef<Point[]>([]);
   const pendingContainmentPointsRef = useRef<Point[]>([]);
@@ -173,6 +174,7 @@ const FloorPlan = () => {
     const updateScaleLine = async () => {
       const [marker1, marker2] = scaleObjects.markers;
       const line = scaleObjects.line;
+      const label = scaleObjects.label;
       
       if (!line || !marker1 || !marker2) return;
 
@@ -190,12 +192,23 @@ const FloorPlan = () => {
         Math.pow(marker2.top! - marker1.top!, 2)
       );
 
+      // Update label position and text
+      if (label && scaleCalibration.isSet && scaleCalibration.metersPerPixel > 0) {
+        const midX = (marker1.left! + marker2.left!) / 2;
+        const midY = (marker1.top! + marker2.top!) / 2;
+        const realWorldDistance = distance * scaleCalibration.metersPerPixel;
+        
+        label.set({
+          left: midX,
+          top: midY - 40,
+          text: `SCALE: ${realWorldDistance.toFixed(2)}m\n1px = ${scaleCalibration.metersPerPixel.toFixed(4)}m`
+        });
+      }
+
       fabricCanvas.renderAll();
 
       // Update scale calibration if it was already set
       if (scaleCalibration.isSet && scaleCalibration.metersPerPixel > 0) {
-        const originalRealWorldDistance = distance * scaleCalibration.metersPerPixel;
-        
         // Save to database after short delay (debounce)
         clearTimeout(saveTimeout);
         saveTimeout = setTimeout(async () => {
@@ -297,7 +310,8 @@ const FloorPlan = () => {
           // Update scale objects
           setScaleObjects(prev => ({ 
             line, 
-            markers: [...prev.markers, marker] 
+            markers: [...prev.markers, marker],
+            label: null
           }));
           
           const distance = Math.sqrt(
@@ -1196,8 +1210,10 @@ const FloorPlan = () => {
     setActiveTool("select");
     
     // The scale line and markers are already on the canvas and editable
-    // Just update their appearance to show they're set
+    // Update their appearance and add annotation label
     if (fabricCanvas && scaleObjects.line && scaleObjects.markers.length === 2) {
+      const [marker1, marker2] = scaleObjects.markers;
+      
       scaleObjects.line.set({
         stroke: "#22c55e",
         strokeWidth: 3,
@@ -1210,6 +1226,29 @@ const FloorPlan = () => {
           radius: 10,
         });
       });
+      
+      // Calculate midpoint for label placement
+      const midX = (marker1.left! + marker2.left!) / 2;
+      const midY = (marker1.top! + marker2.top!) / 2;
+      
+      // Create annotation label showing scale
+      const scaleLabel = new Text(`SCALE: ${metersValue.toFixed(2)}m\n1px = ${metersPerPixel.toFixed(4)}m`, {
+        left: midX,
+        top: midY - 40,
+        fontSize: 16,
+        fontWeight: 'bold',
+        fill: '#22c55e',
+        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+        padding: 8,
+        textAlign: 'center',
+        selectable: false,
+        evented: false,
+        stroke: '#16a34a',
+        strokeWidth: 0.5,
+      });
+      
+      fabricCanvas.add(scaleLabel);
+      setScaleObjects(prev => ({ ...prev, label: scaleLabel }));
       
       fabricCanvas.renderAll();
     }
