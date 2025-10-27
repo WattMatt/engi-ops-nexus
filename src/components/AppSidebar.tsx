@@ -87,16 +87,19 @@ const cableSchedulesModule = {
   ],
 };
 
+const floorPlansModule = {
+  title: "Floor Plans",
+  icon: Image,
+  items: [
+    { title: "All Floor Plans", url: "/dashboard/floor-plans" },
+  ],
+};
+
 const operationalModules = [
   {
     title: "Site Diary",
     url: "/dashboard/site-diary",
     icon: FileText,
-  },
-  {
-    title: "Floor Plan Markup",
-    url: "/dashboard/floor-plan",
-    icon: Image,
   },
 ];
 
@@ -263,6 +266,32 @@ export function AppSidebar() {
                   <CollapsibleContent>
                     <SidebarMenuSub>
                       {cableSchedulesModule.items.map((item) => (
+                        <SidebarMenuSubItem key={item.title}>
+                          <SidebarMenuSubButton asChild>
+                            <NavLink to={item.url} className={getNavCls(item.url)}>
+                              <span>{item.title}</span>
+                            </NavLink>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
+
+              {/* Floor Plans - Collapsible */}
+              <Collapsible defaultOpen={isGroupActive(floorPlansModule.items)}>
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton className="hover:bg-muted/50">
+                      <floorPlansModule.icon className="h-4 w-4" />
+                      {!collapsed && <span>{floorPlansModule.title}</span>}
+                      {!collapsed && <ChevronDown className="ml-auto h-4 w-4" />}
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {floorPlansModule.items.map((item) => (
                         <SidebarMenuSubItem key={item.title}>
                           <SidebarMenuSubButton asChild>
                             <NavLink to={item.url} className={getNavCls(item.url)}>

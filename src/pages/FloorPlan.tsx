@@ -1,7 +1,8 @@
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { FileText, Save, Sparkles, Loader2 } from "lucide-react";
+import { FileText, Save, Sparkles, Loader2, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { Canvas as FabricCanvas, Image as FabricImage, Point, Line, Circle, Polyline, Rect } from "fabric";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,8 +17,11 @@ import { EQUIPMENT_SIZES } from "@/components/floorplan/equipmentSizes";
 import { DesignPurpose, Tool, ProjectData, ScaleCalibration, EquipmentType, CableType, ContainmentSize } from "@/components/floorplan/types";
 
 const FloorPlan = () => {
+  const { floorPlanId: routeFloorPlanId } = useParams();
+  const navigate = useNavigate();
   const [projectId] = useState(localStorage.getItem("selectedProjectId"));
-  const [floorPlanId, setFloorPlanId] = useState<string | null>(null);
+  const [floorPlanId, setFloorPlanId] = useState<string | null>(routeFloorPlanId || null);
+  const [floorPlanName, setFloorPlanName] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -541,43 +545,69 @@ const FloorPlan = () => {
 
   // Load existing floor plan and markups on component mount
   useEffect(() => {
-    if (!projectId || !fabricCanvas) return;
+    if (!fabricCanvas || !floorPlanId) return;
 
     const loadFloorPlan = async () => {
-      const { data: floorPlans } = await supabase
-        .from("floor_plans")
-        .select("*")
-        .eq("project_id", projectId)
-        .order("created_at", { ascending: false })
-        .limit(1);
+      setLoading(true);
+      try {
+        const { data: fp, error } = await supabase
+          .from("floor_plans")
+          .select("*")
+          .eq("id", floorPlanId)
+          .single();
 
-      if (floorPlans && floorPlans.length > 0) {
-        const fp = floorPlans[0];
-        setFloorPlanId(fp.id);
-        
-        // Load scale
-        if (fp.scale_meters_per_pixel) {
-          setScaleCalibration({
-            metersPerPixel: fp.scale_meters_per_pixel,
-            isSet: true,
-          });
+        if (error) throw error;
+
+        if (fp) {
+          setFloorPlanName(fp.name);
+          setDesignPurpose(fp.design_purpose as DesignPurpose);
+          
+          // Load scale
+          if (fp.scale_meters_per_pixel) {
+            setScaleCalibration({
+              metersPerPixel: fp.scale_meters_per_pixel,
+              isSet: true,
+            });
+            toast.success(`Scale loaded: 1px = ${fp.scale_meters_per_pixel.toFixed(4)}m`);
+          }
+          
+          // Load PDF image
+          if (fp.pdf_url) {
+            const img = await FabricImage.fromURL(fp.pdf_url, { crossOrigin: "anonymous" });
+            const scale = Math.min(
+              (fabricCanvas.width! - 40) / img.width!,
+              (fabricCanvas.height! - 40) / img.height!
+            );
+
+            img.set({
+              scaleX: scale,
+              scaleY: scale,
+              left: 20,
+              top: 20,
+              selectable: false,
+              evented: false,
+            });
+
+            fabricCanvas.add(img);
+            fabricCanvas.sendObjectToBack(img);
+            setPdfImageUrl(fp.pdf_url);
+          }
+          
+          // Load all markups
+          await loadExistingMarkups(fp.id);
+          
+          toast.success("Floor plan loaded successfully");
         }
-        
-        // Load PDF
-        if (fp.pdf_url) {
-          // Load PDF image - implementation would be similar to handlePDFLoaded
-        }
-        
-        // Load all markups
-        await loadExistingMarkups(fp.id);
-        
-        // Render loaded items on canvas
-        projectData.equipment.forEach(drawEquipmentSymbol);
+      } catch (error: any) {
+        console.error("Error loading floor plan:", error);
+        toast.error(error.message || "Failed to load floor plan");
+      } finally {
+        setLoading(false);
       }
     };
 
     loadFloorPlan();
-  }, [projectId, fabricCanvas]);
+  }, [fabricCanvas, floorPlanId]);
 
   // Render loaded items on canvas when projectData changes
   useEffect(() => {
@@ -643,7 +673,8 @@ const FloorPlan = () => {
   }, [projectData, fabricCanvas, scaleCalibration]);
 
   const handlePDFLoaded = async (imageUrl: string, uploadedPdfUrl?: string) => {
-    if (!fabricCanvas || !projectId) {
+    // This function is now only for replacing the PDF on an existing floor plan
+    if (!fabricCanvas) {
       toast.error("Canvas not ready. Please refresh the page and try again.");
       return;
     }
@@ -671,36 +702,7 @@ const FloorPlan = () => {
       fabricCanvas.sendObjectToBack(img);
       fabricCanvas.renderAll();
 
-      // Create floor plan record if PDF was uploaded
-      if (uploadedPdfUrl) {
-        const { data: user } = await supabase.auth.getUser();
-        if (!user.user) {
-          toast.error("User not authenticated");
-          return;
-        }
-
-        const { data: floorPlan, error: createError } = await supabase
-          .from("floor_plans")
-          .insert({
-            project_id: projectId,
-            name: `Floor Plan ${new Date().toLocaleDateString()}`,
-            pdf_url: uploadedPdfUrl,
-            design_purpose: "budget_markup",
-            created_by: user.user.id,
-          })
-          .select()
-          .single();
-
-        if (createError) {
-          console.error("Error creating floor plan:", createError);
-          toast.error("Failed to create floor plan record");
-        } else if (floorPlan) {
-          setFloorPlanId(floorPlan.id);
-          toast.success("Floor plan loaded! Please select a design purpose.");
-        }
-      } else {
-        toast.success("Floor plan image loaded! Now set the scale to begin.");
-      }
+      toast.success("PDF updated! Please set the scale to begin marking up.");
     } catch (error) {
       console.error("PDF loading error:", error);
       toast.error("Failed to display PDF on canvas");
@@ -1085,7 +1087,9 @@ const FloorPlan = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-start">
         <div>
-          <h1 className="text-3xl font-bold text-foreground mb-2">Floor Plan Markup Tool</h1>
+          <h1 className="text-3xl font-bold text-foreground mb-2">
+            {floorPlanName || "Floor Plan Markup Tool"}
+          </h1>
           <p className="text-muted-foreground">
             {designPurpose
               ? `Design Purpose: ${designPurpose.replace(/_/g, " ").toUpperCase()}`
@@ -1093,6 +1097,10 @@ const FloorPlan = () => {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button variant="ghost" onClick={() => navigate("/dashboard/floor-plans")}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Floor Plans
+          </Button>
           <PDFLoader onPDFLoaded={handlePDFLoaded} />
           <Button variant="outline" onClick={handleSave} disabled={saving || !floorPlanId}>
             {saving ? (
