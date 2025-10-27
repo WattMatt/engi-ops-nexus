@@ -87,29 +87,6 @@ const FloorPlan = () => {
       stopContextMenu: true,
     });
 
-    // Add a test rectangle to verify canvas is working
-    const testRect = new Rect({
-      left: 50,
-      top: 50,
-      width: 200,
-      height: 100,
-      fill: '#22c55e',
-      stroke: '#16a34a',
-      strokeWidth: 3,
-    });
-    const testText = new Text('✅ Canvas Working', {
-      left: 150,
-      top: 100,
-      fontSize: 20,
-      fill: 'white',
-      fontWeight: 'bold',
-      originX: 'center',
-      originY: 'center',
-    });
-    canvas.add(testRect, testText);
-    canvas.renderAll();
-    console.log('✅ Test rectangle added to canvas');
-
     // Enhanced zoom with mouse wheel
     canvas.on("mouse:wheel", (opt) => {
       const delta = opt.e.deltaY;
@@ -1511,7 +1488,7 @@ const FloorPlan = () => {
     if (fabricCanvas && scaleObjects.line && scaleObjects.markers.length === 2) {
       const [marker1, marker2] = scaleObjects.markers;
       
-      // Update to MASSIVE size
+      // Update to MASSIVE, ALWAYS VISIBLE markers
       marker1.set({
         radius: 40,
         fill: "#ef4444",
@@ -1536,8 +1513,8 @@ const FloorPlan = () => {
       const midX = (marker1.left! + marker2.left!) / 2;
       const midY = (marker1.top! + marker2.top!) / 2;
       
-      // Create HUGE label
-      const scaleLabel = new Text(`🎯 SCALE: ${metersValue.toFixed(2)}m 🎯\n1px = ${metersPerPixel.toFixed(4)}m`, {
+      // Create HUGE label that stays visible
+      const scaleLabel = new Text(`🎯 SCALE: ${metersValue.toFixed(2)}m\n1px = ${metersPerPixel.toFixed(4)}m`, {
         left: midX,
         top: midY - 80,
         fontSize: 32,
@@ -1559,21 +1536,11 @@ const FloorPlan = () => {
       fabricCanvas.bringObjectToFront(marker1);
       fabricCanvas.bringObjectToFront(marker2);
       fabricCanvas.bringObjectToFront(scaleLabel);
+      fabricCanvas.renderAll();
       
       setScaleObjects(prev => ({ ...prev, label: scaleLabel }));
       
-      // Zoom to show the scale markers
-      const centerX = (marker1.left! + marker2.left!) / 2;
-      const centerY = (marker1.top! + marker2.top!) / 2;
-      fabricCanvas.setZoom(3);
-      fabricCanvas.absolutePan(new Point(
-        centerX - fabricCanvas.width! / 6,
-        centerY - fabricCanvas.height! / 6
-      ));
-      
-      fabricCanvas.renderAll();
-      
-      console.log('✅ SCALE MARKERS NOW MASSIVE AND VISIBLE');
+      console.log('✅ SCALE LINE AND MARKERS NOW PERMANENTLY VISIBLE ON CANVAS');
     }
     
     // Save scale to database if floor plan exists
@@ -1915,37 +1882,7 @@ const FloorPlan = () => {
         <div className="col-span-7">
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
-                <CardTitle>Canvas</CardTitle>
-                {scaleCalibration.isSet && scaleObjects.markers.length > 0 && (
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => {
-                      if (!fabricCanvas || scaleObjects.markers.length !== 2) return;
-                      
-                      const [m1, m2] = scaleObjects.markers;
-                      const centerX = (m1.left! + m2.left!) / 2;
-                      const centerY = (m1.top! + m2.top!) / 2;
-                      
-                      // Calculate how to center the markers in viewport
-                      const viewportCenterX = fabricCanvas.width! / 2;
-                      const viewportCenterY = fabricCanvas.height! / 2;
-                      
-                      fabricCanvas.setZoom(3);
-                      fabricCanvas.absolutePan(new Point(
-                        centerX - viewportCenterX / 3,
-                        centerY - viewportCenterY / 3
-                      ));
-                      fabricCanvas.renderAll();
-                      
-                      toast.success('Zoomed to scale markers', { duration: 2000 });
-                    }}
-                  >
-                    📍 Show Scale Markers
-                  </Button>
-                )}
-              </div>
+              <CardTitle>Canvas</CardTitle>
               {scaleCalibration.isSet ? (
                 <p className="text-xs text-muted-foreground">
                   Scale: {scaleCalibration.metersPerPixel.toFixed(4)} m/px | 
