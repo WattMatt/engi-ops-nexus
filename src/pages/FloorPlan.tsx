@@ -326,17 +326,7 @@ const FloorPlan = () => {
           // Get the first marker that was already added
           const firstMarker = scaleObjects.markers[0];
           
-          // Update BOTH markers to be permanent and unselectable
-          firstMarker.set({
-            selectable: false,
-            evented: false,
-          });
-          marker.set({
-            selectable: false,
-            evented: false,
-          });
-          
-          // Draw THICK, PERMANENT line
+          // Draw THICK, VISIBLE line that stays on canvas
           const line = new Line([scalePoints[0].x, scalePoints[0].y, point.x, point.y], {
             stroke: "#ef4444",
             strokeWidth: 10,
@@ -352,7 +342,7 @@ const FloorPlan = () => {
           fabricCanvas.bringObjectToFront(marker);
           fabricCanvas.renderAll();
           
-          // Store all objects
+          // Store all objects - markers remain SELECTABLE for adjustment
           setScaleObjects({ 
             line, 
             markers: [firstMarker, marker],
@@ -366,7 +356,7 @@ const FloorPlan = () => {
           setScaleLinePixels(distance);
           setScaleDialogOpen(true);
           
-          console.log('✅ PERMANENT scale line with markers drawn - WILL STAY VISIBLE');
+          console.log('✅ Scale line drawn - markers stay selectable until you confirm the scale');
         }
         return;
       }
@@ -1503,9 +1493,19 @@ const FloorPlan = () => {
     setScaleDialogOpen(false);
     setActiveTool("select");
     
-    // The line and markers are ALREADY visible on canvas - just add a label
+    // Now LOCK the markers and line in place, add label
     if (fabricCanvas && scaleObjects.line && scaleObjects.markers.length === 2) {
       const [marker1, marker2] = scaleObjects.markers;
+      
+      // Lock the markers now that scale is confirmed
+      marker1.set({
+        selectable: false,
+        evented: false,
+      });
+      marker2.set({
+        selectable: false,
+        evented: false,
+      });
       
       // Calculate midpoint for label
       const midX = (marker1.left! + marker2.left!) / 2;
@@ -1554,8 +1554,6 @@ const FloorPlan = () => {
     } else {
       toast.success(`Scale set: ${metersValue.toFixed(2)}m`);
     }
-    
-    // Don't clear scale points - keep them for reference
   };
 
   const handleScaleEdit = async (newScale: number) => {
