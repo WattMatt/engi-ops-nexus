@@ -73,6 +73,15 @@ const FloorPlan = () => {
       backgroundColor: "#f5f5f5",
     });
 
+    // TEST: Global listener to verify middle button works at all
+    const globalTest = (evt: MouseEvent) => {
+      console.log("GLOBAL - button:", evt.button, "target:", evt.target?.constructor.name);
+      if (evt.button === 1) {
+        toast("Middle button detected globally!", { duration: 1000 });
+      }
+    };
+    document.addEventListener('mousedown', globalTest);
+
     // Enhanced zoom with mouse wheel (center scroll)
     canvas.on("mouse:wheel", (opt) => {
       const delta = opt.e.deltaY;
@@ -108,6 +117,8 @@ const FloorPlan = () => {
     const canvasElement = canvas.getElement();
     const canvasWrapper = canvasElement.parentElement;
     
+    console.log("Canvas element:", canvasElement, "Parent:", canvasWrapper);
+    
     // Handle middle button with auxclick (better for middle button)
     const handleAuxClick = (evt: MouseEvent) => {
       console.log("AuxClick detected - button:", evt.button);
@@ -115,7 +126,7 @@ const FloorPlan = () => {
     };
     
     const handleMouseDown = (evt: MouseEvent) => {
-      console.log("MouseDown - button:", evt.button, "alt:", evt.altKey, "target:", evt.target);
+      console.log("Canvas MouseDown - button:", evt.button, "alt:", evt.altKey, "target:", evt.target);
       
       // Middle button (button 1) or Alt+Left click for panning
       if (evt.button === 1 || evt.altKey === true) {
@@ -186,6 +197,7 @@ const FloorPlan = () => {
     setFabricCanvas(canvas);
 
     return () => {
+      document.removeEventListener('mousedown', globalTest);
       canvasElement.removeEventListener('auxclick', handleAuxClick, true);
       canvasElement.removeEventListener('mousedown', handleMouseDown, true);
       canvasElement.removeEventListener('mousemove', handleMouseMove);
