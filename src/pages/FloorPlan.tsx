@@ -1,16 +1,19 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { FileText, Save, Sparkles, Loader2 } from "lucide-react";
 import { toast } from "sonner";
-import { Canvas as FabricCanvas, Image as FabricImage, Point } from "fabric";
+import { Canvas as FabricCanvas, Image as FabricImage, Point, Line, Circle, Polyline, Rect } from "fabric";
 import { supabase } from "@/integrations/supabase/client";
 import { PDFLoader } from "@/components/floorplan/PDFLoader";
 import { Toolbar } from "@/components/floorplan/Toolbar";
 import { ProjectOverview } from "@/components/floorplan/ProjectOverview";
 import { DesignPurposeDialog } from "@/components/floorplan/DesignPurposeDialog";
 import { ScaleDialog } from "@/components/floorplan/ScaleDialog";
-import { DesignPurpose, Tool, ProjectData, ScaleCalibration } from "@/components/floorplan/types";
+import { CableDetailsDialog } from "@/components/floorplan/CableDetailsDialog";
+import { ContainmentSizeDialog } from "@/components/floorplan/ContainmentSizeDialog";
+import { EQUIPMENT_SIZES } from "@/components/floorplan/equipmentSizes";
+import { DesignPurpose, Tool, ProjectData, ScaleCalibration, EquipmentType, CableType, ContainmentSize } from "@/components/floorplan/types";
 
 const FloorPlan = () => {
   const [projectId] = useState(localStorage.getItem("selectedProjectId"));
@@ -30,6 +33,9 @@ const FloorPlan = () => {
   });
   const [scaleDialogOpen, setScaleDialogOpen] = useState(false);
   const [scaleLinePixels, setScaleLinePixels] = useState(0);
+  const [cableDialogOpen, setCableDialogOpen] = useState(false);
+  const [containmentDialogOpen, setContainmentDialogOpen] = useState(false);
+  const [currentContainmentType, setCurrentContainmentType] = useState("");
   const [projectData, setProjectData] = useState<ProjectData>({
     equipment: [],
     cables: [],
@@ -37,6 +43,15 @@ const FloorPlan = () => {
     containment: [],
     pvArrays: [],
   });
+  
+  // Drawing state
+  const [isDrawing, setIsDrawing] = useState(false);
+  const [drawingPoints, setDrawingPoints] = useState<Point[]>([]);
+  const [previewLine, setPreviewLine] = useState<Polyline | null>(null);
+  const [equipmentPreview, setEquipmentPreview] = useState<Circle | Rect | null>(null);
+  const [scalePoints, setScalePoints] = useState<Point[]>([]);
+  const pendingCablePointsRef = useRef<Point[]>([]);
+  const pendingContainmentPointsRef = useRef<Point[]>([]);
 
   // Initialize canvas
   useEffect(() => {
@@ -108,6 +123,374 @@ const FloorPlan = () => {
       }
     };
   }, [fabricCanvas]);
+
+  // Handle canvas drawing interactions
+  useEffect(() => {
+    if (!fabricCanvas) return;
+
+    const handleCanvasClick = (opt: any) => {
+      if (activeTool === "pan" || activeTool === "select" || !scaleCalibration.isSet) return;
+      
+      const pointer = fabricCanvas.getPointer(opt.e);
+      const point = new Point(pointer.x, pointer.y);
+
+      // Scale tool
+      if (activeTool === "scale") {
+        if (scalePoints.length === 0) {
+          setScalePoints([point]);
+          toast.info("Click the end point of the known distance");
+        } else {
+          const distance = Math.sqrt(
+            Math.pow(point.x - scalePoints[0].x, 2) + 
+            Math.pow(point.y - scalePoints[0].y, 2)
+          );
+          setScaleLinePixels(distance);
+          setScaleDialogOpen(true);
+          setScalePoints([]);
+        }
+        return;
+      }
+
+      // Equipment placement
+      const equipmentTools: Tool[] = Object.keys(EQUIPMENT_SIZES) as EquipmentType[];
+      if (equipmentTools.includes(activeTool)) {
+        const newEquipment = {
+          id: crypto.randomUUID(),
+          type: activeTool as EquipmentType,
+          x: point.x,
+          y: point.y,
+          rotation,
+          properties: {},
+        };
+        
+        setProjectData(prev => ({
+          ...prev,
+          equipment: [...prev.equipment, newEquipment],
+        }));
+        
+        // Draw the equipment symbol on canvas
+        drawEquipmentSymbol(newEquipment);
+        toast.success(`${activeTool} placed`);
+        return;
+      }
+
+      // Line drawing tools
+      const lineTools: Tool[] = ["line-mv", "line-lv", "line-dc", "zone", "cable-tray", "telkom-basket", "security-basket", "sleeves", "powerskirting", "p2000", "p8000", "p9000"];
+      if (lineTools.includes(activeTool)) {
+        setIsDrawing(true);
+        const newPoints = [...drawingPoints, point];
+        setDrawingPoints(newPoints);
+        
+        // Update preview
+        if (previewLine) {
+          fabricCanvas.remove(previewLine);
+        }
+        
+        const line = new Polyline(newPoints.map(p => ({ x: p.x, y: p.y })), {
+          stroke: getToolColor(activeTool),
+          strokeWidth: 2,
+          fill: null,
+          selectable: false,
+          evented: false,
+        });
+        
+        setPreviewLine(line);
+        fabricCanvas.add(line);
+        fabricCanvas.renderAll();
+      }
+    };
+
+    const handleMouseMove = (opt: any) => {
+      if (!scaleCalibration.isSet) return;
+      
+      const pointer = fabricCanvas.getPointer(opt.e);
+      const point = new Point(pointer.x, pointer.y);
+
+      // Equipment preview
+      const equipmentTools: Tool[] = Object.keys(EQUIPMENT_SIZES) as EquipmentType[];
+      if (equipmentTools.includes(activeTool)) {
+        if (equipmentPreview) {
+          fabricCanvas.remove(equipmentPreview);
+        }
+        
+        const realSize = EQUIPMENT_SIZES[activeTool as EquipmentType];
+        const pixelSize = realSize / scaleCalibration.metersPerPixel;
+        
+        const preview = new Circle({
+          left: point.x - pixelSize / 2,
+          top: point.y - pixelSize / 2,
+          radius: pixelSize / 2,
+          fill: "rgba(59, 130, 246, 0.3)",
+          stroke: "#3b82f6",
+          strokeWidth: 2,
+          selectable: false,
+          evented: false,
+          angle: rotation,
+        });
+        
+        setEquipmentPreview(preview);
+        fabricCanvas.add(preview);
+        fabricCanvas.renderAll();
+      }
+
+      // Line drawing preview
+      if (isDrawing && drawingPoints.length > 0) {
+        if (previewLine) {
+          fabricCanvas.remove(previewLine);
+        }
+        
+        const allPoints = [...drawingPoints, point];
+        const line = new Polyline(allPoints.map(p => ({ x: p.x, y: p.y })), {
+          stroke: getToolColor(activeTool),
+          strokeWidth: 2,
+          fill: null,
+          selectable: false,
+          evented: false,
+        });
+        
+        setPreviewLine(line);
+        fabricCanvas.add(line);
+        fabricCanvas.renderAll();
+      }
+    };
+
+    fabricCanvas.on("mouse:down", handleCanvasClick);
+    fabricCanvas.on("mouse:move", handleMouseMove);
+
+    return () => {
+      fabricCanvas.off("mouse:down", handleCanvasClick);
+      fabricCanvas.off("mouse:move", handleMouseMove);
+    };
+  }, [fabricCanvas, activeTool, scaleCalibration, drawingPoints, isDrawing, rotation, scalePoints, previewLine, equipmentPreview]);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyPress = (e: KeyboardEvent) => {
+      if (e.key === "r" || e.key === "R") {
+        setRotation((prev) => (prev + 45) % 360);
+      } else if (e.key === "Escape") {
+        cancelDrawing();
+      } else if (e.key === "Enter" && isDrawing) {
+        finishDrawing();
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyPress);
+    return () => window.removeEventListener("keydown", handleKeyPress);
+  }, [isDrawing, drawingPoints, activeTool]);
+
+  const getToolColor = (tool: Tool): string => {
+    const colors: Record<string, string> = {
+      "line-mv": "#dc2626",
+      "line-lv": "#2563eb",
+      "line-dc": "#ea580c",
+      "zone": "#10b981",
+      "cable-tray": "#8b5cf6",
+      "telkom-basket": "#f59e0b",
+      "security-basket": "#ec4899",
+      "sleeves": "#14b8a6",
+      "powerskirting": "#6366f1",
+      "p2000": "#84cc16",
+      "p8000": "#06b6d4",
+      "p9000": "#a855f7",
+    };
+    return colors[tool] || "#000000";
+  };
+
+  const drawEquipmentSymbol = (equipment: any) => {
+    if (!fabricCanvas || !scaleCalibration.isSet) return;
+    
+    const realSize = EQUIPMENT_SIZES[equipment.type as EquipmentType];
+    const pixelSize = realSize / scaleCalibration.metersPerPixel;
+    
+    const symbol = new Circle({
+      left: equipment.x - pixelSize / 2,
+      top: equipment.y - pixelSize / 2,
+      radius: pixelSize / 2,
+      fill: "#3b82f6",
+      stroke: "#1e40af",
+      strokeWidth: 1,
+      selectable: true,
+      angle: equipment.rotation,
+    });
+    
+    fabricCanvas.add(symbol);
+    fabricCanvas.renderAll();
+  };
+
+  const finishDrawing = () => {
+    if (drawingPoints.length < 2) {
+      toast.error("Draw at least 2 points");
+      return;
+    }
+
+    const length = calculatePathLength(drawingPoints);
+    const lengthMeters = length * scaleCalibration.metersPerPixel;
+
+    // Handle LV/AC cables
+    if (activeTool === "line-lv") {
+      pendingCablePointsRef.current = drawingPoints;
+      setCableDialogOpen(true);
+      cleanupDrawing();
+      return;
+    }
+
+    // Handle containment with size selection
+    if (["cable-tray", "telkom-basket", "security-basket"].includes(activeTool)) {
+      pendingContainmentPointsRef.current = drawingPoints;
+      setCurrentContainmentType(activeTool);
+      setContainmentDialogOpen(true);
+      cleanupDrawing();
+      return;
+    }
+
+    // Handle other line types
+    if (["line-mv", "line-dc"].includes(activeTool)) {
+      const newCable = {
+        id: crypto.randomUUID(),
+        type: activeTool.replace("line-", "") as "mv" | "dc",
+        points: drawingPoints.map(p => ({ x: p.x, y: p.y })),
+        color: getToolColor(activeTool),
+        lengthMeters,
+      };
+      
+      setProjectData(prev => ({
+        ...prev,
+        cables: [...prev.cables, newCable],
+      }));
+      
+      toast.success(`Cable added: ${lengthMeters.toFixed(2)}m`);
+    }
+
+    // Handle other containment types (no size needed)
+    if (["sleeves", "powerskirting", "p2000", "p8000", "p9000"].includes(activeTool)) {
+      const newContainment = {
+        id: crypto.randomUUID(),
+        type: activeTool as any,
+        points: drawingPoints.map(p => ({ x: p.x, y: p.y })),
+        lengthMeters,
+      };
+      
+      setProjectData(prev => ({
+        ...prev,
+        containment: [...prev.containment, newContainment],
+      }));
+      
+      toast.success(`${activeTool} added: ${lengthMeters.toFixed(2)}m`);
+    }
+
+    // Handle zones
+    if (activeTool === "zone") {
+      const area = calculatePolygonArea(drawingPoints);
+      const areaSqm = area * Math.pow(scaleCalibration.metersPerPixel, 2);
+      
+      const newZone = {
+        id: crypto.randomUUID(),
+        type: "supply" as const,
+        points: drawingPoints.map(p => ({ x: p.x, y: p.y })),
+        color: getToolColor(activeTool),
+        areaSqm,
+      };
+      
+      setProjectData(prev => ({
+        ...prev,
+        zones: [...prev.zones, newZone],
+      }));
+      
+      toast.success(`Zone added: ${areaSqm.toFixed(2)}m²`);
+    }
+
+    cleanupDrawing();
+  };
+
+  const cancelDrawing = () => {
+    cleanupDrawing();
+    setActiveTool("select");
+    toast.info("Drawing cancelled");
+  };
+
+  const cleanupDrawing = () => {
+    if (previewLine && fabricCanvas) {
+      fabricCanvas.remove(previewLine);
+      fabricCanvas.renderAll();
+    }
+    setIsDrawing(false);
+    setDrawingPoints([]);
+    setPreviewLine(null);
+  };
+
+  const calculatePathLength = (points: Point[]): number => {
+    let total = 0;
+    for (let i = 0; i < points.length - 1; i++) {
+      const dx = points[i + 1].x - points[i].x;
+      const dy = points[i + 1].y - points[i].y;
+      total += Math.sqrt(dx * dx + dy * dy);
+    }
+    return total;
+  };
+
+  const calculatePolygonArea = (points: Point[]): number => {
+    let area = 0;
+    for (let i = 0; i < points.length; i++) {
+      const j = (i + 1) % points.length;
+      area += points[i].x * points[j].y;
+      area -= points[j].x * points[i].y;
+    }
+    return Math.abs(area / 2);
+  };
+
+  const handleCableDetails = (details: any) => {
+    const points = pendingCablePointsRef.current;
+    if (points.length < 2) return;
+
+    const pathLength = calculatePathLength(points) * scaleCalibration.metersPerPixel;
+    const totalLength = pathLength + details.startHeight + details.endHeight;
+
+    const newCable = {
+      id: crypto.randomUUID(),
+      type: "lv" as const,
+      points: points.map(p => ({ x: p.x, y: p.y })),
+      cableType: details.cableType,
+      supplyFrom: details.supplyFrom,
+      supplyTo: details.supplyTo,
+      color: getToolColor("line-lv"),
+      lengthMeters: totalLength,
+    };
+    
+    setProjectData(prev => ({
+      ...prev,
+      cables: [...prev.cables, newCable],
+    }));
+    
+    setCableDialogOpen(false);
+    pendingCablePointsRef.current = [];
+    toast.success(`LV Cable added: ${totalLength.toFixed(2)}m`);
+  };
+
+  const handleContainmentSize = (size: ContainmentSize) => {
+    const points = pendingContainmentPointsRef.current;
+    if (points.length < 2) return;
+
+    const lengthMeters = calculatePathLength(points) * scaleCalibration.metersPerPixel;
+
+    const newContainment = {
+      id: crypto.randomUUID(),
+      type: currentContainmentType as any,
+      points: points.map(p => ({ x: p.x, y: p.y })),
+      size,
+      lengthMeters,
+    };
+    
+    setProjectData(prev => ({
+      ...prev,
+      containment: [...prev.containment, newContainment],
+    }));
+    
+    setContainmentDialogOpen(false);
+    pendingContainmentPointsRef.current = [];
+    setCurrentContainmentType("");
+    toast.success(`${currentContainmentType} added: ${lengthMeters.toFixed(2)}m (${size})`);
+  };
 
   const handlePDFLoaded = async (imageUrl: string, uploadedPdfUrl?: string) => {
     if (!fabricCanvas || !projectId) {
@@ -280,7 +663,43 @@ const FloorPlan = () => {
       setRotation((prev) => (prev + 45) % 360);
       return;
     }
+    
+    // Clean up any active drawing when switching tools
+    if (isDrawing) {
+      cleanupDrawing();
+    }
+    
+    // Remove equipment preview when switching away from equipment tools
+    if (equipmentPreview && fabricCanvas) {
+      fabricCanvas.remove(equipmentPreview);
+      setEquipmentPreview(null);
+    }
+    
     setActiveTool(tool);
+    
+    // Provide guidance for scale tool
+    if (tool === "scale" && !scaleCalibration.isSet) {
+      toast.info("Click two points on a known distance to set scale");
+    } else if (tool === "scale" && scaleCalibration.isSet) {
+      toast.info("Click two points to recalibrate the scale");
+    }
+    
+    // Provide guidance for drawing tools
+    const drawingTools = ["line-mv", "line-lv", "line-dc", "zone", "cable-tray", "telkom-basket", "security-basket", "sleeves", "powerskirting", "p2000", "p8000", "p9000"];
+    if (drawingTools.includes(tool)) {
+      toast.info("Click to add points. Press Enter to finish, Escape to cancel");
+    }
+    
+    // Provide guidance for equipment tools
+    const equipmentTools = Object.keys(EQUIPMENT_SIZES) as EquipmentType[];
+    if (equipmentTools.includes(tool as EquipmentType)) {
+      if (!scaleCalibration.isSet) {
+        toast.error("Please set the scale first");
+        setActiveTool("select");
+        return;
+      }
+      toast.info("Click to place equipment. Press R to rotate");
+    }
   };
 
   const handleToggleSnap = () => {
@@ -607,6 +1026,26 @@ const FloorPlan = () => {
         onCancel={() => {
           setScaleDialogOpen(false);
           setActiveTool("select");
+        }}
+      />
+
+      <CableDetailsDialog
+        open={cableDialogOpen}
+        onConfirm={handleCableDetails}
+        onCancel={() => {
+          setCableDialogOpen(false);
+          pendingCablePointsRef.current = [];
+        }}
+      />
+
+      <ContainmentSizeDialog
+        open={containmentDialogOpen}
+        containmentType={currentContainmentType}
+        onConfirm={handleContainmentSize}
+        onCancel={() => {
+          setContainmentDialogOpen(false);
+          pendingContainmentPointsRef.current = [];
+          setCurrentContainmentType("");
         }}
       />
     </div>
