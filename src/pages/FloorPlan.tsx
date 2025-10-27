@@ -1927,35 +1927,70 @@ const FloorPlan = () => {
     const pdfDistance = Math.sqrt(dx * dx + dy * dy);
     const realWorldDistance = pdfDistance * newScale;
     
-    // Update the line if it exists - connect current marker positions
-    if (scaleObjects.line && scaleObjects.markers.length === 2) {
-      scaleObjects.line.set({
-        x1: scaleObjects.markers[0].left!,
-        y1: scaleObjects.markers[0].top!,
-        x2: scaleObjects.markers[1].left!,
-        y2: scaleObjects.markers[1].top!,
-      });
+    // Remove old scale line and label from canvas, keep markers
+    if (scaleObjects.line) {
+      fabricCanvas.remove(scaleObjects.line);
+    }
+    if (scaleObjects.label) {
+      fabricCanvas.remove(scaleObjects.label);
     }
     
-    // Update the label if it exists
-    if (scaleObjects.label && scaleObjects.markers.length === 2) {
-      const midX = (scaleObjects.markers[0].left! + scaleObjects.markers[1].left!) / 2;
-      const midY = (scaleObjects.markers[0].top! + scaleObjects.markers[1].top!) / 2;
-      
+    // Create new line connecting current marker positions
+    if (scaleObjects.markers.length === 2) {
+      const [marker1, marker2] = scaleObjects.markers;
       const currentZoom = fabricCanvas.getZoom();
-      const angle = Math.atan2(
-        scaleObjects.markers[1].top! - scaleObjects.markers[0].top!,
-        scaleObjects.markers[1].left! - scaleObjects.markers[0].left!
+      
+      const newLine = new Line(
+        [marker1.left!, marker1.top!, marker2.left!, marker2.top!],
+        {
+          stroke: "#ef4444",
+          strokeWidth: 3 / currentZoom,
+          selectable: false,
+          evented: false,
+          strokeDashArray: [10 / currentZoom, 5 / currentZoom],
+          visible: true,
+          opacity: 1,
+        }
       );
       
+      // Calculate midpoint and angle for label
+      const midX = (marker1.left! + marker2.left!) / 2;
+      const midY = (marker1.top! + marker2.top!) / 2;
+      const angle = Math.atan2(marker2.top! - marker1.top!, marker2.left! - marker1.left!);
+      
+      // Position label perpendicular to the line
       const offsetDistance = 30 / currentZoom;
       const labelX = midX - Math.sin(angle) * offsetDistance;
       const labelY = midY + Math.cos(angle) * offsetDistance;
       
-      scaleObjects.label.set({
-        text: `${realWorldDistance.toFixed(2)}m`,
+      const newLabel = new Text(`${realWorldDistance.toFixed(2)}m`, {
         left: labelX,
-        top: labelY
+        top: labelY,
+        fontSize: 14 / currentZoom,
+        fontWeight: 'bold',
+        fill: '#dc2626',
+        backgroundColor: '#fef2f2',
+        padding: 6 / currentZoom,
+        textAlign: 'center',
+        selectable: false,
+        evented: false,
+        originX: 'center',
+        originY: 'center',
+      });
+      
+      // Add to canvas
+      fabricCanvas.add(newLine);
+      fabricCanvas.add(newLabel);
+      fabricCanvas.bringObjectToFront(newLine);
+      fabricCanvas.bringObjectToFront(marker1);
+      fabricCanvas.bringObjectToFront(marker2);
+      fabricCanvas.bringObjectToFront(newLabel);
+      
+      // Update state with new objects
+      setScaleObjects({
+        line: newLine,
+        markers: [marker1, marker2],
+        label: newLabel
       });
     }
     
