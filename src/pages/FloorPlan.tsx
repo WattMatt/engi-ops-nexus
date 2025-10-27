@@ -74,13 +74,13 @@ const FloorPlan = () => {
     });
 
     // TEST: Global listener to verify middle button works at all
-    const globalTest = (evt: MouseEvent) => {
-      console.log("GLOBAL - button:", evt.button, "target:", evt.target?.constructor.name);
+    const globalTest = (evt: PointerEvent) => {
+      console.log("GLOBAL POINTER - button:", evt.button, "pointerType:", evt.pointerType);
       if (evt.button === 1) {
         toast("Middle button detected globally!", { duration: 1000 });
       }
     };
-    document.addEventListener('mousedown', globalTest);
+    document.addEventListener('pointerdown', globalTest);
 
     // Enhanced zoom with mouse wheel (center scroll)
     canvas.on("mouse:wheel", (opt) => {
@@ -113,20 +113,14 @@ const FloorPlan = () => {
     let lastPosX = 0;
     let lastPosY = 0;
 
-    // Use native DOM events for more reliable middle button detection
+    // Use POINTER events for better middle button detection
     const canvasElement = canvas.getElement();
     const canvasWrapper = canvasElement.parentElement;
     
     console.log("Canvas element:", canvasElement, "Parent:", canvasWrapper);
     
-    // Handle middle button with auxclick (better for middle button)
-    const handleAuxClick = (evt: MouseEvent) => {
-      console.log("AuxClick detected - button:", evt.button);
-      evt.preventDefault();
-    };
-    
-    const handleMouseDown = (evt: MouseEvent) => {
-      console.log("Canvas MouseDown - button:", evt.button, "alt:", evt.altKey, "target:", evt.target);
+    const handlePointerDown = (evt: PointerEvent) => {
+      console.log("Canvas PointerDown - button:", evt.button, "pointerType:", evt.pointerType, "alt:", evt.altKey);
       
       // Middle button (button 1) or Alt+Left click for panning
       if (evt.button === 1 || evt.altKey === true) {
@@ -140,6 +134,9 @@ const FloorPlan = () => {
         canvasElement.style.cursor = "grab";
         canvas.defaultCursor = "grab";
         
+        // Capture pointer to receive all events even outside canvas
+        canvasElement.setPointerCapture(evt.pointerId);
+        
         evt.preventDefault();
         evt.stopPropagation();
         
@@ -147,7 +144,7 @@ const FloorPlan = () => {
       }
     };
 
-    const handleMouseMove = (evt: MouseEvent) => {
+    const handlePointerMove = (evt: PointerEvent) => {
       if (isPanning) {
         canvasElement.style.cursor = "grabbing";
         
@@ -164,7 +161,7 @@ const FloorPlan = () => {
       }
     };
 
-    const handleMouseUp = (evt: MouseEvent) => {
+    const handlePointerUp = (evt: PointerEvent) => {
       if (isPanning) {
         console.log("Ending pan mode");
         canvas.setViewportTransform(canvas.viewportTransform);
@@ -174,40 +171,33 @@ const FloorPlan = () => {
         canvasElement.style.cursor = "default";
         canvas.defaultCursor = "default";
         canvas.renderAll();
+        
+        // Release pointer capture
+        if (canvasElement.hasPointerCapture(evt.pointerId)) {
+          canvasElement.releasePointerCapture(evt.pointerId);
+        }
       }
     };
 
-    // Prevent context menu on middle click
-    const handleContextMenu = (evt: MouseEvent) => {
+    // Prevent context menu
+    const handleContextMenu = (evt: Event) => {
       evt.preventDefault();
     };
 
-    // Listen on both canvas and wrapper for better detection
-    canvasElement.addEventListener('auxclick', handleAuxClick, true);
-    canvasElement.addEventListener('mousedown', handleMouseDown, true);
-    canvasElement.addEventListener('mousemove', handleMouseMove);
-    canvasElement.addEventListener('mouseup', handleMouseUp);
+    // Use pointer events for better cross-device support
+    canvasElement.addEventListener('pointerdown', handlePointerDown, true);
+    canvasElement.addEventListener('pointermove', handlePointerMove);
+    canvasElement.addEventListener('pointerup', handlePointerUp);
     canvasElement.addEventListener('contextmenu', handleContextMenu);
-    
-    if (canvasWrapper) {
-      canvasWrapper.addEventListener('auxclick', handleAuxClick, true);
-      canvasWrapper.addEventListener('mousedown', handleMouseDown, true);
-    }
 
     setFabricCanvas(canvas);
 
     return () => {
-      document.removeEventListener('mousedown', globalTest);
-      canvasElement.removeEventListener('auxclick', handleAuxClick, true);
-      canvasElement.removeEventListener('mousedown', handleMouseDown, true);
-      canvasElement.removeEventListener('mousemove', handleMouseMove);
-      canvasElement.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('pointerdown', globalTest);
+      canvasElement.removeEventListener('pointerdown', handlePointerDown, true);
+      canvasElement.removeEventListener('pointermove', handlePointerMove);
+      canvasElement.removeEventListener('pointerup', handlePointerUp);
       canvasElement.removeEventListener('contextmenu', handleContextMenu);
-      
-      if (canvasWrapper) {
-        canvasWrapper.removeEventListener('auxclick', handleAuxClick, true);
-        canvasWrapper.removeEventListener('mousedown', handleMouseDown, true);
-      }
       
       if (fabricCanvas) {
         fabricCanvas.dispose();
