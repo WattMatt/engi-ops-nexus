@@ -298,14 +298,15 @@ const FloorPlan = () => {
 
       // Scale tool (works even when scale is not set)
       if (activeTool === "scale") {
-        // Draw a SMALL marker for precise placement
+        // Draw marker with size adjusted for current zoom
+        const baseRadius = 6;
         const marker = new Circle({
           left: point.x,
           top: point.y,
-          radius: 6,
+          radius: baseRadius / currentZoom,
           fill: "#ef4444",
           stroke: "#fbbf24",
-          strokeWidth: 2,
+          strokeWidth: 2 / currentZoom,
           selectable: true,
           hasControls: false,
           hasBorders: false,
@@ -323,26 +324,26 @@ const FloorPlan = () => {
           setScaleObjects(prev => ({ ...prev, markers: [marker] }));
           toast.info("Click the end point of the known distance");
         } else {
-          // Get the first marker that was already added
+          // Get the first marker
           const firstMarker = scaleObjects.markers[0];
           
-          // Draw line connecting the two points
+          // Draw line with zoom-adjusted width
           const line = new Line([scalePoints[0].x, scalePoints[0].y, point.x, point.y], {
             stroke: "#ef4444",
-            strokeWidth: 3,
+            strokeWidth: 3 / currentZoom,
             selectable: false,
             evented: false,
-            strokeDashArray: [10, 5],
+            strokeDashArray: [10 / currentZoom, 5 / currentZoom],
           });
           
-          // Add line BEHIND markers so markers are visible on top
+          // Add line and bring to front
           fabricCanvas.add(line);
           fabricCanvas.sendObjectToBack(line);
           fabricCanvas.bringObjectToFront(firstMarker);
           fabricCanvas.bringObjectToFront(marker);
           fabricCanvas.renderAll();
           
-          // Store all objects - they will stay on canvas permanently
+          // Store objects
           setScaleObjects({ 
             line, 
             markers: [firstMarker, marker],
@@ -356,7 +357,7 @@ const FloorPlan = () => {
           setScaleLinePixels(distance);
           setScaleDialogOpen(true);
           
-          console.log('✅ Scale line and markers drawn and permanently visible on canvas');
+          console.log('✅ Scale line drawn with zoom-responsive sizing');
         }
         return;
       }
@@ -1232,25 +1233,29 @@ const FloorPlan = () => {
   useEffect(() => {
     if (!fabricCanvas) return;
 
-    // Update scale markers and line
+    const baseRadius = 6;
+    const baseStrokeWidth = 2;
+    const baseLineWidth = 3;
+    const baseFontSize = 16;
+
+    // Update scale markers and line with zoom-responsive sizing
     if (scaleObjects.markers.length === 2 && scaleObjects.line) {
       scaleObjects.markers.forEach(marker => {
         marker.set({
-          radius: 10 / currentZoom,
-          strokeWidth: 3 / currentZoom,
+          radius: baseRadius / currentZoom,
+          strokeWidth: baseStrokeWidth / currentZoom,
         });
       });
       
       scaleObjects.line.set({
-        strokeWidth: 3 / currentZoom,
+        strokeWidth: baseLineWidth / currentZoom,
         strokeDashArray: [10 / currentZoom, 5 / currentZoom],
       });
       
       if (scaleObjects.label) {
         scaleObjects.label.set({
-          fontSize: 16 / currentZoom,
+          fontSize: baseFontSize / currentZoom,
           padding: 8 / currentZoom,
-          strokeWidth: 0.5 / currentZoom,
         });
       }
     }
@@ -1262,12 +1267,10 @@ const FloorPlan = () => {
         const isZone = obj.get('zoneId');
         const isContainment = obj.get('containmentId');
         
-        // Different stroke widths for different types
         let baseStrokeWidth = 3;
         if (isZone) {
           baseStrokeWidth = 2;
         } else if (isCable) {
-          // Cables might have different widths based on type
           baseStrokeWidth = obj.strokeWidth ? obj.strokeWidth * currentZoom : 2;
         }
         
@@ -1276,7 +1279,6 @@ const FloorPlan = () => {
           cornerSize: 10 / currentZoom,
         });
         
-        // Update dash arrays if present
         if (obj.strokeDashArray && obj.strokeDashArray.length > 0) {
           const baseDashLength = isContainment ? 5 : 10;
           obj.set({
@@ -1495,33 +1497,27 @@ const FloorPlan = () => {
     setScaleDialogOpen(false);
     setActiveTool("select");
     
-    // Now LOCK the markers and line in place, add label
+    // Lock markers and add label with zoom-responsive sizing
     if (fabricCanvas && scaleObjects.line && scaleObjects.markers.length === 2) {
       const [marker1, marker2] = scaleObjects.markers;
       
-      // Lock the markers now that scale is confirmed
-      marker1.set({
-        selectable: false,
-        evented: false,
-      });
-      marker2.set({
-        selectable: false,
-        evented: false,
-      });
+      // Lock the markers
+      marker1.set({ selectable: false, evented: false });
+      marker2.set({ selectable: false, evented: false });
       
       // Calculate midpoint for label
       const midX = (marker1.left! + marker2.left!) / 2;
       const midY = (marker1.top! + marker2.top!) / 2;
       
-      // Add a label above the line
+      // Add label with zoom-responsive sizing
       const scaleLabel = new Text(`${metersValue.toFixed(2)}m`, {
         left: midX,
         top: midY - 30,
-        fontSize: 16,
+        fontSize: 16 / currentZoom,
         fontWeight: 'bold',
         fill: '#dc2626',
         backgroundColor: '#fef2f2',
-        padding: 8,
+        padding: 8 / currentZoom,
         textAlign: 'center',
         selectable: false,
         evented: false,
@@ -1536,7 +1532,7 @@ const FloorPlan = () => {
       setScaleObjects(prev => ({ ...prev, label: scaleLabel }));
     }
     
-    // Save scale to database
+    // Save to database
     if (floorPlanId && scaleObjects.markers.length === 2) {
       const { error } = await supabase
         .from("floor_plans")
