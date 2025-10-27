@@ -60,6 +60,10 @@ const FloorPlan = () => {
   const [previewLine, setPreviewLine] = useState<Polyline | null>(null);
   const [equipmentPreview, setEquipmentPreview] = useState<Circle | Rect | null>(null);
   const [scalePoints, setScalePoints] = useState<Point[]>([]);
+  const [scaleObjects, setScaleObjects] = useState<{ line: Line | null; markers: Circle[] }>({
+    line: null,
+    markers: []
+  });
   const pendingCablePointsRef = useRef<Point[]>([]);
   const pendingContainmentPointsRef = useRef<Point[]>([]);
 
@@ -160,6 +164,58 @@ const FloorPlan = () => {
     };
   }, [fabricCanvas]);
 
+  // Handle scale marker movement to update calibration
+  useEffect(() => {
+    if (!fabricCanvas || scaleObjects.markers.length !== 2) return;
+
+    const updateScaleLine = () => {
+      const [marker1, marker2] = scaleObjects.markers;
+      const line = scaleObjects.line;
+      
+      if (!line || !marker1 || !marker2) return;
+
+      // Update line position
+      line.set({
+        x1: marker1.left!,
+        y1: marker1.top!,
+        x2: marker2.left!,
+        y2: marker2.top!,
+      });
+
+      // Calculate new distance
+      const distance = Math.sqrt(
+        Math.pow(marker2.left! - marker1.left!, 2) + 
+        Math.pow(marker2.top! - marker1.top!, 2)
+      );
+
+      // Update scale if it was already set
+      if (scaleCalibration.isSet && scaleCalibration.metersPerPixel > 0) {
+        const realWorldDistance = distance * scaleCalibration.metersPerPixel;
+        toast(`Scale updated: ${distance.toFixed(0)}px = ${realWorldDistance.toFixed(2)}m`, { 
+          duration: 2000 
+        });
+      }
+
+      fabricCanvas.renderAll();
+    };
+
+    const handleMarkerMove = () => {
+      updateScaleLine();
+    };
+
+    scaleObjects.markers.forEach(marker => {
+      marker.on('moving', handleMarkerMove);
+      marker.on('modified', handleMarkerMove);
+    });
+
+    return () => {
+      scaleObjects.markers.forEach(marker => {
+        marker.off('moving', handleMarkerMove);
+        marker.off('modified', handleMarkerMove);
+      });
+    };
+  }, [fabricCanvas, scaleObjects, scaleCalibration]);
+
   // Handle canvas drawing interactions
   useEffect(() => {
     if (!fabricCanvas) return;
@@ -185,22 +241,28 @@ const FloorPlan = () => {
 
       // Scale tool (works even when scale is not set)
       if (activeTool === "scale") {
-        // Draw a visual marker at click point
+        // Draw a moveable marker at click point
         const marker = new Circle({
-          left: point.x - 5,
-          top: point.y - 5,
-          radius: 5,
+          left: point.x,
+          top: point.y,
+          radius: 8,
           fill: "#ef4444",
           stroke: "#dc2626",
-          strokeWidth: 2,
-          selectable: false,
-          evented: false,
+          strokeWidth: 3,
+          selectable: true,
+          hasControls: false,
+          hasBorders: false,
+          lockRotation: true,
+          originX: 'center',
+          originY: 'center',
         });
+        
         fabricCanvas.add(marker);
         fabricCanvas.renderAll();
         
         if (scalePoints.length === 0) {
           setScalePoints([point]);
+          setScaleObjects(prev => ({ ...prev, markers: [marker] }));
           toast.info("Click the end point of the known distance");
         } else {
           // Draw line between the two points
@@ -209,9 +271,15 @@ const FloorPlan = () => {
             strokeWidth: 3,
             selectable: false,
             evented: false,
+            strokeDashArray: [10, 5],
           });
           fabricCanvas.add(line);
-          fabricCanvas.renderAll();
+          
+          // Update scale objects
+          setScaleObjects(prev => ({ 
+            line, 
+            markers: [...prev.markers, marker] 
+          }));
           
           const distance = Math.sqrt(
             Math.pow(point.x - scalePoints[0].x, 2) + 
@@ -219,7 +287,8 @@ const FloorPlan = () => {
           );
           setScaleLinePixels(distance);
           setScaleDialogOpen(true);
-          setScalePoints([]);
+          
+          // Don't clear points yet - keep them for editing
         }
         return;
       }
@@ -960,37 +1029,25 @@ const FloorPlan = () => {
     setScaleCalibrationPoints(scalePoints);
     setScaleDialogOpen(false);
     setScaleLinePixels(0);
-    setScalePoints([]);
+    // Don't clear scalePoints - keep them for the markers
     setActiveTool("select");
     
-    // Draw permanent markers at calibration points for reference
-    if (fabricCanvas && scalePoints.length === 2) {
-      scalePoints.forEach((point, index) => {
-        const marker = new Circle({
-          left: point.x - 6,
-          top: point.y - 6,
-          radius: 6,
-          fill: "#22c55e",
-          stroke: "#16a34a",
-          strokeWidth: 2,
-          selectable: false,
-          evented: false,
-        });
-        fabricCanvas.add(marker);
+    // The scale line and markers are already on the canvas and editable
+    // Just update their appearance to show they're set
+    if (fabricCanvas && scaleObjects.line && scaleObjects.markers.length === 2) {
+      scaleObjects.line.set({
+        stroke: "#22c55e",
+        strokeWidth: 3,
       });
       
-      // Draw reference line
-      const refLine = new Line(
-        [scalePoints[0].x, scalePoints[0].y, scalePoints[1].x, scalePoints[1].y],
-        {
-          stroke: "#22c55e",
-          strokeWidth: 2,
-          strokeDashArray: [10, 5],
-          selectable: false,
-          evented: false,
-        }
-      );
-      fabricCanvas.add(refLine);
+      scaleObjects.markers.forEach(marker => {
+        marker.set({
+          fill: "#22c55e",
+          stroke: "#16a34a",
+          radius: 10,
+        });
+      });
+      
       fabricCanvas.renderAll();
     }
     
@@ -1005,10 +1062,10 @@ const FloorPlan = () => {
         console.error("Error saving scale:", error);
         toast.error("Scale set but failed to save to database");
       } else {
-        toast.success(`Scale calibrated and saved: 1 pixel = ${metersPerPixel.toFixed(4)} meters`);
+        toast.success(`Scale calibrated and saved: 1px = ${metersPerPixel.toFixed(4)}m (drag markers to adjust)`);
       }
     } else {
-      toast.success(`Scale calibrated: 1 pixel = ${metersPerPixel.toFixed(4)} meters`);
+      toast.success(`Scale calibrated: 1px = ${metersPerPixel.toFixed(4)}m (drag markers to adjust)`);
     }
   };
 
