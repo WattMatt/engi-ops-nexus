@@ -492,6 +492,109 @@ const FloorPlan = () => {
     toast.success(`${currentContainmentType} added: ${lengthMeters.toFixed(2)}m (${size})`);
   };
 
+  // Load existing floor plan and markups on component mount
+  useEffect(() => {
+    if (!projectId || !fabricCanvas) return;
+
+    const loadFloorPlan = async () => {
+      const { data: floorPlans } = await supabase
+        .from("floor_plans")
+        .select("*")
+        .eq("project_id", projectId)
+        .order("created_at", { ascending: false })
+        .limit(1);
+
+      if (floorPlans && floorPlans.length > 0) {
+        const fp = floorPlans[0];
+        setFloorPlanId(fp.id);
+        
+        // Load scale
+        if (fp.scale_meters_per_pixel) {
+          setScaleCalibration({
+            metersPerPixel: fp.scale_meters_per_pixel,
+            isSet: true,
+          });
+        }
+        
+        // Load PDF
+        if (fp.pdf_url) {
+          // Load PDF image - implementation would be similar to handlePDFLoaded
+        }
+        
+        // Load all markups
+        await loadExistingMarkups(fp.id);
+        
+        // Render loaded items on canvas
+        projectData.equipment.forEach(drawEquipmentSymbol);
+      }
+    };
+
+    loadFloorPlan();
+  }, [projectId, fabricCanvas]);
+
+  // Render loaded items on canvas when projectData changes
+  useEffect(() => {
+    if (!fabricCanvas || !scaleCalibration.isSet) return;
+    
+    // Clear existing objects (except PDF background)
+    const objects = fabricCanvas.getObjects();
+    objects.forEach(obj => {
+      if (obj !== objects[0]) { // Keep first object (PDF image)
+        fabricCanvas.remove(obj);
+      }
+    });
+    
+    // Render equipment
+    projectData.equipment.forEach(equipment => {
+      drawEquipmentSymbol(equipment);
+    });
+    
+    // Render cables
+    projectData.cables.forEach(cable => {
+      const line = new Polyline(
+        cable.points.map(p => ({ x: p.x, y: p.y })),
+        {
+          stroke: cable.color || getToolColor(`line-${cable.type}`),
+          strokeWidth: 2,
+          fill: null,
+          selectable: true,
+        }
+      );
+      fabricCanvas.add(line);
+    });
+    
+    // Render zones
+    projectData.zones.forEach(zone => {
+      const polygon = new Polyline(
+        zone.points.map(p => ({ x: p.x, y: p.y })),
+        {
+          stroke: zone.color || "#10b981",
+          strokeWidth: 2,
+          fill: `${zone.color || "#10b981"}33`,
+          selectable: true,
+        }
+      );
+      fabricCanvas.add(polygon);
+    });
+    
+    // Render containment
+    projectData.containment.forEach(route => {
+      const line = new Polyline(
+        route.points.map(p => ({ x: p.x, y: p.y })),
+        {
+          stroke: getToolColor(route.type),
+          strokeWidth: 3,
+          strokeDashArray: [5, 5],
+          fill: null,
+          selectable: true,
+        }
+      );
+      fabricCanvas.add(line);
+    });
+    
+    fabricCanvas.renderAll();
+  }, [projectData, fabricCanvas, scaleCalibration]);
+
   const handlePDFLoaded = async (imageUrl: string, uploadedPdfUrl?: string) => {
     if (!fabricCanvas || !projectId) {
       toast.error("Canvas not ready. Please refresh the page and try again.");
@@ -725,8 +828,22 @@ const FloorPlan = () => {
       return;
     }
 
+    if (!scaleCalibration.isSet) {
+      toast.error("Please set the scale before saving");
+      return;
+    }
+
     setSaving(true);
     try {
+      // Save scale to floor plan
+      const { error: updateError } = await supabase
+        .from("floor_plans")
+        .update({
+          scale_meters_per_pixel: scaleCalibration.metersPerPixel,
+        })
+        .eq("id", floorPlanId);
+
+      if (updateError) throw updateError;
       // Save equipment placements
       const { error: equipmentError } = await supabase
         .from("equipment_placements")
@@ -849,16 +966,6 @@ const FloorPlan = () => {
         if (insertPvError) throw insertPvError;
       }
 
-      // Update floor plan scale
-      const { error: updateError } = await supabase
-        .from("floor_plans")
-        .update({
-          scale_meters_per_pixel: scaleCalibration.metersPerPixel,
-        })
-        .eq("id", floorPlanId);
-
-      if (updateError) throw updateError;
-
       toast.success("All markups saved successfully!");
     } catch (error: any) {
       console.error("Save error:", error);
@@ -956,9 +1063,15 @@ const FloorPlan = () => {
           <Card>
             <CardHeader>
               <CardTitle>Canvas</CardTitle>
-              {scaleCalibration.isSet && (
+              {scaleCalibration.isSet ? (
                 <p className="text-xs text-muted-foreground">
-                  Scale: {scaleCalibration.metersPerPixel.toFixed(4)} m/px
+                  Scale: {scaleCalibration.metersPerPixel.toFixed(4)} m/px | 
+                  {designPurpose && ` Mode: ${designPurpose.replace(/_/g, " ").toUpperCase()}`} | 
+                  Use mouse wheel to zoom, Alt+Drag to pan
+                </p>
+              ) : (
+                <p className="text-xs text-warning">
+                  ⚠️ Scale not set - Click "Set Scale" in toolbar to calibrate measurements
                 </p>
               )}
             </CardHeader>
