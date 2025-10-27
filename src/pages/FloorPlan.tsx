@@ -807,135 +807,9 @@ const FloorPlan = () => {
               metersPerPixel: fp.scale_meters_per_pixel,
               isSet: true,
             });
-            
-            // Recreate scale line and markers if points are saved
-            if (fp.scale_point1 && fp.scale_point2) {
-              const point1 = fp.scale_point1 as { x: number; y: number };
-              const point2 = fp.scale_point2 as { x: number; y: number };
-              
-              const currentCanvasZoom = fabricCanvas.getZoom();
-              
-              // Create markers with dynamic sizing - larger for visibility
-              const marker1 = new Circle({
-                left: point1.x,
-                top: point1.y,
-                radius: 20,
-                fill: "#ef4444",
-                stroke: "#dc2626",
-                strokeWidth: 5,
-                selectable: true,
-                hasControls: false,
-                hasBorders: false,
-                lockRotation: true,
-                originX: 'center',
-                originY: 'center',
-              });
-              
-              const marker2 = new Circle({
-                left: point2.x,
-                top: point2.y,
-                radius: 20,
-                fill: "#ef4444",
-                stroke: "#dc2626",
-                strokeWidth: 5,
-                selectable: true,
-                hasControls: false,
-                hasBorders: false,
-                lockRotation: true,
-                originX: 'center',
-                originY: 'center',
-              });
-              
-              // Create line with thicker stroke for visibility
-              const line = new Line([point1.x, point1.y, point2.x, point2.y], {
-                stroke: "#ef4444",
-                strokeWidth: 6,
-                selectable: false,
-                evented: false,
-                strokeDashArray: [15, 10],
-              });
-              
-              // Calculate distance for label
-              const distance = Math.sqrt(
-                Math.pow(point2.x - point1.x, 2) + 
-                Math.pow(point2.y - point1.y, 2)
-              );
-              const realWorldDistance = distance * fp.scale_meters_per_pixel;
-              const midX = (point1.x + point2.x) / 2;
-              const midY = (point1.y + point2.y) / 2;
-              
-              // Create label with better visibility
-              const label = new Text(`⚠️ SCALE REFERENCE ⚠️\n${realWorldDistance.toFixed(2)}m\n1px = ${fp.scale_meters_per_pixel.toFixed(4)}m`, {
-                left: midX,
-                top: midY - 60,
-                fontSize: 24,
-                fontWeight: 'bold',
-                fill: '#dc2626',
-                backgroundColor: 'rgba(254, 242, 242, 0.98)',
-                padding: 15,
-                textAlign: 'center',
-                selectable: false,
-                evented: false,
-                stroke: '#991b1b',
-                strokeWidth: 2,
-                originX: 'center',
-                originY: 'center',
-              });
-              
-              // Add all objects and bring them to front for visibility
-              fabricCanvas.add(line, label, marker1, marker2);
-              fabricCanvas.bringObjectToFront(marker1);
-              fabricCanvas.bringObjectToFront(marker2);
-              fabricCanvas.bringObjectToFront(label);
-              
-              setScaleObjects({ line, markers: [marker1, marker2], label });
-              
-              console.log('Scale markers loaded at:', point1, point2);
-              
-              // Pan canvas to show scale markers
-              const viewportCenter = new Point(
-                fabricCanvas.width! / 2,
-                fabricCanvas.height! / 2
-              );
-              const scaleCenter = new Point(
-                (point1.x + point2.x) / 2,
-                (point1.y + point2.y) / 2
-              );
-              
-              // Calculate offset needed to center scale markers
-              const offsetX = viewportCenter.x - scaleCenter.x;
-              const offsetY = viewportCenter.y - scaleCenter.y;
-              
-              fabricCanvas.relativePan(new Point(offsetX, offsetY));
-              fabricCanvas.setZoom(3); // Zoom in more to make markers highly visible
-              fabricCanvas.renderAll();
-              
-              // Flash animation to draw attention
-              let flashCount = 0;
-              const flashInterval = setInterval(() => {
-                marker1.set({ opacity: flashCount % 2 === 0 ? 1 : 0.3 });
-                marker2.set({ opacity: flashCount % 2 === 0 ? 1 : 0.3 });
-                fabricCanvas.renderAll();
-                flashCount++;
-                if (flashCount > 6) {
-                  clearInterval(flashInterval);
-                  marker1.set({ opacity: 1 });
-                  marker2.set({ opacity: 1 });
-                  fabricCanvas.renderAll();
-                }
-              }, 300);
-              
-              console.log('✅ Scale markers displayed - RED CIRCLES with label');
-              toast.success(`🎯 Scale markers visible! Look for the RED CIRCLES with glowing effect`, {
-                duration: 8000,
-                description: `Location: (${Math.round(point1.x)}, ${Math.round(point1.y)}) to (${Math.round(point2.x)}, ${Math.round(point2.y)}). Drag markers to adjust.`
-              });
-            } else {
-              toast.success(`Scale loaded: 1px = ${fp.scale_meters_per_pixel.toFixed(4)}m (no visual reference)`);
-            }
           }
           
-          // Load PDF image
+          // Load PDF image FIRST
           if (fp.pdf_url) {
             const img = await FabricImage.fromURL(fp.pdf_url, { crossOrigin: "anonymous" });
             const scale = Math.min(
@@ -955,6 +829,129 @@ const FloorPlan = () => {
             fabricCanvas.add(img);
             fabricCanvas.sendObjectToBack(img);
             setPdfImageUrl(fp.pdf_url);
+          }
+          
+          // NOW add scale markers ON TOP of PDF
+          if (fp.scale_point1 && fp.scale_point2) {
+            const point1 = fp.scale_point1 as { x: number; y: number };
+            const point2 = fp.scale_point2 as { x: number; y: number };
+            
+            const currentCanvasZoom = fabricCanvas.getZoom();
+            
+            // Create markers with dynamic sizing - larger for visibility
+            const marker1 = new Circle({
+              left: point1.x,
+              top: point1.y,
+              radius: 20,
+              fill: "#ef4444",
+              stroke: "#dc2626",
+              strokeWidth: 5,
+              selectable: true,
+              hasControls: false,
+              hasBorders: false,
+              lockRotation: true,
+              originX: 'center',
+              originY: 'center',
+            });
+            
+            const marker2 = new Circle({
+              left: point2.x,
+              top: point2.y,
+              radius: 20,
+              fill: "#ef4444",
+              stroke: "#dc2626",
+              strokeWidth: 5,
+              selectable: true,
+              hasControls: false,
+              hasBorders: false,
+              lockRotation: true,
+              originX: 'center',
+              originY: 'center',
+            });
+            
+            // Create line with thicker stroke for visibility
+            const line = new Line([point1.x, point1.y, point2.x, point2.y], {
+              stroke: "#ef4444",
+              strokeWidth: 6,
+              selectable: false,
+              evented: false,
+              strokeDashArray: [15, 10],
+            });
+            
+            // Calculate distance for label
+            const distance = Math.sqrt(
+              Math.pow(point2.x - point1.x, 2) + 
+              Math.pow(point2.y - point1.y, 2)
+            );
+            const realWorldDistance = distance * fp.scale_meters_per_pixel;
+            const midX = (point1.x + point2.x) / 2;
+            const midY = (point1.y + point2.y) / 2;
+            
+            // Create label with better visibility
+            const label = new Text(`⚠️ SCALE REFERENCE ⚠️\n${realWorldDistance.toFixed(2)}m\n1px = ${fp.scale_meters_per_pixel.toFixed(4)}m`, {
+              left: midX,
+              top: midY - 60,
+              fontSize: 24,
+              fontWeight: 'bold',
+              fill: '#dc2626',
+              backgroundColor: 'rgba(254, 242, 242, 0.98)',
+              padding: 15,
+              textAlign: 'center',
+              selectable: false,
+              evented: false,
+              stroke: '#991b1b',
+              strokeWidth: 2,
+              originX: 'center',
+              originY: 'center',
+            });
+            
+            // Add all objects ON TOP
+            fabricCanvas.add(line, label, marker1, marker2);
+            fabricCanvas.bringObjectToFront(line);
+            fabricCanvas.bringObjectToFront(label);
+            fabricCanvas.bringObjectToFront(marker1);
+            fabricCanvas.bringObjectToFront(marker2);
+            
+            setScaleObjects({ line, markers: [marker1, marker2], label });
+            
+            // Pan canvas to show scale markers
+            const viewportCenter = new Point(
+              fabricCanvas.width! / 2,
+              fabricCanvas.height! / 2
+            );
+            const scaleCenter = new Point(
+              (point1.x + point2.x) / 2,
+              (point1.y + point2.y) / 2
+            );
+            
+            // Calculate offset needed to center scale markers
+            const offsetX = viewportCenter.x - scaleCenter.x;
+            const offsetY = viewportCenter.y - scaleCenter.y;
+            
+            fabricCanvas.relativePan(new Point(offsetX, offsetY));
+            fabricCanvas.setZoom(3); // Zoom in more to make markers highly visible
+            fabricCanvas.renderAll();
+            
+            // Flash animation to draw attention
+            let flashCount = 0;
+            const flashInterval = setInterval(() => {
+              marker1.set({ opacity: flashCount % 2 === 0 ? 1 : 0.3 });
+              marker2.set({ opacity: flashCount % 2 === 0 ? 1 : 0.3 });
+              fabricCanvas.renderAll();
+              flashCount++;
+              if (flashCount > 6) {
+                clearInterval(flashInterval);
+                marker1.set({ opacity: 1 });
+                marker2.set({ opacity: 1 });
+                fabricCanvas.renderAll();
+              }
+            }, 300);
+            
+            console.log('✅ Scale markers displayed ON TOP of PDF - RED CIRCLES with label');
+            toast.success(`🎯 RED SCALE MARKERS NOW VISIBLE ON PDF!`, {
+              duration: 8000,
+              description: `Look for flashing red circles at (${Math.round(point1.x)}, ${Math.round(point1.y)})`
+            });
           }
           
           // Load all markups
