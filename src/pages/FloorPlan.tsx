@@ -624,7 +624,7 @@ const FloorPlan = () => {
       fabricCanvas.sendObjectToBack(img);
       fabricCanvas.renderAll();
 
-      // Create or get floor plan record
+      // Create floor plan record if PDF was uploaded
       if (uploadedPdfUrl) {
         const { data: user } = await supabase.auth.getUser();
         if (!user.user) {
@@ -647,12 +647,15 @@ const FloorPlan = () => {
         if (createError) {
           console.error("Error creating floor plan:", createError);
           toast.error("Failed to create floor plan record");
-        } else {
+        } else if (floorPlan) {
           setFloorPlanId(floorPlan.id);
-          toast.success("Floor plan loaded!");
+          toast.success("Floor plan loaded! Please select a design purpose.");
         }
+      } else {
+        toast.success("Floor plan image loaded! Now set the scale to begin.");
       }
     } catch (error) {
+      console.error("PDF loading error:", error);
       toast.error("Failed to display PDF on canvas");
     }
   };
@@ -815,11 +818,16 @@ const FloorPlan = () => {
   };
 
   const handleScaleSet = (metersValue: number) => {
+    if (!scaleLinePixels || scaleLinePixels === 0) {
+      toast.error("Invalid scale line drawn");
+      return;
+    }
+    
     const metersPerPixel = metersValue / scaleLinePixels;
     setScaleCalibration({ metersPerPixel, isSet: true });
     setScaleDialogOpen(false);
-    toast.success(`Scale calibrated: ${metersPerPixel.toFixed(4)} meters per pixel`);
     setActiveTool("select");
+    toast.success(`Scale calibrated: 1 pixel = ${metersPerPixel.toFixed(4)} meters. You can now draw and place equipment!`);
   };
 
   const handleSave = async () => {
@@ -1070,8 +1078,8 @@ const FloorPlan = () => {
                   Use mouse wheel to zoom, Alt+Drag to pan
                 </p>
               ) : (
-                <p className="text-xs text-warning">
-                  ⚠️ Scale not set - Click "Set Scale" in toolbar to calibrate measurements
+                <p className="text-xs text-amber-600 font-medium">
+                  ⚠️ Scale not set - Click "Set Scale" in General tab → Draw 2 points on known distance → Enter meters
                 </p>
               )}
             </CardHeader>
