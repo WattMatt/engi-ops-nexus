@@ -1295,8 +1295,18 @@ const FloorPlan = () => {
       
       // Handle line point modifications
       line.on('modified', async () => {
-        const points = line.points?.map(p => ({ x: p.x, y: p.y })) || [];
-        const fabricPoints = points.map(p => new Point(p.x, p.y));
+        if (!pdfDimensions || !fabricCanvas) return;
+        
+        // Get modified points in canvas coordinates
+        const canvasPoints = line.points?.map(p => ({ x: p.x, y: p.y })) || [];
+        
+        // Convert canvas coordinates back to PDF coordinates for storage
+        const pdfPoints = canvasPoints.map(p => {
+          const pdfPoint = canvasToPDF(new Point(p.x, p.y), pdfDimensions, fabricCanvas);
+          return { x: pdfPoint.x, y: pdfPoint.y };
+        });
+        
+        const fabricPoints = canvasPoints.map(p => new Point(p.x, p.y));
         const newLength = calculatePathLength(fabricPoints) * scaleCalibration.metersPerPixel;
         const oldLength = cable.lengthMeters || 0;
         
@@ -1306,11 +1316,11 @@ const FloorPlan = () => {
           oldValue: `${oldLength.toFixed(2)}m`,
           newValue: `${newLength.toFixed(2)}m`,
           onConfirm: async () => {
-            // Update local state
+            // Update local state with PDF coordinates
             setProjectData(prev => ({
               ...prev,
               cables: prev.cables.map(c => 
-                c.id === cable.id ? { ...c, points, lengthMeters: newLength } : c
+                c.id === cable.id ? { ...c, points: pdfPoints, lengthMeters: newLength } : c
               )
             }));
             
@@ -1318,7 +1328,7 @@ const FloorPlan = () => {
             try {
               const { error } = await supabase
                 .from('cable_routes')
-                .update({ points: points, length_meters: newLength })
+                .update({ points: pdfPoints, length_meters: newLength })
                 .eq('id', cable.id);
                 
               if (!error) {
@@ -1368,19 +1378,27 @@ const FloorPlan = () => {
       
       // Handle zone modifications
       polygon.on('modified', async () => {
-        const points = polygon.points?.map(p => ({ x: p.x, y: p.y })) || [];
-        const pointCount = points.length;
+        if (!pdfDimensions || !fabricCanvas) return;
+        
+        // Get modified points in canvas coordinates
+        const canvasPoints = polygon.points?.map(p => ({ x: p.x, y: p.y })) || [];
+        
+        // Convert canvas coordinates back to PDF coordinates for storage
+        const pdfPoints = canvasPoints.map(p => {
+          const pdfPoint = canvasToPDF(new Point(p.x, p.y), pdfDimensions, fabricCanvas);
+          return { x: pdfPoint.x, y: pdfPoint.y };
+        });
         
         // Show modification dialog
         setModificationType("zone");
         setModificationData({
           oldValue: `${zone.points.length} points`,
-          newValue: `${pointCount} points`,
+          newValue: `${pdfPoints.length} points`,
           onConfirm: async () => {
             setProjectData(prev => ({
               ...prev,
               zones: prev.zones.map(z => 
-                z.id === zone.id ? { ...z, points } : z
+                z.id === zone.id ? { ...z, points: pdfPoints } : z
               )
             }));
             
@@ -1426,8 +1444,18 @@ const FloorPlan = () => {
       
       // Handle containment modifications
       line.on('modified', async () => {
-        const points = line.points?.map(p => ({ x: p.x, y: p.y })) || [];
-        const fabricPoints = points.map(p => new Point(p.x, p.y));
+        if (!pdfDimensions || !fabricCanvas) return;
+        
+        // Get modified points in canvas coordinates
+        const canvasPoints = line.points?.map(p => ({ x: p.x, y: p.y })) || [];
+        
+        // Convert canvas coordinates back to PDF coordinates for storage
+        const pdfPoints = canvasPoints.map(p => {
+          const pdfPoint = canvasToPDF(new Point(p.x, p.y), pdfDimensions, fabricCanvas);
+          return { x: pdfPoint.x, y: pdfPoint.y };
+        });
+        
+        const fabricPoints = canvasPoints.map(p => new Point(p.x, p.y));
         const newLength = calculatePathLength(fabricPoints) * scaleCalibration.metersPerPixel;
         const oldLength = route.lengthMeters || 0;
         
@@ -1440,7 +1468,7 @@ const FloorPlan = () => {
             setProjectData(prev => ({
               ...prev,
               containment: prev.containment.map(c => 
-                c.id === route.id ? { ...c, points, lengthMeters: newLength } : c
+                c.id === route.id ? { ...c, points: pdfPoints, lengthMeters: newLength } : c
               )
             }));
             
