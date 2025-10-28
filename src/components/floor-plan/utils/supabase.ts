@@ -1,25 +1,15 @@
-import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
+import { supabase as supabaseClient } from '@/integrations/supabase/client';
+import { SupabaseClient, User } from '@supabase/supabase-js';
 import { getDocument } from 'pdfjs-dist/build/pdf.mjs';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import type { EquipmentItem, SupplyLine, SupplyZone, Containment, RoofMask, PVArrayItem, ScaleInfo, ViewState, PVPanelConfig, DesignPurpose, Task } from '@/types/floor-plan';
 
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL;
-const SUPABASE_ANON_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-let supabase: SupabaseClient | null = null;
-
 export function initializeSupabase(): SupabaseClient {
-  if (!supabase) {
-    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
-      throw new Error('Supabase credentials are not configured.');
-    }
-    supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  }
-  return supabase;
+  return supabaseClient;
 }
 
 export function isSupabaseInitialized(): boolean {
-  return !!supabase && !!SUPABASE_URL && !!SUPABASE_ANON_KEY;
+  return !!supabaseClient;
 }
 
 export async function signInWithGoogle(): Promise<void> {
