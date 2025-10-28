@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { DesignPurpose } from "./gemini/types";
 
 interface CreateFloorPlanDialogProps {
   open: boolean;
@@ -16,9 +17,18 @@ interface CreateFloorPlanDialogProps {
 
 export const CreateFloorPlanDialog = ({ open, onOpenChange, onSuccess }: CreateFloorPlanDialogProps) => {
   const [name, setName] = useState("");
-  const [designPurpose, setDesignPurpose] = useState<string>("general");
+  const [designPurpose, setDesignPurpose] = useState<DesignPurpose>("budget_markup");
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+
+  const purposes: { value: DesignPurpose; label: string }[] = [
+    { value: "budget_markup", label: "Budget Mark Up" },
+    { value: "pv_design", label: "PV Design" },
+    { value: "line_shop", label: "Line Shop Measurements" },
+    { value: "prelim_design", label: "Prelim Design Mark Up" },
+    { value: "cable_schedule", label: "Cable Schedule Markup" },
+    { value: "final_account", label: "Final Account Markup" },
+  ];
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -80,7 +90,7 @@ export const CreateFloorPlanDialog = ({ open, onOpenChange, onSuccess }: CreateF
       toast.success("Floor plan created successfully");
       setName("");
       setPdfFile(null);
-      setDesignPurpose("general");
+      setDesignPurpose("budget_markup");
       onSuccess(floorPlan.id);
     } catch (error: any) {
       console.error("Error creating floor plan:", error);
@@ -111,15 +121,16 @@ export const CreateFloorPlanDialog = ({ open, onOpenChange, onSuccess }: CreateF
 
           <div className="space-y-2">
             <Label htmlFor="design-purpose">Design Purpose</Label>
-            <Select value={designPurpose} onValueChange={setDesignPurpose} disabled={uploading}>
+            <Select value={designPurpose} onValueChange={(value) => setDesignPurpose(value as DesignPurpose)} disabled={uploading}>
               <SelectTrigger id="design-purpose">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="general">General</SelectItem>
-                <SelectItem value="solar_pv">Solar PV</SelectItem>
-                <SelectItem value="electrical">Electrical</SelectItem>
-                <SelectItem value="lighting">Lighting</SelectItem>
+                {purposes.map((purpose) => (
+                  <SelectItem key={purpose.value} value={purpose.value}>
+                    {purpose.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
