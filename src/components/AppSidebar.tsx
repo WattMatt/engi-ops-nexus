@@ -93,11 +93,6 @@ const operationalModules = [
     url: "/dashboard/site-diary",
     icon: FileText,
   },
-  {
-    title: "Floor Plan Markup",
-    url: "/dashboard/floor-plan-markup",
-    icon: Map,
-  },
 ];
 
 
