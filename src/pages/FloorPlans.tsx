@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,13 +21,15 @@ import {
 
 const FloorPlans = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [deleteFloorPlanId, setDeleteFloorPlanId] = useState<string | null>(null);
   const projectId = localStorage.getItem("selectedProjectId");
 
-  const { data: floorPlans, isLoading, refetch } = useQuery({
+  const { data: floorPlans, isLoading } = useQuery({
     queryKey: ["floor-plans", projectId],
     queryFn: async () => {
+      console.log('🔍 Fetching floor plans for project:', projectId);
       const { data, error } = await supabase
         .from("floor_plans")
         .select("*")
@@ -35,6 +37,7 @@ const FloorPlans = () => {
         .order("created_at", { ascending: false });
       
       if (error) throw error;
+      console.log('✅ Loaded floor plans:', data?.length);
       return data;
     },
     enabled: !!projectId,
@@ -42,19 +45,27 @@ const FloorPlans = () => {
 
   const deleteMutation = useMutation({
     mutationFn: async (floorPlanId: string) => {
+      console.log('🗑️ Deleting floor plan:', floorPlanId);
       const { error } = await supabase
         .from("floor_plans")
         .delete()
         .eq("id", floorPlanId);
       
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Delete error:', error);
+        throw error;
+      }
+      console.log('✅ Floor plan deleted from database');
     },
     onSuccess: () => {
+      console.log('✅ Delete successful, invalidating queries');
       toast.success("Floor plan deleted successfully");
-      refetch();
+      // Invalidate and refetch the floor plans query
+      queryClient.invalidateQueries({ queryKey: ["floor-plans", projectId] });
       setDeleteFloorPlanId(null);
     },
     onError: (error: any) => {
+      console.error('❌ Delete mutation error:', error);
       toast.error(error.message || "Failed to delete floor plan");
     },
   });
@@ -185,7 +196,7 @@ const FloorPlans = () => {
         open={showCreateDialog}
         onOpenChange={setShowCreateDialog}
         onSuccess={(floorPlanId) => {
-          refetch();
+          queryClient.invalidateQueries({ queryKey: ["floor-plans", projectId] });
           setShowCreateDialog(false);
           navigate(`/dashboard/floor-plans/${floorPlanId}`);
         }}
