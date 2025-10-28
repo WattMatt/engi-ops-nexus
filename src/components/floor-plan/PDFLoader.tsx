@@ -6,7 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import * as pdfjsLib from 'pdfjs-dist';
 
 // Set up PDF.js worker - using unpkg for better reliability
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
 
 export function PDFLoader() {
   const { updateState } = useFloorPlan();
@@ -75,7 +75,6 @@ export function PDFLoader() {
         description: error.message || 'Failed to load PDF',
         variant: 'destructive',
       });
-      setLoading(false); // Ensure loading is cleared on error
     } finally {
       setLoading(false);
     }
