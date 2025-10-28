@@ -3,7 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Save, Download, Undo, Redo, FileText, Trash2 } from "lucide-react";
+import { ArrowLeft, Save, Undo, Redo, FileText, Trash2, ZoomIn, ZoomOut } from "lucide-react";
+import { Canvas as FabricCanvas, Polyline, Polygon, Text, Group, FabricImage, Point as FabricPoint } from "fabric";
 import { Toolbar } from "@/components/floorplan/Toolbar";
 import { EquipmentPanel } from "@/components/floorplan/EquipmentPanel";
 import { BoqModal } from "@/components/floorplan/BoqModal";
@@ -15,8 +16,12 @@ import { PVArrayDialog } from "@/components/floorplan/PVArrayDialog";
 import { PVPanelConfigDialog } from "@/components/floorplan/PVPanelConfigDialog";
 import { TaskModal } from "@/components/floorplan/TaskModal";
 import { DesignPurposeDialog } from "@/components/floorplan/DesignPurposeDialog";
+import { LineEditDialog } from "@/components/floorplan/LineEditDialog";
+import { ZoneEditDialog } from "@/components/floorplan/ZoneEditDialog";
+import { ScaleEditDialog } from "@/components/floorplan/ScaleEditDialog";
 import { saveFloorPlanState, loadFloorPlanState } from "@/lib/supabaseFloorPlan";
 import { generateBoq } from "@/lib/boqGenerator";
+import { createIECSymbol } from "@/components/floorplan/iecSymbols";
 import { Tool, DesignPurpose, DesignState, Point, EquipmentItem, SupplyLine, SupplyZone, Containment, PVArray, RoofMask, PVPanelConfig } from "@/components/floorplan/types";
 import { EQUIPMENT_SIZES, CABLE_COLORS, CONTAINMENT_COLORS, ZONE_COLORS, SNAP_GRID_SIZE } from "@/components/floorplan/constants";
 import * as pdfjsLib from 'pdfjs-dist';
@@ -28,7 +33,7 @@ export default function FloorPlanNew() {
   const navigate = useNavigate();
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [fabricCanvas, setFabricCanvas] = useState<FabricCanvas | null>(null);
   
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -56,6 +61,13 @@ export default function FloorPlanNew() {
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentPoints, setCurrentPoints] = useState<Point[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedType, setSelectedType] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(1);
+  
+  // Edit dialogs
+  const [lineEditOpen, setLineEditOpen] = useState(false);
+  const [zoneEditOpen, setZoneEditOpen] = useState(false);
+  const [scaleEditOpen, setScaleEditOpen] = useState(false);
   
   // Scale
   const [scale, setScale] = useState({ metersPerPixel: 0, isSet: false });
@@ -127,32 +139,107 @@ export default function FloorPlanNew() {
     }
   };
   
-  // Load PDF
+  // Initialize Fabric.js canvas
   useEffect(() => {
-    if (pdfUrl && canvasRef.current) {
-      loadPDF();
-    }
-  }, [pdfUrl]);
+    if (!canvasRef.current || fabricCanvas) return;
+    
+    const canvas = new FabricCanvas(canvasRef.current, {
+      width: 1200,
+      height: 800,
+      backgroundColor: '#ffffff',
+      selection: activeTool === 'select',
+    });
+    
+    // Pan & Zoom
+    canvas.on('mouse:wheel', (opt) => {
+      const delta = opt.e.deltaY;
+      let newZoom = canvas.getZoom();
+      newZoom *= 0.999 ** delta;
+      newZoom = Math.max(0.1, Math.min(5, newZoom));
+      canvas.zoomToPoint(new FabricPoint(opt.e.offsetX, opt.e.offsetY), newZoom);
+      setZoom(newZoom);
+      opt.e.preventDefault();
+      opt.e.stopPropagation();
+    });
+    
+    // Selection handling
+    canvas.on('selection:created', (e) => {
+      const obj = e.selected?.[0];
+      if (obj) {
+        setSelectedId((obj as any).data?.id || null);
+        setSelectedType((obj as any).data?.type || null);
+      }
+    });
+    
+    canvas.on('selection:updated', (e) => {
+      const obj = e.selected?.[0];
+      if (obj) {
+        setSelectedId((obj as any).data?.id || null);
+        setSelectedType((obj as any).data?.type || null);
+      }
+    });
+    
+    canvas.on('selection:cleared', () => {
+      setSelectedId(null);
+      setSelectedType(null);
+    });
+    
+    // Double-click to edit
+    canvas.on('mouse:dblclick', (e) => {
+      const obj = e.target;
+      if (obj && (obj as any).data) {
+        const data = (obj as any).data;
+        if (data.type === 'line' || data.type === 'containment') {
+          setLineEditOpen(true);
+        } else if (data.type === 'zone') {
+          setZoneEditOpen(true);
+        }
+      }
+    });
+    
+    setFabricCanvas(canvas);
+    
+    return () => {
+      canvas.dispose();
+    };
+  }, [canvasRef.current]);
   
-  const loadPDF = async () => {
-    if (!canvasRef.current || !overlayCanvasRef.current || !pdfUrl) return;
+  // Load PDF background
+  useEffect(() => {
+    if (pdfUrl && fabricCanvas) {
+      loadPDFBackground();
+    }
+  }, [pdfUrl, fabricCanvas]);
+  
+  const loadPDFBackground = async () => {
+    if (!fabricCanvas || !pdfUrl) return;
     
     try {
       const pdf = await pdfjsLib.getDocument({ url: pdfUrl, withCredentials: false }).promise;
       const page = await pdf.getPage(1);
       const viewport = page.getViewport({ scale: 1.5 });
       
-      const canvas = canvasRef.current;
-      const overlay = overlayCanvasRef.current;
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
-      overlay.width = viewport.width;
-      overlay.height = viewport.height;
-      
-      const context = canvas.getContext('2d')!;
+      // Create temporary canvas
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = viewport.width;
+      tempCanvas.height = viewport.height;
+      const context = tempCanvas.getContext('2d')!;
       await page.render({ canvasContext: context, viewport } as any).promise;
       
-      redrawOverlay();
+      // Set Fabric canvas size
+      fabricCanvas.setWidth(viewport.width);
+      fabricCanvas.setHeight(viewport.height);
+      
+      // Set PDF as background
+      FabricImage.fromURL(tempCanvas.toDataURL()).then((img) => {
+        img.set({
+          scaleX: 1,
+          scaleY: 1,
+        });
+        fabricCanvas.backgroundImage = img;
+        fabricCanvas.renderAll();
+      });
+      
       toast.success('PDF loaded successfully');
     } catch (error) {
       console.error('Error loading PDF:', error);
@@ -160,164 +247,190 @@ export default function FloorPlanNew() {
     }
   };
   
-  // Redraw overlay
-  const redrawOverlay = () => {
-    if (!overlayCanvasRef.current) return;
+  // Render all elements on canvas
+  const renderCanvas = () => {
+    if (!fabricCanvas) return;
     
-    const ctx = overlayCanvasRef.current.getContext('2d')!;
-    ctx.clearRect(0, 0, overlayCanvasRef.current.width, overlayCanvasRef.current.height);
+    // Clear all objects except background
+    fabricCanvas.getObjects().forEach(obj => fabricCanvas.remove(obj));
     
-    // Draw zones
+    // Render zones
     state.zones.forEach(zone => {
-      ctx.fillStyle = ZONE_COLORS[zone.type] || 'rgba(0,0,0,0.1)';
-      ctx.strokeStyle = '#000';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      zone.points.forEach((p, i) => {
-        if (i === 0) ctx.moveTo(p.x, p.y);
-        else ctx.lineTo(p.x, p.y);
+      const points = zone.points.map(p => new FabricPoint(p.x, p.y));
+      const polygon = new Polygon(points, {
+        fill: ZONE_COLORS[zone.type] || 'rgba(0,0,0,0.1)',
+        stroke: '#000',
+        strokeWidth: 2,
+        selectable: activeTool === 'select',
+        hasControls: false,
       });
-      ctx.closePath();
-      ctx.fill();
-      ctx.stroke();
+      (polygon as any).data = { id: zone.id, type: 'zone' };
+      fabricCanvas.add(polygon);
+      
+      // Add label
+      if (zone.name) {
+        const centroid = getCentroid(zone.points);
+        const label = new Text(zone.name, {
+          left: centroid.x,
+          top: centroid.y,
+          fontSize: 14,
+          fill: '#000',
+          selectable: false,
+        });
+        fabricCanvas.add(label);
+      }
     });
     
-    // Draw cables
+    // Render cables
     state.lines.forEach(line => {
-      ctx.strokeStyle = line.color || CABLE_COLORS[line.type] || '#000';
-      ctx.lineWidth = 3;
-      ctx.beginPath();
-      line.points.forEach((p, i) => {
-        if (i === 0) ctx.moveTo(p.x, p.y);
-        else ctx.lineTo(p.x, p.y);
+      const points = line.points.flatMap(p => [p.x, p.y]);
+      const polyline = new Polyline(line.points.map(p => new FabricPoint(p.x, p.y)), {
+        stroke: line.color || CABLE_COLORS[line.type] || '#000',
+        strokeWidth: 3,
+        fill: '',
+        selectable: activeTool === 'select',
+        hasControls: false,
       });
-      ctx.stroke();
+      (polyline as any).data = { id: line.id, type: 'line' };
+      fabricCanvas.add(polyline);
     });
     
-    // Draw containment
+    // Render containment
     state.containment.forEach(cont => {
-      ctx.strokeStyle = CONTAINMENT_COLORS[cont.type] || '#666';
-      ctx.lineWidth = 2;
-      ctx.setLineDash([5, 5]);
-      ctx.beginPath();
-      cont.points.forEach((p, i) => {
-        if (i === 0) ctx.moveTo(p.x, p.y);
-        else ctx.lineTo(p.x, p.y);
+      const polyline = new Polyline(cont.points.map(p => new FabricPoint(p.x, p.y)), {
+        stroke: CONTAINMENT_COLORS[cont.type] || '#666',
+        strokeWidth: 2,
+        strokeDashArray: [5, 5],
+        fill: '',
+        selectable: activeTool === 'select',
+        hasControls: false,
       });
-      ctx.stroke();
-      ctx.setLineDash([]);
+      (polyline as any).data = { id: cont.id, type: 'containment' };
+      fabricCanvas.add(polyline);
     });
     
-    // Draw equipment
+    // Render equipment with IEC symbols
     state.equipment.forEach(eq => {
-      const size = EQUIPMENT_SIZES[eq.type] || { width: 20, height: 20 };
-      ctx.fillStyle = '#4CAF50';
-      ctx.strokeStyle = '#000';
-      ctx.lineWidth = 1;
-      ctx.fillRect(eq.x - size.width/2, eq.y - size.height/2, size.width, size.height);
-      ctx.strokeRect(eq.x - size.width/2, eq.y - size.height/2, size.width, size.height);
+      const symbol = createIECSymbol(eq.type, 1);
+      symbol.set({
+        left: eq.x,
+        top: eq.y,
+        angle: eq.rotation || 0,
+        selectable: activeTool === 'select',
+      });
+      (symbol as any).data = { id: eq.id, type: 'equipment' };
+      
+      const label = new Text(eq.name || eq.type.replace(/-/g, ' '), {
+        left: eq.x,
+        top: eq.y + 25,
+        fontSize: 10,
+        fill: '#000',
+        selectable: false,
+        originX: 'center',
+        originY: 'top',
+      });
+      
+      fabricCanvas.add(symbol);
+      fabricCanvas.add(label);
     });
     
-    // Draw current drawing
-    if (currentPoints.length > 0) {
-      ctx.strokeStyle = '#FF0000';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      currentPoints.forEach((p, i) => {
-        if (i === 0) ctx.moveTo(p.x, p.y);
-        else ctx.lineTo(p.x, p.y);
-      });
-      ctx.stroke();
-    }
+    fabricCanvas.renderAll();
   };
   
   useEffect(() => {
-    redrawOverlay();
-  }, [state, currentPoints]);
+    renderCanvas();
+  }, [state, fabricCanvas, activeTool]);
   
-  // Mouse handlers
-  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const rect = overlayCanvasRef.current!.getBoundingClientRect();
-    let x = e.clientX - rect.left;
-    let y = e.clientY - rect.top;
-    
-    if (snapEnabled) {
-      x = Math.round(x / SNAP_GRID_SIZE) * SNAP_GRID_SIZE;
-      y = Math.round(y / SNAP_GRID_SIZE) * SNAP_GRID_SIZE;
-    }
-    
-    if (activeTool === "select") {
-      // Handle selection
-      return;
-    }
-    
-    // Equipment placement
-    if (EQUIPMENT_SIZES[activeTool as any]) {
-      const newEquipment: EquipmentItem = {
-        id: Math.random().toString(),
-        type: activeTool as any,
-        x,
-        y,
-        rotation,
-        properties: {},
-      };
-      pushHistory({ ...state, equipment: [...state.equipment, newEquipment] });
-      return;
-    }
-    
-    // Start drawing lines/zones
-    setIsDrawing(true);
-    setCurrentPoints([{ x, y }]);
+  // Helper: Calculate centroid
+  const getCentroid = (points: Point[]): Point => {
+    const sum = points.reduce((acc, p) => ({ x: acc.x + p.x, y: acc.y + p.y }), { x: 0, y: 0 });
+    return { x: sum.x / points.length, y: sum.y / points.length };
   };
   
-  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDrawing) return;
+  // Mouse handlers for drawing mode
+  useEffect(() => {
+    if (!fabricCanvas) return;
     
-    const rect = overlayCanvasRef.current!.getBoundingClientRect();
-    let x = e.clientX - rect.left;
-    let y = e.clientY - rect.top;
+    if (activeTool === 'select') {
+      fabricCanvas.selection = true;
+      fabricCanvas.isDrawingMode = false;
+      fabricCanvas.getObjects().forEach(obj => {
+        obj.selectable = true;
+      });
+    } else {
+      fabricCanvas.selection = false;
+      fabricCanvas.discardActiveObject();
+      fabricCanvas.getObjects().forEach(obj => {
+        obj.selectable = false;
+      });
+      
+      // Equipment placement on click
+      if (EQUIPMENT_SIZES[activeTool as any]) {
+        const handleClick = (e: any) => {
+          const pointer = fabricCanvas.getPointer(e.e);
+          let x = pointer.x;
+          let y = pointer.y;
+          
+          if (snapEnabled) {
+            x = Math.round(x / SNAP_GRID_SIZE) * SNAP_GRID_SIZE;
+            y = Math.round(y / SNAP_GRID_SIZE) * SNAP_GRID_SIZE;
+          }
+          
+          const newEquipment: EquipmentItem = {
+            id: Math.random().toString(),
+            type: activeTool as any,
+            x,
+            y,
+            rotation,
+            properties: {},
+          };
+          pushHistory({ ...state, equipment: [...state.equipment, newEquipment] });
+        };
+        
+        fabricCanvas.on('mouse:down', handleClick);
+        return () => {
+          fabricCanvas.off('mouse:down', handleClick);
+        };
+      }
+    }
+  }, [fabricCanvas, activeTool, snapEnabled, rotation]);
+  
+  // Delete selected
+  const handleDelete = () => {
+    if (!selectedId || !fabricCanvas) return;
     
-    if (snapEnabled) {
-      x = Math.round(x / SNAP_GRID_SIZE) * SNAP_GRID_SIZE;
-      y = Math.round(y / SNAP_GRID_SIZE) * SNAP_GRID_SIZE;
+    const newState = { ...state };
+    
+    if (selectedType === 'equipment') {
+      newState.equipment = state.equipment.filter(eq => eq.id !== selectedId);
+    } else if (selectedType === 'line') {
+      newState.lines = state.lines.filter(line => line.id !== selectedId);
+    } else if (selectedType === 'zone') {
+      newState.zones = state.zones.filter(zone => zone.id !== selectedId);
+    } else if (selectedType === 'containment') {
+      newState.containment = state.containment.filter(cont => cont.id !== selectedId);
     }
     
-    setCurrentPoints([...currentPoints, { x, y }]);
+    pushHistory(newState);
+    setSelectedId(null);
+    setSelectedType(null);
   };
   
-  const handleMouseUp = () => {
-    if (!isDrawing || currentPoints.length < 2) {
-      setIsDrawing(false);
-      setCurrentPoints([]);
-      return;
-    }
-    
-    setIsDrawing(false);
-    
-    // Handle different tools
-    if (activeTool === "scale") {
-      const length = Math.sqrt(
-        Math.pow(currentPoints[currentPoints.length-1].x - currentPoints[0].x, 2) +
-        Math.pow(currentPoints[currentPoints.length-1].y - currentPoints[0].y, 2)
-      );
-      setScalePixelLength(length);
-      setScaleDialogOpen(true);
-    } else if (activeTool.startsWith("line-")) {
-      setCableDialogOpen(true);
-    } else if (activeTool === "zone") {
-      const newZone: SupplyZone = {
-        id: Math.random().toString(),
-        type: "supply",
-        points: currentPoints,
-        name: `Zone ${state.zones.length + 1}`,
-      };
-      pushHistory({ ...state, zones: [...state.zones, newZone] });
-      setCurrentPoints([]);
-    } else if (activeTool === "roof-mask") {
-      setRoofDialogOpen(true);
-    } else if (CONTAINMENT_COLORS[activeTool as any]) {
-      setContainmentDialogOpen(true);
-    }
+  // Zoom controls
+  const handleZoomIn = () => {
+    if (!fabricCanvas) return;
+    const newZoom = Math.min(5, zoom * 1.2);
+    fabricCanvas.setZoom(newZoom);
+    setZoom(newZoom);
+    fabricCanvas.renderAll();
+  };
+  
+  const handleZoomOut = () => {
+    if (!fabricCanvas) return;
+    const newZoom = Math.max(0.1, zoom / 1.2);
+    fabricCanvas.setZoom(newZoom);
+    setZoom(newZoom);
+    fabricCanvas.renderAll();
   };
   
   // Push to history
@@ -399,6 +512,16 @@ export default function FloorPlanNew() {
         </div>
         
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" onClick={handleZoomOut}>
+            <ZoomOut className="w-4 h-4" />
+          </Button>
+          <span className="text-sm text-muted-foreground min-w-16 text-center">
+            {Math.round(zoom * 100)}%
+          </span>
+          <Button variant="outline" size="sm" onClick={handleZoomIn}>
+            <ZoomIn className="w-4 h-4" />
+          </Button>
+          <div className="h-6 w-px bg-border mx-2" />
           <Button variant="outline" size="sm" onClick={undo} disabled={historyIndex === 0}>
             <Undo className="w-4 h-4 mr-2" />
             Undo
@@ -407,10 +530,12 @@ export default function FloorPlanNew() {
             <Redo className="w-4 h-4 mr-2" />
             Redo
           </Button>
-          <Button variant="outline" size="sm" onClick={() => setState({ equipment: [], lines: [], zones: [], containment: [], roofMasks: [], pvArrays: [], tasks: [] })}>
-            <Trash2 className="w-4 h-4 mr-2" />
-            Clear All
-          </Button>
+          {selectedId && (
+            <Button variant="outline" size="sm" onClick={handleDelete}>
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete
+            </Button>
+          )}
           <Button variant="outline" size="sm" onClick={handleGenerateBoq}>
             <FileText className="w-4 h-4 mr-2" />
             Generate BOQ
@@ -437,15 +562,10 @@ export default function FloorPlanNew() {
         </div>
         
         {/* Canvas */}
-        <div className="flex-1 relative overflow-auto">
-          <canvas ref={canvasRef} className="absolute top-0 left-0" />
-          <canvas 
-            ref={overlayCanvasRef} 
-            className="absolute top-0 left-0 cursor-crosshair"
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-          />
+        <div className="flex-1 relative overflow-hidden bg-muted/30">
+          <div className="absolute inset-0 overflow-auto">
+            <canvas ref={canvasRef} />
+          </div>
         </div>
         
         {/* Right Panel */}
