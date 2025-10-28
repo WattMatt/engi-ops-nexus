@@ -203,6 +203,9 @@ const FloorPlan = () => {
 
     // Handle object selection for line editing
     canvas.on('selection:created', (e) => {
+      // Only open line editor when in select mode AND not currently drawing
+      if (isDrawing) return;
+      
       const selected = e.selected?.[0];
       if (selected && selected.get('isEditableLine') && activeTool === 'select') {
         setSelectedLine(selected);
@@ -211,6 +214,9 @@ const FloorPlan = () => {
     });
 
     canvas.on('selection:updated', (e) => {
+      // Only open line editor when in select mode AND not currently drawing
+      if (isDrawing) return;
+      
       const selected = e.selected?.[0];
       if (selected && selected.get('isEditableLine') && activeTool === 'select') {
         setSelectedLine(selected);
@@ -527,6 +533,12 @@ const FloorPlan = () => {
       const lineTools = ["line-mv", "line-lv", "line-dc", "zone", "cable-tray", "telkom-basket", "security-basket", "sleeves", "powerskirting", "p2000", "p8000", "p9000"];
       if (lineTools.includes(activeTool as string)) {
         setIsDrawing(true);
+        
+        // Disable selection while drawing
+        fabricCanvas.selection = false;
+        fabricCanvas.discardActiveObject();
+        fabricCanvas.renderAll();
+        
         const newPoints = [...drawingPoints, point];
         setDrawingPoints(newPoints);
         
@@ -563,6 +575,8 @@ const FloorPlan = () => {
             evented: false,
             opacity: 0.5,
           });
+          
+          polygon.set({ isPreview: true });
           setPreviewLine(polygon as any);
           fabricCanvas.add(polygon);
         } else {
@@ -575,6 +589,7 @@ const FloorPlan = () => {
             evented: false,
           });
           
+          line.set({ isPreview: true });
           setPreviewLine(line);
           fabricCanvas.add(line);
         }
@@ -991,6 +1006,9 @@ const FloorPlan = () => {
   const cleanupDrawing = () => {
     if (!fabricCanvas) return;
     
+    // Re-enable selection
+    fabricCanvas.selection = true;
+    
     // Remove preview line
     if (previewLine) {
       fabricCanvas.remove(previewLine);
@@ -999,7 +1017,7 @@ const FloorPlan = () => {
     // Remove all drawing markers
     const objects = fabricCanvas.getObjects();
     objects.forEach(obj => {
-      if ((obj as any).isDrawingMarker) {
+      if ((obj as any).isDrawingMarker || (obj as any).isPreview) {
         fabricCanvas.remove(obj);
       }
     });
