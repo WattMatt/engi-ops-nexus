@@ -681,48 +681,8 @@ const FloorPlan = () => {
     fabricCanvas.on("mouse:dblclick", (opt) => {
       if (!isDrawing || drawingPoints.length < 2) return;
       
-      const lineTools: Tool[] = ["line-mv", "line-lv", "line-dc"];
-      const isCableTool = lineTools.includes(activeTool);
-      
-      if (isCableTool) {
-        // For cables, store points and open dialog for from/to details
-        pendingCablePointsRef.current = drawingPoints;
-        setCableDialogOpen(true);
-      } else if ((activeTool as string) === "zone") {
-        // For zones, save immediately with default type
-        const newZone: Zone = {
-          id: crypto.randomUUID(),
-          type: "supply",
-          points: drawingPoints,
-          color: "#10b981",
-        };
-        
-        setProjectData(prev => ({
-          ...prev,
-          zones: [...prev.zones, newZone],
-        }));
-        
-        toast.success("Zone created");
-      } else {
-        // For containment types, store points and open dialog
-        const containmentTools: Tool[] = ["cable-tray", "telkom-basket", "security-basket", "sleeves", "powerskirting", "p2000", "p8000", "p9000"];
-        if (containmentTools.includes(activeTool)) {
-          pendingContainmentPointsRef.current = drawingPoints;
-          setCurrentContainmentType(activeTool);
-          setContainmentDialogOpen(true);
-        }
-      }
-      
-      // Clean up drawing state
-      setIsDrawing(false);
-      setDrawingPoints([]);
-      if (previewLine) {
-        fabricCanvas.remove(previewLine);
-        setPreviewLine(null);
-      }
-      fabricCanvas.renderAll();
-      
-      toast.success("Line completed - enter details");
+      // Complete the drawing
+      finishDrawing();
     });
     fabricCanvas.on("mouse:move", handleMouseMove);
 
