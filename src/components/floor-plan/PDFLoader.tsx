@@ -5,8 +5,8 @@ import { useFloorPlan } from '@/contexts/FloorPlanContext';
 import { useToast } from '@/hooks/use-toast';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Set up PDF.js worker
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// Set up PDF.js worker with proper URL
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 export function PDFLoader() {
   const { updateState } = useFloorPlan();
@@ -16,12 +16,29 @@ export function PDFLoader() {
   const loadPDF = useCallback(async (file: File) => {
     setLoading(true);
     try {
+      console.log('Starting PDF load:', file.name);
+      
       // Read file as ArrayBuffer
       const arrayBuffer = await file.arrayBuffer();
+      console.log('File read, size:', arrayBuffer.byteLength);
       
-      // Load PDF
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      // Load PDF with timeout
+      const loadingTask = pdfjsLib.getDocument({ 
+        data: arrayBuffer,
+        verbosity: 0 // Reduce console noise
+      });
+      
+      console.log('Loading PDF document...');
+      const pdf = await Promise.race([
+        loadingTask.promise,
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('PDF loading timeout')), 30000)
+        )
+      ]) as pdfjsLib.PDFDocumentProxy;
+      
+      console.log('PDF loaded, getting first page...');
       const page = await pdf.getPage(1);
+      console.log('Page loaded, rendering...');
       
       // Render to canvas
       const viewport = page.getViewport({ scale: 2 });
@@ -36,6 +53,7 @@ export function PDFLoader() {
       canvas.width = viewport.width;
       
       await page.render({ canvasContext: context, viewport }).promise;
+      console.log('Page rendered successfully');
       
       // Convert canvas to data URL
       const dataUrl = canvas.toDataURL('image/png');
@@ -51,11 +69,13 @@ export function PDFLoader() {
         description: 'Floor plan loaded successfully',
       });
     } catch (error: any) {
+      console.error('PDF loading error:', error);
       toast({
         title: 'Error',
         description: error.message || 'Failed to load PDF',
         variant: 'destructive',
       });
+      setLoading(false); // Ensure loading is cleared on error
     } finally {
       setLoading(false);
     }
