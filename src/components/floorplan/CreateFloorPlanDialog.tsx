@@ -8,6 +8,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { DesignPurpose } from "./gemini/types";
+import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
+
+GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/5.4.296/pdf.worker.min.mjs`;
 
 interface CreateFloorPlanDialogProps {
   open: boolean;
@@ -72,6 +75,48 @@ export const CreateFloorPlanDialog = ({ open, onOpenChange, onSuccess }: CreateF
         .from("floor-plans")
         .getPublicUrl(fileName);
 
+      // Generate thumbnail from PDF
+      let thumbnailUrl: string | null = null;
+      try {
+        const pdf = await getDocument(publicUrl).promise;
+        const page = await pdf.getPage(1);
+        const viewport = page.getViewport({ scale: 1 });
+        
+        // Create canvas for thumbnail (max 800px width)
+        const scale = Math.min(800 / viewport.width, 1);
+        const scaledViewport = page.getViewport({ scale });
+        
+        const canvas = document.createElement('canvas');
+        canvas.width = scaledViewport.width;
+        canvas.height = scaledViewport.height;
+        
+        const context = canvas.getContext('2d');
+        if (context) {
+          await page.render({ canvasContext: context, viewport: scaledViewport } as any).promise;
+          
+          // Convert canvas to blob
+          const blob = await new Promise<Blob>((resolve) => {
+            canvas.toBlob((b) => resolve(b!), 'image/jpeg', 0.85);
+          });
+          
+          // Upload thumbnail
+          const thumbnailFileName = `${projectId}/thumbnails/${Date.now()}.jpg`;
+          const { data: thumbData, error: thumbError } = await supabase.storage
+            .from("floor-plans")
+            .upload(thumbnailFileName, blob);
+          
+          if (!thumbError) {
+            const { data: { publicUrl: thumbPublicUrl } } = supabase.storage
+              .from("floor-plans")
+              .getPublicUrl(thumbnailFileName);
+            thumbnailUrl = thumbPublicUrl;
+          }
+        }
+      } catch (thumbError) {
+        console.error("Error generating thumbnail:", thumbError);
+        // Continue without thumbnail
+      }
+
       // Create floor plan record
       const { data: floorPlan, error: insertError } = await supabase
         .from("floor_plans")
@@ -79,6 +124,7 @@ export const CreateFloorPlanDialog = ({ open, onOpenChange, onSuccess }: CreateF
           project_id: projectId,
           name: name.trim(),
           pdf_url: publicUrl,
+          thumbnail_url: thumbnailUrl,
           design_purpose: designPurpose as any,
           created_by: user.id,
         }])

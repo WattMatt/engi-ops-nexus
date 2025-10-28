@@ -990,6 +990,7 @@ export type Database = {
           scale_meters_per_pixel: number | null
           scale_point1: Json | null
           scale_point2: Json | null
+          thumbnail_url: string | null
           updated_at: string | null
         }
         Insert: {
@@ -1006,6 +1007,7 @@ export type Database = {
           scale_meters_per_pixel?: number | null
           scale_point1?: Json | null
           scale_point2?: Json | null
+          thumbnail_url?: string | null
           updated_at?: string | null
         }
         Update: {
@@ -1022,6 +1024,7 @@ export type Database = {
           scale_meters_per_pixel?: number | null
           scale_point1?: Json | null
           scale_point2?: Json | null
+          thumbnail_url?: string | null
           updated_at?: string | null
         }
         Relationships: [
