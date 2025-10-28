@@ -5,8 +5,8 @@ import { useFloorPlan } from '@/contexts/FloorPlanContext';
 import { useToast } from '@/hooks/use-toast';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Set up PDF.js worker with proper URL
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// Set up PDF.js worker - using unpkg for better reliability
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
 export function PDFLoader() {
   const { updateState } = useFloorPlan();
@@ -32,7 +32,7 @@ export function PDFLoader() {
       const pdf = await Promise.race([
         loadingTask.promise,
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('PDF loading timeout')), 30000)
+          setTimeout(() => reject(new Error('PDF loading timeout after 60 seconds. The file may be too large or complex.')), 60000)
         )
       ]) as pdfjsLib.PDFDocumentProxy;
       
@@ -40,8 +40,8 @@ export function PDFLoader() {
       const page = await pdf.getPage(1);
       console.log('Page loaded, rendering...');
       
-      // Render to canvas
-      const viewport = page.getViewport({ scale: 2 });
+      // Render to canvas at lower scale for faster loading
+      const viewport = page.getViewport({ scale: 1.5 });
       const canvas = document.createElement('canvas');
       const context = canvas.getContext('2d');
       
