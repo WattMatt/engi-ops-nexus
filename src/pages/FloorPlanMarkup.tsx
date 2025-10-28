@@ -3,7 +3,7 @@ import { FloorPlanProvider } from '@/contexts/FloorPlanContext';
 import { PDFLoader } from '@/components/floor-plan/PDFLoader';
 import { DesignPurposeSelector } from '@/components/floor-plan/DesignPurposeSelector';
 import { LeftToolbar } from '@/components/floor-plan/LeftToolbar';
-import { MarkupCanvas } from '@/components/floor-plan/MarkupCanvas';
+import { GeminiStudioEmbed } from '@/components/floor-plan/GeminiStudioEmbed';
 import { RightPanel } from '@/components/floor-plan/RightPanel';
 import { useFloorPlan } from '@/contexts/FloorPlanContext';
 import { KeyboardShortcuts } from '@/components/floor-plan/KeyboardShortcuts';
@@ -39,9 +39,9 @@ function FloorPlanContent() {
         <LeftToolbar />
       </div>
 
-      {/* Center Canvas */}
+      {/* Center Canvas - Gemini Studio Iframe */}
       <div className="flex-1 relative overflow-hidden">
-        <MarkupCanvas />
+        <GeminiStudioEmbed />
       </div>
 
       {/* Right Panel */}

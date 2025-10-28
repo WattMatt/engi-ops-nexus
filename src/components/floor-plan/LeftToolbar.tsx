@@ -66,36 +66,93 @@ export function LeftToolbar() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      const projectName = prompt('Enter project name:') || 'Untitled Floor Plan';
-      await saveFloorPlanToCloud(state, projectName);
-      toast({ title: 'Saved', description: 'Floor plan saved to cloud' });
+      // Request current state from iframe
+      window.dispatchEvent(new CustomEvent('request-iframe-state'));
+      
+      // Wait for state update event
+      const stateHandler = async (event: any) => {
+        try {
+          const projectName = prompt('Enter project name:') || 'Untitled Floor Plan';
+          await saveFloorPlanToCloud(event.detail || state, projectName);
+          toast({ title: 'Saved', description: 'Floor plan saved to cloud' });
+        } catch (error: any) {
+          toast({ title: 'Error', description: error.message, variant: 'destructive' });
+        } finally {
+          setSaving(false);
+          window.removeEventListener('gemini-studio-save', stateHandler);
+        }
+      };
+      
+      window.addEventListener('gemini-studio-save', stateHandler);
+      
+      // Fallback timeout
+      setTimeout(() => {
+        window.removeEventListener('gemini-studio-save', stateHandler);
+        if (saving) {
+          setSaving(false);
+        }
+      }, 5000);
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    } finally {
       setSaving(false);
     }
   };
 
   const handleExport = () => {
-    const canvas = document.querySelector('canvas');
-    const dataUrl = canvas?.toDataURL() || '';
-    generateFloorPlanPDF(state, dataUrl);
-    toast({ title: 'Exported', description: 'PDF downloaded' });
+    // Send export request to iframe
+    window.dispatchEvent(new CustomEvent('request-iframe-export'));
+    
+    // Listen for export data
+    const exportHandler = (event: any) => {
+      const { dataUrl } = event.detail || {};
+      if (dataUrl) {
+        generateFloorPlanPDF(state, dataUrl);
+        toast({ title: 'Exported', description: 'PDF downloaded' });
+      }
+      window.removeEventListener('gemini-studio-export', exportHandler);
+    };
+    
+    window.addEventListener('gemini-studio-export', exportHandler);
+    
+    // Fallback timeout
+    setTimeout(() => {
+      window.removeEventListener('gemini-studio-export', exportHandler);
+    }, 5000);
   };
 
   const handleAIBoQ = async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('generate-boq', {
-        body: {
-          designPurpose: state.designPurpose,
-          equipment: state.equipment,
-          cables: state.cables,
-          containment: state.containment,
-          zones: state.zones,
-        },
-      });
-      if (error) throw error;
-      alert(data.boq);
+      // Request current state from iframe
+      window.dispatchEvent(new CustomEvent('request-iframe-state'));
+      
+      // Wait for state update
+      const boqHandler = async (event: any) => {
+        try {
+          const currentState = event.detail || state;
+          const { data, error } = await supabase.functions.invoke('generate-boq', {
+            body: {
+              designPurpose: currentState.designPurpose,
+              equipment: currentState.equipment,
+              cables: currentState.cables,
+              containment: currentState.containment,
+              zones: currentState.zones,
+            },
+          });
+          if (error) throw error;
+          alert(data.boq);
+        } catch (error: any) {
+          toast({ title: 'Error', description: error.message, variant: 'destructive' });
+        } finally {
+          window.removeEventListener('gemini-studio-boq', boqHandler);
+        }
+      };
+      
+      window.addEventListener('gemini-studio-boq', boqHandler);
+      
+      // Fallback timeout
+      setTimeout(() => {
+        window.removeEventListener('gemini-studio-boq', boqHandler);
+      }, 5000);
     } catch (error: any) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     }

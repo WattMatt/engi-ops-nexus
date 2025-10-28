@@ -27,6 +27,8 @@ interface FloorPlanContextType {
   redo: () => void;
   canUndo: boolean;
   canRedo: boolean;
+  requestStateFromIframe: () => void;
+  sendStateToIframe: (state: Partial<FloorPlanState>) => void;
 }
 
 const FloorPlanContext = createContext<FloorPlanContextType | undefined>(undefined);
@@ -185,6 +187,14 @@ export function FloorPlanProvider({ children }: { children: React.ReactNode }) {
     }
   }, [canRedo, history, historyIndex]);
 
+  const requestStateFromIframe = useCallback(() => {
+    window.dispatchEvent(new CustomEvent('request-iframe-state'));
+  }, []);
+
+  const sendStateToIframe = useCallback((updates: Partial<FloorPlanState>) => {
+    window.dispatchEvent(new CustomEvent('load-floor-plan-to-iframe', { detail: updates }));
+  }, []);
+
   return (
     <FloorPlanContext.Provider
       value={{
@@ -213,6 +223,8 @@ export function FloorPlanProvider({ children }: { children: React.ReactNode }) {
         redo,
         canUndo,
         canRedo,
+        requestStateFromIframe,
+        sendStateToIframe,
       }}
     >
       {children}
