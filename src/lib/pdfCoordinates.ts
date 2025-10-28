@@ -40,14 +40,17 @@ export function canvasToPDF(
   const vpt = fabricCanvas.viewportTransform;
   const zoom = fabricCanvas.getZoom();
   
-  // Account for viewport transform (pan and zoom)
-  const canvasX = (canvasPoint.x - vpt[4]) / zoom;
-  const canvasY = (canvasPoint.y - vpt[5]) / zoom;
+  // Step 1: Remove viewport transform (pan and zoom)
+  const unzoomedX = (canvasPoint.x - vpt[4]) / zoom;
+  const unzoomedY = (canvasPoint.y - vpt[5]) / zoom;
   
-  // Convert from canvas space to PDF space
-  // Remove the initial scaling that was applied to fit PDF on canvas
-  const pdfX = canvasX / pdfDimensions.canvasScale;
-  const pdfY = canvasY / pdfDimensions.canvasScale;
+  // Step 2: Remove PDF offset (positioned at 20, 20)
+  const relativeX = unzoomedX - 20;
+  const relativeY = unzoomedY - 20;
+  
+  // Step 3: Convert to PDF space
+  const pdfX = relativeX / pdfDimensions.canvasScale;
+  const pdfY = relativeY / pdfDimensions.canvasScale;
   
   return { x: pdfX, y: pdfY };
 }
@@ -59,9 +62,13 @@ export function pdfToCanvas(
   pdfPoint: PDFPoint,
   pdfDimensions: PDFDimensions
 ): CanvasPoint {
-  // Apply the initial canvas scale
-  const canvasX = pdfPoint.x * pdfDimensions.canvasScale;
-  const canvasY = pdfPoint.y * pdfDimensions.canvasScale;
+  // Step 1: Apply canvas scale
+  const scaledX = pdfPoint.x * pdfDimensions.canvasScale;
+  const scaledY = pdfPoint.y * pdfDimensions.canvasScale;
+  
+  // Step 2: Add PDF offset (positioned at 20, 20)
+  const canvasX = scaledX + 20;
+  const canvasY = scaledY + 20;
   
   return { x: canvasX, y: canvasY };
 }

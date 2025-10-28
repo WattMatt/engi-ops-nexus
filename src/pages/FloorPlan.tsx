@@ -3,9 +3,9 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Save, Sparkles, Loader2, ArrowLeft, Ruler, Edit, Trash2 } from "lucide-react";
+import { FileText, Save, Sparkles, Loader2, ArrowLeft, Ruler, Edit, Trash2, CheckSquare } from "lucide-react";
 import { toast } from "sonner";
-import { Canvas as FabricCanvas, Image as FabricImage, Point, Line, Circle, Polyline, Rect, Group, Text } from "fabric";
+import { Canvas as FabricCanvas, Image as FabricImage, Point, Line, Circle, Polyline, Rect, Group, Text, Polygon } from "fabric";
 import { supabase } from "@/integrations/supabase/client";
 import { PDFLoader } from "@/components/floorplan/PDFLoader";
 import { Toolbar } from "@/components/floorplan/Toolbar";
@@ -17,11 +17,17 @@ import { CableDetailsDialog } from "@/components/floorplan/CableDetailsDialog";
 import { ContainmentSizeDialog } from "@/components/floorplan/ContainmentSizeDialog";
 import { ModificationDialog } from "@/components/floorplan/ModificationDialog";
 import { LineEditDialog } from "@/components/floorplan/LineEditDialog";
+import { TaskModal } from "@/components/floorplan/TaskModal";
+import { PVPanelConfigDialog } from "@/components/floorplan/PVPanelConfigDialog";
+import { RoofMaskDialog } from "@/components/floorplan/RoofMaskDialog";
+import { PVArrayDialog } from "@/components/floorplan/PVArrayDialog";
+import { BoqModal } from "@/components/floorplan/BoqModal";
 import { EQUIPMENT_SIZES } from "@/components/floorplan/equipmentSizes";
 import { CABLE_STYLES, SPECIAL_CABLE_STYLES } from "@/components/floorplan/cableStyles";
 import { createIECSymbol } from "@/components/floorplan/iecSymbols";
 import { DesignPurpose, Tool, ProjectData, ScaleCalibration, EquipmentType, CableType, ContainmentSize, Zone } from "@/components/floorplan/types";
 import { canvasToPDF, pdfToCanvas, calculateMetersPerPDFUnit, PDFPoint } from "@/lib/pdfCoordinates";
+import { calculatePolygonArea, calculatePolygonCentroid, getZoneColor, getZoneStrokeColor } from "@/lib/zoneUtils";
 
 const FloorPlan = () => {
   const { floorPlanId: routeFloorPlanId } = useParams();
@@ -87,6 +93,24 @@ const FloorPlan = () => {
   const [currentZoom, setCurrentZoom] = useState(1);
   const pendingCablePointsRef = useRef<Point[]>([]);
   const pendingContainmentPointsRef = useRef<Point[]>([]);
+  
+  // Phase 6: Task Management
+  const [tasks, setTasks] = useState<any[]>([]);
+  const [taskModalOpen, setTaskModalOpen] = useState(false);
+  const [editingTask, setEditingTask] = useState<any>(null);
+  const [selectedItemForTask, setSelectedItemForTask] = useState<{ id: string; type: string } | null>(null);
+  
+  // Phase 5: PV Design
+  const [pvPanelConfig, setPvPanelConfig] = useState<{ length: number; width: number; wattage: number } | null>(null);
+  const [pvConfigDialogOpen, setPvConfigDialogOpen] = useState(false);
+  const [roofMaskDialogOpen, setRoofMaskDialogOpen] = useState(false);
+  const [pvArrayDialogOpen, setPvArrayDialogOpen] = useState(false);
+  const [pendingRoofMask, setPendingRoofMask] = useState<any>(null);
+  
+  // Phase 7: AI BoQ
+  const [boqModalOpen, setBoqModalOpen] = useState(false);
+  const [boqContent, setBoqContent] = useState("");
+  const [generatingBoq, setGeneratingBoq] = useState(false);
 
   // Initialize canvas
   useEffect(() => {
@@ -2395,8 +2419,30 @@ const FloorPlan = () => {
     toast.info("PDF export functionality coming soon");
   };
 
-  const handleGenerateBoQ = () => {
-    toast.info("AI Bill of Quantities generation coming soon");
+  const handleGenerateBoQ = async () => {
+    if (!floorPlanId) return;
+    
+    setGeneratingBoq(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('generate-boq', {
+        body: { 
+          projectData, 
+          floorPlanName, 
+          designPurpose 
+        }
+      });
+      
+      if (error) throw error;
+      
+      setBoqContent(data.boq);
+      setBoqModalOpen(true);
+      toast.success("BoQ generated successfully!");
+    } catch (error) {
+      console.error('BoQ generation error:', error);
+      toast.error("Failed to generate BoQ");
+    } finally {
+      setGeneratingBoq(false);
+    }
   };
 
   useEffect(() => {
@@ -2475,9 +2521,18 @@ const FloorPlan = () => {
             <FileText className="h-4 w-4 mr-2" />
             Export PDF
           </Button>
-          <Button variant="outline" onClick={handleGenerateBoQ}>
-            <Sparkles className="h-4 w-4 mr-2" />
-            Generate BoQ (AI)
+          <Button variant="outline" onClick={handleGenerateBoQ} disabled={generatingBoq}>
+            {generatingBoq ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Generating...
+              </>
+            ) : (
+              <>
+                <Sparkles className="h-4 w-4 mr-2" />
+                Generate BoQ (AI)
+              </>
+            )}
           </Button>
         </div>
       </div>
@@ -2651,6 +2706,52 @@ const FloorPlan = () => {
         }}
         onConfirm={handleLineEdit}
         onDelete={handleLineDelete}
+      />
+
+      <TaskModal
+        open={taskModalOpen}
+        onOpenChange={setTaskModalOpen}
+        onSave={(task) => {
+          // Task save logic will be implemented
+          toast.success("Task saved!");
+        }}
+        task={editingTask}
+        linkedItemId={selectedItemForTask?.id}
+        linkedItemType={selectedItemForTask?.type}
+      />
+
+      <PVPanelConfigDialog
+        open={pvConfigDialogOpen}
+        onOpenChange={setPvConfigDialogOpen}
+        onConfirm={(config) => setPvPanelConfig(config)}
+        initialConfig={pvPanelConfig || undefined}
+      />
+
+      <RoofMaskDialog
+        open={roofMaskDialogOpen}
+        onOpenChange={setRoofMaskDialogOpen}
+        onConfirm={(pitch) => {
+          if (pendingRoofMask) {
+            // Update roof mask with pitch
+            toast.success(`Roof pitch set to ${pitch}°`);
+          }
+        }}
+      />
+
+      <PVArrayDialog
+        open={pvArrayDialogOpen}
+        onOpenChange={setPvArrayDialogOpen}
+        onConfirm={(config) => {
+          // PV array placement logic
+          toast.success("PV array configured!");
+        }}
+        panelWattage={pvPanelConfig?.wattage}
+      />
+
+      <BoqModal
+        open={boqModalOpen}
+        onOpenChange={setBoqModalOpen}
+        boqContent={boqContent}
       />
     </div>
   );

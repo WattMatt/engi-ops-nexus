@@ -96,6 +96,10 @@ export interface CableRoute {
   supplyTo?: string;
   color?: string;
   lengthMeters?: number;
+  pathLength?: number;
+  startHeight?: number;
+  endHeight?: number;
+  label?: string;
 }
 
 export interface Zone {
