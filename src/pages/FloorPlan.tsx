@@ -67,10 +67,10 @@ export default function FloorPlan() {
     setRenderer(newRenderer);
     console.log('✅ Renderer created');
     
-    // Load floor plan data
+    // Load floor plan data - pass the renderer directly to avoid race condition
     if (floorPlanId) {
       console.log('📂 Starting to load floor plan:', floorPlanId);
-      loadFloorPlan();
+      loadFloorPlanWithRenderer(newRenderer);
     } else {
       console.log('❌ No floorPlanId available');
       setLoading(false);
@@ -99,7 +99,7 @@ export default function FloorPlan() {
     );
   }, [renderer, state.equipment, state.lines, state.zones, state.containment, state.roofMasks, state.pvArrays, state.scale, zoom, offset]);
 
-  const loadFloorPlan = async () => {
+  const loadFloorPlanWithRenderer = async (rendererInstance: CanvasRenderer) => {
     if (!floorPlanId) {
       console.log('❌ loadFloorPlan called without floorPlanId');
       setLoading(false);
@@ -136,7 +136,7 @@ export default function FloorPlan() {
 
         if (fp.pdf_url) {
           console.log('📄 Loading PDF:', fp.pdf_url);
-          await loadPDF(fp.pdf_url);
+          await loadPDFWithRenderer(fp.pdf_url, rendererInstance);
         } else {
           console.log('⚠️ No PDF URL found');
         }
@@ -173,7 +173,9 @@ export default function FloorPlan() {
     }
   };
 
-  const loadPDF = async (url: string) => {
+  const loadFloorPlan = () => loadFloorPlanWithRenderer(renderer!);
+
+  const loadPDFWithRenderer = async (url: string, rendererInstance: CanvasRenderer) => {
     try {
       console.log('📄 Starting PDF load from:', url);
       const pdf = await getDocument(url).promise;
@@ -199,11 +201,6 @@ export default function FloorPlan() {
         console.warn('⚠️ Canvas ref not available for PDF rendering');
         return;
       }
-      
-      if (!renderer) {
-        console.warn('⚠️ Renderer not available for PDF rendering');
-        return;
-      }
 
       const scale = Math.min(
         (canvasRef.current.width - 40) / img.width,
@@ -211,15 +208,23 @@ export default function FloorPlan() {
       );
       console.log('📄 Calculated scale:', scale);
 
-      renderer.setPDFImage(img, scale);
+      rendererInstance.setPDFImage(img, scale);
       forceRender(prev => prev + 1);
       console.log('✅ PDF loaded and rendered successfully');
       toast.success('PDF loaded');
     } catch (error) {
       console.error('❌ Error loading PDF:', error);
       toast.error('Failed to load PDF');
-      throw error; // Re-throw so the finally block in loadFloorPlan still runs
+      throw error;
     }
+  };
+
+  const loadPDF = (url: string) => {
+    if (!renderer) {
+      console.error('❌ Cannot load PDF: renderer not available');
+      return;
+    }
+    return loadPDFWithRenderer(url, renderer);
   };
 
   const loadEquipment = async () => {
