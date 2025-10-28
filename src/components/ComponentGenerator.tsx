@@ -11,12 +11,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Loader2, Wand2, Download, CheckCircle2, Circle } from "lucide-react";
+import { Loader2, Wand2, CheckCircle2, Circle, AlertCircle, Copy } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { FileTreeView } from "./import-wizard/FileTreeView";
 import { DependencyReport } from "./import-wizard/DependencyReport";
 import { Progress } from "@/components/ui/progress";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 type WizardStep = 'input' | 'analyzing' | 'review' | 'importing' | 'complete';
 
@@ -41,6 +41,7 @@ export function ComponentGenerator() {
   const [selectedFiles, setSelectedFiles] = useState<Set<string>>(new Set());
   const [importProgress, setImportProgress] = useState(0);
   const [importedFiles, setImportedFiles] = useState<string[]>([]);
+  const [sessionId, setSessionId] = useState<string | null>(null);
 
   const handleAnalyze = async () => {
     if (!repoUrl.trim()) {
@@ -90,13 +91,17 @@ export function ComponentGenerator() {
     const filesToImport = Array.from(selectedFiles);
 
     try {
-      // Fetch file contents
+      setImportProgress(20);
+      
+      // Fetch file contents and store in database
       const { data: filesData, error: fetchError } = await supabase.functions.invoke(
         "fetch-repository-files",
         {
           body: {
             repoUrl: repoUrl.trim(),
             filePaths: filesToImport,
+            repoName: repoUrl.split('/').slice(-2).join('/'),
+            dependencies: analysis.dependencies,
           },
         }
       );
@@ -104,39 +109,22 @@ export function ComponentGenerator() {
       if (fetchError) throw fetchError;
       if (filesData?.error) throw new Error(filesData.error);
 
+      setImportProgress(80);
+      
       const files = filesData.files || [];
-      setImportProgress(50);
-
-      // For now, we'll download as a ZIP since we can't write directly to the project
-      // In a real implementation with file system access, we'd write the files directly
+      const newSessionId = filesData.sessionId;
       
-      // Create download data
-      const downloadData = {
-        files: files.map((f: any) => ({
-          path: f.path,
-          content: f.content,
-        })),
-        dependencies: analysis.dependencies,
-        readme: `# Imported from ${repoUrl}\n\n${analysis.summary}\n\n## Installation\n\nRun the following command to install dependencies:\n\n\`\`\`bash\nnpm install ${analysis.dependencies.missing.join(' ')}\n\`\`\`\n\n## Files Imported\n\n${files.map((f: any) => `- ${f.path}`).join('\n')}`,
-      };
-
-      setImportProgress(100);
+      setSessionId(newSessionId);
       setImportedFiles(files.map((f: any) => f.path));
+      setImportProgress(100);
       setStep('complete');
-      
-      // Create and trigger download
-      const blob = new Blob([JSON.stringify(downloadData, null, 2)], { type: 'application/json' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `import-${Date.now()}.json`;
-      a.click();
-      URL.revokeObjectURL(url);
 
-      toast.success(`Successfully prepared ${files.length} files for import!`);
+      toast.success(`Successfully prepared ${files.length} files!`, {
+        description: "Copy the message below and send it to import.",
+      });
     } catch (error: any) {
       console.error("Error importing files:", error);
-      toast.error(error.message || "Failed to import files");
+      toast.error(error.message || "Failed to prepare import");
       setStep('review');
     }
   };
@@ -148,6 +136,12 @@ export function ComponentGenerator() {
     setSelectedFiles(new Set());
     setImportProgress(0);
     setImportedFiles([]);
+    setSessionId(null);
+  };
+
+  const copyToClipboard = (text: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success("Copied to clipboard!");
   };
 
   const renderStepIndicator = () => {
@@ -303,8 +297,8 @@ export function ComponentGenerator() {
                     disabled={selectedFiles.size === 0}
                     className="flex-1"
                   >
-                    <Download className="mr-2 h-4 w-4" />
-                    Import {selectedFiles.size} Files
+                    <CheckCircle2 className="mr-2 h-4 w-4" />
+                    Prepare Import ({selectedFiles.size} Files)
                   </Button>
                 </div>
               </div>
@@ -324,36 +318,79 @@ export function ComponentGenerator() {
             </div>
           )}
 
-          {step === 'complete' && (
+          {step === 'complete' && sessionId && (
             <div className="space-y-4">
               <Alert className="border-green-500">
                 <CheckCircle2 className="h-4 w-4 text-green-500" />
                 <AlertDescription>
-                  <p className="font-medium">Import Complete!</p>
+                  <p className="font-medium">Files Ready to Import!</p>
                   <p className="text-sm mt-1">
-                    Successfully prepared {importedFiles.length} files. The import data has been downloaded as JSON.
+                    Successfully prepared {importedFiles.length} files from {repoUrl}
                   </p>
                 </AlertDescription>
               </Alert>
 
-              <div className="p-4 border rounded-lg bg-muted/50">
-                <h4 className="font-medium mb-2">Next Steps:</h4>
-                <ol className="list-decimal list-inside space-y-2 text-sm">
-                  <li>Review the downloaded JSON file containing all file contents</li>
-                  <li>Manually create the files in your project structure</li>
-                  {analysis && analysis.dependencies.missing.length > 0 && (
-                    <li>Install missing dependencies:
-                      <pre className="mt-1 p-2 bg-background rounded text-xs overflow-x-auto">
-                        npm install {analysis.dependencies.missing.join(' ')}
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle className="mb-3">Final Step - Auto-Import Files</AlertTitle>
+                <AlertDescription className="space-y-3">
+                  <p className="text-sm">
+                    Copy and send this message to the AI assistant to automatically create all files:
+                  </p>
+                  <div className="relative">
+                    <div className="bg-muted p-3 pr-12 rounded-md font-mono text-sm break-all">
+                      Import repository session {sessionId}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="absolute top-1 right-1"
+                      onClick={() => copyToClipboard(`Import repository session ${sessionId}`)}
+                    >
+                      <Copy className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    The AI will automatically create all {importedFiles.length} files with proper directory structure and updated import paths.
+                  </p>
+                </AlertDescription>
+              </Alert>
+
+              {analysis && analysis.dependencies.missing.length > 0 && (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertTitle>Dependencies Required</AlertTitle>
+                  <AlertDescription>
+                    <p className="text-sm mb-2">After files are imported, install these packages:</p>
+                    <div className="relative">
+                      <pre className="bg-muted p-2 pr-12 rounded-md text-xs overflow-x-auto">
+npm install {analysis.dependencies.missing.join(' ')}
                       </pre>
-                    </li>
-                  )}
-                  <li>Update import paths if needed</li>
-                  <li>Test the imported functionality</li>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="absolute top-1 right-1"
+                        onClick={() => copyToClipboard(`npm install ${analysis.dependencies.missing.join(' ')}`)}
+                      >
+                        <Copy className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              <div className="p-4 border rounded-lg bg-muted/50">
+                <h4 className="font-medium mb-2">What happens next:</h4>
+                <ol className="list-decimal list-inside space-y-2 text-sm text-muted-foreground">
+                  <li>AI creates all {importedFiles.length} files in proper directories</li>
+                  <li>Import paths are automatically updated to use @/ aliases</li>
+                  <li>Directory structure is preserved from the original repo</li>
+                  <li>You install any missing npm dependencies</li>
+                  <li>Your imported application is ready to use!</li>
                 </ol>
               </div>
 
-              <Button onClick={handleReset} className="w-full">
+              <Button onClick={handleReset} variant="outline" className="w-full">
                 Import Another Repository
               </Button>
             </div>

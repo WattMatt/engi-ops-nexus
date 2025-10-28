@@ -1262,6 +1262,39 @@ export type Database = {
           },
         ]
       }
+      import_sessions: {
+        Row: {
+          created_at: string
+          dependencies: Json
+          files_content: Json
+          id: string
+          repo_name: string
+          repo_url: string
+          selected_files: Json
+          status: string
+        }
+        Insert: {
+          created_at?: string
+          dependencies: Json
+          files_content: Json
+          id?: string
+          repo_name: string
+          repo_url: string
+          selected_files: Json
+          status?: string
+        }
+        Update: {
+          created_at?: string
+          dependencies?: Json
+          files_content?: Json
+          id?: string
+          repo_name?: string
+          repo_url?: string
+          selected_files?: Json
+          status?: string
+        }
+        Relationships: []
+      }
       invoice_projects: {
         Row: {
           agreed_fee: number

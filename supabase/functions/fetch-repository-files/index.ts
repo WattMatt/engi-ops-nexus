@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -17,11 +18,16 @@ serve(async (req) => {
   }
 
   try {
-    const { repoUrl, filePaths } = await req.json();
+    const { repoUrl, filePaths, repoName: providedRepoName, dependencies } = await req.json();
     
     if (!repoUrl || !filePaths || !Array.isArray(filePaths)) {
       throw new Error("Repository URL and file paths are required");
     }
+
+    // Initialize Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
     console.log(`Fetching ${filePaths.length} files from repository:`, repoUrl);
 
@@ -93,10 +99,32 @@ serve(async (req) => {
 
     console.log(`Successfully fetched ${filesWithContent.length} files`);
 
+    // Store the import session in Supabase
+    const { data: session, error: dbError } = await supabase
+      .from('import_sessions')
+      .insert({
+        repo_url: repoUrl,
+        repo_name: providedRepoName || `${owner}/${repoName}`,
+        selected_files: filePaths,
+        files_content: filesWithContent,
+        dependencies: dependencies || { required: [], missing: [] },
+        status: 'ready'
+      })
+      .select()
+      .single();
+
+    if (dbError) {
+      console.error('Database error:', dbError);
+      throw dbError;
+    }
+
+    console.log('Import session created:', session.id);
+
     return new Response(
       JSON.stringify({
         success: true,
         files: filesWithContent,
+        sessionId: session.id,
       }),
       {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
