@@ -461,6 +461,120 @@ const FloorPlanNew = () => {
     fabricCanvas?.renderAll();
   };
 
+  // Load floor plan from database
+  useEffect(() => {
+    if (!fabricCanvas || !floorPlanId) return;
+
+    const loadFloorPlan = async () => {
+      setLoading(true);
+      try {
+        const { data: fp, error } = await supabase
+          .from('floor_plans')
+          .select('*')
+          .eq('id', floorPlanId)
+          .single();
+
+        if (error) throw error;
+
+        if (fp) {
+          setFloorPlanName(fp.name);
+          
+          // Load PDF if exists
+          if (fp.pdf_url) {
+            FabricImage.fromURL(fp.pdf_url, { crossOrigin: 'anonymous' }).then((img) => {
+              const scale = Math.min(
+                (fabricCanvas.width! - 40) / img.width!,
+                (fabricCanvas.height! - 40) / img.height!
+              );
+              
+              img.set({
+                scaleX: scale,
+                scaleY: scale,
+                left: 20,
+                top: 20,
+                selectable: false,
+                evented: false,
+              });
+              
+              fabricCanvas.add(img);
+              fabricCanvas.sendObjectToBack(img);
+              fabricCanvas.renderAll();
+              
+              setPdfImageUrl(fp.pdf_url);
+              toast.success('Floor plan loaded');
+            }).catch(err => {
+              console.error('Error loading PDF:', err);
+              toast.error('Failed to load PDF image');
+            });
+          }
+
+          // Load scale if set
+          if (fp.scale_meters_per_pixel) {
+            setScale({
+              metersPerPixel: fp.scale_meters_per_pixel,
+              isSet: true,
+            });
+          }
+
+          // Load zones
+          const { data: zonesData } = await supabase
+            .from('zones')
+            .select('*')
+            .eq('floor_plan_id', floorPlanId);
+
+          if (zonesData) {
+            const loadedZones: Zone[] = zonesData.map(z => ({
+              id: z.id,
+              type: z.zone_type as any,
+              points: z.points as any,
+              color: z.color || getZoneColor(z.zone_type as any),
+              areaSqm: z.area_sqm,
+              name: z.name || 'Zone',
+            }));
+
+            setZones(loadedZones);
+
+            // Draw zones on canvas
+            loadedZones.forEach(zone => {
+              const polygon = new Polygon(zone.points as any, {
+                fill: zone.color,
+                stroke: getZoneStrokeColor(zone.type),
+                strokeWidth: 2,
+                opacity: 0.5,
+                selectable: true,
+              });
+              polygon.set({ zoneId: zone.id });
+
+              const centroid = calculatePolygonCentroid(zone.points as any);
+              const label = new Text(`${zone.name}\n${zone.areaSqm?.toFixed(2) || '0'} m²`, {
+                left: centroid.x,
+                top: centroid.y,
+                fontSize: 14,
+                fill: getZoneStrokeColor(zone.type),
+                originX: 'center',
+                originY: 'center',
+                selectable: false,
+                backgroundColor: 'rgba(255,255,255,0.9)',
+                padding: 6,
+              });
+
+              fabricCanvas.add(polygon, label);
+            });
+
+            fabricCanvas.renderAll();
+          }
+        }
+      } catch (error: any) {
+        console.error('Error loading floor plan:', error);
+        toast.error(error.message || 'Failed to load floor plan');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadFloorPlan();
+  }, [fabricCanvas, floorPlanId]);
+
   // Keyboard shortcuts
   useEffect(() => {
     const handleKey = (e: KeyboardEvent) => {
