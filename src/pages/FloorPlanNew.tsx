@@ -172,13 +172,16 @@ const FloorPlanNew = () => {
         return;
       }
 
-      if (!scale.isSet) {
-        toast.error("Please set scale first");
+      // Equipment placement tools
+      const equipmentTools: Tool[] = Object.keys(EQUIPMENT_SIZES) as EquipmentType[];
+      
+      // Equipment needs scale, but zones don't
+      if (!scale.isSet && equipmentTools.includes(activeTool)) {
+        toast.error("Please set scale first for equipment placement");
         return;
       }
 
       // Equipment placement
-      const equipmentTools: Tool[] = Object.keys(EQUIPMENT_SIZES) as EquipmentType[];
       if (equipmentTools.includes(activeTool)) {
         placeEquipment(point);
         return;
@@ -201,10 +204,69 @@ const FloorPlanNew = () => {
     return () => fabricCanvas.off('mouse:down', handleClick);
   }, [fabricCanvas, activeTool, scale, isDrawing, drawingPoints]);
 
+  // Scale tool state
+  const [scalePoints, setScalePoints] = useState<Point[]>([]);
+  const [scaleMarkers, setScaleMarkers] = useState<Circle[]>([]);
+  const [scaleLine, setScaleLine] = useState<Line | null>(null);
+
   // Scale tool
   const handleScaleClick = (point: Point) => {
-    // Implementation for scale calibration
-    toast.info("Scale tool clicked - implement scale calibration");
+    if (scalePoints.length === 0) {
+      // First point
+      const marker = new Circle({
+        left: point.x,
+        top: point.y,
+        radius: 8 / currentZoom,
+        fill: '#ef4444',
+        stroke: '#fbbf24',
+        strokeWidth: 2 / currentZoom,
+        selectable: true,
+        originX: 'center',
+        originY: 'center',
+      });
+      marker.set({ isScaleMarker: true });
+      fabricCanvas?.add(marker);
+      setScalePoints([point]);
+      setScaleMarkers([marker]);
+      toast.info("Click the end point of a known distance");
+    } else {
+      // Second point - complete scale
+      const marker = new Circle({
+        left: point.x,
+        top: point.y,
+        radius: 8 / currentZoom,
+        fill: '#ef4444',
+        stroke: '#fbbf24',
+        strokeWidth: 2 / currentZoom,
+        selectable: true,
+        originX: 'center',
+        originY: 'center',
+      });
+      marker.set({ isScaleMarker: true });
+      fabricCanvas?.add(marker);
+
+      // Draw line
+      const line = new Line([scalePoints[0].x, scalePoints[0].y, point.x, point.y], {
+        stroke: '#ef4444',
+        strokeWidth: 3 / currentZoom,
+        strokeDashArray: [10 / currentZoom, 5 / currentZoom],
+        selectable: false,
+      });
+      line.set({ isScaleLine: true });
+      fabricCanvas?.add(line);
+      setScaleLine(line);
+
+      // Calculate pixel distance
+      const dx = point.x - scalePoints[0].x;
+      const dy = point.y - scalePoints[0].y;
+      const pixelDistance = Math.sqrt(dx * dx + dy * dy);
+      
+      setScaleLinePixels(pixelDistance);
+      setScalePoints([scalePoints[0], point]);
+      setScaleMarkers([...scaleMarkers, marker]);
+      setScaleDialogOpen(true);
+      fabricCanvas?.renderAll();
+    }
   };
 
   // Equipment placement
@@ -292,7 +354,9 @@ const FloorPlanNew = () => {
       return;
     }
 
-    const area = calculatePolygonArea(drawingPoints as any) * Math.pow(scale.metersPerPixel, 2);
+    // Calculate area (only show in m² if scale is set)
+    const pixelArea = calculatePolygonArea(drawingPoints as any);
+    const area = scale.isSet ? pixelArea * Math.pow(scale.metersPerPixel, 2) : pixelArea;
     
     const newZone: Zone = {
       id: crypto.randomUUID(),
@@ -314,7 +378,8 @@ const FloorPlanNew = () => {
     polygon.set({ zoneId: newZone.id });
 
     const centroid = calculatePolygonCentroid(drawingPoints as any);
-    const label = new Text(`${newZone.name}\n${area.toFixed(2)} m²`, {
+    const areaText = scale.isSet ? `${area.toFixed(2)} m²` : `${area.toFixed(0)} px²`;
+    const label = new Text(`${newZone.name}\n${areaText}`, {
       left: centroid.x,
       top: centroid.y,
       fontSize: 14,
@@ -334,7 +399,7 @@ const FloorPlanNew = () => {
     updateHistoryButtons();
     
     cleanupDrawing();
-    toast.success(`Zone created: ${area.toFixed(2)} m²`);
+    toast.success(`Zone created: ${areaText}`);
   };
 
   // Cable drawing
@@ -650,9 +715,20 @@ const FloorPlanNew = () => {
         onConfirm={(meters) => {
           setScale({ metersPerPixel: meters / scaleLinePixels, isSet: true });
           setScaleDialogOpen(false);
-          toast.success("Scale calibrated");
+          setActiveTool('select');
+          toast.success(`Scale set: ${(meters / scaleLinePixels).toFixed(4)} m/px`);
         }}
-        onCancel={() => setScaleDialogOpen(false)}
+        onCancel={() => {
+          // Remove scale markers and line
+          scaleMarkers.forEach(m => fabricCanvas?.remove(m));
+          if (scaleLine) fabricCanvas?.remove(scaleLine);
+          setScalePoints([]);
+          setScaleMarkers([]);
+          setScaleLine(null);
+          setScaleDialogOpen(false);
+          setActiveTool('select');
+          toast.info("Scale calibration cancelled");
+        }}
       />
 
       <CableDetailsDialog
