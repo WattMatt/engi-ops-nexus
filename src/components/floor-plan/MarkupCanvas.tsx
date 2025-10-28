@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useFloorPlan } from '@/contexts/FloorPlanContext';
-import { Canvas as FabricCanvas, Image as FabricImage, Line, Circle, Polygon, Rect } from 'fabric';
+import { fabric } from 'fabric';
 import { ScaleDialog } from './modals/ScaleDialog';
 import { CableDetailsDialog, CableDetails } from './modals/CableDetailsDialog';
 import { PVConfigDialog } from './modals/PVConfigDialog';
@@ -11,7 +11,7 @@ import { getSymbolById } from '@/lib/floorPlan/symbols';
 export function MarkupCanvas() {
   const { state, updateState, addCable, addZone, addEquipment } = useFloorPlan();
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [fabricCanvas, setFabricCanvas] = useState<FabricCanvas | null>(null);
+  const [fabricCanvas, setFabricCanvas] = useState<fabric.Canvas | null>(null);
   const [drawingPoints, setDrawingPoints] = useState<Point[]>([]);
   const [scaleDialogOpen, setScaleDialogOpen] = useState(false);
   const [scaleLineLength, setScaleLineLength] = useState(0);
@@ -25,7 +25,7 @@ export function MarkupCanvas() {
   useEffect(() => {
     if (!canvasRef.current) return;
 
-    const canvas = new FabricCanvas(canvasRef.current, {
+    const canvas = new fabric.Canvas(canvasRef.current, {
       width: window.innerWidth - 20 - 384,
       height: window.innerHeight,
       backgroundColor: '#1e293b',
@@ -53,13 +53,14 @@ export function MarkupCanvas() {
   useEffect(() => {
     if (!fabricCanvas || !state.pdfDataUrl) return;
 
-    FabricImage.fromURL(state.pdfDataUrl, { crossOrigin: 'anonymous' }).then((img) => {
+    fabric.Image.fromURL(state.pdfDataUrl, (img) => {
+      if (!img) return;
       fabricCanvas.clear();
       fabricCanvas.setBackgroundImage(img, fabricCanvas.renderAll.bind(fabricCanvas), {
         scaleX: fabricCanvas.width! / img.width!,
         scaleY: fabricCanvas.height! / img.height!,
       });
-    });
+    }, { crossOrigin: 'anonymous' });
   }, [fabricCanvas, state.pdfDataUrl]);
 
   // Handle keyboard for equipment rotation
@@ -88,7 +89,7 @@ export function MarkupCanvas() {
         const pixelWidth = symbol.defaultSize.width / state.scaleMetersPerPixel;
         const pixelHeight = symbol.defaultSize.height / state.scaleMetersPerPixel;
         
-        const rect = new Rect({
+        const rect = new fabric.Rect({
           left: point.x - pixelWidth / 2,
           top: point.y - pixelHeight / 2,
           width: pixelWidth,
@@ -135,7 +136,7 @@ export function MarkupCanvas() {
       
       // Draw temporary line
       if (newPoints.length > 1) {
-        const line = new Line([
+        const line = new fabric.Line([
           newPoints[newPoints.length - 2].x,
           newPoints[newPoints.length - 2].y,
           point.x,
@@ -153,7 +154,7 @@ export function MarkupCanvas() {
       const newPoints = [...drawingPoints, point];
       setDrawingPoints(newPoints);
       
-      const circle = new Circle({
+      const circle = new fabric.Circle({
         left: point.x - 3,
         top: point.y - 3,
         radius: 3,
@@ -171,7 +172,7 @@ export function MarkupCanvas() {
     }
 
     if (state.activeTool === 'zone' && drawingPoints.length > 2) {
-      const polygon = new Polygon(drawingPoints, {
+      const polygon = new fabric.Polygon(drawingPoints, {
         fill: 'rgba(34, 197, 94, 0.2)',
         stroke: '#22c55e',
         strokeWidth: 2,
