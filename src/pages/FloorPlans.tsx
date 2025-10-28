@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Plus, CheckCircle, XCircle, Trash2 } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { CreateFloorPlanDialog } from "@/components/floorplan/CreateFloorPlanDialog";
 import { format } from "date-fns";
 import { toast } from "sonner";
@@ -18,6 +18,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { ChevronDown } from "lucide-react";
 
 const FloorPlans = () => {
   const navigate = useNavigate();
@@ -85,6 +91,107 @@ const FloorPlans = () => {
     }
   };
 
+  // Group floor plans by design purpose
+  const groupedFloorPlans = useMemo(() => {
+    if (!floorPlans) return {};
+    
+    type FloorPlan = typeof floorPlans[number];
+    type PurposeGroup = { label: string; plans: FloorPlan[] };
+    type GroupedPlans = Record<string, PurposeGroup>;
+    
+    const purposes: GroupedPlans = {
+      budget_markup: { label: "Budget Mark Up", plans: [] },
+      pv_design: { label: "PV Design", plans: [] },
+      line_shop: { label: "Line Shop Measurements", plans: [] },
+      prelim_design: { label: "Prelim Design Mark Up", plans: [] },
+      cable_schedule: { label: "Cable Schedule Markup", plans: [] },
+      final_account: { label: "Final Account Markup", plans: [] },
+    };
+
+    floorPlans.forEach(plan => {
+      if (purposes[plan.design_purpose]) {
+        purposes[plan.design_purpose].plans.push(plan);
+      }
+    });
+
+    // Filter out empty categories
+    return Object.entries(purposes).reduce((acc, [key, value]) => {
+      if (value.plans.length > 0) {
+        acc[key] = value;
+      }
+      return acc;
+    }, {} as GroupedPlans);
+  }, [floorPlans]);
+
+  const renderFloorPlanCard = (plan: any) => (
+    <Card
+      key={plan.id}
+      className="cursor-pointer hover:shadow-lg transition-shadow relative group"
+      onClick={() => handleFloorPlanClick(plan.id)}
+    >
+      <Button
+        variant="destructive"
+        size="icon"
+        className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity"
+        onClick={(e) => handleDeleteClick(e, plan.id)}
+      >
+        <Trash2 className="h-4 w-4" />
+      </Button>
+      
+      <CardHeader>
+        <CardTitle className="text-lg">
+          {plan.name}
+        </CardTitle>
+        <CardDescription>
+          {format(new Date(plan.created_at), "MMM dd, yyyy")}
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <div className="space-y-3">
+          {plan.pdf_url && (
+            <div className="aspect-video bg-muted rounded-md overflow-hidden">
+              <iframe
+                src={plan.pdf_url}
+                className="w-full h-full pointer-events-none"
+                title={plan.name}
+              />
+            </div>
+          )}
+          
+          <div className="space-y-2 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="font-medium">Design Purpose:</span>
+              <span className="text-muted-foreground capitalize">
+                {plan.design_purpose.replace(/_/g, " ")}
+              </span>
+            </div>
+            
+            <div className="flex items-center justify-between">
+              <span className="font-medium">Scale Calibrated:</span>
+              {plan.scale_meters_per_pixel ? (
+                <span className="flex items-center gap-1 text-green-600">
+                  <CheckCircle className="h-4 w-4" />
+                  Yes
+                </span>
+              ) : (
+                <span className="flex items-center gap-1 text-amber-600">
+                  <XCircle className="h-4 w-4" />
+                  Not Set
+                </span>
+              )}
+            </div>
+            
+            {plan.scale_meters_per_pixel && (
+              <div className="text-xs text-muted-foreground">
+                1px = {plan.scale_meters_per_pixel.toFixed(4)}m
+              </div>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   if (isLoading) {
     return <div>Loading floor plans...</div>;
   }
@@ -120,74 +227,26 @@ const FloorPlans = () => {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {floorPlans.map((plan) => (
-            <Card
-              key={plan.id}
-              className="cursor-pointer hover:shadow-lg transition-shadow relative group"
-              onClick={() => handleFloorPlanClick(plan.id)}
-            >
-              <Button
-                variant="destructive"
-                size="icon"
-                className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity"
-                onClick={(e) => handleDeleteClick(e, plan.id)}
-              >
-                <Trash2 className="h-4 w-4" />
-              </Button>
-              
-              <CardHeader>
-                <CardTitle className="text-lg">
-                  {plan.name}
-                </CardTitle>
-                <CardDescription>
-                  {format(new Date(plan.created_at), "MMM dd, yyyy")}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {plan.pdf_url && (
-                    <div className="aspect-video bg-muted rounded-md overflow-hidden">
-                      <iframe
-                        src={plan.pdf_url}
-                        className="w-full h-full pointer-events-none"
-                        title={plan.name}
-                      />
-                    </div>
-                  )}
-                  
-                  <div className="space-y-2 text-sm">
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">Design Purpose:</span>
-                      <span className="text-muted-foreground capitalize">
-                        {plan.design_purpose.replace(/_/g, " ")}
-                      </span>
-                    </div>
-                    
-                    <div className="flex items-center justify-between">
-                      <span className="font-medium">Scale Calibrated:</span>
-                      {plan.scale_meters_per_pixel ? (
-                        <span className="flex items-center gap-1 text-green-600">
-                          <CheckCircle className="h-4 w-4" />
-                          Yes
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-1 text-amber-600">
-                          <XCircle className="h-4 w-4" />
-                          Not Set
-                        </span>
-                      )}
-                    </div>
-                    
-                    {plan.scale_meters_per_pixel && (
-                      <div className="text-xs text-muted-foreground">
-                        1px = {plan.scale_meters_per_pixel.toFixed(4)}m
-                      </div>
-                    )}
-                  </div>
+        <div className="space-y-6">
+          {Object.entries(groupedFloorPlans).map(([purposeKey, purposeData]) => (
+            <Collapsible key={purposeKey} defaultOpen>
+              <div className="flex items-center justify-between mb-4">
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" className="p-0 hover:bg-transparent">
+                    <h2 className="text-2xl font-semibold flex items-center gap-2">
+                      {purposeData.label}
+                      <span className="text-muted-foreground text-lg">({purposeData.plans.length})</span>
+                      <ChevronDown className="h-5 w-5 transition-transform duration-200 [[data-state=open]>&]:rotate-180" />
+                    </h2>
+                  </Button>
+                </CollapsibleTrigger>
+              </div>
+              <CollapsibleContent>
+                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                  {purposeData.plans.map((plan) => renderFloorPlanCard(plan))}
                 </div>
-              </CardContent>
-            </Card>
+              </CollapsibleContent>
+            </Collapsible>
           ))}
         </div>
       )}
