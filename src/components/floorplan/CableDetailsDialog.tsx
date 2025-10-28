@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -11,49 +11,67 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { CableType } from "./types";
+import { CableType, EquipmentItem } from "./types";
 
 interface CableDetailsDialogProps {
   open: boolean;
+  equipment: EquipmentItem[]; // Pass equipment list for from/to selection
   onConfirm: (details: {
-    supplyFrom: string;
-    supplyTo: string;
-    cableType: CableType;
+    from: string;
+    to: string;
+    cableType: string;
+    terminationCount?: number;
     startHeight: number;
     endHeight: number;
-    terminations: string;
-    label?: string;
+    label: string;
   }) => void;
   onCancel: () => void;
 }
 
-export const CableDetailsDialog = ({ open, onConfirm, onCancel }: CableDetailsDialogProps) => {
-  const [supplyFrom, setSupplyFrom] = useState("");
-  const [supplyTo, setSupplyTo] = useState("");
+export const CableDetailsDialog = ({ open, equipment, onConfirm, onCancel }: CableDetailsDialogProps) => {
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
   const [cableType, setCableType] = useState<CableType>("2.5mm");
   const [startHeight, setStartHeight] = useState("0");
   const [endHeight, setEndHeight] = useState("0");
-  const [terminations, setTerminations] = useState("");
+  const [terminations, setTerminations] = useState("0");
   const [label, setLabel] = useState("");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
+
+  // Build equipment list with names for dropdowns
+  const equipmentOptions = equipment.map(eq => ({
+    value: eq.id,
+    label: `${eq.type} (${eq.id.substring(0, 8)}...)`
+  }));
+
+  // Add "Custom" option
+  const fromOptions = [{ value: "custom", label: "Custom..." }, ...equipmentOptions];
+  const toOptions = [{ value: "custom", label: "Custom..." }, ...equipmentOptions];
 
   const handleConfirm = () => {
+    const finalFrom = from === "custom" ? customFrom : equipment.find(e => e.id === from)?.type || from;
+    const finalTo = to === "custom" ? customTo : equipment.find(e => e.id === to)?.type || to;
+    
     onConfirm({
-      supplyFrom,
-      supplyTo,
+      from: finalFrom,
+      to: finalTo,
       cableType,
+      terminationCount: parseInt(terminations) || 0,
       startHeight: parseFloat(startHeight) || 0,
       endHeight: parseFloat(endHeight) || 0,
-      terminations,
-      label: label || undefined,
+      label: label || `${finalFrom} → ${finalTo}`,
     });
     
     // Reset form
-    setSupplyFrom("");
-    setSupplyTo("");
+    setFrom("");
+    setTo("");
+    setCustomFrom("");
+    setCustomTo("");
     setCableType("2.5mm");
     setStartHeight("0");
     setEndHeight("0");
-    setTerminations("");
+    setTerminations("0");
     setLabel("");
   };
 
@@ -69,23 +87,51 @@ export const CableDetailsDialog = ({ open, onConfirm, onCancel }: CableDetailsDi
         
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
-            <Label htmlFor="supplyFrom">Supply From</Label>
-            <Input
-              id="supplyFrom"
-              value={supplyFrom}
-              onChange={(e) => setSupplyFrom(e.target.value)}
-              placeholder="e.g., Main Board A"
-            />
+            <Label htmlFor="from">Supply From</Label>
+            <Select value={from} onValueChange={setFrom}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select source equipment" />
+              </SelectTrigger>
+              <SelectContent>
+                {fromOptions.map(opt => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {from === "custom" && (
+              <Input
+                value={customFrom}
+                onChange={(e) => setCustomFrom(e.target.value)}
+                placeholder="Enter custom source name"
+                className="mt-2"
+              />
+            )}
           </div>
           
           <div className="grid gap-2">
-            <Label htmlFor="supplyTo">Supply To</Label>
-            <Input
-              id="supplyTo"
-              value={supplyTo}
-              onChange={(e) => setSupplyTo(e.target.value)}
-              placeholder="e.g., Sub Board B"
-            />
+            <Label htmlFor="to">Supply To</Label>
+            <Select value={to} onValueChange={setTo}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select destination equipment" />
+              </SelectTrigger>
+              <SelectContent>
+                {toOptions.map(opt => (
+                  <SelectItem key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {to === "custom" && (
+              <Input
+                value={customTo}
+                onChange={(e) => setCustomTo(e.target.value)}
+                placeholder="Enter custom destination name"
+                className="mt-2"
+              />
+            )}
           </div>
           
           <div className="grid gap-2">
@@ -132,12 +178,13 @@ export const CableDetailsDialog = ({ open, onConfirm, onCancel }: CableDetailsDi
           </div>
           
           <div className="grid gap-2">
-            <Label htmlFor="terminations">Terminations</Label>
+            <Label htmlFor="terminations">Termination Count</Label>
             <Input
               id="terminations"
+              type="number"
               value={terminations}
               onChange={(e) => setTerminations(e.target.value)}
-              placeholder="e.g., Lugs, MCB"
+              placeholder="0"
             />
           </div>
           

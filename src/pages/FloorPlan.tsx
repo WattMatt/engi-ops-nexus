@@ -531,16 +531,21 @@ const FloorPlan = () => {
         setDrawingPoints(newPoints);
         
         // Draw a visual marker at click point
+        const markerRadius = 5 / currentZoom;
         const marker = new Circle({
-          left: point.x - 4,
-          top: point.y - 4,
-          radius: 4,
+          left: point.x,
+          top: point.y,
+          radius: markerRadius,
           fill: getToolColor(activeTool),
           stroke: "#ffffff",
-          strokeWidth: 2,
+          strokeWidth: 2 / currentZoom,
           selectable: false,
           evented: false,
+          originX: 'center',
+          originY: 'center',
         });
+        
+        marker.set({ isDrawingMarker: true });
         fabricCanvas.add(marker);
         
         // Update preview
@@ -548,27 +553,36 @@ const FloorPlan = () => {
           fabricCanvas.remove(previewLine);
         }
         
-        const line = new Polyline(newPoints.map(p => ({ x: p.x, y: p.y })), {
-          stroke: getToolColor(activeTool),
-          strokeWidth: 3,
-          fill: null,
-          selectable: true,
-          evented: true,
-          hoverCursor: 'pointer',
-        });
+        // For zones, create filled polygon preview
+        if ((activeTool as string) === "zone" && newPoints.length >= 3) {
+          const polygon = new Polygon(newPoints.map(p => ({ x: p.x, y: p.y })), {
+            stroke: getToolColor(activeTool),
+            strokeWidth: 2,
+            fill: `${getToolColor(activeTool)}33`,
+            selectable: false,
+            evented: false,
+            opacity: 0.5,
+          });
+          setPreviewLine(polygon as any);
+          fabricCanvas.add(polygon);
+        } else {
+          // For lines, show polyline
+          const line = new Polyline(newPoints.map(p => ({ x: p.x, y: p.y })), {
+            stroke: getToolColor(activeTool),
+            strokeWidth: 3,
+            fill: null,
+            selectable: false,
+            evented: false,
+          });
+          
+          setPreviewLine(line);
+          fabricCanvas.add(line);
+        }
         
-        // Store metadata on the line
-        line.set({
-          lineType: activeTool,
-          isEditableLine: true,
-        });
-        
-        setPreviewLine(line);
-        fabricCanvas.add(line);
         fabricCanvas.renderAll();
         
         if (newPoints.length === 1) {
-          toast.info("Continue clicking to draw. Double-click to finish");
+          toast.info("Continue clicking to draw. Press Enter to finish, Esc to cancel");
         }
       }
     };
@@ -760,27 +774,51 @@ const FloorPlan = () => {
     if (!fabricCanvas || !pdfDimensions) return;
 
     const canvasPoints = zone.points.map(p => pdfToCanvas(p as any, pdfDimensions));
+    
+    // Create filled polygon
     const polygon = new Polygon(canvasPoints as any, {
       fill: zone.color || getZoneColor(zone.type),
       stroke: getZoneStrokeColor(zone.type),
       strokeWidth: 2,
       opacity: 0.3,
       selectable: true,
+      hasControls: true,
+      hasBorders: true,
+      lockRotation: true,
+      hoverCursor: 'move',
+      borderColor: getZoneStrokeColor(zone.type),
+      cornerColor: getZoneStrokeColor(zone.type),
+      cornerSize: 10,
+      cornerStyle: 'circle',
+      transparentCorners: false,
     });
 
+    polygon.set({ zoneId: zone.id, zoneType: zone.type });
+
+    // Calculate centroid for label placement
     const centroid = calculatePolygonCentroid(canvasPoints as any);
-    const label = new Text(`${zone.name || 'Zone'}\n${zone.areaSqm?.toFixed(2) || '0'} m²`, {
-      left: centroid.x,
-      top: centroid.y,
-      fontSize: 14,
-      fill: getZoneStrokeColor(zone.type),
-      originX: 'center',
-      originY: 'center',
-      backgroundColor: 'rgba(255, 255, 255, 0.8)',
-      selectable: false,
-    });
+
+    // Create area label with better styling
+    const label = new Text(
+      `${zone.name || 'Zone'}\n${zone.areaSqm?.toFixed(2) || '0'} m²`,
+      {
+        left: centroid.x,
+        top: centroid.y,
+        fontSize: 14,
+        fill: getZoneStrokeColor(zone.type),
+        fontFamily: 'Arial',
+        fontWeight: 'bold',
+        originX: 'center',
+        originY: 'center',
+        backgroundColor: 'rgba(255, 255, 255, 0.9)',
+        padding: 6,
+        selectable: false,
+        evented: false,
+      }
+    );
 
     fabricCanvas.add(polygon, label);
+    fabricCanvas.renderAll();
   };
 
   const drawEquipmentSymbol = (equipment: any) => {
@@ -820,7 +858,7 @@ const FloorPlan = () => {
     fabricCanvas.add(symbol);
   };
 
-  const finishDrawing = () => {
+  const finishDrawing = async () => {
     if (drawingPoints.length < 2 || !pdfDimensions || !fabricCanvas) {
       toast.error("Draw at least 2 points");
       return;
@@ -861,6 +899,29 @@ const FloorPlan = () => {
 
       // Draw filled polygon on canvas
       drawZone(newZone);
+
+      // Save zone to database
+      if (floorPlanId) {
+        try {
+          const { error } = await supabase
+            .from('zones')
+            .insert({
+              floor_plan_id: floorPlanId,
+              zone_type: newZone.type,
+              points: newZone.points,
+              name: newZone.name,
+              color: newZone.color,
+              area_sqm: newZone.areaSqm,
+            });
+
+          if (error) {
+            console.error('Error saving zone:', error);
+            toast.error('Zone created but not saved to database');
+          }
+        } catch (err) {
+          console.error('Error saving zone:', err);
+        }
+      }
 
       cleanupDrawing();
       toast.success(`Zone created: ${areaSqm.toFixed(2)} m²`);
@@ -968,10 +1029,23 @@ const FloorPlan = () => {
   };
 
   const cleanupDrawing = () => {
-    if (previewLine && fabricCanvas) {
+    if (!fabricCanvas) return;
+    
+    // Remove preview line
+    if (previewLine) {
       fabricCanvas.remove(previewLine);
-      fabricCanvas.renderAll();
     }
+    
+    // Remove all drawing markers
+    const objects = fabricCanvas.getObjects();
+    objects.forEach(obj => {
+      if ((obj as any).isDrawingMarker) {
+        fabricCanvas.remove(obj);
+      }
+    });
+    
+    fabricCanvas.renderAll();
+    
     setIsDrawing(false);
     setDrawingPoints([]);
     setPreviewLine(null);
@@ -997,9 +1071,17 @@ const FloorPlan = () => {
     return Math.abs(area / 2);
   };
 
-  const handleCableDetails = (details: any) => {
+  const handleCableDetails = async (details: {
+    from: string;
+    to: string;
+    cableType: string;
+    terminationCount?: number;
+    startHeight: number;
+    endHeight: number;
+    label: string;
+  }) => {
     const points = pendingCablePointsRef.current;
-    if (points.length < 2 || !pdfDimensions) return;
+    if (points.length < 2 || !pdfDimensions || !fabricCanvas) return;
 
     const pathLength = calculatePathLength(points) * scaleCalibration.metersPerPixel;
     const totalLength = pathLength + details.startHeight + details.endHeight;
@@ -1026,11 +1108,15 @@ const FloorPlan = () => {
       id: crypto.randomUUID(),
       type: cableRouteType,
       points: pdfPoints,  // Store PDF coordinates
-      cableType: details.cableType,
-      supplyFrom: details.supplyFrom,
-      supplyTo: details.supplyTo,
+      cableType: details.cableType as CableType,
+      supplyFrom: details.from,
+      supplyTo: details.to,
       color: colorOverride,
       lengthMeters: totalLength,
+      pathLength: pathLength,
+      startHeight: details.startHeight,
+      endHeight: details.endHeight,
+      label: details.label,
     };
     
     setProjectData(prev => ({
@@ -1038,9 +1124,60 @@ const FloorPlan = () => {
       cables: [...prev.cables, newCable],
     }));
     
+    // Draw cable on canvas
+    const canvasPoints = points.map(p => ({ x: p.x, y: p.y }));
+    const polyline = new Polyline(canvasPoints, {
+      stroke: colorOverride,
+      strokeWidth: 3,
+      fill: null,
+      selectable: true,
+      evented: true,
+      hoverCursor: 'pointer',
+    });
+
+    polyline.set({
+      cableId: newCable.id,
+      lineType: `line-${cableRouteType}`,
+      isEditableLine: true,
+    });
+
+    fabricCanvas.add(polyline);
+    fabricCanvas.renderAll();
+
+    // Save to database
+    if (floorPlanId) {
+      try {
+        const { error } = await supabase
+          .from('cable_routes')
+          .insert({
+            floor_plan_id: floorPlanId,
+            route_type: cableRouteType === 'lv' ? 'lv_ac' : cableRouteType,
+            points: pdfPoints,
+            cable_spec: details.cableType,
+            supply_from: details.from,
+            supply_to: details.to,
+            color: colorOverride,
+            length_meters: totalLength,
+            name: details.label,
+          });
+
+        if (error) {
+          console.error('Error saving cable:', error);
+          toast.error('Cable created but not saved');
+        }
+      } catch (err) {
+        console.error('Error saving cable:', err);
+      }
+    }
+    
     setCableDialogOpen(false);
     pendingCablePointsRef.current = [];
-    toast.success(`${cableRouteType.toUpperCase()} Cable added: ${details.supplyFrom} → ${details.supplyTo} (${totalLength.toFixed(2)}m)`);
+    
+    const heightsText = details.startHeight + details.endHeight > 0 
+      ? ` (Path: ${pathLength.toFixed(2)}m + Heights: ${(details.startHeight + details.endHeight).toFixed(2)}m)`
+      : '';
+    
+    toast.success(`${cableRouteType.toUpperCase()} Cable added: ${details.from} → ${details.to}\nTotal: ${totalLength.toFixed(2)}m${heightsText}`);
   };
 
   const handleContainmentSize = (size: ContainmentSize) => {
@@ -1877,6 +2014,10 @@ const FloorPlan = () => {
           supplyTo: cable.supply_to,
           color: cable.color,
           lengthMeters: Number(cable.length_meters),
+          pathLength: Number(cable.length_meters), // Will be recalculated if needed
+          startHeight: 0, // These would need to be added to DB schema if storing
+          endHeight: 0,
+          label: cable.name,
         })) || [],
         zones: zonesQuery?.map((zone: any) => ({
           id: zone.id,
@@ -2727,6 +2868,7 @@ const FloorPlan = () => {
 
       <CableDetailsDialog
         open={cableDialogOpen}
+        equipment={projectData.equipment}
         onConfirm={handleCableDetails}
         onCancel={() => {
           setCableDialogOpen(false);
