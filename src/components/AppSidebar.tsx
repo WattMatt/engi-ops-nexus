@@ -16,6 +16,7 @@ import {
   FileStack,
   UsersRound,
   Wallet,
+  Map,
 } from "lucide-react";
 import {
   Sidebar,
@@ -91,6 +92,11 @@ const operationalModules = [
     title: "Site Diary",
     url: "/dashboard/site-diary",
     icon: FileText,
+  },
+  {
+    title: "Floor Plan Markup",
+    url: "/dashboard/floor-plan-markup",
+    icon: Map,
   },
 ];
 
