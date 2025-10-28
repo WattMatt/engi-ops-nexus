@@ -10,7 +10,6 @@ import DashboardLayout from "./pages/DashboardLayout";
 import AdminLayout from "./pages/AdminLayout";
 import SiteDiary from "./pages/SiteDiary";
 import Dashboard from "./pages/Dashboard";
-import FloorPlan from "./pages/FloorPlan";
 import Settings from "./pages/Settings";
 import ProjectSettings from "./pages/ProjectSettings";
 import UserManagement from "./pages/UserManagement";
@@ -22,7 +21,6 @@ import Specifications from "./pages/Specifications";
 import SpecificationDetail from "./pages/SpecificationDetail";
 import CableSchedules from "./pages/CableSchedules";
 import CableScheduleDetail from "./pages/CableScheduleDetail";
-import FloorPlans from "./pages/FloorPlans";
 import StaffManagement from "./pages/StaffManagement";
 import Invoicing from "./pages/Invoicing";
 import NotFound from "./pages/NotFound";
@@ -54,8 +52,6 @@ const App = () => (
           <Route path="/dashboard" element={<DashboardLayout />}>
             <Route index element={<Dashboard />} />
             <Route path="project-settings" element={<ProjectSettings />} />
-            <Route path="floor-plans" element={<FloorPlans />} />
-            <Route path="floor-plans/:floorPlanId" element={<FloorPlan />} />
             <Route path="site-diary" element={<SiteDiary />} />
             <Route path="cost-reports" element={<CostReports />} />
             <Route path="cost-reports/:reportId" element={<CostReportDetail />} />

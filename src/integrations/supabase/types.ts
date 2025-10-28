@@ -253,59 +253,6 @@ export type Database = {
         }
         Relationships: []
       }
-      cable_routes: {
-        Row: {
-          cable_spec: string | null
-          color: string | null
-          created_at: string | null
-          floor_plan_id: string
-          id: string
-          length_meters: number | null
-          name: string | null
-          points: Json
-          route_type: Database["public"]["Enums"]["cable_type"]
-          size: string | null
-          supply_from: string | null
-          supply_to: string | null
-        }
-        Insert: {
-          cable_spec?: string | null
-          color?: string | null
-          created_at?: string | null
-          floor_plan_id: string
-          id?: string
-          length_meters?: number | null
-          name?: string | null
-          points: Json
-          route_type: Database["public"]["Enums"]["cable_type"]
-          size?: string | null
-          supply_from?: string | null
-          supply_to?: string | null
-        }
-        Update: {
-          cable_spec?: string | null
-          color?: string | null
-          created_at?: string | null
-          floor_plan_id?: string
-          id?: string
-          length_meters?: number | null
-          name?: string | null
-          points?: Json
-          route_type?: Database["public"]["Enums"]["cable_type"]
-          size?: string | null
-          supply_from?: string | null
-          supply_to?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "cable_routes_floor_plan_id_fkey"
-            columns: ["floor_plan_id"]
-            isOneToOne: false
-            referencedRelation: "floor_plans"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       cable_schedules: {
         Row: {
           created_at: string
@@ -374,44 +321,6 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
-      }
-      containment_routes: {
-        Row: {
-          created_at: string | null
-          floor_plan_id: string
-          id: string
-          length_meters: number | null
-          points: Json
-          route_type: string
-          size: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          floor_plan_id: string
-          id?: string
-          length_meters?: number | null
-          points: Json
-          route_type: string
-          size?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          floor_plan_id?: string
-          id?: string
-          length_meters?: number | null
-          points?: Json
-          route_type?: string
-          size?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "containment_routes_floor_plan_id_fkey"
-            columns: ["floor_plan_id"]
-            isOneToOne: false
-            referencedRelation: "floor_plans"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       cost_categories: {
         Row: {
@@ -965,171 +874,6 @@ export type Database = {
             columns: ["position_id"]
             isOneToOne: false
             referencedRelation: "positions"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      equipment_placements: {
-        Row: {
-          created_at: string | null
-          equipment_type: string
-          floor_plan_id: string
-          id: string
-          name: string | null
-          properties: Json | null
-          rotation: number | null
-          x_position: number
-          y_position: number
-        }
-        Insert: {
-          created_at?: string | null
-          equipment_type: string
-          floor_plan_id: string
-          id?: string
-          name?: string | null
-          properties?: Json | null
-          rotation?: number | null
-          x_position: number
-          y_position: number
-        }
-        Update: {
-          created_at?: string | null
-          equipment_type?: string
-          floor_plan_id?: string
-          id?: string
-          name?: string | null
-          properties?: Json | null
-          rotation?: number | null
-          x_position?: number
-          y_position?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "equipment_placements_floor_plan_id_fkey"
-            columns: ["floor_plan_id"]
-            isOneToOne: false
-            referencedRelation: "floor_plans"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      floor_plan_tasks: {
-        Row: {
-          assigned_to: string | null
-          created_at: string | null
-          description: string | null
-          due_date: string | null
-          floor_plan_id: string
-          id: string
-          linked_item_id: string | null
-          linked_item_type: string | null
-          status: string
-          title: string
-          updated_at: string | null
-        }
-        Insert: {
-          assigned_to?: string | null
-          created_at?: string | null
-          description?: string | null
-          due_date?: string | null
-          floor_plan_id: string
-          id?: string
-          linked_item_id?: string | null
-          linked_item_type?: string | null
-          status?: string
-          title: string
-          updated_at?: string | null
-        }
-        Update: {
-          assigned_to?: string | null
-          created_at?: string | null
-          description?: string | null
-          due_date?: string | null
-          floor_plan_id?: string
-          id?: string
-          linked_item_id?: string | null
-          linked_item_type?: string | null
-          status?: string
-          title?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "floor_plan_tasks_floor_plan_id_fkey"
-            columns: ["floor_plan_id"]
-            isOneToOne: false
-            referencedRelation: "floor_plans"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      floor_plans: {
-        Row: {
-          created_at: string | null
-          created_by: string
-          design_purpose: Database["public"]["Enums"]["design_purpose"]
-          id: string
-          name: string
-          pdf_url: string
-          project_id: string
-          pv_panel_config: Json | null
-          pv_panel_length: number | null
-          pv_panel_wattage: number | null
-          pv_panel_width: number | null
-          scale_info: Json | null
-          scale_meters_per_pixel: number | null
-          scale_point1: Json | null
-          scale_point2: Json | null
-          thumbnail_url: string | null
-          updated_at: string | null
-          view_state: Json | null
-        }
-        Insert: {
-          created_at?: string | null
-          created_by: string
-          design_purpose?: Database["public"]["Enums"]["design_purpose"]
-          id?: string
-          name: string
-          pdf_url: string
-          project_id: string
-          pv_panel_config?: Json | null
-          pv_panel_length?: number | null
-          pv_panel_wattage?: number | null
-          pv_panel_width?: number | null
-          scale_info?: Json | null
-          scale_meters_per_pixel?: number | null
-          scale_point1?: Json | null
-          scale_point2?: Json | null
-          thumbnail_url?: string | null
-          updated_at?: string | null
-          view_state?: Json | null
-        }
-        Update: {
-          created_at?: string | null
-          created_by?: string
-          design_purpose?: Database["public"]["Enums"]["design_purpose"]
-          id?: string
-          name?: string
-          pdf_url?: string
-          project_id?: string
-          pv_panel_config?: Json | null
-          pv_panel_length?: number | null
-          pv_panel_wattage?: number | null
-          pv_panel_width?: number | null
-          scale_info?: Json | null
-          scale_meters_per_pixel?: number | null
-          scale_point1?: Json | null
-          scale_point2?: Json | null
-          thumbnail_url?: string | null
-          updated_at?: string | null
-          view_state?: Json | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "floor_plans_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -2071,15 +1815,7 @@ export type Database = {
           x_position?: number
           y_position?: number
         }
-        Relationships: [
-          {
-            foreignKeyName: "pv_arrays_floor_plan_id_fkey"
-            columns: ["floor_plan_id"]
-            isOneToOne: false
-            referencedRelation: "floor_plans"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
       site_diary_entries: {
         Row: {
@@ -2641,15 +2377,7 @@ export type Database = {
           roof_pitch?: number | null
           zone_type?: string
         }
-        Relationships: [
-          {
-            foreignKeyName: "zones_floor_plan_id_fkey"
-            columns: ["floor_plan_id"]
-            isOneToOne: false
-            referencedRelation: "floor_plans"
-            referencedColumns: ["id"]
-          },
-        ]
+        Relationships: []
       }
     }
     Views: {
