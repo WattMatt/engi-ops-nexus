@@ -1,6 +1,8 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CompanySettings } from "@/components/settings/CompanySettings";
 import { InvoiceSettings } from "@/components/settings/InvoiceSettings";
+import { ComponentGenerator } from "@/components/ComponentGenerator";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 const Settings = () => {
   return (
@@ -16,6 +18,7 @@ const Settings = () => {
         <TabsList>
           <TabsTrigger value="company">Company</TabsTrigger>
           <TabsTrigger value="invoice">Invoice Settings</TabsTrigger>
+          <TabsTrigger value="tools">Developer Tools</TabsTrigger>
         </TabsList>
 
         <TabsContent value="company">
@@ -24,6 +27,20 @@ const Settings = () => {
 
         <TabsContent value="invoice">
           <InvoiceSettings />
+        </TabsContent>
+
+        <TabsContent value="tools">
+          <Card>
+            <CardHeader>
+              <CardTitle>AI Component Generator</CardTitle>
+              <CardDescription>
+                Generate React components from GitHub repositories using AI
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ComponentGenerator />
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
