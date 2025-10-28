@@ -46,12 +46,17 @@ export default function FloorPlan() {
 
   // Initialize canvas
   useEffect(() => {
-    if (!canvasRef.current) return;
+    console.log('🔍 Canvas init effect - floorPlanId:', floorPlanId);
+    if (!canvasRef.current) {
+      console.log('❌ Canvas ref not ready');
+      return;
+    }
     
     const canvas = canvasRef.current;
     const resizeCanvas = () => {
       canvas.width = canvas.offsetWidth;
       canvas.height = canvas.offsetHeight;
+      console.log('📐 Canvas resized:', canvas.width, 'x', canvas.height);
       forceRender(prev => prev + 1);
     };
     
@@ -60,10 +65,21 @@ export default function FloorPlan() {
     
     const newRenderer = new CanvasRenderer(canvas);
     setRenderer(newRenderer);
+    console.log('✅ Renderer created');
     
-    loadFloorPlan();
+    // Load floor plan data
+    if (floorPlanId) {
+      console.log('📂 Starting to load floor plan:', floorPlanId);
+      loadFloorPlan();
+    } else {
+      console.log('❌ No floorPlanId available');
+      setLoading(false);
+    }
 
-    return () => window.removeEventListener('resize', resizeCanvas);
+    return () => {
+      console.log('🧹 Cleaning up canvas');
+      window.removeEventListener('resize', resizeCanvas);
+    };
   }, [floorPlanId]);
 
   // Render loop
@@ -84,32 +100,49 @@ export default function FloorPlan() {
   }, [renderer, state.equipment, state.lines, state.zones, state.containment, state.roofMasks, state.pvArrays, state.scale, zoom, offset]);
 
   const loadFloorPlan = async () => {
-    if (!floorPlanId) return;
+    if (!floorPlanId) {
+      console.log('❌ loadFloorPlan called without floorPlanId');
+      setLoading(false);
+      return;
+    }
     
+    console.log('🔄 Loading floor plan:', floorPlanId);
     setLoading(true);
+    
     try {
+      console.log('📡 Fetching floor plan from Supabase...');
       const { data: fp, error } = await supabase
         .from('floor_plans')
         .select('*')
         .eq('id', floorPlanId)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Supabase error:', error);
+        throw error;
+      }
 
       if (fp) {
+        console.log('✅ Floor plan data received:', fp);
         setFloorPlanName(fp.name);
         
         if (fp.design_purpose) {
+          console.log('📋 Design purpose:', fp.design_purpose);
           setDesignPurpose(fp.design_purpose as DesignPurpose);
         } else {
+          console.log('⚠️ No design purpose set, showing dialog');
           setShowPurposeDialog(true);
         }
 
         if (fp.pdf_url) {
+          console.log('📄 Loading PDF:', fp.pdf_url);
           await loadPDF(fp.pdf_url);
+        } else {
+          console.log('⚠️ No PDF URL found');
         }
 
         if (fp.scale_meters_per_pixel && fp.scale_point1 && fp.scale_point2) {
+          console.log('📏 Loading scale calibration');
           const p1 = fp.scale_point1 as any;
           const p2 = fp.scale_point2 as any;
           state.setScale(
@@ -119,18 +152,23 @@ export default function FloorPlan() {
           );
         }
 
+        console.log('📦 Loading equipment, lines, and zones...');
         await Promise.all([
           loadEquipment(),
           loadLines(),
           loadZones(),
         ]);
 
+        console.log('✅ All data loaded successfully');
         forceRender(prev => prev + 1);
+      } else {
+        console.log('❌ No floor plan data returned');
       }
     } catch (error: any) {
-      console.error('Error loading floor plan:', error);
+      console.error('💥 Error loading floor plan:', error);
       toast.error(error.message || 'Failed to load floor plan');
     } finally {
+      console.log('🏁 Setting loading to false');
       setLoading(false);
     }
   };
@@ -169,43 +207,55 @@ export default function FloorPlan() {
   };
 
   const loadEquipment = async () => {
-    const { data } = await supabase
-      .from('equipment_placements')
-      .select('*')
-      .eq('floor_plan_id', floorPlanId);
-    
-    if (data) {
-      state.equipment = data.map(e => ({
-        id: e.id,
-        type: e.equipment_type as any,
-        x: Number(e.x_position),
-        y: Number(e.y_position),
-        rotation: e.rotation || 0,
-        properties: (e.properties as any) || {}
-      }));
+    try {
+      console.log('🔧 Loading equipment...');
+      const { data } = await supabase
+        .from('equipment_placements')
+        .select('*')
+        .eq('floor_plan_id', floorPlanId);
+      
+      if (data) {
+        console.log(`✅ Loaded ${data.length} equipment items`);
+        state.equipment = data.map(e => ({
+          id: e.id,
+          type: e.equipment_type as any,
+          x: Number(e.x_position),
+          y: Number(e.y_position),
+          rotation: e.rotation || 0,
+          properties: (e.properties as any) || {}
+        }));
+      }
+    } catch (error) {
+      console.error('❌ Error loading equipment:', error);
     }
   };
 
   const loadLines = async () => {
-    // Skip loading lines for now until Supabase types are regenerated
+    console.log('📏 Skipping lines (table not yet in Supabase types)');
     state.lines = [];
   };
 
   const loadZones = async () => {
-    const { data } = await supabase
-      .from('zones')
-      .select('*')
-      .eq('floor_plan_id', floorPlanId);
-    
-    if (data) {
-      state.zones = data.map(z => ({
-        id: z.id,
-        type: z.zone_type as any,
-        points: z.points as any,
-        name: z.name || 'Zone',
-        color: z.color || undefined,
-        areaSqm: z.area_sqm ? Number(z.area_sqm) : undefined
-      }));
+    try {
+      console.log('🔲 Loading zones...');
+      const { data } = await supabase
+        .from('zones')
+        .select('*')
+        .eq('floor_plan_id', floorPlanId);
+      
+      if (data) {
+        console.log(`✅ Loaded ${data.length} zones`);
+        state.zones = data.map(z => ({
+          id: z.id,
+          type: z.zone_type as any,
+          points: z.points as any,
+          name: z.name || 'Zone',
+          color: z.color || undefined,
+          areaSqm: z.area_sqm ? Number(z.area_sqm) : undefined
+        }));
+      }
+    } catch (error) {
+      console.error('❌ Error loading zones:', error);
     }
   };
 
