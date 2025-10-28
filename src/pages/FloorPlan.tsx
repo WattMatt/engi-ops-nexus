@@ -1,109 +1,24 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Loader2, Save, Undo, Redo, FileUp, Download, Sparkles, ArrowLeft } from "lucide-react";
-import { DesignPurpose, Tool, Point, EquipmentItem, SupplyLine, Zone } from "@/components/floorplan/gemini/types";
-import { CanvasRenderer } from "@/components/floorplan/gemini/CanvasRenderer";
-import { DrawingState } from "@/components/floorplan/gemini/DrawingState";
-import { DesignPurposeDialog } from "@/components/floorplan/DesignPurposeDialog";
-import { GeminiToolbar } from "@/components/floorplan/gemini/GeminiToolbar";
-import { ScaleDialog } from "@/components/floorplan/ScaleDialog";
-import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
-
-GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/5.4.296/pdf.worker.min.mjs`;
+import { Loader2, ArrowLeft } from "lucide-react";
 
 export default function FloorPlan() {
   const { floorPlanId } = useParams();
   const navigate = useNavigate();
   
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  
   const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
   const [floorPlanName, setFloorPlanName] = useState("");
-  const [designPurpose, setDesignPurpose] = useState<DesignPurpose | null>(null);
-  const [showPurposeDialog, setShowPurposeDialog] = useState(false);
-  
-  const [renderer, setRenderer] = useState<CanvasRenderer | null>(null);
-  const [state] = useState(() => new DrawingState());
-  
-  const [activeTool, setActiveTool] = useState<Tool>("select");
-  const [rotation, setRotation] = useState(0);
-  const [snapEnabled, setSnapEnabled] = useState(false);
-  
-  const [zoom, setZoom] = useState(1);
-  const [offset, setOffset] = useState<Point>({ x: 0, y: 0 });
-  const [isPanning, setIsPanning] = useState(false);
-  const [lastMousePos, setLastMousePos] = useState<Point>({ x: 0, y: 0 });
-  
-  const [showScaleDialog, setShowScaleDialog] = useState(false);
-  const [scalePoints, setScalePoints] = useState<Point[]>([]);
-  
-  const [, forceRender] = useState(0);
+  const [pdfUrl, setPdfUrl] = useState<string>("");
 
-  // Initialize canvas - wait for canvas to be ready
   useEffect(() => {
-    console.log('🔍 Canvas init effect - floorPlanId:', floorPlanId);
-    if (!canvasRef.current) {
-      console.log('❌ Canvas ref not ready, will retry');
-      return;
-    }
-    
-    const canvas = canvasRef.current;
-    const resizeCanvas = () => {
-      canvas.width = canvas.offsetWidth;
-      canvas.height = canvas.offsetHeight;
-      console.log('📐 Canvas resized:', canvas.width, 'x', canvas.height);
-      forceRender(prev => prev + 1);
-    };
-    
-    resizeCanvas();
-    window.addEventListener('resize', resizeCanvas);
-    
-    const newRenderer = new CanvasRenderer(canvas);
-    setRenderer(newRenderer);
-    console.log('✅ Renderer created');
-    
-    return () => {
-      console.log('🧹 Cleaning up canvas');
-      window.removeEventListener('resize', resizeCanvas);
-    };
-  }, []);
+    loadFloorPlan();
+  }, [floorPlanId]);
 
-  // Load floor plan data once renderer is ready
-  useEffect(() => {
-    if (!renderer || !floorPlanId) {
-      console.log('⏳ Waiting for renderer and floorPlanId...');
-      return;
-    }
-    
-    console.log('📂 Starting to load floor plan:', floorPlanId);
-    loadFloorPlanWithRenderer(renderer);
-  }, [renderer, floorPlanId]);
-
-  // Render loop
-  useEffect(() => {
-    if (!renderer) return;
-    
-    renderer.render(
-      state.equipment,
-      state.lines,
-      state.zones,
-      state.containment,
-      state.roofMasks,
-      state.pvArrays,
-      state.scale,
-      zoom,
-      offset
-    );
-  }, [renderer, state.equipment, state.lines, state.zones, state.containment, state.roofMasks, state.pvArrays, state.scale, zoom, offset]);
-
-  const loadFloorPlanWithRenderer = async (rendererInstance: CanvasRenderer) => {
+  const loadFloorPlan = async () => {
     if (!floorPlanId) {
-      console.log('❌ loadFloorPlan called without floorPlanId');
       setLoading(false);
       return;
     }
@@ -112,316 +27,35 @@ export default function FloorPlan() {
     setLoading(true);
     
     try {
-      console.log('📡 Fetching floor plan from Supabase...');
       const { data: fp, error } = await supabase
         .from('floor_plans')
         .select('*')
         .eq('id', floorPlanId)
         .single();
 
-      if (error) {
-        console.error('❌ Supabase error:', error);
-        throw error;
-      }
+      if (error) throw error;
 
       if (fp) {
-        console.log('✅ Floor plan data received:', fp);
+        console.log('✅ Floor plan loaded:', fp);
         setFloorPlanName(fp.name);
-        
-        if (fp.design_purpose) {
-          console.log('📋 Design purpose:', fp.design_purpose);
-          setDesignPurpose(fp.design_purpose as DesignPurpose);
-        } else {
-          console.log('⚠️ No design purpose set, showing dialog');
-          setShowPurposeDialog(true);
-        }
-
-        if (fp.pdf_url) {
-          console.log('📄 Loading PDF:', fp.pdf_url);
-          await loadPDFWithRenderer(fp.pdf_url, rendererInstance);
-        } else {
-          console.log('⚠️ No PDF URL found');
-        }
-
-        if (fp.scale_meters_per_pixel && fp.scale_point1 && fp.scale_point2) {
-          console.log('📏 Loading scale calibration');
-          const p1 = fp.scale_point1 as any;
-          const p2 = fp.scale_point2 as any;
-          state.setScale(
-            { x: p1.x, y: p1.y },
-            { x: p2.x, y: p2.y },
-            fp.scale_meters_per_pixel
-          );
-        }
-
-        console.log('📦 Loading equipment, lines, and zones...');
-        await Promise.all([
-          loadEquipment(),
-          loadLines(),
-          loadZones(),
-        ]);
-
-        console.log('✅ All data loaded successfully');
-        forceRender(prev => prev + 1);
-      } else {
-        console.log('❌ No floor plan data returned');
+        setPdfUrl(fp.pdf_url);
+        toast.success('Floor plan loaded');
       }
     } catch (error: any) {
       console.error('💥 Error loading floor plan:', error);
       toast.error(error.message || 'Failed to load floor plan');
     } finally {
-      console.log('🏁 Setting loading to false');
       setLoading(false);
-    }
-  };
-
-  const loadFloorPlan = () => loadFloorPlanWithRenderer(renderer!);
-
-  const loadPDFWithRenderer = async (url: string, rendererInstance: CanvasRenderer) => {
-    try {
-      console.log('📄 Starting PDF load from:', url);
-      const pdf = await getDocument(url).promise;
-      console.log('📄 PDF document loaded, getting first page...');
-      const page = await pdf.getPage(1);
-      const viewport = page.getViewport({ scale: 1.5 });
-      console.log('📄 Page viewport:', viewport.width, 'x', viewport.height);
-
-      const tempCanvas = document.createElement('canvas');
-      tempCanvas.width = viewport.width;
-      tempCanvas.height = viewport.height;
-      const context = tempCanvas.getContext('2d')!;
-
-      console.log('📄 Rendering PDF page to canvas...');
-      await page.render({ canvasContext: context, viewport } as any).promise;
-
-      const img = new Image();
-      img.src = tempCanvas.toDataURL();
-      await new Promise(resolve => { img.onload = resolve; });
-      console.log('📄 Image loaded:', img.width, 'x', img.height);
-
-      if (!canvasRef.current) {
-        console.warn('⚠️ Canvas ref not available for PDF rendering');
-        return;
-      }
-
-      const scale = Math.min(
-        (canvasRef.current.width - 40) / img.width,
-        (canvasRef.current.height - 40) / img.height
-      );
-      console.log('📄 Calculated scale:', scale);
-
-      rendererInstance.setPDFImage(img, scale);
-      forceRender(prev => prev + 1);
-      console.log('✅ PDF loaded and rendered successfully');
-      toast.success('PDF loaded');
-    } catch (error) {
-      console.error('❌ Error loading PDF:', error);
-      toast.error('Failed to load PDF');
-      throw error;
-    }
-  };
-
-  const loadPDF = (url: string) => {
-    if (!renderer) {
-      console.error('❌ Cannot load PDF: renderer not available');
-      return;
-    }
-    return loadPDFWithRenderer(url, renderer);
-  };
-
-  const loadEquipment = async () => {
-    try {
-      console.log('🔧 Loading equipment...');
-      const { data } = await supabase
-        .from('equipment_placements')
-        .select('*')
-        .eq('floor_plan_id', floorPlanId);
-      
-      if (data) {
-        console.log(`✅ Loaded ${data.length} equipment items`);
-        state.equipment = data.map(e => ({
-          id: e.id,
-          type: e.equipment_type as any,
-          x: Number(e.x_position),
-          y: Number(e.y_position),
-          rotation: e.rotation || 0,
-          properties: (e.properties as any) || {}
-        }));
-      }
-    } catch (error) {
-      console.error('❌ Error loading equipment:', error);
-    }
-  };
-
-  const loadLines = async () => {
-    console.log('📏 Skipping lines (table not yet in Supabase types)');
-    state.lines = [];
-  };
-
-  const loadZones = async () => {
-    try {
-      console.log('🔲 Loading zones...');
-      const { data } = await supabase
-        .from('zones')
-        .select('*')
-        .eq('floor_plan_id', floorPlanId);
-      
-      if (data) {
-        console.log(`✅ Loaded ${data.length} zones`);
-        state.zones = data.map(z => ({
-          id: z.id,
-          type: z.zone_type as any,
-          points: z.points as any,
-          name: z.name || 'Zone',
-          color: z.color || undefined,
-          areaSqm: z.area_sqm ? Number(z.area_sqm) : undefined
-        }));
-      }
-    } catch (error) {
-      console.error('❌ Error loading zones:', error);
-    }
-  };
-
-  const handlePDFUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      try {
-        const { data, error } = await supabase.storage
-          .from('floor_plans')
-          .upload(`${floorPlanId}/${file.name}`, file, { upsert: true });
-
-        if (error) throw error;
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('floor_plans')
-          .getPublicUrl(data.path);
-
-        await supabase
-          .from('floor_plans')
-          .update({ pdf_url: publicUrl })
-          .eq('id', floorPlanId);
-
-        await loadPDF(publicUrl);
-        toast.success('PDF uploaded');
-      } catch (error: any) {
-        toast.error(error.message || 'Failed to upload PDF');
-      }
-    };
-    reader.readAsArrayBuffer(file);
-  };
-
-  const handleSave = async () => {
-    if (!floorPlanId) return;
-
-    setSaving(true);
-    try {
-      if (state.scale.isSet) {
-        await supabase
-          .from('floor_plans')
-          .update({
-            scale_meters_per_pixel: state.scale.metersPerPixel,
-            scale_point1: state.scale.point1 as any,
-            scale_point2: state.scale.point2 as any
-          })
-          .eq('id', floorPlanId);
-      }
-
-      toast.success('Floor plan saved');
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to save');
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!canvasRef.current || activeTool === "select" || activeTool === "pan") return;
-
-    const rect = canvasRef.current.getBoundingClientRect();
-    const x = (e.clientX - rect.left - offset.x) / zoom;
-    const y = (e.clientY - rect.top - offset.y) / zoom;
-
-    if (activeTool === "scale") {
-      handleScaleClick({ x, y });
-    }
-  };
-
-  const handleScaleClick = (point: Point) => {
-    if (scalePoints.length === 0) {
-      setScalePoints([point]);
-      toast.info('Click second point to set scale');
-    } else if (scalePoints.length === 1) {
-      setScalePoints([scalePoints[0], point]);
-      setShowScaleDialog(true);
-    }
-  };
-
-  const handleScaleConfirm = (meters: number) => {
-    if (scalePoints.length === 2) {
-      state.setScale(scalePoints[0], scalePoints[1], meters);
-      setScalePoints([]);
-      setShowScaleDialog(false);
-      setActiveTool("select");
-      forceRender(prev => prev + 1);
-      toast.success('Scale set');
-    }
-  };
-
-  const handleMouseWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
-    e.preventDefault();
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    setZoom(prev => Math.min(Math.max(prev * delta, 0.1), 5));
-  };
-
-  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (activeTool === "pan" || e.button === 1) {
-      setIsPanning(true);
-      setLastMousePos({ x: e.clientX, y: e.clientY });
-    }
-  };
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (isPanning) {
-      const dx = e.clientX - lastMousePos.x;
-      const dy = e.clientY - lastMousePos.y;
-      setOffset(prev => ({ x: prev.x + dx, y: prev.y + dy }));
-      setLastMousePos({ x: e.clientX, y: e.clientY });
-    }
-  };
-
-  const handleMouseUp = () => {
-    setIsPanning(false);
-  };
-
-  const handleUndo = () => {
-    state.undo();
-    forceRender(prev => prev + 1);
-  };
-
-  const handleRedo = () => {
-    state.redo();
-    forceRender(prev => prev + 1);
-  };
-
-  const handleDesignPurposeSelect = async (purpose: DesignPurpose) => {
-    setDesignPurpose(purpose);
-    setShowPurposeDialog(false);
-
-    if (floorPlanId) {
-      await supabase
-        .from('floor_plans')
-        .update({ design_purpose: purpose as any })
-        .eq('id', floorPlanId);
     }
   };
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <div className="text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
+          <p className="text-muted-foreground">Loading floor plan...</p>
+        </div>
       </div>
     );
   }
@@ -435,80 +69,24 @@ export default function FloorPlan() {
             Back
           </Button>
           <h1 className="text-xl font-semibold">{floorPlanName}</h1>
-          {designPurpose && (
-            <span className="text-sm text-muted-foreground">
-              {designPurpose.replace('_', ' ').toUpperCase()}
-            </span>
-          )}
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
-            <FileUp className="h-4 w-4 mr-2" />
-            Load PDF
-          </Button>
-          
-          <Button variant="outline" size="sm" onClick={handleUndo} disabled={!state.canUndo()}>
-            <Undo className="h-4 w-4" />
-          </Button>
-          
-          <Button variant="outline" size="sm" onClick={handleRedo} disabled={!state.canRedo()}>
-            <Redo className="h-4 w-4" />
-          </Button>
-          
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-            Save
-          </Button>
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
-        {designPurpose && (
-          <GeminiToolbar
-            designPurpose={designPurpose}
-            activeTool={activeTool}
-            onToolSelect={setActiveTool}
-            rotation={rotation}
-            onRotationChange={setRotation}
-            snapEnabled={snapEnabled}
-            onToggleSnap={setSnapEnabled}
-          />
+      <div className="flex-1 overflow-auto p-4 bg-muted">
+        {pdfUrl ? (
+          <div className="w-full h-full flex items-center justify-center">
+            <iframe
+              src={pdfUrl}
+              className="w-full h-full border-0 bg-white shadow-lg"
+              title={floorPlanName}
+            />
+          </div>
+        ) : (
+          <div className="flex items-center justify-center h-full">
+            <p className="text-muted-foreground">No PDF uploaded</p>
+          </div>
         )}
-
-        <div className="flex-1 relative overflow-hidden bg-muted">
-          <canvas
-            ref={canvasRef}
-            className="w-full h-full cursor-crosshair"
-            onClick={handleCanvasClick}
-            onWheel={handleMouseWheel}
-            onMouseDown={handleMouseDown}
-            onMouseMove={handleMouseMove}
-            onMouseUp={handleMouseUp}
-            onMouseLeave={handleMouseUp}
-          />
-        </div>
       </div>
-
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="application/pdf"
-        className="hidden"
-        onChange={handlePDFUpload}
-      />
-
-      <DesignPurposeDialog open={showPurposeDialog} onSelect={handleDesignPurposeSelect} />
-
-      <ScaleDialog
-        open={showScaleDialog}
-        pixelLength={0}
-        onConfirm={handleScaleConfirm}
-        onCancel={() => {
-          setShowScaleDialog(false);
-          setScalePoints([]);
-        }}
-      />
     </div>
   );
 }
