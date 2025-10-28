@@ -70,13 +70,33 @@ export default function FloorPlan() {
   };
 
   const loadPDF = async () => {
-    if (!canvasRef.current || !overlayCanvasRef.current || !pdfUrl) return;
+    if (!canvasRef.current || !overlayCanvasRef.current || !pdfUrl) {
+      console.error('❌ Missing requirements:', { 
+        canvas: !!canvasRef.current, 
+        overlay: !!overlayCanvasRef.current, 
+        pdfUrl: !!pdfUrl 
+      });
+      return;
+    }
 
     try {
-      console.log('📄 Loading PDF:', pdfUrl);
-      const pdf = await getDocument({ url: pdfUrl, withCredentials: false }).promise;
+      console.log('📄 Loading PDF from:', pdfUrl);
+      
+      // Load PDF with explicit options
+      const loadingTask = getDocument({ 
+        url: pdfUrl,
+        withCredentials: false,
+        isEvalSupported: false
+      });
+      
+      const pdf = await loadingTask.promise;
+      console.log('✅ PDF loaded, pages:', pdf.numPages);
+      
       const page = await pdf.getPage(1);
+      console.log('✅ Got first page');
+      
       const viewport = page.getViewport({ scale: 1.5 });
+      console.log('📐 Viewport:', viewport.width, 'x', viewport.height);
 
       // Set canvas sizes
       const canvas = canvasRef.current;
@@ -86,16 +106,26 @@ export default function FloorPlan() {
       canvas.height = viewport.height;
       overlay.width = viewport.width;
       overlay.height = viewport.height;
+      
+      console.log('📐 Canvas sized:', canvas.width, 'x', canvas.height);
 
       // Render PDF
-      const context = canvas.getContext('2d')!;
-      await page.render({ canvasContext: context, viewport } as any).promise;
+      const context = canvas.getContext('2d');
+      if (!context) {
+        throw new Error('Failed to get canvas context');
+      }
+      
+      console.log('🎨 Rendering PDF to canvas...');
+      await page.render({ 
+        canvasContext: context, 
+        viewport: viewport 
+      } as any).promise;
 
       console.log('✅ PDF rendered successfully');
       toast.success('PDF loaded successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Error loading PDF:', error);
-      toast.error('Failed to load PDF');
+      toast.error(`Failed to load PDF: ${error.message}`);
     }
   };
 
