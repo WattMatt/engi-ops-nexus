@@ -5,8 +5,8 @@ import { useFloorPlan } from '@/contexts/FloorPlanContext';
 import { useToast } from '@/hooks/use-toast';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Set up PDF.js worker - using unpkg for better reliability
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
+// Set up PDF.js worker - using cdnjs for better compatibility
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
 export function PDFLoader() {
   const { updateState } = useFloorPlan();
@@ -22,17 +22,24 @@ export function PDFLoader() {
       const arrayBuffer = await file.arrayBuffer();
       console.log('File read, size:', arrayBuffer.byteLength);
       
-      // Load PDF with timeout
+      // Load PDF with error handling
       const loadingTask = pdfjsLib.getDocument({ 
         data: arrayBuffer,
-        verbosity: 0 // Reduce console noise
+        verbosity: 1,
+        useWorkerFetch: false,
+        isEvalSupported: false,
       });
+      
+      // Add error event listener
+      loadingTask.onPassword = () => {
+        throw new Error('This PDF is password protected. Please use an unprotected PDF.');
+      };
       
       console.log('Loading PDF document...');
       const pdf = await Promise.race([
         loadingTask.promise,
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('PDF loading timeout after 60 seconds. The file may be too large or complex.')), 60000)
+        new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error('PDF loading timeout after 30 seconds. Try a smaller or simpler PDF file.')), 30000)
         )
       ]) as pdfjsLib.PDFDocumentProxy;
       
