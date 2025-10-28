@@ -145,3 +145,6 @@ export interface Task {
     itemType?: string;
     itemId?: string;
 }
+
+export type MarkupToolCategory = 'general' | 'drawing' | 'equipment' | 'containment' | 'lighting_sockets' | 'other_equipment';
+export const MARKUP_TOOL_CATEGORIES: MarkupToolCategory[] = ['general', 'drawing', 'equipment', 'containment', 'lighting_sockets', 'other_equipment'];

@@ -1,14 +1,73 @@
-import { Tool, DesignPurpose } from '@/types/floor-plan';
+import { Tool, DesignPurpose, MarkupToolCategory } from '@/types/floor-plan';
 
 export interface PurposeConfig {
+  label: string;
   tools: Tool[];
+  availableEquipment: string[];
+  availableDrawingTools: Tool[];
   equipmentToToolMap: Record<string, Tool>;
+  toolCategories: Partial<Record<Tool, MarkupToolCategory>>;
+  toolLabels: Partial<Record<Tool, string>>;
   cableTypes: string[];
   containmentSizes: string[];
 }
 
 export const purposeConfigs: Record<DesignPurpose, PurposeConfig> = {
   [DesignPurpose.BUDGET_MARKUP]: {
+    label: 'Budget Markup',
+    availableEquipment: [
+      'DB', 'PANEL', 'LIGHT', 'SWITCH', 'SOCKET', 'DATA',
+      'EMERGENCY_LIGHT', 'EXIT_SIGN', 'SMOKE_DETECTOR', 'HEAT_DETECTOR',
+      'CALL_POINT', 'SOUNDER', 'BEACON', 'PIR', 'CAMERA'
+    ],
+    availableDrawingTools: [
+      Tool.TOOL_CABLE_LV, Tool.TOOL_CABLE_HV, Tool.TOOL_CABLE_DATA, Tool.TOOL_CABLE_FIRE_ALARM,
+      Tool.TOOL_CONTAINMENT_TRAY, Tool.TOOL_CONTAINMENT_TRUNKING, Tool.TOOL_CONTAINMENT_CONDUIT,
+      Tool.TOOL_ZONE, Tool.SCALE, Tool.RULER
+    ],
+    toolCategories: {
+      [Tool.SELECT]: 'general',
+      [Tool.PAN]: 'general',
+      [Tool.SCALE]: 'drawing',
+      [Tool.RULER]: 'drawing',
+      [Tool.TOOL_CABLE_LV]: 'drawing',
+      [Tool.TOOL_CABLE_HV]: 'drawing',
+      [Tool.TOOL_CABLE_DATA]: 'drawing',
+      [Tool.TOOL_CABLE_FIRE_ALARM]: 'drawing',
+      [Tool.TOOL_ZONE]: 'drawing',
+      [Tool.TOOL_DB]: 'equipment',
+      [Tool.TOOL_PANEL]: 'equipment',
+      [Tool.TOOL_LIGHT]: 'lighting_sockets',
+      [Tool.TOOL_SWITCH]: 'lighting_sockets',
+      [Tool.TOOL_SOCKET]: 'lighting_sockets',
+      [Tool.TOOL_DATA]: 'lighting_sockets',
+      [Tool.TOOL_EMERGENCY_LIGHT]: 'other_equipment',
+      [Tool.TOOL_EXIT_SIGN]: 'other_equipment',
+      [Tool.TOOL_SMOKE_DETECTOR]: 'other_equipment',
+      [Tool.TOOL_HEAT_DETECTOR]: 'other_equipment',
+      [Tool.TOOL_CALL_POINT]: 'other_equipment',
+      [Tool.TOOL_SOUNDER]: 'other_equipment',
+      [Tool.TOOL_BEACON]: 'other_equipment',
+      [Tool.TOOL_PIR]: 'other_equipment',
+      [Tool.TOOL_CAMERA]: 'other_equipment',
+      [Tool.TOOL_CONTAINMENT_TRAY]: 'containment',
+      [Tool.TOOL_CONTAINMENT_TRUNKING]: 'containment',
+      [Tool.TOOL_CONTAINMENT_CONDUIT]: 'containment',
+    },
+    toolLabels: {
+      [Tool.SELECT]: 'Select',
+      [Tool.PAN]: 'Pan',
+      [Tool.SCALE]: 'Scale',
+      [Tool.RULER]: 'Ruler',
+      [Tool.TOOL_CABLE_LV]: 'LV Cable',
+      [Tool.TOOL_CABLE_HV]: 'HV Cable',
+      [Tool.TOOL_CABLE_DATA]: 'Data Cable',
+      [Tool.TOOL_CABLE_FIRE_ALARM]: 'Fire Alarm Cable',
+      [Tool.TOOL_CONTAINMENT_TRAY]: 'Cable Tray',
+      [Tool.TOOL_CONTAINMENT_TRUNKING]: 'Trunking',
+      [Tool.TOOL_CONTAINMENT_CONDUIT]: 'Conduit',
+      [Tool.TOOL_ZONE]: 'Zone',
+    },
     tools: [
       Tool.PAN,
       Tool.SELECT,
@@ -79,6 +138,25 @@ export const purposeConfigs: Record<DesignPurpose, PurposeConfig> = {
     ],
   },
   [DesignPurpose.PV_DESIGN]: {
+    label: 'PV Design',
+    availableEquipment: [],
+    availableDrawingTools: [Tool.SCALE, Tool.TOOL_ROOF_MASK, Tool.TOOL_ROOF_DIRECTION, Tool.TOOL_PV_ARRAY],
+    toolCategories: {
+      [Tool.SELECT]: 'general',
+      [Tool.PAN]: 'general',
+      [Tool.SCALE]: 'drawing',
+      [Tool.TOOL_ROOF_MASK]: 'drawing',
+      [Tool.TOOL_ROOF_DIRECTION]: 'drawing',
+      [Tool.TOOL_PV_ARRAY]: 'equipment',
+    },
+    toolLabels: {
+      [Tool.SELECT]: 'Select',
+      [Tool.PAN]: 'Pan',
+      [Tool.SCALE]: 'Scale',
+      [Tool.TOOL_ROOF_MASK]: 'Draw Roof Mask',
+      [Tool.TOOL_ROOF_DIRECTION]: 'Set Direction',
+      [Tool.TOOL_PV_ARRAY]: 'Place PV Array',
+    },
     tools: [
       Tool.PAN,
       Tool.SELECT,
