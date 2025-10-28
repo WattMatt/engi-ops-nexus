@@ -16,39 +16,60 @@ export const PDFThumbnail = ({ url, className = "" }: PDFThumbnailProps) => {
 
   useEffect(() => {
     const loadPDF = async () => {
-      if (!canvasRef.current) return;
+      if (!canvasRef.current) {
+        console.log('PDFThumbnail: Canvas ref not ready');
+        return;
+      }
 
       try {
+        console.log('PDFThumbnail: Loading PDF from', url);
         setLoading(true);
         setError(false);
 
-        const pdf = await getDocument(url).promise;
+        const loadingTask = getDocument({
+          url: url,
+          withCredentials: false,
+          isEvalSupported: false,
+        });
+        
+        const pdf = await loadingTask.promise;
+        console.log('PDFThumbnail: PDF loaded, pages:', pdf.numPages);
+        
         const page = await pdf.getPage(1);
+        console.log('PDFThumbnail: First page loaded');
         
         // Calculate scale to fit the thumbnail
         const viewport = page.getViewport({ scale: 1 });
+        console.log('PDFThumbnail: Viewport size:', viewport.width, 'x', viewport.height);
+        
         const canvas = canvasRef.current;
-        const scale = Math.min(
-          canvas.width / viewport.width,
-          canvas.height / viewport.height
-        );
+        const containerWidth = 400; // Fixed width for thumbnail
+        const scale = containerWidth / viewport.width;
         
         const scaledViewport = page.getViewport({ scale });
         
         canvas.width = scaledViewport.width;
         canvas.height = scaledViewport.height;
+        console.log('PDFThumbnail: Canvas size:', canvas.width, 'x', canvas.height);
 
         const context = canvas.getContext('2d');
-        if (!context) return;
+        if (!context) {
+          console.error('PDFThumbnail: Could not get canvas context');
+          setError(true);
+          setLoading(false);
+          return;
+        }
 
+        console.log('PDFThumbnail: Rendering page...');
         await page.render({
           canvasContext: context,
           viewport: scaledViewport
         } as any).promise;
 
+        console.log('PDFThumbnail: Render complete');
         setLoading(false);
       } catch (err) {
-        console.error('Error loading PDF thumbnail:', err);
+        console.error('PDFThumbnail: Error loading PDF:', err);
         setError(true);
         setLoading(false);
       }
