@@ -22,6 +22,11 @@ export type Tool =
   | "pv-array"
   | EquipmentType;
 
+export interface Point {
+  x: number;
+  y: number;
+}
+
 export type EquipmentType =
   // High-Level Equipment (Budget Markup, Prelim Design)
   | "rmu"
@@ -84,14 +89,17 @@ export interface EquipmentItem {
   x: number;
   y: number;
   rotation: number;
+  name?: string;
   properties?: Record<string, any>;
 }
 
 export interface CableRoute {
   id: string;
   type: "mv" | "lv" | "dc";
-  points: { x: number; y: number }[];
+  points: Point[];
   cableType?: CableType;
+  cableSize?: string;
+  cableSpec?: string;
   supplyFrom?: string;
   supplyTo?: string;
   color?: string;
@@ -102,24 +110,40 @@ export interface CableRoute {
   label?: string;
 }
 
+export interface SupplyLine extends CableRoute {}
+
 export interface Zone {
   id: string;
   type: "supply" | "exclusion" | "roof";
-  points: { x: number; y: number }[];
-  name?: string;
+  points: Point[];
+  name: string;
   color?: string;
   areaSqm?: number;
   roofPitch?: number;
   roofAzimuth?: number;
 }
 
+export interface SupplyZone extends Zone {}
+
+export interface RoofMask {
+  id: string;
+  points: Point[];
+  pitch?: number;
+  direction?: number;
+  areaSqm?: number;
+  usableAreaSqm?: number;
+  name: string;
+}
+
 export interface ContainmentRoute {
   id: string;
   type: "cable-tray" | "telkom-basket" | "security-basket" | "sleeves" | "powerskirting" | "p2000" | "p8000" | "p9000";
-  points: { x: number; y: number }[];
+  points: Point[];
   size?: ContainmentSize;
   lengthMeters?: number;
 }
+
+export interface Containment extends ContainmentRoute {}
 
 export interface PVArray {
   id: string;
@@ -129,6 +153,25 @@ export interface PVArray {
   columns: number;
   rotation: number;
   orientation: "portrait" | "landscape";
+  totalPanels: number;
+  totalWattage: number;
+}
+
+export interface PVPanelConfig {
+  length: number;
+  width: number;
+  wattage: number;
+}
+
+export interface Task {
+  id?: string;
+  title: string;
+  description: string;
+  assigned_to: string;
+  status: string;
+  due_date?: string;
+  linked_item_id?: string;
+  linked_item_type?: string;
 }
 
 export interface ProjectData {
@@ -137,4 +180,27 @@ export interface ProjectData {
   zones: Zone[];
   containment: ContainmentRoute[];
   pvArrays: PVArray[];
+}
+
+export interface DesignState {
+  equipment: EquipmentItem[];
+  lines: SupplyLine[];
+  zones: SupplyZone[];
+  containment: Containment[];
+  roofMasks: RoofMask[];
+  pvArrays: PVArray[];
+  tasks: Task[];
+}
+
+export interface ScaleInfo {
+  point1: Point | null;
+  point2: Point | null;
+  realMeters: number;
+  metersPerPixel: number;
+  isSet: boolean;
+}
+
+export interface ViewState {
+  zoom: number;
+  pan: Point;
 }

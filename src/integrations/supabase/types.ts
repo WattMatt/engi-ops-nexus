@@ -375,6 +375,44 @@ export type Database = {
         }
         Relationships: []
       }
+      containment_routes: {
+        Row: {
+          created_at: string | null
+          floor_plan_id: string
+          id: string
+          length_meters: number | null
+          points: Json
+          route_type: string
+          size: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          floor_plan_id: string
+          id?: string
+          length_meters?: number | null
+          points: Json
+          route_type: string
+          size?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          floor_plan_id?: string
+          id?: string
+          length_meters?: number | null
+          points?: Json
+          route_type?: string
+          size?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "containment_routes_floor_plan_id_fkey"
+            columns: ["floor_plan_id"]
+            isOneToOne: false
+            referencedRelation: "floor_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cost_categories: {
         Row: {
           anticipated_final: number
@@ -975,6 +1013,56 @@ export type Database = {
           },
         ]
       }
+      floor_plan_tasks: {
+        Row: {
+          assigned_to: string | null
+          created_at: string | null
+          description: string | null
+          due_date: string | null
+          floor_plan_id: string
+          id: string
+          linked_item_id: string | null
+          linked_item_type: string | null
+          status: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          assigned_to?: string | null
+          created_at?: string | null
+          description?: string | null
+          due_date?: string | null
+          floor_plan_id: string
+          id?: string
+          linked_item_id?: string | null
+          linked_item_type?: string | null
+          status?: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          assigned_to?: string | null
+          created_at?: string | null
+          description?: string | null
+          due_date?: string | null
+          floor_plan_id?: string
+          id?: string
+          linked_item_id?: string | null
+          linked_item_type?: string | null
+          status?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "floor_plan_tasks_floor_plan_id_fkey"
+            columns: ["floor_plan_id"]
+            isOneToOne: false
+            referencedRelation: "floor_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       floor_plans: {
         Row: {
           created_at: string | null
@@ -984,14 +1072,17 @@ export type Database = {
           name: string
           pdf_url: string
           project_id: string
+          pv_panel_config: Json | null
           pv_panel_length: number | null
           pv_panel_wattage: number | null
           pv_panel_width: number | null
+          scale_info: Json | null
           scale_meters_per_pixel: number | null
           scale_point1: Json | null
           scale_point2: Json | null
           thumbnail_url: string | null
           updated_at: string | null
+          view_state: Json | null
         }
         Insert: {
           created_at?: string | null
@@ -1001,14 +1092,17 @@ export type Database = {
           name: string
           pdf_url: string
           project_id: string
+          pv_panel_config?: Json | null
           pv_panel_length?: number | null
           pv_panel_wattage?: number | null
           pv_panel_width?: number | null
+          scale_info?: Json | null
           scale_meters_per_pixel?: number | null
           scale_point1?: Json | null
           scale_point2?: Json | null
           thumbnail_url?: string | null
           updated_at?: string | null
+          view_state?: Json | null
         }
         Update: {
           created_at?: string | null
@@ -1018,14 +1112,17 @@ export type Database = {
           name?: string
           pdf_url?: string
           project_id?: string
+          pv_panel_config?: Json | null
           pv_panel_length?: number | null
           pv_panel_wattage?: number | null
           pv_panel_width?: number | null
+          scale_info?: Json | null
           scale_meters_per_pixel?: number | null
           scale_point1?: Json | null
           scale_point2?: Json | null
           thumbnail_url?: string | null
           updated_at?: string | null
+          view_state?: Json | null
         }
         Relationships: [
           {
