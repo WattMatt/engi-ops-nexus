@@ -63,12 +63,12 @@ export function SaveDesignDialog({
 
       // Save to database
       const id = await saveFloorPlanProject({
-        user_id: userId,
+        userId: userId,
         name: designName,
-        design_purpose: designPurpose,
-        pdf_url: pdfUrl,
-        scale_meters_per_pixel: scale,
-        state_json: canvasState,
+        purpose: designPurpose as any,
+        pdfUrl: pdfUrl || '',
+        canvasJson: canvasState,
+        scaleInfo: scale ? { pixelDistance: null, realDistance: null, ratio: scale } : undefined,
       });
 
       onSaved(id);

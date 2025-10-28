@@ -193,13 +193,6 @@ export interface SupplyLine {
   endHeight?: number;
 }
 
-export interface SupplyZone {
-  id: string;
-  points: Point[];
-  label: string;
-  color: string;
-}
-
 export interface Containment {
   id: string;
   points: Point[];
@@ -212,6 +205,7 @@ export interface ScaleInfo {
   pixelDistance: number | null;
   realDistance: number | null;
   ratio: number | null;
+  drawingRatio?: number | null;
 }
 
 export interface ViewState {
@@ -242,13 +236,30 @@ export interface PVArrayItem {
   rotation: number;
 }
 
-export interface Task {
+export interface TaskItem {
   id: string;
   title: string;
   description?: string;
   status: TaskStatus;
   assignedTo?: string;
   linkedItemId?: string;
+}
+
+export interface Zone {
+  id: string;
+  points: Point[];
+  label: string;
+  color: string;
+}
+
+export interface BoQEntry {
+  id: string;
+  category: string;
+  description: string;
+  quantity: number;
+  unit: string;
+  rate?: number;
+  amount?: number;
 }
 
 export interface GeneratePdfParams {
@@ -260,11 +271,15 @@ export interface GeneratePdfParams {
   scaleInfo: ScaleInfo;
   equipment: EquipmentItem[];
   lines: SupplyLine[];
-  zones: SupplyZone[];
+  zones: Zone[];
   containment: Containment[];
   pvPanelConfig: PVPanelConfig | null;
   roofMasks: RoofMask[];
   pvArrays: PVArrayItem[];
-  tasks: Task[];
+  tasks: TaskItem[];
   designPurpose: DesignPurpose;
 }
+
+// Backward compatibility
+export type Task = TaskItem;
+export type SupplyZone = Zone;
