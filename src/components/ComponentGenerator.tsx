@@ -99,13 +99,13 @@ export function ComponentGenerator() {
             <Label htmlFor="repo-url">GitHub Repository URL *</Label>
             <Input
               id="repo-url"
-              placeholder="https://github.com/username/repo or .../tree/main/src/components"
+              placeholder="https://github.com/owner/repo, owner/repo, or gh repo clone owner/repo"
               value={repoUrl}
               onChange={(e) => setRepoUrl(e.target.value)}
               disabled={generating}
             />
             <p className="text-sm text-muted-foreground">
-              Full repo URL or path to specific folder containing components
+              Supports GitHub URLs, short form (owner/repo), or git clone commands
             </p>
           </div>
 

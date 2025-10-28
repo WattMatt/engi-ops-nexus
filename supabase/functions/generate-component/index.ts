@@ -19,14 +19,26 @@ serve(async (req) => {
 
     console.log("Fetching repository:", repoUrl);
 
-    // Parse GitHub URL to extract owner, repo, and optional path
-    const urlMatch = repoUrl.match(/github\.com\/([^\/]+)\/([^\/]+)(?:\/tree\/[^\/]+\/(.+))?/);
-    if (!urlMatch) {
-      throw new Error("Invalid GitHub URL format");
-    }
+    // Parse various GitHub formats
+    let owner: string, repoName: string, path: string | undefined;
 
-    const [, owner, repo, path] = urlMatch;
-    const repoName = repo.replace(/\.git$/, '');
+    // Format 1: Full URL - https://github.com/owner/repo or .../tree/branch/path
+    const urlMatch = repoUrl.match(/github\.com\/([^\/]+)\/([^\/]+)(?:\/tree\/[^\/]+\/(.+))?/);
+    // Format 2: Short form - owner/repo
+    const shortMatch = repoUrl.match(/^([^\/\s]+)\/([^\/\s]+)$/);
+    // Format 3: Git clone command - gh repo clone owner/repo
+    const cliMatch = repoUrl.match(/gh\s+repo\s+clone\s+([^\/\s]+)\/([^\/\s]+)/);
+
+    if (urlMatch) {
+      [, owner, repoName, path] = urlMatch;
+      repoName = repoName.replace(/\.git$/, '');
+    } else if (shortMatch) {
+      [, owner, repoName] = shortMatch;
+    } else if (cliMatch) {
+      [, owner, repoName] = cliMatch;
+    } else {
+      throw new Error("Invalid format. Use: https://github.com/owner/repo, owner/repo, or gh repo clone owner/repo");
+    }
 
     // Fetch repository contents from GitHub API
     const apiUrl = path 
