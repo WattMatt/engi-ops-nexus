@@ -184,7 +184,7 @@ export async function loadFloorPlanState(
       { data: cables },
       { data: zones },
       { data: containment },
-      // Skip roofMasks until types refresh
+      { data: roofMasks },
       { data: pvArrays },
       { data: tasks }
     ] = await Promise.all([
@@ -192,8 +192,7 @@ export async function loadFloorPlanState(
       supabase.from('cable_routes').select('*').eq('floor_plan_id', floorPlanId),
       supabase.from('zones').select('*').eq('floor_plan_id', floorPlanId),
       supabase.from('containment_routes').select('*').eq('floor_plan_id', floorPlanId),
-      // Skip until types refresh
-      Promise.resolve({ data: [] }),
+      Promise.resolve({ data: [] }), // roofMasks - types not ready yet
       supabase.from('pv_arrays').select('*').eq('floor_plan_id', floorPlanId),
       supabase.from('floor_plan_tasks').select('*').eq('floor_plan_id', floorPlanId),
     ]);
