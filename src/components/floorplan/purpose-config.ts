@@ -1,0 +1,327 @@
+
+
+
+
+import { DesignPurpose, EquipmentType, Tool, ContainmentType, MarkupToolCategory } from './types';
+
+export interface PurposeConfig {
+  label: string;
+  availableEquipment: EquipmentType[];
+  availableDrawingTools: Tool[];
+  toolCategories: Partial<Record<Tool, MarkupToolCategory>>;
+  toolLabels: Partial<Record<Tool, string>>;
+  equipmentToToolMap: Partial<Record<EquipmentType, Tool>>;
+  toolToContainmentMap: Partial<Record<Tool, ContainmentType>>;
+  cableTypes: string[];
+  containmentSizes: string[];
+}
+
+const budgetMarkupConfig: PurposeConfig = {
+    label: 'Budget mark up',
+    availableEquipment: [
+        EquipmentType.RMU,
+        EquipmentType.SUBSTATION,
+        EquipmentType.MAIN_BOARD,
+        EquipmentType.SUB_BOARD,
+        EquipmentType.GENERATOR,
+        EquipmentType.POLE_LIGHT,
+    ],
+    availableDrawingTools: [
+        Tool.SCALE,
+        Tool.LINE_MV,
+        Tool.LINE_LV,
+        Tool.ZONE,
+        Tool.TOOL_CABLE_TRAY,
+        Tool.TOOL_TELKOM_BASKET,
+        Tool.TOOL_SECURITY_BASKET,
+    ],
+    toolCategories: {
+        [Tool.SELECT]: 'general', [Tool.PAN]: 'general', [Tool.SCALE]: 'general',
+        [Tool.LINE_MV]: 'drawing', [Tool.LINE_LV]: 'drawing', [Tool.ZONE]: 'drawing',
+        [Tool.TOOL_CABLE_TRAY]: 'containment', [Tool.TOOL_TELKOM_BASKET]: 'containment', [Tool.TOOL_SECURITY_BASKET]: 'containment',
+        [Tool.PLACE_RMU]: 'equipment', [Tool.PLACE_SUBSTATION]: 'equipment', [Tool.PLACE_MAIN_BOARD]: 'equipment',
+        [Tool.PLACE_SUB_BOARD]: 'equipment', [Tool.PLACE_GENERATOR]: 'equipment', [Tool.PLACE_POLE_LIGHT]: 'equipment',
+    },
+    toolLabels: {
+        [Tool.LINE_MV]: 'Line (MV)',
+        [Tool.LINE_LV]: 'Line (LV)',
+        [Tool.ZONE]: 'Supply Zone',
+        [Tool.TOOL_CABLE_TRAY]: 'Cable Tray',
+        [Tool.TOOL_TELKOM_BASKET]: 'Telkom Basket',
+        [Tool.TOOL_SECURITY_BASKET]: 'Security Basket',
+    },
+    equipmentToToolMap: {
+        [EquipmentType.RMU]: Tool.PLACE_RMU,
+        [EquipmentType.SUBSTATION]: Tool.PLACE_SUBSTATION,
+        [EquipmentType.MAIN_BOARD]: Tool.PLACE_MAIN_BOARD,
+        [EquipmentType.SUB_BOARD]: Tool.PLACE_SUB_BOARD,
+        [EquipmentType.GENERATOR]: Tool.PLACE_GENERATOR,
+        [EquipmentType.POLE_LIGHT]: Tool.PLACE_POLE_LIGHT,
+    },
+    toolToContainmentMap: {
+        [Tool.TOOL_TELKOM_BASKET]: ContainmentType.TELKOM_BASKET,
+        [Tool.TOOL_SECURITY_BASKET]: ContainmentType.SECURITY_BASKET,
+        [Tool.TOOL_CABLE_TRAY]: ContainmentType.CABLE_TRAY,
+    },
+    cableTypes: [
+        '4Core x 16mm Alu', '4Core x 25mm Alu', '4Core x 35mm Alu', '4Core x 50mm Alu',
+        '4Core x 70mm Alu', '4Core x 95mm Alu', '4Core x 120mm Alu', '4Core x 150mm Alu',
+        '4Core x 185mm Alu', '4Core x 240mm Alu', '4Core x 16mm Cu', '4Core x 25mm Cu',
+        '4Core x 35mm Cu',
+    ],
+    containmentSizes: ['50mm', '100mm', '150mm', '200mm', '300mm', '450mm', '600mm'],
+};
+
+const pvDesignConfig: PurposeConfig = {
+    label: 'PV design',
+    availableEquipment: [
+        EquipmentType.INVERTER,
+        EquipmentType.DC_COMBINER,
+        EquipmentType.AC_DISCONNECT,
+        EquipmentType.MAIN_BOARD,
+    ],
+    availableDrawingTools: [
+        Tool.SCALE,
+        Tool.TOOL_ROOF_MASK,
+        Tool.TOOL_PV_ARRAY,
+        Tool.LINE_DC,
+        Tool.LINE_LV,
+        Tool.ZONE,
+        Tool.TOOL_CABLE_TRAY,
+    ],
+    toolCategories: {
+        [Tool.SELECT]: 'general', [Tool.PAN]: 'general', [Tool.SCALE]: 'general',
+        [Tool.TOOL_ROOF_MASK]: 'drawing', [Tool.LINE_DC]: 'drawing', [Tool.LINE_LV]: 'drawing', [Tool.ZONE]: 'drawing',
+        [Tool.TOOL_CABLE_TRAY]: 'containment',
+        [Tool.TOOL_PV_ARRAY]: 'equipment', [Tool.PLACE_INVERTER]: 'equipment', [Tool.PLACE_DC_COMBINER]: 'equipment',
+        [Tool.PLACE_AC_DISCONNECT]: 'equipment', [Tool.PLACE_MAIN_BOARD]: 'equipment',
+    },
+    toolLabels: {
+        [Tool.TOOL_ROOF_MASK]: 'Draw Roof Mask',
+        [Tool.TOOL_PV_ARRAY]: 'Place PV Array',
+        [Tool.LINE_DC]: 'Line (DC String)',
+        [Tool.LINE_LV]: 'Line (AC)',
+        [Tool.ZONE]: 'Exclusion Zone',
+        [Tool.TOOL_CABLE_TRAY]: 'Cable Tray',
+    },
+    equipmentToToolMap: {
+        [EquipmentType.INVERTER]: Tool.PLACE_INVERTER,
+        [EquipmentType.DC_COMBINER]: Tool.PLACE_DC_COMBINER,
+        [EquipmentType.AC_DISCONNECT]: Tool.PLACE_AC_DISCONNECT,
+        [EquipmentType.MAIN_BOARD]: Tool.PLACE_MAIN_BOARD,
+        [EquipmentType.POLE_LIGHT]: Tool.PLACE_POLE_LIGHT, // Example of equipment available if needed
+        [Tool.TOOL_PV_ARRAY as any]: Tool.TOOL_PV_ARRAY, // Special case for PV array tool
+    },
+    toolToContainmentMap: {
+        [Tool.TOOL_CABLE_TRAY]: ContainmentType.CABLE_TRAY,
+    },
+    cableTypes: [
+        '4mm² PV Cable', '6mm² PV Cable', '10mm² PV Cable', '4Core x 4mm² AC', 
+        '4Core x 6mm² AC', '4Core x 10mm² AC', '4Core x 16mm² AC',
+    ],
+    containmentSizes: ['50mm', '100mm', '150mm', '200mm'],
+};
+
+const lineShopMarkupConfig: PurposeConfig = {
+    label: 'Line shop measurements',
+    availableEquipment: [
+        EquipmentType.GENERAL_LIGHT_SWITCH, EquipmentType.DIMMER_SWITCH, EquipmentType.MOTION_SENSOR,
+        EquipmentType.TWO_WAY_LIGHT_SWITCH, EquipmentType.WATERTIGHT_LIGHT_SWITCH, EquipmentType.LED_STRIP_LIGHT,
+        EquipmentType.FLUORESCENT_2_TUBE, EquipmentType.FLUORESCENT_1_TUBE, EquipmentType.CEILING_FLOODLIGHT,
+        EquipmentType.CEILING_LIGHT, EquipmentType.POLE_MOUNTED_LIGHT, EquipmentType.WALL_MOUNTED_LIGHT,
+        EquipmentType.RECESSED_LIGHT_600, EquipmentType.RECESSED_LIGHT_1200, EquipmentType.FLOODLIGHT,
+        EquipmentType.PHOTO_CELL, EquipmentType.FLUSH_FLOOR_OUTLET, EquipmentType.BOX_FLUSH_FLOOR,
+        EquipmentType.SOCKET_16A, EquipmentType.SOCKET_DOUBLE, EquipmentType.CLEAN_POWER_OUTLET,
+        EquipmentType.EMERGENCY_SOCKET, EquipmentType.UPS_SOCKET, EquipmentType.DATA_SOCKET,
+        EquipmentType.TELEPHONE_OUTLET, EquipmentType.SINGLE_PHASE_OUTLET, EquipmentType.THREE_PHASE_OUTLET,
+        EquipmentType.SOCKET_16A_TP, EquipmentType.GEYSER_OUTLET, EquipmentType.TV_OUTLET,
+        EquipmentType.MANHOLE, EquipmentType.DISTRIBUTION_BOARD, EquipmentType.TELEPHONE_BOARD,
+        EquipmentType.AC_CONTROLLER_BOX, EquipmentType.BREAK_GLASS_UNIT, EquipmentType.DRAWBOX_50,
+        EquipmentType.DRAWBOX_100, EquipmentType.WORKSTATION_OUTLET, EquipmentType.CCTV_CAMERA,
+    ],
+    availableDrawingTools: [
+        Tool.SCALE, Tool.LINE_LV, Tool.ZONE,
+        Tool.TOOL_SLEEVES, Tool.TOOL_POWERSKIRTING, Tool.TOOL_P2000_TRUNKING,
+        Tool.TOOL_P8000_TRUNKING, Tool.TOOL_P9000_TRUNKING,
+    ],
+    toolCategories: {
+        [Tool.SELECT]: 'general', [Tool.PAN]: 'general', [Tool.SCALE]: 'general',
+        [Tool.LINE_LV]: 'drawing', [Tool.ZONE]: 'drawing',
+        [Tool.TOOL_SLEEVES]: 'containment', [Tool.TOOL_POWERSKIRTING]: 'containment',
+        [Tool.TOOL_P2000_TRUNKING]: 'containment', [Tool.TOOL_P8000_TRUNKING]: 'containment', [Tool.TOOL_P9000_TRUNKING]: 'containment',
+        [Tool.PLACE_GENERAL_LIGHT_SWITCH]: 'lighting_sockets', [Tool.PLACE_DIMMER_SWITCH]: 'lighting_sockets',
+        [Tool.PLACE_MOTION_SENSOR]: 'lighting_sockets', [Tool.PLACE_TWO_WAY_LIGHT_SWITCH]: 'lighting_sockets',
+        [Tool.PLACE_WATERTIGHT_LIGHT_SWITCH]: 'lighting_sockets', [Tool.PLACE_LED_STRIP_LIGHT]: 'lighting_sockets',
+        [Tool.PLACE_FLUORESCENT_2_TUBE]: 'lighting_sockets', [Tool.PLACE_FLUORESCENT_1_TUBE]: 'lighting_sockets',
+        [Tool.PLACE_CEILING_FLOODLIGHT]: 'lighting_sockets', [Tool.PLACE_CEILING_LIGHT]: 'lighting_sockets',
+        [Tool.PLACE_POLE_MOUNTED_LIGHT]: 'lighting_sockets', [Tool.PLACE_WALL_MOUNTED_LIGHT]: 'lighting_sockets',
+        [Tool.PLACE_RECESSED_LIGHT_600]: 'lighting_sockets', [Tool.PLACE_RECESSED_LIGHT_1200]: 'lighting_sockets',
+        [Tool.PLACE_FLOODLIGHT]: 'lighting_sockets', [Tool.PLACE_PHOTO_CELL]: 'lighting_sockets',
+        [Tool.PLACE_FLUSH_FLOOR_OUTLET]: 'lighting_sockets', [Tool.PLACE_BOX_FLUSH_FLOOR]: 'lighting_sockets',
+        [Tool.PLACE_SOCKET_16A]: 'lighting_sockets', [Tool.PLACE_SOCKET_DOUBLE]: 'lighting_sockets',
+        [Tool.PLACE_CLEAN_POWER_OUTLET]: 'lighting_sockets', [Tool.PLACE_EMERGENCY_SOCKET]: 'lighting_sockets',
+        [Tool.PLACE_UPS_SOCKET]: 'lighting_sockets', [Tool.PLACE_DATA_SOCKET]: 'lighting_sockets',
+        [Tool.PLACE_TELEPHONE_OUTLET]: 'lighting_sockets', [Tool.PLACE_SINGLE_PHASE_OUTLET]: 'lighting_sockets',
+        [Tool.PLACE_THREE_PHASE_OUTLET]: 'lighting_sockets', [Tool.PLACE_SOCKET_16A_TP]: 'lighting_sockets',
+        [Tool.PLACE_GEYSER_OUTLET]: 'lighting_sockets', [Tool.PLACE_TV_OUTLET]: 'lighting_sockets',
+        [Tool.PLACE_WORKSTATION_OUTLET]: 'lighting_sockets',
+        [Tool.PLACE_MANHOLE]: 'other_equipment', [Tool.PLACE_DISTRIBUTION_BOARD]: 'other_equipment',
+        [Tool.PLACE_TELEPHONE_BOARD]: 'other_equipment', [Tool.PLACE_AC_CONTROLLER_BOX]: 'other_equipment',
+        [Tool.PLACE_BREAK_GLASS_UNIT]: 'other_equipment', [Tool.PLACE_DRAWBOX_50]: 'other_equipment',
+        [Tool.PLACE_DRAWBOX_100]: 'other_equipment', [Tool.PLACE_CCTV_CAMERA]: 'other_equipment',
+    },
+    toolLabels: {
+        [Tool.LINE_LV]: 'Line (LV)',
+        [Tool.ZONE]: 'Zone',
+        [Tool.TOOL_SLEEVES]: 'Sleeves',
+        [Tool.TOOL_POWERSKIRTING]: 'Powerskirting',
+        [Tool.TOOL_P2000_TRUNKING]: 'P2000 Trunking',
+        [Tool.TOOL_P8000_TRUNKING]: 'P8000 Trunking',
+        [Tool.TOOL_P9000_TRUNKING]: 'P9000 Trunking',
+    },
+    equipmentToToolMap: {
+        [EquipmentType.GENERAL_LIGHT_SWITCH]: Tool.PLACE_GENERAL_LIGHT_SWITCH,
+        [EquipmentType.DIMMER_SWITCH]: Tool.PLACE_DIMMER_SWITCH,
+        [EquipmentType.MOTION_SENSOR]: Tool.PLACE_MOTION_SENSOR,
+        [EquipmentType.TWO_WAY_LIGHT_SWITCH]: Tool.PLACE_TWO_WAY_LIGHT_SWITCH,
+        [EquipmentType.WATERTIGHT_LIGHT_SWITCH]: Tool.PLACE_WATERTIGHT_LIGHT_SWITCH,
+        [EquipmentType.LED_STRIP_LIGHT]: Tool.PLACE_LED_STRIP_LIGHT,
+        [EquipmentType.FLUORESCENT_2_TUBE]: Tool.PLACE_FLUORESCENT_2_TUBE,
+        [EquipmentType.FLUORESCENT_1_TUBE]: Tool.PLACE_FLUORESCENT_1_TUBE,
+        [EquipmentType.CEILING_FLOODLIGHT]: Tool.PLACE_CEILING_FLOODLIGHT,
+        [EquipmentType.CEILING_LIGHT]: Tool.PLACE_CEILING_LIGHT,
+        [EquipmentType.POLE_MOUNTED_LIGHT]: Tool.PLACE_POLE_MOUNTED_LIGHT,
+        [EquipmentType.WALL_MOUNTED_LIGHT]: Tool.PLACE_WALL_MOUNTED_LIGHT,
+        [EquipmentType.RECESSED_LIGHT_600]: Tool.PLACE_RECESSED_LIGHT_600,
+        [EquipmentType.RECESSED_LIGHT_1200]: Tool.PLACE_RECESSED_LIGHT_1200,
+        [EquipmentType.FLOODLIGHT]: Tool.PLACE_FLOODLIGHT,
+        [EquipmentType.PHOTO_CELL]: Tool.PLACE_PHOTO_CELL,
+        [EquipmentType.FLUSH_FLOOR_OUTLET]: Tool.PLACE_FLUSH_FLOOR_OUTLET,
+        [EquipmentType.BOX_FLUSH_FLOOR]: Tool.PLACE_BOX_FLUSH_FLOOR,
+        [EquipmentType.SOCKET_16A]: Tool.PLACE_SOCKET_16A,
+        [EquipmentType.SOCKET_DOUBLE]: Tool.PLACE_SOCKET_DOUBLE,
+        [EquipmentType.CLEAN_POWER_OUTLET]: Tool.PLACE_CLEAN_POWER_OUTLET,
+        [EquipmentType.EMERGENCY_SOCKET]: Tool.PLACE_EMERGENCY_SOCKET,
+        [EquipmentType.UPS_SOCKET]: Tool.PLACE_UPS_SOCKET,
+        [EquipmentType.DATA_SOCKET]: Tool.PLACE_DATA_SOCKET,
+        [EquipmentType.TELEPHONE_OUTLET]: Tool.PLACE_TELEPHONE_OUTLET,
+        [EquipmentType.SINGLE_PHASE_OUTLET]: Tool.PLACE_SINGLE_PHASE_OUTLET,
+        [EquipmentType.THREE_PHASE_OUTLET]: Tool.PLACE_THREE_PHASE_OUTLET,
+        [EquipmentType.SOCKET_16A_TP]: Tool.PLACE_SOCKET_16A_TP,
+        [EquipmentType.GEYSER_OUTLET]: Tool.PLACE_GEYSER_OUTLET,
+        [EquipmentType.TV_OUTLET]: Tool.PLACE_TV_OUTLET,
+        [EquipmentType.MANHOLE]: Tool.PLACE_MANHOLE,
+        [EquipmentType.DISTRIBUTION_BOARD]: Tool.PLACE_DISTRIBUTION_BOARD,
+        [EquipmentType.TELEPHONE_BOARD]: Tool.PLACE_TELEPHONE_BOARD,
+        [EquipmentType.AC_CONTROLLER_BOX]: Tool.PLACE_AC_CONTROLLER_BOX,
+        [EquipmentType.BREAK_GLASS_UNIT]: Tool.PLACE_BREAK_GLASS_UNIT,
+        [EquipmentType.DRAWBOX_50]: Tool.PLACE_DRAWBOX_50,
+        [EquipmentType.DRAWBOX_100]: Tool.PLACE_DRAWBOX_100,
+        [EquipmentType.WORKSTATION_OUTLET]: Tool.PLACE_WORKSTATION_OUTLET,
+        [EquipmentType.CCTV_CAMERA]: Tool.PLACE_CCTV_CAMERA,
+    },
+    toolToContainmentMap: {
+        [Tool.TOOL_SLEEVES]: ContainmentType.SLEEVES,
+        [Tool.TOOL_POWERSKIRTING]: ContainmentType.POWERSKIRTING,
+        [Tool.TOOL_P2000_TRUNKING]: ContainmentType.P2000_TRUNKING,
+        [Tool.TOOL_P8000_TRUNKING]: ContainmentType.P8000_TRUNKING,
+        [Tool.TOOL_P9000_TRUNKING]: ContainmentType.P9000_TRUNKING,
+    },
+    cableTypes: [
+        '2.5mm GP',
+        '4mm GP',
+        '2.5mm T&E',
+        '4mm T&E',
+    ],
+    containmentSizes: [],
+};
+
+const cableScheduleMarkupConfig: PurposeConfig = {
+    label: 'Cable Schedule Markup',
+    availableEquipment: [
+        EquipmentType.MAIN_BOARD,
+        EquipmentType.SUB_BOARD,
+    ],
+    availableDrawingTools: [
+        Tool.SCALE,
+        Tool.LINE_MV,
+        Tool.LINE_LV,
+        Tool.ZONE,
+    ],
+    toolCategories: {
+        [Tool.SELECT]: 'general', [Tool.PAN]: 'general', [Tool.SCALE]: 'general',
+        [Tool.LINE_MV]: 'drawing', [Tool.LINE_LV]: 'drawing', [Tool.ZONE]: 'drawing',
+        [Tool.PLACE_MAIN_BOARD]: 'equipment', [Tool.PLACE_SUB_BOARD]: 'equipment',
+    },
+    toolLabels: {
+        [Tool.LINE_MV]: 'Line (MV)',
+        [Tool.LINE_LV]: 'Line (LV Feeder)',
+        [Tool.ZONE]: 'Zone / Area',
+    },
+    equipmentToToolMap: {
+        [EquipmentType.MAIN_BOARD]: Tool.PLACE_MAIN_BOARD,
+        [EquipmentType.SUB_BOARD]: Tool.PLACE_SUB_BOARD,
+    },
+    toolToContainmentMap: {},
+    cableTypes: [ // Same as budget markup
+        '4Core x 16mm Alu', '4Core x 25mm Alu', '4Core x 35mm Alu', '4Core x 50mm Alu',
+        '4Core x 70mm Alu', '4Core x 95mm Alu', '4Core x 120mm Alu', '4Core x 150mm Alu',
+        '4Core x 185mm Alu', '4Core x 240mm Alu', '4Core x 16mm Cu', '4Core x 25mm Cu',
+        '4Core x 35mm Cu',
+    ],
+    containmentSizes: [],
+};
+
+const finalAccountMarkupConfig: PurposeConfig = {
+    label: 'Final Account Markup',
+    availableEquipment: [...new Set([
+        ...budgetMarkupConfig.availableEquipment,
+        ...pvDesignConfig.availableEquipment,
+        ...lineShopMarkupConfig.availableEquipment,
+    ])],
+    availableDrawingTools: [...new Set([
+        ...budgetMarkupConfig.availableDrawingTools,
+        ...pvDesignConfig.availableDrawingTools,
+        ...lineShopMarkupConfig.availableDrawingTools,
+    ])],
+    toolCategories: {
+        ...budgetMarkupConfig.toolCategories,
+        ...pvDesignConfig.toolCategories,
+        ...lineShopMarkupConfig.toolCategories,
+    },
+    toolLabels: {
+        ...budgetMarkupConfig.toolLabels,
+        ...pvDesignConfig.toolLabels,
+        ...lineShopMarkupConfig.toolLabels,
+    },
+    equipmentToToolMap: {
+        ...budgetMarkupConfig.equipmentToToolMap,
+        ...pvDesignConfig.equipmentToToolMap,
+        ...lineShopMarkupConfig.equipmentToToolMap,
+    },
+    toolToContainmentMap: {
+        ...budgetMarkupConfig.toolToContainmentMap,
+        ...pvDesignConfig.toolToContainmentMap,
+        ...lineShopMarkupConfig.toolToContainmentMap,
+    },
+    cableTypes: [...new Set([
+        ...budgetMarkupConfig.cableTypes,
+        ...pvDesignConfig.cableTypes,
+        ...lineShopMarkupConfig.cableTypes,
+        ...cableScheduleMarkupConfig.cableTypes,
+    ])].sort((a,b) => a.localeCompare(b, undefined, { numeric: true })),
+    containmentSizes: ['50mm', '100mm', '150mm', '200mm', '300mm', '450mm', '600mm'],
+};
+
+
+export const purposeConfigs: Record<DesignPurpose, PurposeConfig> = {
+    [DesignPurpose.BUDGET_MARKUP]: budgetMarkupConfig,
+    [DesignPurpose.LINE_SHOP_MEASUREMENTS]: lineShopMarkupConfig,
+    [DesignPurpose.PV_DESIGN]: pvDesignConfig,
+    [DesignPurpose.PRELIM_DESIGN_MARKUP]: {
+        ...budgetMarkupConfig,
+        label: 'Prelim design mark up',
+    },
+    [DesignPurpose.CABLE_SCHEDULE_MARKUP]: cableScheduleMarkupConfig,
+    [DesignPurpose.FINAL_ACCOUNT_MARKUP]: finalAccountMarkupConfig,
+};
