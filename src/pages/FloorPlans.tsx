@@ -24,6 +24,7 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { ChevronDown } from "lucide-react";
+import { PDFThumbnail } from "@/components/floorplan/PDFThumbnail";
 
 const FloorPlans = () => {
   const navigate = useNavigate();
@@ -149,13 +150,7 @@ const FloorPlans = () => {
       <CardContent>
         <div className="space-y-3">
           {plan.pdf_url && (
-            <div className="aspect-video bg-muted rounded-md overflow-hidden">
-              <iframe
-                src={plan.pdf_url}
-                className="w-full h-full pointer-events-none"
-                title={plan.name}
-              />
-            </div>
+            <PDFThumbnail url={plan.pdf_url} className="aspect-video" />
           )}
           
           <div className="space-y-2 text-sm">
