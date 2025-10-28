@@ -1,16 +1,28 @@
 import { useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, CheckCircle, XCircle } from "lucide-react";
+import { Plus, CheckCircle, XCircle, Trash2 } from "lucide-react";
 import { useState } from "react";
 import { CreateFloorPlanDialog } from "@/components/floorplan/CreateFloorPlanDialog";
 import { format } from "date-fns";
+import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const FloorPlans = () => {
   const navigate = useNavigate();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [deleteFloorPlanId, setDeleteFloorPlanId] = useState<string | null>(null);
   const projectId = localStorage.getItem("selectedProjectId");
 
   const { data: floorPlans, isLoading, refetch } = useQuery({
@@ -28,8 +40,38 @@ const FloorPlans = () => {
     enabled: !!projectId,
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async (floorPlanId: string) => {
+      const { error } = await supabase
+        .from("floor_plans")
+        .delete()
+        .eq("id", floorPlanId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Floor plan deleted successfully");
+      refetch();
+      setDeleteFloorPlanId(null);
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to delete floor plan");
+    },
+  });
+
   const handleFloorPlanClick = (floorPlanId: string) => {
     navigate(`/dashboard/floor-plans/${floorPlanId}`);
+  };
+
+  const handleDeleteClick = (e: React.MouseEvent, floorPlanId: string) => {
+    e.stopPropagation();
+    setDeleteFloorPlanId(floorPlanId);
+  };
+
+  const confirmDelete = () => {
+    if (deleteFloorPlanId) {
+      deleteMutation.mutate(deleteFloorPlanId);
+    }
   };
 
   if (isLoading) {
@@ -71,9 +113,18 @@ const FloorPlans = () => {
           {floorPlans.map((plan) => (
             <Card
               key={plan.id}
-              className="cursor-pointer hover:shadow-lg transition-shadow"
+              className="cursor-pointer hover:shadow-lg transition-shadow relative group"
               onClick={() => handleFloorPlanClick(plan.id)}
             >
+              <Button
+                variant="destructive"
+                size="icon"
+                className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity"
+                onClick={(e) => handleDeleteClick(e, plan.id)}
+              >
+                <Trash2 className="h-4 w-4" />
+              </Button>
+              
               <CardHeader>
                 <CardTitle className="text-lg">
                   {plan.name}
@@ -139,6 +190,27 @@ const FloorPlans = () => {
           navigate(`/dashboard/floor-plans/${floorPlanId}`);
         }}
       />
+
+      <AlertDialog open={!!deleteFloorPlanId} onOpenChange={(open) => !open && setDeleteFloorPlanId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Floor Plan?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the floor plan
+              and all associated data (equipment, zones, cables, etc.).
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
