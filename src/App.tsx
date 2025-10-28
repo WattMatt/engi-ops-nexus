@@ -10,7 +10,7 @@ import DashboardLayout from "./pages/DashboardLayout";
 import AdminLayout from "./pages/AdminLayout";
 import SiteDiary from "./pages/SiteDiary";
 import Dashboard from "./pages/Dashboard";
-import FloorPlan from "./pages/FloorPlan";
+import FloorPlan from "./pages/FloorPlanNew";
 import Settings from "./pages/Settings";
 import ProjectSettings from "./pages/ProjectSettings";
 import UserManagement from "./pages/UserManagement";
