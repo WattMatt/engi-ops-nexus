@@ -1735,27 +1735,33 @@ const FloorPlan = () => {
     }
     
     // Complete reset when "Set Scale" is selected again
-    if (tool === "scale") {
-      // If scale already exists, clear it completely
-      if (scaleObjects.markers.length > 0 && fabricCanvas) {
-        // Remove all scale objects from canvas
-        if (scaleObjects.line) fabricCanvas.remove(scaleObjects.line);
-        if (scaleObjects.label) fabricCanvas.remove(scaleObjects.label);
-        scaleObjects.markers.forEach(marker => fabricCanvas.remove(marker));
-        
-        // Reset all state
-        setScaleObjects({ line: null, markers: [], label: null });
-        setScalePoints([]);
-        setScaleLinePixels(0);
-        setScaleCalibration({ metersPerPixel: 0, isSet: false });
-        setScaleCalibrationPoints([]);
-        
-        fabricCanvas.renderAll();
-        toast.info("Previous scale cleared. Click two points for new calibration");
-      } else if (!scaleCalibration.isSet) {
-        toast.info("Click two points on a known distance to set scale");
+  if (tool === "scale") {
+    // If scale already exists, clear it completely
+    if (scaleObjects.markers.length > 0 && fabricCanvas) {
+      // Remove all scale objects from canvas
+      if (scaleObjects.line) fabricCanvas.remove(scaleObjects.line);
+      if (scaleObjects.label) fabricCanvas.remove(scaleObjects.label);
+      scaleObjects.markers.forEach(marker => fabricCanvas.remove(marker));
+      
+      // Also remove preview line if it exists
+      if (previewLine) {
+        fabricCanvas.remove(previewLine);
+        setPreviewLine(null);
       }
+      
+      // Reset all state
+      setScaleObjects({ line: null, markers: [], label: null });
+      setScalePoints([]);
+      setScaleLinePixels(0);
+      setScaleCalibration({ metersPerPixel: 0, isSet: false });
+      setScaleCalibrationPoints([]);
+      
+      fabricCanvas.renderAll();
+      toast.info("Previous scale cleared. Click two points for new calibration");
+    } else if (!scaleCalibration.isSet) {
+      toast.info("Click two points on a known distance to set scale");
     }
+  }
     
     setActiveTool(tool);
     
