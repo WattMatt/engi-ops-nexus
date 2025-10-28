@@ -1,1 +1,13 @@
 project_id = "rsdisaisxdglmdmzmkyw"
+
+[functions.generate-boq]
+verify_jwt = false
+
+[functions.generate-component]
+verify_jwt = false
+
+[functions.analyze-repository]
+verify_jwt = false
+
+[functions.fetch-repository-files]
+verify_jwt = false
