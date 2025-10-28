@@ -2581,6 +2581,7 @@ export type Database = {
         | "pv_design"
         | "line_shop_measurements"
         | "general"
+        | "cable_schedule"
       employment_status: "active" | "inactive" | "on_leave" | "terminated"
       leave_status: "pending" | "approved" | "rejected" | "cancelled"
       onboarding_status: "not_started" | "in_progress" | "completed"
@@ -2723,6 +2724,7 @@ export const Constants = {
         "pv_design",
         "line_shop_measurements",
         "general",
+        "cable_schedule",
       ],
       employment_status: ["active", "inactive", "on_leave", "terminated"],
       leave_status: ["pending", "approved", "rejected", "cancelled"],
