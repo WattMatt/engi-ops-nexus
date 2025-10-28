@@ -202,105 +202,104 @@ const FloorPlan = () => {
     };
   }, [fabricCanvas]);
 
-  // Handle scale marker movement to update calibration
+  // Handle scale marker drag to dynamically update scale
   useEffect(() => {
-    if (!fabricCanvas || scaleObjects.markers.length !== 2 || !floorPlanId) return;
+    if (!fabricCanvas || scaleObjects.markers.length !== 2 || !pdfDimensions) return;
 
-    let saveTimeout: NodeJS.Timeout;
-
-    const updateScaleLine = async () => {
-      const [marker1, marker2] = scaleObjects.markers;
-      const line = scaleObjects.line;
-      const label = scaleObjects.label;
+    const handleObjectMoving = (e: any) => {
+      const obj = e.target;
       
-      if (!line || !marker1 || !marker2) return;
-
-      // Update line position
-      line.set({
-        x1: marker1.left!,
-        y1: marker1.top!,
-        x2: marker2.left!,
-        y2: marker2.top!,
-      });
-
-      // Calculate new distance
-      const distance = Math.sqrt(
-        Math.pow(marker2.left! - marker1.left!, 2) + 
-        Math.pow(marker2.top! - marker1.top!, 2)
-      );
-
-      // Update label position and text
-      if (label && scaleCalibration.isSet && scaleCalibration.metersPerPixel > 0) {
-        const midX = (marker1.left! + marker2.left!) / 2;
-        const midY = (marker1.top! + marker2.top!) / 2;
-        const realWorldDistance = distance * scaleCalibration.metersPerPixel;
-        
-        label.set({
-          left: midX,
-          top: midY - 40,
-          text: `SCALE: ${realWorldDistance.toFixed(2)}m\n1px = ${scaleCalibration.metersPerPixel.toFixed(4)}m`
+      // Check if this is a scale marker
+      const markerIndex = scaleObjects.markers.indexOf(obj);
+      if (markerIndex === -1) return;
+      
+      // Get both markers
+      const [marker1, marker2] = scaleObjects.markers;
+      
+      // Update the line in real-time
+      if (scaleObjects.line) {
+        scaleObjects.line.set({
+          x1: marker1.left!,
+          y1: marker1.top!,
+          x2: marker2.left!,
+          y2: marker2.top!,
         });
       }
-
-      fabricCanvas.renderAll();
-
-      // Update scale calibration if it was already set
-      if (scaleCalibration.isSet && scaleCalibration.metersPerPixel > 0) {
-        const oldScale = scaleCalibration.metersPerPixel;
-        const oldDistance = distance * oldScale;
+      
+      // Update label position and calculate new distance
+      if (scaleObjects.label && scaleCalibration.isSet) {
+        // Convert canvas positions to PDF coordinates
+        const pdfPoint1 = canvasToPDF({ x: marker1.left!, y: marker1.top! }, pdfDimensions, fabricCanvas);
+        const pdfPoint2 = canvasToPDF({ x: marker2.left!, y: marker2.top! }, pdfDimensions, fabricCanvas);
         
-        // Debounce the dialog to avoid showing it on every small movement
-        clearTimeout(saveTimeout);
-        saveTimeout = setTimeout(() => {
-          // Show modification dialog for scale change
-          setModificationType("scale");
-          setModificationData({
-            oldValue: `${oldDistance.toFixed(2)}m (1px = ${oldScale.toFixed(4)}m)`,
-            newValue: `Distance changed - position updated`,
-            onConfirm: async () => {
-              try {
-                const [marker1, marker2] = scaleObjects.markers;
-                const { error } = await supabase
-                  .from("floor_plans")
-                  .update({ 
-                    scale_meters_per_pixel: scaleCalibration.metersPerPixel,
-                    scale_point1: { x: marker1.left, y: marker1.top },
-                    scale_point2: { x: marker2.left, y: marker2.top }
-                  })
-                  .eq("id", floorPlanId);
-                
-                if (!error) {
-                  toast.success(`Scale markers updated`);
-                }
-              } catch (err) {
-                console.error("Error saving scale:", err);
-              }
-              
-              setModificationDialogOpen(false);
-            }
-          });
-          setModificationDialogOpen(true);
-        }, 1000);
+        // Calculate PDF distance
+        const dx = pdfPoint2.x - pdfPoint1.x;
+        const dy = pdfPoint2.y - pdfPoint1.y;
+        const pdfDistance = Math.sqrt(dx * dx + dy * dy);
+        
+        // Calculate real-world distance
+        const realWorldDistance = pdfDistance * scaleCalibration.metersPerPixel;
+        
+        // Update label text and position
+        const midX = (marker1.left! + marker2.left!) / 2;
+        const midY = (marker1.top! + marker2.top!) / 2;
+        const angle = Math.atan2(marker2.top! - marker1.top!, marker2.left! - marker1.left!);
+        const offsetDistance = 30 / fabricCanvas.getZoom();
+        
+        scaleObjects.label.set({
+          text: `${realWorldDistance.toFixed(2)}m`,
+          left: midX - Math.sin(angle) * offsetDistance,
+          top: midY + Math.cos(angle) * offsetDistance,
+        });
       }
+      
+      fabricCanvas.renderAll();
     };
-
-    const handleMarkerMove = () => {
-      updateScaleLine();
+    
+    const handleObjectModified = (e: any) => {
+      const obj = e.target;
+      
+      // Check if this is a scale marker
+      const markerIndex = scaleObjects.markers.indexOf(obj);
+      if (markerIndex === -1) return;
+      
+      // Marker was moved - open dialog to confirm new scale
+      const [marker1, marker2] = scaleObjects.markers;
+      
+      // Convert canvas positions to PDF coordinates
+      const pdfPoint1 = canvasToPDF({ x: marker1.left!, y: marker1.top! }, pdfDimensions, fabricCanvas);
+      const pdfPoint2 = canvasToPDF({ x: marker2.left!, y: marker2.top! }, pdfDimensions, fabricCanvas);
+      
+      // Update stored PDF points on markers
+      marker1.set('pdfX', pdfPoint1.x);
+      marker1.set('pdfY', pdfPoint1.y);
+      marker2.set('pdfX', pdfPoint2.x);
+      marker2.set('pdfY', pdfPoint2.y);
+      
+      // Calculate new PDF distance
+      const dx = pdfPoint2.x - pdfPoint1.x;
+      const dy = pdfPoint2.y - pdfPoint1.y;
+      const pdfDistance = Math.sqrt(dx * dx + dy * dy);
+      
+      // Update state
+      setScalePoints([new Point(pdfPoint1.x, pdfPoint1.y), new Point(pdfPoint2.x, pdfPoint2.y)]);
+      setScaleCalibrationPoints([new Point(pdfPoint1.x, pdfPoint1.y), new Point(pdfPoint2.x, pdfPoint2.y)]);
+      setScaleLinePixels(pdfDistance);
+      
+      // Open dialog to confirm/update scale
+      setScaleEditDialogOpen(true);
+      
+      toast.info("Drag complete - confirm or update scale measurement");
     };
-
-    scaleObjects.markers.forEach(marker => {
-      marker.on('moving', handleMarkerMove);
-      marker.on('modified', handleMarkerMove);
-    });
-
+    
+    fabricCanvas.on('object:moving', handleObjectMoving);
+    fabricCanvas.on('object:modified', handleObjectModified);
+    
     return () => {
-      clearTimeout(saveTimeout);
-      scaleObjects.markers.forEach(marker => {
-        marker.off('moving', handleMarkerMove);
-        marker.off('modified', handleMarkerMove);
-      });
+      fabricCanvas.off('object:moving', handleObjectMoving);
+      fabricCanvas.off('object:modified', handleObjectModified);
     };
-  }, [fabricCanvas, scaleObjects, scaleCalibration, floorPlanId]);
+  }, [fabricCanvas, scaleObjects, pdfDimensions, scaleCalibration]);
 
   // Handle canvas drawing interactions
   useEffect(() => {
@@ -339,7 +338,7 @@ const FloorPlan = () => {
         const pdfPoint = canvasToPDF(point, pdfDimensions, fabricCanvas);
         console.log('Canvas point:', point, '→ PDF point:', pdfPoint);
         
-        // Draw marker at canvas position (will be zoom-responsive)
+        // Draw marker at canvas position (will be zoom-responsive and draggable)
         const baseRadius = 8;
         const marker = new Circle({
           left: point.x,
@@ -348,12 +347,16 @@ const FloorPlan = () => {
           fill: "#ef4444",
           stroke: "#fbbf24",
           strokeWidth: 2 / currentZoom,
-          selectable: true,
-          hasControls: false,
-          hasBorders: false,
+          selectable: true,       // Allow selection during setup
+          evented: true,          // Enable events
+          hasControls: false,     // No resize/rotate controls
+          hasBorders: true,       // Show selection border
+          hoverCursor: 'pointer', // Show pointer during setup
           lockRotation: true,
           originX: 'center',
           originY: 'center',
+          borderColor: '#fbbf24',
+          cornerColor: '#fbbf24',
         });
         
         // Store PDF coordinates on the marker
@@ -1093,7 +1096,7 @@ const FloorPlan = () => {
             
             const currentCanvasZoom = fabricCanvas.getZoom();
             
-            // Create markers at canvas positions
+            // Create draggable markers at canvas positions
             const marker1 = new Circle({
               left: canvasPoint1.x,
               top: canvasPoint1.y,
@@ -1101,15 +1104,18 @@ const FloorPlan = () => {
               fill: "#ef4444",
               stroke: "#fbbf24",
               strokeWidth: 2 / currentCanvasZoom,
-              selectable: false,
-              hasControls: false,
-              hasBorders: false,
-              evented: false,
+              selectable: true,       // KEEP DRAGGABLE
+              evented: true,          // KEEP EVENTS ENABLED
+              hasControls: false,     // No resize/rotate controls
+              hasBorders: true,       // Show selection border
+              hoverCursor: 'move',    // Show move cursor
               lockRotation: true,
               originX: 'center',
               originY: 'center',
               visible: true,
-              opacity: 1
+              opacity: 1,
+              borderColor: '#fbbf24',
+              cornerColor: '#fbbf24',
             });
             
             // Store PDF coordinates on the marker
@@ -1123,15 +1129,18 @@ const FloorPlan = () => {
               fill: "#ef4444",
               stroke: "#fbbf24",
               strokeWidth: 2 / currentCanvasZoom,
-              selectable: false,
-              hasControls: false,
-              hasBorders: false,
-              evented: false,
+              selectable: true,       // KEEP DRAGGABLE
+              evented: true,          // KEEP EVENTS ENABLED
+              hasControls: false,     // No resize/rotate controls
+              hasBorders: true,       // Show selection border
+              hoverCursor: 'move',    // Show move cursor
               lockRotation: true,
               originX: 'center',
               originY: 'center',
               visible: true,
-              opacity: 1
+              opacity: 1,
+              borderColor: '#fbbf24',
+              cornerColor: '#fbbf24',
             });
             
             // Store PDF coordinates on the marker
@@ -1725,14 +1734,30 @@ const FloorPlan = () => {
       setEquipmentPreview(null);
     }
     
-    setActiveTool(tool);
-    
-    // Provide guidance for scale tool
-    if (tool === "scale" && !scaleCalibration.isSet) {
-      toast.info("Click two points on a known distance to set scale");
-    } else if (tool === "scale" && scaleCalibration.isSet) {
-      toast.info("Click two points to recalibrate the scale");
+    // Complete reset when "Set Scale" is selected again
+    if (tool === "scale") {
+      // If scale already exists, clear it completely
+      if (scaleObjects.markers.length > 0 && fabricCanvas) {
+        // Remove all scale objects from canvas
+        if (scaleObjects.line) fabricCanvas.remove(scaleObjects.line);
+        if (scaleObjects.label) fabricCanvas.remove(scaleObjects.label);
+        scaleObjects.markers.forEach(marker => fabricCanvas.remove(marker));
+        
+        // Reset all state
+        setScaleObjects({ line: null, markers: [], label: null });
+        setScalePoints([]);
+        setScaleLinePixels(0);
+        setScaleCalibration({ metersPerPixel: 0, isSet: false });
+        setScaleCalibrationPoints([]);
+        
+        fabricCanvas.renderAll();
+        toast.info("Previous scale cleared. Click two points for new calibration");
+      } else if (!scaleCalibration.isSet) {
+        toast.info("Click two points on a known distance to set scale");
+      }
     }
+    
+    setActiveTool(tool);
     
     // Provide guidance for drawing tools
     const drawingTools = ["line-mv", "line-lv", "line-dc", "zone", "cable-tray", "telkom-basket", "security-basket", "sleeves", "powerskirting", "p2000", "p8000", "p9000"];
@@ -1787,29 +1812,39 @@ const FloorPlan = () => {
     if (fabricCanvas && scaleObjects.line && scaleObjects.markers.length === 2) {
       const [marker1, marker2] = scaleObjects.markers;
       
-      console.log('🎯 Locking scale markers and adding label');
+      console.log('🎯 Setting up draggable scale markers with label');
       console.log('Marker 1 position:', marker1.left, marker1.top);
       console.log('Marker 2 position:', marker2.left, marker2.top);
       console.log('Line exists:', !!scaleObjects.line);
       
-      // Lock the markers but keep them visible with red styling
+      // Keep markers SELECTABLE and DRAGGABLE with enhanced styling
       marker1.set({ 
-        selectable: false, 
-        evented: false,
+        selectable: true,    // KEEP DRAGGABLE
+        evented: true,       // KEEP EVENTS ENABLED
+        hasControls: false,  // No resize/rotate controls
+        hasBorders: true,    // Show selection border
+        hoverCursor: 'move', // Show move cursor
         visible: true,
         opacity: 1,
         fill: "#ef4444",
         stroke: "#fbbf24",
-        strokeWidth: 2 / currentZoom
+        strokeWidth: 2 / currentZoom,
+        borderColor: '#fbbf24',
+        cornerColor: '#fbbf24',
       });
       marker2.set({ 
-        selectable: false, 
-        evented: false,
+        selectable: true,    // KEEP DRAGGABLE
+        evented: true,       // KEEP EVENTS ENABLED
+        hasControls: false,  // No resize/rotate controls
+        hasBorders: true,    // Show selection border
+        hoverCursor: 'move', // Show move cursor
         visible: true,
         opacity: 1,
         fill: "#ef4444",
         stroke: "#fbbf24",
-        strokeWidth: 2 / currentZoom
+        strokeWidth: 2 / currentZoom,
+        borderColor: '#fbbf24',
+        cornerColor: '#fbbf24',
       });
       
       // Ensure line is visible with red styling
@@ -1996,39 +2031,87 @@ const FloorPlan = () => {
     
     fabricCanvas.renderAll();
     
-    // Rescale all equipment
-    const rescaledEquipment = projectData.equipment.map(eq => ({
-      ...eq,
-      // Equipment positions don't change, but their rendered size will
-    }));
-    
-    // Recalculate cable lengths
-    const rescaledCables = projectData.cables.map(cable => {
-      if (cable.lengthMeters) {
-        // Length in meters stays the same, but pixel length changes
-        return cable;
+    // RECALCULATE ALL EXISTING LINE LENGTHS AND AREAS
+    const updatedCables = projectData.cables.map(cable => {
+      // Recalculate length from PDF coordinates
+      let totalLength = 0;
+      for (let i = 0; i < cable.points.length - 1; i++) {
+        const dx = cable.points[i + 1].x - cable.points[i].x;
+        const dy = cable.points[i + 1].y - cable.points[i].y;
+        totalLength += Math.sqrt(dx * dx + dy * dy);
       }
-      return cable;
+      return {
+        ...cable,
+        lengthMeters: totalLength * newScale
+      };
     });
     
+    const updatedContainment = projectData.containment.map(route => {
+      // Same calculation as cables
+      let totalLength = 0;
+      for (let i = 0; i < route.points.length - 1; i++) {
+        const dx = route.points[i + 1].x - route.points[i].x;
+        const dy = route.points[i + 1].y - route.points[i].y;
+        totalLength += Math.sqrt(dx * dx + dy * dy);
+      }
+      return {
+        ...route,
+        lengthMeters: totalLength * newScale
+      };
+    });
+    
+    const updatedZones = projectData.zones.map(zone => {
+      // Recalculate area from PDF coordinates
+      let area = 0;
+      for (let i = 0; i < zone.points.length; i++) {
+        const j = (i + 1) % zone.points.length;
+        area += zone.points[i].x * zone.points[j].y;
+        area -= zone.points[j].x * zone.points[i].y;
+      }
+      const pdfArea = Math.abs(area / 2);
+      return {
+        ...zone,
+        areaSqm: pdfArea * (newScale * newScale) // Area scales with square of linear scale
+      };
+    });
+    
+    // Update project data
     setProjectData(prev => ({
       ...prev,
-      equipment: rescaledEquipment,
-      cables: rescaledCables,
+      cables: updatedCables,
+      containment: updatedContainment,
+      zones: updatedZones
     }));
     
-    // Save new scale to database
-    if (floorPlanId) {
+    // Count and show notification
+    const totalItems = updatedCables.length + updatedContainment.length + updatedZones.length;
+    
+    // Save new scale to database along with updated marker positions
+    if (floorPlanId && scaleObjects.markers.length === 2) {
+      const [marker1, marker2] = scaleObjects.markers;
+      
+      // Get PDF coordinates from markers
+      const pdfPoint1 = { x: marker1.get('pdfX'), y: marker1.get('pdfY') };
+      const pdfPoint2 = { x: marker2.get('pdfX'), y: marker2.get('pdfY') };
+      
       const { error } = await supabase
         .from("floor_plans")
-        .update({ scale_meters_per_pixel: newScale })
+        .update({ 
+          scale_meters_per_pixel: newScale,
+          scale_point1: pdfPoint1,
+          scale_point2: pdfPoint2
+        })
         .eq("id", floorPlanId);
       
       if (error) {
         console.error("Error saving scale:", error);
         toast.error("Failed to save new scale");
       } else {
-        toast.success(`Scale updated to ${realWorldDistance.toFixed(2)}m`);
+        if (totalItems > 0) {
+          toast.success(`Scale updated to ${realWorldDistance.toFixed(2)}m. ${totalItems} items recalculated`);
+        } else {
+          toast.success(`Scale updated to ${realWorldDistance.toFixed(2)}m`);
+        }
       }
     }
   };
