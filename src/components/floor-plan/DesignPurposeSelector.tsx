@@ -2,26 +2,44 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useFloorPlan } from '@/contexts/FloorPlanContext';
 import { DesignPurpose } from '@/lib/floorPlan/types';
-import { FileText, Ruler, Sun } from 'lucide-react';
+import { FileText, Ruler, Sun, ClipboardList, Cable, CheckSquare } from 'lucide-react';
 
 const purposes: { id: DesignPurpose; title: string; description: string; icon: any }[] = [
   {
     id: 'Budget mark up',
     title: 'Budget Mark Up',
-    description: 'Quantity takeoff for cost estimation with comprehensive equipment library and automated calculations',
+    description: 'High-level, early-stage project estimation with major equipment like substations, main boards, and generators',
     icon: FileText,
   },
   {
     id: 'Line shop measurements',
     title: 'Line Shop Measurements',
-    description: 'Precise measurements for fabrication including containment routes and zone areas',
+    description: 'Detailed interior fit-outs with extensive library of final-circuit items like light fittings, switches, and outlets',
     icon: Ruler,
   },
   {
     id: 'PV design',
     title: 'PV Design',
-    description: 'Solar panel layout with roof analysis, pitch calculations, and array placement',
+    description: 'Specialized workflow for solar installations with roof areas, PV arrays, and DC/AC cabling',
     icon: Sun,
+  },
+  {
+    id: 'Prelim design mark up',
+    title: 'Prelim Design Mark Up',
+    description: 'Preliminary design layouts and initial quantity take-offs for project planning',
+    icon: ClipboardList,
+  },
+  {
+    id: 'Cable schedule markup',
+    title: 'Cable Schedule Markup',
+    description: 'Focused mode for measuring feeder cable lengths between distribution boards and major equipment',
+    icon: Cable,
+  },
+  {
+    id: 'Final account markup',
+    title: 'Final Account Markup',
+    description: 'Comprehensive mode with all tools for final as-built drawings and detailed quantification',
+    icon: CheckSquare,
   },
 ];
 
@@ -41,7 +59,7 @@ export function DesignPurposeSelector() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {purposes.map((purpose) => {
           const Icon = purpose.icon;
           return (

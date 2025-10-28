@@ -1,6 +1,12 @@
 // Core types for Floor Plan Markup Tool
 
-export type DesignPurpose = 'Budget mark up' | 'Line shop measurements' | 'PV design';
+export type DesignPurpose = 
+  | 'Budget mark up' 
+  | 'Line shop measurements' 
+  | 'PV design' 
+  | 'Prelim design mark up' 
+  | 'Cable schedule markup' 
+  | 'Final account markup';
 export type CableType = 'MV' | 'LV/AC' | 'DC';
 export type TaskStatus = 'To Do' | 'In Progress' | 'Completed';
 export type PVOrientation = 'portrait' | 'landscape';
