@@ -1,19 +1,57 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useState, useEffect } from 'react';
 import { Upload } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useFloorPlan } from '@/contexts/FloorPlanContext';
 import { useToast } from '@/hooks/use-toast';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Set up PDF.js worker - using cdnjs for better compatibility
-pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// Configure worker using Vite's public folder
+const workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url
+).toString();
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = workerSrc;
 
 export function PDFLoader() {
   const { updateState } = useFloorPlan();
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [workerReady, setWorkerReady] = useState(false);
+
+  useEffect(() => {
+    // Test if worker can be loaded
+    const testWorker = async () => {
+      try {
+        console.log('Testing PDF.js worker:', workerSrc);
+        const testDoc = await pdfjsLib.getDocument({ 
+          data: atob('JVBERi0xLjAKMSAwIG9iago8PC9UeXBlL0NhdGFsb2cvUGFnZXMgMiAwIFI+PmVuZG9iagoyIDAgb2JqCjw8L1R5cGUvUGFnZXMvS2lkc1szIDAgUl0vQ291bnQgMT4+ZW5kb2JqCjMgMCBvYmoKPDwvVHlwZS9QYWdlL01lZGlhQm94WzAgMCA2MTIgNzkyXT4+ZW5kb2JqCnhyZWYKMCA0CjAwMDAwMDAwMDAgNjU1MzUgZiAKMDAwMDAwMDAxMCAwMDAwMCBuIAowMDAwMDAwMDUzIDAwMDAwIG4gCjAwMDAwMDAxMDIgMDAwMDAgbiAKdHJhaWxlcgo8PC9TaXplIDQvUm9vdCAxIDAgUj4+CnN0YXJ0eHJlZgoxNDkKJUVPRg==')
+        }).promise;
+        await testDoc.getPage(1);
+        console.log('Worker loaded successfully');
+        setWorkerReady(true);
+      } catch (error) {
+        console.error('Worker test failed:', error);
+        toast({
+          title: 'PDF System Error',
+          description: 'PDF rendering system failed to initialize. Please refresh the page.',
+          variant: 'destructive',
+        });
+      }
+    };
+    testWorker();
+  }, [toast]);
 
   const loadPDF = useCallback(async (file: File) => {
+    if (!workerReady) {
+      toast({
+        title: 'Not Ready',
+        description: 'PDF system is still initializing. Please wait a moment.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
     setLoading(true);
     try {
       console.log('Starting PDF load:', file.name);
@@ -22,35 +60,26 @@ export function PDFLoader() {
       const arrayBuffer = await file.arrayBuffer();
       console.log('File read, size:', arrayBuffer.byteLength);
       
-      // Load PDF with error handling
+      // Load PDF with optimized settings
       const loadingTask = pdfjsLib.getDocument({ 
         data: arrayBuffer,
-        verbosity: 1,
-        useWorkerFetch: false,
-        isEvalSupported: false,
+        verbosity: 0,
+        cMapUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/cmaps/',
+        cMapPacked: true,
+        standardFontDataUrl: 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/standard_fonts/',
       });
       
-      // Add error event listener
-      loadingTask.onPassword = () => {
-        throw new Error('This PDF is password protected. Please use an unprotected PDF.');
-      };
-      
       console.log('Loading PDF document...');
-      const pdf = await Promise.race([
-        loadingTask.promise,
-        new Promise<never>((_, reject) => 
-          setTimeout(() => reject(new Error('PDF loading timeout after 30 seconds. Try a smaller or simpler PDF file.')), 30000)
-        )
-      ]) as pdfjsLib.PDFDocumentProxy;
+      const pdf = await loadingTask.promise;
       
-      console.log('PDF loaded, getting first page...');
+      console.log('PDF loaded successfully, total pages:', pdf.numPages);
       const page = await pdf.getPage(1);
-      console.log('Page loaded, rendering...');
+      console.log('First page loaded, rendering...');
       
-      // Render to canvas at lower scale for faster loading
-      const viewport = page.getViewport({ scale: 1.5 });
+      // Render to canvas at good quality
+      const viewport = page.getViewport({ scale: 2 });
       const canvas = document.createElement('canvas');
-      const context = canvas.getContext('2d');
+      const context = canvas.getContext('2d', { alpha: false });
       
       if (!context) {
         throw new Error('Could not get canvas context');
@@ -59,7 +88,11 @@ export function PDFLoader() {
       canvas.height = viewport.height;
       canvas.width = viewport.width;
       
-      await page.render({ canvasContext: context, viewport }).promise;
+      await page.render({ 
+        canvasContext: context, 
+        viewport,
+        intent: 'display'
+      }).promise;
       console.log('Page rendered successfully');
       
       // Convert canvas to data URL
@@ -73,19 +106,22 @@ export function PDFLoader() {
       
       toast({
         title: 'PDF Loaded',
-        description: 'Floor plan loaded successfully',
+        description: `Floor plan loaded successfully (${pdf.numPages} page${pdf.numPages > 1 ? 's' : ''})`,
       });
     } catch (error: any) {
       console.error('PDF loading error:', error);
+      const errorMessage = error.message || 'Failed to load PDF';
       toast({
-        title: 'Error',
-        description: error.message || 'Failed to load PDF',
+        title: 'Error Loading PDF',
+        description: errorMessage.includes('timeout') 
+          ? 'The PDF file is taking too long to load. Try a smaller file or refresh the page.'
+          : errorMessage,
         variant: 'destructive',
       });
     } finally {
       setLoading(false);
     }
-  }, [updateState, toast]);
+  }, [updateState, toast, workerReady]);
 
   const handleFileSelect = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -141,8 +177,10 @@ export function PDFLoader() {
         />
         
         <label htmlFor="pdf-upload">
-          <Button asChild disabled={loading}>
-            <span>{loading ? 'Loading...' : 'Choose PDF File'}</span>
+          <Button asChild disabled={loading || !workerReady}>
+            <span>
+              {loading ? 'Loading...' : !workerReady ? 'Initializing...' : 'Choose PDF File'}
+            </span>
           </Button>
         </label>
         
