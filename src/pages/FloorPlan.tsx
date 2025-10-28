@@ -175,34 +175,50 @@ export default function FloorPlan() {
 
   const loadPDF = async (url: string) => {
     try {
+      console.log('📄 Starting PDF load from:', url);
       const pdf = await getDocument(url).promise;
+      console.log('📄 PDF document loaded, getting first page...');
       const page = await pdf.getPage(1);
       const viewport = page.getViewport({ scale: 1.5 });
+      console.log('📄 Page viewport:', viewport.width, 'x', viewport.height);
 
       const tempCanvas = document.createElement('canvas');
       tempCanvas.width = viewport.width;
       tempCanvas.height = viewport.height;
       const context = tempCanvas.getContext('2d')!;
 
+      console.log('📄 Rendering PDF page to canvas...');
       await page.render({ canvasContext: context, viewport } as any).promise;
 
       const img = new Image();
       img.src = tempCanvas.toDataURL();
       await new Promise(resolve => { img.onload = resolve; });
+      console.log('📄 Image loaded:', img.width, 'x', img.height);
 
-      if (!canvasRef.current || !renderer) return;
+      if (!canvasRef.current) {
+        console.warn('⚠️ Canvas ref not available for PDF rendering');
+        return;
+      }
+      
+      if (!renderer) {
+        console.warn('⚠️ Renderer not available for PDF rendering');
+        return;
+      }
 
       const scale = Math.min(
         (canvasRef.current.width - 40) / img.width,
         (canvasRef.current.height - 40) / img.height
       );
+      console.log('📄 Calculated scale:', scale);
 
       renderer.setPDFImage(img, scale);
       forceRender(prev => prev + 1);
+      console.log('✅ PDF loaded and rendered successfully');
       toast.success('PDF loaded');
     } catch (error) {
-      console.error('Error loading PDF:', error);
+      console.error('❌ Error loading PDF:', error);
       toast.error('Failed to load PDF');
+      throw error; // Re-throw so the finally block in loadFloorPlan still runs
     }
   };
 
