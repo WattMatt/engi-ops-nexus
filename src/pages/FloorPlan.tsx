@@ -28,6 +28,9 @@ import { createIECSymbol } from "@/components/floorplan/iecSymbols";
 import { DesignPurpose, Tool, ProjectData, ScaleCalibration, EquipmentType, CableType, ContainmentSize, Zone } from "@/components/floorplan/types";
 import { canvasToPDF, pdfToCanvas, calculateMetersPerPDFUnit, PDFPoint } from "@/lib/pdfCoordinates";
 import { calculatePolygonArea, calculatePolygonCentroid, getZoneColor, getZoneStrokeColor } from "@/lib/zoneUtils";
+import { DrawingHistory, HistoryAction } from "@/lib/drawingHistory";
+import { DrawingControls } from "@/components/floorplan/DrawingControls";
+import { ZoneEditDialog } from "@/components/floorplan/ZoneEditDialog";
 
 const FloorPlan = () => {
   const { floorPlanId: routeFloorPlanId } = useParams();
@@ -111,6 +114,13 @@ const FloorPlan = () => {
   const [boqModalOpen, setBoqModalOpen] = useState(false);
   const [boqContent, setBoqContent] = useState("");
   const [generatingBoq, setGeneratingBoq] = useState(false);
+
+  // Drawing history and management
+  const [drawingHistory] = useState(() => new DrawingHistory());
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+  const [selectedZone, setSelectedZone] = useState<any>(null);
+  const [zoneEditDialogOpen, setZoneEditDialogOpen] = useState(false);
 
   // Initialize canvas
   useEffect(() => {
@@ -201,27 +211,57 @@ const FloorPlan = () => {
       }
     });
 
-    // Handle object selection for line editing
+    // Handle object selection for line editing and zones
     canvas.on('selection:created', (e) => {
-      // Only open line editor when in select mode AND not currently drawing
-      if (isDrawing) return;
+      // Only handle selection when in select mode AND not currently drawing
+      if (isDrawing || activeTool !== 'select') return;
       
       const selected = e.selected?.[0];
-      if (selected && selected.get('isEditableLine') && activeTool === 'select') {
+      if (!selected) return;
+      
+      // Check if it's a zone
+      const zoneId = selected.get('zoneId');
+      if (zoneId) {
+        const zone = projectData.zones.find(z => z.id === zoneId);
+        if (zone) {
+          setSelectedZone(zone);
+        }
+        return;
+      }
+      
+      // Check if it's an editable line
+      if (selected.get('isEditableLine')) {
         setSelectedLine(selected);
         setLineEditDialogOpen(true);
       }
     });
 
     canvas.on('selection:updated', (e) => {
-      // Only open line editor when in select mode AND not currently drawing
-      if (isDrawing) return;
+      // Only handle selection when in select mode AND not currently drawing
+      if (isDrawing || activeTool !== 'select') return;
       
       const selected = e.selected?.[0];
-      if (selected && selected.get('isEditableLine') && activeTool === 'select') {
+      if (!selected) return;
+      
+      // Check if it's a zone
+      const zoneId = selected.get('zoneId');
+      if (zoneId) {
+        const zone = projectData.zones.find(z => z.id === zoneId);
+        if (zone) {
+          setSelectedZone(zone);
+        }
+        return;
+      }
+      
+      // Check if it's an editable line
+      if (selected.get('isEditableLine')) {
         setSelectedLine(selected);
         setLineEditDialogOpen(true);
       }
+    });
+
+    canvas.on('selection:cleared', () => {
+      setSelectedZone(null);
     });
 
     setFabricCanvas(canvas);
@@ -710,21 +750,36 @@ const FloorPlan = () => {
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyPress = (e: KeyboardEvent) => {
-      if (e.key === "r" || e.key === "R") {
+      // Undo/Redo
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+      } else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+        e.preventDefault();
+        handleRedo();
+      } else if (e.key === "r" || e.key === "R") {
         setRotation((prev) => (prev + 45) % 360);
       } else if (e.key === "Escape") {
         cancelDrawing();
       } else if (e.key === "Enter" && isDrawing) {
         finishDrawing();
-      } else if ((e.key === "Delete" || e.key === "Backspace") && selectedEquipment) {
+      } else if ((e.key === "Delete" || e.key === "Backspace")) {
         e.preventDefault();
-        handleEquipmentDelete();
+        if (selectedEquipment) {
+          handleEquipmentDelete();
+        } else if (selectedZone) {
+          handleZoneDelete();
+        }
+      } else if (e.key === "e" || e.key === "E") {
+        if (selectedZone && activeTool === 'select') {
+          setZoneEditDialogOpen(true);
+        }
       }
     };
 
     window.addEventListener("keydown", handleKeyPress);
     return () => window.removeEventListener("keydown", handleKeyPress);
-  }, [isDrawing, drawingPoints, activeTool, selectedEquipment]);
+  }, [isDrawing, drawingPoints, activeTool, selectedEquipment, selectedZone]);
 
   const getToolColor = (tool: Tool): string => {
     const colors: Record<string, string> = {
@@ -866,6 +921,16 @@ const FloorPlan = () => {
         areaSqm,
         name: `Zone ${projectData.zones.length + 1}`,
       };
+
+      // Record action for undo
+      drawingHistory.push({
+        type: 'add',
+        target: 'zone',
+        id: newZone.id,
+        data: newZone,
+      });
+      setCanUndo(drawingHistory.canUndo());
+      setCanRedo(drawingHistory.canRedo());
 
       setProjectData(prev => ({
         ...prev,
@@ -1229,6 +1294,19 @@ const FloorPlan = () => {
     const equipmentId = selectedEquipment.get('equipmentId');
     const equipmentType = selectedEquipment.get('equipmentType');
     
+    // Record action for undo
+    const equipment = projectData.equipment.find(e => e.id === equipmentId);
+    if (equipment) {
+      drawingHistory.push({
+        type: 'delete',
+        target: 'equipment',
+        id: equipmentId,
+        data: equipment,
+      });
+      setCanUndo(drawingHistory.canUndo());
+      setCanRedo(drawingHistory.canRedo());
+    }
+    
     fabricCanvas.remove(selectedEquipment);
     fabricCanvas.renderAll();
     
@@ -1254,6 +1332,224 @@ const FloorPlan = () => {
         console.error('Error deleting equipment:', err);
       }
     }
+  };
+
+  const handleZoneDelete = async () => {
+    if (!selectedZone || !fabricCanvas) return;
+    
+    // Record action for undo
+    drawingHistory.push({
+      type: 'delete',
+      target: 'zone',
+      id: selectedZone.id,
+      data: selectedZone,
+    });
+    setCanUndo(drawingHistory.canUndo());
+    setCanRedo(drawingHistory.canRedo());
+    
+    // Remove zone polygon from canvas
+    const objects = fabricCanvas.getObjects();
+    objects.forEach(obj => {
+      const zoneId = obj.get('zoneId');
+      if (zoneId === selectedZone.id) {
+        fabricCanvas.remove(obj);
+      }
+    });
+    fabricCanvas.renderAll();
+    
+    setProjectData(prev => ({
+      ...prev,
+      zones: prev.zones.filter(z => z.id !== selectedZone.id)
+    }));
+    
+    setSelectedZone(null);
+    toast.success('Zone deleted');
+    
+    if (floorPlanId) {
+      try {
+        const { error } = await supabase
+          .from('zones')
+          .delete()
+          .eq('id', selectedZone.id);
+          
+        if (error) {
+          console.error('Error deleting zone from database:', error);
+        }
+      } catch (err) {
+        console.error('Error deleting zone:', err);
+      }
+    }
+  };
+
+  const handleZoneEdit = async (data: { type: 'supply' | 'exclusion' | 'roof'; name: string }) => {
+    if (!selectedZone || !fabricCanvas) return;
+    
+    const updatedZone = {
+      ...selectedZone,
+      type: data.type,
+      name: data.name,
+      color: getZoneColor(data.type),
+    };
+    
+    // Record action for undo
+    drawingHistory.push({
+      type: 'modify',
+      target: 'zone',
+      id: selectedZone.id,
+      data: updatedZone,
+      previousData: selectedZone,
+    });
+    setCanUndo(drawingHistory.canUndo());
+    setCanRedo(drawingHistory.canRedo());
+    
+    // Update zone in state
+    setProjectData(prev => ({
+      ...prev,
+      zones: prev.zones.map(z => z.id === selectedZone.id ? updatedZone : z)
+    }));
+    
+    // Redraw zone on canvas
+    const objects = fabricCanvas.getObjects();
+    objects.forEach(obj => {
+      const zoneId = obj.get('zoneId');
+      if (zoneId === selectedZone.id) {
+        fabricCanvas.remove(obj);
+      }
+    });
+    drawZone(updatedZone);
+    fabricCanvas.renderAll();
+    
+    setSelectedZone(updatedZone);
+    toast.success('Zone updated');
+    
+    if (floorPlanId) {
+      try {
+        const { error } = await supabase
+          .from('zones')
+          .update({
+            zone_type: data.type,
+            name: data.name,
+            color: updatedZone.color,
+          })
+          .eq('id', selectedZone.id);
+          
+        if (error) {
+          console.error('Error updating zone in database:', error);
+        }
+      } catch (err) {
+        console.error('Error updating zone:', err);
+      }
+    }
+  };
+
+  const handleUndo = () => {
+    const action = drawingHistory.undo();
+    if (!action) return;
+    
+    setCanUndo(drawingHistory.canUndo());
+    setCanRedo(drawingHistory.canRedo());
+    
+    // Apply undo action
+    if (action.type === 'delete') {
+      // Restore deleted item
+      if (action.target === 'zone') {
+        setProjectData(prev => ({
+          ...prev,
+          zones: [...prev.zones, action.data]
+        }));
+        drawZone(action.data);
+      } else if (action.target === 'equipment') {
+        setProjectData(prev => ({
+          ...prev,
+          equipment: [...prev.equipment, action.data]
+        }));
+        drawEquipmentSymbol(action.data);
+      }
+    } else if (action.type === 'add') {
+      // Remove added item
+      if (action.target === 'zone') {
+        setProjectData(prev => ({
+          ...prev,
+          zones: prev.zones.filter(z => z.id !== action.id)
+        }));
+        const objects = fabricCanvas?.getObjects() || [];
+        objects.forEach(obj => {
+          if (obj.get('zoneId') === action.id) {
+            fabricCanvas?.remove(obj);
+          }
+        });
+      }
+    } else if (action.type === 'modify' && action.previousData) {
+      // Restore previous state
+      if (action.target === 'zone') {
+        setProjectData(prev => ({
+          ...prev,
+          zones: prev.zones.map(z => z.id === action.id ? action.previousData : z)
+        }));
+        const objects = fabricCanvas?.getObjects() || [];
+        objects.forEach(obj => {
+          if (obj.get('zoneId') === action.id) {
+            fabricCanvas?.remove(obj);
+          }
+        });
+        drawZone(action.previousData);
+      }
+    }
+    
+    fabricCanvas?.renderAll();
+    toast.success('Undo');
+  };
+
+  const handleRedo = () => {
+    const action = drawingHistory.redo();
+    if (!action) return;
+    
+    setCanUndo(drawingHistory.canUndo());
+    setCanRedo(drawingHistory.canRedo());
+    
+    // Apply redo action
+    if (action.type === 'add') {
+      // Re-add item
+      if (action.target === 'zone') {
+        setProjectData(prev => ({
+          ...prev,
+          zones: [...prev.zones, action.data]
+        }));
+        drawZone(action.data);
+      }
+    } else if (action.type === 'delete') {
+      // Re-delete item
+      if (action.target === 'zone') {
+        setProjectData(prev => ({
+          ...prev,
+          zones: prev.zones.filter(z => z.id !== action.id)
+        }));
+        const objects = fabricCanvas?.getObjects() || [];
+        objects.forEach(obj => {
+          if (obj.get('zoneId') === action.id) {
+            fabricCanvas?.remove(obj);
+          }
+        });
+      }
+    } else if (action.type === 'modify') {
+      // Re-apply modification
+      if (action.target === 'zone') {
+        setProjectData(prev => ({
+          ...prev,
+          zones: prev.zones.map(z => z.id === action.id ? action.data : z)
+        }));
+        const objects = fabricCanvas?.getObjects() || [];
+        objects.forEach(obj => {
+          if (obj.get('zoneId') === action.id) {
+            fabricCanvas?.remove(obj);
+          }
+        });
+        drawZone(action.data);
+      }
+    }
+    
+    fabricCanvas?.renderAll();
+    toast.success('Redo');
   };
 
   // Load existing floor plan and markups on component mount
@@ -2756,19 +3052,24 @@ const FloorPlan = () => {
               <div className="border rounded-lg overflow-hidden bg-muted relative">
                 <canvas ref={canvasRef} />
                 
-                {selectedEquipment && (
-                  <div className="absolute bottom-4 right-4 z-10">
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={handleEquipmentDelete}
-                      className="shadow-lg"
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Delete Equipment (Del)
-                    </Button>
-                  </div>
-                )}
+                <div className="absolute bottom-4 right-4 z-10">
+                  <DrawingControls
+                    canUndo={canUndo}
+                    canRedo={canRedo}
+                    onUndo={handleUndo}
+                    onRedo={handleRedo}
+                    onSave={handleSave}
+                    saving={saving}
+                    hasSelection={!!selectedEquipment || !!selectedZone}
+                    onDelete={() => {
+                      if (selectedEquipment) handleEquipmentDelete();
+                      else if (selectedZone) handleZoneDelete();
+                    }}
+                    onEdit={() => {
+                      if (selectedZone) setZoneEditDialogOpen(true);
+                    }}
+                  />
+                </div>
               </div>
               {!pdfImageUrl && (
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
@@ -2938,6 +3239,13 @@ const FloorPlan = () => {
         open={boqModalOpen}
         onOpenChange={setBoqModalOpen}
         boqContent={boqContent}
+      />
+
+      <ZoneEditDialog
+        open={zoneEditDialogOpen}
+        onOpenChange={setZoneEditDialogOpen}
+        zone={selectedZone}
+        onConfirm={handleZoneEdit}
       />
     </div>
   );
