@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.fetch-repository-files]
 verify_jwt = false
+
+[functions.process-import-session]
+verify_jwt = false
