@@ -523,9 +523,9 @@ const FloorPlan = () => {
         return;
       }
 
-      // Line drawing tools
-      const lineTools: Tool[] = ["line-mv", "line-lv", "line-dc", "zone", "cable-tray", "telkom-basket", "security-basket", "sleeves", "powerskirting", "p2000", "p8000", "p9000"];
-      if (lineTools.includes(activeTool)) {
+      // Line drawing tools (including zone)
+      const lineTools = ["line-mv", "line-lv", "line-dc", "zone", "cable-tray", "telkom-basket", "security-basket", "sleeves", "powerskirting", "p2000", "p8000", "p9000"];
+      if (lineTools.includes(activeTool as string)) {
         setIsDrawing(true);
         const newPoints = [...drawingPoints, point];
         setDrawingPoints(newPoints);
@@ -674,7 +674,7 @@ const FloorPlan = () => {
         // For cables, store points and open dialog for from/to details
         pendingCablePointsRef.current = drawingPoints;
         setCableDialogOpen(true);
-      } else if (activeTool === "zone") {
+      } else if ((activeTool as string) === "zone") {
         // For zones, save immediately with default type
         const newZone: Zone = {
           id: crypto.randomUUID(),
@@ -755,6 +755,34 @@ const FloorPlan = () => {
     return colors[tool] || "#000000";
   };
 
+  // Draw zone on canvas with fill and area label
+  const drawZone = (zone: Zone) => {
+    if (!fabricCanvas || !pdfDimensions) return;
+
+    const canvasPoints = zone.points.map(p => pdfToCanvas(p as any, pdfDimensions));
+    const polygon = new Polygon(canvasPoints as any, {
+      fill: zone.color || getZoneColor(zone.type),
+      stroke: getZoneStrokeColor(zone.type),
+      strokeWidth: 2,
+      opacity: 0.3,
+      selectable: true,
+    });
+
+    const centroid = calculatePolygonCentroid(canvasPoints as any);
+    const label = new Text(`${zone.name || 'Zone'}\n${zone.areaSqm?.toFixed(2) || '0'} m²`, {
+      left: centroid.x,
+      top: centroid.y,
+      fontSize: 14,
+      fill: getZoneStrokeColor(zone.type),
+      originX: 'center',
+      originY: 'center',
+      backgroundColor: 'rgba(255, 255, 255, 0.8)',
+      selectable: false,
+    });
+
+    fabricCanvas.add(polygon, label);
+  };
+
   const drawEquipmentSymbol = (equipment: any) => {
     if (!fabricCanvas || !scaleCalibration.isSet || !pdfDimensions) return;
     
@@ -801,7 +829,45 @@ const FloorPlan = () => {
     const length = calculatePathLength(drawingPoints);
     const lengthMeters = length * scaleCalibration.metersPerPixel;
 
-    // Handle LV/AC cables
+    // ZONE DRAWING - Complete with Enter key
+    if (activeTool === "zone") {
+      if (drawingPoints.length < 3) {
+        toast.error("Zone requires at least 3 points");
+        return;
+      }
+
+      // Convert canvas coordinates to PDF coordinates
+      const pdfPoints = drawingPoints.map(p => {
+        const pdfPoint = canvasToPDF(p, pdfDimensions, fabricCanvas);
+        return { x: pdfPoint.x, y: pdfPoint.y };
+      });
+
+      // Calculate area using shoelace formula (cast to proper type)
+      const areaSqm = calculatePolygonArea(pdfPoints as any) * Math.pow(scaleCalibration.metersPerPixel, 2);
+
+      const newZone: Zone = {
+        id: crypto.randomUUID(),
+        type: "supply",
+        points: pdfPoints,
+        color: getZoneColor("supply"),
+        areaSqm,
+        name: `Zone ${projectData.zones.length + 1}`,
+      };
+
+      setProjectData(prev => ({
+        ...prev,
+        zones: [...prev.zones, newZone],
+      }));
+
+      // Draw filled polygon on canvas
+      drawZone(newZone);
+
+      cleanupDrawing();
+      toast.success(`Zone created: ${areaSqm.toFixed(2)} m²`);
+      return;
+    }
+
+    // Handle LV/AC cables - open dialog for from/to and cable details
     if (activeTool === "line-lv") {
       pendingCablePointsRef.current = drawingPoints;
       setCableDialogOpen(true);
@@ -865,8 +931,8 @@ const FloorPlan = () => {
       toast.success(`${activeTool} added: ${lengthMeters.toFixed(2)}m`);
     }
 
-    // Handle zones
-    if (activeTool === "zone") {
+    // Handle zones (already handled in finishDrawing)
+    if ((activeTool as string) === "zone") {
       const area = calculatePolygonArea(drawingPoints);
       const areaSqm = area * Math.pow(scaleCalibration.metersPerPixel, 2);
       
