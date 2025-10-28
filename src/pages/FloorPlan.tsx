@@ -44,11 +44,11 @@ export default function FloorPlan() {
   
   const [, forceRender] = useState(0);
 
-  // Initialize canvas
+  // Initialize canvas - wait for canvas to be ready
   useEffect(() => {
     console.log('🔍 Canvas init effect - floorPlanId:', floorPlanId);
     if (!canvasRef.current) {
-      console.log('❌ Canvas ref not ready');
+      console.log('❌ Canvas ref not ready, will retry');
       return;
     }
     
@@ -67,20 +67,22 @@ export default function FloorPlan() {
     setRenderer(newRenderer);
     console.log('✅ Renderer created');
     
-    // Load floor plan data - pass the renderer directly to avoid race condition
-    if (floorPlanId) {
-      console.log('📂 Starting to load floor plan:', floorPlanId);
-      loadFloorPlanWithRenderer(newRenderer);
-    } else {
-      console.log('❌ No floorPlanId available');
-      setLoading(false);
-    }
-
     return () => {
       console.log('🧹 Cleaning up canvas');
       window.removeEventListener('resize', resizeCanvas);
     };
-  }, [floorPlanId]);
+  }, []);
+
+  // Load floor plan data once renderer is ready
+  useEffect(() => {
+    if (!renderer || !floorPlanId) {
+      console.log('⏳ Waiting for renderer and floorPlanId...');
+      return;
+    }
+    
+    console.log('📂 Starting to load floor plan:', floorPlanId);
+    loadFloorPlanWithRenderer(renderer);
+  }, [renderer, floorPlanId]);
 
   // Render loop
   useEffect(() => {
