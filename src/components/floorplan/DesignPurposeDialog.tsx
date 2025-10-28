@@ -6,7 +6,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { DesignPurpose } from "./types";
+import { DesignPurpose } from "./gemini/types";
 
 interface DesignPurposeDialogProps {
   open: boolean;
@@ -17,13 +17,8 @@ export const DesignPurposeDialog = ({ open, onSelect }: DesignPurposeDialogProps
   const purposes: { value: DesignPurpose; label: string; description: string }[] = [
     {
       value: "budget_markup",
-      label: "Budget Markup",
+      label: "Budget Mark Up",
       description: "For high-level, preliminary cost estimation with major electrical equipment like substations, main boards, generators, and main MV/LV cable routes.",
-    },
-    {
-      value: "line_shop",
-      label: "Line Shop Measurements",
-      description: "For detailed internal fit-outs with extensive library of final circuit items, light fittings, switches, socket outlets, data points, and trunking systems.",
     },
     {
       value: "pv_design",
@@ -31,8 +26,13 @@ export const DesignPurposeDialog = ({ open, onSelect }: DesignPurposeDialogProps
       description: "Specialized workflow for solar panel installations. Includes tools for drawing roof areas, defining pitch and direction, placing PV arrays, inverters, and DC/AC cabling.",
     },
     {
+      value: "line_shop",
+      label: "Line Shop Measurements",
+      description: "For detailed internal fit-outs with extensive library of final circuit items, light fittings, switches, socket outlets, data points, and trunking systems.",
+    },
+    {
       value: "prelim_design",
-      label: "Prelim Design Markup",
+      label: "Prelim Design Mark Up",
       description: "Similar to Budget Markup, intended for early stages of project design and planning with high-level equipment placement.",
     },
     {
