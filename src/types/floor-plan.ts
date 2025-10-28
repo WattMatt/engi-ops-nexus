@@ -3,6 +3,14 @@ export enum Tool {
     SCALE = 'SCALE',
     SELECT = 'SELECT',
     RULER = 'RULER',
+    DRAW_SCALE = 'DRAW_SCALE',
+    DRAW_CABLE = 'DRAW_CABLE',
+    DRAW_ZONE = 'DRAW_ZONE',
+    DRAW_CONTAINMENT = 'DRAW_CONTAINMENT',
+    DRAW_ROOF_MASK = 'DRAW_ROOF_MASK',
+    PLACE_PV_ARRAY = 'PLACE_PV_ARRAY',
+    PLACE_EQUIPMENT = 'PLACE_EQUIPMENT',
+    DELETE = 'DELETE',
     // Budget Markup Tools
     TOOL_DB = 'TOOL_DB',
     TOOL_PANEL = 'TOOL_PANEL',
@@ -56,15 +64,18 @@ export enum LineType {
 
 export interface SupplyLine {
     id: string;
-    type: LineType;
+    type?: LineType;
     points: Point[];
+    from: string;
+    to: string;
     fromLabel?: string;
     toLabel?: string;
-    length?: number;
-    cableType?: string;
-    startHeight?: number;
-    endHeight?: number;
-    terminationCount?: number;
+    length: number | null;
+    cableType: string;
+    startHeight: number;
+    endHeight: number;
+    terminationCount: number;
+    label?: string;
 }
 
 export interface SupplyZone {
@@ -89,9 +100,13 @@ export interface Containment {
 }
 
 export interface ScaleInfo {
-    pixelDistance: number | null;
-    realDistance: number | null;
-    ratio: number | null;
+    metersPerPixel: number;
+    referenceLineStart: Point;
+    referenceLineEnd: Point;
+    referenceDistanceMeters: number;
+    pixelDistance?: number | null;
+    realDistance?: number | null;
+    ratio?: number | null;
 }
 
 export interface ViewState {
@@ -139,8 +154,9 @@ export enum TaskStatus {
 export interface Task {
     id: string;
     title: string;
-    description?: string;
+    description: string;
     status: TaskStatus;
+    assignee?: string;
     assignedTo?: string;
     itemType?: string;
     itemId?: string;

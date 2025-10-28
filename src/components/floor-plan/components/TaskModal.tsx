@@ -4,12 +4,14 @@ import { Task, TaskStatus } from '@/types/floor-plan';
 interface TaskModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (taskData: Partial<Task>) => void;
-  task: Partial<Task> | null;
-  assigneeList: string[];
+  onSubmit: (task: Task) => void;
+  onDelete: (taskId: string) => void;
+  task: Task;
+  mode: 'create' | 'edit';
 }
 
-const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSubmit, task, assigneeList }) => {
+const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSubmit, onDelete, task, mode }) => {
+    const assigneeList: string[] = [];
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [assignedTo, setAssignedTo] = useState('');
@@ -36,18 +38,12 @@ const TaskModal: React.FC<TaskModalProps> = ({ isOpen, onClose, onSubmit, task, 
             alert('Task title is required.');
             return;
         }
-        if (!task?.itemId) {
-            alert('Cannot create a task that is not linked to an item.');
-            return;
-        }
         onSubmit({
-            id: task?.id,
+            ...task,
             title: title.trim(),
             description: description.trim(),
-            assignedTo: assignedTo.trim(),
+            assignee: assignedTo.trim(),
             status,
-            itemId: task!.itemId,
-            itemType: task!.itemType,
         });
     };
     

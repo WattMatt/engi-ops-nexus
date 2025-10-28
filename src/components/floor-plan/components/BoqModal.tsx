@@ -1,19 +1,20 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { Sparkles, Clipboard, Check, AlertTriangle, Loader } from 'lucide-react';
-import { EquipmentItem, SupplyLine, Containment, SupplyZone } from '@/types/floor-plan';
+import { EquipmentItem, SupplyLine, Containment, SupplyZone, PVPanelConfig, PVArrayItem } from '@/types/floor-plan';
 
 interface BoqModalProps {
   isOpen: boolean;
   onClose: () => void;
-  projectData: {
-    equipment: EquipmentItem[];
-    lines: SupplyLine[];
-    containment: Containment[];
-    zones: SupplyZone[];
-  };
+  equipment: EquipmentItem[];
+  lines: SupplyLine[];
+  containment: Containment[];
+  zones: SupplyZone[];
+  pvPanelConfig: PVPanelConfig | null;
+  pvArrays: PVArrayItem[];
 }
 
-const BoqModal: React.FC<BoqModalProps> = ({ isOpen, onClose, projectData }) => {
+const BoqModal: React.FC<BoqModalProps> = ({ isOpen, onClose, equipment, lines, containment, zones, pvPanelConfig, pvArrays }) => {
+    const projectData = { equipment, lines, containment, zones, pvPanelConfig, pvArrays };
     const [boqContent, setBoqContent] = useState('');
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState('');
