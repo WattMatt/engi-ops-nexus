@@ -1,17 +1,30 @@
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Loader2, ArrowLeft, Save, Circle, Square, Minus, Hand } from "lucide-react";
-import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
+import { ArrowLeft, Save, Download, Undo, Redo, FileText, Trash2 } from "lucide-react";
+import { Toolbar } from "@/components/floorplan/Toolbar";
+import { EquipmentPanel } from "@/components/floorplan/EquipmentPanel";
+import { BoqModal } from "@/components/floorplan/BoqModal";
+import { ScaleDialog } from "@/components/floorplan/ScaleDialog";
+import { CableDetailsDialog } from "@/components/floorplan/CableDetailsDialog";
+import { ContainmentSizeDialog } from "@/components/floorplan/ContainmentSizeDialog";
+import { RoofMaskDialog } from "@/components/floorplan/RoofMaskDialog";
+import { PVArrayDialog } from "@/components/floorplan/PVArrayDialog";
+import { PVPanelConfigDialog } from "@/components/floorplan/PVPanelConfigDialog";
+import { TaskModal } from "@/components/floorplan/TaskModal";
+import { DesignPurposeDialog } from "@/components/floorplan/DesignPurposeDialog";
+import { saveFloorPlanState, loadFloorPlanState } from "@/lib/supabaseFloorPlan";
+import { generateBoq } from "@/lib/boqGenerator";
+import { Tool, DesignPurpose, DesignState, Point, EquipmentItem, SupplyLine, SupplyZone, Containment, PVArray, RoofMask, PVPanelConfig } from "@/components/floorplan/types";
+import { EQUIPMENT_SIZES, CABLE_COLORS, CONTAINMENT_COLORS, ZONE_COLORS, SNAP_GRID_SIZE } from "@/components/floorplan/constants";
+import * as pdfjsLib from 'pdfjs-dist';
 
-GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/5.4.296/pdf.worker.min.mjs`;
+pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
-type Tool = 'select' | 'line' | 'circle' | 'square';
-
-export default function FloorPlan() {
-  const { floorPlanId } = useParams();
+export default function FloorPlanNew() {
+  const { id } = useParams();
   const navigate = useNavigate();
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -20,262 +33,514 @@ export default function FloorPlan() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [floorPlanName, setFloorPlanName] = useState("");
-  const [pdfUrl, setPdfUrl] = useState<string>("");
-  const [activeTool, setActiveTool] = useState<Tool>('select');
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  
+  // Design state
+  const [designPurpose, setDesignPurpose] = useState<DesignPurpose | null>(null);
+  const [activeTool, setActiveTool] = useState<Tool>("select");
+  const [state, setState] = useState<DesignState>({
+    equipment: [],
+    lines: [],
+    zones: [],
+    containment: [],
+    roofMasks: [],
+    pvArrays: [],
+    tasks: [],
+  });
+  
+  // History for undo/redo
+  const [history, setHistory] = useState<DesignState[]>([state]);
+  const [historyIndex, setHistoryIndex] = useState(0);
+  
+  // Drawing state
   const [isDrawing, setIsDrawing] = useState(false);
-  const [startPoint, setStartPoint] = useState<{ x: number; y: number } | null>(null);
-
+  const [currentPoints, setCurrentPoints] = useState<Point[]>([]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  
+  // Scale
+  const [scale, setScale] = useState({ metersPerPixel: 0, isSet: false });
+  const [scaleDialogOpen, setScaleDialogOpen] = useState(false);
+  const [scalePixelLength, setScalePixelLength] = useState(0);
+  
+  // Dialogs
+  const [cableDialogOpen, setCableDialogOpen] = useState(false);
+  const [containmentDialogOpen, setContainmentDialogOpen] = useState(false);
+  const [roofDialogOpen, setRoofDialogOpen] = useState(false);
+  const [pvArrayDialogOpen, setPvArrayDialogOpen] = useState(false);
+  const [pvConfigDialogOpen, setPvConfigDialogOpen] = useState(false);
+  const [taskModalOpen, setTaskModalOpen] = useState(false);
+  const [boqModalOpen, setBoqModalOpen] = useState(false);
+  const [boqContent, setBoqContent] = useState("");
+  
+  // Settings
+  const [rotation, setRotation] = useState(0);
+  const [snapEnabled, setSnapEnabled] = useState(false);
+  const [pvPanelConfig, setPvPanelConfig] = useState<PVPanelConfig>({ length: 1.7, width: 1.0, wattage: 400 });
+  
+  // Load floor plan
   useEffect(() => {
-    loadFloorPlan();
-  }, [floorPlanId]);
-
-  useEffect(() => {
-    if (pdfUrl && canvasRef.current && overlayCanvasRef.current) {
-      loadPDF();
+    if (id) {
+      loadFloorPlan();
     }
-  }, [pdfUrl]);
-
+  }, [id]);
+  
   const loadFloorPlan = async () => {
-    if (!floorPlanId) {
-      setLoading(false);
-      return;
-    }
-    
-    console.log('📂 Loading floor plan:', floorPlanId);
-    setLoading(true);
+    if (!id) return;
     
     try {
-      const { data: fp, error } = await supabase
+      const { data: floorPlan, error } = await supabase
         .from('floor_plans')
         .select('*')
-        .eq('id', floorPlanId)
-        .maybeSingle();
-
+        .eq('id', id)
+        .single();
+      
       if (error) throw error;
-
-      if (fp) {
-        console.log('✅ Floor plan loaded:', fp.name);
-        setFloorPlanName(fp.name);
-        setPdfUrl(fp.pdf_url);
-      } else {
-        toast.error('Floor plan not found');
-        navigate('/dashboard/floor-plans');
+      
+      setFloorPlanName(floorPlan.name);
+      setPdfUrl(floorPlan.pdf_url);
+      
+      if (floorPlan.design_purpose) {
+        setDesignPurpose(floorPlan.design_purpose as DesignPurpose);
       }
-    } catch (error: any) {
-      console.error('❌ Error loading floor plan:', error);
-      toast.error(error.message || 'Failed to load floor plan');
-    } finally {
+      
+      if (floorPlan.pv_panel_config) {
+        setPvPanelConfig(floorPlan.pv_panel_config as unknown as PVPanelConfig);
+      }
+      
+      if (floorPlan.scale_meters_per_pixel) {
+        setScale({ metersPerPixel: floorPlan.scale_meters_per_pixel, isSet: true });
+      }
+      
+      // Load state from database
+      const { state: loadedState } = await loadFloorPlanState(id);
+      if (loadedState) {
+        setState(loadedState);
+        setHistory([loadedState]);
+        setHistoryIndex(0);
+      }
+      
+      setLoading(false);
+    } catch (error) {
+      console.error('Error loading floor plan:', error);
+      toast.error('Failed to load floor plan');
       setLoading(false);
     }
   };
-
-  const loadPDF = async () => {
-    if (!canvasRef.current || !overlayCanvasRef.current || !pdfUrl) {
-      console.error('❌ Missing requirements:', { 
-        canvas: !!canvasRef.current, 
-        overlay: !!overlayCanvasRef.current, 
-        pdfUrl: !!pdfUrl 
-      });
-      return;
+  
+  // Load PDF
+  useEffect(() => {
+    if (pdfUrl && canvasRef.current) {
+      loadPDF();
     }
-
+  }, [pdfUrl]);
+  
+  const loadPDF = async () => {
+    if (!canvasRef.current || !overlayCanvasRef.current || !pdfUrl) return;
+    
     try {
-      console.log('📄 Loading PDF from:', pdfUrl);
-      
-      // Load PDF with explicit options
-      const loadingTask = getDocument({ 
-        url: pdfUrl,
-        withCredentials: false,
-        isEvalSupported: false
-      });
-      
-      const pdf = await loadingTask.promise;
-      console.log('✅ PDF loaded, pages:', pdf.numPages);
-      
+      const pdf = await pdfjsLib.getDocument({ url: pdfUrl, withCredentials: false }).promise;
       const page = await pdf.getPage(1);
-      console.log('✅ Got first page');
-      
       const viewport = page.getViewport({ scale: 1.5 });
-      console.log('📐 Viewport:', viewport.width, 'x', viewport.height);
-
-      // Set canvas sizes
+      
       const canvas = canvasRef.current;
       const overlay = overlayCanvasRef.current;
-      
       canvas.width = viewport.width;
       canvas.height = viewport.height;
       overlay.width = viewport.width;
       overlay.height = viewport.height;
       
-      console.log('📐 Canvas sized:', canvas.width, 'x', canvas.height);
-
-      // Render PDF
-      const context = canvas.getContext('2d');
-      if (!context) {
-        throw new Error('Failed to get canvas context');
-      }
+      const context = canvas.getContext('2d')!;
+      await page.render({ canvasContext: context, viewport } as any).promise;
       
-      console.log('🎨 Rendering PDF to canvas...');
-      await page.render({ 
-        canvasContext: context, 
-        viewport: viewport 
-      } as any).promise;
-
-      console.log('✅ PDF rendered successfully');
+      redrawOverlay();
       toast.success('PDF loaded successfully');
-    } catch (error: any) {
-      console.error('❌ Error loading PDF:', error);
-      toast.error(`Failed to load PDF: ${error.message}`);
+    } catch (error) {
+      console.error('Error loading PDF:', error);
+      toast.error('Failed to load PDF');
     }
   };
-
-  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (activeTool === 'select') return;
-
-    const rect = overlayCanvasRef.current?.getBoundingClientRect();
-    if (!rect) return;
-
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    setStartPoint({ x, y });
-    setIsDrawing(true);
-  };
-
-  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDrawing || !startPoint || !overlayCanvasRef.current) return;
-
-    const rect = overlayCanvasRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
+  
+  // Redraw overlay
+  const redrawOverlay = () => {
+    if (!overlayCanvasRef.current) return;
+    
     const ctx = overlayCanvasRef.current.getContext('2d')!;
     ctx.clearRect(0, 0, overlayCanvasRef.current.width, overlayCanvasRef.current.height);
-
-    ctx.strokeStyle = '#3b82f6';
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-
-    switch (activeTool) {
-      case 'line':
-        ctx.moveTo(startPoint.x, startPoint.y);
-        ctx.lineTo(x, y);
-        break;
-      case 'circle':
-        const radius = Math.sqrt(Math.pow(x - startPoint.x, 2) + Math.pow(y - startPoint.y, 2));
-        ctx.arc(startPoint.x, startPoint.y, radius, 0, 2 * Math.PI);
-        break;
-      case 'square':
-        ctx.rect(startPoint.x, startPoint.y, x - startPoint.x, y - startPoint.y);
-        break;
+    
+    // Draw zones
+    state.zones.forEach(zone => {
+      ctx.fillStyle = ZONE_COLORS[zone.type] || 'rgba(0,0,0,0.1)';
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      zone.points.forEach((p, i) => {
+        if (i === 0) ctx.moveTo(p.x, p.y);
+        else ctx.lineTo(p.x, p.y);
+      });
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    });
+    
+    // Draw cables
+    state.lines.forEach(line => {
+      ctx.strokeStyle = line.color || CABLE_COLORS[line.type] || '#000';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      line.points.forEach((p, i) => {
+        if (i === 0) ctx.moveTo(p.x, p.y);
+        else ctx.lineTo(p.x, p.y);
+      });
+      ctx.stroke();
+    });
+    
+    // Draw containment
+    state.containment.forEach(cont => {
+      ctx.strokeStyle = CONTAINMENT_COLORS[cont.type] || '#666';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([5, 5]);
+      ctx.beginPath();
+      cont.points.forEach((p, i) => {
+        if (i === 0) ctx.moveTo(p.x, p.y);
+        else ctx.lineTo(p.x, p.y);
+      });
+      ctx.stroke();
+      ctx.setLineDash([]);
+    });
+    
+    // Draw equipment
+    state.equipment.forEach(eq => {
+      const size = EQUIPMENT_SIZES[eq.type] || { width: 20, height: 20 };
+      ctx.fillStyle = '#4CAF50';
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 1;
+      ctx.fillRect(eq.x - size.width/2, eq.y - size.height/2, size.width, size.height);
+      ctx.strokeRect(eq.x - size.width/2, eq.y - size.height/2, size.width, size.height);
+    });
+    
+    // Draw current drawing
+    if (currentPoints.length > 0) {
+      ctx.strokeStyle = '#FF0000';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      currentPoints.forEach((p, i) => {
+        if (i === 0) ctx.moveTo(p.x, p.y);
+        else ctx.lineTo(p.x, p.y);
+      });
+      ctx.stroke();
     }
-
-    ctx.stroke();
   };
-
+  
+  useEffect(() => {
+    redrawOverlay();
+  }, [state, currentPoints]);
+  
+  // Mouse handlers
+  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const rect = overlayCanvasRef.current!.getBoundingClientRect();
+    let x = e.clientX - rect.left;
+    let y = e.clientY - rect.top;
+    
+    if (snapEnabled) {
+      x = Math.round(x / SNAP_GRID_SIZE) * SNAP_GRID_SIZE;
+      y = Math.round(y / SNAP_GRID_SIZE) * SNAP_GRID_SIZE;
+    }
+    
+    if (activeTool === "select") {
+      // Handle selection
+      return;
+    }
+    
+    // Equipment placement
+    if (EQUIPMENT_SIZES[activeTool as any]) {
+      const newEquipment: EquipmentItem = {
+        id: Math.random().toString(),
+        type: activeTool as any,
+        x,
+        y,
+        rotation,
+        properties: {},
+      };
+      pushHistory({ ...state, equipment: [...state.equipment, newEquipment] });
+      return;
+    }
+    
+    // Start drawing lines/zones
+    setIsDrawing(true);
+    setCurrentPoints([{ x, y }]);
+  };
+  
+  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!isDrawing) return;
+    
+    const rect = overlayCanvasRef.current!.getBoundingClientRect();
+    let x = e.clientX - rect.left;
+    let y = e.clientY - rect.top;
+    
+    if (snapEnabled) {
+      x = Math.round(x / SNAP_GRID_SIZE) * SNAP_GRID_SIZE;
+      y = Math.round(y / SNAP_GRID_SIZE) * SNAP_GRID_SIZE;
+    }
+    
+    setCurrentPoints([...currentPoints, { x, y }]);
+  };
+  
   const handleMouseUp = () => {
+    if (!isDrawing || currentPoints.length < 2) {
+      setIsDrawing(false);
+      setCurrentPoints([]);
+      return;
+    }
+    
     setIsDrawing(false);
-    setStartPoint(null);
-  };
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      // TODO: Save drawings to database
-      toast.success('Saved successfully');
-    } catch (error: any) {
-      console.error('Error saving:', error);
-      toast.error('Failed to save');
-    } finally {
-      setSaving(false);
+    
+    // Handle different tools
+    if (activeTool === "scale") {
+      const length = Math.sqrt(
+        Math.pow(currentPoints[currentPoints.length-1].x - currentPoints[0].x, 2) +
+        Math.pow(currentPoints[currentPoints.length-1].y - currentPoints[0].y, 2)
+      );
+      setScalePixelLength(length);
+      setScaleDialogOpen(true);
+    } else if (activeTool.startsWith("line-")) {
+      setCableDialogOpen(true);
+    } else if (activeTool === "zone") {
+      const newZone: SupplyZone = {
+        id: Math.random().toString(),
+        type: "supply",
+        points: currentPoints,
+        name: `Zone ${state.zones.length + 1}`,
+      };
+      pushHistory({ ...state, zones: [...state.zones, newZone] });
+      setCurrentPoints([]);
+    } else if (activeTool === "roof-mask") {
+      setRoofDialogOpen(true);
+    } else if (CONTAINMENT_COLORS[activeTool as any]) {
+      setContainmentDialogOpen(true);
     }
   };
-
+  
+  // Push to history
+  const pushHistory = (newState: DesignState) => {
+    const newHistory = history.slice(0, historyIndex + 1);
+    newHistory.push(newState);
+    setHistory(newHistory);
+    setHistoryIndex(newHistory.length - 1);
+    setState(newState);
+  };
+  
+  // Undo/Redo
+  const undo = () => {
+    if (historyIndex > 0) {
+      setHistoryIndex(historyIndex - 1);
+      setState(history[historyIndex - 1]);
+    }
+  };
+  
+  const redo = () => {
+    if (historyIndex < history.length - 1) {
+      setHistoryIndex(historyIndex + 1);
+      setState(history[historyIndex + 1]);
+    }
+  };
+  
+  // Save
+  const handleSave = async () => {
+    if (!id) return;
+    
+    setSaving(true);
+    const result = await saveFloorPlanState(id, state);
+    
+    if (result.success) {
+      toast.success('Floor plan saved successfully');
+    } else {
+      toast.error('Failed to save floor plan');
+    }
+    setSaving(false);
+  };
+  
+  // Generate BOQ
+  const handleGenerateBoq = () => {
+    const boq = generateBoq(state, floorPlanName);
+    setBoqContent(boq);
+    setBoqModalOpen(true);
+  };
+  
   if (loading) {
+    return <div className="flex items-center justify-center h-screen">Loading...</div>;
+  }
+  
+  if (!designPurpose) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading floor plan...</p>
-        </div>
-      </div>
+      <DesignPurposeDialog
+        open={true}
+        onSelect={(purpose) => {
+          setDesignPurpose(purpose);
+          if (id) {
+            supabase.from('floor_plans').update({ design_purpose: purpose as any }).eq('id', id);
+          }
+        }}
+      />
     );
   }
-
+  
   return (
-    <div className="flex flex-col h-screen bg-background">
-      <div className="border-b bg-card p-4 flex items-center justify-between">
+    <div className="h-screen flex flex-col">
+      {/* Header */}
+      <div className="border-b bg-background p-4 flex items-center justify-between">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm" onClick={() => navigate('/dashboard/floor-plans')}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+            <ArrowLeft className="w-5 h-5" />
           </Button>
-          <h1 className="text-xl font-semibold">{floorPlanName}</h1>
+          <h1 className="text-2xl font-bold">{floorPlanName}</h1>
+          <span className="text-sm text-muted-foreground">
+            {designPurpose.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')}
+          </span>
         </div>
         
         <div className="flex items-center gap-2">
-          <Button onClick={handleSave} disabled={saving}>
-            {saving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Save className="h-4 w-4 mr-2" />}
-            Save
+          <Button variant="outline" size="sm" onClick={undo} disabled={historyIndex === 0}>
+            <Undo className="w-4 h-4 mr-2" />
+            Undo
+          </Button>
+          <Button variant="outline" size="sm" onClick={redo} disabled={historyIndex === history.length - 1}>
+            <Redo className="w-4 h-4 mr-2" />
+            Redo
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => setState({ equipment: [], lines: [], zones: [], containment: [], roofMasks: [], pvArrays: [], tasks: [] })}>
+            <Trash2 className="w-4 h-4 mr-2" />
+            Clear All
+          </Button>
+          <Button variant="outline" size="sm" onClick={handleGenerateBoq}>
+            <FileText className="w-4 h-4 mr-2" />
+            Generate BOQ
+          </Button>
+          <Button size="sm" onClick={handleSave} disabled={saving}>
+            <Save className="w-4 h-4 mr-2" />
+            {saving ? 'Saving...' : 'Save'}
           </Button>
         </div>
       </div>
-
-      <div className="flex flex-1 overflow-hidden">
-        {/* Toolbar */}
-        <div className="w-16 border-r bg-card flex flex-col items-center gap-2 py-4">
-          <Button
-            variant={activeTool === 'select' ? 'default' : 'ghost'}
-            size="icon"
-            onClick={() => setActiveTool('select')}
-            title="Select"
-          >
-            <Hand className="h-5 w-5" />
-          </Button>
-          <Button
-            variant={activeTool === 'line' ? 'default' : 'ghost'}
-            size="icon"
-            onClick={() => setActiveTool('line')}
-            title="Draw Line"
-          >
-            <Minus className="h-5 w-5" />
-          </Button>
-          <Button
-            variant={activeTool === 'circle' ? 'default' : 'ghost'}
-            size="icon"
-            onClick={() => setActiveTool('circle')}
-            title="Draw Circle"
-          >
-            <Circle className="h-5 w-5" />
-          </Button>
-          <Button
-            variant={activeTool === 'square' ? 'default' : 'ghost'}
-            size="icon"
-            onClick={() => setActiveTool('square')}
-            title="Draw Rectangle"
-          >
-            <Square className="h-5 w-5" />
-          </Button>
+      
+      {/* Main Content */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Toolbar */}
+        <div className="w-64 overflow-y-auto border-r">
+          <Toolbar
+            activeTool={activeTool}
+            onToolSelect={setActiveTool}
+            designPurpose={designPurpose}
+            rotation={rotation}
+            snapEnabled={snapEnabled}
+            onToggleSnap={() => setSnapEnabled(!snapEnabled)}
+          />
         </div>
-
-        {/* Canvas Area */}
-        <div className="flex-1 overflow-auto p-4 bg-muted">
-          <div className="relative inline-block">
-            <canvas
-              ref={canvasRef}
-              className="border border-border shadow-lg bg-white"
-            />
-            <canvas
-              ref={overlayCanvasRef}
-              className="absolute top-0 left-0 cursor-crosshair"
-              onMouseDown={handleMouseDown}
-              onMouseMove={handleMouseMove}
-              onMouseUp={handleMouseUp}
-              onMouseLeave={handleMouseUp}
-            />
-          </div>
+        
+        {/* Canvas */}
+        <div className="flex-1 relative overflow-auto">
+          <canvas ref={canvasRef} className="absolute top-0 left-0" />
+          <canvas 
+            ref={overlayCanvasRef} 
+            className="absolute top-0 left-0 cursor-crosshair"
+            onMouseDown={handleMouseDown}
+            onMouseMove={handleMouseMove}
+            onMouseUp={handleMouseUp}
+          />
+        </div>
+        
+        {/* Right Panel */}
+        <div className="w-80 overflow-y-auto border-l">
+          <EquipmentPanel state={state} />
         </div>
       </div>
+      
+      {/* Dialogs */}
+      <ScaleDialog
+        open={scaleDialogOpen}
+        pixelLength={scalePixelLength}
+        onConfirm={(meters) => {
+          setScale({ metersPerPixel: meters / scalePixelLength, isSet: true });
+          if (id) {
+            supabase.from('floor_plans').update({ scale_meters_per_pixel: meters / scalePixelLength }).eq('id', id);
+          }
+          setScaleDialogOpen(false);
+          setCurrentPoints([]);
+          toast.success('Scale set successfully');
+        }}
+        onCancel={() => {
+          setScaleDialogOpen(false);
+          setCurrentPoints([]);
+        }}
+      />
+      
+      <CableDetailsDialog
+        open={cableDialogOpen}
+        equipment={state.equipment}
+        onConfirm={(details) => {
+          const newLine: SupplyLine = {
+            id: Math.random().toString(),
+            type: activeTool.replace('line-', '') as any,
+            points: currentPoints,
+            cableSize: details.cableType,
+            supplyFrom: details.from,
+            supplyTo: details.to,
+          };
+          pushHistory({ ...state, lines: [...state.lines, newLine] });
+          setCableDialogOpen(false);
+          setCurrentPoints([]);
+        }}
+        onCancel={() => {
+          setCableDialogOpen(false);
+          setCurrentPoints([]);
+        }}
+      />
+      
+      <ContainmentSizeDialog
+        open={containmentDialogOpen}
+        containmentType={activeTool}
+        onConfirm={(size) => {
+          const newCont: Containment = {
+            id: Math.random().toString(),
+            type: activeTool as any,
+            points: currentPoints,
+            size,
+          };
+          pushHistory({ ...state, containment: [...state.containment, newCont] });
+          setContainmentDialogOpen(false);
+          setCurrentPoints([]);
+        }}
+        onCancel={() => {
+          setContainmentDialogOpen(false);
+          setCurrentPoints([]);
+        }}
+      />
+      
+      <RoofMaskDialog
+        open={roofDialogOpen}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRoofDialogOpen(false);
+            setCurrentPoints([]);
+          }
+        }}
+        onConfirm={(pitch) => {
+          const newMask: RoofMask = {
+            id: Math.random().toString(),
+            points: currentPoints,
+            pitch,
+            name: `Roof ${state.roofMasks.length + 1}`,
+          };
+          pushHistory({ ...state, roofMasks: [...state.roofMasks, newMask] });
+          setRoofDialogOpen(false);
+          setCurrentPoints([]);
+        }}
+      />
+      
+      <BoqModal
+        open={boqModalOpen}
+        onOpenChange={setBoqModalOpen}
+        boqContent={boqContent}
+      />
     </div>
   );
 }
