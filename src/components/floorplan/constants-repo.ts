@@ -1,5 +1,5 @@
 
-import { ContainmentType, EquipmentType } from './types';
+import { ContainmentType, EquipmentType } from './types-repo';
 
 export const TOOL_COLORS = {
   LINE_MV: '#ff4d4d', // Red for Medium Voltage
