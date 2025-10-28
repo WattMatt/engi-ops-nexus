@@ -17,6 +17,27 @@ export const ICON_SIZE = {
     CAMERA: 20,
 } as const;
 
+// Tool colors for drawing
+export const TOOL_COLORS = {
+    LINE_LV: '#FF6B6B',
+    LINE_MV: '#4ECDC4',
+    LINE_DC: '#95E1D3',
+    ROOF_MASK: 'rgba(52, 152, 219, 0.3)',
+} as const;
+
+// Equipment real-world sizes in meters
+export const EQUIPMENT_REAL_WORLD_SIZES: Record<string, number | { w: number; h: number }> = {
+    RMU: 1.5,
+    SUBSTATION: { w: 2.0, h: 1.5 },
+    MAIN_BOARD: { w: 1.0, h: 0.8 },
+    SUB_BOARD: { w: 0.6, h: 0.8 },
+    GENERATOR: 2.0,
+    POLE_LIGHT: 0.5,
+    INVERTER: { w: 0.6, h: 0.4 },
+    DC_COMBINER: 0.5,
+    AC_DISCONNECT: 0.4,
+};
+
 // Colors for different line types
 export const LINE_COLORS = {
     lv: '#FF6B6B',      // Red for LV cables

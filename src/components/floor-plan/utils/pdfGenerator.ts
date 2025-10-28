@@ -220,7 +220,10 @@ export async function generatePdf(options: GeneratePdfOptions): Promise<Blob> {
       if (context) {
         canvas.width = viewport.width;
         canvas.height = viewport.height;
-        await page.render({ canvasContext: context, viewport }).promise;
+        await page.render({ 
+          canvasContext: context, 
+          viewport,
+        }).promise;
         const imgData = canvas.toDataURL('image/jpeg', 0.8);
         const imgWidth = pageWidth - 2 * margin;
         const imgHeight = (canvas.height * imgWidth) / canvas.width;
