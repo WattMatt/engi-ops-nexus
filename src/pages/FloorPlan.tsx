@@ -1158,137 +1158,14 @@ const FloorPlan = () => {
             toast.error('No PDF found for this floor plan');
           }
           
-          // NOW add scale markers ON TOP of PDF - convert PDF coords to canvas
-          if (fp.scale_point1 && fp.scale_point2 && pdfDimensions) {
-            console.log('🎯 Restoring scale markers from PDF coordinates:', fp.scale_point1, fp.scale_point2);
-            
-            // These are PDF coordinates from the database
+          // Scale will be restored by separate useEffect once PDF dimensions are ready
+          if (fp.scale_point1 && fp.scale_point2) {
             const pdfPoint1 = fp.scale_point1 as { x: number; y: number };
             const pdfPoint2 = fp.scale_point2 as { x: number; y: number };
-            
-            // Convert PDF coordinates to canvas coordinates
-            const canvasPoint1 = pdfToCanvas(pdfPoint1, pdfDimensions);
-            const canvasPoint2 = pdfToCanvas(pdfPoint2, pdfDimensions);
-            
-            const currentCanvasZoom = fabricCanvas.getZoom();
-            
-            // Create draggable markers at canvas positions
-            const marker1 = new Circle({
-              left: canvasPoint1.x,
-              top: canvasPoint1.y,
-              radius: 8 / currentCanvasZoom,
-              fill: "#ef4444",
-              stroke: "#fbbf24",
-              strokeWidth: 2 / currentCanvasZoom,
-              selectable: true,       // KEEP DRAGGABLE
-              evented: true,          // KEEP EVENTS ENABLED
-              hasControls: false,     // No resize/rotate controls
-              hasBorders: true,       // Show selection border
-              hoverCursor: 'move',    // Show move cursor
-              lockRotation: true,
-              originX: 'center',
-              originY: 'center',
-              visible: true,
-              opacity: 1,
-              borderColor: '#fbbf24',
-              cornerColor: '#fbbf24',
-            });
-            
-            // Store PDF coordinates on the marker
-            marker1.set('pdfX', pdfPoint1.x);
-            marker1.set('pdfY', pdfPoint1.y);
-            
-            const marker2 = new Circle({
-              left: canvasPoint2.x,
-              top: canvasPoint2.y,
-              radius: 8 / currentCanvasZoom,
-              fill: "#ef4444",
-              stroke: "#fbbf24",
-              strokeWidth: 2 / currentCanvasZoom,
-              selectable: true,       // KEEP DRAGGABLE
-              evented: true,          // KEEP EVENTS ENABLED
-              hasControls: false,     // No resize/rotate controls
-              hasBorders: true,       // Show selection border
-              hoverCursor: 'move',    // Show move cursor
-              lockRotation: true,
-              originX: 'center',
-              originY: 'center',
-              visible: true,
-              opacity: 1,
-              borderColor: '#fbbf24',
-              cornerColor: '#fbbf24',
-            });
-            
-            // Store PDF coordinates on the marker
-            marker2.set('pdfX', pdfPoint2.x);
-            marker2.set('pdfY', pdfPoint2.y);
-            
-            // Create scale line in canvas coordinates
-            const line = new Line([canvasPoint1.x, canvasPoint1.y, canvasPoint2.x, canvasPoint2.y], {
-              stroke: "#ef4444",
-              strokeWidth: 3 / currentCanvasZoom,
-              selectable: false,
-              evented: false,
-              strokeDashArray: [10 / currentCanvasZoom, 5 / currentCanvasZoom],
-              visible: true,
-              opacity: 1
-            });
-            
-            // Calculate distance in PDF space (not canvas)
-            const dx = pdfPoint2.x - pdfPoint1.x;
-            const dy = pdfPoint2.y - pdfPoint1.y;
-            const pdfDistance = Math.sqrt(dx * dx + dy * dy);
-            const realWorldDistance = pdfDistance * fp.scale_meters_per_pixel;
-            
-            const midX = (canvasPoint1.x + canvasPoint2.x) / 2;
-            const midY = (canvasPoint1.y + canvasPoint2.y) / 2;
-            
-            // Calculate angle of the line to position label perpendicular
-            const canvasDx = canvasPoint2.x - canvasPoint1.x;
-            const canvasDy = canvasPoint2.y - canvasPoint1.y;
-            const angle = Math.atan2(canvasDy, canvasDx);
-            
-            // Position label perpendicular to the line (30px offset)
-            const offsetDistance = 30 / currentCanvasZoom;
-            const labelX = midX - Math.sin(angle) * offsetDistance;
-            const labelY = midY + Math.cos(angle) * offsetDistance;
-            
-            // Create label
-            const label = new Text(`${realWorldDistance.toFixed(2)}m`, {
-              left: labelX,
-              top: labelY,
-              fontSize: 14 / currentCanvasZoom,
-              fontWeight: 'bold',
-              fill: '#dc2626',
-              backgroundColor: '#fef2f2',
-              padding: 6 / currentCanvasZoom,
-              textAlign: 'center',
-              selectable: false,
-              evented: false,
-              originX: 'center',
-              originY: 'center',
-            });
-            
-            // Add all objects to canvas
-            fabricCanvas.add(line);
-            fabricCanvas.add(marker1);
-            fabricCanvas.add(marker2);
-            fabricCanvas.add(label);
-            fabricCanvas.bringObjectToFront(line);
-            fabricCanvas.bringObjectToFront(marker1);
-            fabricCanvas.bringObjectToFront(marker2);
-            fabricCanvas.bringObjectToFront(label);
-            fabricCanvas.renderAll();
-            
-            setScaleObjects({ line, markers: [marker1, marker2], label });
-            setScaleCalibrationPoints([new Point(pdfPoint1.x, pdfPoint1.y), new Point(pdfPoint2.x, pdfPoint2.y)]);
-            
-            console.log('✅ Scale line and markers restored from PDF coordinates');
-            toast.success('Floor plan loaded with scale');
-          } else {
-            // No scale markers, just show floor plan
-            console.log('✅ PDF loaded, no scale markers');
-            toast.success('Floor plan loaded');
+            setScaleCalibrationPoints([
+              new Point(pdfPoint1.x, pdfPoint1.y), 
+              new Point(pdfPoint2.x, pdfPoint2.y)
+            ]);
           }
           
           // Load all markups
@@ -1306,6 +1183,161 @@ const FloorPlan = () => {
 
     loadFloorPlan();
   }, [fabricCanvas, floorPlanId]);
+
+  // Restore scale markers once PDF dimensions are available
+  useEffect(() => {
+    if (!fabricCanvas || !floorPlanId || !pdfDimensions || !scaleCalibration.isSet) return;
+    
+    // Prevent duplicate scale markers
+    if (scaleObjects.markers.length > 0) return;
+    
+    // Check if there are saved scale points to restore
+    if (scaleCalibrationPoints.length !== 2) return;
+    
+    const restoreScaleMarkers = async () => {
+      try {
+        // Fetch scale points from database
+        const { data: fp } = await supabase
+          .from("floor_plans")
+          .select("scale_point1, scale_point2, scale_meters_per_pixel")
+          .eq("id", floorPlanId)
+          .single();
+        
+        if (!fp || !fp.scale_point1 || !fp.scale_point2) return;
+        
+        console.log('🎯 Restoring scale markers from database');
+        
+        const pdfPoint1 = fp.scale_point1 as { x: number; y: number };
+        const pdfPoint2 = fp.scale_point2 as { x: number; y: number };
+        
+        // Convert PDF coordinates to canvas coordinates
+        const canvasPoint1 = pdfToCanvas(pdfPoint1, pdfDimensions);
+        const canvasPoint2 = pdfToCanvas(pdfPoint2, pdfDimensions);
+        
+        const currentCanvasZoom = fabricCanvas.getZoom();
+        
+        // Create draggable marker 1
+        const marker1 = new Circle({
+          left: canvasPoint1.x,
+          top: canvasPoint1.y,
+          radius: 8 / currentCanvasZoom,
+          fill: "#ef4444",
+          stroke: "#fbbf24",
+          strokeWidth: 2 / currentCanvasZoom,
+          selectable: true,
+          evented: true,
+          hasControls: false,
+          hasBorders: true,
+          hoverCursor: 'move',
+          lockRotation: true,
+          originX: 'center',
+          originY: 'center',
+          visible: true,
+          opacity: 1,
+          borderColor: '#fbbf24',
+          cornerColor: '#fbbf24',
+        });
+        marker1.set('pdfX', pdfPoint1.x);
+        marker1.set('pdfY', pdfPoint1.y);
+        
+        // Create draggable marker 2
+        const marker2 = new Circle({
+          left: canvasPoint2.x,
+          top: canvasPoint2.y,
+          radius: 8 / currentCanvasZoom,
+          fill: "#ef4444",
+          stroke: "#fbbf24",
+          strokeWidth: 2 / currentCanvasZoom,
+          selectable: true,
+          evented: true,
+          hasControls: false,
+          hasBorders: true,
+          hoverCursor: 'move',
+          lockRotation: true,
+          originX: 'center',
+          originY: 'center',
+          visible: true,
+          opacity: 1,
+          borderColor: '#fbbf24',
+          cornerColor: '#fbbf24',
+        });
+        marker2.set('pdfX', pdfPoint2.x);
+        marker2.set('pdfY', pdfPoint2.y);
+        
+        // Create scale line
+        const line = new Line([canvasPoint1.x, canvasPoint1.y, canvasPoint2.x, canvasPoint2.y], {
+          stroke: "#ef4444",
+          strokeWidth: 3 / currentCanvasZoom,
+          selectable: false,
+          evented: false,
+          strokeDashArray: [10 / currentCanvasZoom, 5 / currentCanvasZoom],
+          visible: true,
+          opacity: 1
+        });
+        
+        // Calculate real-world distance
+        const dx = pdfPoint2.x - pdfPoint1.x;
+        const dy = pdfPoint2.y - pdfPoint1.y;
+        const pdfDistance = Math.sqrt(dx * dx + dy * dy);
+        const realWorldDistance = pdfDistance * fp.scale_meters_per_pixel;
+        
+        // Calculate label position
+        const midX = (canvasPoint1.x + canvasPoint2.x) / 2;
+        const midY = (canvasPoint1.y + canvasPoint2.y) / 2;
+        const canvasDx = canvasPoint2.x - canvasPoint1.x;
+        const canvasDy = canvasPoint2.y - canvasPoint1.y;
+        const angle = Math.atan2(canvasDy, canvasDx);
+        const offsetDistance = 30 / currentCanvasZoom;
+        const labelX = midX - Math.sin(angle) * offsetDistance;
+        const labelY = midY + Math.cos(angle) * offsetDistance;
+        
+        // Create label
+        const label = new Text(`${realWorldDistance.toFixed(2)}m`, {
+          left: labelX,
+          top: labelY,
+          fontSize: 14 / currentCanvasZoom,
+          fontWeight: 'bold',
+          fill: '#dc2626',
+          backgroundColor: '#fef2f2',
+          padding: 6 / currentCanvasZoom,
+          textAlign: 'center',
+          selectable: false,
+          evented: false,
+          originX: 'center',
+          originY: 'center',
+        });
+        
+        // Add to canvas in correct order
+        fabricCanvas.add(line);
+        fabricCanvas.add(marker1);
+        fabricCanvas.add(marker2);
+        fabricCanvas.add(label);
+        
+        // Ensure proper z-ordering
+        const pdfImage = fabricCanvas.getObjects().find(obj => obj instanceof FabricImage);
+        if (pdfImage) {
+          fabricCanvas.sendObjectToBack(pdfImage);
+        }
+        fabricCanvas.bringObjectToFront(line);
+        fabricCanvas.bringObjectToFront(marker1);
+        fabricCanvas.bringObjectToFront(marker2);
+        fabricCanvas.bringObjectToFront(label);
+        
+        fabricCanvas.renderAll();
+        
+        // Update state
+        setScaleObjects({ line, markers: [marker1, marker2], label });
+        
+        console.log('✅ Scale markers restored successfully');
+        toast.success('Scale calibration restored', { duration: 1500 });
+        
+      } catch (error) {
+        console.error('Error restoring scale markers:', error);
+      }
+    };
+    
+    restoreScaleMarkers();
+  }, [fabricCanvas, floorPlanId, pdfDimensions, scaleCalibration.isSet, scaleCalibrationPoints, scaleObjects.markers.length]);
 
   // Render loaded items on canvas when projectData changes
   useEffect(() => {
