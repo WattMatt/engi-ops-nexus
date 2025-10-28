@@ -149,7 +149,7 @@ const FloorPlans = () => {
       </CardHeader>
       <CardContent>
         <div className="space-y-3">
-          <PDFThumbnail thumbnailUrl={plan.thumbnail_url} className="aspect-video" />
+          <PDFThumbnail className="aspect-video" />
           
           <div className="space-y-2 text-sm">
             <div className="flex items-center justify-between">
