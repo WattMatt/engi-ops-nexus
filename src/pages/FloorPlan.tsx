@@ -3052,7 +3052,8 @@ const FloorPlan = () => {
               <div className="border rounded-lg overflow-hidden bg-muted relative">
                 <canvas ref={canvasRef} />
                 
-                <div className="absolute bottom-4 right-4 z-10">
+                {/* Drawing Controls - Always visible */}
+                <div className="absolute top-4 right-4 z-10">
                   <DrawingControls
                     canUndo={canUndo}
                     canRedo={canRedo}
@@ -3061,6 +3062,7 @@ const FloorPlan = () => {
                     onSave={handleSave}
                     saving={saving}
                     hasSelection={!!selectedEquipment || !!selectedZone}
+                    selectionType={selectedZone ? 'zone' : selectedEquipment ? 'equipment' : null}
                     onDelete={() => {
                       if (selectedEquipment) handleEquipmentDelete();
                       else if (selectedZone) handleZoneDelete();
@@ -3070,6 +3072,19 @@ const FloorPlan = () => {
                     }}
                   />
                 </div>
+                
+                {/* Drawing Instructions */}
+                {isDrawing && (
+                  <div className="absolute top-4 left-4 z-10 bg-background/95 backdrop-blur p-3 rounded-lg border shadow-lg">
+                    <p className="text-sm font-medium mb-1">Drawing Mode Active</p>
+                    <div className="text-xs text-muted-foreground space-y-1">
+                      <div>• Click to add points</div>
+                      <div>• <kbd className="px-1 py-0.5 bg-muted rounded text-xs">Enter</kbd> to finish</div>
+                      <div>• <kbd className="px-1 py-0.5 bg-muted rounded text-xs">Esc</kbd> to cancel</div>
+                      <div>• Double-click to complete</div>
+                    </div>
+                  </div>
+                )}
               </div>
               {!pdfImageUrl && (
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
