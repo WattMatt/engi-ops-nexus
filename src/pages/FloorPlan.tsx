@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { FileText, Save, Sparkles, Loader2, ArrowLeft, Ruler, Edit } from "lucide-react";
+import { FileText, Save, Sparkles, Loader2, ArrowLeft, Ruler, Edit, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Canvas as FabricCanvas, Image as FabricImage, Point, Line, Circle, Polyline, Rect, Group, Text } from "fabric";
 import { supabase } from "@/integrations/supabase/client";
@@ -46,6 +46,7 @@ const FloorPlan = () => {
   const [activeTool, setActiveTool] = useState<Tool>("select");
   const [rotation, setRotation] = useState(0);
   const [snapEnabled, setSnapEnabled] = useState(false);
+  const [selectedEquipment, setSelectedEquipment] = useState<any>(null);
   const [scaleCalibration, setScaleCalibration] = useState<ScaleCalibration>({
     metersPerPixel: 0,
     isSet: false,
@@ -300,6 +301,37 @@ const FloorPlan = () => {
       fabricCanvas.off('object:modified', handleObjectModified);
     };
   }, [fabricCanvas, scaleObjects, pdfDimensions, scaleCalibration]);
+
+  // Handle equipment selection for deletion
+  useEffect(() => {
+    if (!fabricCanvas) return;
+    
+    const handleObjectSelected = (e: any) => {
+      const obj = e.selected?.[0];
+      if (!obj) return;
+      
+      const equipmentId = obj.get('equipmentId');
+      if (equipmentId) {
+        setSelectedEquipment(obj);
+      } else {
+        setSelectedEquipment(null);
+      }
+    };
+    
+    const handleSelectionCleared = () => {
+      setSelectedEquipment(null);
+    };
+    
+    fabricCanvas.on('selection:created', handleObjectSelected);
+    fabricCanvas.on('selection:updated', handleObjectSelected);
+    fabricCanvas.on('selection:cleared', handleSelectionCleared);
+    
+    return () => {
+      fabricCanvas.off('selection:created', handleObjectSelected);
+      fabricCanvas.off('selection:updated', handleObjectSelected);
+      fabricCanvas.off('selection:cleared', handleSelectionCleared);
+    };
+  }, [fabricCanvas]);
 
   // Handle canvas drawing interactions
   useEffect(() => {
@@ -558,17 +590,19 @@ const FloorPlan = () => {
         const realSize = EQUIPMENT_SIZES[activeTool as EquipmentType];
         const pixelSize = realSize / scaleCalibration.metersPerPixel;
         
-        const preview = new Circle({
-          left: point.x - pixelSize / 2,
-          top: point.y - pixelSize / 2,
-          radius: pixelSize / 2,
-          fill: "rgba(59, 130, 246, 0.3)",
-          stroke: "#3b82f6",
-          strokeWidth: 2,
-          selectable: false,
-          evented: false,
-          angle: rotation,
-        });
+      const preview = new Circle({
+        left: point.x,
+        top: point.y,
+        radius: pixelSize / 2,
+        fill: "rgba(59, 130, 246, 0.3)",
+        stroke: "#3b82f6",
+        strokeWidth: 2,
+        selectable: false,
+        evented: false,
+        angle: rotation,
+        originX: 'center',
+        originY: 'center',
+      });
         
         setEquipmentPreview(preview);
         fabricCanvas.add(preview);
@@ -669,12 +703,15 @@ const FloorPlan = () => {
         cancelDrawing();
       } else if (e.key === "Enter" && isDrawing) {
         finishDrawing();
+      } else if ((e.key === "Delete" || e.key === "Backspace") && selectedEquipment) {
+        e.preventDefault();
+        handleEquipmentDelete();
       }
     };
 
     window.addEventListener("keydown", handleKeyPress);
     return () => window.removeEventListener("keydown", handleKeyPress);
-  }, [isDrawing, drawingPoints, activeTool]);
+  }, [isDrawing, drawingPoints, activeTool, selectedEquipment]);
 
   const getToolColor = (tool: Tool): string => {
     const colors: Record<string, string> = {
@@ -711,12 +748,18 @@ const FloorPlan = () => {
     const symbol = createIECSymbol(equipment.type as EquipmentType, symbolScale);
     
     symbol.set({
-      left: canvasPoint.x,  // Use canvas coordinates for display
-      top: canvasPoint.y,   // Use canvas coordinates for display
+      left: canvasPoint.x,
+      top: canvasPoint.y,
       angle: equipment.rotation || 0,
       selectable: true,
       hasControls: true,
       hasBorders: true,
+      borderColor: '#3b82f6',
+      cornerColor: '#3b82f6',
+      cornerSize: 10,
+      cornerStyle: 'circle',
+      transparentCorners: false,
+      hoverCursor: 'move',
     });
     
     // Store equipment data with the symbol for later reference
@@ -973,6 +1016,39 @@ const FloorPlan = () => {
     setSelectedLine(null);
     setLineEditDialogOpen(false);
     toast.success("Line deleted");
+  };
+
+  const handleEquipmentDelete = async () => {
+    if (!selectedEquipment || !fabricCanvas) return;
+    
+    const equipmentId = selectedEquipment.get('equipmentId');
+    const equipmentType = selectedEquipment.get('equipmentType');
+    
+    fabricCanvas.remove(selectedEquipment);
+    fabricCanvas.renderAll();
+    
+    setProjectData(prev => ({
+      ...prev,
+      equipment: prev.equipment.filter(e => e.id !== equipmentId)
+    }));
+    
+    setSelectedEquipment(null);
+    toast.success(`${equipmentType} deleted`);
+    
+    if (floorPlanId) {
+      try {
+        const { error } = await supabase
+          .from('equipment_placements')
+          .delete()
+          .eq('id', equipmentId);
+          
+        if (error) {
+          console.error('Error deleting equipment from database:', error);
+        }
+      } catch (err) {
+        console.error('Error deleting equipment:', err);
+      }
+    }
   };
 
   // Load existing floor plan and markups on component mount
@@ -2405,8 +2481,22 @@ const FloorPlan = () => {
               )}
             </CardHeader>
             <CardContent>
-              <div className="border rounded-lg overflow-hidden bg-muted">
+              <div className="border rounded-lg overflow-hidden bg-muted relative">
                 <canvas ref={canvasRef} />
+                
+                {selectedEquipment && (
+                  <div className="absolute bottom-4 right-4 z-10">
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={handleEquipmentDelete}
+                      className="shadow-lg"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete Equipment (Del)
+                    </Button>
+                  </div>
+                )}
               </div>
               {!pdfImageUrl && (
                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
