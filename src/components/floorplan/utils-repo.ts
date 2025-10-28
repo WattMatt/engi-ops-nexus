@@ -1,5 +1,5 @@
-import { SupplyLine, ContainmentType } from './types';
-import { CONTAINMENT_COLORS, CONTAINMENT_DASH_STYLES } from './constants';
+import { SupplyLine, ContainmentType } from './types-repo';
+import { CONTAINMENT_COLORS, CONTAINMENT_DASH_STYLES } from './constants-original';
 
 // A predefined palette of visually distinct and pleasant colors for LV cables.
 const CABLE_COLORS = [

@@ -2,7 +2,7 @@
 
 
 
-import { DesignPurpose, EquipmentType, Tool, ContainmentType, MarkupToolCategory } from './types';
+import { DesignPurpose, EquipmentType, Tool, ContainmentType, MarkupToolCategory } from './types-repo';
 
 export interface PurposeConfig {
   label: string;
