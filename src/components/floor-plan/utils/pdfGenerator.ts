@@ -221,6 +221,7 @@ export async function generatePdf(options: GeneratePdfOptions): Promise<Blob> {
         canvas.width = viewport.width;
         canvas.height = viewport.height;
         await page.render({ 
+          canvas,
           canvasContext: context, 
           viewport,
         }).promise;

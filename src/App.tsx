@@ -23,6 +23,7 @@ import CableSchedules from "./pages/CableSchedules";
 import CableScheduleDetail from "./pages/CableScheduleDetail";
 import StaffManagement from "./pages/StaffManagement";
 import Invoicing from "./pages/Invoicing";
+import FloorPlanMarkup from "./pages/FloorPlanMarkup";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -61,6 +62,7 @@ const App = () => (
             <Route path="specifications/:specId" element={<SpecificationDetail />} />
             <Route path="cable-schedules" element={<CableSchedules />} />
             <Route path="cable-schedules/:scheduleId" element={<CableScheduleDetail />} />
+            <Route path="floor-plan-markup" element={<FloorPlanMarkup />} />
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
