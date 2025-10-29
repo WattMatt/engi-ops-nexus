@@ -1,4 +1,4 @@
-import { Users, Settings, Building2, FolderKanban, Receipt } from "lucide-react";
+import { Users, Settings, Building2, FolderKanban, Receipt, MessageSquareWarning } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   Sidebar,
@@ -17,6 +17,7 @@ const adminItems = [
   { title: "Invoicing", url: "/admin/invoicing", icon: Receipt },
   { title: "Staff Management", url: "/admin/staff", icon: Users },
   { title: "User Management", url: "/admin/users", icon: Users },
+  { title: "Feedback", url: "/admin/feedback", icon: MessageSquareWarning },
   { title: "Settings", url: "/admin/settings", icon: Settings },
 ];
 
