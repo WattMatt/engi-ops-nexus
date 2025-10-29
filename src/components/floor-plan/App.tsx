@@ -393,8 +393,22 @@ const MainApp: React.FC = () => {
   }, []);
 
   const handleResetZoom = useCallback(() => {
-      if(initialViewState) setViewState(initialViewState);
-  }, [initialViewState]);
+      if(!canvasApiRef.current || !mainContainerRef.current) return;
+      const canvases = canvasApiRef.current.getCanvases();
+      if(!canvases.pdf) return;
+      
+      // Recalculate fit-to-screen view
+      const containerWidth = mainContainerRef.current.clientWidth;
+      const containerHeight = mainContainerRef.current.clientHeight;
+      const pdfWidth = canvases.pdf.width;
+      const pdfHeight = canvases.pdf.height;
+      
+      const fitZoom = Math.min(containerWidth / pdfWidth, containerHeight / pdfHeight) * 0.95;
+      const fitOffsetX = (containerWidth - pdfWidth * fitZoom) / 2;
+      const fitOffsetY = (containerHeight - pdfHeight * fitZoom) / 2;
+      
+      setViewState({ zoom: fitZoom, offset: { x: fitOffsetX, y: fitOffsetY } });
+  }, []);
   
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
