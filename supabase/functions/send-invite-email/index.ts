@@ -29,7 +29,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.log("Resend API key configured:", Deno.env.get("RESEND_API_KEY") ? "Yes" : "No");
 
     const emailResponse = await resend.emails.send({
-      from: "Team <onboarding@resend.dev>",
+      from: "arno@watsonmattheus.com",
       to: [email],
       subject: "You've been invited to join the platform",
       html: `
