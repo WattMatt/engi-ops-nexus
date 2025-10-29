@@ -526,7 +526,7 @@ const MainApp: React.FC = () => {
   const pvDesignReady = useMemo(() => designPurpose !== DesignPurpose.PV_DESIGN || (!!scaleInfo.ratio && !!pvPanelConfig), [designPurpose, scaleInfo.ratio, pvPanelConfig]);
 
   return (
-    <div className="h-full w-full flex bg-background relative">
+    <div className="h-full w-full flex overflow-hidden bg-background relative">
       {globalLoadingMessage && (
         <div className="absolute inset-0 bg-background/80 z-[100] flex flex-col items-center justify-center gap-4 animate-fade-in">
           <Loader className="h-12 w-12 text-primary animate-spin" />
@@ -547,7 +547,7 @@ const MainApp: React.FC = () => {
       />
       
       {/* Center - Canvas Area */}
-      <main ref={mainContainerRef} className="flex-1 flex flex-col relative overflow-hidden bg-background">
+      <main ref={mainContainerRef} className="flex-1 min-w-0 flex flex-col relative overflow-hidden bg-background">
           {!pdfDoc ? (
              <div className="flex-1 flex justify-center items-center bg-muted/30">
                 <div className="text-center p-8 border-2 border-dashed border-border rounded-lg animate-fade-in">
