@@ -161,11 +161,13 @@ const UserManagement = () => {
                           </div>
                         </div>
                       </div>
-                      <ManageUserDialog user={user} onUpdated={loadUsers}>
-                        <Button variant="outline" size="sm" onClick={(e) => e.stopPropagation()}>
-                          Manage
-                        </Button>
-                      </ManageUserDialog>
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <ManageUserDialog user={user} onUpdated={loadUsers}>
+                          <Button variant="outline" size="sm">
+                            Manage
+                          </Button>
+                        </ManageUserDialog>
+                      </div>
                     </div>
                   </CollapsibleTrigger>
                   <CollapsibleContent>
