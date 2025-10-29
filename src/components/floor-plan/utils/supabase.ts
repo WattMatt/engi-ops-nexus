@@ -15,6 +15,7 @@ export interface DesignDataForSave {
     designPurpose: DesignPurpose | null;
     scaleInfo: ScaleInfo;
     pvPanelConfig: PVPanelConfig | null;
+    scaleLine: { start: { x: number; y: number }; end: { x: number; y: number } } | null;
 }
 
 export const saveDesign = async (designName: string, designData: DesignDataForSave, pdfFile: File): Promise<void> => {
@@ -38,7 +39,8 @@ export const saveDesign = async (designName: string, designData: DesignDataForSa
             scale_meters_per_pixel: designData.scaleInfo.ratio,
             state_json: {
                 scaleInfo: designData.scaleInfo,
-                pvPanelConfig: designData.pvPanelConfig
+                pvPanelConfig: designData.pvPanelConfig,
+                scaleLine: designData.scaleLine
             } as any
         })
         .select()
@@ -210,6 +212,7 @@ export interface FullDesignData {
     roof_masks: RoofMask[];
     pv_arrays: PVArrayItem[];
     tasks: any[];
+    scale_line: { start: { x: number; y: number }; end: { x: number; y: number } } | null;
 }
 
 export const loadDesign = async (designId: string): Promise<{ designData: FullDesignData; pdfBlob: Blob }> => {
@@ -316,6 +319,7 @@ export const loadDesign = async (designId: string): Promise<{ designData: FullDe
         pdf_url: project.pdf_url,
         design_purpose: project.design_purpose as DesignPurpose | null,
         scale_info: stateJson.scaleInfo || { pixelDistance: null, realDistance: null, ratio: project.scale_meters_per_pixel },
+        scale_line: stateJson.scaleLine || null,
         pv_panel_config: pvConfig ? {
             length: pvConfig.panel_length_m,
             width: pvConfig.panel_width_m,

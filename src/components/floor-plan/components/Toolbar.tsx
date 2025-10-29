@@ -2,7 +2,7 @@ import React, { useMemo, useState } from 'react';
 import type { LucideProps } from 'lucide-react';
 import { User } from '@supabase/supabase-js';
 import { MousePointer, Hand, Ruler, Route, Layers, Save, FolderOpen, Network, Shield, Server, RotateCw, Printer, Square, LayoutGrid, Sun, Magnet, Wrench, Edit, ShieldQuestion, Power, Plug, Undo2, Redo2, Maximize2 } from 'lucide-react';
-import { Tool, DesignPurpose, MarkupToolCategory, MARKUP_TOOL_CATEGORIES } from '../types';
+import { Tool, DesignPurpose, MarkupToolCategory, MARKUP_TOOL_CATEGORIES, ScaleInfo } from '../types';
 import { type PurposeConfig } from '../purpose.config';
 import { EquipmentIcon } from './EquipmentIcon';
 
@@ -64,6 +64,7 @@ interface ToolbarProps {
   canUndo: boolean;
   canRedo: boolean;
   onResetView: () => void;
+  scaleInfo: ScaleInfo;
 }
 
 const toolIconMap: Partial<Record<Tool, React.ElementType<LucideProps>>> = {
@@ -88,7 +89,8 @@ const Toolbar: React.FC<ToolbarProps> = ({
   activeTool, onToolSelect, onFileChange, onSaveToCloud, onLoadFromCloud, onPrint, isPdfLoaded,
   placementRotation, onRotationChange, purposeConfig, isPvDesignReady, isSnappingEnabled, setIsSnappingEnabled,
   user,
-  onUndo, onRedo, canUndo, canRedo, onResetView
+  onUndo, onRedo, canUndo, canRedo, onResetView,
+  scaleInfo
 }) => {
   const [activeMarkupTab, setActiveMarkupTab] = useState<MarkupToolCategory>('general');
   
@@ -132,6 +134,17 @@ const Toolbar: React.FC<ToolbarProps> = ({
       <div>
         <h1 className="text-xl font-bold text-foreground mb-2">Floor Plan Markup</h1>
         <p className="text-sm text-muted-foreground h-5">{purposeConfig?.label || ''}</p>
+        
+        {/* Scale Display */}
+        {scaleInfo.ratio && (
+          <div className="mt-3 flex items-center gap-2 px-3 py-2 bg-primary/10 rounded-md border border-primary/30">
+            <Ruler className="h-4 w-4 text-primary flex-shrink-0" />
+            <div className="flex-grow">
+              <div className="text-xs font-semibold text-primary">Scale Set</div>
+              <div className="text-xs text-foreground">1px = {(scaleInfo.ratio * 1000).toFixed(2)}mm</div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="space-y-2">

@@ -266,13 +266,55 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
         ctx.setLineDash([]);
     }
     
-    if (scaleLine) {
+    // Draw scale reference line with labels
+    if (scaleLine && scaleInfo.ratio) {
+        const lineLength = Math.hypot(
+            scaleLine.end.x - scaleLine.start.x,
+            scaleLine.end.y - scaleLine.start.y
+        );
+        const realWorldLength = lineLength * scaleInfo.ratio;
+
+        // Draw the line
         ctx.beginPath();
         ctx.moveTo(scaleLine.start.x, scaleLine.start.y);
         ctx.lineTo(scaleLine.end.x, scaleLine.end.y);
         ctx.strokeStyle = TOOL_COLORS.SCALE;
         ctx.lineWidth = 4 / viewState.zoom;
         ctx.stroke();
+
+        // Draw endpoints
+        ctx.fillStyle = TOOL_COLORS.SCALE;
+        ctx.beginPath();
+        ctx.arc(scaleLine.start.x, scaleLine.start.y, 6 / viewState.zoom, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.beginPath();
+        ctx.arc(scaleLine.end.x, scaleLine.end.y, 6 / viewState.zoom, 0, 2 * Math.PI);
+        ctx.fill();
+
+        // Draw label
+        const midX = (scaleLine.start.x + scaleLine.end.x) / 2;
+        const midY = (scaleLine.start.y + scaleLine.end.y) / 2;
+        const fontSize = 14 / viewState.zoom;
+        
+        ctx.font = `bold ${fontSize}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        
+        // Draw background for text
+        const label = `${realWorldLength.toFixed(2)}m`;
+        const metrics = ctx.measureText(label);
+        const padding = 4 / viewState.zoom;
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+        ctx.fillRect(
+            midX - metrics.width / 2 - padding,
+            midY - fontSize - padding * 2,
+            metrics.width + padding * 2,
+            fontSize + padding * 2
+        );
+        
+        // Draw text
+        ctx.fillStyle = TOOL_COLORS.SCALE;
+        ctx.fillText(label, midX, midY - padding);
     }
     
     // Draw Snap lines

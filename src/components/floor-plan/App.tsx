@@ -261,6 +261,7 @@ const MainApp: React.FC<MainAppProps> = ({ user }) => {
         designPurpose,
         scaleInfo,
         pvPanelConfig,
+        scaleLine,
     };
 
     try {
@@ -312,6 +313,7 @@ const MainApp: React.FC<MainAppProps> = ({ user }) => {
               tasks: designData.tasks || [],
           });
           setScaleInfo(designData.scale_info || { pixelDistance: null, realDistance: null, ratio: null });
+          setScaleLine(designData.scale_line || null);
           setPvPanelConfig(designData.pv_panel_config || null);
 
           if (designData.design_purpose && purposeConfigs[designData.design_purpose as DesignPurpose]) {
@@ -516,6 +518,7 @@ const MainApp: React.FC<MainAppProps> = ({ user }) => {
         setIsSnappingEnabled={setIsSnappingEnabled} user={user}
         onUndo={handleUndo} onRedo={handleRedo}
         canUndo={canUndo} canRedo={canRedo} onResetView={handleResetZoom}
+        scaleInfo={scaleInfo}
       />
       
       {/* Center - Canvas Area */}
@@ -566,7 +569,7 @@ const MainApp: React.FC<MainAppProps> = ({ user }) => {
       />
       
       {/* Modals */}
-      <ScaleModal isOpen={isScaleModalOpen} onClose={() => { setIsScaleModalOpen(false); setScaleLine(null); if (!scaleInfo.ratio) setActiveTool(Tool.PAN); }} onSubmit={handleScaleSubmit} />
+      <ScaleModal isOpen={isScaleModalOpen} onClose={() => { setIsScaleModalOpen(false); if (!scaleInfo.ratio) { setScaleLine(null); setActiveTool(Tool.PAN); } }} onSubmit={handleScaleSubmit} />
       <CableDetailsModal isOpen={isCableModalOpen} onClose={() => { setIsCableModalOpen(false); setPendingLine(null); }} onSubmit={handleCableDetailsSubmit} existingCableTypes={uniqueCableTypes} purposeConfig={purposeConfig} />
       <ContainmentDetailsModal isOpen={isContainmentModalOpen} onClose={() => { setIsContainmentModalOpen(false); setPendingContainment(null); }} onSubmit={handleContainmentDetailsSubmit} purposeConfig={purposeConfig} />
       <ExportPreviewModal isOpen={isExportModalOpen} onClose={() => setIsExportModalOpen(false)} onConfirm={handleConfirmExport} equipment={equipment} lines={lines} zones={zones} containment={containment} pvPanelConfig={pvPanelConfig} pvArrays={pvArrays} />
