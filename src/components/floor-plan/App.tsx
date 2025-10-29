@@ -36,7 +36,7 @@ import { Building, Loader } from 'lucide-react';
 
 // Set PDF.js worker source
 if (typeof window !== 'undefined') {
-  GlobalWorkerOptions.workerSrc = `https://esm.sh/pdfjs-dist@4.0.379/build/pdf.worker.mjs`;
+  GlobalWorkerOptions.workerSrc = `https://esm.sh/pdfjs-dist@5.4.296/build/pdf.worker.mjs`;
 }
 
 interface DesignState {
