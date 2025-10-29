@@ -704,12 +704,7 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
         )}
         <div
             ref={canvasesWrapperRef}
-            style={{
-                width: canvasSize.width,
-                height: canvasSize.height,
-                transform: `translate(0px, 0px) scale(1)`,
-                transformOrigin: 'top left'
-            }}
+            className="relative w-full h-full"
         >
             <canvas ref={pdfCanvasRef} className="absolute top-0 left-0" style={{ transform: `translate(${viewState.offset.x}px, ${viewState.offset.y}px) scale(${viewState.zoom})`, transformOrigin: 'top left' }}/>
             <canvas ref={drawingCanvasRef} width={containerRef.current?.clientWidth} height={containerRef.current?.clientHeight} className="absolute top-0 left-0" />
