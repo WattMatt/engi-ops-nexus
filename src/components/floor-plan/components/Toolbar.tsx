@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import type { LucideProps } from 'lucide-react';
 import { User } from '@supabase/supabase-js';
-import { MousePointer, Hand, Ruler, Route, Layers, Save, FolderOpen, Network, Shield, Server, RotateCw, Printer, Square, LayoutGrid, Sun, Magnet, LogIn, LogOut, Cloud, User as UserIcon, Sparkles, Wrench, Edit, ShieldQuestion, Power, Plug, Undo2, Redo2 } from 'lucide-react';
+import { MousePointer, Hand, Ruler, Route, Layers, Save, FolderOpen, Network, Shield, Server, RotateCw, Printer, Square, LayoutGrid, Sun, Magnet, LogIn, LogOut, Cloud, User as UserIcon, Sparkles, Wrench, Edit, ShieldQuestion, Power, Plug, Undo2, Redo2, Maximize2 } from 'lucide-react';
 import { Tool, DesignPurpose, MarkupToolCategory, MARKUP_TOOL_CATEGORIES } from '../types';
 import { type PurposeConfig } from '../purpose.config';
 import { EquipmentIcon } from './EquipmentIcon';
@@ -67,6 +67,7 @@ interface ToolbarProps {
   onRedo: () => void;
   canUndo: boolean;
   canRedo: boolean;
+  onResetView: () => void;
 }
 
 const toolIconMap: Partial<Record<Tool, React.ElementType<LucideProps>>> = {
@@ -91,7 +92,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
   activeTool, onToolSelect, onFileChange, onSaveToCloud, onLoadFromCloud, onPrint, isPdfLoaded,
   placementRotation, onRotationChange, purposeConfig, isPvDesignReady, isSnappingEnabled, setIsSnappingEnabled,
   onGenerateBoq, isSupabaseAvailable, user, onSignIn, onSignOut,
-  onUndo, onRedo, canUndo, canRedo
+  onUndo, onRedo, canUndo, canRedo, onResetView
 }) => {
   const [activeMarkupTab, setActiveMarkupTab] = useState<MarkupToolCategory>('general');
   
@@ -204,6 +205,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
               <>
                 <MarkupToolButton icon={Undo2} label="Undo (Ctrl+Z)" isActive={false} onClick={onUndo} disabled={!canUndo} />
                 <MarkupToolButton icon={Redo2} label="Redo (Ctrl+Y)" isActive={false} onClick={onRedo} disabled={!canRedo} />
+                <MarkupToolButton icon={Maximize2} label="Reset View (F)" isActive={false} onClick={onResetView} disabled={!isPdfLoaded} />
                 <hr className="border-gray-700 my-2" />
               </>
             )}

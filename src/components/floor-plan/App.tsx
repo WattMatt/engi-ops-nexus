@@ -524,7 +524,7 @@ const MainApp: React.FC = () => {
         purposeConfig={purposeConfig} isPvDesignReady={pvDesignReady} isSnappingEnabled={isSnappingEnabled}
         setIsSnappingEnabled={setIsSnappingEnabled} isSupabaseAvailable={isSupabaseInitialized} user={user}
         onSignIn={signInWithGoogle} onSignOut={signOut} onUndo={handleUndo} onRedo={handleRedo}
-        canUndo={canUndo} canRedo={canRedo}
+        canUndo={canUndo} canRedo={canRedo} onResetView={handleResetZoom}
       />
       <main ref={mainContainerRef} className="flex-1 flex flex-col relative overflow-hidden">
           {!pdfDoc ? (
