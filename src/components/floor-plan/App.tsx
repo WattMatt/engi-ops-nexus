@@ -393,13 +393,14 @@ const MainApp: React.FC = () => {
   }, []);
 
   const handleResetZoom = useCallback(() => {
-      if(!canvasApiRef.current || !mainContainerRef.current) return;
+      if(!canvasApiRef.current) return;
       const canvases = canvasApiRef.current.getCanvases();
-      if(!canvases.pdf) return;
+      if(!canvases.pdf || !canvases.pdf.parentElement) return;
       
-      // Recalculate fit-to-screen view
-      const containerWidth = mainContainerRef.current.clientWidth;
-      const containerHeight = mainContainerRef.current.clientHeight;
+      // Use the canvas container's actual visible dimensions
+      const container = canvases.pdf.parentElement;
+      const containerWidth = container.clientWidth;
+      const containerHeight = container.clientHeight;
       const pdfWidth = canvases.pdf.width;
       const pdfHeight = canvases.pdf.height;
       
