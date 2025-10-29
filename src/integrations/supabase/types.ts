@@ -2949,7 +2949,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "user"
+      app_role: "admin" | "user" | "moderator"
       attendance_type: "clock_in" | "clock_out" | "break_start" | "break_end"
       cable_type:
         | "mv"
@@ -3099,7 +3099,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "user"],
+      app_role: ["admin", "user", "moderator"],
       attendance_type: ["clock_in", "clock_out", "break_start", "break_end"],
       cable_type: ["mv", "lv_ac", "dc", "tray", "basket", "trunking", "sleeve"],
       design_purpose: [

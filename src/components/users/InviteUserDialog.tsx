@@ -1,75 +1,119 @@
 import { useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { UserPlus } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { z } from "zod";
+import { UserPlus } from "lucide-react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 
 const inviteSchema = z.object({
-  email: z.string().email("Invalid email address").max(255),
-  role: z.enum(["user", "admin"]),
+  fullName: z.string().min(2, "Name must be at least 2 characters"),
+  email: z.string().email("Invalid email address"),
+  role: z.enum(["admin", "moderator", "user"], {
+    required_error: "Please select a role",
+  }),
 });
 
-export function InviteUserDialog({ onInvited }: { onInvited: () => void }) {
+type InviteFormData = z.infer<typeof inviteSchema>;
+
+interface InviteUserDialogProps {
+  onInvited?: () => void;
+}
+
+export const InviteUserDialog = ({ onInvited }: InviteUserDialogProps) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [formData, setFormData] = useState({
-    email: "",
-    role: "user",
+
+  const form = useForm<InviteFormData>({
+    resolver: zodResolver(inviteSchema),
+    defaultValues: {
+      fullName: "",
+      email: "",
+      role: "user",
+    },
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const onSubmit = async (data: InviteFormData) => {
     setLoading(true);
-
     try {
-      // Validate input
-      const validated = inviteSchema.parse(formData);
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) {
+        toast.error("You must be logged in to invite users");
+        return;
+      }
 
-      // Get current user
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
+      // Get current user's profile for the "invited by" name
+      const { data: currentProfile } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", currentUser.id)
+        .single();
 
-      // Create invitation
-      const { error } = await supabase
-        .from("user_invitations")
-        .insert({
-          email: validated.email,
-          role: validated.role,
-          invited_by: user.id,
+      // Create user with a temporary random password
+      const tempPassword = crypto.randomUUID();
+      const redirectUrl = `${window.location.origin}/auth`;
+      
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email: data.email,
+        password: tempPassword,
+        options: {
+          emailRedirectTo: redirectUrl,
+          data: {
+            full_name: data.fullName,
+          },
+        },
+      });
+
+      if (signUpError) throw signUpError;
+      if (!signUpData.user) throw new Error("Failed to create user");
+
+      // Create user role
+      const { error: roleError } = await supabase
+        .from("user_roles")
+        .insert([{
+          user_id: signUpData.user.id,
+          role: data.role,
+        }]);
+
+      if (roleError) throw roleError;
+
+      // Generate password reset link
+      const { data: resetData, error: resetError } = await supabase.auth
+        .resetPasswordForEmail(data.email, {
+          redirectTo: redirectUrl,
         });
 
-      if (error) throw error;
+      if (resetError) throw resetError;
 
-      toast.success(`Invitation sent to ${validated.email}`);
-      setOpen(false);
-      setFormData({ email: "", role: "user" });
-      onInvited();
-    } catch (error: any) {
-      if (error instanceof z.ZodError) {
-        toast.error(error.errors[0].message);
-      } else if (error.code === "23505") {
-        toast.error("User already invited");
+      // Send invite email
+      const { error: emailError } = await supabase.functions.invoke("send-invite-email", {
+        body: {
+          email: data.email,
+          fullName: data.fullName,
+          role: data.role,
+          invitedBy: currentProfile?.full_name || "Admin",
+          resetLink: `${window.location.origin}/auth`,
+        },
+      });
+
+      if (emailError) {
+        console.error("Email error:", emailError);
+        toast.warning("User created but invitation email failed to send. User can still log in.");
       } else {
-        toast.error(error.message || "Failed to send invitation");
+        toast.success(`Invitation sent to ${data.email}`);
       }
+
+      form.reset();
+      setOpen(false);
+      onInvited?.();
+    } catch (error: any) {
+      console.error("Error inviting user:", error);
+      toast.error(error.message || "Failed to invite user");
     } finally {
       setLoading(false);
     }
@@ -83,62 +127,74 @@ export function InviteUserDialog({ onInvited }: { onInvited: () => void }) {
           Invite User
         </Button>
       </DialogTrigger>
-      <DialogContent>
+      <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
-          <DialogTitle>Invite User</DialogTitle>
+          <DialogTitle>Invite New User</DialogTitle>
           <DialogDescription>
-            Send an invitation to a new team member
+            Send an invitation email to add a new team member. They'll receive a link to set up their password.
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email">Email Address</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="user@example.com"
-              value={formData.email}
-              onChange={(e) =>
-                setFormData((prev) => ({ ...prev, email: e.target.value }))
-              }
-              required
-              maxLength={255}
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="fullName"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Full Name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="John Doe" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="role">Role</Label>
-            <Select
-              value={formData.role}
-              onValueChange={(value) =>
-                setFormData((prev) => ({ ...prev, role: value }))
-              }
-            >
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="user">User</SelectItem>
-                <SelectItem value="admin">Admin</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => setOpen(false)}
-              disabled={loading}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? "Sending..." : "Send Invitation"}
-            </Button>
-          </div>
-        </form>
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl>
+                    <Input type="email" placeholder="john@example.com" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="role"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Role</FormLabel>
+                  <Select onValueChange={field.onChange} defaultValue={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select a role" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="user">User</SelectItem>
+                      <SelectItem value="moderator">Moderator</SelectItem>
+                      <SelectItem value="admin">Admin</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={loading}>
+                {loading ? "Sending..." : "Send Invitation"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );
-}
+};

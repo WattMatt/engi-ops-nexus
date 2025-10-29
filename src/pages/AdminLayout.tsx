@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AdminSidebar } from "@/components/AdminSidebar";
+import { toast } from "sonner";
 
 const AdminLayout = () => {
   const navigate = useNavigate();
@@ -17,7 +18,22 @@ const AdminLayout = () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
       navigate("/auth");
+      return;
     }
+
+    // Check if user has admin or moderator role
+    const { data: roleData } = await supabase
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", session.user.id)
+      .maybeSingle();
+
+    if (!roleData || (roleData.role !== "admin" && roleData.role !== "moderator")) {
+      toast.error("You don't have permission to access the admin area");
+      navigate("/");
+      return;
+    }
+
     setLoading(false);
   };
 

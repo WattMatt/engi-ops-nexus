@@ -49,12 +49,32 @@ export function ManageUserDialog({ user, onUpdated, children }: ManageUserDialog
   const handleUpdateRole = async () => {
     setLoading(true);
     try {
-      const { error } = await supabase
-        .from("profiles")
-        .update({ role: role as "admin" | "user" })
-        .eq("id", user.id);
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      
+      // Prevent admin from demoting themselves
+      if (currentUser?.id === user.id && role !== 'admin') {
+        toast.error("You cannot change your own admin role");
+        setLoading(false);
+        return;
+      }
 
-      if (error) throw error;
+      // Delete existing role
+      const { error: deleteError } = await supabase
+        .from("user_roles")
+        .delete()
+        .eq("user_id", user.id);
+
+      if (deleteError) throw deleteError;
+
+      // Insert new role
+      const { error: insertError } = await supabase
+        .from("user_roles")
+        .insert([{
+          user_id: user.id,
+          role: role as "admin" | "moderator" | "user",
+        }]);
+
+      if (insertError) throw insertError;
 
       toast.success("User role updated");
       setOpen(false);
@@ -116,6 +136,7 @@ export function ManageUserDialog({ user, onUpdated, children }: ManageUserDialog
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="user">User</SelectItem>
+                  <SelectItem value="moderator">Moderator</SelectItem>
                   <SelectItem value="admin">Admin</SelectItem>
                 </SelectContent>
               </Select>

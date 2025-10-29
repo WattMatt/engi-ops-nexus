@@ -25,13 +25,28 @@ const UserManagement = () => {
 
   const loadUsers = async () => {
     try {
-      const { data, error } = await supabase
+      // Get all profiles with their roles from user_roles table
+      const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
-        .select("id, full_name, email, role")
+        .select("id, full_name, email")
         .order("full_name");
 
-      if (error) throw error;
-      setUsers(data || []);
+      if (profilesError) throw profilesError;
+
+      // Get roles for all users
+      const { data: roles, error: rolesError } = await supabase
+        .from("user_roles")
+        .select("user_id, role");
+
+      if (rolesError) throw rolesError;
+
+      // Merge profiles with roles
+      const usersWithRoles = profiles?.map(profile => ({
+        ...profile,
+        role: roles?.find(r => r.user_id === profile.id)?.role || "user",
+      })) || [];
+
+      setUsers(usersWithRoles);
     } catch (error: any) {
       toast.error("Failed to load users");
       console.error(error);
