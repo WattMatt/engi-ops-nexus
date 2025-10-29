@@ -33,7 +33,7 @@ export default function ProjectSettings() {
     earthing_contractor: "",
     standby_plants_contractor: "",
     cctv_contractor: "",
-    project_logo_url: "",
+    consultant_logo_url: "",
     client_logo_url: "",
   });
 
@@ -75,7 +75,7 @@ export default function ProjectSettings() {
         earthing_contractor: data.earthing_contractor || "",
         standby_plants_contractor: data.standby_plants_contractor || "",
         cctv_contractor: data.cctv_contractor || "",
-        project_logo_url: data.project_logo_url || "",
+        consultant_logo_url: data.consultant_logo_url || "",
         client_logo_url: data.client_logo_url || "",
       });
     }
@@ -102,7 +102,7 @@ export default function ProjectSettings() {
           earthing_contractor: formData.earthing_contractor || null,
           standby_plants_contractor: formData.standby_plants_contractor || null,
           cctv_contractor: formData.cctv_contractor || null,
-          project_logo_url: formData.project_logo_url || null,
+          consultant_logo_url: formData.consultant_logo_url || null,
           client_logo_url: formData.client_logo_url || null,
           updated_at: new Date().toISOString(),
         })
@@ -294,10 +294,10 @@ export default function ProjectSettings() {
           </CardHeader>
           <CardContent className="space-y-6">
             <LogoUpload
-              currentUrl={formData.project_logo_url}
-              onUrlChange={(url) => updateField("project_logo_url", url)}
-              label="Project Logo"
-              id="project_logo"
+              currentUrl={formData.consultant_logo_url}
+              onUrlChange={(url) => updateField("consultant_logo_url", url)}
+              label="Consultant Logo"
+              id="consultant_logo"
             />
 
             <LogoUpload
