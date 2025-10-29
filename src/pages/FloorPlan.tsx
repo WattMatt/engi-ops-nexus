@@ -5,10 +5,10 @@ const FloorPlanApp = lazy(() => import('../components/floor-plan/App'));
 
 export default function FloorPlan() {
   return (
-    <div className="absolute inset-0 -m-6 flex flex-col">
+    <div className="h-[calc(100vh-8.5rem)] w-full rounded-lg overflow-hidden border border-border">
       <Suspense 
         fallback={
-          <div className="flex-1 flex items-center justify-center">
+          <div className="h-full w-full flex items-center justify-center bg-background">
             <Loader className="h-8 w-8 animate-spin text-primary" />
           </div>
         }
