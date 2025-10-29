@@ -5,7 +5,7 @@ const FloorPlanApp = lazy(() => import('../components/floor-plan/App'));
 
 export default function FloorPlan() {
   return (
-    <div className="h-[calc(100vh-8.5rem)] w-full rounded-lg overflow-hidden border border-border">
+    <div className="h-full w-full rounded-lg overflow-hidden border border-border">
       <Suspense 
         fallback={
           <div className="h-full w-full flex items-center justify-center bg-background">

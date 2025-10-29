@@ -524,7 +524,7 @@ const MainApp: React.FC = () => {
   const pvDesignReady = useMemo(() => designPurpose !== DesignPurpose.PV_DESIGN || (!!scaleInfo.ratio && !!pvPanelConfig), [designPurpose, scaleInfo.ratio, pvPanelConfig]);
 
   return (
-    <div className="flex h-full w-full bg-gray-900 text-gray-100 font-sans relative">
+    <div className="flex flex-col h-full w-full bg-gray-900 text-gray-100 font-sans relative">
       {globalLoadingMessage && (
         <div className="absolute inset-0 bg-gray-900/80 z-[100] flex flex-col items-center justify-center gap-4 animate-fade-in">
           <Loader className="h-12 w-12 text-indigo-400 animate-spin" />
