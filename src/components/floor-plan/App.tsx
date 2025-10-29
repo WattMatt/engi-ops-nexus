@@ -17,7 +17,6 @@ import PVConfigModal from './components/PVConfigModal';
 import RoofMaskModal from './components/RoofMaskModal';
 import PVArrayModal, { PVArrayConfig } from './components/PVArrayModal';
 import LoadDesignModal from './components/LoadDesignModal';
-import BoqModal from './components/BoqModal';
 import TaskModal from './components/TaskModal';
 import { ToastProvider, useToast } from './components/ToastProvider';
 import { 
@@ -130,7 +129,6 @@ const MainApp: React.FC = () => {
   const [isCableModalOpen, setIsCableModalOpen] = useState(false);
   const [isContainmentModalOpen, setIsContainmentModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-  const [isBoqModalOpen, setIsBoqModalOpen] = useState(false);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Partial<Task> | null>(null);
   const [globalLoadingMessage, setGlobalLoadingMessage] = useState<string | null>(null);
@@ -344,8 +342,6 @@ const MainApp: React.FC = () => {
     setIsExportModalOpen(true);
   };
 
-  const handleOpenBoqModal = () => setIsBoqModalOpen(true);
-
   const handleConfirmExport = async ({ projectName, comments }: { projectName: string; comments: string }) => {
     const canvases = canvasApiRef.current?.getCanvases();
     if (!canvases?.pdf || !canvases?.drawing) return toast.error('Canvas elements not ready.');
@@ -538,7 +534,7 @@ const MainApp: React.FC = () => {
       <Toolbar
         activeTool={activeTool} onToolSelect={handleToolSelect} onFileChange={handleFileChange}
         onSaveToCloud={handleSaveToCloud} onLoadFromCloud={handleOpenLoadModal} onPrint={handlePrint}
-        onGenerateBoq={handleOpenBoqModal} isPdfLoaded={!!pdfDoc && !!purposeConfig}
+        isPdfLoaded={!!pdfDoc && !!purposeConfig}
         placementRotation={placementRotation} onRotationChange={setPlacementRotation}
         purposeConfig={purposeConfig} isPvDesignReady={pvDesignReady} isSnappingEnabled={isSnappingEnabled}
         setIsSnappingEnabled={setIsSnappingEnabled} isSupabaseAvailable={isSupabaseInitialized} user={user}
@@ -602,7 +598,6 @@ const MainApp: React.FC = () => {
       <RoofMaskModal isOpen={isRoofMaskModalOpen} onClose={() => { setIsRoofMaskModalOpen(false); setPendingRoofMask(null); }} onSubmit={handleRoofMaskSubmit} />
       <PVArrayModal isOpen={isPvArrayModalOpen} onClose={() => { setIsPvArrayModalOpen(false); setActiveTool(Tool.PAN); }} onSubmit={handlePvArrayConfigSubmit} />
       <LoadDesignModal isOpen={isLoadDesignModalOpen} onClose={() => setIsLoadDesignModalOpen(false)} onLoad={handleLoadFromCloud} designs={designList} isLoading={isLoadingDesigns} />
-      <BoqModal isOpen={isBoqModalOpen} onClose={() => setIsBoqModalOpen(false)} projectData={{ equipment, lines, containment, zones }} />
       <TaskModal isOpen={isTaskModalOpen} onClose={() => { setIsTaskModalOpen(false); setEditingTask(null); }} onSubmit={handleTaskSubmit} task={editingTask} assigneeList={assigneeList} />
     </div>
   );

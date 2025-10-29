@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import type { LucideProps } from 'lucide-react';
 import { User } from '@supabase/supabase-js';
-import { MousePointer, Hand, Ruler, Route, Layers, Save, FolderOpen, Network, Shield, Server, RotateCw, Printer, Square, LayoutGrid, Sun, Magnet, LogIn, LogOut, Cloud, User as UserIcon, Sparkles, Wrench, Edit, ShieldQuestion, Power, Plug, Undo2, Redo2, Maximize2 } from 'lucide-react';
+import { MousePointer, Hand, Ruler, Route, Layers, Save, FolderOpen, Network, Shield, Server, RotateCw, Printer, Square, LayoutGrid, Sun, Magnet, LogIn, LogOut, Cloud, User as UserIcon, Wrench, Edit, ShieldQuestion, Power, Plug, Undo2, Redo2, Maximize2 } from 'lucide-react';
 import { Tool, DesignPurpose, MarkupToolCategory, MARKUP_TOOL_CATEGORIES } from '../types';
 import { type PurposeConfig } from '../purpose.config';
 import { EquipmentIcon } from './EquipmentIcon';
@@ -51,7 +51,6 @@ interface ToolbarProps {
   onSaveToCloud: () => void;
   onLoadFromCloud: () => void;
   onPrint: () => void;
-  onGenerateBoq: () => void;
   isPdfLoaded: boolean;
   placementRotation: number;
   onRotationChange: React.Dispatch<React.SetStateAction<number>>;
@@ -91,7 +90,7 @@ const categoryLabels: Record<MarkupToolCategory, { label: string; icon: React.El
 const Toolbar: React.FC<ToolbarProps> = ({ 
   activeTool, onToolSelect, onFileChange, onSaveToCloud, onLoadFromCloud, onPrint, isPdfLoaded,
   placementRotation, onRotationChange, purposeConfig, isPvDesignReady, isSnappingEnabled, setIsSnappingEnabled,
-  onGenerateBoq, isSupabaseAvailable, user, onSignIn, onSignOut,
+  isSupabaseAvailable, user, onSignIn, onSignOut,
   onUndo, onRedo, canUndo, canRedo, onResetView
 }) => {
   const [activeMarkupTab, setActiveMarkupTab] = useState<MarkupToolCategory>('general');
@@ -172,7 +171,6 @@ const Toolbar: React.FC<ToolbarProps> = ({
         <hr className="border-border" />
 
         <GlobalToolButton icon={Printer} label="Export as PDF" onClick={onPrint} disabled={!isPdfLoaded} />
-        <GlobalToolButton icon={Sparkles} label="Generate BoQ (AI)" onClick={onGenerateBoq} disabled={!isPdfLoaded} />
       </div>
       
       {isPdfLoaded && purposeConfig && (
