@@ -25,6 +25,7 @@ import StaffManagement from "./pages/StaffManagement";
 import Invoicing from "./pages/Invoicing";
 import FloorPlan from "./pages/FloorPlan";
 import NotFound from "./pages/NotFound";
+import { HelpButton } from "./components/feedback/HelpButton";
 
 const queryClient = new QueryClient();
 
@@ -33,6 +34,7 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
+      <HelpButton />
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
