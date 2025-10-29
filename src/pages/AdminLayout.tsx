@@ -21,19 +21,39 @@ const AdminLayout = () => {
       return;
     }
 
+    console.log("Checking role for user:", session.user.id);
+
     // Check if user has admin or moderator role
-    const { data: roleData } = await supabase
+    const { data: roleData, error: roleError } = await supabase
       .from("user_roles")
       .select("role")
       .eq("user_id", session.user.id)
       .maybeSingle();
 
-    if (!roleData || (roleData.role !== "admin" && roleData.role !== "moderator")) {
+    console.log("Role data:", roleData, "Error:", roleError);
+
+    if (roleError) {
+      console.error("Error fetching role:", roleError);
+      toast.error("Error checking permissions: " + roleError.message);
+      navigate("/");
+      return;
+    }
+
+    if (!roleData) {
+      console.log("No role found for user");
+      toast.error("No role assigned. Please contact an administrator.");
+      navigate("/");
+      return;
+    }
+
+    if (roleData.role !== "admin" && roleData.role !== "moderator") {
+      console.log("User role is:", roleData.role);
       toast.error("You don't have permission to access the admin area");
       navigate("/");
       return;
     }
 
+    console.log("Access granted. User role:", roleData.role);
     setLoading(false);
   };
 
