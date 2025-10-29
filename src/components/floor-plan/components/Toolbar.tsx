@@ -19,7 +19,7 @@ const GlobalToolButton: React.FC<Pick<ToolButtonProps, 'icon' | 'label' | 'onCli
   <button
     onClick={onClick}
     disabled={disabled}
-    className={`flex items-center w-full text-left p-2.5 rounded-md transition-colors duration-200 text-gray-300 ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-700'}`}
+    className={`flex items-center w-full text-left p-2.5 rounded-md transition-colors duration-200 text-foreground ${disabled ? 'opacity-50 cursor-not-allowed' : 'hover:bg-accent'}`}
     title={label}
   >
     <Icon className="h-5 w-5 mr-3 flex-shrink-0" />
@@ -33,13 +33,13 @@ const MarkupToolButton: React.FC<ToolButtonProps> = ({ icon: Icon, label, isActi
     onClick={onClick}
     disabled={disabled}
     className={`flex items-center w-full text-left p-2.5 rounded-md transition-colors duration-200 ${
-      isActive ? 'bg-indigo-600 text-white shadow-lg' : 'hover:bg-gray-700 text-gray-300'
+      isActive ? 'bg-primary text-primary-foreground shadow-lg' : 'hover:bg-accent text-foreground'
     } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
     title={label}
   >
     <Icon className="h-5 w-5 mr-3 flex-shrink-0" />
     <span className="flex-grow text-sm font-medium">{label}</span>
-    {badge && <span className="text-xs bg-gray-600 text-indigo-300 font-bold px-2 py-0.5 rounded-full">{badge}</span>}
+    {badge && <span className="text-xs bg-muted text-primary font-bold px-2 py-0.5 rounded-full">{badge}</span>}
   </button>
 );
 
@@ -132,29 +132,29 @@ const Toolbar: React.FC<ToolbarProps> = ({
   }, [purposeConfig, allPurposeTools]);
 
   return (
-    <aside className="w-72 bg-gray-800 p-4 flex flex-col space-y-4 overflow-y-auto shadow-2xl z-10 border-r border-gray-700/50">
+    <aside className="w-72 bg-card p-4 flex flex-col space-y-4 overflow-y-auto shadow-lg z-10 border-r border-border">
       <div>
-        <h1 className="text-xl font-bold text-white mb-2">Floor Plan Markup</h1>
-        <p className="text-sm text-indigo-300 h-5">{purposeConfig?.label || ''}</p>
+        <h1 className="text-xl font-bold text-foreground mb-2">Floor Plan Markup</h1>
+        <p className="text-sm text-muted-foreground h-5">{purposeConfig?.label || ''}</p>
       </div>
 
       <div className="space-y-2">
-        <label htmlFor="pdf-upload" className="flex items-center w-full text-left p-2.5 rounded-md transition-colors duration-200 hover:bg-indigo-500 hover:text-white bg-gray-700/50 text-gray-200 cursor-pointer">
+        <label htmlFor="pdf-upload" className="flex items-center w-full text-left p-2.5 rounded-md transition-colors duration-200 hover:bg-primary hover:text-primary-foreground bg-muted text-foreground cursor-pointer">
             <FolderOpen className="h-5 w-5 mr-3 flex-shrink-0" />
             <span className="flex-grow text-sm font-semibold">Load PDF File</span>
         </label>
         <input id="pdf-upload" type="file" className="hidden" onChange={onFileChange} accept=".pdf" />
         
-        <hr className="border-gray-700" />
+        <hr className="border-border" />
         {isSupabaseAvailable ? (
           <>
             {user ? (
               <>
-                  <div className="flex items-center w-full text-left p-2 rounded-md bg-gray-900/50">
+                  <div className="flex items-center w-full text-left p-2 rounded-md bg-muted">
                       <img src={user.user_metadata.avatar_url || undefined} alt="user" className="h-6 w-6 rounded-full mr-3"/>
-                      <span className="flex-grow text-sm font-medium text-gray-200 truncate" title={user.user_metadata.full_name || user.email}>{user.user_metadata.full_name || user.email}</span>
-                      <button onClick={onSignOut} title="Sign Out" className="p-1 rounded-full hover:bg-gray-700">
-                          <LogOut className="h-5 w-5 text-gray-400 hover:text-white"/>
+                      <span className="flex-grow text-sm font-medium text-foreground truncate" title={user.user_metadata.full_name || user.email}>{user.user_metadata.full_name || user.email}</span>
+                      <button onClick={onSignOut} title="Sign Out" className="p-1 rounded-full hover:bg-accent">
+                          <LogOut className="h-5 w-5 text-muted-foreground hover:text-foreground"/>
                       </button>
                   </div>
                   <GlobalToolButton icon={Cloud} label="Save to Cloud" onClick={onSaveToCloud} disabled={!isPdfLoaded} />
@@ -165,11 +165,11 @@ const Toolbar: React.FC<ToolbarProps> = ({
             )}
           </>
         ) : (
-            <div className="p-2.5 rounded-md bg-gray-700/50 text-gray-400 text-xs">
+            <div className="p-2.5 rounded-md bg-muted text-muted-foreground text-xs">
                 Cloud features are disabled. This widget must be hosted to connect to a backend project.
             </div>
         )}
-        <hr className="border-gray-700" />
+        <hr className="border-border" />
 
         <GlobalToolButton icon={Printer} label="Export as PDF" onClick={onPrint} disabled={!isPdfLoaded} />
         <GlobalToolButton icon={Sparkles} label="Generate BoQ (AI)" onClick={onGenerateBoq} disabled={!isPdfLoaded} />
@@ -177,7 +177,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
       
       {isPdfLoaded && purposeConfig && (
         <div className="flex-grow flex flex-col min-h-0">
-          <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2 mt-2">Markup Tools</h2>
+          <h2 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-2 mt-2">Markup Tools</h2>
           
           <nav className="flex-shrink-0 grid grid-cols-3 gap-1 mb-3">
             {MARKUP_TOOL_CATEGORIES.map(cat => {
@@ -189,8 +189,8 @@ const Toolbar: React.FC<ToolbarProps> = ({
                 <button
                   key={cat}
                   onClick={() => setActiveMarkupTab(cat)}
-                  className={`flex flex-col items-center justify-center p-2 rounded-md text-xs font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-indigo-500/50 ${
-                      activeMarkupTab === cat ? 'bg-indigo-600 text-white' : 'bg-gray-700/60 hover:bg-gray-700 text-gray-300'
+                  className={`flex flex-col items-center justify-center p-2 rounded-md text-xs font-medium transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-ring ${
+                      activeMarkupTab === cat ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-accent text-foreground'
                   }`}
                 >
                   <categoryInfo.icon className="h-4 w-4 mb-1"/>
@@ -206,7 +206,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
                 <MarkupToolButton icon={Undo2} label="Undo (Ctrl+Z)" isActive={false} onClick={onUndo} disabled={!canUndo} />
                 <MarkupToolButton icon={Redo2} label="Redo (Ctrl+Y)" isActive={false} onClick={onRedo} disabled={!canRedo} />
                 <MarkupToolButton icon={Maximize2} label="Reset View (F)" isActive={false} onClick={onResetView} disabled={!isPdfLoaded} />
-                <hr className="border-gray-700 my-2" />
+                <hr className="border-border my-2" />
               </>
             )}
 

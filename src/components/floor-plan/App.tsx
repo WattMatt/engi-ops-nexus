@@ -543,13 +543,13 @@ const MainApp: React.FC = () => {
         onSignIn={signInWithGoogle} onSignOut={signOut} onUndo={handleUndo} onRedo={handleRedo}
         canUndo={canUndo} canRedo={canRedo} onResetView={handleResetZoom}
       />
-      <main ref={mainContainerRef} className="flex-1 flex flex-col relative overflow-hidden">
+      <main ref={mainContainerRef} className="flex-1 flex flex-col relative overflow-hidden bg-background">
           {!pdfDoc ? (
-             <div className="flex-1 flex justify-center items-center bg-gray-800">
-                <div className="text-center p-8 border-2 border-dashed border-gray-600 rounded-lg animate-fade-in">
-                    <Building className="mx-auto h-12 w-12 text-gray-500 mb-4" />
-                    <h2 className="text-2xl font-semibold text-gray-400">Load a PDF Floor Plan</h2>
-                    <p className="mt-2 text-gray-500">Use the toolbar on the left to begin your project.</p>
+             <div className="flex-1 flex justify-center items-center bg-muted/30">
+                <div className="text-center p-8 border-2 border-dashed border-border rounded-lg animate-fade-in">
+                    <Building className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                    <h2 className="text-2xl font-semibold text-foreground">Load a PDF Floor Plan</h2>
+                    <p className="mt-2 text-muted-foreground">Use the toolbar on the left to begin your project.</p>
                 </div>
             </div>
           ) : !purposeConfig ? (
@@ -570,10 +570,10 @@ const MainApp: React.FC = () => {
               />
               {(designPurpose === DesignPurpose.PV_DESIGN && !pvDesignReady) && (
                  <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">
-                    <div className="text-center p-4 bg-gray-800/95 border border-gray-600 rounded-lg shadow-2xl">
+                    <div className="text-center p-4 bg-card/95 border border-border rounded-lg shadow-lg">
                         {!scaleInfo.ratio ? (
-                            <><h2 className="text-lg font-semibold text-gray-300">Set Scale for PV Design</h2><p className="mt-1 text-sm text-gray-400">The <span className='text-indigo-400 font-semibold'>Scale</span> tool is active. Click the start and end points of a known length.</p></>
-                        ) : (<h2 className="text-lg font-semibold text-gray-300">Awaiting Panel Configuration...</h2>)}
+                            <><h2 className="text-lg font-semibold text-foreground">Set Scale for PV Design</h2><p className="mt-1 text-sm text-muted-foreground">The <span className='text-primary font-semibold'>Scale</span> tool is active. Click the start and end points of a known length.</p></>
+                        ) : (<h2 className="text-lg font-semibold text-foreground">Awaiting Panel Configuration...</h2>)}
                     </div>
                 </div>
               )}

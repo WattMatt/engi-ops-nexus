@@ -37,30 +37,30 @@ const ItemTasks: React.FC<{
     const itemTasks = useMemo(() => tasks.filter(t => t.linkedItemId === itemId), [tasks, itemId]);
     
     return (
-        <div className="mt-4 pt-4 border-t border-gray-700/50">
+        <div className="mt-4 pt-4 border-t border-border">
             <div className="flex justify-between items-center mb-2">
-                <h4 className="text-sm font-semibold text-gray-300">Tasks ({itemTasks.length})</h4>
+                <h4 className="text-sm font-semibold text-foreground">Tasks ({itemTasks.length})</h4>
                 <button 
                     onClick={() => onOpenTaskModal({ linkedItemId: itemId, status: TaskStatus.TODO })}
-                    className="flex items-center gap-1 text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+                    className="flex items-center gap-1 text-xs text-primary hover:text-primary/80 transition-colors"
                 >
                     <PlusCircle size={14} /> Add Task
                 </button>
             </div>
             <div className="space-y-1.5 max-h-32 overflow-y-auto pr-1">
                 {itemTasks.length > 0 ? itemTasks.map(task => (
-                    <button key={task.id} onClick={() => onOpenTaskModal(task)} className="w-full text-left bg-gray-700/50 p-2 rounded-md text-xs hover:bg-gray-700 transition-colors">
+                    <button key={task.id} onClick={() => onOpenTaskModal(task)} className="w-full text-left bg-muted p-2 rounded-md text-xs hover:bg-accent transition-colors">
                         <div className="flex items-center justify-between">
-                            <span className="font-medium text-gray-200 truncate">{task.title}</span>
+                            <span className="font-medium text-foreground truncate">{task.title}</span>
                             <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
                                 task.status === TaskStatus.DONE ? 'bg-green-500/20 text-green-400' :
                                 task.status === TaskStatus.IN_PROGRESS ? 'bg-amber-500/20 text-amber-400' :
-                                'bg-gray-600 text-gray-300'
+                                'bg-muted-foreground/20 text-muted-foreground'
                             }`}>{task.status}</span>
                         </div>
                     </button>
                 )) : (
-                    <p className="text-gray-500 text-xs text-center py-2">No tasks for this item.</p>
+                    <p className="text-muted-foreground text-xs text-center py-2">No tasks for this item.</p>
                 )}
             </div>
         </div>
@@ -76,14 +76,14 @@ const SelectionDetails: React.FC<{
     onOpenTaskModal: (task: Partial<Task> | null) => void;
 }> = ({ item, onUpdate, onDelete, tasks, onOpenTaskModal }) => {
     return (
-        <div className="mb-6 p-3 bg-gray-900 rounded-lg">
-            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Selection Details</h3>
+        <div className="mb-6 p-3 bg-muted rounded-lg border border-border">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Selection Details</h3>
             <div className='flex items-center gap-3 mb-3'>
                 <EquipmentIcon type={item.type} className="h-5 w-5 text-amber-400 flex-shrink-0" />
-                <span className="text-gray-300 font-bold">{item.type}</span>
+                <span className="text-foreground font-bold">{item.type}</span>
             </div>
             <div>
-                <label htmlFor="equipmentName" className="block text-sm font-medium text-gray-300 mb-1">
+                <label htmlFor="equipmentName" className="block text-sm font-medium text-foreground mb-1">
                     Equipment Name
                 </label>
                 <input
@@ -91,13 +91,13 @@ const SelectionDetails: React.FC<{
                     id="equipmentName"
                     value={item.name || ''}
                     onChange={(e) => onUpdate({ ...item, name: e.target.value })}
-                    className="w-full px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-sm"
+                    className="w-full px-3 py-1.5 bg-background border border-input rounded-md text-foreground placeholder-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring text-sm"
                     placeholder="e.g., DB-GF-01"
                 />
             </div>
             <ItemTasks itemId={item.id} tasks={tasks} onOpenTaskModal={onOpenTaskModal} />
             <div className="mt-4">
-                <button onClick={onDelete} className="w-full text-center px-4 py-2 bg-red-600/20 text-red-400 hover:bg-red-600/40 rounded-md text-sm font-semibold transition-colors">
+                <button onClick={onDelete} className="w-full text-center px-4 py-2 bg-destructive/20 text-destructive hover:bg-destructive/40 rounded-md text-sm font-semibold transition-colors">
                     Delete Item
                 </button>
             </div>
@@ -113,14 +113,14 @@ const ZoneDetails: React.FC<{
     onOpenTaskModal: (task: Partial<Task> | null) => void;
 }> = ({ item, onUpdate, onDelete, tasks, onOpenTaskModal }) => {
     return (
-        <div className="mb-6 p-3 bg-gray-900 rounded-lg">
-            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Selection Details</h3>
+        <div className="mb-6 p-3 bg-muted rounded-lg border border-border">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Selection Details</h3>
             <div className='flex items-center gap-3 mb-3'>
                 <Layers className="h-5 w-5 text-yellow-400 flex-shrink-0" />
-                <span className="text-gray-300 font-bold">Supply Zone</span>
+                <span className="text-foreground font-bold">Supply Zone</span>
             </div>
             <div>
-                <label htmlFor="zoneName" className="block text-sm font-medium text-gray-300 mb-1">
+                <label htmlFor="zoneName" className="block text-sm font-medium text-foreground mb-1">
                     Zone Name
                 </label>
                 <input
@@ -128,7 +128,7 @@ const ZoneDetails: React.FC<{
                     id="zoneName"
                     value={item.name || ''}
                     onChange={(e) => onUpdate({ ...item, name: e.target.value })}
-                    className="w-full px-3 py-1.5 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-sm"
+                    className="w-full px-3 py-1.5 bg-background border border-input rounded-md text-foreground placeholder-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring text-sm"
                     placeholder="e.g., Office Area"
                     autoFocus
                     onFocus={(e) => e.target.select()}
@@ -136,7 +136,7 @@ const ZoneDetails: React.FC<{
             </div>
             <ItemTasks itemId={item.id} tasks={tasks} onOpenTaskModal={onOpenTaskModal} />
             <div className="mt-4">
-                <button onClick={onDelete} className="w-full text-center px-4 py-2 bg-red-600/20 text-red-400 hover:bg-red-600/40 rounded-md text-sm font-semibold transition-colors">
+                <button onClick={onDelete} className="w-full text-center px-4 py-2 bg-destructive/20 text-destructive hover:bg-destructive/40 rounded-md text-sm font-semibold transition-colors">
                     Delete Zone
                 </button>
             </div>
@@ -152,20 +152,20 @@ const PvArrayDetails: React.FC<{
     const totalPanels = item.rows * item.columns;
     const totalWattage = pvPanelConfig ? totalPanels * pvPanelConfig.wattage : 0;
     return (
-        <div className="mb-6 p-3 bg-gray-900 rounded-lg">
-            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Selection Details</h3>
+        <div className="mb-6 p-3 bg-muted rounded-lg border border-border">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Selection Details</h3>
             <div className='flex items-center gap-3 mb-3'>
                 <LayoutGrid className="h-5 w-5 text-sky-400 flex-shrink-0" />
-                <span className="text-gray-300 font-bold">PV Array</span>
+                <span className="text-foreground font-bold">PV Array</span>
             </div>
-            <div className="text-sm text-gray-300 space-y-1">
+            <div className="text-sm text-foreground space-y-1">
                 <div className="flex justify-between"><span>Layout:</span> <span className='font-mono'>{item.rows} rows &times; {item.columns} cols</span></div>
                 <div className="flex justify-between"><span>Orientation:</span> <span className='font-mono capitalize'>{item.orientation}</span></div>
                 <div className="flex justify-between"><span>Total Panels:</span> <span className='font-mono'>{totalPanels}</span></div>
                 {pvPanelConfig && <div className="flex justify-between"><span>Total Power:</span> <span className='font-mono'>{(totalWattage/1000).toFixed(2)} kWp</span></div>}
             </div>
              <div className="mt-4">
-                <button onClick={onDelete} className="w-full text-center px-4 py-2 bg-red-600/20 text-red-400 hover:bg-red-600/40 rounded-md text-sm font-semibold transition-colors">
+                <button onClick={onDelete} className="w-full text-center px-4 py-2 bg-destructive/20 text-destructive hover:bg-destructive/40 rounded-md text-sm font-semibold transition-colors">
                     Delete Array
                 </button>
             </div>
@@ -548,25 +548,25 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
         disabled={disabled}
         className={`px-3 py-2 text-sm font-medium transition-colors duration-200 focus:outline-none flex items-center gap-2 ${
             activeTab === tabId
-                ? 'border-b-2 border-indigo-500 text-white'
-                : 'border-b-2 border-transparent text-gray-400 hover:text-white hover:border-gray-500'
+                ? 'border-b-2 border-primary text-foreground'
+                : 'border-b-2 border-transparent text-muted-foreground hover:text-foreground hover:border-border'
         } ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
     >
         {label}
-        {typeof count !== 'undefined' && <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${activeTab === tabId ? 'bg-indigo-500/30 text-indigo-200' : 'bg-gray-700 text-gray-300'}`}>{count}</span>}
+        {typeof count !== 'undefined' && <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${activeTab === tabId ? 'bg-primary/30 text-primary' : 'bg-muted text-muted-foreground'}`}>{count}</span>}
     </button>
   );
 
   return (
-    <aside className="w-96 bg-gray-800 flex flex-col shadow-2xl z-10 border-l border-gray-700">
+    <aside className="w-96 bg-card flex flex-col shadow-lg z-10 border-l border-border">
         <div className='p-4 flex-shrink-0'>
-            <h2 className="text-lg font-semibold text-white mb-4">Project Overview</h2>
+            <h2 className="text-lg font-semibold text-foreground mb-4">Project Overview</h2>
             {selectedEquipment && <SelectionDetails item={selectedEquipment} onUpdate={onEquipmentUpdate} onDelete={onDeleteItem} tasks={tasks} onOpenTaskModal={onOpenTaskModal} />}
             {selectedZone && <ZoneDetails item={selectedZone} onUpdate={onZoneUpdate} onDelete={onDeleteItem} tasks={tasks} onOpenTaskModal={onOpenTaskModal} />}
             {selectedPvArray && <PvArrayDetails item={selectedPvArray} pvPanelConfig={pvPanelConfig} onDelete={onDeleteItem} />}
         </div>
         
-        <div className="border-b border-gray-700 px-2 flex-shrink-0">
+        <div className="border-b border-border px-2 flex-shrink-0">
             <nav className="-mb-px flex flex-wrap" aria-label="Tabs">
                 <TabButton tabId="summary" label="Summary" />
                 <TabButton tabId="equipment" label="Equipment" />
