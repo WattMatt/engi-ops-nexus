@@ -93,7 +93,7 @@ export function HelpButton() {
               <HelpCircle className="h-6 w-6" />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuContent side="top" align="end" className="w-56">
             <DropdownMenuItem onClick={handleIssueClick}>
               <Bug className="mr-2 h-4 w-4" />
               Report an Issue
