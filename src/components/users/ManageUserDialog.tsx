@@ -28,6 +28,7 @@ import {
 } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useActivityLogger } from "@/hooks/useActivityLogger";
 
 interface ManageUserDialogProps {
   user: {
@@ -45,6 +46,7 @@ export function ManageUserDialog({ user, onUpdated, children }: ManageUserDialog
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [role, setRole] = useState(user.role || "user");
+  const { logActivity } = useActivityLogger();
 
   const handleUpdateRole = async () => {
     setLoading(true);
@@ -75,6 +77,13 @@ export function ManageUserDialog({ user, onUpdated, children }: ManageUserDialog
         }]);
 
       if (insertError) throw insertError;
+
+      // Log the role update activity
+      await logActivity(
+        'update',
+        `Updated role for ${user.full_name} to ${role}`,
+        { userId: user.id, oldRole: user.role, newRole: role }
+      );
 
       toast.success("User role updated");
       setOpen(false);

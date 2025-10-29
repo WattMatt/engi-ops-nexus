@@ -10,6 +10,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { useActivityLogger } from "@/hooks/useActivityLogger";
 
 const inviteSchema = z.object({
   fullName: z.string().min(2, "Name must be at least 2 characters"),
@@ -28,6 +29,7 @@ interface InviteUserDialogProps {
 export const InviteUserDialog = ({ onInvited }: InviteUserDialogProps) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const { logActivity } = useActivityLogger();
 
   const form = useForm<InviteFormData>({
     resolver: zodResolver(inviteSchema),
@@ -107,6 +109,13 @@ export const InviteUserDialog = ({ onInvited }: InviteUserDialogProps) => {
       } else {
         toast.success(`Invitation sent to ${data.email}`);
       }
+
+      // Log the invite activity
+      await logActivity(
+        'create',
+        `Invited new user: ${data.fullName}`,
+        { email: data.email, role: data.role }
+      );
 
       form.reset();
       setOpen(false);

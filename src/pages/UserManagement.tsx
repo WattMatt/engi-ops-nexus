@@ -2,22 +2,29 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, Mail, Shield, User } from "lucide-react";
+import { Users, Mail, Shield, User, Clock, CheckCircle, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { InviteUserDialog } from "@/components/users/InviteUserDialog";
 import { ManageUserDialog } from "@/components/users/ManageUserDialog";
+import { UserActivityList } from "@/components/users/UserActivityList";
 import { Badge } from "@/components/ui/badge";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { formatDistanceToNow } from "date-fns";
 
 interface UserProfile {
   id: string;
   full_name: string;
   email: string;
   role?: string;
+  status?: string;
+  last_login_at?: string;
+  login_count?: number;
 }
 
 const UserManagement = () => {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
 
   useEffect(() => {
     loadUsers();
@@ -25,10 +32,10 @@ const UserManagement = () => {
 
   const loadUsers = async () => {
     try {
-      // Get all profiles with their roles from user_roles table
+      // Get all profiles with activity data
       const { data: profiles, error: profilesError } = await supabase
         .from("profiles")
-        .select("id, full_name, email")
+        .select("id, full_name, email, status, last_login_at, login_count")
         .order("full_name");
 
       if (profilesError) throw profilesError;
@@ -53,6 +60,23 @@ const UserManagement = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const getStatusBadge = (status?: string) => {
+    const statusConfig = {
+      active: { variant: "default" as const, icon: CheckCircle, text: "Active" },
+      pending_verification: { variant: "secondary" as const, icon: AlertCircle, text: "Pending" },
+    };
+    
+    const config = statusConfig[status as keyof typeof statusConfig] || statusConfig.pending_verification;
+    const Icon = config.icon;
+    
+    return (
+      <Badge variant={config.variant} className="gap-1">
+        <Icon className="h-3 w-3" />
+        {config.text}
+      </Badge>
+    );
   };
 
   if (loading) {
@@ -90,39 +114,67 @@ const UserManagement = () => {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="space-y-4">
+          <div className="space-y-2">
             {users.map((user) => (
-              <div
+              <Collapsible
                 key={user.id}
-                className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                open={expandedUserId === user.id}
+                onOpenChange={(open) => setExpandedUserId(open ? user.id : null)}
               >
-                <div className="flex items-center gap-4">
-                  <div className="p-2 rounded-full bg-primary/10">
-                    {user.role === 'admin' ? (
-                      <Shield className="h-5 w-5 text-primary" />
-                    ) : (
-                      <User className="h-5 w-5 text-primary" />
-                    )}
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium">{user.full_name}</p>
-                      <Badge variant={user.role === 'admin' ? 'default' : 'secondary'}>
-                        {user.role || 'user'}
-                      </Badge>
+                <div className="border rounded-lg overflow-hidden">
+                  <CollapsibleTrigger className="w-full">
+                    <div className="flex items-center justify-between p-4 hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center gap-4 flex-1">
+                        <div className="p-2 rounded-full bg-primary/10">
+                          {user.role === 'admin' ? (
+                            <Shield className="h-5 w-5 text-primary" />
+                          ) : user.role === 'moderator' ? (
+                            <Users className="h-5 w-5 text-primary" />
+                          ) : (
+                            <User className="h-5 w-5 text-primary" />
+                          )}
+                        </div>
+                        <div className="flex-1 text-left">
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="font-medium">{user.full_name}</p>
+                            <Badge variant={user.role === 'admin' ? 'default' : user.role === 'moderator' ? 'default' : 'secondary'}>
+                              {user.role || 'user'}
+                            </Badge>
+                            {getStatusBadge(user.status)}
+                          </div>
+                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                            <div className="flex items-center gap-1">
+                              <Mail className="h-3 w-3" />
+                              {user.email}
+                            </div>
+                            {user.last_login_at && (
+                              <div className="flex items-center gap-1">
+                                <Clock className="h-3 w-3" />
+                                Last login: {formatDistanceToNow(new Date(user.last_login_at), { addSuffix: true })}
+                              </div>
+                            )}
+                            {user.login_count !== undefined && user.login_count > 0 && (
+                              <span className="text-xs">
+                                {user.login_count} {user.login_count === 1 ? 'login' : 'logins'}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <ManageUserDialog user={user} onUpdated={loadUsers}>
+                        <Button variant="outline" size="sm" onClick={(e) => e.stopPropagation()}>
+                          Manage
+                        </Button>
+                      </ManageUserDialog>
                     </div>
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                      <Mail className="h-3 w-3" />
-                      {user.email}
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <div className="p-4 border-t bg-muted/20">
+                      <UserActivityList userId={user.id} userName={user.full_name} />
                     </div>
-                  </div>
+                  </CollapsibleContent>
                 </div>
-                <ManageUserDialog user={user} onUpdated={loadUsers}>
-                  <Button variant="outline" size="sm">
-                    Manage
-                  </Button>
-                </ManageUserDialog>
-              </div>
+              </Collapsible>
             ))}
           </div>
         </CardContent>

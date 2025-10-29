@@ -2082,7 +2082,10 @@ export type Database = {
           email: string
           full_name: string
           id: string
+          last_login_at: string | null
+          login_count: number | null
           role: Database["public"]["Enums"]["user_role"] | null
+          status: string | null
           updated_at: string
         }
         Insert: {
@@ -2090,7 +2093,10 @@ export type Database = {
           email: string
           full_name: string
           id: string
+          last_login_at?: string | null
+          login_count?: number | null
           role?: Database["public"]["Enums"]["user_role"] | null
+          status?: string | null
           updated_at?: string
         }
         Update: {
@@ -2098,7 +2104,10 @@ export type Database = {
           email?: string
           full_name?: string
           id?: string
+          last_login_at?: string | null
+          login_count?: number | null
           role?: Database["public"]["Enums"]["user_role"] | null
+          status?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -2735,6 +2744,39 @@ export type Database = {
           },
         ]
       }
+      user_activity_logs: {
+        Row: {
+          action_description: string
+          action_type: string
+          created_at: string
+          id: string
+          ip_address: string | null
+          metadata: Json | null
+          user_agent: string | null
+          user_id: string
+        }
+        Insert: {
+          action_description: string
+          action_type: string
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          user_agent?: string | null
+          user_id: string
+        }
+        Update: {
+          action_description?: string
+          action_type?: string
+          created_at?: string
+          id?: string
+          ip_address?: string | null
+          metadata?: Json | null
+          user_agent?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_invitations: {
         Row: {
           email: string
@@ -2946,6 +2988,15 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      log_user_activity: {
+        Args: {
+          p_action_description: string
+          p_action_type: string
+          p_metadata?: Json
+          p_user_id: string
+        }
+        Returns: string
       }
     }
     Enums: {
