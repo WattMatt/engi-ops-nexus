@@ -529,6 +529,14 @@ const MainApp: React.FC<MainAppProps> = ({ user }) => {
                     <Building className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
                     <h2 className="text-2xl font-semibold text-foreground">Load a PDF Floor Plan</h2>
                     <p className="mt-2 text-muted-foreground">Use the toolbar on the left to begin your project.</p>
+                    {user && (
+                      <button 
+                        onClick={handleOpenLoadModal}
+                        className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+                      >
+                        View My Saved Designs
+                      </button>
+                    )}
                 </div>
             </div>
           ) : !purposeConfig ? (
