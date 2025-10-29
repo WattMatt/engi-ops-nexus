@@ -20,15 +20,10 @@ import LoadDesignModal from './components/LoadDesignModal';
 import TaskModal from './components/TaskModal';
 import { ToastProvider, useToast } from './components/ToastProvider';
 import { 
-    signInWithGoogle,
-    signOut,
-    onAuthChange,
     saveDesign,
     listDesigns,
     loadDesign,
     type DesignListing,
-    initializeSupabase,
-    isSupabaseInitialized as isSupabaseReady,
 } from './utils/supabase';
 import { Building, Loader } from 'lucide-react';
 
@@ -55,10 +50,14 @@ const initialDesignState: DesignState = {
     containment: [],
     roofMasks: [],
     pvArrays: [],
-    tasks: [],
+  tasks: [],
 };
 
-const MainApp: React.FC = () => {
+interface MainAppProps {
+  user: User | null;
+}
+
+const MainApp: React.FC<MainAppProps> = ({ user }) => {
   const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [designPurpose, setDesignPurpose] = useState<DesignPurpose | null>(null);
@@ -145,12 +144,10 @@ const MainApp: React.FC = () => {
   const [pendingLine, setPendingLine] = useState<{ points: Point[]; length: number; } | null>(null);
   const [pendingContainment, setPendingContainment] = useState<{ points: Point[]; length: number; type: ContainmentType; } | null>(null);
 
-  // Supabase State
-  const [user, setUser] = useState<User | null>(null);
+  // Cloud State
   const [isLoadDesignModalOpen, setIsLoadDesignModalOpen] = useState(false);
   const [designList, setDesignList] = useState<DesignListing[]>([]);
   const [isLoadingDesigns, setIsLoadingDesigns] = useState(false);
-  const [isSupabaseInitialized, setIsSupabaseInitialized] = useState(isSupabaseReady);
 
   const [scaleLine, setScaleLine] = useState<{start: Point, end: Point} | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
@@ -498,27 +495,6 @@ const MainApp: React.FC = () => {
   const handlePvArrayConfigSubmit = (config: PVArrayConfig) => { setPendingPvArrayConfig(config); setIsPvArrayModalOpen(false); };
   const handlePlacePvArray = (array: Omit<PVArrayItem, 'id'>) => setPvArrays(prev => [...prev, { id: `pvarray-${Date.now()}`, ...array }]);
 
-  useEffect(() => {
-    const handleMessage = (event: MessageEvent) => {
-        if (event.data && event.data.type === 'supabase-config' && event.data.config) {
-            if (!isSupabaseReady) {
-                initializeSupabase(event.data.config.url, event.data.config.anonKey);
-                setIsSupabaseInitialized(true);
-            }
-        }
-    };
-    window.addEventListener('message', handleMessage);
-    if(isSupabaseReady && !isSupabaseInitialized) setIsSupabaseInitialized(true);
-    return () => window.removeEventListener('message', handleMessage);
-  }, [isSupabaseInitialized]);
-
-  useEffect(() => {
-    if (isSupabaseInitialized) {
-      const { data: { subscription } } = onAuthChange((_event, session) => setUser(session?.user ?? null));
-      return () => subscription.unsubscribe();
-    }
-  }, [isSupabaseInitialized]);
-
   const pvDesignReady = useMemo(() => designPurpose !== DesignPurpose.PV_DESIGN || (!!scaleInfo.ratio && !!pvPanelConfig), [designPurpose, scaleInfo.ratio, pvPanelConfig]);
 
   return (
@@ -537,8 +513,8 @@ const MainApp: React.FC = () => {
         isPdfLoaded={!!pdfDoc && !!purposeConfig}
         placementRotation={placementRotation} onRotationChange={setPlacementRotation}
         purposeConfig={purposeConfig} isPvDesignReady={pvDesignReady} isSnappingEnabled={isSnappingEnabled}
-        setIsSnappingEnabled={setIsSnappingEnabled} isSupabaseAvailable={isSupabaseInitialized} user={user}
-        onSignIn={signInWithGoogle} onSignOut={signOut} onUndo={handleUndo} onRedo={handleRedo}
+        setIsSnappingEnabled={setIsSnappingEnabled} user={user}
+        onUndo={handleUndo} onRedo={handleRedo}
         canUndo={canUndo} canRedo={canRedo} onResetView={handleResetZoom}
       />
       
@@ -610,9 +586,9 @@ const MainApp: React.FC = () => {
   );
 };
 
-const App: React.FC = () => (
+const App: React.FC<{ user: User | null }> = ({ user }) => (
     <ToastProvider>
-        <MainApp />
+        <MainApp user={user} />
     </ToastProvider>
 );
 

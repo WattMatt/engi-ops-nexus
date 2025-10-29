@@ -1,56 +1,8 @@
-import { createClient, SupabaseClient, User, AuthSession } from '@supabase/supabase-js';
+import { supabase } from '@/integrations/supabase/client';
 import { DesignPurpose, EquipmentItem, SupplyLine, SupplyZone, ScaleInfo, Containment, PVPanelConfig, RoofMask, PVArrayItem, Task } from '../types';
 import { generatePdf } from './pdfGenerator';
 
-let supabase: SupabaseClient | null = null;
-export let isSupabaseInitialized = false;
-
 const BUCKET_NAME = 'floor-plans';
-
-export const initializeSupabase = (supabaseUrl: string, supabaseAnonKey: string) => {
-    if (isSupabaseInitialized || !supabaseUrl || !supabaseAnonKey || supabaseUrl.includes("YOUR_SUPABASE_URL")) {
-        if (!isSupabaseInitialized) console.warn("Supabase credentials not provided. Cloud features will be disabled.");
-        return;
-    }
-    try {
-        supabase = createClient(supabaseUrl, supabaseAnonKey);
-        isSupabaseInitialized = true;
-        console.log("Supabase has been initialized successfully.");
-    } catch (error) {
-        console.error("Supabase initialization failed:", error);
-        isSupabaseInitialized = false;
-    }
-};
-
-export const getSupabase = () => {
-    if (!supabase || !isSupabaseInitialized) throw new Error("Supabase has not been initialized or is not configured.");
-    return supabase;
-}
-
-export const onAuthChange = (callback: (event: string, session: AuthSession | null) => void) => {
-    const supabase = getSupabase();
-    return supabase.auth.onAuthStateChange(callback);
-};
-
-export const signInWithGoogle = async () => {
-    const supabase = getSupabase();
-    const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-    });
-    if (error) {
-        console.error("Authentication Error:", error);
-        throw error;
-    }
-};
-
-export const signOut = async () => {
-    const supabase = getSupabase();
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-        console.error("Sign out error:", error);
-        throw error;
-    }
-};
 
 export interface DesignDataForSave {
     equipment: EquipmentItem[];
@@ -66,7 +18,6 @@ export interface DesignDataForSave {
 }
 
 export const saveDesign = async (designName: string, designData: DesignDataForSave, pdfFile: File): Promise<void> => {
-    const supabase = getSupabase();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("User not authenticated.");
 
@@ -88,7 +39,7 @@ export const saveDesign = async (designName: string, designData: DesignDataForSa
             state_json: {
                 scaleInfo: designData.scaleInfo,
                 pvPanelConfig: designData.pvPanelConfig
-            }
+            } as any
         })
         .select()
         .single();
@@ -121,7 +72,7 @@ export const saveDesign = async (designName: string, designData: DesignDataForSa
             lines.map(({id, from, to, pathLength, ...d}) => ({ 
                 floor_plan_id: floorPlanId,
                 cable_type: d.cableType || d.type,
-                points: d.points,
+                points: d.points as any,
                 length_meters: d.length,
                 from_label: from,
                 to_label: to,
@@ -138,7 +89,7 @@ export const saveDesign = async (designName: string, designData: DesignDataForSa
         promises.push(supabase.from('floor_plan_zones').insert(
             zones.map(({id, name, area, ...d}) => ({ 
                 floor_plan_id: floorPlanId,
-                points: d.points,
+                points: d.points as any,
                 label: name,
                 area_sqm: area
             }))
@@ -152,7 +103,7 @@ export const saveDesign = async (designName: string, designData: DesignDataForSa
                 floor_plan_id: floorPlanId,
                 type: d.type,
                 size: d.size,
-                points: d.points,
+                points: d.points as any,
                 length_meters: d.length
             }))
         ));
@@ -172,7 +123,7 @@ export const saveDesign = async (designName: string, designData: DesignDataForSa
     if (roofMasks.length > 0) {
         const roofInserts = roofMasks.map(({id, points, pitch, direction}) => ({ 
             floor_plan_id: floorPlanId,
-            mask_points: points,
+            mask_points: points as any,
             pitch_degrees: pitch,
             azimuth_degrees: direction
         }));
@@ -236,7 +187,6 @@ export interface DesignListing {
 }
 
 export const listDesigns = async (): Promise<DesignListing[]> => {
-    const supabase = getSupabase();
     const { data, error } = await supabase
         .from('floor_plan_projects')
         .select('id, name, created_at, design_purpose')
@@ -263,8 +213,6 @@ export interface FullDesignData {
 }
 
 export const loadDesign = async (designId: string): Promise<{ designData: FullDesignData; pdfBlob: Blob }> => {
-    const supabase = getSupabase();
-    
     // Load main project
     const { data: project, error: projectError } = await supabase
         .from('floor_plan_projects')
@@ -361,12 +309,12 @@ export const loadDesign = async (designId: string): Promise<{ designData: FullDe
         assignedTo: t.assignee
     }));
 
-    const stateJson = project.state_json || {};
+    const stateJson = project.state_json as any || {};
     const designData: FullDesignData = {
         id: project.id,
         name: project.name,
         pdf_url: project.pdf_url,
-        design_purpose: project.design_purpose,
+        design_purpose: project.design_purpose as DesignPurpose | null,
         scale_info: stateJson.scaleInfo || { pixelDistance: null, realDistance: null, ratio: project.scale_meters_per_pixel },
         pv_panel_config: pvConfig ? {
             length: pvConfig.panel_length_m,
@@ -398,7 +346,6 @@ export const saveMarkedUpPdf = async (
     designData: DesignDataForSave,
     projectName: string
 ): Promise<string> => {
-    const supabase = getSupabase();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("User not authenticated.");
 
@@ -443,7 +390,7 @@ export const saveMarkedUpPdf = async (
                 ...designData,
                 marked_up_pdf_url: markedUpPath,
                 marked_up_generated_at: new Date().toISOString()
-            }
+            } as any
         })
         .eq('id', designId);
 

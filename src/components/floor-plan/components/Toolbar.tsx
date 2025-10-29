@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import type { LucideProps } from 'lucide-react';
 import { User } from '@supabase/supabase-js';
-import { MousePointer, Hand, Ruler, Route, Layers, Save, FolderOpen, Network, Shield, Server, RotateCw, Printer, Square, LayoutGrid, Sun, Magnet, LogIn, LogOut, Cloud, User as UserIcon, Wrench, Edit, ShieldQuestion, Power, Plug, Undo2, Redo2, Maximize2 } from 'lucide-react';
+import { MousePointer, Hand, Ruler, Route, Layers, Save, FolderOpen, Network, Shield, Server, RotateCw, Printer, Square, LayoutGrid, Sun, Magnet, Wrench, Edit, ShieldQuestion, Power, Plug, Undo2, Redo2, Maximize2 } from 'lucide-react';
 import { Tool, DesignPurpose, MarkupToolCategory, MARKUP_TOOL_CATEGORIES } from '../types';
 import { type PurposeConfig } from '../purpose.config';
 import { EquipmentIcon } from './EquipmentIcon';
@@ -58,10 +58,7 @@ interface ToolbarProps {
   isPvDesignReady: boolean;
   isSnappingEnabled: boolean;
   setIsSnappingEnabled: React.Dispatch<React.SetStateAction<boolean>>;
-  isSupabaseAvailable: boolean;
   user: User | null;
-  onSignIn: () => void;
-  onSignOut: () => void;
   onUndo: () => void;
   onRedo: () => void;
   canUndo: boolean;
@@ -90,7 +87,7 @@ const categoryLabels: Record<MarkupToolCategory, { label: string; icon: React.El
 const Toolbar: React.FC<ToolbarProps> = ({ 
   activeTool, onToolSelect, onFileChange, onSaveToCloud, onLoadFromCloud, onPrint, isPdfLoaded,
   placementRotation, onRotationChange, purposeConfig, isPvDesignReady, isSnappingEnabled, setIsSnappingEnabled,
-  isSupabaseAvailable, user, onSignIn, onSignOut,
+  user,
   onUndo, onRedo, canUndo, canRedo, onResetView
 }) => {
   const [activeMarkupTab, setActiveMarkupTab] = useState<MarkupToolCategory>('general');
@@ -148,35 +145,17 @@ const Toolbar: React.FC<ToolbarProps> = ({
         {isPdfLoaded && (
           <GlobalToolButton 
             icon={Save} 
-            label={user ? "Save to Cloud" : "Save (Sign in required)"} 
+            label="Save to Cloud" 
             onClick={onSaveToCloud} 
             disabled={!user}
           />
         )}
         
         <hr className="border-border" />
-        {isSupabaseAvailable ? (
-          <>
-            {user ? (
-              <>
-                  <div className="flex items-center w-full text-left p-2 rounded-md bg-muted">
-                      <img src={user.user_metadata.avatar_url || undefined} alt="user" className="h-6 w-6 rounded-full mr-3"/>
-                      <span className="flex-grow text-sm font-medium text-foreground truncate" title={user.user_metadata.full_name || user.email}>{user.user_metadata.full_name || user.email}</span>
-                      <button onClick={onSignOut} title="Sign Out" className="p-1 rounded-full hover:bg-accent">
-                          <LogOut className="h-5 w-5 text-muted-foreground hover:text-foreground"/>
-                      </button>
-                  </div>
-                  <GlobalToolButton icon={FolderOpen} label="My Saved Designs" onClick={onLoadFromCloud} />
-              </>
-            ) : (
-              <GlobalToolButton icon={LogIn} label="Sign in with Google" onClick={onSignIn} />
-            )}
-          </>
-        ) : (
-            <div className="p-2.5 rounded-md bg-muted text-muted-foreground text-xs">
-                Cloud features are disabled. This widget must be hosted to connect to a backend project.
-            </div>
-        )}
+        
+        {/* Load Designs Button */}
+        <GlobalToolButton icon={FolderOpen} label="My Saved Designs" onClick={onLoadFromCloud} disabled={!user} />
+        
         <hr className="border-border" />
 
         <GlobalToolButton icon={Printer} label="Export as PDF" onClick={onPrint} disabled={!isPdfLoaded} />

@@ -1,9 +1,27 @@
-import { Suspense, lazy } from 'react';
+import { Suspense, lazy, useState, useEffect } from 'react';
 import { Loader } from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { User } from '@supabase/supabase-js';
 
 const FloorPlanApp = lazy(() => import('../components/floor-plan/App'));
 
 export default function FloorPlan() {
+  const [user, setUser] = useState<User | null>(null);
+
+  useEffect(() => {
+    // Get current user
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setUser(user);
+    });
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
   return (
     <div className="h-[calc(100vh-8rem)] w-full overflow-hidden rounded-lg border border-border bg-background">
       <Suspense 
@@ -13,7 +31,7 @@ export default function FloorPlan() {
           </div>
         }
       >
-        <FloorPlanApp />
+        <FloorPlanApp user={user} />
       </Suspense>
     </div>
   );
