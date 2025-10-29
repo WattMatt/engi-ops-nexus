@@ -23,6 +23,7 @@ import {
     saveDesign,
     listDesigns,
     loadDesign,
+    deleteDesign,
     type DesignListing,
 } from './utils/supabase';
 import { Building, Loader } from 'lucide-react';
@@ -331,6 +332,25 @@ const MainApp: React.FC<MainAppProps> = ({ user }) => {
       }
   };
 
+  const handleDeleteDesign = async (designId: string, designName: string) => {
+      if (!user) return;
+      
+      if (!window.confirm(`Are you sure you want to delete "${designName}"? This action cannot be undone.`)) {
+          return;
+      }
+      
+      try {
+          await deleteDesign(designId);
+          toast.success(`Design "${designName}" deleted successfully!`);
+          
+          // Refresh the design list
+          setDesignList(prev => prev.filter(d => d.id !== designId));
+      } catch (error) {
+          console.error("Error deleting design:", error);
+          toast.error(`Failed to delete design: ${error instanceof Error ? error.message : 'Unknown Error'}`);
+      }
+  };
+
 
   const handlePrint = () => {
     const canvases = canvasApiRef.current?.getCanvases();
@@ -587,7 +607,8 @@ const MainApp: React.FC<MainAppProps> = ({ user }) => {
       <LoadDesignModal 
         isOpen={isLoadDesignModalOpen} 
         onClose={() => setIsLoadDesignModalOpen(false)} 
-        onLoad={handleLoadFromCloud} 
+        onLoad={handleLoadFromCloud}
+        onDelete={handleDeleteDesign}
         onNewDesign={() => document.getElementById('pdf-upload')?.click()}
         designs={designList} 
         isLoading={isLoadingDesigns} 

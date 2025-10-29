@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { FolderOpen, FilePlus } from 'lucide-react';
+import { FolderOpen, FilePlus, Trash2 } from 'lucide-react';
 import { DesignListing } from '../utils/supabase';
 import { DesignPurpose } from '../types';
 
@@ -7,12 +7,13 @@ interface LoadDesignModalProps {
   isOpen: boolean;
   onClose: () => void;
   onLoad: (designId: string) => void;
+  onDelete: (designId: string, designName: string) => void;
   onNewDesign: () => void;
   designs: DesignListing[];
   isLoading: boolean;
 }
 
-const LoadDesignModal: React.FC<LoadDesignModalProps> = ({ isOpen, onClose, onLoad, onNewDesign, designs, isLoading }) => {
+const LoadDesignModal: React.FC<LoadDesignModalProps> = ({ isOpen, onClose, onLoad, onDelete, onNewDesign, designs, isLoading }) => {
   // Group designs by purpose
   const groupedDesigns = useMemo(() => {
     const groups: Record<string, DesignListing[]> = {};
@@ -67,19 +68,31 @@ const LoadDesignModal: React.FC<LoadDesignModalProps> = ({ isOpen, onClose, onLo
               <div key={purpose} className="space-y-2">
                 <h4 className="text-xs font-semibold text-primary uppercase tracking-wider">{purpose}</h4>
                 {designList.map(design => (
-                  <button 
+                  <div
                     key={design.id}
-                    onClick={() => onLoad(design.id)}
-                    className="w-full flex items-center justify-between p-3 rounded-md bg-muted hover:bg-accent transition-colors text-left"
+                    className="flex items-center justify-between p-3 rounded-md bg-muted hover:bg-accent transition-colors"
                   >
-                    <div className="flex items-center gap-3">
-                        <FolderOpen className="h-5 w-5 text-primary flex-shrink-0" />
-                        <div>
-                            <p className="font-semibold text-foreground">{design.name}</p>
-                            <p className="text-xs text-muted-foreground">Saved: {new Date(design.createdAt).toLocaleString()}</p>
-                        </div>
-                    </div>
-                  </button>
+                    <button 
+                      onClick={() => onLoad(design.id)}
+                      className="flex-1 flex items-center gap-3 text-left"
+                    >
+                      <FolderOpen className="h-5 w-5 text-primary flex-shrink-0" />
+                      <div>
+                        <p className="font-semibold text-foreground">{design.name}</p>
+                        <p className="text-xs text-muted-foreground">Saved: {new Date(design.createdAt).toLocaleString()}</p>
+                      </div>
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onDelete(design.id, design.name);
+                      }}
+                      className="ml-2 p-2 text-destructive hover:bg-destructive/10 rounded-md transition-colors"
+                      title="Delete design"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
                 ))}
               </div>
             ))

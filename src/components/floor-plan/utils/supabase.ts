@@ -341,6 +341,41 @@ export const loadDesign = async (designId: string): Promise<{ designData: FullDe
 };
 
 /**
+ * Deletes a design and all its associated data
+ */
+export const deleteDesign = async (designId: string): Promise<void> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("User not authenticated.");
+
+    // Get the project to find the PDF URL
+    const { data: project, error: projectError } = await supabase
+        .from('floor_plan_projects')
+        .select('pdf_url, user_id')
+        .eq('id', designId)
+        .single();
+        
+    if (projectError) throw projectError;
+    
+    // Verify the user owns this design
+    if (project.user_id !== user.id) {
+        throw new Error("Unauthorized: You can only delete your own designs");
+    }
+
+    // Delete the PDF file from storage
+    if (project.pdf_url) {
+        await supabase.storage.from(BUCKET_NAME).remove([project.pdf_url]);
+    }
+
+    // Delete the project (cascading deletes will handle related tables)
+    const { error: deleteError } = await supabase
+        .from('floor_plan_projects')
+        .delete()
+        .eq('id', designId);
+        
+    if (deleteError) throw deleteError;
+};
+
+/**
  * Saves a PDF with markups rendered on it
  * This generates a new PDF with all the canvas overlays and saves it to storage
  */
