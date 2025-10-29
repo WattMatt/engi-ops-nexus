@@ -597,7 +597,14 @@ const MainApp: React.FC = () => {
       <PVConfigModal isOpen={isPvConfigModalOpen} onClose={() => setIsPvConfigModalOpen(false)} onSubmit={handlePvConfigSubmit} />
       <RoofMaskModal isOpen={isRoofMaskModalOpen} onClose={() => { setIsRoofMaskModalOpen(false); setPendingRoofMask(null); }} onSubmit={handleRoofMaskSubmit} />
       <PVArrayModal isOpen={isPvArrayModalOpen} onClose={() => { setIsPvArrayModalOpen(false); setActiveTool(Tool.PAN); }} onSubmit={handlePvArrayConfigSubmit} />
-      <LoadDesignModal isOpen={isLoadDesignModalOpen} onClose={() => setIsLoadDesignModalOpen(false)} onLoad={handleLoadFromCloud} designs={designList} isLoading={isLoadingDesigns} />
+      <LoadDesignModal 
+        isOpen={isLoadDesignModalOpen} 
+        onClose={() => setIsLoadDesignModalOpen(false)} 
+        onLoad={handleLoadFromCloud} 
+        onNewDesign={() => document.getElementById('pdf-upload')?.click()}
+        designs={designList} 
+        isLoading={isLoadingDesigns} 
+      />
       <TaskModal isOpen={isTaskModalOpen} onClose={() => { setIsTaskModalOpen(false); setEditingTask(null); }} onSubmit={handleTaskSubmit} task={editingTask} assigneeList={assigneeList} />
     </div>
   );

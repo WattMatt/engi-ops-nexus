@@ -1,59 +1,101 @@
-import React from 'react';
-import { FolderOpen } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { FolderOpen, FilePlus } from 'lucide-react';
 import { DesignListing } from '../utils/supabase';
+import { DesignPurpose } from '../types';
 
 interface LoadDesignModalProps {
   isOpen: boolean;
   onClose: () => void;
   onLoad: (designId: string) => void;
+  onNewDesign: () => void;
   designs: DesignListing[];
   isLoading: boolean;
 }
 
-const LoadDesignModal: React.FC<LoadDesignModalProps> = ({ isOpen, onClose, onLoad, designs, isLoading }) => {
+const LoadDesignModal: React.FC<LoadDesignModalProps> = ({ isOpen, onClose, onLoad, onNewDesign, designs, isLoading }) => {
+  // Group designs by purpose
+  const groupedDesigns = useMemo(() => {
+    const groups: Record<string, DesignListing[]> = {};
+    designs.forEach(design => {
+      const purpose = design.design_purpose || 'Other';
+      if (!groups[purpose]) {
+        groups[purpose] = [];
+      }
+      groups[purpose].push(design);
+    });
+    return groups;
+  }, [designs]);
+
   if (!isOpen) {
     return null;
   }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50">
-      <div className="bg-gray-800 rounded-lg shadow-xl p-8 w-full max-w-xl max-h-[80vh] flex flex-col">
-        <h2 className="text-2xl font-bold text-white mb-4">Load Design from Cloud</h2>
-        <p className="text-gray-400 mb-6">Select a previously saved design to continue working on it.</p>
+      <div className="bg-card rounded-lg shadow-xl p-8 w-full max-w-2xl max-h-[80vh] flex flex-col border border-border">
+        <h2 className="text-2xl font-bold text-foreground mb-2">Floor Plan Markup</h2>
+        <p className="text-muted-foreground mb-6">Open a saved design or start a new markup</p>
         
-        <div className="overflow-y-auto space-y-2 pr-2 flex-grow">
-          {isLoading ? (
-            <div className="flex justify-center items-center h-full">
-                <p className="text-gray-400">Loading your designs...</p>
+        {/* New Design Button */}
+        <button
+          onClick={() => {
+            onNewDesign();
+            onClose();
+          }}
+          className="w-full flex items-center justify-between p-4 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors mb-4"
+        >
+          <div className="flex items-center gap-3">
+            <FilePlus className="h-6 w-6" />
+            <div className="text-left">
+              <p className="font-semibold">Start New Markup</p>
+              <p className="text-sm opacity-90">Load a PDF file and begin marking up</p>
             </div>
-          ) : designs.length > 0 ? (
-            designs.map(design => (
-              <button 
-                key={design.id}
-                onClick={() => onLoad(design.id)}
-                className="w-full flex items-center justify-between p-3 rounded-md bg-gray-700 hover:bg-indigo-600/50 transition-colors text-left"
-              >
-                <div className="flex items-center gap-4">
-                    <FolderOpen className="h-5 w-5 text-indigo-400 flex-shrink-0" />
-                    <div>
-                        <p className="font-semibold text-gray-200">{design.name}</p>
-                        <p className="text-xs text-gray-400">Saved: {new Date(design.createdAt).toLocaleString()}</p>
+          </div>
+        </button>
+
+        <div className="border-t border-border pt-4 mb-4">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider mb-3">Saved Designs</h3>
+        </div>
+        
+        <div className="overflow-y-auto space-y-4 pr-2 flex-grow">
+          {isLoading ? (
+            <div className="flex justify-center items-center h-32">
+                <p className="text-muted-foreground">Loading your designs...</p>
+            </div>
+          ) : Object.keys(groupedDesigns).length > 0 ? (
+            Object.entries(groupedDesigns).map(([purpose, designList]) => (
+              <div key={purpose} className="space-y-2">
+                <h4 className="text-xs font-semibold text-primary uppercase tracking-wider">{purpose}</h4>
+                {designList.map(design => (
+                  <button 
+                    key={design.id}
+                    onClick={() => onLoad(design.id)}
+                    className="w-full flex items-center justify-between p-3 rounded-md bg-muted hover:bg-accent transition-colors text-left"
+                  >
+                    <div className="flex items-center gap-3">
+                        <FolderOpen className="h-5 w-5 text-primary flex-shrink-0" />
+                        <div>
+                            <p className="font-semibold text-foreground">{design.name}</p>
+                            <p className="text-xs text-muted-foreground">Saved: {new Date(design.createdAt).toLocaleString()}</p>
+                        </div>
                     </div>
-                </div>
-              </button>
+                  </button>
+                ))}
+              </div>
             ))
           ) : (
-            <div className="flex justify-center items-center h-full">
-                <p className="text-gray-400">You have no saved designs.</p>
+            <div className="flex flex-col justify-center items-center h-32 text-center">
+                <p className="text-muted-foreground">You have no saved designs yet.</p>
+                <p className="text-sm text-muted-foreground mt-1">Start a new markup to get started!</p>
             </div>
           )}
         </div>
 
-        <div className="flex justify-end space-x-4 mt-6 pt-4 border-t border-gray-700">
+        <div className="flex justify-end space-x-4 mt-6 pt-4 border-t border-border">
           <button
             type="button"
             onClick={onClose}
-            className="px-6 py-2 rounded-md text-gray-300 bg-gray-600 hover:bg-gray-500 transition-colors"
+            className="px-6 py-2 rounded-md text-foreground bg-muted hover:bg-accent transition-colors"
           >
             Cancel
           </button>

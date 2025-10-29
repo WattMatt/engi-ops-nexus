@@ -144,6 +144,16 @@ const Toolbar: React.FC<ToolbarProps> = ({
         </label>
         <input id="pdf-upload" type="file" className="hidden" onChange={onFileChange} accept=".pdf" />
         
+        {/* Save Button - Always visible when PDF is loaded */}
+        {isPdfLoaded && (
+          <GlobalToolButton 
+            icon={Save} 
+            label={user ? "Save to Cloud" : "Save (Sign in required)"} 
+            onClick={onSaveToCloud} 
+            disabled={!user}
+          />
+        )}
+        
         <hr className="border-border" />
         {isSupabaseAvailable ? (
           <>
@@ -156,8 +166,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
                           <LogOut className="h-5 w-5 text-muted-foreground hover:text-foreground"/>
                       </button>
                   </div>
-                  <GlobalToolButton icon={Cloud} label="Save to Cloud" onClick={onSaveToCloud} disabled={!isPdfLoaded} />
-                  <GlobalToolButton icon={FolderOpen} label="Load from Cloud" onClick={onLoadFromCloud} />
+                  <GlobalToolButton icon={FolderOpen} label="My Saved Designs" onClick={onLoadFromCloud} />
               </>
             ) : (
               <GlobalToolButton icon={LogIn} label="Sign in with Google" onClick={onSignIn} />

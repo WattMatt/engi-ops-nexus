@@ -232,17 +232,18 @@ export interface DesignListing {
     id: string;
     name: string;
     createdAt: string;
+    design_purpose: string | null;
 }
 
 export const listDesigns = async (): Promise<DesignListing[]> => {
     const supabase = getSupabase();
     const { data, error } = await supabase
         .from('floor_plan_projects')
-        .select('id, name, created_at')
+        .select('id, name, created_at, design_purpose')
         .order('created_at', { ascending: false });
     
     if (error) throw error;
-    return data.map(d => ({ id: d.id, name: d.name, createdAt: d.created_at }));
+    return data.map(d => ({ id: d.id, name: d.name, createdAt: d.created_at, design_purpose: d.design_purpose }));
 };
 
 export interface FullDesignData {
