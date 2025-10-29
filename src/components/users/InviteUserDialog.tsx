@@ -56,41 +56,17 @@ export const InviteUserDialog = ({ onInvited }: InviteUserDialogProps) => {
         .eq("id", currentUser.id)
         .single();
 
-      // Create user with a temporary random password
-      const tempPassword = crypto.randomUUID();
-      const redirectUrl = `${window.location.origin}/auth`;
-      
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email: data.email,
-        password: tempPassword,
-        options: {
-          emailRedirectTo: redirectUrl,
-          data: {
-            full_name: data.fullName,
-          },
+      // Use Edge Function to create user (doesn't affect current session)
+      const { data: inviteData, error: inviteError } = await supabase.functions.invoke("invite-user", {
+        body: {
+          email: data.email,
+          fullName: data.fullName,
+          role: data.role,
         },
       });
 
-      if (signUpError) throw signUpError;
-      if (!signUpData.user) throw new Error("Failed to create user");
-
-      // Create user role
-      const { error: roleError } = await supabase
-        .from("user_roles")
-        .insert([{
-          user_id: signUpData.user.id,
-          role: data.role,
-        }]);
-
-      if (roleError) throw roleError;
-
-      // Generate password reset link
-      const { data: resetData, error: resetError } = await supabase.auth
-        .resetPasswordForEmail(data.email, {
-          redirectTo: redirectUrl,
-        });
-
-      if (resetError) throw resetError;
+      if (inviteError) throw inviteError;
+      if (!inviteData?.success) throw new Error("Failed to create user");
 
       // Send invite email
       const { error: emailError } = await supabase.functions.invoke("send-invite-email", {
@@ -99,7 +75,7 @@ export const InviteUserDialog = ({ onInvited }: InviteUserDialogProps) => {
           fullName: data.fullName,
           role: data.role,
           invitedBy: currentProfile?.full_name || "Admin",
-          resetLink: `${window.location.origin}/auth`,
+          resetLink: inviteData.resetLink || `${window.location.origin}/auth`,
         },
       });
 
