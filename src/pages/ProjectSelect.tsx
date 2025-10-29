@@ -138,22 +138,25 @@ const ProjectSelect = () => {
                   </div>
                   
                   {(project.project_logo_url || project.client_logo_url) && (
-                    <div className="flex items-center gap-4 mt-4 pb-4 border-b">
+                    <div className="flex items-center justify-center gap-8 mt-6 pb-6 border-b">
                       {project.project_logo_url && (
-                        <div className="flex-1">
+                        <div className="flex-1 flex justify-center">
                           <img 
                             src={project.project_logo_url} 
                             alt="Project Logo" 
-                            className="h-12 w-auto object-contain"
+                            className="h-14 w-auto object-contain"
                           />
                         </div>
                       )}
+                      {project.project_logo_url && project.client_logo_url && (
+                        <div className="h-14 w-px bg-border" />
+                      )}
                       {project.client_logo_url && (
-                        <div className="flex-1">
+                        <div className="flex-1 flex justify-center">
                           <img 
                             src={project.client_logo_url} 
                             alt="Client Logo" 
-                            className="h-12 w-auto object-contain"
+                            className="h-14 w-auto object-contain"
                           />
                         </div>
                       )}
