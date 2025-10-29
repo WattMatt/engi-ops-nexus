@@ -24,7 +24,9 @@ const handler = async (req: Request): Promise<Response> => {
   try {
     const { email, fullName, role, invitedBy, resetLink }: InviteEmailRequest = await req.json();
 
-    console.log("Sending invite email to:", email);
+    console.log("Attempting to send invite email to:", email);
+    console.log("Reset link provided:", resetLink ? "Yes" : "No");
+    console.log("Resend API key configured:", Deno.env.get("RESEND_API_KEY") ? "Yes" : "No");
 
     const emailResponse = await resend.emails.send({
       from: "Team <onboarding@resend.dev>",
@@ -75,6 +77,11 @@ const handler = async (req: Request): Promise<Response> => {
     });
 
     console.log("Email sent successfully:", emailResponse);
+    
+    if (emailResponse.error) {
+      console.error("Resend error:", emailResponse.error);
+      throw new Error(emailResponse.error.message || "Failed to send email");
+    }
 
     return new Response(JSON.stringify({ success: true, data: emailResponse }), {
       status: 200,
@@ -82,8 +89,17 @@ const handler = async (req: Request): Promise<Response> => {
     });
   } catch (error: any) {
     console.error("Error sending invite email:", error);
+    console.error("Error details:", {
+      message: error.message,
+      name: error.name,
+      stack: error.stack
+    });
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
+      JSON.stringify({ 
+        success: false, 
+        error: error.message,
+        details: "Check edge function logs for more information"
+      }),
       {
         status: 500,
         headers: { "Content-Type": "application/json", ...corsHeaders },

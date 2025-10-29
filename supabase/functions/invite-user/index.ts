@@ -58,14 +58,20 @@ serve(async (req) => {
 
     if (roleError) throw roleError;
 
-    // Generate password reset link
+    // Generate password reset link for the invited user
     const { data: resetData, error: resetError } = await supabaseAdmin.auth.admin
       .generateLink({
-        type: 'magiclink',
+        type: 'recovery',
         email: email,
       });
 
-    if (resetError) throw resetError;
+    if (resetError) {
+      console.error("Error generating reset link:", resetError);
+      throw resetError;
+    }
+
+    console.log("User created successfully:", userData.user.id);
+    console.log("Reset link generated for:", email);
 
     return new Response(
       JSON.stringify({ 

@@ -80,10 +80,14 @@ export const InviteUserDialog = ({ onInvited }: InviteUserDialogProps) => {
       });
 
       if (emailError) {
-        console.error("Email error:", emailError);
-        toast.warning("User created but invitation email failed to send. User can still log in.");
+        console.error("Email sending failed:", emailError);
+        toast.error("User created but invitation email failed", {
+          description: "Please check your Resend configuration and domain verification. User account exists but no email was sent."
+        });
       } else {
-        toast.success(`Invitation sent to ${data.email}`);
+        toast.success(`Invitation sent successfully`, {
+          description: `Email sent to ${data.email}. They'll receive a password setup link.`
+        });
       }
 
       // Log the invite activity
