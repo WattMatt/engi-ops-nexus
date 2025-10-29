@@ -14,7 +14,7 @@ interface Project {
   name: string;
   description: string | null;
   status: string;
-  consultant_logo_url: string | null;
+  project_logo_url: string | null;
   client_logo_url: string | null;
 }
 
@@ -34,7 +34,7 @@ const ProjectSelect = () => {
     try {
       const { data, error } = await supabase
         .from("projects")
-        .select("id, project_number, name, description, status, consultant_logo_url, client_logo_url")
+        .select("id, project_number, name, description, status, project_logo_url, client_logo_url")
         .order("project_number", { ascending: true });
 
       if (error) throw error;
@@ -137,13 +137,13 @@ const ProjectSelect = () => {
                     </span>
                   </div>
                   
-                  {(project.consultant_logo_url || project.client_logo_url) && (
+                  {(project.project_logo_url || project.client_logo_url) && (
                     <div className="flex items-center gap-4 mt-4 pb-4 border-b">
-                      {project.consultant_logo_url && (
+                      {project.project_logo_url && (
                         <div className="flex-1">
                           <img 
-                            src={project.consultant_logo_url} 
-                            alt="Consultant Logo" 
+                            src={project.project_logo_url} 
+                            alt="Project Logo" 
                             className="h-12 w-auto object-contain"
                           />
                         </div>
