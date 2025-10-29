@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, Mail, Shield, User, Clock, CheckCircle, AlertCircle } from "lucide-react";
+import { Users, Mail, Shield, User, Clock, CheckCircle, AlertCircle, Send } from "lucide-react";
 import { toast } from "sonner";
 import { InviteUserDialog } from "@/components/users/InviteUserDialog";
 import { ManageUserDialog } from "@/components/users/ManageUserDialog";
@@ -10,6 +10,7 @@ import { UserActivityList } from "@/components/users/UserActivityList";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { formatDistanceToNow } from "date-fns";
+import { useActivityLogger } from "@/hooks/useActivityLogger";
 
 interface UserProfile {
   id: string;
@@ -25,6 +26,8 @@ const UserManagement = () => {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
+  const [resendingInvite, setResendingInvite] = useState<string | null>(null);
+  const { logActivity } = useActivityLogger();
 
   useEffect(() => {
     loadUsers();
@@ -59,6 +62,71 @@ const UserManagement = () => {
       console.error(error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const resendInvite = async (user: UserProfile) => {
+    setResendingInvite(user.id);
+    try {
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser) {
+        toast.error("You must be logged in");
+        return;
+      }
+
+      // Get current user's profile
+      const { data: currentProfile } = await supabase
+        .from("profiles")
+        .select("full_name")
+        .eq("id", currentUser.id)
+        .single();
+
+      // Generate new password reset link
+      const { data: resetData, error: resetError } = await supabase.functions.invoke("invite-user", {
+        body: {
+          email: user.email,
+          fullName: user.full_name,
+          role: user.role || "user",
+          resend: true, // Flag to indicate this is a resend
+        },
+      });
+
+      if (resetError) throw resetError;
+
+      // Send invite email
+      const { error: emailError } = await supabase.functions.invoke("send-invite-email", {
+        body: {
+          email: user.email,
+          fullName: user.full_name,
+          role: user.role || "user",
+          invitedBy: currentProfile?.full_name || "Admin",
+          resetLink: resetData?.resetLink || `${window.location.origin}/auth`,
+        },
+      });
+
+      if (emailError) {
+        console.error("Email error:", emailError);
+        toast.error("Failed to send invitation email", {
+          description: "Please check your Resend configuration"
+        });
+      } else {
+        toast.success("Invitation resent successfully", {
+          description: `New invitation email sent to ${user.email}`
+        });
+        
+        await logActivity(
+          'update',
+          `Resent invitation to: ${user.full_name}`,
+          { email: user.email }
+        );
+      }
+    } catch (error: any) {
+      console.error("Error resending invite:", error);
+      toast.error("Failed to resend invitation", {
+        description: error.message
+      });
+    } finally {
+      setResendingInvite(null);
     }
   };
 
@@ -161,7 +229,18 @@ const UserManagement = () => {
                           </div>
                         </div>
                       </div>
-                      <div onClick={(e) => e.stopPropagation()}>
+                      <div onClick={(e) => e.stopPropagation()} className="flex gap-2">
+                        {user.status === 'pending_verification' && (
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => resendInvite(user)}
+                            disabled={resendingInvite === user.id}
+                          >
+                            <Send className="h-4 w-4 mr-2" />
+                            {resendingInvite === user.id ? "Sending..." : "Resend Invite"}
+                          </Button>
+                        )}
                         <ManageUserDialog user={user} onUpdated={loadUsers}>
                           <Button variant="outline" size="sm">
                             Manage

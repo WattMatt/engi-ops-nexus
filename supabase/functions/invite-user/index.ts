@@ -24,7 +24,7 @@ serve(async (req) => {
       }
     );
 
-    const { email, fullName, role } = await req.json();
+    const { email, fullName, role, resend } = await req.json();
 
     // Validate input
     if (!email || !fullName || !role) {
@@ -34,29 +34,47 @@ serve(async (req) => {
       );
     }
 
-    // Create user with admin API (doesn't affect current session)
-    const tempPassword = crypto.randomUUID();
-    const { data: userData, error: userError } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password: tempPassword,
-      email_confirm: false, // Keep pending until they set password
-      user_metadata: {
-        full_name: fullName,
-      },
-    });
+    let userId: string;
 
-    if (userError) throw userError;
-    if (!userData.user) throw new Error("Failed to create user");
+    // If this is a resend, find the existing user
+    if (resend) {
+      const { data: existingUser, error: findError } = await supabaseAdmin.auth.admin.listUsers();
+      if (findError) throw findError;
+      
+      const user = existingUser.users.find(u => u.email === email);
+      if (!user) {
+        throw new Error("User not found");
+      }
+      userId = user.id;
+      console.log("Resending invite for existing user:", userId);
+    } else {
+      // Create new user with admin API (doesn't affect current session)
+      const tempPassword = crypto.randomUUID();
+      const { data: userData, error: userError } = await supabaseAdmin.auth.admin.createUser({
+        email,
+        password: tempPassword,
+        email_confirm: false, // Keep pending until they set password
+        user_metadata: {
+          full_name: fullName,
+        },
+      });
 
-    // Create user role
-    const { error: roleError } = await supabaseAdmin
-      .from("user_roles")
-      .insert([{
-        user_id: userData.user.id,
-        role: role,
-      }]);
+      if (userError) throw userError;
+      if (!userData.user) throw new Error("Failed to create user");
+      
+      userId = userData.user.id;
+      console.log("User created successfully:", userId);
 
-    if (roleError) throw roleError;
+      // Create user role
+      const { error: roleError } = await supabaseAdmin
+        .from("user_roles")
+        .insert([{
+          user_id: userId,
+          role: role,
+        }]);
+
+      if (roleError) throw roleError;
+    }
 
     // Generate password reset link for the invited user
     const { data: resetData, error: resetError } = await supabaseAdmin.auth.admin
@@ -70,13 +88,12 @@ serve(async (req) => {
       throw resetError;
     }
 
-    console.log("User created successfully:", userData.user.id);
     console.log("Reset link generated for:", email);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
-        user: userData.user,
+        userId: userId,
         resetLink: resetData.properties.action_link 
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
