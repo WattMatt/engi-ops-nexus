@@ -1,6 +1,6 @@
 import React from 'react';
 import { FolderOpen } from 'lucide-react';
-import { DesignListing } from '../utils/firebase';
+import { DesignListing } from '../utils/supabase';
 
 interface LoadDesignModalProps {
   isOpen: boolean;
