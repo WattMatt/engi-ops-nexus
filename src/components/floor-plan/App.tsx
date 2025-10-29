@@ -393,18 +393,20 @@ const MainApp: React.FC = () => {
   }, []);
 
   const handleResetZoom = useCallback(() => {
-      if(!canvasApiRef.current) return;
+      if(!canvasApiRef.current || !mainContainerRef.current) return;
       const canvases = canvasApiRef.current.getCanvases();
-      if(!canvases.pdf || !canvases.pdf.parentElement) return;
+      if(!canvases.pdf) return;
       
-      // Use the canvas container's actual visible dimensions
-      const container = canvases.pdf.parentElement;
-      const containerWidth = container.clientWidth;
-      const containerHeight = container.clientHeight;
+      // Get the actual visible canvas area (the main container)
+      const containerWidth = mainContainerRef.current.clientWidth;
+      const containerHeight = mainContainerRef.current.clientHeight;
       const pdfWidth = canvases.pdf.width;
       const pdfHeight = canvases.pdf.height;
       
+      // Calculate zoom to fit with some padding
       const fitZoom = Math.min(containerWidth / pdfWidth, containerHeight / pdfHeight) * 0.95;
+      
+      // Center the PDF in the visible area
       const fitOffsetX = (containerWidth - pdfWidth * fitZoom) / 2;
       const fitOffsetY = (containerHeight - pdfHeight * fitZoom) / 2;
       
