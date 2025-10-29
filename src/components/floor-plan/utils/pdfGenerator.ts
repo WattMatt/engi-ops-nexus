@@ -322,7 +322,7 @@ const hasScheduleData = (params: GeneratePdfParams): boolean => {
            (!!params.comments && params.comments.trim() !== '');
 };
 
-export const generatePdf = async (params: GeneratePdfParams) => {
+export const generatePdf = async (params: GeneratePdfParams, returnBlob: boolean = false): Promise<Blob | void> => {
     const doc = new jsPDF('p', 'mm', 'a4');
     doc.deletePage(1); 
 
@@ -334,5 +334,9 @@ export const generatePdf = async (params: GeneratePdfParams) => {
     
     addPageFooter(doc);
     
-    doc.save(`${params.projectName}.pdf`);
+    if (returnBlob) {
+        return doc.output('blob');
+    } else {
+        doc.save(`${params.projectName}.pdf`);
+    }
 };

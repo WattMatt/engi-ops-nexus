@@ -303,7 +303,7 @@ const MainApp: React.FC = () => {
       setGlobalLoadingMessage("Loading design from cloud...");
       try {
           const { designData, pdfBlob } = await loadDesign(designId);
-          const fileName = designData.pdf_storage_path.split('/').pop() || 'design.pdf';
+          const fileName = designData.pdf_url.split('/').pop() || 'design.pdf';
           const loadedFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
           await loadPdfData(pdfBlob, loadedFile);
           
