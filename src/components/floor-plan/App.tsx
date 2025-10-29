@@ -526,13 +526,15 @@ const MainApp: React.FC = () => {
   const pvDesignReady = useMemo(() => designPurpose !== DesignPurpose.PV_DESIGN || (!!scaleInfo.ratio && !!pvPanelConfig), [designPurpose, scaleInfo.ratio, pvPanelConfig]);
 
   return (
-    <div className="flex flex-col h-full w-full bg-gray-900 text-gray-100 font-sans relative">
+    <div className="h-full w-full flex bg-background relative">
       {globalLoadingMessage && (
-        <div className="absolute inset-0 bg-gray-900/80 z-[100] flex flex-col items-center justify-center gap-4 animate-fade-in">
-          <Loader className="h-12 w-12 text-indigo-400 animate-spin" />
-          <p className="text-lg text-gray-300">{globalLoadingMessage}</p>
+        <div className="absolute inset-0 bg-background/80 z-[100] flex flex-col items-center justify-center gap-4 animate-fade-in">
+          <Loader className="h-12 w-12 text-primary animate-spin" />
+          <p className="text-lg text-foreground">{globalLoadingMessage}</p>
         </div>
       )}
+      
+      {/* Left Sidebar - Toolbar */}
       <Toolbar
         activeTool={activeTool} onToolSelect={handleToolSelect} onFileChange={handleFileChange}
         onSaveToCloud={handleSaveToCloud} onLoadFromCloud={handleOpenLoadModal} onPrint={handlePrint}
@@ -543,6 +545,8 @@ const MainApp: React.FC = () => {
         onSignIn={signInWithGoogle} onSignOut={signOut} onUndo={handleUndo} onRedo={handleRedo}
         canUndo={canUndo} canRedo={canRedo} onResetView={handleResetZoom}
       />
+      
+      {/* Center - Canvas Area */}
       <main ref={mainContainerRef} className="flex-1 flex flex-col relative overflow-hidden bg-background">
           {!pdfDoc ? (
              <div className="flex-1 flex justify-center items-center bg-muted/30">
@@ -580,12 +584,16 @@ const MainApp: React.FC = () => {
             </>
           )}
       </main>
+      
+      {/* Right Sidebar - Equipment Panel */}
       {pdfDoc && purposeConfig && pvDesignReady && <EquipmentPanel 
         equipment={equipment} lines={lines} zones={zones} containment={containment} selectedItemId={selectedItemId}
         setSelectedItemId={setSelectedItemId} onEquipmentUpdate={handleEquipmentUpdate} onZoneUpdate={handleZoneUpdate}
         purposeConfig={purposeConfig} designPurpose={designPurpose!} pvPanelConfig={pvPanelConfig}
         pvArrays={pvArrays} onDeleteItem={handleDeleteSelectedItem} tasks={tasks} onOpenTaskModal={handleOpenTaskModal}
       />}
+      
+      {/* Modals */}
       <ScaleModal isOpen={isScaleModalOpen} onClose={() => { setIsScaleModalOpen(false); setScaleLine(null); if (!scaleInfo.ratio) setActiveTool(Tool.PAN); }} onSubmit={handleScaleSubmit} />
       <CableDetailsModal isOpen={isCableModalOpen} onClose={() => { setIsCableModalOpen(false); setPendingLine(null); }} onSubmit={handleCableDetailsSubmit} existingCableTypes={uniqueCableTypes} purposeConfig={purposeConfig} />
       <ContainmentDetailsModal isOpen={isContainmentModalOpen} onClose={() => { setIsContainmentModalOpen(false); setPendingContainment(null); }} onSubmit={handleContainmentDetailsSubmit} purposeConfig={purposeConfig} />

@@ -558,7 +558,7 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
   );
 
   return (
-    <aside className="w-96 bg-card flex flex-col shadow-lg z-10 border-l border-border">
+    <aside className="w-96 h-full bg-card flex flex-col shadow-lg border-l border-border flex-shrink-0 overflow-hidden">
         <div className='p-4 flex-shrink-0'>
             <h2 className="text-lg font-semibold text-foreground mb-4">Project Overview</h2>
             {selectedEquipment && <SelectionDetails item={selectedEquipment} onUpdate={onEquipmentUpdate} onDelete={onDeleteItem} tasks={tasks} onOpenTaskModal={onOpenTaskModal} />}

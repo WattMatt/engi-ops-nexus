@@ -132,7 +132,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
   }, [purposeConfig, allPurposeTools]);
 
   return (
-    <aside className="w-72 bg-card p-4 flex flex-col space-y-4 overflow-y-auto shadow-lg z-10 border-r border-border">
+    <aside className="w-72 h-full bg-card p-4 flex flex-col space-y-4 overflow-y-auto shadow-lg border-r border-border flex-shrink-0">
       <div>
         <h1 className="text-xl font-bold text-foreground mb-2">Floor Plan Markup</h1>
         <p className="text-sm text-muted-foreground h-5">{purposeConfig?.label || ''}</p>
