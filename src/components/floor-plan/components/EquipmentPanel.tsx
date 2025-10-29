@@ -16,8 +16,8 @@ interface EquipmentPanelProps {
   onEquipmentUpdate: (item: EquipmentItem) => void;
   onZoneUpdate: (item: SupplyZone) => void;
   onDeleteItem: () => void;
-  purposeConfig: PurposeConfig;
-  designPurpose: DesignPurpose;
+  purposeConfig: PurposeConfig | null;
+  designPurpose: DesignPurpose | null;
   // PV Props
   pvPanelConfig: PVPanelConfig | null;
   pvArrays: PVArrayItem[];
@@ -461,12 +461,14 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
 
   const {itemDictionary, equipmentCounts, containmentSummary, tasksByStatus, tasksByAssignee} = useMemo(() => {
     const eqCounts = new Map<EquipmentType, number>();
-    purposeConfig.availableEquipment.forEach(type => eqCounts.set(type, 0));
-    equipment.forEach(item => {
-      if (eqCounts.has(item.type)) {
-        eqCounts.set(item.type, (eqCounts.get(item.type) || 0) + 1);
-      }
-    });
+    if (purposeConfig) {
+      purposeConfig.availableEquipment.forEach(type => eqCounts.set(type, 0));
+      equipment.forEach(item => {
+        if (eqCounts.has(item.type)) {
+          eqCounts.set(item.type, (eqCounts.get(item.type) || 0) + 1);
+        }
+      });
+    }
 
     const contSummary = new Map<string, Map<string, number>>();
     containment.forEach(item => {
@@ -556,6 +558,20 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
         {typeof count !== 'undefined' && <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${activeTab === tabId ? 'bg-primary/30 text-primary' : 'bg-muted text-muted-foreground'}`}>{count}</span>}
     </button>
   );
+
+  if (!purposeConfig || !designPurpose) {
+    return (
+      <aside className="w-96 h-full bg-card flex flex-col shadow-lg border-l border-border flex-shrink-0 overflow-hidden">
+        <div className='p-4 flex items-center justify-center h-full'>
+          <div className="text-center">
+            <LayoutGrid className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+            <h2 className="text-lg font-semibold text-foreground mb-2">Project Overview</h2>
+            <p className="text-sm text-muted-foreground">Load a PDF and select design purpose to view project details</p>
+          </div>
+        </div>
+      </aside>
+    );
+  }
 
   return (
     <aside className="w-96 h-full bg-card flex flex-col shadow-lg border-l border-border flex-shrink-0 overflow-hidden">

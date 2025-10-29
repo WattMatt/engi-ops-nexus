@@ -586,12 +586,12 @@ const MainApp: React.FC = () => {
       </main>
       
       {/* Right Sidebar - Equipment Panel */}
-      {pdfDoc && purposeConfig && pvDesignReady && <EquipmentPanel 
+      <EquipmentPanel 
         equipment={equipment} lines={lines} zones={zones} containment={containment} selectedItemId={selectedItemId}
         setSelectedItemId={setSelectedItemId} onEquipmentUpdate={handleEquipmentUpdate} onZoneUpdate={handleZoneUpdate}
-        purposeConfig={purposeConfig} designPurpose={designPurpose!} pvPanelConfig={pvPanelConfig}
+        purposeConfig={purposeConfig} designPurpose={designPurpose} pvPanelConfig={pvPanelConfig}
         pvArrays={pvArrays} onDeleteItem={handleDeleteSelectedItem} tasks={tasks} onOpenTaskModal={handleOpenTaskModal}
-      />}
+      />
       
       {/* Modals */}
       <ScaleModal isOpen={isScaleModalOpen} onClose={() => { setIsScaleModalOpen(false); setScaleLine(null); if (!scaleInfo.ratio) setActiveTool(Tool.PAN); }} onSubmit={handleScaleSubmit} />
