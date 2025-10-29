@@ -313,10 +313,9 @@ const BudgetMarkupSummary: React.FC<{lines: SupplyLine[], zones: SupplyZone[]}> 
                 <div className="space-y-2 text-sm">
                     <div className="bg-gray-700/50 p-2 rounded-md">
                         <div className="flex justify-between items-center">
-                            <span className="text-red-400">MV Lines</span>
-                            <span className="font-mono font-bold text-red-400">{mvLines.length}</span>
+                            <span className="text-red-400">MV Cable Total</span>
+                            <span className="font-mono font-bold text-red-400">{mvTotalLength.toFixed(2)}m</span>
                         </div>
-                        <div className="text-xs text-gray-400 mt-1">Total Length: {mvTotalLength.toFixed(2)}m</div>
                     </div>
                 </div>
             </div>
