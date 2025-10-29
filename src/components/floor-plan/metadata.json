@@ -1,0 +1,6 @@
+{
+  "name": "Electrical Floor Plan Markup Tool",
+  "description": "An application to load architectural floor plans from PDF, mark them up with standard electrical equipment, draw supply routes, and quantify the components. Features include scaling, pan/zoom, and saving designs.",
+  "requestFramePermissions": [],
+  "prompt": ""
+}
