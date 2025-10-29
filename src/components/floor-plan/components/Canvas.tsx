@@ -266,7 +266,7 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
         ctx.setLineDash([]);
     }
     
-    // Draw scale reference line with labels
+    // Draw scale reference line with labels (enhanced architectural dimension style)
     if (scaleLine && scaleInfo.ratio) {
         const lineLength = Math.hypot(
             scaleLine.end.x - scaleLine.start.x,
@@ -274,47 +274,110 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
         );
         const realWorldLength = lineLength * scaleInfo.ratio;
 
-        // Draw the line
+        // Calculate angle and perpendicular for dimension ticks
+        const angle = Math.atan2(scaleLine.end.y - scaleLine.start.y, scaleLine.end.x - scaleLine.start.x);
+        const perpAngle = angle + Math.PI / 2;
+        const tickLength = 15 / viewState.zoom;
+
+        // Draw glow effect
+        ctx.shadowColor = '#ffff00';
+        ctx.shadowBlur = 15 / viewState.zoom;
+        
+        // Draw the main line (thicker and brighter)
         ctx.beginPath();
         ctx.moveTo(scaleLine.start.x, scaleLine.start.y);
         ctx.lineTo(scaleLine.end.x, scaleLine.end.y);
-        ctx.strokeStyle = TOOL_COLORS.SCALE;
-        ctx.lineWidth = 4 / viewState.zoom;
+        ctx.strokeStyle = '#ffff00'; // Bright yellow
+        ctx.lineWidth = 5 / viewState.zoom;
+        ctx.stroke();
+        
+        // Draw dimension ticks at endpoints (perpendicular lines)
+        ctx.strokeStyle = '#ffff00';
+        ctx.lineWidth = 3 / viewState.zoom;
+        
+        // Start tick
+        ctx.beginPath();
+        ctx.moveTo(
+            scaleLine.start.x - Math.cos(perpAngle) * tickLength,
+            scaleLine.start.y - Math.sin(perpAngle) * tickLength
+        );
+        ctx.lineTo(
+            scaleLine.start.x + Math.cos(perpAngle) * tickLength,
+            scaleLine.start.y + Math.sin(perpAngle) * tickLength
+        );
+        ctx.stroke();
+        
+        // End tick
+        ctx.beginPath();
+        ctx.moveTo(
+            scaleLine.end.x - Math.cos(perpAngle) * tickLength,
+            scaleLine.end.y - Math.sin(perpAngle) * tickLength
+        );
+        ctx.lineTo(
+            scaleLine.end.x + Math.cos(perpAngle) * tickLength,
+            scaleLine.end.y + Math.sin(perpAngle) * tickLength
+        );
         ctx.stroke();
 
-        // Draw endpoints
-        ctx.fillStyle = TOOL_COLORS.SCALE;
-        ctx.beginPath();
-        ctx.arc(scaleLine.start.x, scaleLine.start.y, 6 / viewState.zoom, 0, 2 * Math.PI);
-        ctx.fill();
-        ctx.beginPath();
-        ctx.arc(scaleLine.end.x, scaleLine.end.y, 6 / viewState.zoom, 0, 2 * Math.PI);
-        ctx.fill();
+        // Reset shadow
+        ctx.shadowBlur = 0;
 
-        // Draw label
+        // Draw endpoint circles
+        ctx.fillStyle = '#ffff00';
+        ctx.beginPath();
+        ctx.arc(scaleLine.start.x, scaleLine.start.y, 8 / viewState.zoom, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 2 / viewState.zoom;
+        ctx.stroke();
+        
+        ctx.beginPath();
+        ctx.arc(scaleLine.end.x, scaleLine.end.y, 8 / viewState.zoom, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.stroke();
+
+        // Draw label with enhanced styling
         const midX = (scaleLine.start.x + scaleLine.end.x) / 2;
         const midY = (scaleLine.start.y + scaleLine.end.y) / 2;
-        const fontSize = 14 / viewState.zoom;
+        const fontSize = 18 / viewState.zoom;
         
         ctx.font = `bold ${fontSize}px sans-serif`;
         ctx.textAlign = 'center';
-        ctx.textBaseline = 'bottom';
+        ctx.textBaseline = 'middle';
         
-        // Draw background for text
+        // Draw label with scale info and pixel/ratio details
         const label = `${realWorldLength.toFixed(2)}m`;
+        const scaleRatio = `(1:${(1 / scaleInfo.ratio).toFixed(0)})`;
         const metrics = ctx.measureText(label);
-        const padding = 4 / viewState.zoom;
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-        ctx.fillRect(
-            midX - metrics.width / 2 - padding,
-            midY - fontSize - padding * 2,
-            metrics.width + padding * 2,
-            fontSize + padding * 2
-        );
+        const scaleMetrics = ctx.measureText(scaleRatio);
+        const maxWidth = Math.max(metrics.width, scaleMetrics.width);
+        const padding = 8 / viewState.zoom;
+        const boxHeight = (fontSize * 2.5) + padding * 2;
         
-        // Draw text
-        ctx.fillStyle = TOOL_COLORS.SCALE;
-        ctx.fillText(label, midX, midY - padding);
+        // Draw white background with black border
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 2 / viewState.zoom;
+        ctx.beginPath();
+        ctx.roundRect(
+            midX - maxWidth / 2 - padding,
+            midY - boxHeight / 2,
+            maxWidth + padding * 2,
+            boxHeight,
+            4 / viewState.zoom
+        );
+        ctx.fill();
+        ctx.stroke();
+        
+        // Draw main label text (distance)
+        ctx.fillStyle = '#000000';
+        ctx.font = `bold ${fontSize}px sans-serif`;
+        ctx.fillText(label, midX, midY - fontSize * 0.4);
+        
+        // Draw scale ratio text (smaller)
+        ctx.font = `${fontSize * 0.7}px sans-serif`;
+        ctx.fillStyle = '#666666';
+        ctx.fillText(scaleRatio, midX, midY + fontSize * 0.6);
     }
     
     // Draw Snap lines
