@@ -208,6 +208,7 @@ const MainApp: React.FC<MainAppProps> = ({ user }) => {
   const resetState = () => {
     resetStateWith(initialDesignState);
     setScaleInfo({ pixelDistance: null, realDistance: null, ratio: null });
+    setScaleLine(null);
     setViewState({ zoom: 1, offset: { x: 0, y: 0 } });
     setInitialViewState(null);
     setActiveTool(Tool.PAN);
@@ -397,7 +398,7 @@ const MainApp: React.FC<MainAppProps> = ({ user }) => {
       if (designPurpose === DesignPurpose.PV_DESIGN) setIsPvConfigModalOpen(true);
     }
     setIsScaleModalOpen(false);
-    setScaleLine(null);
+    // Keep scaleLine visible so users can see where scale was set
     setActiveTool(Tool.PAN);
     toast.success("Scale set successfully!");
   };
