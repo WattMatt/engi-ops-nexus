@@ -187,6 +187,7 @@ export type Database = {
           created_at: string
           display_order: number
           extra_length: number | null
+          floor_plan_cable_id: string | null
           from_location: string
           id: string
           install_cost: number | null
@@ -211,6 +212,7 @@ export type Database = {
           created_at?: string
           display_order?: number
           extra_length?: number | null
+          floor_plan_cable_id?: string | null
           from_location: string
           id?: string
           install_cost?: number | null
@@ -235,6 +237,7 @@ export type Database = {
           created_at?: string
           display_order?: number
           extra_length?: number | null
+          floor_plan_cable_id?: string | null
           from_location?: string
           id?: string
           install_cost?: number | null
@@ -251,7 +254,15 @@ export type Database = {
           volt_drop?: number | null
           voltage?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "cable_entries_floor_plan_cable_id_fkey"
+            columns: ["floor_plan_cable_id"]
+            isOneToOne: false
+            referencedRelation: "floor_plan_cables"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       cable_schedules: {
         Row: {
@@ -880,6 +891,7 @@ export type Database = {
       }
       floor_plan_cables: {
         Row: {
+          cable_entry_id: string | null
           cable_type: string
           created_at: string
           end_height: number | null
@@ -894,6 +906,7 @@ export type Database = {
           to_label: string | null
         }
         Insert: {
+          cable_entry_id?: string | null
           cable_type: string
           created_at?: string
           end_height?: number | null
@@ -908,6 +921,7 @@ export type Database = {
           to_label?: string | null
         }
         Update: {
+          cable_entry_id?: string | null
           cable_type?: string
           created_at?: string
           end_height?: number | null
@@ -922,6 +936,13 @@ export type Database = {
           to_label?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "floor_plan_cables_cable_entry_id_fkey"
+            columns: ["cable_entry_id"]
+            isOneToOne: false
+            referencedRelation: "cable_entries"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "floor_plan_cables_floor_plan_id_fkey"
             columns: ["floor_plan_id"]
