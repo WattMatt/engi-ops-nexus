@@ -43,10 +43,15 @@ const ExportPreviewModal: React.FC<ExportPreviewModalProps> = ({ isOpen, onClose
     }, [equipment]);
 
     const lineSummary = useMemo(() => {
-        const summary = { mvLength: 0, dcLength: 0 };
+        const summary = { mvLength: 0, dcLength: 0, mvCount: 0, dcCount: 0 };
         lines.forEach(line => {
-            if (line.type === 'mv') summary.mvLength += line.length;
-            else if (line.type === 'dc') summary.dcLength += line.length;
+            if (line.type === 'mv') {
+                summary.mvLength += line.length;
+                summary.mvCount += 1;
+            } else if (line.type === 'dc') {
+                summary.dcLength += line.length;
+                summary.dcCount += 1;
+            }
         });
         const { totalLength: lvLength, summary: lvCableSummary } = calculateLvCableSummary(lines);
         return { ...summary, lvLength, lvCableSummary };
@@ -108,7 +113,14 @@ const ExportPreviewModal: React.FC<ExportPreviewModalProps> = ({ isOpen, onClose
                     </SummarySection>
 
                     <SummarySection title="Cable Lengths by Type">
-                        {lineSummary.mvLength > 0 && <div className="flex justify-between"><span>MV Line Total:</span> <span className="font-semibold">{lineSummary.mvLength.toFixed(2)}m</span></div>}
+                        {lineSummary.mvCount > 0 && (
+                            <div className="flex justify-between">
+                                <span>MV Cable Total:</span> 
+                                <span className="font-semibold">
+                                    {lineSummary.mvLength > 0 ? `${lineSummary.mvLength.toFixed(2)}m` : '(Set scale to measure)'}
+                                </span>
+                            </div>
+                        )}
                         {lineSummary.lvCableSummary.size > 0 ? (
                             Array.from(lineSummary.lvCableSummary.entries()).map(([cableType, data]) => (
                                 <div key={cableType} className="flex justify-between">
@@ -117,8 +129,15 @@ const ExportPreviewModal: React.FC<ExportPreviewModalProps> = ({ isOpen, onClose
                                 </div>
                             ))
                         ) : null}
-                        {lineSummary.dcLength > 0 && <div className="flex justify-between"><span>DC Line Total:</span> <span className="font-semibold">{lineSummary.dcLength.toFixed(2)}m</span></div>}
-                        {lineSummary.mvLength === 0 && lineSummary.lvCableSummary.size === 0 && lineSummary.dcLength === 0 && <p className="text-gray-500">No cables drawn.</p>}
+                        {lineSummary.dcCount > 0 && (
+                            <div className="flex justify-between">
+                                <span>DC Cable Total:</span> 
+                                <span className="font-semibold">
+                                    {lineSummary.dcLength > 0 ? `${lineSummary.dcLength.toFixed(2)}m` : '(Set scale to measure)'}
+                                </span>
+                            </div>
+                        )}
+                        {lineSummary.mvCount === 0 && lineSummary.lvCableSummary.size === 0 && lineSummary.dcCount === 0 && <p className="text-gray-500">No cables drawn.</p>}
                     </SummarySection>
 
                     <SummarySection title="Containment Totals">
