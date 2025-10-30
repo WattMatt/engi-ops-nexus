@@ -19,18 +19,21 @@ const TenantTracker = () => {
         .eq("project_id", projectId);
       if (error) throw error;
       
-      // Sort shop numbers numerically (handles "Shop 77" format)
+      // Sort shop numbers numerically (handles "Shop 77", "Shop 27/28", "Shop 66A" formats)
       return (data || []).sort((a, b) => {
-        // Extract numbers from strings like "Shop 77" or "Shop 66A"
-        const numA = parseInt(a.shop_number.replace(/\D/g, '')) || 0;
-        const numB = parseInt(b.shop_number.replace(/\D/g, '')) || 0;
+        // Extract first number from strings like "Shop 77", "Shop 27/28" or "Shop 66A"
+        const matchA = a.shop_number.match(/\d+/);
+        const matchB = b.shop_number.match(/\d+/);
         
-        // Sort numerically
+        const numA = matchA ? parseInt(matchA[0]) : 0;
+        const numB = matchB ? parseInt(matchB[0]) : 0;
+        
+        // Sort numerically by first number
         if (numA !== numB) {
           return numA - numB;
         }
         
-        // If numbers are equal (e.g., "Shop 66" vs "Shop 66A"), sort alphabetically
+        // If first numbers are equal (e.g., "Shop 66" vs "Shop 66A"), sort alphabetically
         return a.shop_number.localeCompare(b.shop_number, undefined, { numeric: true });
       });
     },
