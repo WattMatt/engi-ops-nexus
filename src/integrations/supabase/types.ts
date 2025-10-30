@@ -1472,13 +1472,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "invoice_uploads_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "invoices"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "invoice_uploads_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
@@ -1489,65 +1482,51 @@ export type Database = {
       }
       invoices: {
         Row: {
-          claim_number: number
+          amount: number
+          client_name: string
           created_at: string | null
-          created_by: string
-          current_amount: number
+          description: string | null
           id: string
           invoice_date: string
           invoice_number: string
           notes: string | null
-          payment_date: string | null
-          payment_status: string | null
-          previously_invoiced: number | null
-          project_id: string
+          project_reference: string | null
+          status: string
           total_amount: number
           updated_at: string | null
           vat_amount: number
         }
         Insert: {
-          claim_number: number
+          amount?: number
+          client_name: string
           created_at?: string | null
-          created_by: string
-          current_amount: number
+          description?: string | null
           id?: string
           invoice_date: string
           invoice_number: string
           notes?: string | null
-          payment_date?: string | null
-          payment_status?: string | null
-          previously_invoiced?: number | null
-          project_id: string
-          total_amount: number
-          updated_at?: string | null
-          vat_amount: number
-        }
-        Update: {
-          claim_number?: number
-          created_at?: string | null
-          created_by?: string
-          current_amount?: number
-          id?: string
-          invoice_date?: string
-          invoice_number?: string
-          notes?: string | null
-          payment_date?: string | null
-          payment_status?: string | null
-          previously_invoiced?: number | null
-          project_id?: string
+          project_reference?: string | null
+          status?: string
           total_amount?: number
           updated_at?: string | null
           vat_amount?: number
         }
-        Relationships: [
-          {
-            foreignKeyName: "invoices_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "invoice_projects"
-            referencedColumns: ["id"]
-          },
-        ]
+        Update: {
+          amount?: number
+          client_name?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          invoice_date?: string
+          invoice_number?: string
+          notes?: string | null
+          project_reference?: string | null
+          status?: string
+          total_amount?: number
+          updated_at?: string | null
+          vat_amount?: number
+        }
+        Relationships: []
       }
       issue_reports: {
         Row: {
@@ -1786,13 +1765,6 @@ export type Database = {
           project_id?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "monthly_payments_invoice_id_fkey"
-            columns: ["invoice_id"]
-            isOneToOne: false
-            referencedRelation: "invoices"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "monthly_payments_project_id_fkey"
             columns: ["project_id"]

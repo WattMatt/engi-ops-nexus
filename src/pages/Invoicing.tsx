@@ -1,8 +1,7 @@
-import { ProjectsManager } from "@/components/invoicing/ProjectsManager";
-import { InvoicesList } from "@/components/invoicing/InvoicesList";
-import { CashFlowProjection } from "@/components/invoicing/CashFlowProjection";
+import { BulkInvoiceImport } from "@/components/invoicing/BulkInvoiceImport";
+import { MonthlySummary } from "@/components/invoicing/MonthlySummary";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FolderKanban, FileText, TrendingUp } from "lucide-react";
+import { Upload, Calendar } from "lucide-react";
 
 const Invoicing = () => {
   return (
@@ -12,32 +11,24 @@ const Invoicing = () => {
         <p className="text-muted-foreground">Manage projects and generate invoices</p>
       </div>
 
-      <Tabs defaultValue="projects" className="space-y-4">
+      <Tabs defaultValue="summary" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="projects">
-            <FolderKanban className="h-4 w-4 mr-2" />
-            Projects
+          <TabsTrigger value="summary">
+            <Calendar className="h-4 w-4 mr-2" />
+            Monthly Summary
           </TabsTrigger>
-          <TabsTrigger value="cashflow">
-            <TrendingUp className="h-4 w-4 mr-2" />
-            Cash Flow
-          </TabsTrigger>
-          <TabsTrigger value="invoices">
-            <FileText className="h-4 w-4 mr-2" />
-            Invoices
+          <TabsTrigger value="import">
+            <Upload className="h-4 w-4 mr-2" />
+            Import Invoices
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="projects">
-          <ProjectsManager />
+        <TabsContent value="summary">
+          <MonthlySummary />
         </TabsContent>
 
-        <TabsContent value="cashflow">
-          <CashFlowProjection />
-        </TabsContent>
-
-        <TabsContent value="invoices">
-          <InvoicesList />
+        <TabsContent value="import">
+          <BulkInvoiceImport />
         </TabsContent>
       </Tabs>
     </div>
