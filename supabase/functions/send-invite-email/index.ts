@@ -29,7 +29,7 @@ const handler = async (req: Request): Promise<Response> => {
     console.log("Resend API key configured:", Deno.env.get("RESEND_API_KEY") ? "Yes" : "No");
 
     const emailResponse = await resend.emails.send({
-      from: "onboarding@resend.dev",
+      from: "noreply@watsonmattheus.com",
       to: [email],
       subject: "You've been invited to join the platform",
       html: `
@@ -64,7 +64,7 @@ const handler = async (req: Request): Promise<Response> => {
                 <hr style="border: none; border-top: 1px solid #e2e8f0; margin: 30px 0;" />
                 <p style="margin-bottom: 0;">
                   Best regards,<br/>
-                  <strong>The Team</strong>
+                  <strong>Watson Mattheus Team</strong>
                 </p>
               </div>
               <div class="footer">
