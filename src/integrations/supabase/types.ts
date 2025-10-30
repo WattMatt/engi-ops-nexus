@@ -14,6 +14,59 @@ export type Database = {
   }
   public: {
     Tables: {
+      approval_workflows: {
+        Row: {
+          approver_id: string
+          comments: string | null
+          created_at: string
+          document_id: string
+          document_type: string
+          id: string
+          project_id: string
+          reviewed_at: string | null
+          status: string
+          submitted_at: string
+          submitted_by: string
+          updated_at: string
+        }
+        Insert: {
+          approver_id: string
+          comments?: string | null
+          created_at?: string
+          document_id: string
+          document_type: string
+          id?: string
+          project_id: string
+          reviewed_at?: string | null
+          status?: string
+          submitted_at?: string
+          submitted_by: string
+          updated_at?: string
+        }
+        Update: {
+          approver_id?: string
+          comments?: string | null
+          created_at?: string
+          document_id?: string
+          document_type?: string
+          id?: string
+          project_id?: string
+          reviewed_at?: string | null
+          status?: string
+          submitted_at?: string
+          submitted_by?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "approval_workflows_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       attendance_records: {
         Row: {
           break_end: string | null
@@ -306,6 +359,62 @@ export type Database = {
         }
         Relationships: []
       }
+      client_requests: {
+        Row: {
+          assigned_to: string | null
+          attachments: Json | null
+          client_user_id: string
+          created_at: string
+          description: string
+          id: string
+          priority: string
+          project_id: string
+          request_type: string
+          resolved_at: string | null
+          status: string
+          subject: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_to?: string | null
+          attachments?: Json | null
+          client_user_id: string
+          created_at?: string
+          description: string
+          id?: string
+          priority?: string
+          project_id: string
+          request_type: string
+          resolved_at?: string | null
+          status?: string
+          subject: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_to?: string | null
+          attachments?: Json | null
+          client_user_id?: string
+          created_at?: string
+          description?: string
+          id?: string
+          priority?: string
+          project_id?: string
+          request_type?: string
+          resolved_at?: string | null
+          status?: string
+          subject?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_requests_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       company_settings: {
         Row: {
           company_logo_url: string | null
@@ -332,6 +441,50 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      conversations: {
+        Row: {
+          created_at: string
+          created_by: string
+          id: string
+          last_message_at: string | null
+          participants: Json
+          project_id: string | null
+          title: string | null
+          type: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by: string
+          id?: string
+          last_message_at?: string | null
+          participants?: Json
+          project_id?: string | null
+          title?: string | null
+          type: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string
+          id?: string
+          last_message_at?: string | null
+          participants?: Json
+          project_id?: string | null
+          title?: string | null
+          type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "conversations_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       cost_categories: {
         Row: {
@@ -1316,6 +1469,53 @@ export type Database = {
         }
         Relationships: []
       }
+      inspection_comments: {
+        Row: {
+          attachments: Json | null
+          content: string
+          created_at: string
+          id: string
+          inspection_id: string | null
+          mentions: Json | null
+          parent_comment_id: string | null
+          subsection_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          attachments?: Json | null
+          content: string
+          created_at?: string
+          id?: string
+          inspection_id?: string | null
+          mentions?: Json | null
+          parent_comment_id?: string | null
+          subsection_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          attachments?: Json | null
+          content?: string
+          created_at?: string
+          id?: string
+          inspection_id?: string | null
+          mentions?: Json | null
+          parent_comment_id?: string | null
+          subsection_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "inspection_comments_parent_comment_id_fkey"
+            columns: ["parent_comment_id"]
+            isOneToOne: false
+            referencedRelation: "inspection_comments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoice_projects: {
         Row: {
           agreed_fee: number
@@ -1738,6 +1938,91 @@ export type Database = {
           requires_approval?: boolean | null
         }
         Relationships: []
+      }
+      message_notifications: {
+        Row: {
+          created_at: string
+          email_sent: boolean | null
+          id: string
+          is_read: boolean | null
+          message_id: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email_sent?: boolean | null
+          id?: string
+          is_read?: boolean | null
+          message_id: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email_sent?: boolean | null
+          id?: string
+          is_read?: boolean | null
+          message_id?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "message_notifications_message_id_fkey"
+            columns: ["message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      messages: {
+        Row: {
+          attachments: Json | null
+          content: string
+          conversation_id: string
+          created_at: string
+          id: string
+          is_read: boolean | null
+          mentions: Json | null
+          read_by: Json | null
+          sender_id: string
+          updated_at: string
+        }
+        Insert: {
+          attachments?: Json | null
+          content: string
+          conversation_id: string
+          created_at?: string
+          id?: string
+          is_read?: boolean | null
+          mentions?: Json | null
+          read_by?: Json | null
+          sender_id: string
+          updated_at?: string
+        }
+        Update: {
+          attachments?: Json | null
+          content?: string
+          conversation_id?: string
+          created_at?: string
+          id?: string
+          is_read?: boolean | null
+          mentions?: Json | null
+          read_by?: Json | null
+          sender_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "messages_conversation_id_fkey"
+            columns: ["conversation_id"]
+            isOneToOne: false
+            referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       monthly_payments: {
         Row: {
@@ -2356,6 +2641,50 @@ export type Database = {
         }
         Relationships: []
       }
+      shared_notes: {
+        Row: {
+          content: string
+          created_at: string
+          created_by: string
+          id: string
+          is_pinned: boolean | null
+          project_id: string
+          subsection_id: string | null
+          tags: string[] | null
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          created_by: string
+          id?: string
+          is_pinned?: boolean | null
+          project_id: string
+          subsection_id?: string | null
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          is_pinned?: boolean | null
+          project_id?: string
+          subsection_id?: string | null
+          tags?: string[] | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shared_notes_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       site_diary_entries: {
         Row: {
           attachments: Json | null
@@ -2587,6 +2916,45 @@ export type Database = {
         }
         Relationships: []
       }
+      status_notifications: {
+        Row: {
+          created_at: string
+          description: string
+          email_sent: boolean | null
+          id: string
+          is_read: boolean | null
+          link: string | null
+          metadata: Json | null
+          notification_type: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          email_sent?: boolean | null
+          id?: string
+          is_read?: boolean | null
+          link?: string | null
+          metadata?: Json | null
+          notification_type: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          email_sent?: boolean | null
+          id?: string
+          is_read?: boolean | null
+          link?: string | null
+          metadata?: Json | null
+          notification_type?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       suggestions: {
         Row: {
           admin_notes: string | null
@@ -2644,6 +3012,45 @@ export type Database = {
           updated_at?: string
           user_email?: string
           user_name?: string | null
+        }
+        Relationships: []
+      }
+      task_assignments: {
+        Row: {
+          assigned_by: string
+          assigned_to: string
+          contractor_company: string | null
+          created_at: string
+          due_date: string | null
+          id: string
+          notes: string | null
+          status: string
+          task_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          assigned_by: string
+          assigned_to: string
+          contractor_company?: string | null
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          notes?: string | null
+          status?: string
+          task_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          assigned_by?: string
+          assigned_to?: string
+          contractor_company?: string | null
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          notes?: string | null
+          status?: string
+          task_id?: string | null
+          updated_at?: string
         }
         Relationships: []
       }
@@ -3062,7 +3469,7 @@ export type Database = {
       }
     }
     Enums: {
-      app_role: "admin" | "user" | "moderator"
+      app_role: "admin" | "user" | "moderator" | "client"
       attendance_type: "clock_in" | "clock_out" | "break_start" | "break_end"
       cable_type:
         | "mv"
@@ -3212,7 +3619,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "user", "moderator"],
+      app_role: ["admin", "user", "moderator", "client"],
       attendance_type: ["clock_in", "clock_out", "break_start", "break_end"],
       cable_type: ["mv", "lv_ac", "dc", "tray", "basket", "trunking", "sleeve"],
       design_purpose: [

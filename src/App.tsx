@@ -25,6 +25,7 @@ import CableScheduleDetail from "./pages/CableScheduleDetail";
 import StaffManagement from "./pages/StaffManagement";
 import Invoicing from "./pages/Invoicing";
 import FloorPlan from "./pages/FloorPlan";
+import Messages from "./pages/Messages";
 import NotFound from "./pages/NotFound";
 import { HelpButton } from "./components/feedback/HelpButton";
 
@@ -67,6 +68,7 @@ const App = () => (
             <Route path="cable-schedules" element={<CableSchedules />} />
             <Route path="cable-schedules/:scheduleId" element={<CableScheduleDetail />} />
             <Route path="floor-plan" element={<FloorPlan />} />
+            <Route path="messages" element={<Messages />} />
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

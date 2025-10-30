@@ -1,0 +1,148 @@
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { useEffect } from "react";
+
+export interface Message {
+  id: string;
+  conversation_id: string;
+  sender_id: string;
+  content: string;
+  mentions: string[];
+  attachments: any[];
+  is_read: boolean;
+  read_by: string[];
+  created_at: string;
+  updated_at: string;
+}
+
+export const useMessages = (conversationId?: string) => {
+  const queryClient = useQueryClient();
+
+  const { data: messages, isLoading } = useQuery({
+    queryKey: ["messages", conversationId],
+    queryFn: async () => {
+      if (!conversationId) return [];
+
+      const { data, error } = await supabase
+        .from("messages")
+        .select("*")
+        .eq("conversation_id", conversationId)
+        .order("created_at", { ascending: true });
+
+      if (error) throw error;
+      return data as Message[];
+    },
+    enabled: !!conversationId,
+  });
+
+  // Subscribe to real-time messages
+  useEffect(() => {
+    if (!conversationId) return;
+
+    const channel = supabase
+      .channel(`messages:${conversationId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "messages",
+          filter: `conversation_id=eq.${conversationId}`,
+        },
+        (payload) => {
+          queryClient.setQueryData(
+            ["messages", conversationId],
+            (old: Message[] = []) => [...old, payload.new as Message]
+          );
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [conversationId, queryClient]);
+
+  const sendMessage = useMutation({
+    mutationFn: async (data: {
+      conversation_id: string;
+      content: string;
+      mentions?: string[];
+      attachments?: any[];
+    }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { data: message, error } = await supabase
+        .from("messages")
+        .insert({
+          conversation_id: data.conversation_id,
+          sender_id: user.id,
+          content: data.content,
+          mentions: data.mentions || [],
+          attachments: data.attachments || [],
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      // Update conversation's last_message_at
+      await supabase
+        .from("conversations")
+        .update({ last_message_at: new Date().toISOString() })
+        .eq("id", data.conversation_id);
+
+      // Send notifications for mentions
+      if (data.mentions && data.mentions.length > 0) {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("full_name")
+          .eq("id", user.id)
+          .single();
+
+        for (const mentionedUserId of data.mentions) {
+          await supabase.functions.invoke("send-message-notification", {
+            body: {
+              userId: mentionedUserId,
+              messageId: message.id,
+              senderName: profile?.full_name || "Someone",
+              messagePreview: data.content.substring(0, 100),
+              conversationId: data.conversation_id,
+            },
+          });
+        }
+      }
+
+      return message;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
+    },
+    onError: (error: Error) => {
+      toast.error(`Failed to send message: ${error.message}`);
+    },
+  });
+
+  const markAsRead = useMutation({
+    mutationFn: async (messageId: string) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { error } = await supabase
+        .from("messages")
+        .update({ is_read: true })
+        .eq("id", messageId);
+
+      if (error) throw error;
+    },
+  });
+
+  return {
+    messages,
+    isLoading,
+    sendMessage: sendMessage.mutate,
+    markAsRead: markAsRead.mutate,
+  };
+};

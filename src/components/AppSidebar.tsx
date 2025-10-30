@@ -98,6 +98,11 @@ const operationalModules = [
     url: "/dashboard/floor-plan",
     icon: Map,
   },
+  {
+    title: "Messages",
+    url: "/dashboard/messages",
+    icon: UsersRound,
+  },
 ];
 
 

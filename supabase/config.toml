@@ -23,3 +23,12 @@ verify_jwt = false
 
 [functions.scan-invoice]
 verify_jwt = true
+
+[functions.send-message-notification]
+verify_jwt = false
+
+[functions.send-approval-notification]
+verify_jwt = false
+
+[functions.send-status-update-notification]
+verify_jwt = false
