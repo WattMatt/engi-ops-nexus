@@ -7,6 +7,7 @@ import {
   Cable, 
   FileCheck, 
   Users,
+  Settings,
   TrendingUp,
   Activity,
   Calendar
@@ -62,18 +63,6 @@ const Dashboard = () => {
     enabled: !!projectId,
   });
 
-  const { data: employees = [] } = useQuery({
-    queryKey: ["employees"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("employees")
-        .select("*");
-      if (error) throw error;
-      return data || [];
-    },
-  });
-
-  const activeEmployees = employees.filter((e: any) => e.employment_status === 'active').length;
   const totalDocuments = costReports.length + budgets.length;
 
   return (
@@ -120,14 +109,14 @@ const Dashboard = () => {
           </CardContent>
         </Card>
 
-        <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => navigate("/dashboard/staff")}>
+        <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => navigate("/dashboard/project-settings")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Staff</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Project Settings</CardTitle>
+            <Settings className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{activeEmployees}</div>
-            <p className="text-xs text-muted-foreground">Active employees</p>
+            <div className="text-2xl font-bold">Configure</div>
+            <p className="text-xs text-muted-foreground">Manage project</p>
           </CardContent>
         </Card>
       </div>
@@ -162,23 +151,27 @@ const Dashboard = () => {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <Users className="h-5 w-5" />
-              Team Resources
+              <TrendingUp className="h-5 w-5" />
+              Quick Actions
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-muted-foreground">Active Employees</span>
-                <span className="text-2xl font-bold">{activeEmployees}</span>
-              </div>
-              <Button 
-                variant="outline" 
-                className="w-full"
-                onClick={() => navigate("/dashboard/staff")}
-              >
-                <Users className="h-4 w-4 mr-2" />
-                Manage Staff
+            <div className="grid gap-3 md:grid-cols-2">
+              <Button variant="outline" onClick={() => navigate("/dashboard/cost-reports")}>
+                <FileText className="h-4 w-4 mr-2" />
+                New Cost Report
+              </Button>
+              <Button variant="outline" onClick={() => navigate("/dashboard/budgets/electrical")}>
+                <DollarSign className="h-4 w-4 mr-2" />
+                New Budget
+              </Button>
+              <Button variant="outline" onClick={() => navigate("/dashboard/cable-schedules")}>
+                <Cable className="h-4 w-4 mr-2" />
+                New Cable Schedule
+              </Button>
+              <Button variant="outline" onClick={() => navigate("/dashboard/site-diary")}>
+                <Calendar className="h-4 w-4 mr-2" />
+                Site Diary
               </Button>
             </div>
           </CardContent>
