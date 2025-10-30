@@ -15,6 +15,7 @@ interface UploadedFile {
   extractedData?: any;
   error?: string;
   uploadId?: string;
+  fileUrl?: string;
 }
 
 interface ImportHistoricalInvoicesDialogProps {
@@ -25,6 +26,7 @@ interface ImportHistoricalInvoicesDialogProps {
 export function ImportHistoricalInvoicesDialog({ open, onOpenChange }: ImportHistoricalInvoicesDialogProps) {
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [currentReviewIndex, setCurrentReviewIndex] = useState<number | null>(null);
   const { toast } = useToast();
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -107,9 +109,9 @@ export function ImportHistoricalInvoicesDialog({ open, onOpenChange }: ImportHis
 
       if (recordError) throw recordError;
 
-      // Update status to processing
+      // Update status to processing and store file URL
       setFiles(prev => prev.map(f => 
-        f.id === fileData.id ? { ...f, status: 'processing', uploadId: uploadRecord.id } : f
+        f.id === fileData.id ? { ...f, status: 'processing', uploadId: uploadRecord.id, fileUrl: publicUrl } : f
       ));
 
       // Read file as text for AI processing
@@ -192,11 +194,12 @@ export function ImportHistoricalInvoicesDialog({ open, onOpenChange }: ImportHis
   };
 
 
-  const handleSaveInvoice = async (fileId: string, data: any) => {
-    try {
-      const fileData = files.find(f => f.id === fileId);
-      if (!fileData || !fileData.uploadId) return;
+  const handleSaveInvoice = async (data: any) => {
+    if (currentReviewIndex === null) return;
+    const fileData = files[currentReviewIndex];
+    if (!fileData || !fileData.uploadId) return;
 
+    try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Not authenticated');
 
@@ -244,7 +247,7 @@ export function ImportHistoricalInvoicesDialog({ open, onOpenChange }: ImportHis
           current_amount: data.interim_claim,
           vat_amount: data.vat_amount,
           total_amount: data.total_amount,
-          payment_status: 'paid', // Assuming historical invoices are paid
+          payment_status: 'paid',
           created_by: user.id
         })
         .select()
@@ -261,8 +264,9 @@ export function ImportHistoricalInvoicesDialog({ open, onOpenChange }: ImportHis
         })
         .eq('id', fileData.uploadId);
 
-      // Remove from UI
-      removeFile(fileId);
+      // Remove from UI and close review
+      removeFile(fileData.id);
+      setCurrentReviewIndex(null);
 
       toast({
         title: "Invoice saved",
@@ -279,9 +283,46 @@ export function ImportHistoricalInvoicesDialog({ open, onOpenChange }: ImportHis
     }
   };
 
+  const handleRescan = async () => {
+    if (currentReviewIndex === null) return;
+    const fileId = files[currentReviewIndex].id;
+    setCurrentReviewIndex(null);
+    await retryScan(fileId);
+  };
+
+  const handleCloseReview = () => {
+    setCurrentReviewIndex(null);
+  };
+
   const completedCount = files.filter(f => f.status === 'completed').length;
   const failedCount = files.filter(f => f.status === 'failed').length;
   const processingCount = files.filter(f => f.status === 'processing' || f.status === 'uploading').length;
+
+  // Show full-screen review if a file is selected
+  if (currentReviewIndex !== null) {
+    const fileToReview = files[currentReviewIndex];
+    if (!fileToReview || !fileToReview.fileUrl) {
+      setCurrentReviewIndex(null);
+      return null;
+    }
+
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-[98vw] h-[98vh] p-0">
+          <ScannedInvoiceReviewCard
+            fileName={fileToReview.file.name}
+            extractedData={fileToReview.extractedData}
+            imageUrl={fileToReview.fileUrl}
+            onSave={handleSaveInvoice}
+            onRescan={handleRescan}
+            onClose={handleCloseReview}
+            isSaving={false}
+            isRescanning={false}
+          />
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -354,6 +395,15 @@ export function ImportHistoricalInvoicesDialog({ open, onOpenChange }: ImportHis
                           <XCircle className="h-4 w-4" />
                         </Button>
                       )}
+                      {file.status === 'completed' && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCurrentReviewIndex(files.indexOf(file))}
+                        >
+                          Review
+                        </Button>
+                      )}
                       {file.status === 'failed' && (
                         <Button
                           variant="ghost"
@@ -403,29 +453,62 @@ export function ImportHistoricalInvoicesDialog({ open, onOpenChange }: ImportHis
             </Button>
           </div>
 
-          {/* Right Panel: Review Cards */}
-          <ScrollArea className="h-[500px]">
-            <div className="space-y-4 pr-4">
-              {files.filter(f => f.status === 'completed').length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <FileText className="h-12 w-12 mx-auto mb-3 opacity-50" />
-                  <p>Scanned invoices will appear here for review</p>
-                </div>
-              ) : (
-                files
-                  .filter(f => f.status === 'completed')
-                  .map(file => (
-                    <ScannedInvoiceReviewCard
-                      key={file.id}
-                      fileName={file.file.name}
-                      extractedData={file.extractedData}
-                      onSave={(data) => handleSaveInvoice(file.id, data)}
-                      onDiscard={() => removeFile(file.id)}
-                    />
-                  ))
-              )}
+          {/* Right Panel: Summary */}
+          <div className="space-y-4">
+            <div className="rounded-lg border p-6">
+              <h3 className="font-semibold mb-4">How it Works</h3>
+              <ol className="space-y-3 text-sm text-muted-foreground">
+                <li className="flex gap-3">
+                  <span className="font-semibold text-foreground">1.</span>
+                  <span>Upload PDF invoice files</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="font-semibold text-foreground">2.</span>
+                  <span>AI automatically extracts invoice data</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="font-semibold text-foreground">3.</span>
+                  <span>Review extracted data in split-screen view</span>
+                </li>
+                <li className="flex gap-3">
+                  <span className="font-semibold text-foreground">4.</span>
+                  <span>Edit any fields and save to database</span>
+                </li>
+              </ol>
             </div>
-          </ScrollArea>
+
+            {completedCount > 0 && (
+              <div className="rounded-lg border p-6">
+                <h3 className="font-semibold mb-3">Ready for Review</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  {completedCount} invoice{completedCount !== 1 ? 's' : ''} ready to review
+                </p>
+                <ScrollArea className="h-[200px]">
+                  <div className="space-y-2">
+                    {files
+                      .filter(f => f.status === 'completed')
+                      .map((file, idx) => (
+                        <div
+                          key={file.id}
+                          className="flex items-center justify-between p-2 rounded border"
+                        >
+                          <span className="text-sm truncate flex-1">
+                            {file.extractedData?.invoice_number || file.file.name}
+                          </span>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setCurrentReviewIndex(files.indexOf(file))}
+                          >
+                            Review
+                          </Button>
+                        </div>
+                      ))}
+                  </div>
+                </ScrollArea>
+              </div>
+            )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>
