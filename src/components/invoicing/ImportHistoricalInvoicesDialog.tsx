@@ -52,125 +52,145 @@ export function ImportHistoricalInvoicesDialog({ open, onOpenChange }: ImportHis
     setFiles(prev => prev.filter(f => f.id !== id));
   };
 
+  const retryScan = async (fileId: string) => {
+    const fileData = files.find(f => f.id === fileId);
+    if (!fileData) return;
+
+    // Reset file status to pending
+    setFiles(prev => prev.map(f => 
+      f.id === fileId ? { ...f, status: 'pending', error: undefined } : f
+    ));
+
+    // Trigger scan for this specific file
+    await scanFile(fileData);
+  };
+
+  const scanFile = async (fileData: UploadedFile) => {
+    try {
+      // Update status to uploading
+      setFiles(prev => prev.map(f => 
+        f.id === fileData.id ? { ...f, status: 'uploading' } : f
+      ));
+
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      // Upload to storage
+      const fileName = `${user.id}/${new Date().getFullYear()}/${fileData.file.name}`;
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('invoices')
+        .upload(`historical/${fileName}`, fileData.file, {
+          upsert: true // Allow overwriting if retrying
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('invoices')
+        .getPublicUrl(`historical/${fileName}`);
+
+      // Create or update invoice_upload record
+      const { data: uploadRecord, error: recordError } = await supabase
+        .from('invoice_uploads')
+        .upsert({
+          id: fileData.uploadId, // Use existing ID if retrying
+          user_id: user.id,
+          file_name: fileData.file.name,
+          file_url: publicUrl,
+          file_size: fileData.file.size,
+          processing_status: 'processing'
+        })
+        .select()
+        .single();
+
+      if (recordError) throw recordError;
+
+      // Update status to processing
+      setFiles(prev => prev.map(f => 
+        f.id === fileData.id ? { ...f, status: 'processing', uploadId: uploadRecord.id } : f
+      ));
+
+      // Read file as text for AI processing
+      const fileText = await fileData.file.text();
+
+      // Call edge function to scan invoice
+      const { data: scanResult, error: scanError } = await supabase.functions.invoke('scan-invoice', {
+        body: { 
+          fileContent: fileText,
+          fileName: fileData.file.name 
+        }
+      });
+
+      if (scanError) throw scanError;
+
+      if (!scanResult.success) {
+        throw new Error(scanResult.error || 'Failed to scan invoice');
+      }
+
+      // Update invoice_upload record with extracted data
+      await supabase
+        .from('invoice_uploads')
+        .update({
+          processing_status: 'completed',
+          extracted_data: scanResult.data
+        })
+        .eq('id', uploadRecord.id);
+
+      // Update file status with extracted data
+      setFiles(prev => prev.map(f => 
+        f.id === fileData.id 
+          ? { ...f, status: 'completed', extractedData: scanResult.data } 
+          : f
+      ));
+
+      toast({
+        title: "Invoice scanned",
+        description: `Successfully scanned ${fileData.file.name}`,
+      });
+
+    } catch (error) {
+      console.error('Error processing file:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      // Update file status to failed
+      setFiles(prev => prev.map(f => 
+        f.id === fileData.id 
+          ? { ...f, status: 'failed', error: errorMessage } 
+          : f
+      ));
+
+      // Update database record if it exists
+      if (fileData.uploadId) {
+        await supabase
+          .from('invoice_uploads')
+          .update({
+            processing_status: 'failed',
+            error_message: errorMessage
+          })
+          .eq('id', fileData.uploadId);
+      }
+
+      toast({
+        title: "Scan failed",
+        description: `Failed to scan ${fileData.file.name}: ${errorMessage}`,
+        variant: "destructive",
+      });
+    }
+  };
+
   const scanAllFiles = async () => {
     setIsProcessing(true);
     
     for (const fileData of files) {
       if (fileData.status !== 'pending') continue;
-
-      try {
-        // Update status to uploading
-        setFiles(prev => prev.map(f => 
-          f.id === fileData.id ? { ...f, status: 'uploading' } : f
-        ));
-
-        // Get current user
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error('Not authenticated');
-
-        // Upload to storage
-        const fileName = `${user.id}/${new Date().getFullYear()}/${fileData.file.name}`;
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('invoices')
-          .upload(`historical/${fileName}`, fileData.file);
-
-        if (uploadError) throw uploadError;
-
-        // Get public URL
-        const { data: { publicUrl } } = supabase.storage
-          .from('invoices')
-          .getPublicUrl(`historical/${fileName}`);
-
-        // Create invoice_upload record
-        const { data: uploadRecord, error: recordError } = await supabase
-          .from('invoice_uploads')
-          .insert({
-            user_id: user.id,
-            file_name: fileData.file.name,
-            file_url: publicUrl,
-            file_size: fileData.file.size,
-            processing_status: 'processing'
-          })
-          .select()
-          .single();
-
-        if (recordError) throw recordError;
-
-        // Update status to processing
-        setFiles(prev => prev.map(f => 
-          f.id === fileData.id ? { ...f, status: 'processing', uploadId: uploadRecord.id } : f
-        ));
-
-        // Read file as text for AI processing
-        const fileText = await fileData.file.text();
-
-        // Call edge function to scan invoice
-        const { data: scanResult, error: scanError } = await supabase.functions.invoke('scan-invoice', {
-          body: { 
-            fileContent: fileText,
-            fileName: fileData.file.name 
-          }
-        });
-
-        if (scanError) throw scanError;
-
-        if (!scanResult.success) {
-          throw new Error(scanResult.error || 'Failed to scan invoice');
-        }
-
-        // Update invoice_upload record with extracted data
-        await supabase
-          .from('invoice_uploads')
-          .update({
-            processing_status: 'completed',
-            extracted_data: scanResult.data
-          })
-          .eq('id', uploadRecord.id);
-
-        // Update file status with extracted data
-        setFiles(prev => prev.map(f => 
-          f.id === fileData.id 
-            ? { ...f, status: 'completed', extractedData: scanResult.data } 
-            : f
-        ));
-
-        toast({
-          title: "Invoice scanned",
-          description: `Successfully scanned ${fileData.file.name}`,
-        });
-
-      } catch (error) {
-        console.error('Error processing file:', error);
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        
-        // Update file status to failed
-        setFiles(prev => prev.map(f => 
-          f.id === fileData.id 
-            ? { ...f, status: 'failed', error: errorMessage } 
-            : f
-        ));
-
-        // Update database record if it exists
-        if (fileData.uploadId) {
-          await supabase
-            .from('invoice_uploads')
-            .update({
-              processing_status: 'failed',
-              error_message: errorMessage
-            })
-            .eq('id', fileData.uploadId);
-        }
-
-        toast({
-          title: "Scan failed",
-          description: `Failed to scan ${fileData.file.name}: ${errorMessage}`,
-          variant: "destructive",
-        });
-      }
+      await scanFile(fileData);
     }
 
     setIsProcessing(false);
   };
+
 
   const handleSaveInvoice = async (fileId: string, data: any) => {
     try {
@@ -332,6 +352,16 @@ export function ImportHistoricalInvoicesDialog({ open, onOpenChange }: ImportHis
                           onClick={() => removeFile(file.id)}
                         >
                           <XCircle className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {file.status === 'failed' && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => retryScan(file.id)}
+                          title="Retry scan"
+                        >
+                          <Loader2 className="h-4 w-4" />
                         </Button>
                       )}
                     </div>
