@@ -16,10 +16,22 @@ const TenantTracker = () => {
       const { data, error } = await supabase
         .from("tenants")
         .select("*")
-        .eq("project_id", projectId)
-        .order("shop_number", { ascending: true });
+        .eq("project_id", projectId);
       if (error) throw error;
-      return data;
+      
+      // Sort shop numbers numerically
+      return (data || []).sort((a, b) => {
+        const numA = parseInt(a.shop_number);
+        const numB = parseInt(b.shop_number);
+        
+        // If both are valid numbers, sort numerically
+        if (!isNaN(numA) && !isNaN(numB)) {
+          return numA - numB;
+        }
+        
+        // Otherwise, sort alphabetically
+        return a.shop_number.localeCompare(b.shop_number);
+      });
     },
     enabled: !!projectId,
   });
