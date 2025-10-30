@@ -88,10 +88,13 @@ export function ImportHistoricalInvoicesDialog({ open, onOpenChange }: ImportHis
 
       if (uploadError) throw uploadError;
 
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
+      // Get signed URL (1 hour expiry) since bucket is private
+      const { data: signedUrlData, error: urlError } = await supabase.storage
         .from('invoices')
-        .getPublicUrl(`historical/${fileName}`);
+        .createSignedUrl(`historical/${fileName}`, 3600);
+
+      if (urlError) throw urlError;
+      const fileUrl = signedUrlData.signedUrl;
 
       // Create or update invoice_upload record
       const { data: uploadRecord, error: recordError } = await supabase
@@ -100,7 +103,7 @@ export function ImportHistoricalInvoicesDialog({ open, onOpenChange }: ImportHis
           id: fileData.uploadId, // Use existing ID if retrying
           user_id: user.id,
           file_name: fileData.file.name,
-          file_url: publicUrl,
+          file_url: fileUrl,
           file_size: fileData.file.size,
           processing_status: 'processing'
         })
@@ -111,7 +114,7 @@ export function ImportHistoricalInvoicesDialog({ open, onOpenChange }: ImportHis
 
       // Update status to processing and store file URL
       setFiles(prev => prev.map(f => 
-        f.id === fileData.id ? { ...f, status: 'processing', uploadId: uploadRecord.id, fileUrl: publicUrl } : f
+        f.id === fileData.id ? { ...f, status: 'processing', uploadId: uploadRecord.id, fileUrl: fileUrl } : f
       ));
 
       // Read file as text for AI processing
