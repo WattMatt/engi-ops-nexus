@@ -117,6 +117,195 @@ export type Database = {
           },
         ]
       }
+      backup_files: {
+        Row: {
+          backup_id: string | null
+          bucket_name: string | null
+          checksum: string | null
+          compression_type: string | null
+          created_at: string | null
+          encryption_enabled: boolean | null
+          expires_at: string | null
+          file_path: string
+          file_size_bytes: number | null
+          file_type: string | null
+          id: string
+        }
+        Insert: {
+          backup_id?: string | null
+          bucket_name?: string | null
+          checksum?: string | null
+          compression_type?: string | null
+          created_at?: string | null
+          encryption_enabled?: boolean | null
+          expires_at?: string | null
+          file_path: string
+          file_size_bytes?: number | null
+          file_type?: string | null
+          id?: string
+        }
+        Update: {
+          backup_id?: string | null
+          bucket_name?: string | null
+          checksum?: string | null
+          compression_type?: string | null
+          created_at?: string | null
+          encryption_enabled?: boolean | null
+          expires_at?: string | null
+          file_path?: string
+          file_size_bytes?: number | null
+          file_type?: string | null
+          id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "backup_files_backup_id_fkey"
+            columns: ["backup_id"]
+            isOneToOne: false
+            referencedRelation: "backup_history"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      backup_health_checks: {
+        Row: {
+          backup_id: string | null
+          check_type: string | null
+          checked_at: string | null
+          details: Json | null
+          id: string
+          status: string | null
+        }
+        Insert: {
+          backup_id?: string | null
+          check_type?: string | null
+          checked_at?: string | null
+          details?: Json | null
+          id?: string
+          status?: string | null
+        }
+        Update: {
+          backup_id?: string | null
+          check_type?: string | null
+          checked_at?: string | null
+          details?: Json | null
+          id?: string
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "backup_health_checks_backup_id_fkey"
+            columns: ["backup_id"]
+            isOneToOne: false
+            referencedRelation: "backup_history"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      backup_history: {
+        Row: {
+          backup_type: string
+          completed_at: string | null
+          created_at: string | null
+          error_message: string | null
+          file_path: string | null
+          file_size_bytes: number | null
+          id: string
+          job_id: string | null
+          metadata: Json | null
+          records_count: Json | null
+          started_at: string | null
+          status: string
+          tables_included: string[] | null
+        }
+        Insert: {
+          backup_type: string
+          completed_at?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          file_path?: string | null
+          file_size_bytes?: number | null
+          id?: string
+          job_id?: string | null
+          metadata?: Json | null
+          records_count?: Json | null
+          started_at?: string | null
+          status: string
+          tables_included?: string[] | null
+        }
+        Update: {
+          backup_type?: string
+          completed_at?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          file_path?: string | null
+          file_size_bytes?: number | null
+          id?: string
+          job_id?: string | null
+          metadata?: Json | null
+          records_count?: Json | null
+          started_at?: string | null
+          status?: string
+          tables_included?: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "backup_history_job_id_fkey"
+            columns: ["job_id"]
+            isOneToOne: false
+            referencedRelation: "backup_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      backup_jobs: {
+        Row: {
+          backup_type: string
+          created_at: string | null
+          created_by: string | null
+          enabled: boolean | null
+          id: string
+          last_run_at: string | null
+          name: string
+          next_run_at: string | null
+          retention_days: number | null
+          schedule_cron: string | null
+          storage_config: Json | null
+          storage_provider: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          backup_type: string
+          created_at?: string | null
+          created_by?: string | null
+          enabled?: boolean | null
+          id?: string
+          last_run_at?: string | null
+          name: string
+          next_run_at?: string | null
+          retention_days?: number | null
+          schedule_cron?: string | null
+          storage_config?: Json | null
+          storage_provider?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          backup_type?: string
+          created_at?: string | null
+          created_by?: string | null
+          enabled?: boolean | null
+          id?: string
+          last_run_at?: string | null
+          name?: string
+          next_run_at?: string | null
+          retention_days?: number | null
+          schedule_cron?: string | null
+          storage_config?: Json | null
+          storage_provider?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       benefits: {
         Row: {
           category: string
@@ -2641,6 +2830,59 @@ export type Database = {
         }
         Relationships: []
       }
+      recovery_operations: {
+        Row: {
+          backup_id: string | null
+          completed_at: string | null
+          error_message: string | null
+          id: string
+          initiated_at: string | null
+          initiated_by: string | null
+          records_restored: Json | null
+          recovery_type: string | null
+          rollback_available: boolean | null
+          status: string | null
+          tables_to_restore: string[] | null
+          target_timestamp: string | null
+        }
+        Insert: {
+          backup_id?: string | null
+          completed_at?: string | null
+          error_message?: string | null
+          id?: string
+          initiated_at?: string | null
+          initiated_by?: string | null
+          records_restored?: Json | null
+          recovery_type?: string | null
+          rollback_available?: boolean | null
+          status?: string | null
+          tables_to_restore?: string[] | null
+          target_timestamp?: string | null
+        }
+        Update: {
+          backup_id?: string | null
+          completed_at?: string | null
+          error_message?: string | null
+          id?: string
+          initiated_at?: string | null
+          initiated_by?: string | null
+          records_restored?: Json | null
+          recovery_type?: string | null
+          rollback_available?: boolean | null
+          status?: string | null
+          tables_to_restore?: string[] | null
+          target_timestamp?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recovery_operations_backup_id_fkey"
+            columns: ["backup_id"]
+            isOneToOne: false
+            referencedRelation: "backup_history"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shared_notes: {
         Row: {
           content: string
@@ -2952,6 +3194,42 @@ export type Database = {
           notification_type?: string
           title?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      storage_providers: {
+        Row: {
+          config: Json | null
+          created_at: string | null
+          credentials: Json | null
+          enabled: boolean | null
+          id: string
+          last_tested_at: string | null
+          provider_name: string
+          test_status: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          config?: Json | null
+          created_at?: string | null
+          credentials?: Json | null
+          enabled?: boolean | null
+          id?: string
+          last_tested_at?: string | null
+          provider_name: string
+          test_status?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          config?: Json | null
+          created_at?: string | null
+          credentials?: Json | null
+          enabled?: boolean | null
+          id?: string
+          last_tested_at?: string | null
+          provider_name?: string
+          test_status?: string | null
+          updated_at?: string | null
         }
         Relationships: []
       }

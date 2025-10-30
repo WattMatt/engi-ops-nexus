@@ -26,6 +26,7 @@ import StaffManagement from "./pages/StaffManagement";
 import Invoicing from "./pages/Invoicing";
 import FloorPlan from "./pages/FloorPlan";
 import Messages from "./pages/Messages";
+import BackupManagement from "./pages/BackupManagement";
 import NotFound from "./pages/NotFound";
 import { HelpButton } from "./components/feedback/HelpButton";
 
@@ -50,6 +51,7 @@ const App = () => (
             <Route path="invoicing" element={<Invoicing />} />
             <Route path="staff" element={<StaffManagement />} />
             <Route path="users" element={<UserManagement />} />
+            <Route path="backup" element={<BackupManagement />} />
             <Route path="feedback" element={<FeedbackManagement />} />
             <Route path="settings" element={<Settings />} />
           </Route>

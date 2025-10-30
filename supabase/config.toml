@@ -32,3 +32,9 @@ verify_jwt = false
 
 [functions.send-status-update-notification]
 verify_jwt = false
+
+[functions.backup-database]
+verify_jwt = false
+
+[functions.restore-backup]
+verify_jwt = true
