@@ -19,18 +19,19 @@ const TenantTracker = () => {
         .eq("project_id", projectId);
       if (error) throw error;
       
-      // Sort shop numbers numerically
+      // Sort shop numbers numerically (handles "Shop 77" format)
       return (data || []).sort((a, b) => {
-        const numA = parseInt(a.shop_number);
-        const numB = parseInt(b.shop_number);
+        // Extract numbers from strings like "Shop 77" or "Shop 66A"
+        const numA = parseInt(a.shop_number.replace(/\D/g, '')) || 0;
+        const numB = parseInt(b.shop_number.replace(/\D/g, '')) || 0;
         
-        // If both are valid numbers, sort numerically
-        if (!isNaN(numA) && !isNaN(numB)) {
+        // Sort numerically
+        if (numA !== numB) {
           return numA - numB;
         }
         
-        // Otherwise, sort alphabetically
-        return a.shop_number.localeCompare(b.shop_number);
+        // If numbers are equal (e.g., "Shop 66" vs "Shop 66A"), sort alphabetically
+        return a.shop_number.localeCompare(b.shop_number, undefined, { numeric: true });
       });
     },
     enabled: !!projectId,
