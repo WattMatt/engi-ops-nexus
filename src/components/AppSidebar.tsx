@@ -35,8 +35,13 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 
 const mainModules = [
   {
-    title: "Tenant Tracker",
+    title: "Dashboard",
     url: "/dashboard",
+    icon: LayoutDashboard,
+  },
+  {
+    title: "Tenant Tracker",
+    url: "/dashboard/tenant-tracker",
     icon: UsersRound,
   },
   {

@@ -27,6 +27,7 @@ import Invoicing from "./pages/Invoicing";
 import FloorPlan from "./pages/FloorPlan";
 import Messages from "./pages/Messages";
 import BackupManagement from "./pages/BackupManagement";
+import TenantTracker from "./pages/TenantTracker";
 import NotFound from "./pages/NotFound";
 import { HelpButton } from "./components/feedback/HelpButton";
 
@@ -59,6 +60,7 @@ const App = () => (
           {/* Project-specific routes */}
           <Route path="/dashboard" element={<DashboardLayout />}>
             <Route index element={<Dashboard />} />
+            <Route path="tenant-tracker" element={<TenantTracker />} />
             <Route path="project-settings" element={<ProjectSettings />} />
             <Route path="site-diary" element={<SiteDiary />} />
             <Route path="cost-reports" element={<CostReports />} />
