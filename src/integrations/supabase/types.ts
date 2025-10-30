@@ -1424,6 +1424,69 @@ export type Database = {
         }
         Relationships: []
       }
+      invoice_uploads: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          extracted_data: Json | null
+          file_name: string
+          file_size: number
+          file_url: string
+          id: string
+          invoice_id: string | null
+          processing_status: string
+          project_id: string | null
+          updated_at: string
+          upload_date: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          extracted_data?: Json | null
+          file_name: string
+          file_size: number
+          file_url: string
+          id?: string
+          invoice_id?: string | null
+          processing_status?: string
+          project_id?: string | null
+          updated_at?: string
+          upload_date?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          extracted_data?: Json | null
+          file_name?: string
+          file_size?: number
+          file_url?: string
+          id?: string
+          invoice_id?: string | null
+          processing_status?: string
+          project_id?: string | null
+          updated_at?: string
+          upload_date?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_uploads_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_uploads_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       invoices: {
         Row: {
           claim_number: number

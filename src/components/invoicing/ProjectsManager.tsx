@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Plus, FileText, Upload, Calendar, Edit, Trash2 } from "lucide-react";
+import { Plus, FileText, Upload, Calendar, Edit, Trash2, ScanText } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { CreateProjectDialog } from "./CreateProjectDialog";
 import { CreateInvoiceDialog } from "./CreateInvoiceDialog";
 import { ImportExcelDialog } from "./ImportExcelDialog";
+import { ImportHistoricalInvoicesDialog } from "./ImportHistoricalInvoicesDialog";
 import { ProjectDetailsDialog } from "./ProjectDetailsDialog";
 import { EditProjectDialog } from "./EditProjectDialog";
 import {
@@ -33,6 +34,7 @@ export function ProjectsManager() {
   const [createProjectOpen, setCreateProjectOpen] = useState(false);
   const [createInvoiceOpen, setCreateInvoiceOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [importHistoricalOpen, setImportHistoricalOpen] = useState(false);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -104,6 +106,10 @@ export function ProjectsManager() {
             </p>
           </div>
           <div className="flex gap-2">
+            <Button variant="outline" onClick={() => setImportHistoricalOpen(true)}>
+              <ScanText className="mr-2 h-4 w-4" />
+              Import Historical Invoices
+            </Button>
             <Button variant="outline" onClick={() => setImportDialogOpen(true)}>
               <Upload className="mr-2 h-4 w-4" />
               Import Excel
@@ -234,6 +240,11 @@ export function ProjectsManager() {
           />
         </>
       )}
+
+      <ImportHistoricalInvoicesDialog 
+        open={importHistoricalOpen} 
+        onOpenChange={setImportHistoricalOpen} 
+      />
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
