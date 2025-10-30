@@ -61,7 +61,7 @@ serve(async (req) => {
     const approvalLink = `${appUrl}/approvals/${workflowId}`;
 
     const emailResponse = await resend.emails.send({
-      from: "noreply@watsonmattheus.com",
+      from: "noreply@send.watsonmattheus.com",
       to: [profile.email],
       subject: `Approval Required: ${documentType}`,
       html: `

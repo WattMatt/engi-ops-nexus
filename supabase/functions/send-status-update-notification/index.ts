@@ -78,7 +78,7 @@ serve(async (req) => {
     const { icon, color } = getIconAndColor(notificationType);
 
     const emailResponse = await resend.emails.send({
-      from: "noreply@watsonmattheus.com",
+      from: "noreply@send.watsonmattheus.com",
       to: [profile.email],
       subject: title,
       html: `

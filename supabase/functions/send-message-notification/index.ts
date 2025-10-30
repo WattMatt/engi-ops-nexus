@@ -58,7 +58,7 @@ serve(async (req) => {
     const messageLink = `${appUrl}/messages?conversation=${conversationId}`;
 
     const emailResponse = await resend.emails.send({
-      from: "noreply@watsonmattheus.com",
+      from: "noreply@send.watsonmattheus.com",
       to: [profile.email],
       subject: `${senderName} mentioned you in a message`,
       html: `
