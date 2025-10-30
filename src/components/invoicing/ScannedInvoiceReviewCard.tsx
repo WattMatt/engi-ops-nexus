@@ -108,40 +108,13 @@ export function ScannedInvoiceReviewCard({
 
       {/* Two-Column Layout */}
       <div className="grid grid-cols-2 flex-1 min-h-0">
-        {/* Left Column - Document Preview with Zoom/Pan */}
+        {/* Left Column - Document Preview */}
         <div className="border-r bg-muted/30 flex flex-col min-h-0">
-          <TransformWrapper
-            initialScale={1}
-            minScale={0.5}
-            maxScale={4}
-            centerOnInit
-          >
-            {({ zoomIn, zoomOut, resetTransform }) => (
-              <>
-                <div className="flex items-center justify-center gap-2 p-2 border-b bg-background shrink-0">
-                  <Button variant="outline" size="sm" onClick={() => zoomIn()}>
-                    <ZoomIn className="h-4 w-4" />
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => zoomOut()}>
-                    <ZoomOut className="h-4 w-4" />
-                  </Button>
-                  <Button variant="outline" size="sm" onClick={() => resetTransform()}>
-                    <RotateCcw className="h-4 w-4" />
-                  </Button>
-                </div>
-                <TransformComponent
-                  wrapperClass="!w-full flex-1 min-h-0"
-                  contentClass="!w-full !h-full flex items-center justify-center"
-                >
-                  <img
-                    src={imageUrl}
-                    alt="Invoice document"
-                    className="max-w-full max-h-full object-contain"
-                  />
-                </TransformComponent>
-              </>
-            )}
-          </TransformWrapper>
+          <iframe 
+            src={imageUrl} 
+            className="w-full h-full border-0"
+            title={fileName}
+          />
         </div>
 
         {/* Right Column - Extracted Data Fields */}
