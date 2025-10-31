@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { TenantList } from "@/components/tenant/TenantList";
 import { TenantDialog } from "@/components/tenant/TenantDialog";
 import { DBSizingRulesSettings } from "@/components/tenant/DBSizingRulesSettings";
+import { TenantOverview } from "@/components/tenant/TenantOverview";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 
@@ -57,11 +58,22 @@ const TenantTracker = () => {
         <TenantDialog projectId={projectId || ""} onSuccess={handleUpdate} />
       </div>
 
-      <Tabs defaultValue="tenants" className="w-full">
+      <Tabs defaultValue="overview" className="w-full">
         <TabsList>
-          <TabsTrigger value="tenants">Tenants</TabsTrigger>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="tenants">Tenant Schedule</TabsTrigger>
           <TabsTrigger value="settings">DB Sizing Rules</TabsTrigger>
         </TabsList>
+        
+        <TabsContent value="overview" className="mt-4">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <p className="text-muted-foreground">Loading data...</p>
+            </div>
+          ) : (
+            <TenantOverview tenants={tenants} />
+          )}
+        </TabsContent>
         
         <TabsContent value="tenants" className="mt-4 space-y-4">
           <div className="bg-background border rounded-lg p-4 shadow-sm">
