@@ -33,11 +33,12 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
     }
   });
 
-  // Load PDF when in edit mode
+  // Load PDF when in edit mode or when composite is a PDF
   useEffect(() => {
-    if (!isEditMode || !projectId) return;
+    if (!projectId) return;
 
     const loadPdf = async () => {
+      // Check if base.pdf exists first
       const { data: files } = await supabase.storage
         .from('floor-plans')
         .list(`${projectId}`);
@@ -55,8 +56,11 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
       }
     };
 
-    loadPdf();
-  }, [isEditMode, projectId]);
+    // Load PDF if in edit mode OR if we have a record but no valid image
+    if (isEditMode || (floorPlanRecord && !floorPlanRecord.composite_image_url?.endsWith('.png'))) {
+      loadPdf();
+    }
+  }, [isEditMode, projectId, floorPlanRecord]);
 
   const renderPdfToImage = async (url: string) => {
     const loadingTask = pdfjsLib.getDocument(url);
@@ -186,7 +190,7 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
       </div>
       
       <div className="flex-1 overflow-hidden p-4">
-        {!isEditMode && floorPlanRecord?.composite_image_url ? (
+        {!isEditMode && floorPlanRecord?.composite_image_url?.endsWith('.png') ? (
           <div className="h-full flex items-center justify-center">
             <img 
               src={floorPlanRecord.composite_image_url} 
@@ -194,7 +198,7 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
               className="max-w-full max-h-full object-contain shadow-lg"
             />
           </div>
-        ) : isEditMode && pdfImage ? (
+        ) : pdfImage ? (
           <TransformWrapper
             initialScale={1}
             minScale={0.5}
