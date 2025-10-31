@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { TenantList } from "@/components/tenant/TenantList";
 import { TenantDialog } from "@/components/tenant/TenantDialog";
 import { DBSizingRulesSettings } from "@/components/tenant/DBSizingRulesSettings";
+import { FloorPlanMasking } from "@/components/tenant/FloorPlanMasking";
 import { TenantOverview } from "@/components/tenant/TenantOverview";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
@@ -62,6 +63,7 @@ const TenantTracker = () => {
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="tenants">Tenant Schedule</TabsTrigger>
+          <TabsTrigger value="floor-plan">Floor Plan Masking</TabsTrigger>
           <TabsTrigger value="settings">DB Sizing Rules</TabsTrigger>
         </TabsList>
         
@@ -107,6 +109,10 @@ const TenantTracker = () => {
               />
             )}
           </div>
+        </TabsContent>
+        
+        <TabsContent value="floor-plan" className="mt-4">
+          <FloorPlanMasking projectId={projectId || ""} />
         </TabsContent>
         
         <TabsContent value="settings" className="mt-4">

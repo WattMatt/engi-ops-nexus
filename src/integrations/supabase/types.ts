@@ -3426,6 +3426,42 @@ export type Database = {
           },
         ]
       }
+      tenant_floor_plan_masks: {
+        Row: {
+          area: number
+          color: string
+          created_at: string | null
+          id: string
+          points: Json
+          project_id: string
+          shop_number: string
+          tenant_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          area: number
+          color: string
+          created_at?: string | null
+          id?: string
+          points: Json
+          project_id: string
+          shop_number: string
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          area?: number
+          color?: string
+          created_at?: string | null
+          id?: string
+          points?: Json
+          project_id?: string
+          shop_number?: string
+          tenant_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       tenants: {
         Row: {
           area: number | null
