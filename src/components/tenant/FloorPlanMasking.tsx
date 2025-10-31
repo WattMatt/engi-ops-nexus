@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Eye, Edit, Ruler, Pencil } from "lucide-react";
+import { Eye, Edit, Ruler, Pencil, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import * as pdfjsLib from "pdfjs-dist";
+import { toast } from "sonner";
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
 
@@ -13,7 +14,10 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
   const [isEditMode, setIsEditMode] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [pdfImage, setPdfImage] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const queryClient = useQueryClient();
 
   const { data: floorPlanRecord, isLoading } = useQuery({
     queryKey: ['tenant-floor-plan', projectId],
@@ -74,14 +78,52 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
     }
   };
 
+  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file || !projectId) return;
+
+    if (file.type !== 'application/pdf') {
+      toast.error('Please upload a PDF file');
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const { error: uploadError } = await supabase.storage
+        .from('floor-plans')
+        .upload(`${projectId}/base.pdf`, file, {
+          upsert: true,
+          contentType: 'application/pdf'
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get the signed URL and render
+      const { data } = await supabase.storage
+        .from('floor-plans')
+        .createSignedUrl(`${projectId}/base.pdf`, 3600);
+
+      if (data?.signedUrl) {
+        setPdfUrl(data.signedUrl);
+        await renderPdfToImage(data.signedUrl);
+        toast.success('Floor plan uploaded successfully');
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      toast.error('Failed to upload floor plan');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   const handleScale = () => {
     // TODO: Implement scale setting
-    console.log("Scale button clicked");
+    toast.info("Scale functionality coming soon");
   };
 
   const handleMasking = () => {
     // TODO: Implement masking drawing
-    console.log("Masking button clicked");
+    toast.info("Masking functionality coming soon");
   };
 
   if (isLoading) {
@@ -94,6 +136,13 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
 
   return (
     <div className="flex flex-col h-full">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="application/pdf"
+        onChange={handleUpload}
+        className="hidden"
+      />
       <div className="flex items-center justify-between p-4 border-b">
         <h3 className="text-lg font-semibold">Floor Plan Masking</h3>
         <div className="flex gap-2">
@@ -104,6 +153,19 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
             </Button>
           ) : (
             <>
+              <Button 
+                onClick={() => fileInputRef.current?.click()} 
+                variant="outline" 
+                size="sm"
+                disabled={isUploading}
+              >
+                {isUploading ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Upload className="w-4 h-4 mr-2" />
+                )}
+                Upload PDF
+              </Button>
               <Button onClick={handleScale} variant="outline" size="sm">
                 <Ruler className="w-4 h-4 mr-2" />
                 Scale
@@ -149,7 +211,22 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
           </TransformWrapper>
         ) : (
           <div className="h-full flex items-center justify-center text-muted-foreground">
-            <p>No floor plan available. Upload a PDF to get started.</p>
+            <div className="text-center">
+              <p className="mb-4">No floor plan available. Upload a PDF to get started.</p>
+              <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+                {isUploading ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <Upload className="w-4 h-4 mr-2" />
+                    Upload PDF
+                  </>
+                )}
+              </Button>
+            </div>
           </div>
         )}
       </div>
