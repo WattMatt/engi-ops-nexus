@@ -1,12 +1,12 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Upload, Save, Trash2, Download, Ruler, Square } from "lucide-react";
 import { toast } from "sonner";
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { supabase } from "@/integrations/supabase/client";
 import { loadPdfFromFile, renderPdfToCanvas } from "./utils/pdfCanvas";
+import ScaleModal from "@/components/floor-plan/components/ScaleModal";
 
 interface Point {
   x: number;
@@ -26,6 +26,7 @@ interface ScaleInfo {
   pixelDistance: number | null;
   realDistance: number | null;
   ratio: number | null;
+  line: { start: Point; end: Point } | null;
 }
 
 interface ViewState {
@@ -46,7 +47,7 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
 
   const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null);
   const [viewState, setViewState] = useState<ViewState>({ zoom: 1, offset: { x: 0, y: 0 } });
-  const [scaleInfo, setScaleInfo] = useState<ScaleInfo>({ pixelDistance: null, realDistance: null, ratio: null });
+  const [scaleInfo, setScaleInfo] = useState<ScaleInfo>({ pixelDistance: null, realDistance: null, ratio: null, line: null });
   const [isSettingScale, setIsSettingScale] = useState(false);
   const [scaleLineStart, setScaleLineStart] = useState<Point | null>(null);
   const [isDrawingMask, setIsDrawingMask] = useState(false);
@@ -56,13 +57,23 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
   const [isPanning, setIsPanning] = useState(false);
   const [lastMousePos, setLastMousePos] = useState<Point>({ x: 0, y: 0 });
   const [showScaleModal, setShowScaleModal] = useState(false);
-  const [scaleDistance, setScaleDistance] = useState("");
   const [tempScaleLine, setTempScaleLine] = useState<{start: Point, end: Point} | null>(null);
 
   // Load existing masks from database
   useEffect(() => {
     loadMasks();
   }, [projectId]);
+
+  // Keyboard handler for Enter key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Enter' && isDrawingMask && currentMask.length >= 3) {
+        completeMaskDrawing();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isDrawingMask, currentMask]);
 
   const loadMasks = async () => {
     try {
@@ -294,14 +305,8 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
     });
   };
 
-  const completeScaleSetting = () => {
+  const completeScaleSetting = (distance: number) => {
     if (!tempScaleLine) return;
-    
-    const distance = parseFloat(scaleDistance);
-    if (isNaN(distance) || distance <= 0) {
-      toast.error("Please enter a valid distance");
-      return;
-    }
 
     const pixelDist = Math.sqrt(
       Math.pow(tempScaleLine.end.x - tempScaleLine.start.x, 2) + 
@@ -311,14 +316,14 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
     setScaleInfo({
       pixelDistance: pixelDist,
       realDistance: distance,
-      ratio: distance / pixelDist
+      ratio: distance / pixelDist,
+      line: tempScaleLine
     });
 
     setIsSettingScale(false);
     setScaleLineStart(null);
     setTempScaleLine(null);
     setShowScaleModal(false);
-    setScaleDistance("");
     toast.success(`Scale set: 1 px = ${(distance / pixelDist).toFixed(4)} m`);
     drawMasks();
   };
@@ -440,7 +445,7 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
       });
     }
 
-    // Draw scale line
+    // Draw scale line (temporary while setting)
     if (isSettingScale && scaleLineStart && previewPoint) {
       ctx.beginPath();
       ctx.moveTo(scaleLineStart.x, scaleLineStart.y);
@@ -448,6 +453,24 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
       ctx.strokeStyle = '#ef4444';
       ctx.lineWidth = 3;
       ctx.stroke();
+    }
+
+    // Draw saved scale line (after scale is set)
+    if (scaleInfo.line && scaleInfo.ratio) {
+      ctx.beginPath();
+      ctx.moveTo(scaleInfo.line.start.x, scaleInfo.line.start.y);
+      ctx.lineTo(scaleInfo.line.end.x, scaleInfo.line.end.y);
+      ctx.strokeStyle = '#10b981';
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      // Draw label
+      const midX = (scaleInfo.line.start.x + scaleInfo.line.end.x) / 2;
+      const midY = (scaleInfo.line.start.y + scaleInfo.line.end.y) / 2;
+      ctx.fillStyle = '#10b981';
+      ctx.font = 'bold 14px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText(`${scaleInfo.realDistance}m`, midX, midY - 10);
     }
 
     ctx.restore();
@@ -524,7 +547,13 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
 
       {scaleInfo.ratio && (
         <div className="text-sm text-muted-foreground">
-          Scale: 1 px = {scaleInfo.ratio.toFixed(4)} m
+          Scale: 1 px = {scaleInfo.ratio.toFixed(4)} m ({scaleInfo.realDistance}m reference line shown in green)
+        </div>
+      )}
+
+      {isDrawingMask && currentMask.length > 0 && (
+        <div className="text-sm text-primary font-medium">
+          Press Enter to complete mask ({currentMask.length} points)
         </div>
       )}
 
@@ -579,37 +608,16 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
         ))}
       </div>
 
-      {showScaleModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-background p-6 rounded-lg shadow-lg max-w-md w-full">
-            <h3 className="text-lg font-semibold mb-4">Set Scale</h3>
-            <Label htmlFor="scale-distance">Real-world distance (meters)</Label>
-            <Input
-              id="scale-distance"
-              type="number"
-              value={scaleDistance}
-              onChange={(e) => setScaleDistance(e.target.value)}
-              placeholder="e.g., 10"
-              className="mt-2"
-              autoFocus
-            />
-            <div className="flex gap-2 mt-4">
-              <Button onClick={completeScaleSetting}>Set Scale</Button>
-              <Button
-                variant="outline"
-                onClick={() => {
-                  setShowScaleModal(false);
-                  setTempScaleLine(null);
-                  setScaleLineStart(null);
-                  setIsSettingScale(false);
-                }}
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ScaleModal
+        isOpen={showScaleModal}
+        onClose={() => {
+          setShowScaleModal(false);
+          setTempScaleLine(null);
+          setScaleLineStart(null);
+          setIsSettingScale(false);
+        }}
+        onSubmit={completeScaleSetting}
+      />
     </div>
   );
 };
