@@ -64,9 +64,9 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
     loadSizingRules();
   }, [projectId]);
 
-  // Auto-calculate DB size when dialog opens with an area value
+  // Auto-calculate DB size when dialog opens with an area value (only for standard category)
   useEffect(() => {
-    if (open && formData.area && !isNaN(parseFloat(formData.area)) && formData.shop_category !== 'national') {
+    if (open && formData.area && !isNaN(parseFloat(formData.area)) && formData.shop_category === 'standard') {
       const calculatedDbSize = getDbSizeFromArea(parseFloat(formData.area), formData.shop_category);
       if (calculatedDbSize) {
         setFormData(prev => ({ ...prev, db_size: calculatedDbSize }));
@@ -74,10 +74,10 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
     }
   }, [open]);
 
-  // Get DB size from area using configured rules
+  // Get DB size from area using configured rules (only for standard category)
   const getDbSizeFromArea = (area: number, category: string): string | null => {
-    // For national shops, don't auto-calculate from area
-    if (category === 'national') {
+    // Only auto-calculate for standard shops
+    if (category !== 'standard') {
       return null;
     }
     
@@ -90,8 +90,8 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
   const handleAreaChange = (value: string) => {
     setFormData({ ...formData, area: value });
     
-    // Auto-calculate DB size when area is entered (except for national shops)
-    if (value && !isNaN(parseFloat(value)) && formData.shop_category !== 'national') {
+    // Auto-calculate DB size when area is entered (only for standard category)
+    if (value && !isNaN(parseFloat(value)) && formData.shop_category === 'standard') {
       const calculatedDbSize = getDbSizeFromArea(parseFloat(value), formData.shop_category);
       if (calculatedDbSize) {
         setFormData(prev => ({ ...prev, area: value, db_size: calculatedDbSize }));
@@ -102,12 +102,15 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
   const handleCategoryChange = (value: string) => {
     setFormData({ ...formData, shop_category: value });
     
-    // Auto-calculate DB size when category changes (if area exists and not national)
-    if (formData.area && !isNaN(parseFloat(formData.area)) && value !== 'national') {
+    // Auto-calculate DB size when category changes (only for standard category with area)
+    if (formData.area && !isNaN(parseFloat(formData.area)) && value === 'standard') {
       const calculatedDbSize = getDbSizeFromArea(parseFloat(formData.area), value);
       if (calculatedDbSize) {
         setFormData(prev => ({ ...prev, shop_category: value, db_size: calculatedDbSize }));
       }
+    } else if (value !== 'standard') {
+      // Clear DB size when switching to non-standard category
+      setFormData(prev => ({ ...prev, shop_category: value, db_size: '' }));
     }
   };
 
@@ -223,23 +226,32 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
                 onChange={(e) => handleAreaChange(e.target.value)}
                 placeholder="Enter shop area"
               />
-              {formData.shop_category !== 'national' && (
+              {formData.shop_category === 'standard' && (
                 <p className="text-xs text-muted-foreground mt-1">
-                  DB size will auto-calculate based on area and category
+                  DB size will auto-calculate based on area
                 </p>
               )}
             </div>
             <div>
-              <Label htmlFor="db_size">DB Size (Auto-calculated)</Label>
+              <Label htmlFor="db_size">
+                DB Size {formData.shop_category !== 'standard' ? '*' : '(Auto-calculated)'}
+              </Label>
               <Input
                 id="db_size"
                 value={formData.db_size}
                 onChange={(e) => setFormData({ ...formData, db_size: e.target.value })}
                 placeholder="e.g., 60A TP"
+                required={formData.shop_category !== 'standard'}
               />
-              <p className="text-xs text-muted-foreground mt-1">
-                You can edit this after auto-calculation
-              </p>
+              {formData.shop_category === 'standard' ? (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Auto-calculated, but you can edit
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Manual entry required for {formData.shop_category.replace('_', ' ')}
+                </p>
+              )}
             </div>
             <div>
               <Label htmlFor="db_cost">DB Cost (R)</Label>
