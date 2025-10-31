@@ -234,7 +234,7 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
             </div>
             <div>
               <Label htmlFor="db_size">
-                DB Size {formData.shop_category !== 'standard' ? '*' : '(Auto-calculated)'}
+                DB Size {formData.shop_category !== 'standard' ? '*' : '(Auto-calculated, editable)'}
               </Label>
               <Input
                 id="db_size"
@@ -242,12 +242,10 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
                 onChange={(e) => setFormData({ ...formData, db_size: e.target.value })}
                 placeholder="e.g., 60A TP"
                 required={formData.shop_category !== 'standard'}
-                readOnly={formData.shop_category === 'standard'}
-                className={formData.shop_category === 'standard' ? 'bg-muted cursor-not-allowed' : ''}
               />
               {formData.shop_category === 'standard' ? (
                 <p className="text-xs text-muted-foreground mt-1">
-                  Auto-calculated from area - change category or area to update
+                  Auto-calculated from area and rules, but you can override
                 </p>
               ) : (
                 <p className="text-xs text-muted-foreground mt-1">
