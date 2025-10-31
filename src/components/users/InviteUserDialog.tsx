@@ -18,6 +18,11 @@ const inviteSchema = z.object({
   role: z.enum(["admin", "moderator", "user"], {
     required_error: "Please select a role",
   }),
+  temporaryPassword: z.string()
+    .min(6, "Password must be at least 6 characters")
+    .max(100, "Password must be less than 100 characters")
+    .optional()
+    .or(z.literal("")),
 });
 
 type InviteFormData = z.infer<typeof inviteSchema>;
@@ -37,6 +42,7 @@ export const InviteUserDialog = ({ onInvited }: InviteUserDialogProps) => {
       fullName: "",
       email: "",
       role: "user",
+      temporaryPassword: "",
     },
   });
 
@@ -62,6 +68,7 @@ export const InviteUserDialog = ({ onInvited }: InviteUserDialogProps) => {
           email: data.email,
           fullName: data.fullName,
           role: data.role,
+          temporaryPassword: data.temporaryPassword || undefined,
         },
       });
 
@@ -130,6 +137,26 @@ export const InviteUserDialog = ({ onInvited }: InviteUserDialogProps) => {
                     <Input type="email" placeholder="john@example.com" {...field} />
                   </FormControl>
                   <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="temporaryPassword"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Temporary Password (optional)</FormLabel>
+                  <FormControl>
+                    <Input 
+                      type="password" 
+                      placeholder="Leave blank for auto-generated" 
+                      {...field} 
+                    />
+                  </FormControl>
+                  <FormMessage />
+                  <p className="text-xs text-muted-foreground">
+                    If left blank, a secure password will be generated automatically.
+                  </p>
                 </FormItem>
               )}
             />

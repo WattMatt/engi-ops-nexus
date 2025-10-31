@@ -24,7 +24,7 @@ serve(async (req) => {
       }
     );
 
-    const { email, fullName, role, resend } = await req.json();
+    const { email, fullName, role, resend, temporaryPassword } = await req.json();
 
     // Validate input
     if (!email || !fullName || !role) {
@@ -49,10 +49,16 @@ serve(async (req) => {
       console.log("Resending invite for existing user:", userId);
     } else {
       // Create new user with admin API (doesn't affect current session)
-      const tempPassword = crypto.randomUUID();
+      const password = temporaryPassword || crypto.randomUUID();
+      
+      // Validate password if provided
+      if (temporaryPassword && temporaryPassword.length < 6) {
+        throw new Error("Password must be at least 6 characters long");
+      }
+      
       const { data: userData, error: userError } = await supabaseAdmin.auth.admin.createUser({
         email,
-        password: tempPassword,
+        password: password,
         email_confirm: false, // Keep pending until they set password
         user_metadata: {
           full_name: fullName,
