@@ -91,6 +91,11 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
       
       setFloorPlanRecord(floorPlan);
 
+      // Load scale info from saved floor plan
+      if (floorPlan?.scale_info) {
+        setScaleInfo(floorPlan.scale_info);
+      }
+
       // Load masks
       const { data: masksData, error: masksError } = await supabase
         .from('tenant_floor_plan_masks')
@@ -398,7 +403,7 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
     });
   };
 
-  const completeScaleSetting = (distance: number) => {
+  const completeScaleSetting = async (distance: number) => {
     if (!tempScaleLine) return;
 
     const pixelDist = Math.sqrt(
@@ -406,12 +411,32 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
       Math.pow(tempScaleLine.end.y - tempScaleLine.start.y, 2)
     );
 
-    setScaleInfo({
+    const newScaleInfo = {
       pixelDistance: pixelDist,
       realDistance: distance,
       ratio: distance / pixelDist,
       line: tempScaleLine
-    });
+    };
+
+    setScaleInfo(newScaleInfo);
+
+    // Save scale info to database
+    try {
+      const { error } = await supabase
+        .from('project_floor_plans')
+        .upsert({
+          project_id: projectId,
+          scale_info: newScaleInfo as any,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'project_id'
+        });
+
+      if (error) throw error;
+    } catch (error: any) {
+      console.error('Error saving scale:', error);
+      toast.error('Failed to save scale information');
+    }
 
     setIsSettingScale(false);
     setScaleLineStart(null);
