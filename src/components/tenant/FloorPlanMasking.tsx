@@ -79,6 +79,7 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
 
   const loadFloorPlan = async () => {
     setIsLoading(true);
+    console.log('[FloorPlan] Loading floor plan for project:', projectId);
     try {
       // Load floor plan record
       const { data: floorPlan, error: floorPlanError } = await supabase
@@ -89,10 +90,12 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
       
       if (floorPlanError && floorPlanError.code !== 'PGRST116') throw floorPlanError;
       
+      console.log('[FloorPlan] Loaded floor plan record:', floorPlan);
       setFloorPlanRecord(floorPlan);
 
       // Load scale info from saved floor plan
       if (floorPlan && (floorPlan as any).scale_info) {
+        console.log('[FloorPlan] Loading scale info:', (floorPlan as any).scale_info);
         setScaleInfo((floorPlan as any).scale_info);
       }
 
@@ -104,36 +107,45 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
       
       if (masksError) throw masksError;
       
+      console.log('[FloorPlan] Loaded masks data:', masksData);
       if (masksData) {
-        setMasks(masksData.map((m: any) => ({
+        const loadedMasks = masksData.map((m: any) => ({
           id: m.id,
           tenantId: m.tenant_id,
           shopNumber: m.shop_number,
           points: m.points,
           area: m.area,
           color: m.color
-        })));
+        }));
+        console.log('[FloorPlan] Setting masks:', loadedMasks);
+        setMasks(loadedMasks);
       }
 
       // Load base PDF if exists
       if (floorPlan?.base_pdf_url) {
+        console.log('[FloorPlan] Loading PDF from:', floorPlan.base_pdf_url);
         const { data: pdfBlob, error: downloadError } = await supabase.storage
           .from('floor-plans')
           .download(floorPlan.base_pdf_url.split('/floor-plans/')[1]);
         
         if (downloadError) throw downloadError;
         
+        console.log('[FloorPlan] PDF blob loaded, rendering...');
         const pdf = await loadPdfFromFile(new File([pdfBlob], 'floor-plan.pdf', { type: 'application/pdf' }));
         setPdfDoc(pdf);
         await renderPdf(pdf);
+        console.log('[FloorPlan] PDF rendered successfully');
+      } else {
+        console.log('[FloorPlan] No base_pdf_url found');
       }
     } catch (error: any) {
-      console.error('Error loading floor plan:', error);
+      console.error('[FloorPlan] Error loading floor plan:', error);
       if (error.code !== 'PGRST116') {
         toast.error('Failed to load floor plan');
       }
     } finally {
       setIsLoading(false);
+      console.log('[FloorPlan] Loading complete');
     }
   };
 
