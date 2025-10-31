@@ -44,6 +44,27 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
     lighting_cost: tenant?.lighting_cost?.toString() || "",
   });
 
+  // DB sizing ranges configuration
+  const getDbSizeFromArea = (area: number): string => {
+    if (area <= 80) return "60A TP";
+    if (area <= 200) return "80A TP";
+    if (area <= 300) return "100A TP";
+    if (area <= 450) return "125A TP";
+    if (area <= 600) return "160A TP";
+    if (area <= 1200) return "200A TP";
+    return "200A TP"; // default for > 1200m²
+  };
+
+  const handleAreaChange = (value: string) => {
+    setFormData({ ...formData, area: value });
+    
+    // Auto-calculate DB size when area is entered
+    if (value && !isNaN(parseFloat(value))) {
+      const calculatedDbSize = getDbSizeFromArea(parseFloat(value));
+      setFormData(prev => ({ ...prev, area: value, db_size: calculatedDbSize }));
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -126,22 +147,30 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
               />
             </div>
             <div>
-              <Label htmlFor="area">Area (sqm)</Label>
+              <Label htmlFor="area">Area (m²)</Label>
               <Input
                 id="area"
                 type="number"
                 step="0.01"
                 value={formData.area}
-                onChange={(e) => setFormData({ ...formData, area: e.target.value })}
+                onChange={(e) => handleAreaChange(e.target.value)}
+                placeholder="Enter shop area"
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                DB size will auto-calculate based on area
+              </p>
             </div>
             <div>
-              <Label htmlFor="db_size">DB Size</Label>
+              <Label htmlFor="db_size">DB Size (Auto-calculated)</Label>
               <Input
                 id="db_size"
                 value={formData.db_size}
                 onChange={(e) => setFormData({ ...formData, db_size: e.target.value })}
+                placeholder="e.g., 60A TP"
               />
+              <p className="text-xs text-muted-foreground mt-1">
+                You can edit this after auto-calculation
+              </p>
             </div>
             <div>
               <Label htmlFor="db_cost">DB Cost (R)</Label>
