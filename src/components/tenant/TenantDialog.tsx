@@ -242,10 +242,12 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
                 onChange={(e) => setFormData({ ...formData, db_size: e.target.value })}
                 placeholder="e.g., 60A TP"
                 required={formData.shop_category !== 'standard'}
+                readOnly={formData.shop_category === 'standard'}
+                className={formData.shop_category === 'standard' ? 'bg-muted cursor-not-allowed' : ''}
               />
               {formData.shop_category === 'standard' ? (
                 <p className="text-xs text-muted-foreground mt-1">
-                  Auto-calculated, but you can edit
+                  Auto-calculated from area - change category or area to update
                 </p>
               ) : (
                 <p className="text-xs text-muted-foreground mt-1">
