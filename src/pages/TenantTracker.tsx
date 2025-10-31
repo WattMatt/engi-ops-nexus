@@ -5,6 +5,7 @@ import { TenantList } from "@/components/tenant/TenantList";
 import { TenantDialog } from "@/components/tenant/TenantDialog";
 import { DBSizingRulesSettings } from "@/components/tenant/DBSizingRulesSettings";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 
 const TenantTracker = () => {
   const projectId = localStorage.getItem("selectedProjectId");
@@ -63,6 +64,23 @@ const TenantTracker = () => {
         </TabsList>
         
         <TabsContent value="tenants" className="mt-4">
+          <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border rounded-lg p-4 mb-4 shadow-sm">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-semibold">Legend:</span>
+              <Badge variant="outline" className="bg-blue-500 text-white border-blue-600">
+                Standard
+              </Badge>
+              <Badge variant="outline" className="bg-red-500 text-white border-red-600">
+                Fast Food
+              </Badge>
+              <Badge variant="outline" className="bg-emerald-500 text-white border-emerald-600">
+                Restaurant
+              </Badge>
+              <Badge variant="outline" className="bg-purple-600 text-white border-purple-700">
+                National
+              </Badge>
+            </div>
+          </div>
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
               <p className="text-muted-foreground">Loading tenants...</p>
