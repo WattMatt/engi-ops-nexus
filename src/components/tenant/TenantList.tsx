@@ -123,10 +123,10 @@ export const TenantList = ({ tenants, projectId, onUpdate }: TenantListProps) =>
 
   const getCategoryVariant = (category: string) => {
     const variants = {
-      standard: "bg-blue-100 text-blue-800 border-blue-200",
-      fast_food: "bg-orange-100 text-orange-800 border-orange-200",
-      restaurant: "bg-amber-100 text-amber-800 border-amber-200",
-      national: "bg-purple-100 text-purple-800 border-purple-200"
+      standard: "bg-blue-500 text-white border-blue-600",
+      fast_food: "bg-red-500 text-white border-red-600",
+      restaurant: "bg-emerald-500 text-white border-emerald-600",
+      national: "bg-purple-600 text-white border-purple-700"
     };
     return variants[category as keyof typeof variants] || "bg-gray-100 text-gray-800";
   };
