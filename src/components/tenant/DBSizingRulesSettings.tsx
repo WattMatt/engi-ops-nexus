@@ -12,7 +12,8 @@ interface DBSizingRule {
   id: string;
   min_area: number;
   max_area: number;
-  db_size: string;
+  db_size_allowance: string;
+  db_size_scope_of_work: string | null;
   category: string;
 }
 
@@ -28,16 +29,19 @@ export const DBSizingRulesSettings = ({ projectId }: DBSizingRulesSettingsProps)
   const [editForm, setEditForm] = useState<{
     min_area: string;
     max_area: string;
-    db_size: string;
+    db_size_allowance: string;
+    db_size_scope_of_work: string;
   }>({
     min_area: "",
     max_area: "",
-    db_size: "",
+    db_size_allowance: "",
+    db_size_scope_of_work: "",
   });
   const [newRule, setNewRule] = useState({
     min_area: "",
     max_area: "",
-    db_size: "",
+    db_size_allowance: "",
+    db_size_scope_of_work: "",
   });
 
   useEffect(() => {
@@ -67,13 +71,14 @@ export const DBSizingRulesSettings = ({ projectId }: DBSizingRulesSettingsProps)
     setEditForm({
       min_area: rule.min_area.toString(),
       max_area: rule.max_area.toString(),
-      db_size: rule.db_size,
+      db_size_allowance: rule.db_size_allowance,
+      db_size_scope_of_work: rule.db_size_scope_of_work || "",
     });
   };
 
   const cancelEdit = () => {
     setEditingId(null);
-    setEditForm({ min_area: "", max_area: "", db_size: "" });
+    setEditForm({ min_area: "", max_area: "", db_size_allowance: "", db_size_scope_of_work: "" });
   };
 
   const adjustAdjacentRanges = async (
@@ -122,8 +127,8 @@ export const DBSizingRulesSettings = ({ projectId }: DBSizingRulesSettingsProps)
   };
 
   const saveEdit = async () => {
-    if (!editingId || !editForm.min_area || !editForm.max_area || !editForm.db_size) {
-      toast.error("Please fill in all fields");
+    if (!editingId || !editForm.min_area || !editForm.max_area || !editForm.db_size_allowance) {
+      toast.error("Please fill in all required fields");
       return;
     }
 
@@ -145,7 +150,8 @@ export const DBSizingRulesSettings = ({ projectId }: DBSizingRulesSettingsProps)
         .update({
           min_area: newMinArea,
           max_area: newMaxArea,
-          db_size: editForm.db_size,
+          db_size_allowance: editForm.db_size_allowance,
+          db_size_scope_of_work: editForm.db_size_scope_of_work || null,
         })
         .eq("id", editingId);
 
@@ -163,8 +169,8 @@ export const DBSizingRulesSettings = ({ projectId }: DBSizingRulesSettingsProps)
   };
 
   const addRule = async () => {
-    if (!newRule.min_area || !newRule.max_area || !newRule.db_size) {
-      toast.error("Please fill in all fields");
+    if (!newRule.min_area || !newRule.max_area || !newRule.db_size_allowance) {
+      toast.error("Please fill in all required fields");
       return;
     }
 
@@ -183,13 +189,14 @@ export const DBSizingRulesSettings = ({ projectId }: DBSizingRulesSettingsProps)
           project_id: projectId,
           min_area: minArea,
           max_area: maxArea,
-          db_size: newRule.db_size,
+          db_size_allowance: newRule.db_size_allowance,
+          db_size_scope_of_work: newRule.db_size_scope_of_work || null,
           category: activeCategory,
         }]);
 
       if (error) throw error;
       toast.success("Rule added successfully");
-      setNewRule({ min_area: "", max_area: "", db_size: "" });
+      setNewRule({ min_area: "", max_area: "", db_size_allowance: "", db_size_scope_of_work: "" });
       loadRules();
     } catch (error: any) {
       toast.error(error.message || "Failed to add rule");
@@ -213,12 +220,12 @@ export const DBSizingRulesSettings = ({ projectId }: DBSizingRulesSettingsProps)
 
   const loadDefaultRules = async () => {
     const defaultRules = [
-      { min_area: 0, max_area: 80, db_size: "60A TP" },
-      { min_area: 81, max_area: 200, db_size: "80A TP" },
-      { min_area: 201, max_area: 300, db_size: "100A TP" },
-      { min_area: 301, max_area: 450, db_size: "125A TP" },
-      { min_area: 451, max_area: 600, db_size: "160A TP" },
-      { min_area: 601, max_area: 1200, db_size: "200A TP" },
+      { min_area: 0, max_area: 80, db_size_allowance: "60A TP" },
+      { min_area: 81, max_area: 200, db_size_allowance: "80A TP" },
+      { min_area: 201, max_area: 300, db_size_allowance: "100A TP" },
+      { min_area: 301, max_area: 450, db_size_allowance: "125A TP" },
+      { min_area: 451, max_area: 600, db_size_allowance: "160A TP" },
+      { min_area: 601, max_area: 1200, db_size_allowance: "200A TP" },
     ];
 
     try {
@@ -251,7 +258,7 @@ export const DBSizingRulesSettings = ({ projectId }: DBSizingRulesSettingsProps)
       <CardHeader>
         <CardTitle>DB Sizing Rules</CardTitle>
         <CardDescription>
-          Configure automatic DB size calculation. Edit ranges to auto-adjust adjacent rules.
+          Configure baseline allowance and scope of work DB sizes. Edit ranges to auto-adjust adjacent rules.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -280,7 +287,7 @@ export const DBSizingRulesSettings = ({ projectId }: DBSizingRulesSettingsProps)
                   <div key={rule.id} className="flex items-center gap-2 p-2 border rounded">
                     {editingId === rule.id ? (
                       <>
-                        <div className="flex-1 grid grid-cols-3 gap-2">
+                        <div className="flex-1 grid grid-cols-4 gap-2">
                           <Input
                             type="number"
                             step="0.01"
@@ -298,9 +305,15 @@ export const DBSizingRulesSettings = ({ projectId }: DBSizingRulesSettingsProps)
                             className="h-8"
                           />
                           <Input
-                            value={editForm.db_size}
-                            onChange={(e) => setEditForm({ ...editForm, db_size: e.target.value })}
-                            placeholder="DB Size"
+                            value={editForm.db_size_allowance}
+                            onChange={(e) => setEditForm({ ...editForm, db_size_allowance: e.target.value })}
+                            placeholder="Allowance"
+                            className="h-8"
+                          />
+                          <Input
+                            value={editForm.db_size_scope_of_work}
+                            onChange={(e) => setEditForm({ ...editForm, db_size_scope_of_work: e.target.value })}
+                            placeholder="Scope of Work"
                             className="h-8"
                           />
                         </div>
@@ -313,9 +326,10 @@ export const DBSizingRulesSettings = ({ projectId }: DBSizingRulesSettingsProps)
                       </>
                     ) : (
                       <>
-                        <div className="flex-1 grid grid-cols-3 gap-2 text-sm">
+                        <div className="flex-1 grid grid-cols-4 gap-2 text-sm">
                           <span>{rule.min_area}m² - {rule.max_area}m²</span>
-                          <span className="font-medium">{rule.db_size}</span>
+                          <span className="font-medium">{rule.db_size_allowance}</span>
+                          <span className="font-medium text-muted-foreground">{rule.db_size_scope_of_work || "-"}</span>
                         </div>
                         <Button
                           variant="ghost"
@@ -340,7 +354,7 @@ export const DBSizingRulesSettings = ({ projectId }: DBSizingRulesSettingsProps)
 
             <div className="space-y-4 pt-4 border-t">
               <Label>Add New Rule</Label>
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-5 gap-2">
                 <div>
                   <Label htmlFor="min_area" className="text-xs">Min Area (m²)</Label>
                   <Input
@@ -364,12 +378,21 @@ export const DBSizingRulesSettings = ({ projectId }: DBSizingRulesSettingsProps)
                   />
                 </div>
                 <div>
-                  <Label htmlFor="db_size" className="text-xs">DB Size</Label>
+                  <Label htmlFor="db_size_allowance" className="text-xs">DB Allowance</Label>
                   <Input
-                    id="db_size"
-                    value={newRule.db_size}
-                    onChange={(e) => setNewRule({ ...newRule, db_size: e.target.value })}
+                    id="db_size_allowance"
+                    value={newRule.db_size_allowance}
+                    onChange={(e) => setNewRule({ ...newRule, db_size_allowance: e.target.value })}
                     placeholder="60A TP"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="db_size_scope_of_work" className="text-xs">DB Scope of Work</Label>
+                  <Input
+                    id="db_size_scope_of_work"
+                    value={newRule.db_size_scope_of_work}
+                    onChange={(e) => setNewRule({ ...newRule, db_size_scope_of_work: e.target.value })}
+                    placeholder="Optional"
                   />
                 </div>
                 <div className="flex items-end">

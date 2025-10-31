@@ -95,9 +95,11 @@ export const TenantList = ({ tenants, projectId, onUpdate }: TenantListProps) =>
         );
 
         if (rule) {
+          // Use scope of work if available, otherwise use allowance
+          const dbSize = rule.db_size_scope_of_work || rule.db_size_allowance;
           const { error } = await supabase
             .from("tenants")
-            .update({ db_size: rule.db_size })
+            .update({ db_size: dbSize })
             .eq("id", tenant.id);
 
           if (!error) {

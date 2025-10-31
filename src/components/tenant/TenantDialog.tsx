@@ -32,7 +32,7 @@ interface TenantDialogProps {
 export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [sizingRules, setSizingRules] = useState<Array<{ min_area: number; max_area: number; db_size: string; category: string }>>([]);
+  const [sizingRules, setSizingRules] = useState<Array<{ min_area: number; max_area: number; db_size_allowance: string; db_size_scope_of_work: string | null; category: string }>>([]);
   const [formData, setFormData] = useState({
     shop_name: tenant?.shop_name || "",
     shop_number: tenant?.shop_number || "",
@@ -93,12 +93,13 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
       r => {
         // Use < max_area + 1 to handle boundary cases properly
         const matches = r.category === category && area >= r.min_area && area < r.max_area + 1;
-        console.log(`Checking rule ${r.db_size} (${r.min_area}-${r.max_area}): ${matches}`);
+        console.log(`Checking rule ${r.db_size_allowance} (${r.min_area}-${r.max_area}): ${matches}`);
         return matches;
       }
     );
     console.log('Found rule:', rule);
-    return rule?.db_size || null;
+    // Prefer scope of work if available, otherwise use allowance
+    return rule?.db_size_scope_of_work || rule?.db_size_allowance || null;
   };
 
   const handleAreaChange = (value: string) => {

@@ -936,7 +936,8 @@ export type Database = {
         Row: {
           category: string
           created_at: string
-          db_size: string
+          db_size_allowance: string
+          db_size_scope_of_work: string | null
           id: string
           max_area: number
           min_area: number
@@ -945,7 +946,8 @@ export type Database = {
         Insert: {
           category?: string
           created_at?: string
-          db_size: string
+          db_size_allowance: string
+          db_size_scope_of_work?: string | null
           id?: string
           max_area: number
           min_area: number
@@ -954,7 +956,8 @@ export type Database = {
         Update: {
           category?: string
           created_at?: string
-          db_size?: string
+          db_size_allowance?: string
+          db_size_scope_of_work?: string | null
           id?: string
           max_area?: number
           min_area?: number
