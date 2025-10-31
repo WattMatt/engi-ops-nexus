@@ -1,10 +1,11 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Trash2, CheckCircle2, Circle } from "lucide-react";
+import { Trash2, CheckCircle2, Circle, Calculator } from "lucide-react";
 import { TenantDialog } from "./TenantDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useState } from "react";
 
 interface Tenant {
   id: string;
@@ -28,6 +29,8 @@ interface TenantListProps {
 }
 
 export const TenantList = ({ tenants, projectId, onUpdate }: TenantListProps) => {
+  const [isCalculating, setIsCalculating] = useState(false);
+
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this tenant?")) return;
 
@@ -41,13 +44,79 @@ export const TenantList = ({ tenants, projectId, onUpdate }: TenantListProps) =>
     }
   };
 
+  const handleBulkAutoCalc = async () => {
+    if (!confirm("This will recalculate DB sizes for all standard category tenants with areas. Continue?")) return;
+    
+    setIsCalculating(true);
+    try {
+      // Fetch sizing rules
+      const { data: rules, error: rulesError } = await supabase
+        .from("db_sizing_rules")
+        .select("*")
+        .eq("project_id", projectId)
+        .eq("category", "standard")
+        .order("min_area", { ascending: true });
+
+      if (rulesError) throw rulesError;
+      if (!rules || rules.length === 0) {
+        toast.error("No DB sizing rules configured for this project");
+        return;
+      }
+
+      // Get all standard tenants with areas
+      const standardTenants = tenants.filter(
+        t => t.shop_category === 'standard' && t.area != null
+      );
+
+      let updated = 0;
+      let skipped = 0;
+
+      for (const tenant of standardTenants) {
+        const rule = rules.find(
+          r => tenant.area! >= r.min_area && tenant.area! <= r.max_area
+        );
+
+        if (rule) {
+          const { error } = await supabase
+            .from("tenants")
+            .update({ db_size: rule.db_size })
+            .eq("id", tenant.id);
+
+          if (!error) {
+            updated++;
+          }
+        } else {
+          skipped++;
+        }
+      }
+
+      toast.success(`Updated ${updated} tenant(s). Skipped ${skipped} (no matching rule).`);
+      onUpdate();
+    } catch (error: any) {
+      toast.error("Failed to bulk calculate: " + error.message);
+    } finally {
+      setIsCalculating(false);
+    }
+  };
+
   const StatusIcon = ({ checked }: { checked: boolean }) => (
     checked ? <CheckCircle2 className="h-4 w-4 text-green-600" /> : <Circle className="h-4 w-4 text-muted-foreground" />
   );
 
   return (
-    <div className="border rounded-lg">
-      <Table>
+    <div className="space-y-4">
+      <div className="flex justify-end">
+        <Button 
+          onClick={handleBulkAutoCalc} 
+          disabled={isCalculating}
+          variant="outline"
+        >
+          <Calculator className="h-4 w-4 mr-2" />
+          {isCalculating ? "Calculating..." : "Bulk Auto-Calculate DB Sizes"}
+        </Button>
+      </div>
+      <div className="border rounded-lg">
+        <Table>
         <TableHeader>
           <TableRow>
             <TableHead>Shop #</TableHead>
@@ -108,6 +177,7 @@ export const TenantList = ({ tenants, projectId, onUpdate }: TenantListProps) =>
           )}
         </TableBody>
       </Table>
+      </div>
     </div>
   );
 };
