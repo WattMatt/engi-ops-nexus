@@ -92,8 +92,8 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
       setFloorPlanRecord(floorPlan);
 
       // Load scale info from saved floor plan
-      if (floorPlan?.scale_info) {
-        setScaleInfo(floorPlan.scale_info);
+      if (floorPlan && (floorPlan as any).scale_info) {
+        setScaleInfo((floorPlan as any).scale_info);
       }
 
       // Load masks
