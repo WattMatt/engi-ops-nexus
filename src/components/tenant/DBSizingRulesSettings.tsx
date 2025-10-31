@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Check, X, Pencil } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface DBSizingRule {
@@ -24,6 +24,16 @@ export const DBSizingRulesSettings = ({ projectId }: DBSizingRulesSettingsProps)
   const [rules, setRules] = useState<DBSizingRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeCategory, setActiveCategory] = useState("standard");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editForm, setEditForm] = useState<{
+    min_area: string;
+    max_area: string;
+    db_size: string;
+  }>({
+    min_area: "",
+    max_area: "",
+    db_size: "",
+  });
   const [newRule, setNewRule] = useState({
     min_area: "",
     max_area: "",
@@ -52,9 +62,117 @@ export const DBSizingRulesSettings = ({ projectId }: DBSizingRulesSettingsProps)
     }
   };
 
+  const startEdit = (rule: DBSizingRule) => {
+    setEditingId(rule.id);
+    setEditForm({
+      min_area: rule.min_area.toString(),
+      max_area: rule.max_area.toString(),
+      db_size: rule.db_size,
+    });
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditForm({ min_area: "", max_area: "", db_size: "" });
+  };
+
+  const adjustAdjacentRanges = async (
+    updatedRule: DBSizingRule,
+    newMinArea: number,
+    newMaxArea: number
+  ) => {
+    const categoryRules = rules
+      .filter(r => r.category === activeCategory && r.id !== updatedRule.id)
+      .sort((a, b) => a.min_area - b.min_area);
+
+    const updates: Array<{ id: string; min_area: number; max_area: number }> = [];
+
+    // Find rule immediately before (if exists)
+    const previousRule = categoryRules.find(r => r.max_area < newMinArea);
+    if (previousRule && previousRule.max_area !== newMinArea - 1) {
+      updates.push({
+        id: previousRule.id,
+        min_area: previousRule.min_area,
+        max_area: newMinArea - 1,
+      });
+    }
+
+    // Find rule immediately after (if exists)
+    const nextRule = categoryRules.find(r => r.min_area > newMaxArea);
+    if (nextRule && nextRule.min_area !== newMaxArea + 1) {
+      updates.push({
+        id: nextRule.id,
+        min_area: newMaxArea + 1,
+        max_area: nextRule.max_area,
+      });
+    }
+
+    // Apply all updates
+    for (const update of updates) {
+      const { error } = await supabase
+        .from("db_sizing_rules")
+        .update({
+          min_area: update.min_area,
+          max_area: update.max_area,
+        })
+        .eq("id", update.id);
+
+      if (error) throw error;
+    }
+  };
+
+  const saveEdit = async () => {
+    if (!editingId || !editForm.min_area || !editForm.max_area || !editForm.db_size) {
+      toast.error("Please fill in all fields");
+      return;
+    }
+
+    const newMinArea = parseFloat(editForm.min_area);
+    const newMaxArea = parseFloat(editForm.max_area);
+
+    if (newMinArea >= newMaxArea) {
+      toast.error("Min area must be less than max area");
+      return;
+    }
+
+    try {
+      const currentRule = rules.find(r => r.id === editingId);
+      if (!currentRule) return;
+
+      // Update the current rule
+      const { error: updateError } = await supabase
+        .from("db_sizing_rules")
+        .update({
+          min_area: newMinArea,
+          max_area: newMaxArea,
+          db_size: editForm.db_size,
+        })
+        .eq("id", editingId);
+
+      if (updateError) throw updateError;
+
+      // Adjust adjacent ranges
+      await adjustAdjacentRanges(currentRule, newMinArea, newMaxArea);
+
+      toast.success("Rule updated and adjacent ranges adjusted");
+      cancelEdit();
+      loadRules();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update rule");
+    }
+  };
+
   const addRule = async () => {
     if (!newRule.min_area || !newRule.max_area || !newRule.db_size) {
       toast.error("Please fill in all fields");
+      return;
+    }
+
+    const minArea = parseFloat(newRule.min_area);
+    const maxArea = parseFloat(newRule.max_area);
+
+    if (minArea >= maxArea) {
+      toast.error("Min area must be less than max area");
       return;
     }
 
@@ -63,8 +181,8 @@ export const DBSizingRulesSettings = ({ projectId }: DBSizingRulesSettingsProps)
         .from("db_sizing_rules")
         .insert([{
           project_id: projectId,
-          min_area: parseFloat(newRule.min_area),
-          max_area: parseFloat(newRule.max_area),
+          min_area: minArea,
+          max_area: maxArea,
           db_size: newRule.db_size,
           category: activeCategory,
         }]);
@@ -133,7 +251,7 @@ export const DBSizingRulesSettings = ({ projectId }: DBSizingRulesSettingsProps)
       <CardHeader>
         <CardTitle>DB Sizing Rules</CardTitle>
         <CardDescription>
-          Configure automatic DB size calculation based on shop area and category
+          Configure automatic DB size calculation. Edit ranges to auto-adjust adjacent rules.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -160,17 +278,61 @@ export const DBSizingRulesSettings = ({ projectId }: DBSizingRulesSettingsProps)
                 <Label>Current Rules for {activeCategory.replace('_', ' ')}</Label>
                 {filteredRules.map((rule) => (
                   <div key={rule.id} className="flex items-center gap-2 p-2 border rounded">
-                    <div className="flex-1 grid grid-cols-3 gap-2 text-sm">
-                      <span>{rule.min_area}m² - {rule.max_area}m²</span>
-                      <span className="font-medium">{rule.db_size}</span>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => deleteRule(rule.id)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    {editingId === rule.id ? (
+                      <>
+                        <div className="flex-1 grid grid-cols-3 gap-2">
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={editForm.min_area}
+                            onChange={(e) => setEditForm({ ...editForm, min_area: e.target.value })}
+                            placeholder="Min"
+                            className="h-8"
+                          />
+                          <Input
+                            type="number"
+                            step="0.01"
+                            value={editForm.max_area}
+                            onChange={(e) => setEditForm({ ...editForm, max_area: e.target.value })}
+                            placeholder="Max"
+                            className="h-8"
+                          />
+                          <Input
+                            value={editForm.db_size}
+                            onChange={(e) => setEditForm({ ...editForm, db_size: e.target.value })}
+                            placeholder="DB Size"
+                            className="h-8"
+                          />
+                        </div>
+                        <Button variant="ghost" size="sm" onClick={saveEdit}>
+                          <Check className="h-4 w-4 text-green-600" />
+                        </Button>
+                        <Button variant="ghost" size="sm" onClick={cancelEdit}>
+                          <X className="h-4 w-4 text-red-600" />
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex-1 grid grid-cols-3 gap-2 text-sm">
+                          <span>{rule.min_area}m² - {rule.max_area}m²</span>
+                          <span className="font-medium">{rule.db_size}</span>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => startEdit(rule)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => deleteRule(rule.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </>
+                    )}
                   </div>
                 ))}
               </div>
