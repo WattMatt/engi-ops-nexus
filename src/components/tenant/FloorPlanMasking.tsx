@@ -213,6 +213,10 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
               />
             </TransformComponent>
           </TransformWrapper>
+        ) : floorPlanRecord?.base_pdf_url || pdfUrl ? (
+          <div className="h-full flex items-center justify-center text-muted-foreground">
+            <Loader2 className="w-8 h-8 animate-spin" />
+          </div>
         ) : (
           <div className="h-full flex items-center justify-center text-muted-foreground">
             <div className="text-center">
