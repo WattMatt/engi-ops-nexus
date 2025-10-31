@@ -63,8 +63,8 @@ const TenantTracker = () => {
           <TabsTrigger value="settings">DB Sizing Rules</TabsTrigger>
         </TabsList>
         
-        <TabsContent value="tenants" className="mt-4">
-          <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border rounded-lg p-4 mb-4 shadow-sm">
+        <TabsContent value="tenants" className="mt-4 space-y-4">
+          <div className="fixed top-20 left-0 right-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 border-b shadow-sm px-4 md:px-8 py-3">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-sm font-semibold">Legend:</span>
               <Badge variant="outline" className="bg-blue-500 text-white border-blue-600">
@@ -81,17 +81,20 @@ const TenantTracker = () => {
               </Badge>
             </div>
           </div>
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <p className="text-muted-foreground">Loading tenants...</p>
-            </div>
-          ) : (
-            <TenantList
-              tenants={tenants}
-              projectId={projectId || ""}
-              onUpdate={handleUpdate}
-            />
-          )}
+          
+          <div className="pt-16">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <p className="text-muted-foreground">Loading tenants...</p>
+              </div>
+            ) : (
+              <TenantList
+                tenants={tenants}
+                projectId={projectId || ""}
+                onUpdate={handleUpdate}
+              />
+            )}
+          </div>
         </TabsContent>
         
         <TabsContent value="settings" className="mt-4">
