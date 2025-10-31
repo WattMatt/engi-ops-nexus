@@ -396,8 +396,6 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.save();
-    ctx.translate(viewState.offset.x, viewState.offset.y);
-    ctx.scale(viewState.zoom, viewState.zoom);
 
     // Draw saved masks
     masks.forEach(mask => {
@@ -406,7 +404,7 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
       ctx.closePath();
       ctx.fillStyle = `${mask.color}33`;
       ctx.strokeStyle = mask.color;
-      ctx.lineWidth = 2 / viewState.zoom;
+      ctx.lineWidth = 2;
       ctx.fill();
       ctx.stroke();
 
@@ -414,9 +412,10 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
       const centerX = mask.points.reduce((sum, p) => sum + p.x, 0) / mask.points.length;
       const centerY = mask.points.reduce((sum, p) => sum + p.y, 0) / mask.points.length;
       ctx.fillStyle = '#000';
-      ctx.font = `${14 / viewState.zoom}px sans-serif`;
+      ctx.font = '14px sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(`${mask.shopNumber}\n${mask.area.toFixed(2)} sqm`, centerX, centerY);
+      ctx.fillText(`${mask.shopNumber}`, centerX, centerY - 5);
+      ctx.fillText(`${mask.area.toFixed(2)} sqm`, centerX, centerY + 15);
     });
 
     // Draw current drawing
@@ -428,14 +427,14 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
       if (previewPoint) ctx.closePath();
       ctx.fillStyle = 'rgba(59, 130, 246, 0.2)';
       ctx.strokeStyle = '#3b82f6';
-      ctx.lineWidth = 2 / viewState.zoom;
+      ctx.lineWidth = 2;
       ctx.fill();
       ctx.stroke();
 
       // Draw points
       currentMask.forEach(p => {
         ctx.beginPath();
-        ctx.arc(p.x, p.y, 4 / viewState.zoom, 0, 2 * Math.PI);
+        ctx.arc(p.x, p.y, 4, 0, 2 * Math.PI);
         ctx.fillStyle = '#3b82f6';
         ctx.fill();
       });
@@ -447,7 +446,7 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
       ctx.moveTo(scaleLineStart.x, scaleLineStart.y);
       ctx.lineTo(previewPoint.x, previewPoint.y);
       ctx.strokeStyle = '#ef4444';
-      ctx.lineWidth = 3 / viewState.zoom;
+      ctx.lineWidth = 3;
       ctx.stroke();
     }
 
@@ -544,8 +543,18 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
         onWheel={handleWheel}
         onContextMenu={(e) => e.preventDefault()}
       >
-        <canvas ref={pdfCanvasRef} className="absolute top-0 left-0" />
-        <canvas ref={drawingCanvasRef} className="absolute top-0 left-0" />
+        <div
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            transformOrigin: '0 0',
+            transform: `translate(${viewState.offset.x}px, ${viewState.offset.y}px) scale(${viewState.zoom})`,
+          }}
+        >
+          <canvas ref={pdfCanvasRef} style={{ display: 'block' }} />
+          <canvas ref={drawingCanvasRef} style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }} />
+        </div>
         
         {!pdfDoc && (
           <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
