@@ -6,6 +6,7 @@ import { TenantDialog } from "./TenantDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useState } from "react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Tenant {
   id: string;
@@ -41,6 +42,22 @@ export const TenantList = ({ tenants, projectId, onUpdate }: TenantListProps) =>
       onUpdate();
     } catch (error: any) {
       toast.error("Failed to delete tenant");
+    }
+  };
+
+  const handleCategoryChange = async (tenantId: string, newCategory: string) => {
+    try {
+      const { error } = await supabase
+        .from("tenants")
+        .update({ shop_category: newCategory })
+        .eq("id", tenantId);
+
+      if (error) throw error;
+      
+      toast.success("Category updated");
+      onUpdate();
+    } catch (error: any) {
+      toast.error("Failed to update category");
     }
   };
 
@@ -104,18 +121,13 @@ export const TenantList = ({ tenants, projectId, onUpdate }: TenantListProps) =>
     checked ? <CheckCircle2 className="h-4 w-4 text-green-600" /> : <Circle className="h-4 w-4 text-muted-foreground" />
   );
 
-  const getCategoryBadge = (category: string) => {
+  const getCategoryVariant = (category: string) => {
     const variants = {
       standard: "bg-blue-100 text-blue-800 border-blue-200",
       "non-standard": "bg-amber-100 text-amber-800 border-amber-200",
       anchor: "bg-purple-100 text-purple-800 border-purple-200"
     };
-    
-    return (
-      <Badge variant="outline" className={variants[category as keyof typeof variants] || "bg-gray-100 text-gray-800"}>
-        {category}
-      </Badge>
-    );
+    return variants[category as keyof typeof variants] || "bg-gray-100 text-gray-800";
   };
 
   return (
@@ -160,7 +172,37 @@ export const TenantList = ({ tenants, projectId, onUpdate }: TenantListProps) =>
               <TableRow key={tenant.id}>
                 <TableCell className="font-medium">{tenant.shop_number}</TableCell>
                 <TableCell>{tenant.shop_name}</TableCell>
-                <TableCell>{getCategoryBadge(tenant.shop_category)}</TableCell>
+                <TableCell>
+                  <Select 
+                    value={tenant.shop_category} 
+                    onValueChange={(value) => handleCategoryChange(tenant.id, value)}
+                  >
+                    <SelectTrigger className="w-[140px] h-8">
+                      <SelectValue>
+                        <Badge variant="outline" className={getCategoryVariant(tenant.shop_category)}>
+                          {tenant.shop_category}
+                        </Badge>
+                      </SelectValue>
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="standard">
+                        <Badge variant="outline" className={getCategoryVariant("standard")}>
+                          standard
+                        </Badge>
+                      </SelectItem>
+                      <SelectItem value="non-standard">
+                        <Badge variant="outline" className={getCategoryVariant("non-standard")}>
+                          non-standard
+                        </Badge>
+                      </SelectItem>
+                      <SelectItem value="anchor">
+                        <Badge variant="outline" className={getCategoryVariant("anchor")}>
+                          anchor
+                        </Badge>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </TableCell>
                 <TableCell>{tenant.area?.toFixed(2) || "-"}</TableCell>
                 <TableCell>{tenant.db_size || "-"}</TableCell>
                 <TableCell className="text-center">
