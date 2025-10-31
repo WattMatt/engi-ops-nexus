@@ -68,61 +68,25 @@ const UserManagement = () => {
   const resendInvite = async (user: UserProfile) => {
     setResendingInvite(user.id);
     try {
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      if (!currentUser) {
-        toast.error("You must be logged in");
-        return;
-      }
-
-      // Get current user's profile
-      const { data: currentProfile } = await supabase
-        .from("profiles")
-        .select("full_name")
-        .eq("id", currentUser.id)
-        .single();
-
-      // Generate new password reset link
-      const { data: resetData, error: resetError } = await supabase.functions.invoke("invite-user", {
-        body: {
-          email: user.email,
-          fullName: user.full_name,
-          role: user.role || "user",
-          resend: true, // Flag to indicate this is a resend
-        },
+      // Use Supabase's built-in password reset functionality
+      const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+        redirectTo: `${window.location.origin}/auth`,
       });
 
-      if (resetError) throw resetError;
+      if (error) throw error;
 
-      // Send invite email
-      const { error: emailError } = await supabase.functions.invoke("send-invite-email", {
-        body: {
-          email: user.email,
-          fullName: user.full_name,
-          role: user.role || "user",
-          invitedBy: currentProfile?.full_name || "Admin",
-          resetLink: resetData?.resetLink || `${window.location.origin}/auth`,
-        },
+      toast.success("Password reset email sent", {
+        description: `${user.full_name} will receive an email to set up their password`
       });
-
-      if (emailError) {
-        console.error("Email error:", emailError);
-        toast.error("Failed to send invitation email", {
-          description: "Please check your Resend configuration"
-        });
-      } else {
-        toast.success("Invitation resent successfully", {
-          description: `New invitation email sent to ${user.email}`
-        });
-        
-        await logActivity(
-          'update',
-          `Resent invitation to: ${user.full_name}`,
-          { email: user.email }
-        );
-      }
+      
+      await logActivity(
+        'update',
+        `Resent invitation to: ${user.full_name}`,
+        { email: user.email }
+      );
     } catch (error: any) {
       console.error("Error resending invite:", error);
-      toast.error("Failed to resend invitation", {
+      toast.error("Failed to send password reset email", {
         description: error.message
       });
     } finally {

@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -29,6 +30,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
+import { KeyRound } from "lucide-react";
 
 interface ManageUserDialogProps {
   user: {
@@ -46,6 +48,8 @@ export function ManageUserDialog({ user, onUpdated, children }: ManageUserDialog
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [role, setRole] = useState(user.role || "user");
+  const [tempPassword, setTempPassword] = useState("");
+  const [showPasswordReset, setShowPasswordReset] = useState(false);
   const { logActivity } = useActivityLogger();
 
   const handleUpdateRole = async () => {
@@ -90,6 +94,40 @@ export function ManageUserDialog({ user, onUpdated, children }: ManageUserDialog
       onUpdated();
     } catch (error: any) {
       toast.error(error.message || "Failed to update role");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!tempPassword || tempPassword.length < 6) {
+      toast.error("Password must be at least 6 characters");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Use edge function to reset password (requires admin privileges)
+      const { error } = await supabase.functions.invoke("reset-user-password", {
+        body: {
+          userId: user.id,
+          newPassword: tempPassword,
+        },
+      });
+
+      if (error) throw error;
+
+      await logActivity(
+        'update',
+        `Reset password for ${user.full_name}`,
+        { userId: user.id }
+      );
+
+      toast.success("Password reset successfully");
+      setTempPassword("");
+      setShowPasswordReset(false);
+    } catch (error: any) {
+      toast.error(error.message || "Failed to reset password");
     } finally {
       setLoading(false);
     }
@@ -149,6 +187,41 @@ export function ManageUserDialog({ user, onUpdated, children }: ManageUserDialog
                   <SelectItem value="admin">Admin</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label>Password Reset</Label>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowPasswordReset(!showPasswordReset)}
+                >
+                  <KeyRound className="h-4 w-4 mr-2" />
+                  {showPasswordReset ? "Cancel" : "Set Temporary Password"}
+                </Button>
+              </div>
+              
+              {showPasswordReset && (
+                <div className="space-y-2 p-3 border rounded-md bg-muted/50">
+                  <Input
+                    type="password"
+                    placeholder="Enter temporary password (min 6 characters)"
+                    value={tempPassword}
+                    onChange={(e) => setTempPassword(e.target.value)}
+                  />
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={handleResetPassword}
+                    disabled={loading || !tempPassword}
+                    className="w-full"
+                  >
+                    Reset Password
+                  </Button>
+                </div>
+              )}
             </div>
 
             <div className="flex justify-between gap-2 pt-4">
