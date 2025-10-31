@@ -178,21 +178,47 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
       });
       ctx.restore();
 
-      // Convert to blob and download
-      compositeCanvas.toBlob((blob) => {
-        if (blob) {
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `tenant-floor-plan-${new Date().getTime()}.png`;
-          a.click();
-          URL.revokeObjectURL(url);
-          toast.success("Floor plan saved");
-        }
-      }, 'image/png');
+      // Convert to blob
+      const blob = await new Promise<Blob>((resolve) => {
+        compositeCanvas.toBlob((blob) => {
+          if (blob) resolve(blob);
+        }, 'image/png');
+      });
+
+      // Upload to Supabase storage
+      const fileName = `tenant-floor-plan-${projectId}-${Date.now()}.png`;
+      const { error: uploadError } = await supabase.storage
+        .from('floor-plans')
+        .upload(fileName, blob, {
+          contentType: 'image/png',
+          upsert: false
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('floor-plans')
+        .getPublicUrl(fileName);
+
+      // Save metadata to database (you can create a table for this if needed)
+      // For now, just show success with the URL
+      
+      toast.success("Floor plan saved successfully", {
+        description: "The floor plan has been uploaded to storage"
+      });
+
+      // Optional: Also download locally
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      a.click();
+      URL.revokeObjectURL(url);
+
     } catch (error: any) {
       console.error("Save error:", error);
-      toast.error("Failed to save: " + error.message);
+      toast.error("Failed to save floor plan: " + error.message);
     }
   };
 
