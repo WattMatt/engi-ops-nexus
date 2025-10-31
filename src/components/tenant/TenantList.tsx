@@ -104,6 +104,20 @@ export const TenantList = ({ tenants, projectId, onUpdate }: TenantListProps) =>
     checked ? <CheckCircle2 className="h-4 w-4 text-green-600" /> : <Circle className="h-4 w-4 text-muted-foreground" />
   );
 
+  const getCategoryBadge = (category: string) => {
+    const variants = {
+      standard: "bg-blue-100 text-blue-800 border-blue-200",
+      "non-standard": "bg-amber-100 text-amber-800 border-amber-200",
+      anchor: "bg-purple-100 text-purple-800 border-purple-200"
+    };
+    
+    return (
+      <Badge variant="outline" className={variants[category as keyof typeof variants] || "bg-gray-100 text-gray-800"}>
+        {category}
+      </Badge>
+    );
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
@@ -122,6 +136,7 @@ export const TenantList = ({ tenants, projectId, onUpdate }: TenantListProps) =>
           <TableRow>
             <TableHead>Shop #</TableHead>
             <TableHead>Shop Name</TableHead>
+            <TableHead>Category</TableHead>
             <TableHead>Area (sqm)</TableHead>
             <TableHead>DB Size</TableHead>
             <TableHead className="text-center">SOW</TableHead>
@@ -136,7 +151,7 @@ export const TenantList = ({ tenants, projectId, onUpdate }: TenantListProps) =>
         <TableBody>
           {tenants.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={11} className="text-center text-muted-foreground">
+              <TableCell colSpan={12} className="text-center text-muted-foreground">
                 No tenants added yet
               </TableCell>
             </TableRow>
@@ -145,6 +160,7 @@ export const TenantList = ({ tenants, projectId, onUpdate }: TenantListProps) =>
               <TableRow key={tenant.id}>
                 <TableCell className="font-medium">{tenant.shop_number}</TableCell>
                 <TableCell>{tenant.shop_name}</TableCell>
+                <TableCell>{getCategoryBadge(tenant.shop_category)}</TableCell>
                 <TableCell>{tenant.area?.toFixed(2) || "-"}</TableCell>
                 <TableCell>{tenant.db_size || "-"}</TableCell>
                 <TableCell className="text-center">
