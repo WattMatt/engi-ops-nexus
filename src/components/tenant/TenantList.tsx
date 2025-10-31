@@ -124,10 +124,21 @@ export const TenantList = ({ tenants, projectId, onUpdate }: TenantListProps) =>
   const getCategoryVariant = (category: string) => {
     const variants = {
       standard: "bg-blue-100 text-blue-800 border-blue-200",
-      "non-standard": "bg-amber-100 text-amber-800 border-amber-200",
-      anchor: "bg-purple-100 text-purple-800 border-purple-200"
+      fast_food: "bg-orange-100 text-orange-800 border-orange-200",
+      restaurant: "bg-amber-100 text-amber-800 border-amber-200",
+      national: "bg-purple-100 text-purple-800 border-purple-200"
     };
     return variants[category as keyof typeof variants] || "bg-gray-100 text-gray-800";
+  };
+
+  const getCategoryLabel = (category: string) => {
+    const labels = {
+      standard: "Standard",
+      fast_food: "Fast Food",
+      restaurant: "Restaurant",
+      national: "National"
+    };
+    return labels[category as keyof typeof labels] || category;
   };
 
   return (
@@ -180,24 +191,29 @@ export const TenantList = ({ tenants, projectId, onUpdate }: TenantListProps) =>
                     <SelectTrigger className="w-[140px] h-8">
                       <SelectValue>
                         <Badge variant="outline" className={getCategoryVariant(tenant.shop_category)}>
-                          {tenant.shop_category}
+                          {getCategoryLabel(tenant.shop_category)}
                         </Badge>
                       </SelectValue>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="standard">
                         <Badge variant="outline" className={getCategoryVariant("standard")}>
-                          standard
+                          Standard
                         </Badge>
                       </SelectItem>
-                      <SelectItem value="non-standard">
-                        <Badge variant="outline" className={getCategoryVariant("non-standard")}>
-                          non-standard
+                      <SelectItem value="fast_food">
+                        <Badge variant="outline" className={getCategoryVariant("fast_food")}>
+                          Fast Food
                         </Badge>
                       </SelectItem>
-                      <SelectItem value="anchor">
-                        <Badge variant="outline" className={getCategoryVariant("anchor")}>
-                          anchor
+                      <SelectItem value="restaurant">
+                        <Badge variant="outline" className={getCategoryVariant("restaurant")}>
+                          Restaurant
+                        </Badge>
+                      </SelectItem>
+                      <SelectItem value="national">
+                        <Badge variant="outline" className={getCategoryVariant("national")}>
+                          National
                         </Badge>
                       </SelectItem>
                     </SelectContent>
