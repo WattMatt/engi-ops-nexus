@@ -92,14 +92,20 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (file.type !== 'application/pdf') {
+      toast.error("Please upload a PDF file");
+      return;
+    }
+
     try {
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
       setPdfDoc(pdf);
-      renderPdf(pdf);
-      toast.success("Floor plan loaded");
-    } catch (error) {
-      toast.error("Failed to load PDF");
+      await renderPdf(pdf);
+      toast.success("Floor plan loaded successfully");
+    } catch (error: any) {
+      console.error("PDF loading error:", error);
+      toast.error("Failed to load PDF: " + error.message);
     }
   };
 
@@ -128,6 +134,69 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
     }
 
     drawMasks();
+  };
+
+  const savePdfWithMasks = async () => {
+    if (!pdfDoc) {
+      toast.error("No floor plan loaded");
+      return;
+    }
+
+    try {
+      const pdfCanvas = pdfCanvasRef.current;
+      const drawingCanvas = drawingCanvasRef.current;
+      
+      if (!pdfCanvas || !drawingCanvas) return;
+
+      // Create composite canvas
+      const compositeCanvas = document.createElement('canvas');
+      compositeCanvas.width = pdfCanvas.width;
+      compositeCanvas.height = pdfCanvas.height;
+      const ctx = compositeCanvas.getContext('2d');
+      if (!ctx) return;
+
+      // Draw PDF background
+      ctx.drawImage(pdfCanvas, 0, 0);
+      
+      // Draw masks
+      ctx.save();
+      masks.forEach(mask => {
+        ctx.beginPath();
+        mask.points.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+        ctx.closePath();
+        ctx.fillStyle = `${mask.color}33`;
+        ctx.strokeStyle = mask.color;
+        ctx.lineWidth = 2;
+        ctx.fill();
+        ctx.stroke();
+
+        // Draw label
+        const centerX = mask.points.reduce((sum, p) => sum + p.x, 0) / mask.points.length;
+        const centerY = mask.points.reduce((sum, p) => sum + p.y, 0) / mask.points.length;
+        ctx.fillStyle = '#000';
+        ctx.font = '14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${mask.shopNumber}`, centerX, centerY - 5);
+        ctx.fillText(`${mask.area.toFixed(2)} sqm`, centerX, centerY + 15);
+      });
+      ctx.restore();
+
+      // Convert to blob and download
+      compositeCanvas.toBlob((blob) => {
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `tenant-floor-plan-${new Date().getTime()}.png`;
+          a.click();
+          URL.revokeObjectURL(url);
+          toast.success("Floor plan saved");
+        }
+      }, 'image/png');
+    } catch (error: any) {
+      console.error("Save error:", error);
+      toast.error("Failed to save: " + error.message);
+    }
   };
 
   const getMousePos = (e: React.MouseEvent): Point => {
@@ -400,7 +469,7 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex gap-2 flex-wrap items-center">
         <Button onClick={() => fileInputRef.current?.click()} variant="outline">
           <Upload className="h-4 w-4 mr-2" />
           Load Floor Plan
@@ -454,6 +523,13 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
             </Button>
           </>
         )}
+
+        <div className="ml-auto">
+          <Button onClick={savePdfWithMasks} variant="outline" disabled={!pdfDoc || masks.length === 0}>
+            <Download className="h-4 w-4 mr-2" />
+            Save Floor Plan
+          </Button>
+        </div>
       </div>
 
       {scaleInfo.ratio && (
