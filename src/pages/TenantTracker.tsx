@@ -13,6 +13,7 @@ const TenantTracker = () => {
   const projectId = localStorage.getItem("selectedProjectId");
   const projectName = localStorage.getItem("currentProjectName");
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [activeTab, setActiveTab] = useState("overview");
 
   const { data: tenants = [], isLoading } = useQuery({
     queryKey: ["tenants", projectId, refreshTrigger],
@@ -59,7 +60,7 @@ const TenantTracker = () => {
         <TenantDialog projectId={projectId || ""} onSuccess={handleUpdate} />
       </div>
 
-      <Tabs defaultValue="overview" className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="tenants">Tenant Schedule</TabsTrigger>
@@ -112,7 +113,10 @@ const TenantTracker = () => {
         </TabsContent>
         
         <TabsContent value="floor-plan" className="mt-4">
-          <FloorPlanMasking projectId={projectId || ""} />
+          <FloorPlanMasking 
+            key={`floor-plan-${activeTab === 'floor-plan' ? Date.now() : 'cached'}`}
+            projectId={projectId || ""} 
+          />
         </TabsContent>
         
         <TabsContent value="settings" className="mt-4">
