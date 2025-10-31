@@ -66,13 +66,13 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
 
   // Auto-calculate DB size when dialog opens with an area value (only for standard category)
   useEffect(() => {
-    if (open && formData.area && !isNaN(parseFloat(formData.area)) && formData.shop_category === 'standard') {
+    if (open && formData.area && !isNaN(parseFloat(formData.area)) && formData.shop_category === 'standard' && sizingRules.length > 0) {
       const calculatedDbSize = getDbSizeFromArea(parseFloat(formData.area), formData.shop_category);
       if (calculatedDbSize) {
         setFormData(prev => ({ ...prev, db_size: calculatedDbSize }));
       }
     }
-  }, [open]);
+  }, [open, sizingRules]);
 
   // Get DB size from area using configured rules (only for standard category)
   const getDbSizeFromArea = (area: number, category: string): string | null => {
