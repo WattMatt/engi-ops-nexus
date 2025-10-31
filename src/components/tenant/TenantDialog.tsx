@@ -91,7 +91,8 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
     
     const rule = sizingRules.find(
       r => {
-        const matches = r.category === category && area >= r.min_area && area <= r.max_area;
+        // Use < max_area + 1 to handle boundary cases properly
+        const matches = r.category === category && area >= r.min_area && area < r.max_area + 1;
         console.log(`Checking rule ${r.db_size} (${r.min_area}-${r.max_area}): ${matches}`);
         return matches;
       }

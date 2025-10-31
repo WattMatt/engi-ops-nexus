@@ -72,8 +72,9 @@ export const TenantList = ({ tenants, projectId, onUpdate }: TenantListProps) =>
       let skipped = 0;
 
       for (const tenant of standardTenants) {
+        // Use < for max_area to handle boundary cases (e.g., 200.51 should match 201-300, not 81-200)
         const rule = rules.find(
-          r => tenant.area! >= r.min_area && tenant.area! <= r.max_area
+          r => tenant.area! >= r.min_area && tenant.area! < r.max_area + 1
         );
 
         if (rule) {
