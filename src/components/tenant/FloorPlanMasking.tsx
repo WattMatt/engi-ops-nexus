@@ -4,14 +4,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Upload, Save, Trash2, Download, Ruler, Square } from "lucide-react";
 import { toast } from "sonner";
-import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist/build/pdf.mjs';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { supabase } from "@/integrations/supabase/client";
-
-// Set PDF.js worker source
-if (typeof window !== 'undefined') {
-  GlobalWorkerOptions.workerSrc = `https://esm.sh/pdfjs-dist@5.4.296/build/pdf.worker.mjs`;
-}
+import { loadPdfFromFile, renderPdfToCanvas } from "./utils/pdfCanvas";
 
 interface Point {
   x: number;
@@ -96,59 +91,35 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.type !== 'application/pdf') {
-      toast.error("Please upload a PDF file");
-      e.target.value = '';
-      return;
-    }
-
-    if (file.size === 0) {
-      toast.error("The selected PDF file is empty");
-      e.target.value = '';
-      return;
-    }
-
     try {
-      const arrayBuffer = await file.arrayBuffer();
-      const loadingTask = getDocument(arrayBuffer);
-      const pdf = await loadingTask.promise;
+      const pdf = await loadPdfFromFile(file);
       setPdfDoc(pdf);
       await renderPdf(pdf);
       toast.success("Floor plan loaded successfully");
     } catch (error: any) {
       console.error("PDF loading error:", error);
-      toast.error("Failed to load PDF: " + (error?.message || "Unknown error"));
+      toast.error(error.message || "Failed to load PDF");
     }
 
-    // Reset input value to allow reloading the same file
     e.target.value = '';
   };
 
   const renderPdf = async (pdf: PDFDocumentProxy) => {
-    const page = await pdf.getPage(1);
-    const viewport = page.getViewport({ scale: 2 });
-    
     const canvas = pdfCanvasRef.current;
+    const drawingCanvas = drawingCanvasRef.current;
     if (!canvas) return;
 
-    const context = canvas.getContext('2d');
-    if (!context) return;
-
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
-
-    await page.render({
-      canvasContext: context,
-      viewport: viewport
-    } as any).promise;
-    
-    const drawingCanvas = drawingCanvasRef.current;
-    if (drawingCanvas) {
-      drawingCanvas.width = viewport.width;
-      drawingCanvas.height = viewport.height;
+    try {
+      await renderPdfToCanvas(pdf, {
+        pdfCanvas: canvas,
+        drawingCanvas: drawingCanvas || undefined,
+        scale: 2
+      });
+      drawMasks();
+    } catch (error: any) {
+      console.error("PDF render error:", error);
+      toast.error(error.message || "Failed to render PDF");
     }
-
-    drawMasks();
   };
 
   const savePdfWithMasks = async () => {
