@@ -80,14 +80,23 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
 
   // Get DB size from area using configured rules (only for standard category)
   const getDbSizeFromArea = (area: number, category: string): string | null => {
+    console.log('getDbSizeFromArea called with area:', area, 'category:', category);
+    console.log('All sizing rules:', sizingRules);
+    
     // Only auto-calculate for standard shops
     if (category !== 'standard') {
+      console.log('Not standard category, skipping auto-calc');
       return null;
     }
     
     const rule = sizingRules.find(
-      r => r.category === category && area >= r.min_area && area <= r.max_area
+      r => {
+        const matches = r.category === category && area >= r.min_area && area <= r.max_area;
+        console.log(`Checking rule ${r.db_size} (${r.min_area}-${r.max_area}): ${matches}`);
+        return matches;
+      }
     );
+    console.log('Found rule:', rule);
     return rule?.db_size || null;
   };
 
