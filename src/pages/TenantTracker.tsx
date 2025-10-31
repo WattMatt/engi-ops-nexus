@@ -64,7 +64,7 @@ const TenantTracker = () => {
         </TabsList>
         
         <TabsContent value="tenants" className="mt-4 space-y-4">
-          <div className="sticky top-0 z-10 bg-background border rounded-lg p-4 shadow-sm">
+          <div className="bg-background border rounded-lg p-4 shadow-sm">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-sm font-semibold">Legend:</span>
               <Badge variant="outline" className="bg-blue-500 text-white border-blue-600">
@@ -82,17 +82,19 @@ const TenantTracker = () => {
             </div>
           </div>
           
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <p className="text-muted-foreground">Loading tenants...</p>
-            </div>
-          ) : (
-            <TenantList
-              tenants={tenants}
-              projectId={projectId || ""}
-              onUpdate={handleUpdate}
-            />
-          )}
+          <div className="h-[calc(100vh-280px)] overflow-y-auto border rounded-lg">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <p className="text-muted-foreground">Loading tenants...</p>
+              </div>
+            ) : (
+              <TenantList
+                tenants={tenants}
+                projectId={projectId || ""}
+                onUpdate={handleUpdate}
+              />
+            )}
+          </div>
         </TabsContent>
         
         <TabsContent value="settings" className="mt-4">
