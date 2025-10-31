@@ -55,19 +55,19 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
     );
   }
 
-  // Edit Mode - Use existing floor plan app
+  // Edit Mode - Use existing floor plan app (full screen)
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between p-4 border-b gap-2">
-        <h3 className="text-lg font-semibold">Floor Plan Masking - Edit Mode</h3>
+    <div className="absolute inset-0 flex flex-col">
+      <div className="flex items-center justify-between p-2 border-b gap-2 bg-background z-10">
+        <h3 className="text-sm font-semibold">Floor Plan Masking</h3>
         {floorPlanRecord?.composite_image_url && (
           <Button onClick={() => setIsEditMode(false)} variant="outline" size="sm">
             <Eye className="w-4 h-4 mr-2" />
-            Preview Saved
+            Preview
           </Button>
         )}
       </div>
-      <div className="flex-1">
+      <div className="flex-1 overflow-hidden">
         <FloorPlanApp user={null} />
       </div>
     </div>
