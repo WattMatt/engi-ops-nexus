@@ -13,7 +13,8 @@ interface Tenant {
   shop_name: string;
   shop_number: string;
   area: number | null;
-  db_size: string | null;
+  db_size_allowance: string | null;
+  db_size_scope_of_work: string | null;
   shop_category: string;
   sow_received: boolean;
   layout_received: boolean;
@@ -99,7 +100,7 @@ export const TenantList = ({ tenants, projectId, onUpdate }: TenantListProps) =>
           const dbSize = rule.db_size_scope_of_work || rule.db_size_allowance;
           const { error } = await supabase
             .from("tenants")
-            .update({ db_size: dbSize })
+            .update({ db_size_allowance: dbSize })
             .eq("id", tenant.id);
 
           if (!error) {
@@ -163,7 +164,8 @@ export const TenantList = ({ tenants, projectId, onUpdate }: TenantListProps) =>
             <TableHead>Shop Name</TableHead>
             <TableHead>Category</TableHead>
             <TableHead>Area (sqm)</TableHead>
-            <TableHead>DB Size</TableHead>
+            <TableHead>DB Allowance</TableHead>
+            <TableHead>DB Scope of Work</TableHead>
             <TableHead className="text-center">SOW</TableHead>
             <TableHead className="text-center">Layout</TableHead>
             <TableHead className="text-center">DB Order</TableHead>
@@ -176,7 +178,7 @@ export const TenantList = ({ tenants, projectId, onUpdate }: TenantListProps) =>
         <TableBody>
           {tenants.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={12} className="text-center text-muted-foreground">
+              <TableCell colSpan={13} className="text-center text-muted-foreground">
                 No tenants added yet
               </TableCell>
             </TableRow>
@@ -222,7 +224,8 @@ export const TenantList = ({ tenants, projectId, onUpdate }: TenantListProps) =>
                   </Select>
                 </TableCell>
                 <TableCell>{tenant.area?.toFixed(2) || "-"}</TableCell>
-                <TableCell>{tenant.db_size || "-"}</TableCell>
+                <TableCell>{tenant.db_size_allowance || "-"}</TableCell>
+                <TableCell>{tenant.db_size_scope_of_work || "-"}</TableCell>
                 <TableCell className="text-center">
                   <StatusIcon checked={tenant.sow_received} />
                 </TableCell>

@@ -13,7 +13,8 @@ interface Tenant {
   shop_name: string;
   shop_number: string;
   area: number | null;
-  db_size: string | null;
+  db_size_allowance: string | null;
+  db_size_scope_of_work: string | null;
   sow_received: boolean;
   layout_received: boolean;
   db_ordered: boolean;
@@ -37,7 +38,8 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
     shop_name: tenant?.shop_name || "",
     shop_number: tenant?.shop_number || "",
     area: tenant?.area?.toString() || "",
-    db_size: tenant?.db_size || "",
+    db_size_allowance: tenant?.db_size_allowance || "",
+    db_size_scope_of_work: tenant?.db_size_scope_of_work || "",
     shop_category: tenant?.shop_category || "standard",
     sow_received: tenant?.sow_received || false,
     layout_received: tenant?.layout_received || false,
@@ -73,7 +75,7 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
       const calculatedDbSize = getDbSizeFromArea(area, formData.shop_category);
       console.log('Calculated DB size:', calculatedDbSize);
       if (calculatedDbSize) {
-        setFormData(prev => ({ ...prev, db_size: calculatedDbSize }));
+        setFormData(prev => ({ ...prev, db_size_allowance: calculatedDbSize }));
       }
     }
   }, [open, sizingRules]);
@@ -109,7 +111,7 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
     if (value && !isNaN(parseFloat(value)) && formData.shop_category === 'standard') {
       const calculatedDbSize = getDbSizeFromArea(parseFloat(value), formData.shop_category);
       if (calculatedDbSize) {
-        setFormData(prev => ({ ...prev, area: value, db_size: calculatedDbSize }));
+        setFormData(prev => ({ ...prev, area: value, db_size_allowance: calculatedDbSize }));
       }
     }
   };
@@ -121,11 +123,11 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
     if (formData.area && !isNaN(parseFloat(formData.area)) && value === 'standard') {
       const calculatedDbSize = getDbSizeFromArea(parseFloat(formData.area), value);
       if (calculatedDbSize) {
-        setFormData(prev => ({ ...prev, shop_category: value, db_size: calculatedDbSize }));
+        setFormData(prev => ({ ...prev, shop_category: value, db_size_allowance: calculatedDbSize }));
       }
     } else if (value !== 'standard') {
       // Clear DB size when switching to non-standard category
-      setFormData(prev => ({ ...prev, shop_category: value, db_size: '' }));
+      setFormData(prev => ({ ...prev, shop_category: value, db_size_allowance: '' }));
     }
   };
 
@@ -139,7 +141,8 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
         shop_name: formData.shop_name,
         shop_number: formData.shop_number,
         area: formData.area ? parseFloat(formData.area) : null,
-        db_size: formData.db_size || null,
+        db_size_allowance: formData.db_size_allowance || null,
+        db_size_scope_of_work: formData.db_size_scope_of_work || null,
         shop_category: formData.shop_category,
         sow_received: formData.sow_received,
         layout_received: formData.layout_received,
@@ -248,13 +251,13 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
               )}
             </div>
             <div>
-              <Label htmlFor="db_size">
-                DB Size {formData.shop_category !== 'standard' ? '*' : '(Auto-calculated, editable)'}
+              <Label htmlFor="db_size_allowance">
+                DB Allowance {formData.shop_category !== 'standard' ? '*' : '(Auto-calculated, editable)'}
               </Label>
               <Input
-                id="db_size"
-                value={formData.db_size}
-                onChange={(e) => setFormData({ ...formData, db_size: e.target.value })}
+                id="db_size_allowance"
+                value={formData.db_size_allowance}
+                onChange={(e) => setFormData({ ...formData, db_size_allowance: e.target.value })}
                 placeholder="e.g., 60A TP"
                 required={formData.shop_category !== 'standard'}
               />
@@ -267,6 +270,18 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
                   Manual entry required for {formData.shop_category.replace('_', ' ')}
                 </p>
               )}
+            </div>
+            <div>
+              <Label htmlFor="db_size_scope_of_work">DB Scope of Work (Optional)</Label>
+              <Input
+                id="db_size_scope_of_work"
+                value={formData.db_size_scope_of_work}
+                onChange={(e) => setFormData({ ...formData, db_size_scope_of_work: e.target.value })}
+                placeholder="e.g., 80A TP"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Enter adjusted DB size from scope of work
+              </p>
             </div>
             <div>
               <Label htmlFor="db_cost">DB Cost (R)</Label>

@@ -3499,7 +3499,8 @@ export type Database = {
           custom_fields: Json | null
           db_cost: number | null
           db_ordered: boolean | null
-          db_size: string | null
+          db_size_allowance: string | null
+          db_size_scope_of_work: string | null
           id: string
           layout_received: boolean | null
           lighting_cost: number | null
@@ -3519,7 +3520,8 @@ export type Database = {
           custom_fields?: Json | null
           db_cost?: number | null
           db_ordered?: boolean | null
-          db_size?: string | null
+          db_size_allowance?: string | null
+          db_size_scope_of_work?: string | null
           id?: string
           layout_received?: boolean | null
           lighting_cost?: number | null
@@ -3539,7 +3541,8 @@ export type Database = {
           custom_fields?: Json | null
           db_cost?: number | null
           db_ordered?: boolean | null
-          db_size?: string | null
+          db_size_allowance?: string | null
+          db_size_scope_of_work?: string | null
           id?: string
           layout_received?: boolean | null
           lighting_cost?: number | null
