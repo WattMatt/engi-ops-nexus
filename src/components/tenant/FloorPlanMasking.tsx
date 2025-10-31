@@ -538,7 +538,7 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
         )}
 
         <div className="ml-auto">
-          <Button onClick={savePdfWithMasks} variant="outline" disabled={!pdfDoc || masks.length === 0}>
+          <Button onClick={savePdfWithMasks} variant="outline" disabled={!pdfDoc}>
             <Download className="h-4 w-4 mr-2" />
             Save Floor Plan
           </Button>
