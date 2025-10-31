@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,6 +31,7 @@ interface TenantDialogProps {
 export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [sizingRules, setSizingRules] = useState<Array<{ min_area: number; max_area: number; db_size: string }>>([]);
   const [formData, setFormData] = useState({
     shop_name: tenant?.shop_name || "",
     shop_number: tenant?.shop_number || "",
@@ -44,15 +45,39 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
     lighting_cost: tenant?.lighting_cost?.toString() || "",
   });
 
-  // DB sizing ranges configuration
-  const getDbSizeFromArea = (area: number): string => {
-    if (area <= 80) return "60A TP";
-    if (area <= 200) return "80A TP";
-    if (area <= 300) return "100A TP";
-    if (area <= 450) return "125A TP";
-    if (area <= 600) return "160A TP";
-    if (area <= 1200) return "200A TP";
-    return "200A TP"; // default for > 1200m²
+  // Load DB sizing rules from database
+  useEffect(() => {
+    const loadSizingRules = async () => {
+      const { data, error } = await supabase
+        .from("db_sizing_rules")
+        .select("*")
+        .eq("project_id", projectId)
+        .order("min_area", { ascending: true });
+
+      if (!error && data) {
+        setSizingRules(data);
+      }
+    };
+    
+    loadSizingRules();
+  }, [projectId]);
+
+  // Auto-calculate DB size when dialog opens with an area value
+  useEffect(() => {
+    if (open && formData.area && !isNaN(parseFloat(formData.area))) {
+      const calculatedDbSize = getDbSizeFromArea(parseFloat(formData.area));
+      if (calculatedDbSize) {
+        setFormData(prev => ({ ...prev, db_size: calculatedDbSize }));
+      }
+    }
+  }, [open]);
+
+  // Get DB size from area using configured rules
+  const getDbSizeFromArea = (area: number): string | null => {
+    const rule = sizingRules.find(
+      r => area >= r.min_area && area <= r.max_area
+    );
+    return rule?.db_size || null;
   };
 
   const handleAreaChange = (value: string) => {
@@ -61,7 +86,9 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
     // Auto-calculate DB size when area is entered
     if (value && !isNaN(parseFloat(value))) {
       const calculatedDbSize = getDbSizeFromArea(parseFloat(value));
-      setFormData(prev => ({ ...prev, area: value, db_size: calculatedDbSize }));
+      if (calculatedDbSize) {
+        setFormData(prev => ({ ...prev, area: value, db_size: calculatedDbSize }));
+      }
     }
   };
 

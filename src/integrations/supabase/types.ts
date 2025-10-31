@@ -932,6 +932,33 @@ export type Database = {
           },
         ]
       }
+      db_sizing_rules: {
+        Row: {
+          created_at: string
+          db_size: string
+          id: string
+          max_area: number
+          min_area: number
+          project_id: string
+        }
+        Insert: {
+          created_at?: string
+          db_size: string
+          id?: string
+          max_area: number
+          min_area: number
+          project_id: string
+        }
+        Update: {
+          created_at?: string
+          db_size?: string
+          id?: string
+          max_area?: number
+          min_area?: number
+          project_id?: string
+        }
+        Relationships: []
+      }
       departments: {
         Row: {
           code: string

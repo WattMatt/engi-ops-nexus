@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { TenantList } from "@/components/tenant/TenantList";
 import { TenantDialog } from "@/components/tenant/TenantDialog";
+import { DBSizingRulesSettings } from "@/components/tenant/DBSizingRulesSettings";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const TenantTracker = () => {
   const projectId = localStorage.getItem("selectedProjectId");
@@ -54,17 +56,30 @@ const TenantTracker = () => {
         <TenantDialog projectId={projectId || ""} onSuccess={handleUpdate} />
       </div>
 
-      {isLoading ? (
-        <div className="flex items-center justify-center py-8">
-          <p className="text-muted-foreground">Loading tenants...</p>
-        </div>
-      ) : (
-        <TenantList
-          tenants={tenants}
-          projectId={projectId || ""}
-          onUpdate={handleUpdate}
-        />
-      )}
+      <Tabs defaultValue="tenants" className="w-full">
+        <TabsList>
+          <TabsTrigger value="tenants">Tenants</TabsTrigger>
+          <TabsTrigger value="settings">DB Sizing Rules</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="tenants" className="mt-4">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <p className="text-muted-foreground">Loading tenants...</p>
+            </div>
+          ) : (
+            <TenantList
+              tenants={tenants}
+              projectId={projectId || ""}
+              onUpdate={handleUpdate}
+            />
+          )}
+        </TabsContent>
+        
+        <TabsContent value="settings" className="mt-4">
+          <DBSizingRulesSettings projectId={projectId || ""} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
