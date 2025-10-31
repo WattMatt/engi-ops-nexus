@@ -4,10 +4,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Upload, Save, Trash2, Download, Ruler, Square } from "lucide-react";
 import { toast } from "sonner";
-import * as pdfjsLib from 'pdfjs-dist';
+import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist/build/pdf.mjs';
+import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { supabase } from "@/integrations/supabase/client";
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+// Set PDF.js worker source
+if (typeof window !== 'undefined') {
+  GlobalWorkerOptions.workerSrc = `https://esm.sh/pdfjs-dist@5.4.296/build/pdf.worker.mjs`;
+}
 
 interface Point {
   x: number;
@@ -45,7 +49,7 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
   const pdfCanvasRef = useRef<HTMLCanvasElement>(null);
   const drawingCanvasRef = useRef<HTMLCanvasElement>(null);
 
-  const [pdfDoc, setPdfDoc] = useState<pdfjsLib.PDFDocumentProxy | null>(null);
+  const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null);
   const [viewState, setViewState] = useState<ViewState>({ zoom: 1, offset: { x: 0, y: 0 } });
   const [scaleInfo, setScaleInfo] = useState<ScaleInfo>({ pixelDistance: null, realDistance: null, ratio: null });
   const [isSettingScale, setIsSettingScale] = useState(false);
@@ -94,22 +98,33 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
 
     if (file.type !== 'application/pdf') {
       toast.error("Please upload a PDF file");
+      e.target.value = '';
+      return;
+    }
+
+    if (file.size === 0) {
+      toast.error("The selected PDF file is empty");
+      e.target.value = '';
       return;
     }
 
     try {
       const arrayBuffer = await file.arrayBuffer();
-      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      const loadingTask = getDocument(arrayBuffer);
+      const pdf = await loadingTask.promise;
       setPdfDoc(pdf);
       await renderPdf(pdf);
       toast.success("Floor plan loaded successfully");
     } catch (error: any) {
       console.error("PDF loading error:", error);
-      toast.error("Failed to load PDF: " + error.message);
+      toast.error("Failed to load PDF: " + (error?.message || "Unknown error"));
     }
+
+    // Reset input value to allow reloading the same file
+    e.target.value = '';
   };
 
-  const renderPdf = async (pdf: pdfjsLib.PDFDocumentProxy) => {
+  const renderPdf = async (pdf: PDFDocumentProxy) => {
     const page = await pdf.getPage(1);
     const viewport = page.getViewport({ scale: 2 });
     
