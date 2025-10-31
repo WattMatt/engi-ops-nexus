@@ -58,10 +58,12 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
   const [lastMousePos, setLastMousePos] = useState<Point>({ x: 0, y: 0 });
   const [showScaleModal, setShowScaleModal] = useState(false);
   const [tempScaleLine, setTempScaleLine] = useState<{start: Point, end: Point} | null>(null);
+  const [floorPlanRecord, setFloorPlanRecord] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // Load existing masks from database
+  // Load existing floor plan and masks from database
   useEffect(() => {
-    loadMasks();
+    loadFloorPlan();
   }, [projectId]);
 
   // Keyboard handler for Enter key
@@ -75,16 +77,30 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isDrawingMask, currentMask]);
 
-  const loadMasks = async () => {
+  const loadFloorPlan = async () => {
+    setIsLoading(true);
     try {
-      const { data, error } = await supabase
+      // Load floor plan record
+      const { data: floorPlan, error: floorPlanError } = await supabase
+        .from('project_floor_plans')
+        .select('*')
+        .eq('project_id', projectId)
+        .single();
+      
+      if (floorPlanError && floorPlanError.code !== 'PGRST116') throw floorPlanError;
+      
+      setFloorPlanRecord(floorPlan);
+
+      // Load masks
+      const { data: masksData, error: masksError } = await supabase
         .from('tenant_floor_plan_masks')
         .select('*')
         .eq('project_id', projectId);
       
-      if (error) throw error;
-      if (data) {
-        setMasks(data.map((m: any) => ({
+      if (masksError) throw masksError;
+      
+      if (masksData) {
+        setMasks(masksData.map((m: any) => ({
           id: m.id,
           tenantId: m.tenant_id,
           shopNumber: m.shop_number,
@@ -93,8 +109,26 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
           color: m.color
         })));
       }
+
+      // Load base PDF if exists
+      if (floorPlan?.base_pdf_url) {
+        const { data: pdfBlob, error: downloadError } = await supabase.storage
+          .from('floor-plans')
+          .download(floorPlan.base_pdf_url.split('/floor-plans/')[1]);
+        
+        if (downloadError) throw downloadError;
+        
+        const pdf = await loadPdfFromFile(new File([pdfBlob], 'floor-plan.pdf', { type: 'application/pdf' }));
+        setPdfDoc(pdf);
+        await renderPdf(pdf);
+      }
     } catch (error: any) {
-      console.error('Error loading masks:', error);
+      console.error('Error loading floor plan:', error);
+      if (error.code !== 'PGRST116') {
+        toast.error('Failed to load floor plan');
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -106,7 +140,40 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
       const pdf = await loadPdfFromFile(file);
       setPdfDoc(pdf);
       await renderPdf(pdf);
-      toast.success("Floor plan loaded successfully");
+
+      // Upload base PDF to storage
+      const basePdfPath = `${projectId}/base.pdf`;
+      const { error: uploadError } = await supabase.storage
+        .from('floor-plans')
+        .upload(basePdfPath, file, {
+          contentType: 'application/pdf',
+          upsert: true
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('floor-plans')
+        .getPublicUrl(basePdfPath);
+
+      // Upsert floor plan record
+      const { data, error: upsertError } = await supabase
+        .from('project_floor_plans')
+        .upsert({
+          project_id: projectId,
+          base_pdf_url: publicUrl,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'project_id'
+        })
+        .select()
+        .single();
+
+      if (upsertError) throw upsertError;
+      
+      setFloorPlanRecord(data);
+      toast.success("Floor plan uploaded successfully - masks preserved");
     } catch (error: any) {
       console.error("PDF loading error:", error);
       toast.error(error.message || "Failed to load PDF");
@@ -185,13 +252,13 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
         }, 'image/png');
       });
 
-      // Upload to Supabase storage
-      const fileName = `tenant-floor-plan-${projectId}-${Date.now()}.png`;
+      // Upload composite image to storage (overwrite existing)
+      const compositePath = `${projectId}/composite.png`;
       const { error: uploadError } = await supabase.storage
         .from('floor-plans')
-        .upload(fileName, blob, {
+        .upload(compositePath, blob, {
           contentType: 'image/png',
-          upsert: false
+          upsert: true
         });
 
       if (uploadError) throw uploadError;
@@ -199,22 +266,22 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
       // Get public URL
       const { data: { publicUrl } } = supabase.storage
         .from('floor-plans')
-        .getPublicUrl(fileName);
+        .getPublicUrl(compositePath);
 
-      // Save metadata to database (you can create a table for this if needed)
-      // For now, just show success with the URL
+      // Update floor plan record with composite image URL
+      const { error: updateError } = await supabase
+        .from('project_floor_plans')
+        .upsert({
+          project_id: projectId,
+          composite_image_url: publicUrl,
+          updated_at: new Date().toISOString()
+        }, {
+          onConflict: 'project_id'
+        });
+
+      if (updateError) throw updateError;
       
-      toast.success("Floor plan saved successfully", {
-        description: "The floor plan has been uploaded to storage"
-      });
-
-      // Optional: Also download locally
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = fileName;
-      a.click();
-      URL.revokeObjectURL(url);
+      toast.success("Floor plan saved to storage successfully");
 
     } catch (error: any) {
       console.error("Save error:", error);
@@ -399,6 +466,7 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
       toast.success(`Mask created for ${shopNumber}: ${area.toFixed(2)} sqm`);
       drawMasks();
     } catch (error: any) {
+      console.error('Save mask error:', error);
       toast.error("Failed to save mask");
     }
   };
@@ -506,12 +574,26 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
     drawMasks();
   }, [drawMasks]);
 
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-8">
+        <p className="text-muted-foreground">Loading floor plan...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
+      {floorPlanRecord && (
+        <div className="text-sm text-muted-foreground">
+          Last updated: {new Date(floorPlanRecord.updated_at).toLocaleString()}
+        </div>
+      )}
+      
       <div className="flex gap-2 flex-wrap items-center">
         <Button onClick={() => fileInputRef.current?.click()} variant="outline">
           <Upload className="h-4 w-4 mr-2" />
-          Load Floor Plan
+          {pdfDoc ? 'Replace' : 'Upload'} Base PDF
         </Button>
         <Input
           ref={fileInputRef}

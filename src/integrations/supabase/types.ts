@@ -2651,6 +2651,33 @@ export type Database = {
         }
         Relationships: []
       }
+      project_floor_plans: {
+        Row: {
+          base_pdf_url: string | null
+          composite_image_url: string | null
+          created_at: string | null
+          id: string
+          project_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          base_pdf_url?: string | null
+          composite_image_url?: string | null
+          created_at?: string | null
+          id?: string
+          project_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          base_pdf_url?: string | null
+          composite_image_url?: string | null
+          created_at?: string | null
+          id?: string
+          project_id?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       project_members: {
         Row: {
           created_at: string
