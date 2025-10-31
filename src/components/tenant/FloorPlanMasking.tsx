@@ -250,6 +250,7 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
 
   const handleMouseMove = (e: React.MouseEvent) => {
     const mousePos = getMousePos(e);
+    const worldPos = toWorld(mousePos);
 
     if (isPanning) {
       const dx = mousePos.x - lastMousePos.x;
@@ -262,13 +263,17 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
       return;
     }
 
-    if (isDrawingMask || isSettingScale) {
-      setPreviewPoint(toWorld(mousePos));
+    if (isDrawingMask && currentMask.length > 0) {
+      setPreviewPoint(worldPos);
+    }
+
+    if (isSettingScale && scaleLineStart) {
+      setPreviewPoint(worldPos);
     }
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    if (e.button === 1 || (e.button === 0 && e.shiftKey)) {
+    if (e.button === 1 || (e.button === 0 && (e.shiftKey || e.metaKey))) {
       setIsPanning(true);
       setLastMousePos(getMousePos(e));
       e.preventDefault();
@@ -284,8 +289,8 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
     const mousePos = getMousePos(e);
     const worldBefore = toWorld(mousePos);
     
-    const delta = e.deltaY > 0 ? 0.9 : 1.1;
-    const newZoom = Math.max(0.1, Math.min(5, viewState.zoom * delta));
+    const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+    const newZoom = Math.max(0.1, Math.min(10, viewState.zoom * zoomFactor));
     
     setViewState(prev => {
       const worldAfter = {
@@ -541,16 +546,26 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
       <div
         ref={containerRef}
         className="relative border rounded-lg overflow-hidden bg-gray-100"
-        style={{ height: '600px', cursor: isPanning ? 'grabbing' : 'crosshair' }}
+        style={{ 
+          height: '600px', 
+          cursor: isPanning ? 'grabbing' : isDrawingMask || isSettingScale ? 'crosshair' : 'default'
+        }}
         onClick={handleCanvasClick}
         onMouseMove={handleMouseMove}
         onMouseDown={handleMouseDown}
         onMouseUp={handleMouseUp}
         onMouseLeave={handleMouseUp}
         onWheel={handleWheel}
+        onContextMenu={(e) => e.preventDefault()}
       >
         <canvas ref={pdfCanvasRef} className="absolute top-0 left-0" />
         <canvas ref={drawingCanvasRef} className="absolute top-0 left-0" />
+        
+        {!pdfDoc && (
+          <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
+            Click "Load Floor Plan" to begin
+          </div>
+        )}
       </div>
 
       <div className="space-y-2">
