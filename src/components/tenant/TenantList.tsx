@@ -12,6 +12,7 @@ interface Tenant {
   shop_number: string;
   area: number | null;
   db_size: string | null;
+  shop_category: string;
   sow_received: boolean;
   layout_received: boolean;
   db_ordered: boolean;

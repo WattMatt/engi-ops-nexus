@@ -6,12 +6,14 @@ import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Plus, Trash2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface DBSizingRule {
   id: string;
   min_area: number;
   max_area: number;
   db_size: string;
+  category: string;
 }
 
 interface DBSizingRulesSettingsProps {
@@ -21,6 +23,7 @@ interface DBSizingRulesSettingsProps {
 export const DBSizingRulesSettings = ({ projectId }: DBSizingRulesSettingsProps) => {
   const [rules, setRules] = useState<DBSizingRule[]>([]);
   const [loading, setLoading] = useState(true);
+  const [activeCategory, setActiveCategory] = useState("standard");
   const [newRule, setNewRule] = useState({
     min_area: "",
     max_area: "",
@@ -37,6 +40,7 @@ export const DBSizingRulesSettings = ({ projectId }: DBSizingRulesSettingsProps)
         .from("db_sizing_rules")
         .select("*")
         .eq("project_id", projectId)
+        .order("category", { ascending: true })
         .order("min_area", { ascending: true });
 
       if (error) throw error;
@@ -62,6 +66,7 @@ export const DBSizingRulesSettings = ({ projectId }: DBSizingRulesSettingsProps)
           min_area: parseFloat(newRule.min_area),
           max_area: parseFloat(newRule.max_area),
           db_size: newRule.db_size,
+          category: activeCategory,
         }]);
 
       if (error) throw error;
@@ -104,17 +109,20 @@ export const DBSizingRulesSettings = ({ projectId }: DBSizingRulesSettingsProps)
         .insert(
           defaultRules.map(rule => ({
             project_id: projectId,
+            category: activeCategory,
             ...rule,
           }))
         );
 
       if (error) throw error;
-      toast.success("Default rules loaded successfully");
+      toast.success(`Default rules loaded for ${activeCategory}`);
       loadRules();
     } catch (error: any) {
       toast.error(error.message || "Failed to load default rules");
     }
   };
+
+  const filteredRules = rules.filter(rule => rule.category === activeCategory);
 
   if (loading) {
     return <div>Loading...</div>;
@@ -125,82 +133,93 @@ export const DBSizingRulesSettings = ({ projectId }: DBSizingRulesSettingsProps)
       <CardHeader>
         <CardTitle>DB Sizing Rules</CardTitle>
         <CardDescription>
-          Configure automatic DB size calculation based on shop area
+          Configure automatic DB size calculation based on shop area and category
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {rules.length === 0 && (
-          <div className="text-center py-4">
-            <p className="text-muted-foreground mb-4">No rules configured yet</p>
-            <Button onClick={loadDefaultRules}>
-              Load Default Rules
-            </Button>
-          </div>
-        )}
-
-        {rules.length > 0 && (
-          <div className="space-y-2">
-            <Label>Current Rules</Label>
-            {rules.map((rule) => (
-              <div key={rule.id} className="flex items-center gap-2 p-2 border rounded">
-                <div className="flex-1 grid grid-cols-3 gap-2 text-sm">
-                  <span>{rule.min_area}m² - {rule.max_area}m²</span>
-                  <span className="font-medium">{rule.db_size}</span>
-                </div>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => deleteRule(rule.id)}
-                >
-                  <Trash2 className="h-4 w-4" />
+        <Tabs value={activeCategory} onValueChange={setActiveCategory}>
+          <TabsList className="grid w-full grid-cols-4">
+            <TabsTrigger value="standard">Standard</TabsTrigger>
+            <TabsTrigger value="fast_food">Fast Food</TabsTrigger>
+            <TabsTrigger value="restaurant">Restaurant</TabsTrigger>
+            <TabsTrigger value="national">National</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value={activeCategory} className="space-y-4 mt-4">
+            {filteredRules.length === 0 && (
+              <div className="text-center py-4">
+                <p className="text-muted-foreground mb-4">No rules configured for {activeCategory.replace('_', ' ')}</p>
+                <Button onClick={loadDefaultRules}>
+                  Load Default Rules
                 </Button>
               </div>
-            ))}
-          </div>
-        )}
+            )}
 
-        <div className="space-y-4 pt-4 border-t">
-          <Label>Add New Rule</Label>
-          <div className="grid grid-cols-4 gap-2">
-            <div>
-              <Label htmlFor="min_area" className="text-xs">Min Area (m²)</Label>
-              <Input
-                id="min_area"
-                type="number"
-                step="0.01"
-                value={newRule.min_area}
-                onChange={(e) => setNewRule({ ...newRule, min_area: e.target.value })}
-                placeholder="0"
-              />
+            {filteredRules.length > 0 && (
+              <div className="space-y-2">
+                <Label>Current Rules for {activeCategory.replace('_', ' ')}</Label>
+                {filteredRules.map((rule) => (
+                  <div key={rule.id} className="flex items-center gap-2 p-2 border rounded">
+                    <div className="flex-1 grid grid-cols-3 gap-2 text-sm">
+                      <span>{rule.min_area}m² - {rule.max_area}m²</span>
+                      <span className="font-medium">{rule.db_size}</span>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => deleteRule(rule.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="space-y-4 pt-4 border-t">
+              <Label>Add New Rule</Label>
+              <div className="grid grid-cols-4 gap-2">
+                <div>
+                  <Label htmlFor="min_area" className="text-xs">Min Area (m²)</Label>
+                  <Input
+                    id="min_area"
+                    type="number"
+                    step="0.01"
+                    value={newRule.min_area}
+                    onChange={(e) => setNewRule({ ...newRule, min_area: e.target.value })}
+                    placeholder="0"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="max_area" className="text-xs">Max Area (m²)</Label>
+                  <Input
+                    id="max_area"
+                    type="number"
+                    step="0.01"
+                    value={newRule.max_area}
+                    onChange={(e) => setNewRule({ ...newRule, max_area: e.target.value })}
+                    placeholder="80"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="db_size" className="text-xs">DB Size</Label>
+                  <Input
+                    id="db_size"
+                    value={newRule.db_size}
+                    onChange={(e) => setNewRule({ ...newRule, db_size: e.target.value })}
+                    placeholder="60A TP"
+                  />
+                </div>
+                <div className="flex items-end">
+                  <Button onClick={addRule} className="w-full">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add
+                  </Button>
+                </div>
+              </div>
             </div>
-            <div>
-              <Label htmlFor="max_area" className="text-xs">Max Area (m²)</Label>
-              <Input
-                id="max_area"
-                type="number"
-                step="0.01"
-                value={newRule.max_area}
-                onChange={(e) => setNewRule({ ...newRule, max_area: e.target.value })}
-                placeholder="80"
-              />
-            </div>
-            <div>
-              <Label htmlFor="db_size" className="text-xs">DB Size</Label>
-              <Input
-                id="db_size"
-                value={newRule.db_size}
-                onChange={(e) => setNewRule({ ...newRule, db_size: e.target.value })}
-                placeholder="60A TP"
-              />
-            </div>
-            <div className="flex items-end">
-              <Button onClick={addRule} className="w-full">
-                <Plus className="h-4 w-4 mr-2" />
-                Add
-              </Button>
-            </div>
-          </div>
-        </div>
+          </TabsContent>
+        </Tabs>
       </CardContent>
     </Card>
   );

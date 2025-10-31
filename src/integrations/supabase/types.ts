@@ -934,6 +934,7 @@ export type Database = {
       }
       db_sizing_rules: {
         Row: {
+          category: string
           created_at: string
           db_size: string
           id: string
@@ -942,6 +943,7 @@ export type Database = {
           project_id: string
         }
         Insert: {
+          category?: string
           created_at?: string
           db_size: string
           id?: string
@@ -950,6 +952,7 @@ export type Database = {
           project_id: string
         }
         Update: {
+          category?: string
           created_at?: string
           db_size?: string
           id?: string
@@ -3436,6 +3439,7 @@ export type Database = {
           lighting_cost: number | null
           lighting_ordered: boolean | null
           project_id: string
+          shop_category: string
           shop_name: string
           shop_number: string
           sow_received: boolean | null
@@ -3455,6 +3459,7 @@ export type Database = {
           lighting_cost?: number | null
           lighting_ordered?: boolean | null
           project_id: string
+          shop_category?: string
           shop_name: string
           shop_number: string
           sow_received?: boolean | null
@@ -3474,6 +3479,7 @@ export type Database = {
           lighting_cost?: number | null
           lighting_ordered?: boolean | null
           project_id?: string
+          shop_category?: string
           shop_name?: string
           shop_number?: string
           sow_received?: boolean | null

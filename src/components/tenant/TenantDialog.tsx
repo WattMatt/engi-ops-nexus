@@ -20,6 +20,7 @@ interface Tenant {
   db_cost: number | null;
   lighting_ordered: boolean;
   lighting_cost: number | null;
+  shop_category: string;
 }
 
 interface TenantDialogProps {
@@ -31,12 +32,13 @@ interface TenantDialogProps {
 export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [sizingRules, setSizingRules] = useState<Array<{ min_area: number; max_area: number; db_size: string }>>([]);
+  const [sizingRules, setSizingRules] = useState<Array<{ min_area: number; max_area: number; db_size: string; category: string }>>([]);
   const [formData, setFormData] = useState({
     shop_name: tenant?.shop_name || "",
     shop_number: tenant?.shop_number || "",
     area: tenant?.area?.toString() || "",
     db_size: tenant?.db_size || "",
+    shop_category: tenant?.shop_category || "standard",
     sow_received: tenant?.sow_received || false,
     layout_received: tenant?.layout_received || false,
     db_ordered: tenant?.db_ordered || false,
@@ -64,8 +66,8 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
 
   // Auto-calculate DB size when dialog opens with an area value
   useEffect(() => {
-    if (open && formData.area && !isNaN(parseFloat(formData.area))) {
-      const calculatedDbSize = getDbSizeFromArea(parseFloat(formData.area));
+    if (open && formData.area && !isNaN(parseFloat(formData.area)) && formData.shop_category !== 'national') {
+      const calculatedDbSize = getDbSizeFromArea(parseFloat(formData.area), formData.shop_category);
       if (calculatedDbSize) {
         setFormData(prev => ({ ...prev, db_size: calculatedDbSize }));
       }
@@ -73,9 +75,14 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
   }, [open]);
 
   // Get DB size from area using configured rules
-  const getDbSizeFromArea = (area: number): string | null => {
+  const getDbSizeFromArea = (area: number, category: string): string | null => {
+    // For national shops, don't auto-calculate from area
+    if (category === 'national') {
+      return null;
+    }
+    
     const rule = sizingRules.find(
-      r => area >= r.min_area && area <= r.max_area
+      r => r.category === category && area >= r.min_area && area <= r.max_area
     );
     return rule?.db_size || null;
   };
@@ -83,11 +90,23 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
   const handleAreaChange = (value: string) => {
     setFormData({ ...formData, area: value });
     
-    // Auto-calculate DB size when area is entered
-    if (value && !isNaN(parseFloat(value))) {
-      const calculatedDbSize = getDbSizeFromArea(parseFloat(value));
+    // Auto-calculate DB size when area is entered (except for national shops)
+    if (value && !isNaN(parseFloat(value)) && formData.shop_category !== 'national') {
+      const calculatedDbSize = getDbSizeFromArea(parseFloat(value), formData.shop_category);
       if (calculatedDbSize) {
         setFormData(prev => ({ ...prev, area: value, db_size: calculatedDbSize }));
+      }
+    }
+  };
+
+  const handleCategoryChange = (value: string) => {
+    setFormData({ ...formData, shop_category: value });
+    
+    // Auto-calculate DB size when category changes (if area exists and not national)
+    if (formData.area && !isNaN(parseFloat(formData.area)) && value !== 'national') {
+      const calculatedDbSize = getDbSizeFromArea(parseFloat(formData.area), value);
+      if (calculatedDbSize) {
+        setFormData(prev => ({ ...prev, shop_category: value, db_size: calculatedDbSize }));
       }
     }
   };
@@ -103,6 +122,7 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
         shop_number: formData.shop_number,
         area: formData.area ? parseFloat(formData.area) : null,
         db_size: formData.db_size || null,
+        shop_category: formData.shop_category,
         sow_received: formData.sow_received,
         layout_received: formData.layout_received,
         db_ordered: formData.db_ordered,
@@ -173,6 +193,26 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
                 required
               />
             </div>
+            <div className="col-span-2">
+              <Label htmlFor="shop_category">Shop Category *</Label>
+              <select
+                id="shop_category"
+                value={formData.shop_category}
+                onChange={(e) => handleCategoryChange(e.target.value)}
+                className="w-full px-3 py-2 border border-input bg-background rounded-md"
+                required
+              >
+                <option value="standard">Standard</option>
+                <option value="fast_food">Fast Food</option>
+                <option value="restaurant">Restaurant</option>
+                <option value="national">National Shop</option>
+              </select>
+              {formData.shop_category === 'national' && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  National shops have fixed DB sizes - set manually below
+                </p>
+              )}
+            </div>
             <div>
               <Label htmlFor="area">Area (m²)</Label>
               <Input
@@ -183,9 +223,11 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
                 onChange={(e) => handleAreaChange(e.target.value)}
                 placeholder="Enter shop area"
               />
-              <p className="text-xs text-muted-foreground mt-1">
-                DB size will auto-calculate based on area
-              </p>
+              {formData.shop_category !== 'national' && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  DB size will auto-calculate based on area and category
+                </p>
+              )}
             </div>
             <div>
               <Label htmlFor="db_size">DB Size (Auto-calculated)</Label>
