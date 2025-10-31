@@ -76,25 +76,23 @@ serve(async (req) => {
       if (roleError) throw roleError;
     }
 
-    // Generate password reset link for the invited user
-    const { data: resetData, error: resetError } = await supabaseAdmin.auth.admin
-      .generateLink({
-        type: 'recovery',
-        email: email,
-      });
+    // Trigger built-in password reset email
+    const { error: resetError } = await supabaseAdmin.auth.resetPasswordForEmail(email, {
+      redirectTo: `${Deno.env.get("SUPABASE_URL")}/auth/v1/verify`,
+    });
 
     if (resetError) {
-      console.error("Error generating reset link:", resetError);
+      console.error("Error sending password reset email:", resetError);
       throw resetError;
     }
 
-    console.log("Reset link generated for:", email);
+    console.log("Password reset email sent successfully to:", email);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         userId: userId,
-        resetLink: resetData.properties.action_link 
+        message: "User invited successfully. Password reset email sent."
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

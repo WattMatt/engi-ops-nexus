@@ -3,9 +3,6 @@ project_id = "rsdisaisxdglmdmzmkyw"
 [functions.invite-user]
 verify_jwt = true
 
-[functions.send-invite-email]
-verify_jwt = true
-
 [functions.generate-boq]
 verify_jwt = false
 

@@ -68,27 +68,9 @@ export const InviteUserDialog = ({ onInvited }: InviteUserDialogProps) => {
       if (inviteError) throw inviteError;
       if (!inviteData?.success) throw new Error("Failed to create user");
 
-      // Send invite email
-      const { error: emailError } = await supabase.functions.invoke("send-invite-email", {
-        body: {
-          email: data.email,
-          fullName: data.fullName,
-          role: data.role,
-          invitedBy: currentProfile?.full_name || "Admin",
-          resetLink: inviteData.resetLink || `${window.location.origin}/auth`,
-        },
+      toast.success(`Invitation sent successfully`, {
+        description: `${data.fullName} will receive a password setup email at ${data.email}.`
       });
-
-      if (emailError) {
-        console.error("Email sending failed:", emailError);
-        toast.error("User created but invitation email failed", {
-          description: "Please check your Resend configuration and domain verification. User account exists but no email was sent."
-        });
-      } else {
-        toast.success(`Invitation sent successfully`, {
-          description: `Email sent to ${data.email}. They'll receive a password setup link.`
-        });
-      }
 
       // Log the invite activity
       await logActivity(
