@@ -24,89 +24,85 @@ serve(async (req) => {
       }
     );
 
-    const { email, fullName, role, resend, temporaryPassword } = await req.json();
+    const { email, fullName, role, password } = await req.json();
 
     // Validate input
-    if (!email || !fullName || !role) {
+    if (!email || !fullName || !role || !password) {
       return new Response(
-        JSON.stringify({ error: "Missing required fields" }),
+        JSON.stringify({ error: "Missing required fields: email, fullName, role, and password are required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    let userId: string;
-
-    // If this is a resend, find the existing user
-    if (resend) {
-      const { data: existingUser, error: findError } = await supabaseAdmin.auth.admin.listUsers();
-      if (findError) throw findError;
-      
-      const user = existingUser.users.find(u => u.email === email);
-      if (!user) {
-        throw new Error("User not found");
-      }
-      userId = user.id;
-      console.log("Resending invite for existing user:", userId);
-    } else {
-      // Create new user with admin API (doesn't affect current session)
-      const password = temporaryPassword || crypto.randomUUID();
-      
-      // Validate password if provided
-      if (temporaryPassword && temporaryPassword.length < 6) {
-        throw new Error("Password must be at least 6 characters long");
-      }
-      
-      const { data: userData, error: userError } = await supabaseAdmin.auth.admin.createUser({
-        email,
-        password: password,
-        email_confirm: false, // Keep pending until they set password
-        user_metadata: {
-          full_name: fullName,
-        },
-      });
-
-      if (userError) throw userError;
-      if (!userData.user) throw new Error("Failed to create user");
-      
-      userId = userData.user.id;
-      console.log("User created successfully:", userId);
-
-      // Create user role
-      const { error: roleError } = await supabaseAdmin
-        .from("user_roles")
-        .insert([{
-          user_id: userId,
-          role: role,
-        }]);
-
-      if (roleError) throw roleError;
+    // Validate password
+    if (password.length < 6) {
+      return new Response(
+        JSON.stringify({ error: "Password must be at least 6 characters long" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    // Trigger built-in password reset email
-    const { error: resetError } = await supabaseAdmin.auth.resetPasswordForEmail(email, {
-      redirectTo: `${Deno.env.get("SUPABASE_URL")}/auth/v1/verify`,
+    // Create new user with admin API
+    const { data: userData, error: userError } = await supabaseAdmin.auth.admin.createUser({
+      email,
+      password: password,
+      email_confirm: true, // Auto-confirm so they can log in immediately
+      user_metadata: {
+        full_name: fullName,
+      },
     });
 
-    if (resetError) {
-      console.error("Error sending password reset email:", resetError);
-      throw resetError;
+    if (userError) {
+      console.error("Error creating user:", userError);
+      return new Response(
+        JSON.stringify({ error: userError.message, success: false }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    
+    if (!userData.user) {
+      return new Response(
+        JSON.stringify({ error: "Failed to create user", success: false }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+    
+    const userId = userData.user.id;
+    console.log("User created successfully:", userId);
+
+    // Create user role
+    const { error: roleError } = await supabaseAdmin
+      .from("user_roles")
+      .insert([{
+        user_id: userId,
+        role: role,
+      }]);
+
+    if (roleError) {
+      console.error("Error creating role:", roleError);
+      // Try to clean up the user if role creation fails
+      await supabaseAdmin.auth.admin.deleteUser(userId);
+      return new Response(
+        JSON.stringify({ error: "Failed to assign role: " + roleError.message, success: false }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    console.log("Password reset email sent successfully to:", email);
+    console.log("User and role created successfully for:", email);
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         userId: userId,
-        message: "User invited successfully. Password reset email sent."
+        message: "User created successfully"
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  } catch (error) {
-    console.error("Error creating user:", error);
-    const errorMessage = error instanceof Error ? error.message : "An unknown error occurred";
+  } catch (error: any) {
+    console.error("Error in invite-user function:", error);
+    const errorMessage = error.message || "An unknown error occurred";
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      JSON.stringify({ error: errorMessage, success: false }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }

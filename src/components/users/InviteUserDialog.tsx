@@ -18,11 +18,9 @@ const inviteSchema = z.object({
   role: z.enum(["admin", "moderator", "user"], {
     required_error: "Please select a role",
   }),
-  temporaryPassword: z.string()
+  password: z.string()
     .min(6, "Password must be at least 6 characters")
-    .max(100, "Password must be less than 100 characters")
-    .optional()
-    .or(z.literal("")),
+    .max(100, "Password must be less than 100 characters"),
 });
 
 type InviteFormData = z.infer<typeof inviteSchema>;
@@ -34,6 +32,7 @@ interface InviteUserDialogProps {
 export const InviteUserDialog = ({ onInvited }: InviteUserDialogProps) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [createdPassword, setCreatedPassword] = useState<string>("");
   const { logActivity } = useActivityLogger();
 
   const form = useForm<InviteFormData>({
@@ -42,9 +41,19 @@ export const InviteUserDialog = ({ onInvited }: InviteUserDialogProps) => {
       fullName: "",
       email: "",
       role: "user",
-      temporaryPassword: "",
+      password: "",
     },
   });
+
+  const generatePassword = () => {
+    const length = 12;
+    const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*";
+    let password = "";
+    for (let i = 0; i < length; i++) {
+      password += charset.charAt(Math.floor(Math.random() * charset.length));
+    }
+    form.setValue("password", password);
+  };
 
   const onSubmit = async (data: InviteFormData) => {
     setLoading(true);
@@ -55,28 +64,23 @@ export const InviteUserDialog = ({ onInvited }: InviteUserDialogProps) => {
         return;
       }
 
-      // Get current user's profile for the "invited by" name
-      const { data: currentProfile } = await supabase
-        .from("profiles")
-        .select("full_name")
-        .eq("id", currentUser.id)
-        .single();
-
-      // Use Edge Function to create user (doesn't affect current session)
+      // Use Edge Function to create user
       const { data: inviteData, error: inviteError } = await supabase.functions.invoke("invite-user", {
         body: {
           email: data.email,
           fullName: data.fullName,
           role: data.role,
-          temporaryPassword: data.temporaryPassword || undefined,
+          password: data.password,
         },
       });
 
       if (inviteError) throw inviteError;
-      if (!inviteData?.success) throw new Error("Failed to create user");
+      if (!inviteData?.success) throw new Error(inviteData?.error || "Failed to create user");
 
-      toast.success(`Invitation sent successfully`, {
-        description: `${data.fullName} will receive a password setup email at ${data.email}.`
+      setCreatedPassword(data.password);
+      
+      toast.success(`User created successfully`, {
+        description: `Share the password with ${data.fullName}. They can change it after logging in.`
       });
 
       // Log the invite activity
@@ -86,8 +90,6 @@ export const InviteUserDialog = ({ onInvited }: InviteUserDialogProps) => {
         { email: data.email, role: data.role }
       );
 
-      form.reset();
-      setOpen(false);
       onInvited?.();
     } catch (error: any) {
       console.error("Error inviting user:", error);
@@ -95,6 +97,12 @@ export const InviteUserDialog = ({ onInvited }: InviteUserDialogProps) => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleClose = () => {
+    setOpen(false);
+    setCreatedPassword("");
+    form.reset();
   };
 
   return (
@@ -106,14 +114,16 @@ export const InviteUserDialog = ({ onInvited }: InviteUserDialogProps) => {
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
-        <DialogHeader>
-          <DialogTitle>Invite New User</DialogTitle>
-          <DialogDescription>
-            Send an invitation email to add a new team member. They'll receive a link to set up their password.
-          </DialogDescription>
-        </DialogHeader>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+        {!createdPassword ? (
+          <>
+            <DialogHeader>
+              <DialogTitle>Invite New User</DialogTitle>
+              <DialogDescription>
+                Create a new user account with a custom password that you can share with them.
+              </DialogDescription>
+            </DialogHeader>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
               control={form.control}
               name="fullName"
@@ -140,26 +150,35 @@ export const InviteUserDialog = ({ onInvited }: InviteUserDialogProps) => {
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="temporaryPassword"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Temporary Password (optional)</FormLabel>
-                  <FormControl>
-                    <Input 
-                      type="password" 
-                      placeholder="Leave blank for auto-generated" 
-                      {...field} 
-                    />
-                  </FormControl>
-                  <FormMessage />
-                  <p className="text-xs text-muted-foreground">
-                    If left blank, a secure password will be generated automatically.
-                  </p>
-                </FormItem>
-              )}
-            />
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password</FormLabel>
+                      <div className="flex gap-2">
+                        <FormControl>
+                          <Input 
+                            type="text" 
+                            placeholder="Enter or generate password" 
+                            {...field} 
+                          />
+                        </FormControl>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={generatePassword}
+                        >
+                          Generate
+                        </Button>
+                      </div>
+                      <FormMessage />
+                      <p className="text-xs text-muted-foreground">
+                        User can change this password after first login.
+                      </p>
+                    </FormItem>
+                  )}
+                />
             <FormField
               control={form.control}
               name="role"
@@ -182,16 +201,55 @@ export const InviteUserDialog = ({ onInvited }: InviteUserDialogProps) => {
                 </FormItem>
               )}
             />
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={handleClose}>
+                    Cancel
+                  </Button>
+                  <Button type="submit" disabled={loading}>
+                    {loading ? "Creating..." : "Create User"}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </>
+        ) : (
+          <>
+            <DialogHeader>
+              <DialogTitle>User Created Successfully</DialogTitle>
+              <DialogDescription>
+                Share this password with the user. They should change it after logging in.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="p-4 bg-muted rounded-lg">
+                <p className="text-sm font-medium mb-2">Temporary Password:</p>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 p-2 bg-background rounded border text-lg font-mono">
+                    {createdPassword}
+                  </code>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(createdPassword);
+                      toast.success("Password copied to clipboard");
+                    }}
+                  >
+                    Copy
+                  </Button>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Make sure to save this password securely. It won't be shown again.
+              </p>
+            </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={loading}>
-                {loading ? "Sending..." : "Send Invitation"}
+              <Button onClick={handleClose}>
+                Done
               </Button>
             </DialogFooter>
-          </form>
-        </Form>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

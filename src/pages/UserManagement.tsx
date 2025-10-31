@@ -68,25 +68,37 @@ const UserManagement = () => {
   const resendInvite = async (user: UserProfile) => {
     setResendingInvite(user.id);
     try {
-      // Use Supabase's built-in password reset functionality
-      const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
-        redirectTo: `${window.location.origin}/auth`,
+      // Generate a new temporary password
+      const tempPassword = Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-12).toUpperCase();
+      
+      // Reset password using edge function
+      const { error } = await supabase.functions.invoke("reset-user-password", {
+        body: {
+          userId: user.id,
+          newPassword: tempPassword,
+        },
       });
 
       if (error) throw error;
 
-      toast.success("Password reset email sent", {
-        description: `${user.full_name} will receive an email to set up their password`
+      // Show password to admin
+      toast.success("Password reset successfully", {
+        description: `New password: ${tempPassword}`,
+        duration: 10000,
       });
+
+      // Copy to clipboard
+      navigator.clipboard.writeText(tempPassword);
+      toast.info("Password copied to clipboard");
       
       await logActivity(
         'update',
-        `Resent invitation to: ${user.full_name}`,
+        `Reset password for: ${user.full_name}`,
         { email: user.email }
       );
     } catch (error: any) {
-      console.error("Error resending invite:", error);
-      toast.error("Failed to send password reset email", {
+      console.error("Error resetting password:", error);
+      toast.error("Failed to reset password", {
         description: error.message
       });
     } finally {
@@ -202,7 +214,7 @@ const UserManagement = () => {
                             disabled={resendingInvite === user.id}
                           >
                             <Send className="h-4 w-4 mr-2" />
-                            {resendingInvite === user.id ? "Sending..." : "Resend Invite"}
+                            {resendingInvite === user.id ? "Resetting..." : "Reset Password"}
                           </Button>
                         )}
                         <ManageUserDialog user={user} onUpdated={loadUsers}>
