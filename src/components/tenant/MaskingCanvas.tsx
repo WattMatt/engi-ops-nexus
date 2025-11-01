@@ -209,22 +209,16 @@ export const MaskingCanvas = ({
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
     const mousePos = getMousePos(e);
-    const worldPosBefore = toWorld(mousePos);
-    
-    const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
-    const newZoom = Math.max(0.1, Math.min(10, viewState.zoom * zoomFactor));
-    
-    const worldPosAfter = {
-      x: (mousePos.x - viewState.offset.x) / newZoom,
-      y: (mousePos.y - viewState.offset.y) / newZoom,
-    };
-    
-    const newOffset = {
-      x: viewState.offset.x + (worldPosBefore.x - worldPosAfter.x) * newZoom,
-      y: viewState.offset.y + (worldPosBefore.y - worldPosAfter.y) * newZoom,
-    };
-    
-    setViewState({ zoom: newZoom, offset: newOffset });
+    const factor = e.deltaY > 0 ? 1 / 1.1 : 1.1;
+    setViewState(prev => {
+      const { zoom, offset } = prev;
+      const newZoom = Math.max(0.1, Math.min(zoom * factor, 20));
+      const worldX = (mousePos.x - offset.x) / zoom;
+      const worldY = (mousePos.y - offset.y) / zoom;
+      const newOffsetX = mousePos.x - worldX * newZoom;
+      const newOffsetY = mousePos.y - worldY * newZoom;
+      return { zoom: newZoom, offset: { x: newOffsetX, y: newOffsetY } };
+    });
   };
 
   return (
