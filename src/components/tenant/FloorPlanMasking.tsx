@@ -14,7 +14,7 @@ import type { PDFDocumentProxy } from 'pdfjs-dist';
 export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
   const [isEditMode, setIsEditMode] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [activeTool, setActiveTool] = useState<'select' | 'pan' | 'scale' | 'mask'>('select');
+  const [activeTool, setActiveTool] = useState<'select' | 'pan' | 'scale' | 'zone'>('select');
   const [scaleDialogOpen, setScaleDialogOpen] = useState(false);
   const [scale, setScale] = useState<number | null>(null);
   const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null);
@@ -134,12 +134,12 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
     }
   };
 
-  const handleToolSelect = (tool: 'select' | 'pan' | 'scale' | 'mask') => {
+  const handleToolSelect = (tool: 'select' | 'pan' | 'scale' | 'zone') => {
     setActiveTool(tool);
     if (tool === 'scale') {
       toast.info("Click two points on the floor plan to set a reference line");
-    } else if (tool === 'mask') {
-      toast.info("Draw masks over tenant areas");
+    } else if (tool === 'zone') {
+      toast.info("Click to add points. Click the start point or press Enter to finish.");
     }
     // Reset scale line when switching tools
     if (tool !== 'scale') {
@@ -232,6 +232,12 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
                 existingScale={scale}
                 scaleLine={scaleLine}
                 onScaleLineUpdate={setScaleLine}
+                isZoneMode={activeTool === 'zone'}
+                onZoneComplete={(points) => {
+                  console.log('Zone completed with points:', points);
+                  toast.success(`Zone created with ${points.length} points`);
+                  // TODO: Save zone to database
+                }}
               />
             ) : isEditMode ? (
               <div className="h-full flex items-center justify-center text-muted-foreground">

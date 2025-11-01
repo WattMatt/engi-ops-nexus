@@ -2,8 +2,8 @@ import React from 'react';
 import { MousePointer, Hand, Ruler, Pencil, Square, Save, FolderOpen, Eye, Upload } from 'lucide-react';
 
 interface ToolbarProps {
-  activeTool: 'select' | 'pan' | 'scale' | 'mask';
-  onToolSelect: (tool: 'select' | 'pan' | 'scale' | 'mask') => void;
+  activeTool: 'select' | 'pan' | 'scale' | 'zone';
+  onToolSelect: (tool: 'select' | 'pan' | 'scale' | 'zone') => void;
   onUpload: () => void;
   onSave?: () => void;
   onLoad?: () => void;
@@ -138,10 +138,10 @@ export const MaskingToolbar: React.FC<ToolbarProps> = ({
             disabled={!isPdfLoaded}
           />
           <ToolButton
-            icon={Pencil}
-            label="Draw Mask"
-            isActive={activeTool === 'mask'}
-            onClick={() => onToolSelect('mask')}
+            icon={Square}
+            label="Draw Zone"
+            isActive={activeTool === 'zone'}
+            onClick={() => onToolSelect('zone')}
             disabled={!isPdfLoaded || !scaleSet}
           />
         </div>
@@ -155,7 +155,7 @@ export const MaskingToolbar: React.FC<ToolbarProps> = ({
             {activeTool === 'select' && <p>Click and drag to select items</p>}
             {activeTool === 'pan' && <p>Click and drag to pan the view. Use mouse wheel to zoom.</p>}
             {activeTool === 'scale' && <p>Click two points to set the scale reference line</p>}
-            {activeTool === 'mask' && <p>Draw masks over tenant areas. Click to add points, double-click to finish.</p>}
+            {activeTool === 'zone' && <p>Click to add points. Click the start point or press Enter to finish. Esc to cancel.</p>}
           </div>
         </div>
       )}

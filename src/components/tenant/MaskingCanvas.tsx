@@ -19,6 +19,8 @@ interface MaskingCanvasProps {
   existingScale: number | null;
   scaleLine: { start: Point | null; end: Point | null };
   onScaleLineUpdate: (line: { start: Point | null; end: Point | null }) => void;
+  isZoneMode: boolean;
+  onZoneComplete?: (points: Point[]) => void;
 }
 
 export const MaskingCanvas = ({ 
@@ -27,7 +29,9 @@ export const MaskingCanvas = ({
   isScaleMode,
   existingScale,
   scaleLine,
-  onScaleLineUpdate
+  onScaleLineUpdate,
+  isZoneMode,
+  onZoneComplete
 }: MaskingCanvasProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const pdfCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -38,6 +42,8 @@ export const MaskingCanvas = ({
   const [isPanning, setIsPanning] = useState(false);
   const [lastMousePos, setLastMousePos] = useState<Point>({ x: 0, y: 0 });
   const [isDrawingScale, setIsDrawingScale] = useState(false);
+  const [isDrawingZone, setIsDrawingZone] = useState(false);
+  const [currentZoneDrawing, setCurrentZoneDrawing] = useState<Point[]>([]);
 
 
   // Render PDF to canvas
@@ -71,6 +77,14 @@ export const MaskingCanvas = ({
 
     renderPdf();
   }, [pdfDoc]);
+
+  // Reset zone drawing when switching tools
+  useEffect(() => {
+    if (!isZoneMode) {
+      setIsDrawingZone(false);
+      setCurrentZoneDrawing([]);
+    }
+  }, [isZoneMode]);
 
   // Draw overlay (scale line, etc.)
   const drawOverlay = useCallback(() => {
@@ -148,12 +162,58 @@ export const MaskingCanvas = ({
       }
     }
 
+    // Draw zone polygon preview
+    if (currentZoneDrawing.length > 0) {
+      ctx.beginPath();
+      ctx.moveTo(currentZoneDrawing[0].x, currentZoneDrawing[0].y);
+      for (let i = 1; i < currentZoneDrawing.length; i++) {
+        ctx.lineTo(currentZoneDrawing[i].x, currentZoneDrawing[i].y);
+      }
+      ctx.strokeStyle = '#3b82f6';
+      ctx.lineWidth = 3 / viewState.zoom;
+      ctx.stroke();
+
+      // Draw circles at each point
+      currentZoneDrawing.forEach((point, index) => {
+        ctx.beginPath();
+        ctx.arc(point.x, point.y, 6 / viewState.zoom, 0, 2 * Math.PI);
+        ctx.fillStyle = index === 0 ? '#10b981' : '#3b82f6';
+        ctx.fill();
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 2 / viewState.zoom;
+        ctx.stroke();
+      });
+    }
+
     ctx.restore();
-  }, [viewState, scaleLine]);
+  }, [viewState, scaleLine, currentZoneDrawing]);
 
   useEffect(() => {
     drawOverlay();
   }, [drawOverlay]);
+
+  // Handle keyboard events for zone drawing
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (isZoneMode && isDrawingZone) {
+        if (e.key === 'Escape') {
+          // Cancel drawing
+          setIsDrawingZone(false);
+          setCurrentZoneDrawing([]);
+        } else if (e.key === 'Enter' && currentZoneDrawing.length >= 3) {
+          // Complete the zone
+          if (onZoneComplete) {
+            onZoneComplete(currentZoneDrawing);
+          }
+          setIsDrawingZone(false);
+          setCurrentZoneDrawing([]);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isZoneMode, isDrawingZone, currentZoneDrawing, onZoneComplete]);
 
   const getMousePos = (e: React.MouseEvent | React.WheelEvent): Point => {
     const container = containerRef.current;
@@ -172,6 +232,30 @@ export const MaskingCanvas = ({
   const handleMouseDown = (e: React.MouseEvent) => {
     const mousePos = getMousePos(e);
     const worldPos = toWorld(mousePos);
+
+    // Zone mode - drawing polygons
+    if (isZoneMode) {
+      setIsDrawingZone(true);
+      
+      // Check if clicking near the first point to close the polygon
+      if (currentZoneDrawing.length >= 3) {
+        const firstPoint = currentZoneDrawing[0];
+        const distToStart = Math.hypot(worldPos.x - firstPoint.x, worldPos.y - firstPoint.y);
+        if (distToStart < 10 / viewState.zoom) {
+          // Close the polygon
+          if (onZoneComplete) {
+            onZoneComplete(currentZoneDrawing);
+          }
+          setIsDrawingZone(false);
+          setCurrentZoneDrawing([]);
+          return;
+        }
+      }
+      
+      // Add point to current drawing
+      setCurrentZoneDrawing(prev => [...prev, worldPos]);
+      return;
+    }
 
     // Scale mode - drawing scale line
     if (isScaleMode) {
@@ -250,9 +334,14 @@ export const MaskingCanvas = ({
       onMouseLeave={handleMouseUp}
       onWheel={handleWheel}
       style={{ 
-        cursor: isScaleMode ? 'crosshair' : (isPanning ? 'grabbing' : 'grab')
+        cursor: isScaleMode ? 'crosshair' : isZoneMode ? 'crosshair' : (isPanning ? 'grabbing' : 'grab')
       }}
     >
+      {isDrawingZone && (
+        <div className="absolute bottom-5 left-1/2 -translate-x-1/2 bg-gray-900/80 text-white text-sm px-4 py-2 rounded-lg shadow-lg z-10 pointer-events-none">
+          Click to add points. Click the start point or press 'Enter' to finish. 'Esc' to cancel.
+        </div>
+      )}
       <div
         ref={canvasesWrapperRef}
         className="relative w-full h-full"
