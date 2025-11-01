@@ -45,15 +45,8 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
 
       const basePdf = files?.find(f => f.name === 'base.pdf');
       if (basePdf) {
-        // Use public URL instead of signed URL for better compatibility with PDF.js
-        const { data } = await supabase.storage
-          .from('floor-plans')
-          .getPublicUrl(`${projectId}/base.pdf`);
-        
-        if (data?.publicUrl) {
-          setPdfUrl(data.publicUrl);
-          renderPdfToImage(data.publicUrl);
-        }
+        // Download the PDF file as blob and render
+        await renderPdfFromStorage(projectId, 'base.pdf');
       }
     };
 
@@ -63,12 +56,29 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
     }
   }, [isEditMode, projectId, floorPlanRecord]);
 
-  const renderPdfToImage = async (url: string) => {
+  const renderPdfFromStorage = async (projectId: string, fileName: string) => {
     try {
-      console.log('Loading PDF from URL:', url);
-      const loadingTask = pdfjsLib.getDocument(url);
+      console.log('Downloading PDF from storage:', projectId, fileName);
+      
+      // Download the PDF file as a blob
+      const { data, error } = await supabase.storage
+        .from('floor-plans')
+        .download(`${projectId}/${fileName}`);
+
+      if (error) throw error;
+      if (!data) throw new Error('No data received from storage');
+
+      console.log('PDF downloaded, size:', data.size, 'bytes');
+
+      // Convert blob to ArrayBuffer
+      const arrayBuffer = await data.arrayBuffer();
+      console.log('ArrayBuffer created, size:', arrayBuffer.byteLength);
+
+      // Load PDF using ArrayBuffer
+      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
       const pdf = await loadingTask.promise;
-      console.log('PDF loaded, pages:', pdf.numPages);
+      console.log('PDF loaded successfully, pages:', pdf.numPages);
+
       const page = await pdf.getPage(1);
       const viewport = page.getViewport({ scale: 2 });
       
@@ -87,7 +97,7 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
         setPdfImage(imageData);
       }
     } catch (error) {
-      console.error('Error rendering PDF:', error);
+      console.error('Error rendering PDF from storage:', error);
       toast.error('Failed to load PDF. Please try uploading again.');
     }
   };
@@ -112,16 +122,9 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
 
       if (uploadError) throw uploadError;
 
-      // Get the public URL and render
-      const { data } = await supabase.storage
-        .from('floor-plans')
-        .getPublicUrl(`${projectId}/base.pdf`);
-
-      if (data?.publicUrl) {
-        setPdfUrl(data.publicUrl);
-        await renderPdfToImage(data.publicUrl);
-        toast.success('Floor plan uploaded successfully');
-      }
+      // Render the uploaded PDF
+      await renderPdfFromStorage(projectId, 'base.pdf');
+      toast.success('Floor plan uploaded successfully');
     } catch (error) {
       console.error('Upload error:', error);
       toast.error('Failed to upload floor plan');
