@@ -12,6 +12,12 @@ interface ViewState {
   offset: Point;
 }
 
+interface Zone {
+  id: string;
+  points: Point[];
+  color: string;
+}
+
 interface MaskingCanvasProps {
   pdfDoc: PDFDocumentProxy | null;
   onScaleLineComplete?: (start: Point, end: Point) => void;
@@ -44,6 +50,13 @@ export const MaskingCanvas = ({
   const [isDrawingScale, setIsDrawingScale] = useState(false);
   const [isDrawingZone, setIsDrawingZone] = useState(false);
   const [currentZoneDrawing, setCurrentZoneDrawing] = useState<Point[]>([]);
+  const [zones, setZones] = useState<Zone[]>([]);
+
+  // Zone colors (cycling through a palette)
+  const getZoneColor = (index: number): string => {
+    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+    return colors[index % colors.length];
+  };
 
 
   // Render PDF to canvas
@@ -97,6 +110,18 @@ export const MaskingCanvas = ({
     ctx.save();
     ctx.translate(viewState.offset.x, viewState.offset.y);
     ctx.scale(viewState.zoom, viewState.zoom);
+
+    // Draw completed zones
+    zones.forEach(zone => {
+      ctx.beginPath();
+      zone.points.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));
+      ctx.closePath();
+      ctx.fillStyle = `${zone.color}40`; // 25% opacity
+      ctx.fill();
+      ctx.strokeStyle = zone.color;
+      ctx.lineWidth = 2 / viewState.zoom;
+      ctx.stroke();
+    });
 
     // Draw scale line (matching floor plan markup style)
     if (scaleLine.start) {
@@ -186,7 +211,7 @@ export const MaskingCanvas = ({
     }
 
     ctx.restore();
-  }, [viewState, scaleLine, currentZoneDrawing]);
+  }, [viewState, scaleLine, currentZoneDrawing, zones]);
 
   useEffect(() => {
     drawOverlay();
@@ -202,6 +227,13 @@ export const MaskingCanvas = ({
           setCurrentZoneDrawing([]);
         } else if (e.key === 'Enter' && currentZoneDrawing.length >= 3) {
           // Complete the zone
+          const newZone: Zone = {
+            id: `zone-${Date.now()}`,
+            points: currentZoneDrawing,
+            color: getZoneColor(zones.length)
+          };
+          setZones(prev => [...prev, newZone]);
+          
           if (onZoneComplete) {
             onZoneComplete(currentZoneDrawing);
           }
@@ -243,6 +275,13 @@ export const MaskingCanvas = ({
         const distToStart = Math.hypot(worldPos.x - firstPoint.x, worldPos.y - firstPoint.y);
         if (distToStart < 10 / viewState.zoom) {
           // Close the polygon
+          const newZone: Zone = {
+            id: `zone-${Date.now()}`,
+            points: currentZoneDrawing,
+            color: getZoneColor(zones.length)
+          };
+          setZones(prev => [...prev, newZone]);
+          
           if (onZoneComplete) {
             onZoneComplete(currentZoneDrawing);
           }
