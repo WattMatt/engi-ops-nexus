@@ -157,21 +157,47 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
       return;
     }
 
+    console.log('Uploading file:', file.name, 'Size:', file.size, 'bytes');
+
+    if (file.size === 0) {
+      toast.error('The selected PDF file is empty');
+      return;
+    }
+
     setIsUploading(true);
     try {
-      const { error: uploadError } = await supabase.storage
+      // Delete existing file first to ensure clean upload
+      const { error: deleteError } = await supabase.storage
+        .from('floor-plans')
+        .remove([`${projectId}/base.pdf`]);
+
+      if (deleteError) {
+        console.warn('Could not delete existing file:', deleteError);
+      }
+
+      console.log('Uploading to storage...');
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from('floor-plans')
         .upload(`${projectId}/base.pdf`, file, {
-          upsert: true,
+          cacheControl: '3600',
+          upsert: false,
           contentType: 'application/pdf'
         });
 
       if (uploadError) throw uploadError;
+      console.log('Upload successful:', uploadData);
 
+      // Wait a moment for storage to sync
+      await new Promise(resolve => setTimeout(resolve, 500));
 
       // Render the uploaded PDF
       await renderPdfToFabric(projectId, 'base.pdf');
       toast.success('Floor plan uploaded successfully');
+      
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
     } catch (error) {
       console.error('Upload error:', error);
       toast.error('Failed to upload floor plan');
