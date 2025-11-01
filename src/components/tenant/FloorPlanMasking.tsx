@@ -7,13 +7,19 @@ import { Loader2 } from "lucide-react";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { toast } from "sonner";
 import { loadPdfFromFile, renderPdfToCanvas } from "./utils/pdfCanvas";
+import { ScaleDialog } from "./ScaleDialog";
 
 export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
   const [isEditMode, setIsEditMode] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [pdfImage, setPdfImage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isScaleMode, setIsScaleMode] = useState(false);
+  const [scaleDialogOpen, setScaleDialogOpen] = useState(false);
+  const [scaleLine, setScaleLine] = useState<{ start: { x: number; y: number } | null; end: { x: number; y: number } | null }>({ start: null, end: null });
+  const [scale, setScale] = useState<number | null>(null); // pixels per meter
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const imageRef = useRef<HTMLImageElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
@@ -126,8 +132,38 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
   };
 
   const handleScale = () => {
-    // TODO: Implement scale setting
-    toast.info("Scale functionality coming soon");
+    setIsScaleMode(true);
+    toast.info("Click two points on the floor plan to set a reference line");
+  };
+
+  const handleImageClick = (e: React.MouseEvent<HTMLImageElement>) => {
+    if (!isScaleMode || !imageRef.current) return;
+
+    const rect = imageRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+
+    if (!scaleLine.start) {
+      setScaleLine({ start: { x, y }, end: null });
+    } else {
+      setScaleLine({ ...scaleLine, end: { x, y } });
+      setScaleDialogOpen(true);
+      setIsScaleMode(false);
+    }
+  };
+
+  const handleScaleSubmit = (distance: number) => {
+    if (!scaleLine.start || !scaleLine.end) return;
+
+    const lineLength = Math.sqrt(
+      Math.pow(scaleLine.end.x - scaleLine.start.x, 2) +
+      Math.pow(scaleLine.end.y - scaleLine.start.y, 2)
+    );
+
+    const pixelsPerMeter = lineLength / distance;
+    setScale(pixelsPerMeter);
+    setScaleLine({ start: null, end: null });
+    toast.success(`Scale set: ${distance}m = ${lineLength.toFixed(0)}px`);
   };
 
   const handleMasking = () => {
@@ -204,20 +240,51 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
             />
           </div>
         ) : pdfImage ? (
-          <TransformWrapper
-            initialScale={1}
-            minScale={0.5}
-            maxScale={10}
-            centerOnInit
-          >
-            <TransformComponent wrapperClass="!w-full !h-full" contentClass="!w-full !h-full flex items-center justify-center">
-              <img 
-                src={pdfImage} 
-                alt="Floor Plan"
-                className="max-w-full max-h-full"
-              />
-            </TransformComponent>
-          </TransformWrapper>
+          <div className="relative w-full h-full">
+            <TransformWrapper
+              initialScale={1}
+              minScale={0.5}
+              maxScale={10}
+              centerOnInit
+              disabled={isScaleMode}
+            >
+              <TransformComponent wrapperClass="!w-full !h-full" contentClass="!w-full !h-full flex items-center justify-center">
+                <div className="relative">
+                  <img 
+                    ref={imageRef}
+                    src={pdfImage} 
+                    alt="Floor Plan"
+                    className={`max-w-full max-h-full ${isScaleMode ? 'cursor-crosshair' : ''}`}
+                    onClick={handleImageClick}
+                  />
+                  {scaleLine.start && (
+                    <svg 
+                      className="absolute inset-0 pointer-events-none"
+                      style={{ width: '100%', height: '100%' }}
+                    >
+                      <line
+                        x1={scaleLine.start.x}
+                        y1={scaleLine.start.y}
+                        x2={scaleLine.end?.x ?? scaleLine.start.x}
+                        y2={scaleLine.end?.y ?? scaleLine.start.y}
+                        stroke="red"
+                        strokeWidth="2"
+                      />
+                      <circle cx={scaleLine.start.x} cy={scaleLine.start.y} r="4" fill="red" />
+                      {scaleLine.end && (
+                        <circle cx={scaleLine.end.x} cy={scaleLine.end.y} r="4" fill="red" />
+                      )}
+                    </svg>
+                  )}
+                </div>
+              </TransformComponent>
+            </TransformWrapper>
+            {scale && (
+              <div className="absolute top-4 right-4 bg-background/90 border rounded-lg p-2 text-sm">
+                Scale: {scale.toFixed(2)} px/m
+              </div>
+            )}
+          </div>
         ) : floorPlanRecord?.base_pdf_url || pdfUrl ? (
           <div className="h-full flex items-center justify-center text-muted-foreground">
             <Loader2 className="w-8 h-8 animate-spin" />
@@ -243,6 +310,15 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
           </div>
         )}
       </div>
+
+      <ScaleDialog
+        isOpen={scaleDialogOpen}
+        onClose={() => {
+          setScaleDialogOpen(false);
+          setScaleLine({ start: null, end: null });
+        }}
+        onSubmit={handleScaleSubmit}
+      />
     </div>
   );
 };
