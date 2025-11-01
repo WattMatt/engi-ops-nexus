@@ -33,6 +33,8 @@ interface MaskingCanvasProps {
   activeTool: 'select' | 'pan' | 'scale' | 'zone';
   projectId: string;
   onZoneSelected?: (zoneId: string, tenantId: string | null) => void;
+  zones: Zone[];
+  onZonesChange: (zones: Zone[]) => void;
 }
 
 export const MaskingCanvas = ({ 
@@ -46,7 +48,9 @@ export const MaskingCanvas = ({
   onZoneComplete,
   activeTool,
   projectId,
-  onZoneSelected
+  onZoneSelected,
+  zones,
+  onZonesChange
 }: MaskingCanvasProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const pdfCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -59,7 +63,6 @@ export const MaskingCanvas = ({
   const [isDrawingScale, setIsDrawingScale] = useState(false);
   const [isDrawingZone, setIsDrawingZone] = useState(false);
   const [currentZoneDrawing, setCurrentZoneDrawing] = useState<Point[]>([]);
-  const [zones, setZones] = useState<Zone[]>([]);
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
   const [isDraggingZone, setIsDraggingZone] = useState(false);
   const [draggedHandle, setDraggedHandle] = useState<{zoneId: string, pointIndex: number} | null>(null);
@@ -67,7 +70,7 @@ export const MaskingCanvas = ({
   // Expose method to update zone with tenant info
   useEffect(() => {
     (window as any).updateZoneTenant = (zoneId: string, tenantId: string, tenantName: string, category: string) => {
-      setZones(prev => prev.map(zone => {
+      const updatedZones = zones.map(zone => {
         if (zone.id === zoneId) {
           return {
             ...zone,
@@ -78,13 +81,14 @@ export const MaskingCanvas = ({
           };
         }
         return zone;
-      }));
+      });
+      onZonesChange(updatedZones);
     };
 
     return () => {
       delete (window as any).updateZoneTenant;
     };
-  }, []);
+  }, [zones, onZonesChange]);
 
   // Zone colors based on category
   const getCategoryColor = (category: string | null | undefined): string => {
@@ -326,9 +330,12 @@ export const MaskingCanvas = ({
           const newZone: Zone = {
             id: `zone-${Date.now()}`,
             points: currentZoneDrawing,
-            color: getZoneColor(zones.length)
+            color: getZoneColor(zones.length),
+            tenantId: null,
+            tenantName: null,
+            category: null
           };
-          setZones(prev => [...prev, newZone]);
+          onZonesChange([...zones, newZone]);
           
           if (onZoneComplete) {
             onZoneComplete(currentZoneDrawing);
@@ -379,7 +386,7 @@ export const MaskingCanvas = ({
             tenantName: null,
             category: null
           };
-          setZones(prev => [...prev, newZone]);
+          onZonesChange([...zones, newZone]);
           
           if (onZoneComplete) {
             onZoneComplete(currentZoneDrawing);
@@ -478,26 +485,28 @@ export const MaskingCanvas = ({
       // Dragging a zone handle or the whole zone
       if (draggedHandle) {
         // Dragging a specific point
-        setZones(prevZones => prevZones.map(zone => {
+        const updatedZones = zones.map(zone => {
           if (zone.id === draggedHandle.zoneId) {
             const newPoints = [...zone.points];
             newPoints[draggedHandle.pointIndex] = worldPos;
             return { ...zone, points: newPoints };
           }
           return zone;
-        }));
+        });
+        onZonesChange(updatedZones);
       } else {
         // Dragging the whole zone
         const lastWorldPos = toWorld(lastMousePos);
         const dx = worldPos.x - lastWorldPos.x;
         const dy = worldPos.y - lastWorldPos.y;
-        setZones(prev => prev.map(zone => {
+        const updatedZones = zones.map(zone => {
           if (zone.id === selectedZoneId) {
             const newPoints = zone.points.map(p => ({ x: p.x + dx, y: p.y + dy }));
             return { ...zone, points: newPoints };
           }
           return zone;
-        }));
+        });
+        onZonesChange(updatedZones);
       }
       setLastMousePos(mousePos);
     }

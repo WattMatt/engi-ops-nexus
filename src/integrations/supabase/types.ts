@@ -3495,6 +3495,57 @@ export type Database = {
         }
         Relationships: []
       }
+      tenant_floor_plan_zones: {
+        Row: {
+          category: string | null
+          color: string
+          created_at: string
+          id: string
+          project_id: string
+          tenant_id: string | null
+          tenant_name: string | null
+          updated_at: string
+          zone_points: Json
+        }
+        Insert: {
+          category?: string | null
+          color: string
+          created_at?: string
+          id?: string
+          project_id: string
+          tenant_id?: string | null
+          tenant_name?: string | null
+          updated_at?: string
+          zone_points: Json
+        }
+        Update: {
+          category?: string | null
+          color?: string
+          created_at?: string
+          id?: string
+          project_id?: string
+          tenant_id?: string | null
+          tenant_name?: string | null
+          updated_at?: string
+          zone_points?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_floor_plan_zones_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_floor_plan_zones_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenants: {
         Row: {
           area: number | null

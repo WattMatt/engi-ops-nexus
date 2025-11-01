@@ -15,6 +15,7 @@ import type { PDFDocumentProxy } from 'pdfjs-dist';
 export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
   const [isEditMode, setIsEditMode] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [activeTool, setActiveTool] = useState<'select' | 'pan' | 'scale' | 'zone'>('select');
   const [scaleDialogOpen, setScaleDialogOpen] = useState(false);
   const [scale, setScale] = useState<number | null>(null);
@@ -26,6 +27,14 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
   const [selectedZoneTenantId, setSelectedZoneTenantId] = useState<string | null>(null);
   const [assignTenantDialogOpen, setAssignTenantDialogOpen] = useState(false);
+  const [zones, setZones] = useState<Array<{
+    id: string;
+    points: Array<{ x: number; y: number }>;
+    color: string;
+    tenantId?: string | null;
+    tenantName?: string | null;
+    category?: string | null;
+  }>>([]);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
@@ -75,6 +84,39 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
     };
 
     loadPdf();
+  }, [isEditMode, projectId]);
+
+  // Load saved zones
+  useEffect(() => {
+    if (!projectId || !isEditMode) return;
+
+    const loadZones = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('tenant_floor_plan_zones')
+          .select('*')
+          .eq('project_id', projectId);
+
+        if (error) throw error;
+
+        if (data) {
+          const loadedZones = data.map(zone => ({
+            id: zone.id,
+            points: zone.zone_points as Array<{ x: number; y: number }>,
+            color: zone.color,
+            tenantId: zone.tenant_id,
+            tenantName: zone.tenant_name,
+            category: zone.category
+          }));
+          setZones(loadedZones);
+        }
+      } catch (error) {
+        console.error('Error loading zones:', error);
+        toast.error('Failed to load saved zones');
+      }
+    };
+
+    loadZones();
   }, [isEditMode, projectId]);
 
   const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -182,6 +224,44 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
     }
   };
 
+  const handleSaveZones = async () => {
+    setIsSaving(true);
+    try {
+      // Delete existing zones for this project
+      const { error: deleteError } = await supabase
+        .from('tenant_floor_plan_zones')
+        .delete()
+        .eq('project_id', projectId);
+
+      if (deleteError) throw deleteError;
+
+      // Insert all zones
+      if (zones.length > 0) {
+        const zonesData = zones.map(zone => ({
+          project_id: projectId,
+          zone_points: zone.points,
+          tenant_id: zone.tenantId,
+          tenant_name: zone.tenantName,
+          category: zone.category,
+          color: zone.color
+        }));
+
+        const { error: insertError } = await supabase
+          .from('tenant_floor_plan_zones')
+          .insert(zonesData);
+
+        if (insertError) throw insertError;
+      }
+
+      toast.success(`Saved ${zones.length} zone(s)`);
+    } catch (error) {
+      console.error('Error saving zones:', error);
+      toast.error('Failed to save zones');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -208,6 +288,8 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
             onUpload={() => fileInputRef.current?.click()}
             isPdfLoaded={!!pdfDoc}
             scaleSet={!!scale}
+            onSave={handleSaveZones}
+            isSaving={isSaving}
           />
         )}
         
@@ -256,11 +338,12 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
                 onZoneComplete={(points) => {
                   console.log('Zone completed with points:', points);
                   toast.success(`Zone created with ${points.length} points`);
-                  // TODO: Save zone to database
                 }}
                 activeTool={activeTool}
                 projectId={projectId}
                 onZoneSelected={handleZoneSelected}
+                zones={zones}
+                onZonesChange={setZones}
               />
             ) : isEditMode ? (
               <div className="h-full flex items-center justify-center text-muted-foreground">

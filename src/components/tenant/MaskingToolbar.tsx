@@ -10,6 +10,7 @@ interface ToolbarProps {
   onPreview?: () => void;
   isPdfLoaded: boolean;
   scaleSet: boolean;
+  isSaving?: boolean;
 }
 
 interface ToolButtonProps {
@@ -61,7 +62,8 @@ export const MaskingToolbar: React.FC<ToolbarProps> = ({
   onLoad,
   onPreview,
   isPdfLoaded,
-  scaleSet
+  scaleSet,
+  isSaving
 }) => {
   return (
     <div className="w-64 bg-card border-r border-border flex flex-col h-full">
@@ -82,9 +84,9 @@ export const MaskingToolbar: React.FC<ToolbarProps> = ({
           {onSave && (
             <ActionButton
               icon={Save}
-              label="Save Masked Plan"
+              label={isSaving ? "Saving..." : "Save Floor Plan"}
               onClick={onSave}
-              disabled={!isPdfLoaded || !scaleSet}
+              disabled={!isPdfLoaded || isSaving}
             />
           )}
           {onLoad && (
