@@ -118,6 +118,7 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
       // Load the PDF
       const doc = await loadPdfFromFile(file);
       setPdfDoc(doc);
+      setIsEditMode(true); // Automatically enter edit mode
       
       toast.success('Floor plan uploaded successfully');
       
