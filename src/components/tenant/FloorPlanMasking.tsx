@@ -1,25 +1,29 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Eye, Edit, Ruler, Pencil, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
-import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { toast } from "sonner";
 import { loadPdfFromFile, renderPdfToCanvas } from "./utils/pdfCanvas";
 import { ScaleDialog } from "./ScaleDialog";
+import { Canvas as FabricCanvas, Line, Circle, FabricImage } from "fabric";
 
 export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
   const [isEditMode, setIsEditMode] = useState(false);
-  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
-  const [pdfImage, setPdfImage] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isScaleMode, setIsScaleMode] = useState(false);
   const [scaleDialogOpen, setScaleDialogOpen] = useState(false);
-  const [scaleLine, setScaleLine] = useState<{ start: { x: number; y: number } | null; end: { x: number; y: number } | null }>({ start: null, end: null });
   const [scale, setScale] = useState<number | null>(null); // pixels per meter
+  const [fabricCanvas, setFabricCanvas] = useState<FabricCanvas | null>(null);
+  const [scaleLine, setScaleLine] = useState<{ start: { x: number; y: number } | null; end: { x: number; y: number } | null }>({ 
+    start: null, 
+    end: null 
+  });
+  const [currentScaleLine, setCurrentScaleLine] = useState<Line | null>(null);
+  
+  const canvasContainerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const imageRef = useRef<HTMLImageElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
@@ -37,34 +41,48 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
     }
   });
 
-  // Load PDF when in edit mode or when composite is a PDF
+  // Initialize Fabric.js canvas
   useEffect(() => {
-    if (!projectId) return;
+    if (!canvasRef.current || !canvasContainerRef.current) return;
+
+    const container = canvasContainerRef.current;
+    const canvas = new FabricCanvas(canvasRef.current, {
+      width: container.clientWidth,
+      height: container.clientHeight,
+      backgroundColor: '#f5f5f5',
+    });
+
+    setFabricCanvas(canvas);
+
+    return () => {
+      canvas.dispose();
+    };
+  }, []);
+
+  // Load PDF when in edit mode
+  useEffect(() => {
+    if (!projectId || !fabricCanvas || !isEditMode) return;
 
     const loadPdf = async () => {
-      // Check if base.pdf exists first
       const { data: files } = await supabase.storage
         .from('floor-plans')
         .list(`${projectId}`);
 
       const basePdf = files?.find(f => f.name === 'base.pdf');
       if (basePdf) {
-        // Download the PDF file as blob and render
-        await renderPdfFromStorage(projectId, 'base.pdf');
+        await renderPdfToFabric(projectId, 'base.pdf');
       }
     };
 
-    // Load PDF if in edit mode OR if we have a record but no valid image
-    if (isEditMode || (floorPlanRecord && !floorPlanRecord.composite_image_url?.endsWith('.png'))) {
-      loadPdf();
-    }
-  }, [isEditMode, projectId, floorPlanRecord]);
+    loadPdf();
+  }, [isEditMode, projectId, fabricCanvas]);
 
-  const renderPdfFromStorage = async (projectId: string, fileName: string) => {
+  const renderPdfToFabric = async (projectId: string, fileName: string) => {
+    if (!fabricCanvas) return;
+
     try {
       console.log('Downloading PDF from storage:', projectId, fileName);
       
-      // Download the PDF file as a blob
       const { data, error } = await supabase.storage
         .from('floor-plans')
         .download(`${projectId}/${fileName}`);
@@ -74,26 +92,33 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
 
       console.log('PDF downloaded, size:', data.size, 'bytes');
 
-      // Create a File object from the blob
       const file = new File([data], fileName, { type: 'application/pdf' });
-      
-      // Load PDF using the utility function (same as floor plan designer)
       const pdfDoc = await loadPdfFromFile(file);
       console.log('PDF loaded successfully, pages:', pdfDoc.numPages);
 
-      // Create a temporary canvas to render the PDF
       const tempCanvas = document.createElement('canvas');
-      
-      // Render PDF to canvas using the utility function
       await renderPdfToCanvas(pdfDoc, { 
         pdfCanvas: tempCanvas,
         scale: 2.0 
       });
       
-      // Convert canvas to image data URL
       const imageData = tempCanvas.toDataURL();
       console.log('PDF rendered to image successfully');
-      setPdfImage(imageData);
+
+      // Set background image in Fabric canvas
+      FabricImage.fromURL(imageData).then((img) => {
+        if (!fabricCanvas) return;
+        
+        // Scale image to fit canvas
+        const scale = Math.min(
+          fabricCanvas.width! / img.width!,
+          fabricCanvas.height! / img.height!
+        );
+        
+        img.scale(scale);
+        fabricCanvas.backgroundImage = img;
+        fabricCanvas.renderAll();
+      });
     } catch (error) {
       console.error('Error rendering PDF from storage:', error);
       toast.error('Failed to load PDF. Please try uploading again.');
@@ -120,8 +145,9 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
 
       if (uploadError) throw uploadError;
 
+
       // Render the uploaded PDF
-      await renderPdfFromStorage(projectId, 'base.pdf');
+      await renderPdfToFabric(projectId, 'base.pdf');
       toast.success('Floor plan uploaded successfully');
     } catch (error) {
       console.error('Upload error:', error);
@@ -131,29 +157,62 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
     }
   };
 
+  const handleCanvasMouseDown = useCallback((e: any) => {
+    if (!isScaleMode || !fabricCanvas) return;
+
+    const pointer = fabricCanvas.getScenePoint(e.e);
+
+    if (!scaleLine.start) {
+      // First point
+      setScaleLine({ start: { x: pointer.x, y: pointer.y }, end: null });
+      
+      const line = new Line([pointer.x, pointer.y, pointer.x, pointer.y], {
+        stroke: 'red',
+        strokeWidth: 2,
+        selectable: false,
+        evented: false,
+      });
+      
+      fabricCanvas.add(line);
+      setCurrentScaleLine(line);
+    } else {
+      // Second point - complete the line
+      setScaleLine({ ...scaleLine, end: { x: pointer.x, y: pointer.y } });
+      setScaleDialogOpen(true);
+      setIsScaleMode(false);
+      fabricCanvas.defaultCursor = 'default';
+    }
+  }, [isScaleMode, scaleLine, fabricCanvas]);
+
+  const handleCanvasMouseMove = useCallback((e: any) => {
+    if (!isScaleMode || !scaleLine.start || !currentScaleLine || !fabricCanvas) return;
+
+    const pointer = fabricCanvas.getScenePoint(e.e);
+    currentScaleLine.set({ x2: pointer.x, y2: pointer.y });
+    fabricCanvas.renderAll();
+  }, [isScaleMode, scaleLine.start, currentScaleLine, fabricCanvas]);
+
+  useEffect(() => {
+    if (!fabricCanvas) return;
+
+    fabricCanvas.on('mouse:down', handleCanvasMouseDown);
+    fabricCanvas.on('mouse:move', handleCanvasMouseMove);
+
+    return () => {
+      fabricCanvas.off('mouse:down', handleCanvasMouseDown);
+      fabricCanvas.off('mouse:move', handleCanvasMouseMove);
+    };
+  }, [fabricCanvas, handleCanvasMouseDown, handleCanvasMouseMove]);
+
   const handleScale = () => {
+    if (!fabricCanvas) return;
     setIsScaleMode(true);
+    fabricCanvas.defaultCursor = 'crosshair';
     toast.info("Click two points on the floor plan to set a reference line");
   };
 
-  const handleImageClick = (e: React.MouseEvent<HTMLImageElement>) => {
-    if (!isScaleMode || !imageRef.current) return;
-
-    const rect = imageRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-
-    if (!scaleLine.start) {
-      setScaleLine({ start: { x, y }, end: null });
-    } else {
-      setScaleLine({ ...scaleLine, end: { x, y } });
-      setScaleDialogOpen(true);
-      setIsScaleMode(false);
-    }
-  };
-
   const handleScaleSubmit = (distance: number) => {
-    if (!scaleLine.start || !scaleLine.end) return;
+    if (!scaleLine.start || !scaleLine.end || !fabricCanvas) return;
 
     const lineLength = Math.sqrt(
       Math.pow(scaleLine.end.x - scaleLine.start.x, 2) +
@@ -162,7 +221,34 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
 
     const pixelsPerMeter = lineLength / distance;
     setScale(pixelsPerMeter);
+    
+    // Add circles at endpoints
+    const startCircle = new Circle({
+      left: scaleLine.start.x,
+      top: scaleLine.start.y,
+      radius: 4,
+      fill: 'red',
+      originX: 'center',
+      originY: 'center',
+      selectable: false,
+      evented: false,
+    });
+
+    const endCircle = new Circle({
+      left: scaleLine.end.x,
+      top: scaleLine.end.y,
+      radius: 4,
+      fill: 'red',
+      originX: 'center',
+      originY: 'center',
+      selectable: false,
+      evented: false,
+    });
+
+    fabricCanvas.add(startCircle, endCircle);
+    
     setScaleLine({ start: null, end: null });
+    setCurrentScaleLine(null);
     toast.success(`Scale set: ${distance}m = ${lineLength.toFixed(0)}px`);
   };
 
@@ -230,7 +316,7 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
         </div>
       </div>
       
-      <div className="flex-1 overflow-hidden p-4">
+      <div ref={canvasContainerRef} className="flex-1 overflow-hidden p-4 bg-muted/30">
         {!isEditMode && floorPlanRecord?.composite_image_url?.endsWith('.png') ? (
           <div className="h-full flex items-center justify-center">
             <img 
@@ -239,55 +325,14 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
               className="max-w-full max-h-full object-contain shadow-lg"
             />
           </div>
-        ) : pdfImage ? (
+        ) : fabricCanvas ? (
           <div className="relative w-full h-full">
-            <TransformWrapper
-              initialScale={1}
-              minScale={0.5}
-              maxScale={10}
-              centerOnInit
-              disabled={isScaleMode}
-            >
-              <TransformComponent wrapperClass="!w-full !h-full" contentClass="!w-full !h-full flex items-center justify-center">
-                <div className="relative">
-                  <img 
-                    ref={imageRef}
-                    src={pdfImage} 
-                    alt="Floor Plan"
-                    className={`max-w-full max-h-full ${isScaleMode ? 'cursor-crosshair' : ''}`}
-                    onClick={handleImageClick}
-                  />
-                  {scaleLine.start && (
-                    <svg 
-                      className="absolute inset-0 pointer-events-none"
-                      style={{ width: '100%', height: '100%' }}
-                    >
-                      <line
-                        x1={scaleLine.start.x}
-                        y1={scaleLine.start.y}
-                        x2={scaleLine.end?.x ?? scaleLine.start.x}
-                        y2={scaleLine.end?.y ?? scaleLine.start.y}
-                        stroke="red"
-                        strokeWidth="2"
-                      />
-                      <circle cx={scaleLine.start.x} cy={scaleLine.start.y} r="4" fill="red" />
-                      {scaleLine.end && (
-                        <circle cx={scaleLine.end.x} cy={scaleLine.end.y} r="4" fill="red" />
-                      )}
-                    </svg>
-                  )}
-                </div>
-              </TransformComponent>
-            </TransformWrapper>
+            <canvas ref={canvasRef} className="border border-border shadow-lg" />
             {scale && (
               <div className="absolute top-4 right-4 bg-background/90 border rounded-lg p-2 text-sm">
                 Scale: {scale.toFixed(2)} px/m
               </div>
             )}
-          </div>
-        ) : floorPlanRecord?.base_pdf_url || pdfUrl ? (
-          <div className="h-full flex items-center justify-center text-muted-foreground">
-            <Loader2 className="w-8 h-8 animate-spin" />
           </div>
         ) : (
           <div className="h-full flex items-center justify-center text-muted-foreground">
@@ -316,6 +361,10 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
         onClose={() => {
           setScaleDialogOpen(false);
           setScaleLine({ start: null, end: null });
+          if (currentScaleLine && fabricCanvas) {
+            fabricCanvas.remove(currentScaleLine);
+            setCurrentScaleLine(null);
+          }
         }}
         onSubmit={handleScaleSubmit}
       />
