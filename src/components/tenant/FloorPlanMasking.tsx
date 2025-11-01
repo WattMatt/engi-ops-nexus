@@ -63,22 +63,31 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
   }, [isEditMode, projectId, floorPlanRecord]);
 
   const renderPdfToImage = async (url: string) => {
-    const loadingTask = pdfjsLib.getDocument(url);
-    const pdf = await loadingTask.promise;
-    const page = await pdf.getPage(1);
-    const viewport = page.getViewport({ scale: 2 });
-    
-    const tempCanvas = document.createElement('canvas');
-    const context = tempCanvas.getContext('2d');
-    tempCanvas.height = viewport.height;
-    tempCanvas.width = viewport.width;
+    try {
+      console.log('Loading PDF from URL:', url);
+      const loadingTask = pdfjsLib.getDocument(url);
+      const pdf = await loadingTask.promise;
+      console.log('PDF loaded, pages:', pdf.numPages);
+      const page = await pdf.getPage(1);
+      const viewport = page.getViewport({ scale: 2 });
+      
+      const tempCanvas = document.createElement('canvas');
+      const context = tempCanvas.getContext('2d');
+      tempCanvas.height = viewport.height;
+      tempCanvas.width = viewport.width;
 
-    if (context) {
-      await page.render({
-        canvasContext: context,
-        viewport: viewport,
-      } as any).promise;
-      setPdfImage(tempCanvas.toDataURL());
+      if (context) {
+        await page.render({
+          canvasContext: context,
+          viewport: viewport,
+        } as any).promise;
+        const imageData = tempCanvas.toDataURL();
+        console.log('PDF rendered to image successfully');
+        setPdfImage(imageData);
+      }
+    } catch (error) {
+      console.error('Error rendering PDF:', error);
+      toast.error('Failed to load PDF. Please try uploading again.');
     }
   };
 
