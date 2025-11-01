@@ -37,21 +37,8 @@ export const MaskingCanvas = ({
   const [viewState, setViewState] = useState<ViewState>({ zoom: 1, offset: { x: 0, y: 0 } });
   const [isPanning, setIsPanning] = useState(false);
   const [lastMousePos, setLastMousePos] = useState<Point>({ x: 0, y: 0 });
-  const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
   const [isDrawingScale, setIsDrawingScale] = useState(false);
 
-  // Initialize canvas size
-  useEffect(() => {
-    const updateSize = () => {
-      if (!containerRef.current) return;
-      const rect = containerRef.current.getBoundingClientRect();
-      setCanvasSize({ width: rect.width, height: rect.height });
-    };
-    
-    updateSize();
-    window.addEventListener('resize', updateSize);
-    return () => window.removeEventListener('resize', updateSize);
-  }, []);
 
   // Render PDF to canvas
   useEffect(() => {
@@ -62,17 +49,9 @@ export const MaskingCanvas = ({
       const renderScale = 2.0;
       const viewport = page.getViewport({ scale: renderScale });
       const pdfCanvas = pdfCanvasRef.current!;
-      const drawingCanvas = overlayCanvasRef.current;
       
       pdfCanvas.width = viewport.width;
       pdfCanvas.height = viewport.height;
-      
-      if (drawingCanvas) {
-        drawingCanvas.width = viewport.width;
-        drawingCanvas.height = viewport.height;
-      }
-      
-      setCanvasSize({ width: viewport.width, height: viewport.height });
       
       const context = pdfCanvas.getContext('2d');
       if (!context) return;
@@ -276,21 +255,23 @@ export const MaskingCanvas = ({
     >
       <div
         ref={canvasesWrapperRef}
-        style={{
-          position: 'absolute',
-          transform: `translate(${viewState.offset.x}px, ${viewState.offset.y}px) scale(${viewState.zoom})`,
-          transformOrigin: '0 0',
-        }}
+        className="relative w-full h-full"
       >
-        <canvas ref={pdfCanvasRef} />
+        <canvas 
+          ref={pdfCanvasRef} 
+          className="absolute top-0 left-0" 
+          style={{ 
+            transform: `translate(${viewState.offset.x}px, ${viewState.offset.y}px) scale(${viewState.zoom})`, 
+            transformOrigin: 'top left' 
+          }}
+        />
+        <canvas 
+          ref={overlayCanvasRef} 
+          width={containerRef.current?.clientWidth} 
+          height={containerRef.current?.clientHeight} 
+          className="absolute top-0 left-0" 
+        />
       </div>
-      
-      <canvas
-        ref={overlayCanvasRef}
-        width={canvasSize.width}
-        height={canvasSize.height}
-        className="absolute inset-0 pointer-events-none"
-      />
 
       {existingScale && (
         <div className="absolute top-4 right-4 bg-background/90 border rounded-lg p-2 text-sm">
