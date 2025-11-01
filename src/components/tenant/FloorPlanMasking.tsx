@@ -43,8 +43,16 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
 
   // Initialize Fabric.js canvas
   useEffect(() => {
-    if (!canvasRef.current || !canvasContainerRef.current || !isEditMode) return;
+    if (!canvasRef.current || !canvasContainerRef.current || !isEditMode) {
+      console.log('Canvas init skipped:', { 
+        hasCanvasRef: !!canvasRef.current, 
+        hasContainerRef: !!canvasContainerRef.current, 
+        isEditMode 
+      });
+      return;
+    }
 
+    console.log('Initializing Fabric canvas');
     const container = canvasContainerRef.current;
     const canvas = new FabricCanvas(canvasRef.current, {
       width: container.clientWidth,
@@ -52,9 +60,11 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
       backgroundColor: '#f5f5f5',
     });
 
+    console.log('Fabric canvas created:', canvas.width, 'x', canvas.height);
     setFabricCanvas(canvas);
 
     return () => {
+      console.log('Disposing fabric canvas');
       canvas.dispose();
       setFabricCanvas(null);
     };
@@ -62,13 +72,22 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
 
   // Load PDF when canvas is ready and in edit mode
   useEffect(() => {
-    if (!projectId || !fabricCanvas || !isEditMode) return;
+    if (!projectId || !fabricCanvas || !isEditMode) {
+      console.log('PDF load skipped:', { 
+        hasProjectId: !!projectId, 
+        hasFabricCanvas: !!fabricCanvas, 
+        isEditMode 
+      });
+      return;
+    }
 
     const loadPdf = async () => {
+      console.log('Checking for existing PDF...');
       const { data: files } = await supabase.storage
         .from('floor-plans')
         .list(`${projectId}`);
 
+      console.log('Files in storage:', files);
       const basePdf = files?.find(f => f.name === 'base.pdf');
       if (basePdf) {
         console.log('Loading PDF from storage');
@@ -329,12 +348,17 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
               className="max-w-full max-h-full object-contain shadow-lg"
             />
           </div>
-        ) : fabricCanvas ? (
+        ) : isEditMode ? (
           <div className="relative w-full h-full">
             <canvas ref={canvasRef} className="border border-border shadow-lg" />
             {scale && (
               <div className="absolute top-4 right-4 bg-background/90 border rounded-lg p-2 text-sm">
                 Scale: {scale.toFixed(2)} px/m
+              </div>
+            )}
+            {!fabricCanvas && (
+              <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
+                <Loader2 className="w-8 h-8 animate-spin" />
               </div>
             )}
           </div>
