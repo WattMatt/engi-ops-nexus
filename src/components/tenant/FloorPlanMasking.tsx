@@ -238,6 +238,7 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
                   toast.success(`Zone created with ${points.length} points`);
                   // TODO: Save zone to database
                 }}
+                activeTool={activeTool}
               />
             ) : isEditMode ? (
               <div className="h-full flex items-center justify-center text-muted-foreground">

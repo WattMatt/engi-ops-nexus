@@ -27,6 +27,7 @@ interface MaskingCanvasProps {
   onScaleLineUpdate: (line: { start: Point | null; end: Point | null }) => void;
   isZoneMode: boolean;
   onZoneComplete?: (points: Point[]) => void;
+  activeTool: 'select' | 'pan' | 'scale' | 'zone';
 }
 
 export const MaskingCanvas = ({ 
@@ -37,7 +38,8 @@ export const MaskingCanvas = ({
   scaleLine,
   onScaleLineUpdate,
   isZoneMode,
-  onZoneComplete
+  onZoneComplete,
+  activeTool
 }: MaskingCanvasProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const pdfCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -51,11 +53,27 @@ export const MaskingCanvas = ({
   const [isDrawingZone, setIsDrawingZone] = useState(false);
   const [currentZoneDrawing, setCurrentZoneDrawing] = useState<Point[]>([]);
   const [zones, setZones] = useState<Zone[]>([]);
+  const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
+  const [isDraggingZone, setIsDraggingZone] = useState(false);
+  const [draggedHandle, setDraggedHandle] = useState<{zoneId: string, pointIndex: number} | null>(null);
 
   // Zone colors (cycling through a palette)
   const getZoneColor = (index: number): string => {
     const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
     return colors[index % colors.length];
+  };
+
+  // Check if a point is inside a polygon
+  const isPointInPolygon = (point: Point, polygon: Point[]): boolean => {
+    let inside = false;
+    for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+      const xi = polygon[i].x, yi = polygon[i].y;
+      const xj = polygon[j].x, yj = polygon[j].y;
+      const intersect = ((yi > point.y) !== (yj > point.y)) &&
+        (point.x < (xj - xi) * (point.y - yi) / (yj - yi) + xi);
+      if (intersect) inside = !inside;
+    }
+    return inside;
   };
 
 
@@ -118,9 +136,24 @@ export const MaskingCanvas = ({
       ctx.closePath();
       ctx.fillStyle = `${zone.color}40`; // 25% opacity
       ctx.fill();
-      ctx.strokeStyle = zone.color;
-      ctx.lineWidth = 2 / viewState.zoom;
+      
+      const isSelected = zone.id === selectedZoneId;
+      ctx.strokeStyle = isSelected ? '#34D399' : zone.color; // Emerald-400 for selection
+      ctx.lineWidth = (isSelected ? 3 : 2) / viewState.zoom;
       ctx.stroke();
+
+      // Draw resize handles for selected zone
+      if (isSelected) {
+        zone.points.forEach(p => {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 7 / viewState.zoom, 0, 2 * Math.PI);
+          ctx.fillStyle = '#34D399';
+          ctx.fill();
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 2 / viewState.zoom;
+          ctx.stroke();
+        });
+      }
     });
 
     // Draw scale line (matching floor plan markup style)
@@ -211,7 +244,7 @@ export const MaskingCanvas = ({
     }
 
     ctx.restore();
-  }, [viewState, scaleLine, currentZoneDrawing, zones]);
+  }, [viewState, scaleLine, currentZoneDrawing, zones, selectedZoneId]);
 
   useEffect(() => {
     drawOverlay();
@@ -296,6 +329,37 @@ export const MaskingCanvas = ({
       return;
     }
 
+    // Select mode - check for zone selection and handle dragging
+    if (activeTool === 'select' && !isScaleMode) {
+      // First check if clicking on a handle of the selected zone
+      if (selectedZoneId) {
+        const selectedZone = zones.find(z => z.id === selectedZoneId);
+        if (selectedZone) {
+          for (let i = 0; i < selectedZone.points.length; i++) {
+            const point = selectedZone.points[i];
+            const handleRadius = 7 / viewState.zoom;
+            if (Math.hypot(worldPos.x - point.x, worldPos.y - point.y) < handleRadius) {
+              setIsDraggingZone(true);
+              setDraggedHandle({ zoneId: selectedZone.id, pointIndex: i });
+              return;
+            }
+          }
+        }
+      }
+
+      // Check if clicking on a zone to select it
+      const clickedZone = zones.slice().reverse().find(zone => isPointInPolygon(worldPos, zone.points));
+      if (clickedZone) {
+        setSelectedZoneId(clickedZone.id);
+        setIsDraggingZone(true);
+        return;
+      }
+
+      // Clicked on empty space - deselect
+      setSelectedZoneId(null);
+      return;
+    }
+
     // Scale mode - drawing scale line
     if (isScaleMode) {
       if (!isDrawingScale) {
@@ -325,9 +389,9 @@ export const MaskingCanvas = ({
 
   const handleMouseMove = (e: React.MouseEvent) => {
     const mousePos = getMousePos(e);
+    const worldPos = toWorld(mousePos);
 
     if (isScaleMode && isDrawingScale && scaleLine.start) {
-      const worldPos = toWorld(mousePos);
       onScaleLineUpdate({ ...scaleLine, end: worldPos });
     }
     
@@ -339,12 +403,42 @@ export const MaskingCanvas = ({
         offset: { x: prev.offset.x + dx, y: prev.offset.y + dy }
       }));
       setLastMousePos(mousePos);
+    } else if (isDraggingZone && selectedZoneId) {
+      // Dragging a zone handle or the whole zone
+      if (draggedHandle) {
+        // Dragging a specific point
+        setZones(prevZones => prevZones.map(zone => {
+          if (zone.id === draggedHandle.zoneId) {
+            const newPoints = [...zone.points];
+            newPoints[draggedHandle.pointIndex] = worldPos;
+            return { ...zone, points: newPoints };
+          }
+          return zone;
+        }));
+      } else {
+        // Dragging the whole zone
+        const lastWorldPos = toWorld(lastMousePos);
+        const dx = worldPos.x - lastWorldPos.x;
+        const dy = worldPos.y - lastWorldPos.y;
+        setZones(prev => prev.map(zone => {
+          if (zone.id === selectedZoneId) {
+            const newPoints = zone.points.map(p => ({ x: p.x + dx, y: p.y + dy }));
+            return { ...zone, points: newPoints };
+          }
+          return zone;
+        }));
+      }
+      setLastMousePos(mousePos);
     }
   };
 
   const handleMouseUp = () => {
     if (isPanning) {
       setIsPanning(false);
+    }
+    if (isDraggingZone) {
+      setIsDraggingZone(false);
+      setDraggedHandle(null);
     }
   };
 
