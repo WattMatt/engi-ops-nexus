@@ -105,28 +105,68 @@ export const MaskingCanvas = ({
     ctx.translate(viewState.offset.x, viewState.offset.y);
     ctx.scale(viewState.zoom, viewState.zoom);
 
-    // Draw scale line
+    // Draw scale line (matching floor plan markup style)
     if (scaleLine.start) {
+      const endPoint = scaleLine.end ?? scaleLine.start;
+      
+      // Calculate angle and perpendicular for dimension ticks
+      const angle = Math.atan2(endPoint.y - scaleLine.start.y, endPoint.x - scaleLine.start.x);
+      const perpAngle = angle + Math.PI / 2;
+      const tickLength = 15 / viewState.zoom;
+
+      // Draw the main line (thicker and bright yellow)
       ctx.beginPath();
-      ctx.strokeStyle = '#ef4444';
-      ctx.lineWidth = 2 / viewState.zoom;
       ctx.moveTo(scaleLine.start.x, scaleLine.start.y);
-      ctx.lineTo(
-        scaleLine.end?.x ?? scaleLine.start.x,
-        scaleLine.end?.y ?? scaleLine.start.y
-      );
+      ctx.lineTo(endPoint.x, endPoint.y);
+      ctx.strokeStyle = '#ffff00'; // Bright yellow
+      ctx.lineWidth = 5 / viewState.zoom;
       ctx.stroke();
 
-      // Draw endpoints
-      const drawCircle = (p: Point) => {
+      // Draw dimension ticks at endpoints (perpendicular lines)
+      ctx.strokeStyle = '#ffff00';
+      ctx.lineWidth = 3 / viewState.zoom;
+      
+      // Start tick
+      ctx.beginPath();
+      ctx.moveTo(
+        scaleLine.start.x - Math.cos(perpAngle) * tickLength,
+        scaleLine.start.y - Math.sin(perpAngle) * tickLength
+      );
+      ctx.lineTo(
+        scaleLine.start.x + Math.cos(perpAngle) * tickLength,
+        scaleLine.start.y + Math.sin(perpAngle) * tickLength
+      );
+      ctx.stroke();
+      
+      // End tick
+      if (scaleLine.end) {
         ctx.beginPath();
-        ctx.arc(p.x, p.y, 4 / viewState.zoom, 0, Math.PI * 2);
-        ctx.fillStyle = '#ef4444';
-        ctx.fill();
-      };
+        ctx.moveTo(
+          scaleLine.end.x - Math.cos(perpAngle) * tickLength,
+          scaleLine.end.y - Math.sin(perpAngle) * tickLength
+        );
+        ctx.lineTo(
+          scaleLine.end.x + Math.cos(perpAngle) * tickLength,
+          scaleLine.end.y + Math.sin(perpAngle) * tickLength
+        );
+        ctx.stroke();
+      }
 
-      drawCircle(scaleLine.start);
-      if (scaleLine.end) drawCircle(scaleLine.end);
+      // Draw endpoints (filled circles with outline)
+      ctx.fillStyle = '#ffff00';
+      ctx.beginPath();
+      ctx.arc(scaleLine.start.x, scaleLine.start.y, 8 / viewState.zoom, 0, 2 * Math.PI);
+      ctx.fill();
+      ctx.strokeStyle = '#000000';
+      ctx.lineWidth = 2 / viewState.zoom;
+      ctx.stroke();
+      
+      if (scaleLine.end) {
+        ctx.beginPath();
+        ctx.arc(scaleLine.end.x, scaleLine.end.y, 8 / viewState.zoom, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.stroke();
+      }
     }
 
     ctx.restore();
