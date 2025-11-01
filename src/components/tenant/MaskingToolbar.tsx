@@ -144,13 +144,6 @@ export const MaskingToolbar: React.FC<ToolbarProps> = ({
             onClick={() => onToolSelect('mask')}
             disabled={!isPdfLoaded || !scaleSet}
           />
-          <ToolButton
-            icon={Square}
-            label="Draw Zone"
-            isActive={activeTool === 'mask'}
-            onClick={() => onToolSelect('mask')}
-            disabled={!isPdfLoaded || !scaleSet}
-          />
         </div>
       </div>
 
