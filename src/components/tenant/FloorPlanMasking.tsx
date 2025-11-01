@@ -45,13 +45,14 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
 
       const basePdf = files?.find(f => f.name === 'base.pdf');
       if (basePdf) {
+        // Use public URL instead of signed URL for better compatibility with PDF.js
         const { data } = await supabase.storage
           .from('floor-plans')
-          .createSignedUrl(`${projectId}/base.pdf`, 3600);
+          .getPublicUrl(`${projectId}/base.pdf`);
         
-        if (data?.signedUrl) {
-          setPdfUrl(data.signedUrl);
-          renderPdfToImage(data.signedUrl);
+        if (data?.publicUrl) {
+          setPdfUrl(data.publicUrl);
+          renderPdfToImage(data.publicUrl);
         }
       }
     };
@@ -111,14 +112,14 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
 
       if (uploadError) throw uploadError;
 
-      // Get the signed URL and render
+      // Get the public URL and render
       const { data } = await supabase.storage
         .from('floor-plans')
-        .createSignedUrl(`${projectId}/base.pdf`, 3600);
+        .getPublicUrl(`${projectId}/base.pdf`);
 
-      if (data?.signedUrl) {
-        setPdfUrl(data.signedUrl);
-        await renderPdfToImage(data.signedUrl);
+      if (data?.publicUrl) {
+        setPdfUrl(data.publicUrl);
+        await renderPdfToImage(data.publicUrl);
         toast.success('Floor plan uploaded successfully');
       }
     } catch (error) {
