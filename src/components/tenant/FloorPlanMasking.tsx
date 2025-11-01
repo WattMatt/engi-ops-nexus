@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Eye, Edit, Ruler, Pencil, Upload } from "lucide-react";
+import { Eye, Edit, Upload } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
@@ -8,12 +8,13 @@ import { toast } from "sonner";
 import { loadPdfFromFile } from "./utils/pdfCanvas";
 import { ScaleDialog } from "./ScaleDialog";
 import { MaskingCanvas } from "./MaskingCanvas";
+import { MaskingToolbar } from "./MaskingToolbar";
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 
 export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
   const [isEditMode, setIsEditMode] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [isScaleMode, setIsScaleMode] = useState(false);
+  const [activeTool, setActiveTool] = useState<'select' | 'pan' | 'scale' | 'mask'>('select');
   const [scaleDialogOpen, setScaleDialogOpen] = useState(false);
   const [scale, setScale] = useState<number | null>(null);
   const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null);
@@ -132,9 +133,17 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
     }
   };
 
-  const handleScale = () => {
-    setIsScaleMode(true);
-    toast.info("Click two points on the floor plan to set a reference line");
+  const handleToolSelect = (tool: 'select' | 'pan' | 'scale' | 'mask') => {
+    setActiveTool(tool);
+    if (tool === 'scale') {
+      toast.info("Click two points on the floor plan to set a reference line");
+    } else if (tool === 'mask') {
+      toast.info("Draw masks over tenant areas");
+    }
+    // Reset scale line when switching tools
+    if (tool !== 'scale') {
+      setScaleLine({ start: null, end: null });
+    }
   };
 
   const handleScaleSubmit = (distance: number) => {
@@ -148,13 +157,8 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
     const pixelsPerMeter = lineLength / distance;
     setScale(pixelsPerMeter);
     setScaleLine({ start: null, end: null });
-    setIsScaleMode(false);
+    setActiveTool('select'); // Switch back to select after setting scale
     toast.success(`Scale set: ${distance}m = ${lineLength.toFixed(0)}px`);
-  };
-
-  const handleMasking = () => {
-    // TODO: Implement masking drawing
-    toast.info("Masking functionality coming soon");
   };
 
   if (isLoading) {
@@ -174,93 +178,86 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
         onChange={handleUpload}
         className="hidden"
       />
-      <div className="flex items-center justify-between p-4 border-b">
-        <h3 className="text-lg font-semibold">Floor Plan Masking</h3>
-        <div className="flex gap-2">
-          {!isEditMode ? (
-            <Button onClick={() => setIsEditMode(true)} variant="outline">
-              <Edit className="w-4 h-4 mr-2" />
-              Edit Floor Plan
-            </Button>
-          ) : (
-            <>
-              <Button 
-                onClick={() => fileInputRef.current?.click()} 
-                variant="outline" 
-                size="sm"
-                disabled={isUploading}
-              >
-                {isUploading ? (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                ) : (
-                  <Upload className="w-4 h-4 mr-2" />
-                )}
-                Upload PDF
-              </Button>
-              <Button onClick={handleScale} variant="outline" size="sm">
-                <Ruler className="w-4 h-4 mr-2" />
-                Scale
-              </Button>
-              <Button onClick={handleMasking} variant="outline" size="sm">
-                <Pencil className="w-4 h-4 mr-2" />
-                Masking
-              </Button>
-              {floorPlanRecord?.composite_image_url && (
-                <Button onClick={() => setIsEditMode(false)} variant="outline" size="sm">
-                  <Eye className="w-4 h-4 mr-2" />
-                  Preview
-                </Button>
-              )}
-            </>
-          )}
-        </div>
-      </div>
       
-      <div className="flex-1 overflow-hidden">
-        {!isEditMode && floorPlanRecord?.composite_image_url?.endsWith('.png') ? (
-          <div className="h-full flex items-center justify-center p-4">
-            <img 
-              src={floorPlanRecord.composite_image_url} 
-              alt="Masked Floor Plan"
-              className="max-w-full max-h-full object-contain shadow-lg"
-            />
-          </div>
-        ) : isEditMode && pdfDoc ? (
-          <MaskingCanvas 
-            pdfDoc={pdfDoc}
-            onScaleLineComplete={(start, end) => {
-              setScaleLine({ start, end });
-              setScaleDialogOpen(true);
-            }}
-            isScaleMode={isScaleMode}
-            existingScale={scale}
-            scaleLine={scaleLine}
-            onScaleLineUpdate={setScaleLine}
+      <div className="flex flex-1 overflow-hidden">
+        {isEditMode && (
+          <MaskingToolbar
+            activeTool={activeTool}
+            onToolSelect={handleToolSelect}
+            onUpload={() => fileInputRef.current?.click()}
+            isPdfLoaded={!!pdfDoc}
+            scaleSet={!!scale}
           />
-        ) : isEditMode ? (
-          <div className="h-full flex items-center justify-center text-muted-foreground">
-            <Loader2 className="w-8 h-8 animate-spin" />
-          </div>
-        ) : (
-          <div className="h-full flex items-center justify-center text-muted-foreground">
-            <div className="text-center">
-              <p className="mb-4">No floor plan available. Upload a PDF to get started.</p>
-              <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
-                {isUploading ? (
-                  <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Uploading...
-                  </>
-                ) : (
-                  <>
-                    <Upload className="w-4 h-4 mr-2" />
-                    Upload PDF
-                  </>
-                )}
-              </Button>
+        )}
+        
+        <div className="flex-1 flex flex-col">
+          {/* Top toolbar with mode toggle */}
+          <div className="flex items-center justify-between p-4 border-b">
+            <h3 className="text-lg font-semibold">Floor Plan Masking</h3>
+            <div className="flex gap-2">
+              {!isEditMode ? (
+                <Button onClick={() => setIsEditMode(true)} variant="outline">
+                  <Edit className="w-4 h-4 mr-2" />
+                  Edit Floor Plan
+                </Button>
+              ) : (
+                floorPlanRecord?.composite_image_url && (
+                  <Button onClick={() => setIsEditMode(false)} variant="outline" size="sm">
+                    <Eye className="w-4 h-4 mr-2" />
+                    Preview
+                  </Button>
+                )
+              )}
             </div>
           </div>
-        )}
+          
+          <div className="flex-1 overflow-hidden">
+            {!isEditMode && floorPlanRecord?.composite_image_url?.endsWith('.png') ? (
+              <div className="h-full flex items-center justify-center p-4">
+                <img 
+                  src={floorPlanRecord.composite_image_url} 
+                  alt="Masked Floor Plan"
+                  className="max-w-full max-h-full object-contain shadow-lg"
+                />
+              </div>
+            ) : isEditMode && pdfDoc ? (
+              <MaskingCanvas 
+                pdfDoc={pdfDoc}
+                onScaleLineComplete={(start, end) => {
+                  setScaleLine({ start, end });
+                  setScaleDialogOpen(true);
+                }}
+                isScaleMode={activeTool === 'scale'}
+                existingScale={scale}
+                scaleLine={scaleLine}
+                onScaleLineUpdate={setScaleLine}
+              />
+            ) : isEditMode ? (
+              <div className="h-full flex items-center justify-center text-muted-foreground">
+                <Loader2 className="w-8 h-8 animate-spin" />
+              </div>
+            ) : (
+              <div className="h-full flex items-center justify-center text-muted-foreground">
+                <div className="text-center">
+                  <p className="mb-4">No floor plan available. Upload a PDF to get started.</p>
+                  <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+                    {isUploading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4 mr-2" />
+                        Upload PDF
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
       <ScaleDialog
