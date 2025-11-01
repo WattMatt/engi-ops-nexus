@@ -152,17 +152,9 @@ export const MaskingCanvas = ({
 
   const handleMouseDown = (e: React.MouseEvent) => {
     const mousePos = getMousePos(e);
-    setLastMousePos(mousePos);
-    
-    // Middle mouse button always pans
-    if (e.button === 1) {
-      setIsPanning(true);
-      e.preventDefault();
-      return;
-    }
-
     const worldPos = toWorld(mousePos);
 
+    // Scale mode - drawing scale line
     if (isScaleMode) {
       if (!isDrawingScale) {
         setIsDrawingScale(true);
@@ -179,8 +171,14 @@ export const MaskingCanvas = ({
       return;
     }
 
-    // Pan mode
-    setIsPanning(true);
+    // Middle mouse button OR left click when not in scale mode - pan
+    if (e.button === 1 || e.button === 0) {
+      setIsPanning(true);
+      setLastMousePos(mousePos);
+      if (e.button === 1) {
+        e.preventDefault();
+      }
+    }
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
@@ -189,7 +187,9 @@ export const MaskingCanvas = ({
     if (isScaleMode && isDrawingScale && scaleLine.start) {
       const worldPos = toWorld(mousePos);
       onScaleLineUpdate({ ...scaleLine, end: worldPos });
-    } else if (isPanning) {
+    }
+    
+    if (isPanning) {
       const dx = mousePos.x - lastMousePos.x;
       const dy = mousePos.y - lastMousePos.y;
       setViewState(prev => ({
@@ -201,7 +201,9 @@ export const MaskingCanvas = ({
   };
 
   const handleMouseUp = () => {
-    setIsPanning(false);
+    if (isPanning) {
+      setIsPanning(false);
+    }
   };
 
   const handleWheel = (e: React.WheelEvent) => {
@@ -234,7 +236,9 @@ export const MaskingCanvas = ({
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
       onWheel={handleWheel}
-      style={{ cursor: isScaleMode ? 'crosshair' : isPanning ? 'grabbing' : 'grab' }}
+      style={{ 
+        cursor: isScaleMode ? 'crosshair' : (isPanning ? 'grabbing' : 'grab')
+      }}
     >
       <div
         ref={canvasesWrapperRef}
