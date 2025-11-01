@@ -9,6 +9,7 @@ import { loadPdfFromFile } from "./utils/pdfCanvas";
 import { ScaleDialog } from "./ScaleDialog";
 import { MaskingCanvas } from "./MaskingCanvas";
 import { MaskingToolbar } from "./MaskingToolbar";
+import { AssignTenantDialog } from "./AssignTenantDialog";
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 
 export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
@@ -22,6 +23,9 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
     start: null, 
     end: null 
   });
+  const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
+  const [selectedZoneTenantId, setSelectedZoneTenantId] = useState<string | null>(null);
+  const [assignTenantDialogOpen, setAssignTenantDialogOpen] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
@@ -162,6 +166,22 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
     toast.success(`Scale set: ${distance}m = ${lineLength.toFixed(0)}px`);
   };
 
+  const handleZoneSelected = (zoneId: string, tenantId: string | null) => {
+    setSelectedZoneId(zoneId);
+    setSelectedZoneTenantId(tenantId);
+    // Auto-open assign dialog when zone is selected in select mode
+    if (activeTool === 'select') {
+      setAssignTenantDialogOpen(true);
+    }
+  };
+
+  const handleAssignTenant = (tenantId: string, tenantName: string, category: string) => {
+    if (selectedZoneId && (window as any).updateZoneTenant) {
+      (window as any).updateZoneTenant(selectedZoneId, tenantId, tenantName, category);
+      toast.success(`Zone assigned to ${tenantName}`);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -239,6 +259,8 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
                   // TODO: Save zone to database
                 }}
                 activeTool={activeTool}
+                projectId={projectId}
+                onZoneSelected={handleZoneSelected}
               />
             ) : isEditMode ? (
               <div className="h-full flex items-center justify-center text-muted-foreground">
@@ -275,6 +297,15 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
           setScaleLine({ start: null, end: null });
         }}
         onSubmit={handleScaleSubmit}
+      />
+
+      <AssignTenantDialog
+        isOpen={assignTenantDialogOpen}
+        onClose={() => setAssignTenantDialogOpen(false)}
+        projectId={projectId}
+        zoneId={selectedZoneId || ""}
+        currentTenantId={selectedZoneTenantId}
+        onAssign={handleAssignTenant}
       />
     </div>
   );

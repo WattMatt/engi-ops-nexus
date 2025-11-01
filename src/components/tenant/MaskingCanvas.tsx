@@ -16,6 +16,9 @@ interface Zone {
   id: string;
   points: Point[];
   color: string;
+  tenantId?: string | null;
+  tenantName?: string | null;
+  category?: string | null;
 }
 
 interface MaskingCanvasProps {
@@ -28,6 +31,8 @@ interface MaskingCanvasProps {
   isZoneMode: boolean;
   onZoneComplete?: (points: Point[]) => void;
   activeTool: 'select' | 'pan' | 'scale' | 'zone';
+  projectId: string;
+  onZoneSelected?: (zoneId: string, tenantId: string | null) => void;
 }
 
 export const MaskingCanvas = ({ 
@@ -39,7 +44,9 @@ export const MaskingCanvas = ({
   onScaleLineUpdate,
   isZoneMode,
   onZoneComplete,
-  activeTool
+  activeTool,
+  projectId,
+  onZoneSelected
 }: MaskingCanvasProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const pdfCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -57,8 +64,47 @@ export const MaskingCanvas = ({
   const [isDraggingZone, setIsDraggingZone] = useState(false);
   const [draggedHandle, setDraggedHandle] = useState<{zoneId: string, pointIndex: number} | null>(null);
 
-  // Zone colors (cycling through a palette)
-  const getZoneColor = (index: number): string => {
+  // Expose method to update zone with tenant info
+  useEffect(() => {
+    (window as any).updateZoneTenant = (zoneId: string, tenantId: string, tenantName: string, category: string) => {
+      setZones(prev => prev.map(zone => {
+        if (zone.id === zoneId) {
+          return {
+            ...zone,
+            tenantId,
+            tenantName,
+            category,
+            color: getCategoryColor(category)
+          };
+        }
+        return zone;
+      }));
+    };
+
+    return () => {
+      delete (window as any).updateZoneTenant;
+    };
+  }, []);
+
+  // Zone colors based on category
+  const getCategoryColor = (category: string | null | undefined): string => {
+    if (!category) {
+      return '#9ca3af'; // gray-400 for unassigned
+    }
+    const colors = {
+      standard: '#3b82f6', // blue
+      fast_food: '#ef4444', // red
+      restaurant: '#10b981', // emerald
+      national: '#9333ea'   // purple
+    };
+    return colors[category as keyof typeof colors] || '#9ca3af';
+  };
+
+  // Get zone color - use category color if tenant assigned, otherwise cycling colors
+  const getZoneColor = (index: number, category?: string | null): string => {
+    if (category) {
+      return getCategoryColor(category);
+    }
     const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
     return colors[index % colors.length];
   };
@@ -141,6 +187,23 @@ export const MaskingCanvas = ({
       ctx.strokeStyle = isSelected ? '#34D399' : zone.color; // Emerald-400 for selection
       ctx.lineWidth = (isSelected ? 3 : 2) / viewState.zoom;
       ctx.stroke();
+
+      // Draw zone label (tenant name) at center
+      if (zone.tenantName) {
+        const centerX = zone.points.reduce((sum, p) => sum + p.x, 0) / zone.points.length;
+        const centerY = zone.points.reduce((sum, p) => sum + p.y, 0) / zone.points.length;
+        
+        ctx.save();
+        ctx.font = `bold ${14 / viewState.zoom}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#ffffff';
+        ctx.strokeStyle = zone.color;
+        ctx.lineWidth = 3 / viewState.zoom;
+        ctx.strokeText(zone.tenantName, centerX, centerY);
+        ctx.fillText(zone.tenantName, centerX, centerY);
+        ctx.restore();
+      }
 
       // Draw resize handles for selected zone
       if (isSelected) {
@@ -311,7 +374,10 @@ export const MaskingCanvas = ({
           const newZone: Zone = {
             id: `zone-${Date.now()}`,
             points: currentZoneDrawing,
-            color: getZoneColor(zones.length)
+            color: getZoneColor(zones.length),
+            tenantId: null,
+            tenantName: null,
+            category: null
           };
           setZones(prev => [...prev, newZone]);
           
@@ -352,6 +418,11 @@ export const MaskingCanvas = ({
       if (clickedZone) {
         setSelectedZoneId(clickedZone.id);
         setIsDraggingZone(true);
+        
+        // Notify parent about zone selection
+        if (onZoneSelected) {
+          onZoneSelected(clickedZone.id, clickedZone.tenantId || null);
+        }
         return;
       }
 
