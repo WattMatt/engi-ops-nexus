@@ -1,6 +1,5 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
-import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 import { renderPdfToCanvas } from './utils/pdfCanvas';
 
 interface Point {
@@ -33,10 +32,13 @@ export const MaskingCanvas = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const pdfCanvasRef = useRef<HTMLCanvasElement>(null);
   const overlayCanvasRef = useRef<HTMLCanvasElement>(null);
+  const canvasesWrapperRef = useRef<HTMLDivElement>(null);
   
+  const [viewState, setViewState] = useState<ViewState>({ zoom: 1, offset: { x: 0, y: 0 } });
+  const [isPanning, setIsPanning] = useState(false);
+  const [lastMousePos, setLastMousePos] = useState<Point>({ x: 0, y: 0 });
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
-  const [currentZoom, setCurrentZoom] = useState(1);
-  const [currentOffset, setCurrentOffset] = useState({ x: 0, y: 0 });
+  const [isDrawingScale, setIsDrawingScale] = useState(false);
 
   // Initialize canvas size
   useEffect(() => {
@@ -53,14 +55,39 @@ export const MaskingCanvas = ({
 
   // Render PDF to canvas
   useEffect(() => {
-    if (!pdfDoc || !pdfCanvasRef.current) return;
+    if (!pdfDoc || !pdfCanvasRef.current || !containerRef.current) return;
 
     const renderPdf = async () => {
-      console.log('Rendering PDF to canvas');
-      await renderPdfToCanvas(pdfDoc, {
-        pdfCanvas: pdfCanvasRef.current!,
-        scale: 2.0
-      });
+      const page = await pdfDoc.getPage(1);
+      const renderScale = 2.0;
+      const viewport = page.getViewport({ scale: renderScale });
+      const pdfCanvas = pdfCanvasRef.current!;
+      const drawingCanvas = overlayCanvasRef.current;
+      
+      pdfCanvas.width = viewport.width;
+      pdfCanvas.height = viewport.height;
+      
+      if (drawingCanvas) {
+        drawingCanvas.width = viewport.width;
+        drawingCanvas.height = viewport.height;
+      }
+      
+      setCanvasSize({ width: viewport.width, height: viewport.height });
+      
+      const context = pdfCanvas.getContext('2d');
+      if (!context) return;
+      
+      // @ts-ignore - The pdfjs-dist types can be misaligned
+      await page.render({ canvasContext: context, viewport: viewport }).promise;
+      
+      // Calculate initial view state to fit the PDF
+      const containerWidth = containerRef.current!.clientWidth;
+      const containerHeight = containerRef.current!.clientHeight;
+      const initialZoom = Math.min(containerWidth / viewport.width, containerHeight / viewport.height) * 0.95;
+      const initialOffsetX = (containerWidth - viewport.width * initialZoom) / 2;
+      const initialOffsetY = (containerHeight - viewport.height * initialZoom) / 2;
+      
+      setViewState({ zoom: initialZoom, offset: { x: initialOffsetX, y: initialOffsetY } });
     };
 
     renderPdf();
@@ -75,14 +102,14 @@ export const MaskingCanvas = ({
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     
     ctx.save();
-    ctx.translate(currentOffset.x, currentOffset.y);
-    ctx.scale(currentZoom, currentZoom);
+    ctx.translate(viewState.offset.x, viewState.offset.y);
+    ctx.scale(viewState.zoom, viewState.zoom);
 
     // Draw scale line
     if (scaleLine.start) {
       ctx.beginPath();
       ctx.strokeStyle = '#ef4444';
-      ctx.lineWidth = 2 / currentZoom;
+      ctx.lineWidth = 2 / viewState.zoom;
       ctx.moveTo(scaleLine.start.x, scaleLine.start.y);
       ctx.lineTo(
         scaleLine.end?.x ?? scaleLine.start.x,
@@ -93,7 +120,7 @@ export const MaskingCanvas = ({
       // Draw endpoints
       const drawCircle = (p: Point) => {
         ctx.beginPath();
-        ctx.arc(p.x, p.y, 4 / currentZoom, 0, Math.PI * 2);
+        ctx.arc(p.x, p.y, 4 / viewState.zoom, 0, Math.PI * 2);
         ctx.fillStyle = '#ef4444';
         ctx.fill();
       };
@@ -103,13 +130,13 @@ export const MaskingCanvas = ({
     }
 
     ctx.restore();
-  }, [currentZoom, currentOffset, scaleLine]);
+  }, [viewState, scaleLine]);
 
   useEffect(() => {
     drawOverlay();
   }, [drawOverlay]);
 
-  const getMousePos = (e: React.MouseEvent): Point => {
+  const getMousePos = (e: React.MouseEvent | React.WheelEvent): Point => {
     const container = containerRef.current;
     if (!container) return { x: 0, y: 0 };
     const rect = container.getBoundingClientRect();
@@ -118,78 +145,107 @@ export const MaskingCanvas = ({
 
   const toWorld = (p: Point): Point => {
     return {
-      x: (p.x - currentOffset.x) / currentZoom,
-      y: (p.y - currentOffset.y) / currentZoom,
+      x: (p.x - viewState.offset.x) / viewState.zoom,
+      y: (p.y - viewState.offset.y) / viewState.zoom,
     };
   };
 
-  const handleCanvasClick = (e: React.MouseEvent) => {
-    if (!isScaleMode) return;
-
+  const handleMouseDown = (e: React.MouseEvent) => {
     const mousePos = getMousePos(e);
-    const worldPos = toWorld(mousePos);
+    setLastMousePos(mousePos);
     
-    if (!scaleLine.start) {
-      onScaleLineUpdate({ start: worldPos, end: null });
-    } else {
-      onScaleLineUpdate({ ...scaleLine, end: worldPos });
-      
-      // Notify parent that scale line is complete
-      if (onScaleLineComplete) {
-        onScaleLineComplete(scaleLine.start, worldPos);
+    // Middle mouse button always pans
+    if (e.button === 1) {
+      setIsPanning(true);
+      e.preventDefault();
+      return;
+    }
+
+    const worldPos = toWorld(mousePos);
+
+    if (isScaleMode) {
+      if (!isDrawingScale) {
+        setIsDrawingScale(true);
+        onScaleLineUpdate({ start: worldPos, end: null });
+      } else {
+        onScaleLineUpdate({ ...scaleLine, end: worldPos });
+        
+        // Notify parent that scale line is complete
+        if (onScaleLineComplete && scaleLine.start) {
+          onScaleLineComplete(scaleLine.start, worldPos);
+        }
+        setIsDrawingScale(false);
       }
+      return;
+    }
+
+    // Pan mode
+    setIsPanning(true);
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    const mousePos = getMousePos(e);
+
+    if (isScaleMode && isDrawingScale && scaleLine.start) {
+      const worldPos = toWorld(mousePos);
+      onScaleLineUpdate({ ...scaleLine, end: worldPos });
+    } else if (isPanning) {
+      const dx = mousePos.x - lastMousePos.x;
+      const dy = mousePos.y - lastMousePos.y;
+      setViewState(prev => ({
+        ...prev,
+        offset: { x: prev.offset.x + dx, y: prev.offset.y + dy }
+      }));
+      setLastMousePos(mousePos);
     }
   };
 
-  const handleCanvasMove = (e: React.MouseEvent) => {
-    if (isScaleMode && scaleLine.start && !scaleLine.end) {
-      const mousePos = getMousePos(e);
-      const worldPos = toWorld(mousePos);
-      onScaleLineUpdate({ ...scaleLine, end: worldPos });
-    }
+  const handleMouseUp = () => {
+    setIsPanning(false);
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    e.preventDefault();
+    const mousePos = getMousePos(e);
+    const worldPosBefore = toWorld(mousePos);
+    
+    const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+    const newZoom = Math.max(0.1, Math.min(10, viewState.zoom * zoomFactor));
+    
+    const worldPosAfter = {
+      x: (mousePos.x - viewState.offset.x) / newZoom,
+      y: (mousePos.y - viewState.offset.y) / newZoom,
+    };
+    
+    const newOffset = {
+      x: viewState.offset.x + (worldPosBefore.x - worldPosAfter.x) * newZoom,
+      y: viewState.offset.y + (worldPosBefore.y - worldPosAfter.y) * newZoom,
+    };
+    
+    setViewState({ zoom: newZoom, offset: newOffset });
   };
 
   return (
     <div 
       ref={containerRef}
       className="relative w-full h-full overflow-hidden bg-muted/30"
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+      onWheel={handleWheel}
+      style={{ cursor: isScaleMode ? 'crosshair' : isPanning ? 'grabbing' : 'grab' }}
     >
-      <TransformWrapper
-        disabled={isScaleMode}
-        initialScale={1}
-        minScale={0.1}
-        maxScale={10}
-        wheel={{ step: 0.1 }}
-        panning={{ disabled: isScaleMode }}
-        onTransformed={(ref) => {
-          setCurrentZoom(ref.state.scale);
-          setCurrentOffset({ x: ref.state.positionX, y: ref.state.positionY });
+      <div
+        ref={canvasesWrapperRef}
+        style={{
+          position: 'absolute',
+          transform: `translate(${viewState.offset.x}px, ${viewState.offset.y}px) scale(${viewState.zoom})`,
+          transformOrigin: '0 0',
         }}
       >
-        {({ zoomIn, zoomOut, resetTransform }) => (
-          <TransformComponent
-            wrapperStyle={{
-              width: '100%',
-              height: '100%',
-            }}
-            contentStyle={{
-              width: '100%',
-              height: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <div
-              onClick={handleCanvasClick}
-              onMouseMove={handleCanvasMove}
-              style={{ cursor: isScaleMode ? 'crosshair' : 'grab' }}
-            >
-              <canvas ref={pdfCanvasRef} />
-            </div>
-          </TransformComponent>
-        )}
-      </TransformWrapper>
+        <canvas ref={pdfCanvasRef} />
+      </div>
       
       <canvas
         ref={overlayCanvasRef}
