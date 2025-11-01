@@ -5,10 +5,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2 } from "lucide-react";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
-import * as pdfjsLib from "pdfjs-dist";
 import { toast } from "sonner";
-
-pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+import { loadPdfFromFile, renderPdfToCanvas } from "./utils/pdfCanvas";
 
 export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
   const [isEditMode, setIsEditMode] = useState(false);
@@ -70,32 +68,26 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
 
       console.log('PDF downloaded, size:', data.size, 'bytes');
 
-      // Convert blob to ArrayBuffer
-      const arrayBuffer = await data.arrayBuffer();
-      console.log('ArrayBuffer created, size:', arrayBuffer.byteLength);
-
-      // Load PDF using ArrayBuffer
-      const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
-      const pdf = await loadingTask.promise;
-      console.log('PDF loaded successfully, pages:', pdf.numPages);
-
-      const page = await pdf.getPage(1);
-      const viewport = page.getViewport({ scale: 2 });
+      // Create a File object from the blob
+      const file = new File([data], fileName, { type: 'application/pdf' });
       
-      const tempCanvas = document.createElement('canvas');
-      const context = tempCanvas.getContext('2d');
-      tempCanvas.height = viewport.height;
-      tempCanvas.width = viewport.width;
+      // Load PDF using the utility function (same as floor plan designer)
+      const pdfDoc = await loadPdfFromFile(file);
+      console.log('PDF loaded successfully, pages:', pdfDoc.numPages);
 
-      if (context) {
-        await page.render({
-          canvasContext: context,
-          viewport: viewport,
-        } as any).promise;
-        const imageData = tempCanvas.toDataURL();
-        console.log('PDF rendered to image successfully');
-        setPdfImage(imageData);
-      }
+      // Create a temporary canvas to render the PDF
+      const tempCanvas = document.createElement('canvas');
+      
+      // Render PDF to canvas using the utility function
+      await renderPdfToCanvas(pdfDoc, { 
+        pdfCanvas: tempCanvas,
+        scale: 2.0 
+      });
+      
+      // Convert canvas to image data URL
+      const imageData = tempCanvas.toDataURL();
+      console.log('PDF rendered to image successfully');
+      setPdfImage(imageData);
     } catch (error) {
       console.error('Error rendering PDF from storage:', error);
       toast.error('Failed to load PDF. Please try uploading again.');
