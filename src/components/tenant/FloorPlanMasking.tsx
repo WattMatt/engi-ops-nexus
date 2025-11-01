@@ -43,7 +43,7 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
 
   // Initialize Fabric.js canvas
   useEffect(() => {
-    if (!canvasRef.current || !canvasContainerRef.current) return;
+    if (!canvasRef.current || !canvasContainerRef.current || !isEditMode) return;
 
     const container = canvasContainerRef.current;
     const canvas = new FabricCanvas(canvasRef.current, {
@@ -56,10 +56,11 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
 
     return () => {
       canvas.dispose();
+      setFabricCanvas(null);
     };
-  }, []);
+  }, [isEditMode]);
 
-  // Load PDF when in edit mode
+  // Load PDF when canvas is ready and in edit mode
   useEffect(() => {
     if (!projectId || !fabricCanvas || !isEditMode) return;
 
@@ -70,7 +71,10 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
 
       const basePdf = files?.find(f => f.name === 'base.pdf');
       if (basePdf) {
+        console.log('Loading PDF from storage');
         await renderPdfToFabric(projectId, 'base.pdf');
+      } else {
+        console.log('No base.pdf found in storage');
       }
     };
 
