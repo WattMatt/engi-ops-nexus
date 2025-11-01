@@ -14,16 +14,20 @@ interface ViewState {
 
 interface MaskingCanvasProps {
   pdfDoc: PDFDocumentProxy | null;
-  onScaleSet?: (pixelsPerMeter: number) => void;
+  onScaleLineComplete?: (start: Point, end: Point) => void;
   isScaleMode: boolean;
   existingScale: number | null;
+  scaleLine: { start: Point | null; end: Point | null };
+  onScaleLineUpdate: (line: { start: Point | null; end: Point | null }) => void;
 }
 
 export const MaskingCanvas = ({ 
   pdfDoc, 
-  onScaleSet, 
+  onScaleLineComplete,
   isScaleMode,
-  existingScale 
+  existingScale,
+  scaleLine,
+  onScaleLineUpdate
 }: MaskingCanvasProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const pdfCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -32,10 +36,6 @@ export const MaskingCanvas = ({
   const [viewState, setViewState] = useState<ViewState>({ zoom: 1, offset: { x: 0, y: 0 } });
   const [isPanning, setIsPanning] = useState(false);
   const [lastMousePos, setLastMousePos] = useState<Point>({ x: 0, y: 0 });
-  const [scaleLine, setScaleLine] = useState<{ start: Point | null; end: Point | null }>({ 
-    start: null, 
-    end: null 
-  });
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
 
   // Initialize canvas size
@@ -147,19 +147,13 @@ export const MaskingCanvas = ({
     if (isScaleMode) {
       const worldPos = toWorld(mousePos);
       if (!scaleLine.start) {
-        setScaleLine({ start: worldPos, end: null });
+        onScaleLineUpdate({ start: worldPos, end: null });
       } else {
-        setScaleLine({ ...scaleLine, end: worldPos });
+        onScaleLineUpdate({ ...scaleLine, end: worldPos });
         
-        // Calculate distance and trigger callback
-        const dx = worldPos.x - scaleLine.start.x;
-        const dy = worldPos.y - scaleLine.start.y;
-        const lineLength = Math.sqrt(dx * dx + dy * dy);
-        
-        // This will open the dialog in the parent component
-        if (onScaleSet && lineLength > 0) {
-          // Parent will handle the dialog and call back with the distance
-          // For now, just keep the line visible
+        // Notify parent that scale line is complete
+        if (onScaleLineComplete) {
+          onScaleLineComplete(scaleLine.start, worldPos);
         }
       }
     } else {
@@ -174,7 +168,7 @@ export const MaskingCanvas = ({
 
     if (isScaleMode && scaleLine.start && !scaleLine.end) {
       const worldPos = toWorld(mousePos);
-      setScaleLine({ ...scaleLine, end: worldPos });
+      onScaleLineUpdate({ ...scaleLine, end: worldPos });
     } else if (isPanning) {
       const dx = mousePos.x - lastMousePos.x;
       const dy = mousePos.y - lastMousePos.y;

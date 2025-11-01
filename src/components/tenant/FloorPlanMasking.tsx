@@ -228,9 +228,14 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
         ) : isEditMode && pdfDoc ? (
           <MaskingCanvas 
             pdfDoc={pdfDoc}
-            onScaleSet={() => setScaleDialogOpen(true)}
+            onScaleLineComplete={(start, end) => {
+              setScaleLine({ start, end });
+              setScaleDialogOpen(true);
+            }}
             isScaleMode={isScaleMode}
             existingScale={scale}
+            scaleLine={scaleLine}
+            onScaleLineUpdate={setScaleLine}
           />
         ) : isEditMode ? (
           <div className="h-full flex items-center justify-center text-muted-foreground">
