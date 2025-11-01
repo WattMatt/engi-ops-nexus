@@ -207,7 +207,7 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
           <TransformWrapper
             initialScale={1}
             minScale={0.5}
-            maxScale={4}
+            maxScale={10}
             centerOnInit
           >
             <TransformComponent wrapperClass="!w-full !h-full" contentClass="!w-full !h-full flex items-center justify-center">
