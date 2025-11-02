@@ -6,6 +6,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
+import { ReportOptionsDialog, ReportOptions } from "./ReportOptionsDialog";
 
 interface Tenant {
   id: string;
@@ -33,6 +34,7 @@ interface TenantReportGeneratorProps {
 
 export const TenantReportGenerator = ({ tenants, projectId, projectName }: TenantReportGeneratorProps) => {
   const [isGenerating, setIsGenerating] = useState(false);
+  const [optionsDialogOpen, setOptionsDialogOpen] = useState(false);
   const queryClient = useQueryClient();
 
   const getCategoryLabel = (category: string) => {
@@ -303,7 +305,7 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
     doc.text(`Page 2`, pageWidth / 2, pageHeight - 10, { align: 'center' });
   };
 
-  const generateTenantSchedule = (doc: jsPDF) => {
+  const generateTenantSchedule = (doc: jsPDF, options: ReportOptions) => {
     doc.addPage();
     
     // Page header
@@ -312,37 +314,47 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
     doc.setFont("helvetica", "bold");
     doc.text("Tenant Schedule", 20, 25);
 
-    const tableData = tenants.map(tenant => [
-      tenant.shop_number,
-      tenant.shop_name,
-      getCategoryLabel(tenant.shop_category),
-      tenant.area?.toFixed(2) || '-',
-      tenant.db_size_allowance || '-',
-      tenant.db_size_scope_of_work || '-',
-      tenant.sow_received ? '✓' : '✗',
-      tenant.layout_received ? '✓' : '✗',
-      tenant.db_ordered ? '✓' : '✗',
-      tenant.db_cost ? `R${tenant.db_cost.toFixed(2)}` : '-',
-      tenant.lighting_ordered ? '✓' : '✗',
-      tenant.lighting_cost ? `R${tenant.lighting_cost.toFixed(2)}` : '-',
-    ]);
+    // Build headers and data based on selected fields
+    const headers: string[] = [];
+    const fieldKeys: string[] = [];
+
+    if (options.tenantFields.shopNumber) { headers.push('Shop #'); fieldKeys.push('shopNumber'); }
+    if (options.tenantFields.shopName) { headers.push('Shop Name'); fieldKeys.push('shopName'); }
+    if (options.tenantFields.category) { headers.push('Category'); fieldKeys.push('category'); }
+    if (options.tenantFields.area) { headers.push('Area (m²)'); fieldKeys.push('area'); }
+    if (options.tenantFields.dbAllowance) { headers.push('DB Allow.'); fieldKeys.push('dbAllowance'); }
+    if (options.tenantFields.dbScopeOfWork) { headers.push('DB SOW'); fieldKeys.push('dbScopeOfWork'); }
+    if (options.tenantFields.sowReceived) { headers.push('SOW'); fieldKeys.push('sowReceived'); }
+    if (options.tenantFields.layoutReceived) { headers.push('Layout'); fieldKeys.push('layoutReceived'); }
+    if (options.tenantFields.dbOrdered) { headers.push('DB Ord'); fieldKeys.push('dbOrdered'); }
+    if (options.tenantFields.dbCost) { headers.push('DB Cost'); fieldKeys.push('dbCost'); }
+    if (options.tenantFields.lightingOrdered) { headers.push('Light Ord'); fieldKeys.push('lightingOrdered'); }
+    if (options.tenantFields.lightingCost) { headers.push('Light Cost'); fieldKeys.push('lightingCost'); }
+
+    const tableData = tenants.map(tenant => {
+      const row: string[] = [];
+      fieldKeys.forEach(key => {
+        switch(key) {
+          case 'shopNumber': row.push(tenant.shop_number); break;
+          case 'shopName': row.push(tenant.shop_name); break;
+          case 'category': row.push(getCategoryLabel(tenant.shop_category)); break;
+          case 'area': row.push(tenant.area?.toFixed(2) || '-'); break;
+          case 'dbAllowance': row.push(tenant.db_size_allowance || '-'); break;
+          case 'dbScopeOfWork': row.push(tenant.db_size_scope_of_work || '-'); break;
+          case 'sowReceived': row.push(tenant.sow_received ? '✓' : '✗'); break;
+          case 'layoutReceived': row.push(tenant.layout_received ? '✓' : '✗'); break;
+          case 'dbOrdered': row.push(tenant.db_ordered ? '✓' : '✗'); break;
+          case 'dbCost': row.push(tenant.db_cost ? `R${tenant.db_cost.toFixed(2)}` : '-'); break;
+          case 'lightingOrdered': row.push(tenant.lighting_ordered ? '✓' : '✗'); break;
+          case 'lightingCost': row.push(tenant.lighting_cost ? `R${tenant.lighting_cost.toFixed(2)}` : '-'); break;
+        }
+      });
+      return row;
+    });
 
     autoTable(doc, {
       startY: 35,
-      head: [[
-        'Shop #',
-        'Shop Name',
-        'Category',
-        'Area (m²)',
-        'DB Allow.',
-        'DB SOW',
-        'SOW',
-        'Layout',
-        'DB Ord',
-        'DB Cost',
-        'Light Ord',
-        'Light Cost'
-      ]],
+      head: [headers],
       body: tableData,
       theme: 'grid',
       headStyles: {
@@ -353,20 +365,6 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
       },
       bodyStyles: {
         fontSize: 7,
-      },
-      columnStyles: {
-        0: { cellWidth: 15 },
-        1: { cellWidth: 25 },
-        2: { cellWidth: 18 },
-        3: { cellWidth: 15 },
-        4: { cellWidth: 17 },
-        5: { cellWidth: 17 },
-        6: { cellWidth: 10 },
-        7: { cellWidth: 10 },
-        8: { cellWidth: 12 },
-        9: { cellWidth: 18 },
-        10: { cellWidth: 15 },
-        11: { cellWidth: 18 },
       },
       didDrawPage: (data) => {
         // Add page number
@@ -500,13 +498,15 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
     }
   };
 
-  const handleGenerateReport = async () => {
+  const handleGenerateReport = async (options: ReportOptions) => {
     if (tenants.length === 0) {
       toast.error("No tenants to generate report");
       return;
     }
 
     setIsGenerating(true);
+    setOptionsDialogOpen(false);
+    
     try {
       // Get next revision number
       const { data: existingReports } = await supabase
@@ -522,11 +522,19 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
 
       const doc = new jsPDF('p', 'mm', 'a4');
 
-      // Generate pages
-      generateCoverPage(doc);
-      generateKPIPage(doc);
-      generateTenantSchedule(doc);
-      await generateLayoutPages(doc);
+      // Generate pages based on options
+      if (options.includeCoverPage) {
+        generateCoverPage(doc);
+      }
+      if (options.includeKPIPage) {
+        generateKPIPage(doc);
+      }
+      if (options.includeTenantSchedule) {
+        generateTenantSchedule(doc, options);
+      }
+      if (options.includeFloorPlan) {
+        await generateLayoutPages(doc);
+      }
 
       // Convert PDF to blob
       const pdfBlob = doc.output('blob');
@@ -585,23 +593,32 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
   };
 
   return (
-    <Button
-      onClick={handleGenerateReport}
-      disabled={isGenerating || tenants.length === 0}
-      variant="default"
-      size="default"
-    >
-      {isGenerating ? (
-        <>
-          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-          Generating Report...
-        </>
-      ) : (
-        <>
-          <FileDown className="h-4 w-4 mr-2" />
-          Generate Report
-        </>
-      )}
-    </Button>
+    <>
+      <Button
+        onClick={() => setOptionsDialogOpen(true)}
+        disabled={isGenerating || tenants.length === 0}
+        variant="default"
+        size="default"
+      >
+        {isGenerating ? (
+          <>
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            Generating Report...
+          </>
+        ) : (
+          <>
+            <FileDown className="h-4 w-4 mr-2" />
+            Generate Report
+          </>
+        )}
+      </Button>
+
+      <ReportOptionsDialog
+        open={optionsDialogOpen}
+        onOpenChange={setOptionsDialogOpen}
+        onGenerate={handleGenerateReport}
+        isGenerating={isGenerating}
+      />
+    </>
   );
 };
