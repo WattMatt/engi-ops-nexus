@@ -3555,6 +3555,62 @@ export type Database = {
           },
         ]
       }
+      tenant_tracker_reports: {
+        Row: {
+          created_at: string
+          file_path: string
+          file_size: number | null
+          generated_at: string
+          generated_by: string | null
+          id: string
+          project_id: string
+          report_name: string
+          revision_number: number
+          tenant_count: number | null
+          total_area: number | null
+          total_db_cost: number | null
+          total_lighting_cost: number | null
+        }
+        Insert: {
+          created_at?: string
+          file_path: string
+          file_size?: number | null
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          project_id: string
+          report_name: string
+          revision_number?: number
+          tenant_count?: number | null
+          total_area?: number | null
+          total_db_cost?: number | null
+          total_lighting_cost?: number | null
+        }
+        Update: {
+          created_at?: string
+          file_path?: string
+          file_size?: number | null
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          project_id?: string
+          report_name?: string
+          revision_number?: number
+          tenant_count?: number | null
+          total_area?: number | null
+          total_db_cost?: number | null
+          total_lighting_cost?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_tracker_reports_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenants: {
         Row: {
           area: number | null

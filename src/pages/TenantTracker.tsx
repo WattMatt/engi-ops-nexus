@@ -7,6 +7,7 @@ import { DBSizingRulesSettings } from "@/components/tenant/DBSizingRulesSettings
 import { FloorPlanMasking } from "@/components/tenant/FloorPlanMasking";
 import { TenantOverview } from "@/components/tenant/TenantOverview";
 import { TenantReportGenerator } from "@/components/tenant/TenantReportGenerator";
+import { SavedReportsList } from "@/components/tenant/SavedReportsList";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 
@@ -72,6 +73,7 @@ const TenantTracker = () => {
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="tenants">Tenant Schedule</TabsTrigger>
+          <TabsTrigger value="reports">Saved Reports</TabsTrigger>
           <TabsTrigger value="floor-plan">Floor Plan Masking</TabsTrigger>
           <TabsTrigger value="settings">DB Sizing Rules</TabsTrigger>
         </TabsList>
@@ -118,6 +120,10 @@ const TenantTracker = () => {
               />
             )}
           </div>
+        </TabsContent>
+        
+        <TabsContent value="reports" className="mt-4">
+          <SavedReportsList projectId={projectId || ""} />
         </TabsContent>
         
         <TabsContent value="floor-plan" className="mt-4">

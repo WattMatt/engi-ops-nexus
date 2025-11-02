@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface Tenant {
   id: string;
@@ -32,6 +33,7 @@ interface TenantReportGeneratorProps {
 
 export const TenantReportGenerator = ({ tenants, projectId, projectName }: TenantReportGeneratorProps) => {
   const [isGenerating, setIsGenerating] = useState(false);
+  const queryClient = useQueryClient();
 
   const getCategoryLabel = (category: string) => {
     const labels = {
@@ -480,6 +482,18 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
 
     setIsGenerating(true);
     try {
+      // Get next revision number
+      const { data: existingReports } = await supabase
+        .from('tenant_tracker_reports')
+        .select('revision_number')
+        .eq('project_id', projectId)
+        .order('revision_number', { ascending: false })
+        .limit(1);
+
+      const nextRevision = existingReports && existingReports.length > 0 
+        ? existingReports[0].revision_number + 1 
+        : 0;
+
       const doc = new jsPDF('p', 'mm', 'a4');
 
       // Generate pages
@@ -488,11 +502,54 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
       generateTenantSchedule(doc);
       await generateLayoutPages(doc);
 
-      // Save the PDF
-      const fileName = `Tenant_Report_${projectName.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
-      doc.save(fileName);
+      // Convert PDF to blob
+      const pdfBlob = doc.output('blob');
+      
+      // Calculate metrics for database
+      const totalArea = tenants.reduce((sum, t) => sum + (t.area || 0), 0);
+      const totalDbCost = tenants.reduce((sum, t) => sum + (t.db_cost || 0), 0);
+      const totalLightingCost = tenants.reduce((sum, t) => sum + (t.lighting_cost || 0), 0);
 
-      toast.success("Report generated successfully");
+      // Generate filename
+      const timestamp = new Date().toISOString().split('T')[0];
+      const reportName = `Tenant_Report_${projectName.replace(/\s+/g, '_')}_Rev${nextRevision}_${timestamp}.pdf`;
+      const filePath = `${projectId}/${reportName}`;
+
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from('tenant-tracker-reports')
+        .upload(filePath, pdfBlob, {
+          contentType: 'application/pdf',
+          upsert: false
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+
+      // Save report metadata to database
+      const { error: dbError } = await supabase
+        .from('tenant_tracker_reports')
+        .insert({
+          project_id: projectId,
+          report_name: reportName,
+          revision_number: nextRevision,
+          file_path: filePath,
+          file_size: pdfBlob.size,
+          generated_by: user?.id,
+          tenant_count: tenants.length,
+          total_area: totalArea,
+          total_db_cost: totalDbCost,
+          total_lighting_cost: totalLightingCost
+        });
+
+      if (dbError) throw dbError;
+
+      // Invalidate reports query to refresh the list
+      queryClient.invalidateQueries({ queryKey: ['tenant-tracker-reports', projectId] });
+
+      toast.success(`Report saved as Rev.${nextRevision}`);
     } catch (error) {
       console.error("Error generating report:", error);
       toast.error("Failed to generate report");
