@@ -44,11 +44,6 @@ const mainModules = [
     url: "/dashboard/tenant-tracker",
     icon: UsersRound,
   },
-  {
-    title: "Project Settings",
-    url: "/dashboard/project-settings",
-    icon: Settings,
-  },
 ];
 
 const reportsModule = {
@@ -107,6 +102,11 @@ const operationalModules = [
     title: "Messages",
     url: "/dashboard/messages",
     icon: UsersRound,
+  },
+  {
+    title: "Project Settings",
+    url: "/dashboard/project-settings",
+    icon: Settings,
   },
 ];
 
