@@ -81,6 +81,10 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
   const [isOverHandle, setIsOverHandle] = useState(false);
   const [isDraggingScaleLabel, setIsDraggingScaleLabel] = useState(false);
   const [isOverScaleLabel, setIsOverScaleLabel] = useState(false);
+  const [scaleLabelSize, setScaleLabelSize] = useState<{width: number, height: number} | null>(null);
+  const [resizingScaleLabel, setResizingScaleLabel] = useState<'nw' | 'ne' | 'sw' | 'se' | null>(null);
+  const [resizeStartSize, setResizeStartSize] = useState<{width: number, height: number} | null>(null);
+  const [resizeStartPos, setResizeStartPos] = useState<Point | null>(null);
   // Snapping state
   const [previewPvArray, setPreviewPvArray] = useState<PVArrayItem | null>(null);
   const [snapLines, setSnapLines] = useState<{start: Point, end: Point}[]>([]);
@@ -361,20 +365,45 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
         const padding = 8;
         const boxHeight = (fontSize * 2.5) + padding * 2;
         
+        // Use custom size if set, otherwise use calculated size
+        const boxWidth = scaleLabelSize?.width ?? (maxWidth + padding * 2);
+        const finalBoxHeight = scaleLabelSize?.height ?? boxHeight;
+        
         // Draw white background with black border (highlight if hovering)
         ctx.fillStyle = isOverScaleLabel ? 'rgba(255, 255, 255, 1)' : 'rgba(255, 255, 255, 0.95)';
         ctx.strokeStyle = isOverScaleLabel ? '#3B82F6' : '#000000'; // Blue border on hover
         ctx.lineWidth = isOverScaleLabel ? 3 : 2;
         ctx.beginPath();
         ctx.roundRect(
-            labelX - maxWidth / 2 - padding,
-            labelY - boxHeight / 2,
-            maxWidth + padding * 2,
-            boxHeight,
+            labelX - boxWidth / 2,
+            labelY - finalBoxHeight / 2,
+            boxWidth,
+            finalBoxHeight,
             4
         );
         ctx.fill();
         ctx.stroke();
+        
+        // Draw resize handles in corners
+        if (isOverScaleLabel || resizingScaleLabel) {
+          const handleSize = 8 / viewState.zoom;
+          const corners = [
+            { x: labelX - boxWidth / 2, y: labelY - finalBoxHeight / 2, type: 'nw' },
+            { x: labelX + boxWidth / 2, y: labelY - finalBoxHeight / 2, type: 'ne' },
+            { x: labelX - boxWidth / 2, y: labelY + finalBoxHeight / 2, type: 'sw' },
+            { x: labelX + boxWidth / 2, y: labelY + finalBoxHeight / 2, type: 'se' },
+          ];
+          
+          ctx.fillStyle = '#3B82F6';
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 1.5 / viewState.zoom;
+          corners.forEach(corner => {
+            ctx.beginPath();
+            ctx.arc(corner.x, corner.y, handleSize, 0, 2 * Math.PI);
+            ctx.fill();
+            ctx.stroke();
+          });
+        }
         
         // Draw main label text (distance)
         ctx.fillStyle = '#000000';
@@ -533,7 +562,7 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
     }
 
     if (activeTool === Tool.SELECT) {
-        // Check if clicking on scale label
+        // Check if clicking on scale label or resize handles
         if (scaleLine && scaleInfo.ratio) {
             const defaultMidX = (scaleLine.start.x + scaleLine.end.x) / 2;
             const defaultMidY = (scaleLine.start.y + scaleLine.end.y) / 2;
@@ -544,6 +573,7 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
             const fontSize = 12;
             const padding = 8;
             const label = `${(Math.hypot(scaleLine.end.x - scaleLine.start.x, scaleLine.end.y - scaleLine.start.y) * scaleInfo.ratio).toFixed(2)}m`;
+            const scaleRatio = `(1:${(1 / scaleInfo.ratio).toFixed(0)})`;
             
             // Create a temporary canvas to measure text
             const tempCanvas = document.createElement('canvas');
@@ -551,13 +581,42 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
             if (tempCtx) {
                 tempCtx.font = `bold ${fontSize}px sans-serif`;
                 const metrics = tempCtx.measureText(label);
-                const boxWidth = metrics.width + padding * 2;
+                tempCtx.font = `${fontSize * 0.7}px sans-serif`;
+                const scaleMetrics = tempCtx.measureText(scaleRatio);
+                const maxWidth = Math.max(metrics.width, scaleMetrics.width);
                 const boxHeight = (fontSize * 2.5) + padding * 2;
                 
-                // Check if clicked within label bounds (with some tolerance)
-                if (Math.abs(worldPos.x - labelX) < boxWidth / 2 + padding &&
-                    Math.abs(worldPos.y - labelY) < boxHeight / 2 + padding) {
+                const boxWidth = scaleLabelSize?.width ?? (maxWidth + padding * 2);
+                const finalBoxHeight = scaleLabelSize?.height ?? boxHeight;
+                
+                // Check resize handles first
+                const handleRadius = 8 / viewState.zoom;
+                const corners = [
+                  { x: labelX - boxWidth / 2, y: labelY - finalBoxHeight / 2, type: 'nw' as const },
+                  { x: labelX + boxWidth / 2, y: labelY - finalBoxHeight / 2, type: 'ne' as const },
+                  { x: labelX - boxWidth / 2, y: labelY + finalBoxHeight / 2, type: 'sw' as const },
+                  { x: labelX + boxWidth / 2, y: labelY + finalBoxHeight / 2, type: 'se' as const },
+                ];
+                
+                for (const corner of corners) {
+                  const dist = Math.hypot(worldPos.x - corner.x, worldPos.y - corner.y);
+                  if (dist <= handleRadius) {
+                    setResizingScaleLabel(corner.type);
+                    setResizeStartPos(worldPos);
+                    setResizeStartSize({ width: boxWidth, height: finalBoxHeight });
+                    return;
+                  }
+                }
+                
+                // Check if clicked within label bounds
+                if (worldPos.x >= labelX - boxWidth / 2 &&
+                    worldPos.x <= labelX + boxWidth / 2 &&
+                    worldPos.y >= labelY - finalBoxHeight / 2 &&
+                    worldPos.y <= labelY + finalBoxHeight / 2) {
                     setIsDraggingScaleLabel(true);
+                    if (containerRef.current) {
+                      containerRef.current.style.cursor = 'grabbing';
+                    }
                     return;
                 }
             }
@@ -668,22 +727,100 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
   const handleMouseMove = (e: React.MouseEvent) => {
     const mousePos = getMousePos(e);
     const worldPos = toWorld(mousePos);
+    
+    // Handle scale label resizing
+    if (resizingScaleLabel && resizeStartPos && resizeStartSize && scaleInfo.labelPosition && scaleLine) {
+      const dx = worldPos.x - resizeStartPos.x;
+      const dy = worldPos.y - resizeStartPos.y;
+      
+      let newWidth = resizeStartSize.width;
+      let newHeight = resizeStartSize.height;
+      
+      switch (resizingScaleLabel) {
+        case 'se':
+          newWidth = Math.max(50, resizeStartSize.width + dx);
+          newHeight = Math.max(30, resizeStartSize.height + dy);
+          break;
+        case 'sw':
+          newWidth = Math.max(50, resizeStartSize.width - dx);
+          newHeight = Math.max(30, resizeStartSize.height + dy);
+          break;
+        case 'ne':
+          newWidth = Math.max(50, resizeStartSize.width + dx);
+          newHeight = Math.max(30, resizeStartSize.height - dy);
+          break;
+        case 'nw':
+          newWidth = Math.max(50, resizeStartSize.width - dx);
+          newHeight = Math.max(30, resizeStartSize.height - dy);
+          break;
+      }
+      
+      setScaleLabelSize({ width: newWidth, height: newHeight });
+      return;
+    }
 
     // Check if hovering over scale label (for cursor feedback)
-    if (activeTool === Tool.SELECT && scaleLine && scaleInfo.ratio && !isDraggingScaleLabel) {
+    if (activeTool === Tool.SELECT && scaleLine && scaleInfo.ratio && !isDraggingScaleLabel && !resizingScaleLabel) {
         const defaultMidX = (scaleLine.start.x + scaleLine.end.x) / 2;
         const defaultMidY = (scaleLine.start.y + scaleLine.end.y) / 2;
         const labelX = scaleInfo.labelPosition?.x ?? defaultMidX;
         const labelY = scaleInfo.labelPosition?.y ?? defaultMidY;
         
         const fontSize = 12;
-        const padding = 8;
-        const boxWidth = 120; // Generous hover area
-        const boxHeight = (fontSize * 2.5) + padding * 2;
+        const label = `${(Math.hypot(scaleLine.end.x - scaleLine.start.x, scaleLine.end.y - scaleLine.start.y) * scaleInfo.ratio).toFixed(2)}m`;
+        const scaleRatio = `(1:${(1 / scaleInfo.ratio).toFixed(0)})`;
         
-        const overLabel = Math.abs(worldPos.x - labelX) < boxWidth / 2 &&
-                         Math.abs(worldPos.y - labelY) < boxHeight / 2;
-        setIsOverScaleLabel(overLabel);
+        const canvas = drawingCanvasRef.current;
+        const ctx = canvas?.getContext('2d');
+        if (ctx) {
+          ctx.font = `bold ${fontSize}px sans-serif`;
+          const metrics = ctx.measureText(label);
+          ctx.font = `${fontSize * 0.7}px sans-serif`;
+          const scaleMetrics = ctx.measureText(scaleRatio);
+          const maxWidth = Math.max(metrics.width, scaleMetrics.width);
+          const padding = 8;
+          const boxHeight = (fontSize * 2.5) + padding * 2;
+          
+          const boxWidth = scaleLabelSize?.width ?? (maxWidth + padding * 2);
+          const finalBoxHeight = scaleLabelSize?.height ?? boxHeight;
+          
+          const overLabel = 
+            worldPos.x >= labelX - boxWidth / 2 &&
+            worldPos.x <= labelX + boxWidth / 2 &&
+            worldPos.y >= labelY - finalBoxHeight / 2 &&
+            worldPos.y <= labelY + finalBoxHeight / 2;
+          
+          setIsOverScaleLabel(overLabel);
+          
+          // Check if hovering over resize handles
+          const handleRadius = 8 / viewState.zoom;
+          const corners = [
+            { x: labelX - boxWidth / 2, y: labelY - finalBoxHeight / 2, type: 'nw' as const },
+            { x: labelX + boxWidth / 2, y: labelY - finalBoxHeight / 2, type: 'ne' as const },
+            { x: labelX - boxWidth / 2, y: labelY + finalBoxHeight / 2, type: 'sw' as const },
+            { x: labelX + boxWidth / 2, y: labelY + finalBoxHeight / 2, type: 'se' as const },
+          ];
+          
+          let overHandle = false;
+          for (const corner of corners) {
+            const dist = Math.hypot(worldPos.x - corner.x, worldPos.y - corner.y);
+            if (dist <= handleRadius) {
+              overHandle = true;
+              // Set cursor based on corner
+              if (containerRef.current) {
+                const cursors = { nw: 'nw-resize', ne: 'ne-resize', sw: 'sw-resize', se: 'se-resize' };
+                containerRef.current.style.cursor = cursors[corner.type];
+              }
+              break;
+            }
+          }
+          
+          if (!overHandle && containerRef.current && overLabel) {
+            containerRef.current.style.cursor = 'move';
+          } else if (!overHandle && !overLabel && containerRef.current) {
+            containerRef.current.style.cursor = 'default';
+          }
+        }
     } else if (isOverScaleLabel) {
         setIsOverScaleLabel(false);
     }
@@ -778,6 +915,72 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
         setSnapLines([]);
     }
 
+    // Check if hovering over scale label or resize handles
+    if (scaleLine && scaleInfo.labelPosition && scaleInfo.ratio) {
+      const defaultMidX = (scaleLine.start.x + scaleLine.end.x) / 2;
+      const defaultMidY = (scaleLine.start.y + scaleLine.end.y) / 2;
+      const labelX = scaleInfo.labelPosition?.x ?? defaultMidX;
+      const labelY = scaleInfo.labelPosition?.y ?? defaultMidY;
+      
+      const fontSize = 12;
+      const label = `${(Math.hypot(scaleLine.end.x - scaleLine.start.x, scaleLine.end.y - scaleLine.start.y) * scaleInfo.ratio).toFixed(2)}m`;
+      const scaleRatio = `(1:${(1 / scaleInfo.ratio).toFixed(0)})`;
+      
+      const canvas = drawingCanvasRef.current;
+      const ctx = canvas?.getContext('2d');
+      if (ctx) {
+        ctx.font = `bold ${fontSize}px sans-serif`;
+        const metrics = ctx.measureText(label);
+        ctx.font = `${fontSize * 0.7}px sans-serif`;
+        const scaleMetrics = ctx.measureText(scaleRatio);
+        const maxWidth = Math.max(metrics.width, scaleMetrics.width);
+        const padding = 8;
+        const boxHeight = (fontSize * 2.5) + padding * 2;
+        
+        const boxWidth = scaleLabelSize?.width ?? (maxWidth + padding * 2);
+        const finalBoxHeight = scaleLabelSize?.height ?? boxHeight;
+        
+        const isHovering = 
+          worldPos.x >= labelX - boxWidth / 2 &&
+          worldPos.x <= labelX + boxWidth / 2 &&
+          worldPos.y >= labelY - finalBoxHeight / 2 &&
+          worldPos.y <= labelY + finalBoxHeight / 2;
+        
+        setIsOverScaleLabel(isHovering);
+        
+        // Check if hovering over resize handles
+        if (!isDraggingScaleLabel && !resizingScaleLabel) {
+          const handleRadius = 8 / viewState.zoom;
+          const corners = [
+            { x: labelX - boxWidth / 2, y: labelY - finalBoxHeight / 2, type: 'nw' as const },
+            { x: labelX + boxWidth / 2, y: labelY - finalBoxHeight / 2, type: 'ne' as const },
+            { x: labelX - boxWidth / 2, y: labelY + finalBoxHeight / 2, type: 'sw' as const },
+            { x: labelX + boxWidth / 2, y: labelY + finalBoxHeight / 2, type: 'se' as const },
+          ];
+          
+          let overHandle = false;
+          for (const corner of corners) {
+            const dist = Math.hypot(worldPos.x - corner.x, worldPos.y - corner.y);
+            if (dist <= handleRadius) {
+              overHandle = true;
+              // Set cursor based on corner
+              if (containerRef.current) {
+                const cursors = { nw: 'nw-resize', ne: 'ne-resize', sw: 'sw-resize', se: 'se-resize' };
+                containerRef.current.style.cursor = cursors[corner.type];
+              }
+              break;
+            }
+          }
+          
+          if (!overHandle && containerRef.current && isHovering) {
+            containerRef.current.style.cursor = 'move';
+          }
+        }
+      }
+    } else {
+      setIsOverScaleLabel(false);
+    }
+
     setLastMousePos(mousePos);
   };
   
@@ -789,6 +992,19 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
     
     if (isDraggingScaleLabel) {
         setIsDraggingScaleLabel(false);
+        if (containerRef.current) {
+          containerRef.current.style.cursor = 'default';
+        }
+        return;
+    }
+    
+    if (resizingScaleLabel) {
+        setResizingScaleLabel(null);
+        setResizeStartPos(null);
+        setResizeStartSize(null);
+        if (containerRef.current) {
+          containerRef.current.style.cursor = 'default';
+        }
         return;
     }
     
@@ -809,6 +1025,9 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
     setIsPanning(false);
     setIsDraggingItem(false);
     setIsDraggingScaleLabel(false);
+    setResizingScaleLabel(null);
+    setResizeStartPos(null);
+    setResizeStartSize(null);
     setDraggedHandle(null);
     setPreviewPoint(null);
     setPreviewEquipment(null);
