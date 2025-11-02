@@ -795,15 +795,17 @@ export const MaskingCanvas = ({
 
   const handleWheel = (e: React.WheelEvent) => {
     e.preventDefault();
-    // Vertical panning with mouse wheel
-    const panSpeed = 1;
-    setViewState(prev => ({
-      ...prev,
-      offset: {
-        x: prev.offset.x,
-        y: prev.offset.y - e.deltaY * panSpeed
-      }
-    }));
+    const mousePos = getMousePos(e);
+    const factor = e.deltaY > 0 ? 1 / 1.1 : 1.1;
+    setViewState(prev => {
+      const { zoom, offset } = prev;
+      const newZoom = Math.max(0.1, Math.min(zoom * factor, 20));
+      const worldX = (mousePos.x - offset.x) / zoom;
+      const worldY = (mousePos.y - offset.y) / zoom;
+      const newOffsetX = mousePos.x - worldX * newZoom;
+      const newOffsetY = mousePos.y - worldY * newZoom;
+      return { zoom: newZoom, offset: { x: newOffsetX, y: newOffsetY } };
+    });
   };
 
   return (
