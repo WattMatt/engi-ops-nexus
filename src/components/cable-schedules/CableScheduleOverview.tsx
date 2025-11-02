@@ -1,4 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CableScheduleExportPDFButton } from "./CableScheduleExportPDFButton";
 
 interface CableScheduleOverviewProps {
   schedule: any;
@@ -7,8 +8,9 @@ interface CableScheduleOverviewProps {
 export const CableScheduleOverview = ({ schedule }: CableScheduleOverviewProps) => {
   return (
     <Card>
-      <CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between">
         <CardTitle>Schedule Information</CardTitle>
+        <CableScheduleExportPDFButton schedule={schedule} />
       </CardHeader>
       <CardContent className="grid gap-4 md:grid-cols-2">
         <div>
