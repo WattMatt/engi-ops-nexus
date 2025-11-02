@@ -490,6 +490,7 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
         zoneId={selectedZoneId || ""}
         currentTenantId={selectedZoneTenantId}
         onAssign={handleAssignTenant}
+        assignedTenantIds={zones.filter(z => z.tenantId).map(z => z.tenantId!)}
       />
     </div>
   );

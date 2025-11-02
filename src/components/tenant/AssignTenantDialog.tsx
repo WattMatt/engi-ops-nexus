@@ -27,6 +27,7 @@ interface AssignTenantDialogProps {
   zoneId: string;
   currentTenantId: string | null;
   onAssign: (tenantId: string, tenantName: string, category: string) => void;
+  assignedTenantIds: string[]; // List of already assigned tenant IDs
 }
 
 export const AssignTenantDialog = ({ 
@@ -35,7 +36,8 @@ export const AssignTenantDialog = ({
   projectId, 
   zoneId,
   currentTenantId,
-  onAssign 
+  onAssign,
+  assignedTenantIds
 }: AssignTenantDialogProps) => {
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [selectedTenantId, setSelectedTenantId] = useState<string>(currentTenantId || "");
@@ -45,7 +47,7 @@ export const AssignTenantDialog = ({
     if (isOpen) {
       fetchTenants();
     }
-  }, [isOpen, projectId]);
+  }, [isOpen, projectId, assignedTenantIds]);
 
   useEffect(() => {
     if (currentTenantId) {
@@ -63,7 +65,20 @@ export const AssignTenantDialog = ({
         .order('shop_number');
 
       if (error) throw error;
-      setTenants(data || []);
+      
+      // Filter out already assigned tenants (except current tenant for this zone)
+      const filteredTenants = (data || []).filter(tenant => 
+        !assignedTenantIds.includes(tenant.id) || tenant.id === currentTenantId
+      );
+      
+      // Sort by shop_number numerically
+      const sortedTenants = filteredTenants.sort((a, b) => {
+        const numA = parseInt(a.shop_number) || 0;
+        const numB = parseInt(b.shop_number) || 0;
+        return numA - numB;
+      });
+      
+      setTenants(sortedTenants);
     } catch (error) {
       console.error('Error fetching tenants:', error);
       toast.error('Failed to load tenants');
