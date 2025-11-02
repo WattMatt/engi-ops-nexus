@@ -1,11 +1,12 @@
 import React from 'react';
-import { MousePointer, Hand, Ruler, Pencil, Square, Save, FolderOpen, Eye, Upload } from 'lucide-react';
+import { MousePointer, Hand, Ruler, Pencil, Square, Save, FolderOpen, Eye, Upload, SaveAll } from 'lucide-react';
 
 interface ToolbarProps {
   activeTool: 'select' | 'pan' | 'scale' | 'zone';
   onToolSelect: (tool: 'select' | 'pan' | 'scale' | 'zone') => void;
   onUpload: () => void;
   onSave?: () => void;
+  onSaveAs?: () => void;
   onLoad?: () => void;
   onPreview?: () => void;
   isPdfLoaded: boolean;
@@ -59,6 +60,7 @@ export const MaskingToolbar: React.FC<ToolbarProps> = ({
   onToolSelect,
   onUpload,
   onSave,
+  onSaveAs,
   onLoad,
   onPreview,
   isPdfLoaded,
@@ -84,8 +86,16 @@ export const MaskingToolbar: React.FC<ToolbarProps> = ({
           {onSave && (
             <ActionButton
               icon={Save}
-              label={isSaving ? "Saving..." : "Save Floor Plan"}
+              label={isSaving ? "Saving..." : "Save"}
               onClick={onSave}
+              disabled={!isPdfLoaded || isSaving}
+            />
+          )}
+          {onSaveAs && (
+            <ActionButton
+              icon={SaveAll}
+              label={isSaving ? "Saving..." : "Save As Version"}
+              onClick={onSaveAs}
               disabled={!isPdfLoaded || isSaving}
             />
           )}
