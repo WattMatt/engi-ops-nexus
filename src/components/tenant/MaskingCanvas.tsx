@@ -35,6 +35,7 @@ interface MaskingCanvasProps {
   onZoneSelected?: (zoneId: string, tenantId: string | null) => void;
   zones: Zone[];
   onZonesChange: (zones: Zone[]) => void;
+  tenants: any[];
 }
 
 export const MaskingCanvas = ({ 
@@ -50,7 +51,8 @@ export const MaskingCanvas = ({
   projectId,
   onZoneSelected,
   zones,
-  onZonesChange
+  onZonesChange,
+  tenants
 }: MaskingCanvasProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const pdfCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -347,9 +349,24 @@ export const MaskingCanvas = ({
     };
   }, [zones]);
 
-  // Get zone color for unassigned zones (gray)
-  const getZoneColor = (index: number): string => {
-    return '#9ca3af'; // gray-400 for unassigned
+  // Get zone color based on tenant status
+  const getZoneColor = (tenantId: string | null): string => {
+    if (!tenantId) return '#9ca3af'; // Gray for unassigned
+    const tenant = tenants.find((t: any) => t.id === tenantId);
+    if (!tenant) return '#9ca3af';
+    
+    const isComplete = !!(
+      tenant.sow_received &&
+      tenant.layout_received &&
+      tenant.db_ordered &&
+      tenant.lighting_ordered &&
+      tenant.cost_reported &&
+      tenant.area &&
+      tenant.db_cost &&
+      tenant.lighting_cost
+    );
+    
+    return isComplete ? '#16A34A' : '#DC2626'; // Green for complete, Red for incomplete
   };
 
   // Check if a point is inside a polygon
@@ -601,7 +618,7 @@ export const MaskingCanvas = ({
           const newZone: Zone = {
             id: `zone-${Date.now()}`,
             points: currentZoneDrawing,
-            color: getZoneColor(zones.length),
+            color: getZoneColor(null), // New zones start unassigned
             tenantId: null,
             tenantName: null,
             category: null
@@ -659,7 +676,7 @@ export const MaskingCanvas = ({
           const newZone: Zone = {
             id: `zone-${Date.now()}`,
             points: currentZoneDrawing,
-            color: getZoneColor(zones.length),
+            color: getZoneColor(null), // New zones start unassigned
             tenantId: null,
             tenantName: null,
             category: null

@@ -469,6 +469,7 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
                 onZoneSelected={handleZoneSelected}
                 zones={zones}
                 onZonesChange={setZones}
+                tenants={tenants}
               />
             ) : isEditMode ? (
               <div className="h-full flex items-center justify-center text-muted-foreground">
