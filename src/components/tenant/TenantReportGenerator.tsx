@@ -462,17 +462,22 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
       doc.setTextColor(100, 100, 100);
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
-      doc.text("Legend:", 20, pageHeight - 30);
+      doc.text("Legend:", 20, pageHeight - 35);
       
-      // Green indicator
-      doc.setFillColor(46, 204, 113);
-      doc.roundedRect(20, pageHeight - 25, 5, 5, 1, 1, 'F');
-      doc.text("Complete - All required fields satisfied", 30, pageHeight - 21);
+      // Green indicator - Complete
+      doc.setFillColor(22, 163, 74); // #16A34A
+      doc.roundedRect(20, pageHeight - 30, 5, 5, 1, 1, 'F');
+      doc.text("Complete - All required fields satisfied", 30, pageHeight - 26);
       
-      // Red indicator
-      doc.setFillColor(231, 76, 60);
-      doc.roundedRect(120, pageHeight - 25, 5, 5, 1, 1, 'F');
-      doc.text("In Progress - Outstanding items", 130, pageHeight - 21);
+      // Red indicator - Incomplete
+      doc.setFillColor(220, 38, 38); // #DC2626
+      doc.roundedRect(20, pageHeight - 22, 5, 5, 1, 1, 'F');
+      doc.text("In Progress - Outstanding items", 30, pageHeight - 18);
+      
+      // Gray indicator - Unassigned
+      doc.setFillColor(156, 163, 175); // #9ca3af
+      doc.roundedRect(120, pageHeight - 22, 5, 5, 1, 1, 'F');
+      doc.text("Unassigned", 130, pageHeight - 18);
 
       // Page footer
       doc.setFontSize(9);
