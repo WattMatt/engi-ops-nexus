@@ -426,26 +426,6 @@ export const MaskingCanvas = ({
       ctx.lineWidth = (isSelected ? 3 : 2) / viewState.zoom;
       ctx.stroke();
 
-      // Draw zone label (tenant name) at center with fixed size
-      if (zone.tenantName) {
-        const centerX = zone.points.reduce((sum, p) => sum + p.x, 0) / zone.points.length;
-        const centerY = zone.points.reduce((sum, p) => sum + p.y, 0) / zone.points.length;
-        
-        // Use a fixed font size in PDF coordinates that compensates for zoom
-        // Clamp to prevent extremely large or small text
-        const baseFontSize = 16;
-        const compensatedSize = Math.max(8, Math.min(100, baseFontSize / viewState.zoom));
-        
-        ctx.font = `bold ${compensatedSize}px sans-serif`;
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillStyle = '#ffffff';
-        ctx.strokeStyle = zone.color;
-        ctx.lineWidth = 3 / viewState.zoom;
-        ctx.strokeText(zone.tenantName, centerX, centerY);
-        ctx.fillText(zone.tenantName, centerX, centerY);
-      }
-
       // Draw resize handles for selected zone
       if (isSelected) {
         zone.points.forEach(p => {
@@ -581,6 +561,28 @@ export const MaskingCanvas = ({
     }
 
     ctx.restore();
+
+    // Draw zone text labels at fixed screen size (outside transformed context)
+    zones.forEach(zone => {
+      if (zone.tenantName) {
+        const centerX = zone.points.reduce((sum, p) => sum + p.x, 0) / zone.points.length;
+        const centerY = zone.points.reduce((sum, p) => sum + p.y, 0) / zone.points.length;
+        
+        // Convert PDF coordinates to screen coordinates
+        const screenX = centerX * viewState.zoom + viewState.offset.x;
+        const screenY = centerY * viewState.zoom + viewState.offset.y;
+        
+        // Fixed font size in screen pixels
+        ctx.font = 'bold 16px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#ffffff';
+        ctx.strokeStyle = zone.color;
+        ctx.lineWidth = 3;
+        ctx.strokeText(zone.tenantName, screenX, screenY);
+        ctx.fillText(zone.tenantName, screenX, screenY);
+      }
+    });
   }, [viewState, scaleLine, currentZoneDrawing, zones, selectedZoneId, existingScale]);
 
   useEffect(() => {
