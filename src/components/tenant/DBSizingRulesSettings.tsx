@@ -200,19 +200,55 @@ export const DBSizingRulesSettings = ({ projectId }: DBSizingRulesSettingsProps)
     }
 
     try {
-      const { error } = await supabase
-        .from("db_sizing_rules")
-        .insert([{
-          project_id: projectId,
-          min_area: minArea,
-          max_area: maxArea,
-          db_size_allowance: newRule.db_size_allowance,
-          db_size_scope_of_work: newRule.db_size_scope_of_work || null,
-          category: activeCategory,
-        }]);
+      // For fixed size categories, check if rule already exists and update instead of insert
+      if (isFixedSizeCategory) {
+        const existingRule = rules.find(r => r.category === activeCategory);
+        
+        if (existingRule) {
+          // Update existing rule
+          const { error } = await supabase
+            .from("db_sizing_rules")
+            .update({
+              db_size_allowance: newRule.db_size_allowance,
+              db_size_scope_of_work: newRule.db_size_scope_of_work || null,
+            })
+            .eq("id", existingRule.id);
 
-      if (error) throw error;
-      toast.success("Rule added successfully");
+          if (error) throw error;
+          toast.success("Rule updated successfully");
+        } else {
+          // Insert new rule
+          const { error } = await supabase
+            .from("db_sizing_rules")
+            .insert([{
+              project_id: projectId,
+              min_area: minArea,
+              max_area: maxArea,
+              db_size_allowance: newRule.db_size_allowance,
+              db_size_scope_of_work: newRule.db_size_scope_of_work || null,
+              category: activeCategory,
+            }]);
+
+          if (error) throw error;
+          toast.success("Rule added successfully");
+        }
+      } else {
+        // Standard category - insert new rule
+        const { error } = await supabase
+          .from("db_sizing_rules")
+          .insert([{
+            project_id: projectId,
+            min_area: minArea,
+            max_area: maxArea,
+            db_size_allowance: newRule.db_size_allowance,
+            db_size_scope_of_work: newRule.db_size_scope_of_work || null,
+            category: activeCategory,
+          }]);
+
+        if (error) throw error;
+        toast.success("Rule added successfully");
+      }
+      
       setNewRule({ min_area: "", max_area: "", db_size_allowance: "", db_size_scope_of_work: "" });
       loadRules();
     } catch (error: any) {
@@ -299,7 +335,12 @@ export const DBSizingRulesSettings = ({ projectId }: DBSizingRulesSettingsProps)
 
             {filteredRules.length > 0 && (
               <div className="space-y-2">
-                <Label>Current Rules for {activeCategory.replace('_', ' ')}</Label>
+                <div className="flex items-center justify-between">
+                  <Label>Current Rules for {activeCategory.replace('_', ' ')}</Label>
+                  {['fast_food', 'restaurant'].includes(activeCategory) && filteredRules.length > 0 && (
+                    <p className="text-xs text-muted-foreground">Only one fixed size allowed per category</p>
+                  )}
+                </div>
                 {filteredRules.map((rule) => (
                   <div key={rule.id} className="flex items-center gap-2 p-2 border rounded">
                      {editingId === rule.id ? (
@@ -376,7 +417,11 @@ export const DBSizingRulesSettings = ({ projectId }: DBSizingRulesSettingsProps)
             )}
 
             <div className="space-y-4 pt-4 border-t">
-              <Label>Add New Rule</Label>
+              <Label>
+                {['fast_food', 'restaurant'].includes(activeCategory) && filteredRules.length > 0 
+                  ? 'Update Fixed DB Size' 
+                  : 'Add New Rule'}
+              </Label>
               {['fast_food', 'restaurant'].includes(activeCategory) ? (
                 <div className="grid grid-cols-3 gap-2">
                   <div>
@@ -400,7 +445,7 @@ export const DBSizingRulesSettings = ({ projectId }: DBSizingRulesSettingsProps)
                   <div className="flex items-end">
                     <Button onClick={addRule} className="w-full">
                       <Plus className="h-4 w-4 mr-2" />
-                      Add
+                      {filteredRules.length > 0 ? 'Update' : 'Add'}
                     </Button>
                   </div>
                 </div>
