@@ -145,6 +145,30 @@ export const MaskingCanvas = ({
         ctx.restore();
       });
       
+      // Draw scale indicator on PDF (bottom-left)
+      if (existingScale) {
+        const scaleBoxX = margin + 15;
+        const scaleBoxY = pdfCanvas.height + margin - 60;
+        const boxWidth = 180;
+        const boxHeight = 50;
+        
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+        ctx.fillRect(scaleBoxX, scaleBoxY, boxWidth, boxHeight);
+        
+        ctx.strokeStyle = '#ffff00';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(scaleBoxX, scaleBoxY, boxWidth, boxHeight);
+        
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 14px sans-serif';
+        ctx.textAlign = 'left';
+        ctx.fillText('Scale:', scaleBoxX + 10, scaleBoxY + 18);
+        
+        ctx.font = '12px monospace';
+        ctx.fillStyle = '#ffff00';
+        ctx.fillText(`${existingScale.toFixed(2)} px/m`, scaleBoxX + 10, scaleBoxY + 35);
+      }
+      
       // Draw legend
       const legendX = pdfCanvas.width + margin * 2;
       let legendY = margin + 10;
@@ -462,7 +486,41 @@ export const MaskingCanvas = ({
       });
     }
 
-    ctx.restore();
+    // Draw scale display overlay (top-right corner)
+    if (existingScale) {
+      ctx.restore();
+      
+      // Draw in screen coordinates (not PDF coordinates)
+      const padding = 15;
+      const boxWidth = 180;
+      const boxHeight = 50;
+      const x = canvas.width - boxWidth - padding;
+      const y = padding;
+      
+      // Semi-transparent background
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+      ctx.fillRect(x, y, boxWidth, boxHeight);
+      
+      // Border
+      ctx.strokeStyle = '#ffff00';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x, y, boxWidth, boxHeight);
+      
+      // Text
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 14px sans-serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'top';
+      ctx.fillText('Scale Set:', x + 10, y + 10);
+      
+      ctx.font = '12px monospace';
+      ctx.fillStyle = '#ffff00';
+      ctx.fillText(`${existingScale.toFixed(2)} px/m`, x + 10, y + 28);
+      
+      ctx.save();
+    } else {
+      ctx.restore();
+    }
   }, [viewState, scaleLine, currentZoneDrawing, zones, selectedZoneId]);
 
   useEffect(() => {
