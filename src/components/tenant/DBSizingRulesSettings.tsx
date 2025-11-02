@@ -127,15 +127,22 @@ export const DBSizingRulesSettings = ({ projectId }: DBSizingRulesSettingsProps)
   };
 
   const saveEdit = async () => {
-    if (!editingId || !editForm.min_area || !editForm.max_area || !editForm.db_size_allowance) {
-      toast.error("Please fill in all required fields");
+    const isFixedSizeCategory = ['fast_food', 'restaurant'].includes(activeCategory);
+    
+    if (!editForm.db_size_allowance) {
+      toast.error("Please fill in DB Allowance");
+      return;
+    }
+    
+    if (!isFixedSizeCategory && (!editForm.min_area || !editForm.max_area)) {
+      toast.error("Please fill in area range");
       return;
     }
 
-    const newMinArea = parseFloat(editForm.min_area);
-    const newMaxArea = parseFloat(editForm.max_area);
+    const newMinArea = isFixedSizeCategory ? 0 : parseFloat(editForm.min_area);
+    const newMaxArea = isFixedSizeCategory ? 999999 : parseFloat(editForm.max_area);
 
-    if (newMinArea >= newMaxArea) {
+    if (!isFixedSizeCategory && newMinArea >= newMaxArea) {
       toast.error("Min area must be less than max area");
       return;
     }
@@ -157,10 +164,12 @@ export const DBSizingRulesSettings = ({ projectId }: DBSizingRulesSettingsProps)
 
       if (updateError) throw updateError;
 
-      // Adjust adjacent ranges
-      await adjustAdjacentRanges(currentRule, newMinArea, newMaxArea);
+      // Only adjust adjacent ranges for standard category
+      if (!isFixedSizeCategory) {
+        await adjustAdjacentRanges(currentRule, newMinArea, newMaxArea);
+      }
 
-      toast.success("Rule updated and adjacent ranges adjusted");
+      toast.success("Rule updated successfully");
       cancelEdit();
       loadRules();
     } catch (error: any) {
@@ -169,15 +178,23 @@ export const DBSizingRulesSettings = ({ projectId }: DBSizingRulesSettingsProps)
   };
 
   const addRule = async () => {
-    if (!newRule.min_area || !newRule.max_area || !newRule.db_size_allowance) {
-      toast.error("Please fill in all required fields");
+    // For fast_food and restaurant, area is not applicable - just need DB size
+    const isFixedSizeCategory = ['fast_food', 'restaurant'].includes(activeCategory);
+    
+    if (!newRule.db_size_allowance) {
+      toast.error("Please fill in DB Allowance");
+      return;
+    }
+    
+    if (!isFixedSizeCategory && (!newRule.min_area || !newRule.max_area)) {
+      toast.error("Please fill in area range for standard category");
       return;
     }
 
-    const minArea = parseFloat(newRule.min_area);
-    const maxArea = parseFloat(newRule.max_area);
+    const minArea = isFixedSizeCategory ? 0 : parseFloat(newRule.min_area);
+    const maxArea = isFixedSizeCategory ? 999999 : parseFloat(newRule.max_area);
 
-    if (minArea >= maxArea) {
+    if (!isFixedSizeCategory && minArea >= maxArea) {
       toast.error("Min area must be less than max area");
       return;
     }
@@ -258,7 +275,7 @@ export const DBSizingRulesSettings = ({ projectId }: DBSizingRulesSettingsProps)
       <CardHeader>
         <CardTitle>DB Sizing Rules</CardTitle>
         <CardDescription>
-          Configure baseline allowance and scope of work DB sizes. Edit ranges to auto-adjust adjacent rules.
+          Standard: Configure area-based ranges. Fast Food & Restaurant: Set fixed DB size (area not applicable). National: Manual entry per tenant.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -285,25 +302,29 @@ export const DBSizingRulesSettings = ({ projectId }: DBSizingRulesSettingsProps)
                 <Label>Current Rules for {activeCategory.replace('_', ' ')}</Label>
                 {filteredRules.map((rule) => (
                   <div key={rule.id} className="flex items-center gap-2 p-2 border rounded">
-                    {editingId === rule.id ? (
+                     {editingId === rule.id ? (
                       <>
-                        <div className="flex-1 grid grid-cols-4 gap-2">
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={editForm.min_area}
-                            onChange={(e) => setEditForm({ ...editForm, min_area: e.target.value })}
-                            placeholder="Min"
-                            className="h-8"
-                          />
-                          <Input
-                            type="number"
-                            step="0.01"
-                            value={editForm.max_area}
-                            onChange={(e) => setEditForm({ ...editForm, max_area: e.target.value })}
-                            placeholder="Max"
-                            className="h-8"
-                          />
+                        <div className={`flex-1 grid gap-2 ${['fast_food', 'restaurant'].includes(activeCategory) ? 'grid-cols-2' : 'grid-cols-4'}`}>
+                          {!['fast_food', 'restaurant'].includes(activeCategory) && (
+                            <>
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={editForm.min_area}
+                                onChange={(e) => setEditForm({ ...editForm, min_area: e.target.value })}
+                                placeholder="Min"
+                                className="h-8"
+                              />
+                              <Input
+                                type="number"
+                                step="0.01"
+                                value={editForm.max_area}
+                                onChange={(e) => setEditForm({ ...editForm, max_area: e.target.value })}
+                                placeholder="Max"
+                                className="h-8"
+                              />
+                            </>
+                          )}
                           <Input
                             value={editForm.db_size_allowance}
                             onChange={(e) => setEditForm({ ...editForm, db_size_allowance: e.target.value })}
@@ -326,8 +347,10 @@ export const DBSizingRulesSettings = ({ projectId }: DBSizingRulesSettingsProps)
                       </>
                     ) : (
                       <>
-                        <div className="flex-1 grid grid-cols-4 gap-2 text-sm">
-                          <span>{rule.min_area}m² - {rule.max_area}m²</span>
+                        <div className={`flex-1 grid gap-2 text-sm ${['fast_food', 'restaurant'].includes(activeCategory) ? 'grid-cols-2' : 'grid-cols-3'}`}>
+                          {!['fast_food', 'restaurant'].includes(activeCategory) && (
+                            <span>{rule.min_area}m² - {rule.max_area}m²</span>
+                          )}
                           <span className="font-medium">{rule.db_size_allowance}</span>
                           <span className="font-medium text-muted-foreground">{rule.db_size_scope_of_work || "-"}</span>
                         </div>
@@ -354,54 +377,83 @@ export const DBSizingRulesSettings = ({ projectId }: DBSizingRulesSettingsProps)
 
             <div className="space-y-4 pt-4 border-t">
               <Label>Add New Rule</Label>
-              <div className="grid grid-cols-5 gap-2">
-                <div>
-                  <Label htmlFor="min_area" className="text-xs">Min Area (m²)</Label>
-                  <Input
-                    id="min_area"
-                    type="number"
-                    step="0.01"
-                    value={newRule.min_area}
-                    onChange={(e) => setNewRule({ ...newRule, min_area: e.target.value })}
-                    placeholder="0"
-                  />
+              {['fast_food', 'restaurant'].includes(activeCategory) ? (
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <Label htmlFor="db_size_allowance" className="text-xs">DB Allowance *</Label>
+                    <Input
+                      id="db_size_allowance"
+                      value={newRule.db_size_allowance}
+                      onChange={(e) => setNewRule({ ...newRule, db_size_allowance: e.target.value })}
+                      placeholder="60A TP"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="db_size_scope_of_work" className="text-xs">DB Scope of Work</Label>
+                    <Input
+                      id="db_size_scope_of_work"
+                      value={newRule.db_size_scope_of_work}
+                      onChange={(e) => setNewRule({ ...newRule, db_size_scope_of_work: e.target.value })}
+                      placeholder="Optional"
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <Button onClick={addRule} className="w-full">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add
+                    </Button>
+                  </div>
                 </div>
-                <div>
-                  <Label htmlFor="max_area" className="text-xs">Max Area (m²)</Label>
-                  <Input
-                    id="max_area"
-                    type="number"
-                    step="0.01"
-                    value={newRule.max_area}
-                    onChange={(e) => setNewRule({ ...newRule, max_area: e.target.value })}
-                    placeholder="80"
-                  />
+              ) : (
+                <div className="grid grid-cols-5 gap-2">
+                  <div>
+                    <Label htmlFor="min_area" className="text-xs">Min Area (m²) *</Label>
+                    <Input
+                      id="min_area"
+                      type="number"
+                      step="0.01"
+                      value={newRule.min_area}
+                      onChange={(e) => setNewRule({ ...newRule, min_area: e.target.value })}
+                      placeholder="0"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="max_area" className="text-xs">Max Area (m²) *</Label>
+                    <Input
+                      id="max_area"
+                      type="number"
+                      step="0.01"
+                      value={newRule.max_area}
+                      onChange={(e) => setNewRule({ ...newRule, max_area: e.target.value })}
+                      placeholder="80"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="db_size_allowance" className="text-xs">DB Allowance *</Label>
+                    <Input
+                      id="db_size_allowance"
+                      value={newRule.db_size_allowance}
+                      onChange={(e) => setNewRule({ ...newRule, db_size_allowance: e.target.value })}
+                      placeholder="60A TP"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="db_size_scope_of_work" className="text-xs">DB Scope of Work</Label>
+                    <Input
+                      id="db_size_scope_of_work"
+                      value={newRule.db_size_scope_of_work}
+                      onChange={(e) => setNewRule({ ...newRule, db_size_scope_of_work: e.target.value })}
+                      placeholder="Optional"
+                    />
+                  </div>
+                  <div className="flex items-end">
+                    <Button onClick={addRule} className="w-full">
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add
+                    </Button>
+                  </div>
                 </div>
-                <div>
-                  <Label htmlFor="db_size_allowance" className="text-xs">DB Allowance</Label>
-                  <Input
-                    id="db_size_allowance"
-                    value={newRule.db_size_allowance}
-                    onChange={(e) => setNewRule({ ...newRule, db_size_allowance: e.target.value })}
-                    placeholder="60A TP"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="db_size_scope_of_work" className="text-xs">DB Scope of Work</Label>
-                  <Input
-                    id="db_size_scope_of_work"
-                    value={newRule.db_size_scope_of_work}
-                    onChange={(e) => setNewRule({ ...newRule, db_size_scope_of_work: e.target.value })}
-                    placeholder="Optional"
-                  />
-                </div>
-                <div className="flex items-end">
-                  <Button onClick={addRule} className="w-full">
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add
-                  </Button>
-                </div>
-              </div>
+              )}
             </div>
           </TabsContent>
         </Tabs>
