@@ -62,40 +62,38 @@ export const TenantList = ({
     }
   };
   const handleBulkAutoCalc = async () => {
-    if (!confirm("This will recalculate DB sizes for all standard, fast food, and restaurant category tenants with areas. Continue?")) return;
+    if (!confirm("This will recalculate DB sizes for all standard category tenants with areas. Continue?")) return;
     setIsCalculating(true);
     try {
-      // Fetch sizing rules for categories that support auto-calculation
-      const autoCalcCategories = ['standard', 'fast_food', 'restaurant'];
+      // Fetch sizing rules for standard category only
       const {
         data: rules,
         error: rulesError
       } = await supabase.from("db_sizing_rules")
         .select("*")
         .eq("project_id", projectId)
-        .in("category", autoCalcCategories)
+        .eq("category", "standard")
         .order("min_area", {
           ascending: true
         });
         
       if (rulesError) throw rulesError;
       if (!rules || rules.length === 0) {
-        toast.error("No DB sizing rules configured for this project");
+        toast.error("No DB sizing rules configured for standard category");
         return;
       }
 
-      // Get all tenants in auto-calc categories with areas
+      // Get all standard tenants with areas
       const eligibleTenants = tenants.filter(t => 
-        autoCalcCategories.includes(t.shop_category) && t.area != null
+        t.shop_category === 'standard' && t.area != null
       );
       
       let updated = 0;
       let skipped = 0;
       
       for (const tenant of eligibleTenants) {
-        // Find matching rule for tenant's category and area
+        // Find matching rule for tenant's area
         const rule = rules.find(r => 
-          r.category === tenant.shop_category && 
           tenant.area! >= r.min_area && 
           tenant.area! < r.max_area + 1
         );
