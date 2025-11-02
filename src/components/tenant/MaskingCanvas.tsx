@@ -783,7 +783,11 @@ export const MaskingCanvas = ({
     }
   };
 
-  const handleMouseUp = () => {
+  const handleMouseUp = (e: React.MouseEvent) => {
+    if (e.button === 1) {
+      setIsPanning(false);
+      return;
+    }
     if (isPanning) {
       setIsPanning(false);
     }
