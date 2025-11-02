@@ -218,6 +218,7 @@ export interface ScaleInfo {
     pixelDistance: number | null;
     realDistance: number | null;
     ratio: number | null; // meters per pixel
+    labelPosition?: Point | null; // Optional custom position for the scale label
 }
 
 export interface PVPanelConfig {

@@ -31,6 +31,7 @@ interface CanvasProps {
   containment: Containment[];
   setContainment: (updater: (prev: Containment[]) => Containment[], commit?: boolean) => void;
   scaleInfo: ScaleInfo;
+  onScaleLabelPositionChange: (position: Point | null) => void;
   onScalingComplete: (line: {start: Point, end: Point}) => void;
   onLvLineComplete: (line: { points: Point[], length: number }) => void;
   onContainmentDrawComplete: (line: { points: Point[], length: number; type: ContainmentType; }) => void;
@@ -58,7 +59,7 @@ interface CanvasProps {
 const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
   pdfDoc, activeTool, viewState, setViewState,
   equipment, setEquipment, lines, setLines, zones, setZones, containment, setContainment,
-  scaleInfo, onScalingComplete, onLvLineComplete, onContainmentDrawComplete, scaleLine, onInitialViewCalculated,
+  scaleInfo, onScaleLabelPositionChange, onScalingComplete, onLvLineComplete, onContainmentDrawComplete, scaleLine, onInitialViewCalculated,
   selectedItemId, setSelectedItemId, placementRotation, purposeConfig,
   pvPanelConfig, roofMasks, pvArrays, setPvArrays, onRoofMaskDrawComplete, pendingPvArrayConfig, onPlacePvArray, isSnappingEnabled,
   pendingRoofMask, onRoofDirectionSet, onCancelRoofCreation, tasks
@@ -78,6 +79,7 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
   const [lastMousePos, setLastMousePos] = useState<Point>({ x: 0, y: 0 });
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
   const [isOverHandle, setIsOverHandle] = useState(false);
+  const [isDraggingScaleLabel, setIsDraggingScaleLabel] = useState(false);
   // Snapping state
   const [previewPvArray, setPreviewPvArray] = useState<PVArrayItem | null>(null);
   const [snapLines, setSnapLines] = useState<{start: Point, end: Point}[]>([]);
@@ -337,8 +339,12 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
         ctx.stroke();
 
         // Draw label with enhanced styling
-        const midX = (scaleLine.start.x + scaleLine.end.x) / 2;
-        const midY = (scaleLine.start.y + scaleLine.end.y) / 2;
+        // Use custom label position if set, otherwise calculate midpoint
+        const defaultMidX = (scaleLine.start.x + scaleLine.end.x) / 2;
+        const defaultMidY = (scaleLine.start.y + scaleLine.end.y) / 2;
+        const labelX = scaleInfo.labelPosition?.x ?? defaultMidX;
+        const labelY = scaleInfo.labelPosition?.y ?? defaultMidY;
+        
         const fontSize = 12; // Fixed size in PDF coordinates - will scale with zoom
         
         ctx.font = `bold ${fontSize}px sans-serif`;
@@ -360,8 +366,8 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.roundRect(
-            midX - maxWidth / 2 - padding,
-            midY - boxHeight / 2,
+            labelX - maxWidth / 2 - padding,
+            labelY - boxHeight / 2,
             maxWidth + padding * 2,
             boxHeight,
             4
@@ -372,12 +378,12 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
         // Draw main label text (distance)
         ctx.fillStyle = '#000000';
         ctx.font = `bold ${fontSize}px sans-serif`;
-        ctx.fillText(label, midX, midY - fontSize * 0.4);
+        ctx.fillText(label, labelX, labelY - fontSize * 0.4);
         
         // Draw scale ratio text (smaller)
         ctx.font = `${fontSize * 0.7}px sans-serif`;
         ctx.fillStyle = '#666666';
-        ctx.fillText(scaleRatio, midX, midY + fontSize * 0.6);
+        ctx.fillText(scaleRatio, labelX, labelY + fontSize * 0.6);
     }
     
     // Draw Snap lines
@@ -526,6 +532,26 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
     }
 
     if (activeTool === Tool.SELECT) {
+        // Check if clicking on scale label
+        if (scaleLine && scaleInfo.ratio) {
+            const defaultMidX = (scaleLine.start.x + scaleLine.end.x) / 2;
+            const defaultMidY = (scaleLine.start.y + scaleLine.end.y) / 2;
+            const labelX = scaleInfo.labelPosition?.x ?? defaultMidX;
+            const labelY = scaleInfo.labelPosition?.y ?? defaultMidY;
+            
+            const fontSize = 12;
+            const padding = 8;
+            const boxWidth = 100; // Approximate
+            const boxHeight = (fontSize * 2.5) + padding * 2;
+            
+            // Check if clicked within label bounds
+            if (Math.abs(worldPos.x - labelX) < boxWidth / 2 &&
+                Math.abs(worldPos.y - labelY) < boxHeight / 2) {
+                setIsDraggingScaleLabel(true);
+                return;
+            }
+        }
+    
         if (selectedItemId) {
             const selectedZone = zones.find(z => z.id === selectedItemId);
             if (selectedZone) {
@@ -731,6 +757,11 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
       return;
     }
     
+    if (isDraggingScaleLabel) {
+        setIsDraggingScaleLabel(false);
+        return;
+    }
+    
     if (isDraggingItem) {
         // Commit the final state of the drag to history
         const finalUpdater = (s: any) => s; // Identity function, state is already updated
@@ -747,6 +778,7 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
   const handleMouseLeave = () => {
     setIsPanning(false);
     setIsDraggingItem(false);
+    setIsDraggingScaleLabel(false);
     setDraggedHandle(null);
     setPreviewPoint(null);
     setPreviewEquipment(null);

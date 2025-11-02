@@ -388,13 +388,17 @@ const MainApp: React.FC<MainAppProps> = ({ user }) => {
     setIsScaleModalOpen(true);
   }, []);
 
+  const handleScaleLabelPositionChange = useCallback((position: Point | null) => {
+    setScaleInfo(prev => ({ ...prev, labelPosition: position }));
+  }, []);
+
   const handleScaleSubmit = (realDistance: number) => {
     if (scaleInfo.pixelDistance) {
-      setScaleInfo({
-        pixelDistance: scaleInfo.pixelDistance,
+      setScaleInfo(prev => ({
+        ...prev,
         realDistance: realDistance,
-        ratio: realDistance / scaleInfo.pixelDistance,
-      });
+        ratio: realDistance / (prev.pixelDistance || 1),
+      }));
       if (designPurpose === DesignPurpose.PV_DESIGN) setIsPvConfigModalOpen(true);
     }
     setIsScaleModalOpen(false);
@@ -568,7 +572,7 @@ const MainApp: React.FC<MainAppProps> = ({ user }) => {
                   ref={canvasApiRef} pdfDoc={pdfDoc} activeTool={activeTool} viewState={viewState} setViewState={setViewState}
                   equipment={equipment} setEquipment={setEquipment} lines={lines} setLines={setLines}
                   zones={zones} setZones={setZones} containment={containment} setContainment={setContainment}
-                  scaleInfo={scaleInfo} onScalingComplete={completeScaling} onLvLineComplete={handleLvLineComplete}
+                  scaleInfo={scaleInfo} onScaleLabelPositionChange={handleScaleLabelPositionChange} onScalingComplete={completeScaling} onLvLineComplete={handleLvLineComplete}
                   onContainmentDrawComplete={handleContainmentDrawComplete} scaleLine={scaleLine} onInitialViewCalculated={handleInitialViewCalculated}
                   selectedItemId={selectedItemId} setSelectedItemId={setSelectedItemId} placementRotation={placementRotation}
                   purposeConfig={purposeConfig} pvPanelConfig={pvPanelConfig} roofMasks={roofMasks} onRoofMaskDrawComplete={handleRoofMaskDrawComplete}
