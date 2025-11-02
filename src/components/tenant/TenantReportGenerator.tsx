@@ -83,13 +83,19 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
 
   const generateKPIPage = (doc: jsPDF) => {
     doc.addPage();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
     
-    // Page header
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(24);
+    // Professional header section
+    doc.setFillColor(41, 128, 185);
+    doc.rect(0, 0, pageWidth, 50, 'F');
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(28);
     doc.setFont("helvetica", "bold");
-    doc.text("Project Overview & KPIs", 20, 25);
+    doc.text("Project Overview & KPIs", 20, 30);
 
+    // Calculate metrics
     const totalTenants = tenants.length;
     const totalArea = tenants.reduce((sum, t) => sum + (t.area || 0), 0);
     const totalDbCost = tenants.reduce((sum, t) => sum + (t.db_cost || 0), 0);
@@ -106,97 +112,182 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
     const layoutReceived = tenants.filter(t => t.layout_received).length;
     const costReported = tenants.filter(t => t.cost_reported).length;
 
-    let yPos = 45;
+    let yPos = 65;
+    const cardWidth = 85;
+    const cardHeight = 45;
+    const cardSpacing = 10;
 
-    // Summary Stats Cards
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    
+    // Professional KPI Cards Row 1
     // Card 1: Total Tenants
-    doc.setFillColor(240, 240, 240);
-    doc.rect(20, yPos, 80, 30, 'F');
-    doc.text("Total Tenants", 25, yPos + 10);
-    doc.setFontSize(20);
-    doc.text(totalTenants.toString(), 25, yPos + 23);
-
-    // Card 2: Total Area
-    doc.setFontSize(12);
-    doc.rect(110, yPos, 80, 30, 'F');
-    doc.text("Total Area", 115, yPos + 10);
-    doc.setFontSize(20);
-    doc.text(`${totalArea.toFixed(2)} m²`, 115, yPos + 23);
-
-    yPos += 40;
-
-    // Card 3: Total DB Cost
-    doc.setFontSize(12);
-    doc.rect(20, yPos, 80, 30, 'F');
-    doc.text("Total DB Cost", 25, yPos + 10);
-    doc.setFontSize(20);
-    doc.text(`R${totalDbCost.toFixed(2)}`, 25, yPos + 23);
-
-    // Card 4: Total Lighting Cost
-    doc.setFontSize(12);
-    doc.rect(110, yPos, 80, 30, 'F');
-    doc.text("Total Lighting Cost", 115, yPos + 10);
-    doc.setFontSize(20);
-    doc.text(`R${totalLightingCost.toFixed(2)}`, 115, yPos + 23);
-
-    yPos += 50;
-
-    // Category Breakdown
-    doc.setFontSize(16);
-    doc.setFont("helvetica", "bold");
-    doc.text("Category Breakdown", 20, yPos);
-    yPos += 10;
-
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "normal");
-    Object.entries(categoryCounts).forEach(([category, count]) => {
-      doc.text(`${getCategoryLabel(category)}: ${count} tenant${count !== 1 ? 's' : ''}`, 25, yPos);
-      yPos += 8;
-    });
-
-    yPos += 10;
-
-    // Progress Tracking
-    doc.setFontSize(16);
-    doc.setFont("helvetica", "bold");
-    doc.text("Progress Tracking", 20, yPos);
-    yPos += 10;
-
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "normal");
+    doc.setFillColor(255, 255, 255);
+    doc.setDrawColor(220, 220, 220);
+    doc.setLineWidth(0.5);
+    doc.roundedRect(20, yPos, cardWidth, cardHeight, 3, 3, 'FD');
     
-    const progressData = [
-      { label: 'SOW Received', value: `${sowReceived}/${totalTenants}`, percentage: (sowReceived / totalTenants * 100).toFixed(1) },
-      { label: 'Layout Received', value: `${layoutReceived}/${totalTenants}`, percentage: (layoutReceived / totalTenants * 100).toFixed(1) },
-      { label: 'DB Ordered', value: `${dbOrdered}/${totalTenants}`, percentage: (dbOrdered / totalTenants * 100).toFixed(1) },
-      { label: 'Lighting Ordered', value: `${lightingOrdered}/${totalTenants}`, percentage: (lightingOrdered / totalTenants * 100).toFixed(1) },
-      { label: 'Cost Reported', value: `${costReported}/${totalTenants}`, percentage: (costReported / totalTenants * 100).toFixed(1) },
-    ];
-
-    progressData.forEach(item => {
-      doc.text(`${item.label}: ${item.value} (${item.percentage}%)`, 25, yPos);
-      
-      // Progress bar
-      const barWidth = 100;
-      const barHeight = 4;
-      const filledWidth = (parseFloat(item.percentage) / 100) * barWidth;
-      
-      doc.setFillColor(220, 220, 220);
-      doc.rect(130, yPos - 3, barWidth, barHeight, 'F');
-      doc.setFillColor(41, 128, 185);
-      doc.rect(130, yPos - 3, filledWidth, barHeight, 'F');
-      
-      yPos += 10;
-    });
-
-    // Add page number
-    const pageHeight = doc.internal.pageSize.getHeight();
+    doc.setFillColor(41, 128, 185);
+    doc.circle(30, yPos + 10, 4, 'F');
+    
+    doc.setTextColor(100, 100, 100);
     doc.setFontSize(10);
     doc.setFont("helvetica", "normal");
-    doc.text(`Page 2`, doc.internal.pageSize.getWidth() / 2, pageHeight - 10, { align: 'center' });
+    doc.text("TOTAL TENANTS", 40, yPos + 12);
+    
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(28);
+    doc.setFont("helvetica", "bold");
+    doc.text(totalTenants.toString(), 25, yPos + 35);
+
+    // Card 2: Total Area
+    const card2X = 20 + cardWidth + cardSpacing;
+    doc.setFillColor(255, 255, 255);
+    doc.roundedRect(card2X, yPos, cardWidth, cardHeight, 3, 3, 'FD');
+    
+    doc.setFillColor(46, 204, 113);
+    doc.circle(card2X + 10, yPos + 10, 4, 'F');
+    
+    doc.setTextColor(100, 100, 100);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text("TOTAL AREA", card2X + 20, yPos + 12);
+    
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(20);
+    doc.setFont("helvetica", "bold");
+    doc.text(`${totalArea.toFixed(0)} m²`, card2X + 5, yPos + 35);
+
+    yPos += cardHeight + cardSpacing;
+
+    // Professional KPI Cards Row 2
+    // Card 3: Total DB Cost
+    doc.setFillColor(255, 255, 255);
+    doc.roundedRect(20, yPos, cardWidth, cardHeight, 3, 3, 'FD');
+    
+    doc.setFillColor(230, 126, 34);
+    doc.circle(30, yPos + 10, 4, 'F');
+    
+    doc.setTextColor(100, 100, 100);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text("TOTAL DB COST", 40, yPos + 12);
+    
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text(`R${totalDbCost.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 25, yPos + 35);
+
+    // Card 4: Total Lighting Cost
+    doc.setFillColor(255, 255, 255);
+    doc.roundedRect(card2X, yPos, cardWidth, cardHeight, 3, 3, 'FD');
+    
+    doc.setFillColor(241, 196, 15);
+    doc.circle(card2X + 10, yPos + 10, 4, 'F');
+    
+    doc.setTextColor(100, 100, 100);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text("LIGHTING COST", card2X + 20, yPos + 12);
+    
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text(`R${totalLightingCost.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, card2X + 5, yPos + 35);
+
+    yPos += cardHeight + 20;
+
+    // Category Breakdown Section
+    doc.setFillColor(245, 245, 245);
+    doc.roundedRect(20, yPos, pageWidth - 40, 60, 3, 3, 'F');
+    
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Category Breakdown", 30, yPos + 15);
+
+    let categoryY = yPos + 28;
+    const categoryColors: Record<string, [number, number, number]> = {
+      standard: [52, 152, 219],
+      fast_food: [231, 76, 60],
+      restaurant: [46, 204, 113],
+      national: [155, 89, 182]
+    };
+
+    Object.entries(categoryCounts).forEach(([category, count]) => {
+      const color = categoryColors[category] || [128, 128, 128];
+      doc.setFillColor(color[0], color[1], color[2]);
+      doc.circle(35, categoryY, 3, 'F');
+      
+      doc.setTextColor(60, 60, 60);
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "normal");
+      doc.text(`${getCategoryLabel(category)}`, 45, categoryY + 2);
+      
+      doc.setFont("helvetica", "bold");
+      doc.text(`${count} tenant${count !== 1 ? 's' : ''}`, 130, categoryY + 2);
+      
+      categoryY += 10;
+    });
+
+    yPos += 70;
+
+    // Progress Tracking Section
+    doc.setFillColor(245, 245, 245);
+    doc.roundedRect(20, yPos, pageWidth - 40, 80, 3, 3, 'F');
+    
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Progress Tracking", 30, yPos + 15);
+
+    const progressData = [
+      { label: 'SOW Received', value: sowReceived, color: [41, 128, 185] },
+      { label: 'Layout Received', value: layoutReceived, color: [46, 204, 113] },
+      { label: 'DB Ordered', value: dbOrdered, color: [230, 126, 34] },
+      { label: 'Lighting Ordered', value: lightingOrdered, color: [241, 196, 15] },
+      { label: 'Cost Reported', value: costReported, color: [155, 89, 182] },
+    ];
+
+    let progressY = yPos + 28;
+    progressData.forEach(item => {
+      const percentage = (item.value / totalTenants * 100);
+      
+      // Label and count
+      doc.setTextColor(60, 60, 60);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text(item.label, 30, progressY);
+      
+      doc.setFont("helvetica", "bold");
+      doc.text(`${item.value}/${totalTenants}`, 85, progressY);
+      
+      // Progress bar
+      const barX = 105;
+      const barWidth = 80;
+      const barHeight = 6;
+      const filledWidth = (percentage / 100) * barWidth;
+      
+      // Background
+      doc.setFillColor(220, 220, 220);
+      doc.roundedRect(barX, progressY - 4, barWidth, barHeight, 1, 1, 'F');
+      
+      // Filled portion
+      if (filledWidth > 0) {
+        doc.setFillColor(item.color[0], item.color[1], item.color[2]);
+        doc.roundedRect(barX, progressY - 4, filledWidth, barHeight, 1, 1, 'F');
+      }
+      
+      // Percentage text
+      doc.setTextColor(100, 100, 100);
+      doc.setFontSize(9);
+      doc.text(`${percentage.toFixed(0)}%`, barX + barWidth + 3, progressY);
+      
+      progressY += 12;
+    });
+
+    // Page footer
+    doc.setFontSize(9);
+    doc.setTextColor(150, 150, 150);
+    doc.setFont("helvetica", "italic");
+    doc.text(`Page 2`, pageWidth / 2, pageHeight - 10, { align: 'center' });
   };
 
   const generateTenantSchedule = (doc: jsPDF) => {
@@ -276,84 +367,108 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
   };
 
   const generateLayoutPages = async (doc: jsPDF) => {
-    // Filter tenants that have layout images (if the field exists)
-    const tenantsWithLayouts = tenants.filter(t => t.layout_received && t.layout_image_url);
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    
+    try {
+      // Fetch the floor plan masking composite image
+      const { data: floorPlanRecord } = await supabase
+        .from('project_floor_plans')
+        .select('composite_image_url')
+        .eq('project_id', projectId)
+        .maybeSingle();
 
-    if (tenantsWithLayouts.length === 0) {
-      // Add a page noting that layouts are tracked but images need to be uploaded
+      if (!floorPlanRecord?.composite_image_url) {
+        // Add a page noting that floor plan masking is available
+        doc.addPage();
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(24);
+        doc.setFont("helvetica", "bold");
+        doc.text("Floor Plan Layout", 20, 25);
+        
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "normal");
+        doc.text("Floor plan masking not yet configured for this project.", 20, 45);
+        doc.text("Use the Floor Plan Masking tab to create tenant zones.", 20, 55);
+        
+        doc.setFontSize(9);
+        doc.setTextColor(150, 150, 150);
+        doc.setFont("helvetica", "italic");
+        const currentPage = (doc as any).internal.getCurrentPageInfo().pageNumber;
+        doc.text(`Page ${currentPage}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+        return;
+      }
+
+      // Download the composite image
+      const response = await fetch(floorPlanRecord.composite_image_url);
+      const blob = await response.blob();
+      
+      // Convert blob to base64
+      const reader = new FileReader();
+      const base64Image = await new Promise<string>((resolve) => {
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(blob);
+      });
+
+      doc.addPage();
+      
+      // Professional header
+      doc.setFillColor(41, 128, 185);
+      doc.rect(0, 0, pageWidth, 40, 'F');
+      
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(24);
+      doc.setFont("helvetica", "bold");
+      doc.text("Floor Plan with Tenant Zones", 20, 25);
+
+      // Add the composite image
+      const maxWidth = pageWidth - 40;
+      const maxHeight = pageHeight - 80;
+      
+      // Calculate aspect ratio to fit the image properly
+      const img = new Image();
+      await new Promise((resolve) => {
+        img.onload = resolve;
+        img.src = base64Image;
+      });
+      
+      let imgWidth = maxWidth;
+      let imgHeight = (img.height / img.width) * maxWidth;
+      
+      if (imgHeight > maxHeight) {
+        imgHeight = maxHeight;
+        imgWidth = (img.width / img.height) * maxHeight;
+      }
+      
+      const imgX = (pageWidth - imgWidth) / 2;
+      const imgY = 50;
+
+      doc.addImage(base64Image, 'PNG', imgX, imgY, imgWidth, imgHeight, undefined, 'FAST');
+
+      // Add legend/note at bottom
+      doc.setTextColor(100, 100, 100);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "italic");
+      doc.text("Colored zones represent tenant spaces as configured in Floor Plan Masking.", 20, pageHeight - 20);
+
+      // Page footer
+      doc.setFontSize(9);
+      doc.setTextColor(150, 150, 150);
+      const currentPage = (doc as any).internal.getCurrentPageInfo().pageNumber;
+      doc.text(`Page ${currentPage}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+      
+    } catch (error) {
+      console.error('Error generating layout page:', error);
+      // Add error page
       doc.addPage();
       doc.setTextColor(0, 0, 0);
       doc.setFontSize(20);
       doc.setFont("helvetica", "bold");
-      doc.text("Tenant Layouts", 20, 25);
+      doc.text("Floor Plan Layout", 20, 25);
       
       doc.setFontSize(12);
       doc.setFont("helvetica", "normal");
-      doc.text(`${tenants.filter(t => t.layout_received).length} layouts marked as received.`, 20, 45);
-      doc.text("Layout images can be attached for inclusion in future reports.", 20, 55);
-      
-      const pageHeight = doc.internal.pageSize.getHeight();
-      const currentPage = (doc as any).internal.getCurrentPageInfo().pageNumber;
-      doc.setFontSize(10);
-      doc.text(`Page ${currentPage}`, doc.internal.pageSize.getWidth() / 2, pageHeight - 10, { align: 'center' });
-      return;
-    }
-
-    for (const tenant of tenantsWithLayouts) {
-      try {
-        if (!tenant.layout_image_url) continue;
-
-        // Download the image from storage
-        const { data: imageData, error } = await supabase.storage
-          .from('floor-plans')
-          .download(tenant.layout_image_url);
-
-        if (error || !imageData) {
-          console.error(`Failed to download layout for ${tenant.shop_number}:`, error);
-          continue;
-        }
-
-        // Convert blob to base64
-        const reader = new FileReader();
-        await new Promise((resolve) => {
-          reader.onloadend = resolve;
-          reader.readAsDataURL(imageData);
-        });
-        
-        const base64Image = reader.result as string;
-
-        doc.addPage();
-        
-        // Page header
-        doc.setTextColor(0, 0, 0);
-        doc.setFontSize(20);
-        doc.setFont("helvetica", "bold");
-        doc.text(`${tenant.shop_number} - ${tenant.shop_name}`, 20, 25);
-
-        // Tenant details
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "normal");
-        doc.text(`Category: ${getCategoryLabel(tenant.shop_category)}`, 20, 35);
-        doc.text(`Area: ${tenant.area?.toFixed(2) || '-'} m²`, 20, 43);
-        doc.text(`DB Allowance: ${tenant.db_size_allowance || '-'}`, 20, 51);
-        doc.text(`DB Scope of Work: ${tenant.db_size_scope_of_work || '-'}`, 20, 59);
-
-        // Add the layout image
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const pageHeight = doc.internal.pageSize.getHeight();
-        const maxWidth = pageWidth - 40;
-        const maxHeight = pageHeight - 100;
-
-        // Add image with appropriate sizing
-        doc.addImage(base64Image, 'PNG', 20, 70, maxWidth, maxHeight, undefined, 'FAST');
-
-        // Add page number
-        const currentPage = (doc as any).internal.getCurrentPageInfo().pageNumber;
-        doc.setFontSize(10);
-        doc.text(`Page ${currentPage}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
-      } catch (error) {
-        console.error(`Error adding layout for ${tenant.shop_number}:`, error);
-      }
+      doc.text("Unable to load floor plan image.", 20, 45);
     }
   };
 
