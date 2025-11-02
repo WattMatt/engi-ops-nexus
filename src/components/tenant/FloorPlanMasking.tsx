@@ -407,15 +407,22 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
         className="hidden"
       />
       
-      {/* Preview Image at Top (when not in edit mode and zones exist) */}
+      {/* Preview Image and Legend at Top (when not in edit mode and zones exist) */}
       {!isEditMode && zones.length > 0 && floorPlanRecord?.composite_image_url?.endsWith('.png') && (
         <div className="border-b p-4 bg-muted/20">
-          <div className="flex items-center justify-center">
-            <img 
-              src={`${floorPlanRecord.composite_image_url}?t=${Date.now()}`}
-              alt="Masked Floor Plan"
-              className="max-w-full max-h-[400px] object-contain shadow-lg rounded-lg"
-            />
+          <div className="flex gap-4 items-start">
+            <div className="flex-1 flex items-center justify-center">
+              <img 
+                src={`${floorPlanRecord.composite_image_url}?t=${Date.now()}`}
+                alt="Masked Floor Plan"
+                className="max-w-full max-h-[500px] object-contain shadow-lg rounded-lg"
+              />
+            </div>
+            <div className="w-80 flex-shrink-0">
+              <div className="max-h-[500px] overflow-y-auto rounded-lg border bg-card">
+                <FloorPlanLegend zones={zones} tenants={tenants} />
+              </div>
+            </div>
           </div>
         </div>
       )}
@@ -486,8 +493,8 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
           
           <div className="flex-1 overflow-hidden flex gap-4">
             {!isEditMode && zones.length > 0 ? (
-              <div className="flex-1 p-4 overflow-y-auto">
-                <FloorPlanLegend zones={zones} tenants={tenants} />
+              <div className="flex-1 p-4">
+                {/* Content area - legend is now at top with preview */}
               </div>
             ) : isEditMode && pdfDoc ? (
               <MaskingCanvas 
