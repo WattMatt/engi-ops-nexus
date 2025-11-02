@@ -432,14 +432,21 @@ export const MaskingCanvas = ({
         const centerY = zone.points.reduce((sum, p) => sum + p.y, 0) / zone.points.length;
         
         ctx.save();
-        ctx.font = `bold ${14 / viewState.zoom}px sans-serif`;
+        // Reset transform to draw text at consistent size
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        
+        // Calculate screen position
+        const screenX = centerX * viewState.zoom + viewState.offset.x;
+        const screenY = centerY * viewState.zoom + viewState.offset.y;
+        
+        ctx.font = 'bold 16px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillStyle = '#ffffff';
         ctx.strokeStyle = zone.color;
-        ctx.lineWidth = 3 / viewState.zoom;
-        ctx.strokeText(zone.tenantName, centerX, centerY);
-        ctx.fillText(zone.tenantName, centerX, centerY);
+        ctx.lineWidth = 3;
+        ctx.strokeText(zone.tenantName, screenX, screenY);
+        ctx.fillText(zone.tenantName, screenX, screenY);
         ctx.restore();
       }
 
