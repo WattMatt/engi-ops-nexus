@@ -73,9 +73,9 @@ const TenantTracker = () => {
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="tenants">Tenant Schedule</TabsTrigger>
-          <TabsTrigger value="reports">Saved Reports</TabsTrigger>
           <TabsTrigger value="floor-plan">Floor Plan Masking</TabsTrigger>
           <TabsTrigger value="settings">DB Sizing Rules</TabsTrigger>
+          <TabsTrigger value="reports">Saved Reports</TabsTrigger>
         </TabsList>
         
         <TabsContent value="overview" className="mt-4">
