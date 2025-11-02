@@ -65,20 +65,13 @@ export const AssignTenantDialog = ({
 
       if (error) throw error;
       
-      console.log('All tenants:', data);
-      console.log('Assigned tenant IDs:', assignedTenantIds);
-      console.log('Current tenant ID:', currentTenantId);
-      
       // Filter out already assigned tenants (except current tenant for this zone)
       const filteredTenants = (data || []).filter(tenant => {
         const isAssigned = assignedTenantIds.includes(tenant.id);
         const isCurrent = tenant.id === currentTenantId;
         const shouldShow = !isAssigned || isCurrent;
-        console.log(`Tenant ${tenant.shop_number}: assigned=${isAssigned}, current=${isCurrent}, show=${shouldShow}`);
         return shouldShow;
       });
-      
-      console.log('Filtered tenants:', filteredTenants);
       
       // Sort by shop_number numerically
       const sortedTenants = filteredTenants.sort((a, b) => {
@@ -91,12 +84,8 @@ export const AssignTenantDialog = ({
         const numA = getNumericValue(a.shop_number);
         const numB = getNumericValue(b.shop_number);
         
-        console.log(`Comparing ${a.shop_number} (${numA}) vs ${b.shop_number} (${numB})`);
-        
         return numA - numB;
       });
-      
-      console.log('Sorted tenants:', sortedTenants.map(t => t.shop_number));
       
       setTenants(sortedTenants);
     } catch (error) {

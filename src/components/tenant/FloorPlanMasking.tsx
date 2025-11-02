@@ -249,7 +249,7 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
 
   const handleAssignTenant = (tenantId: string, tenantName: string, category: string) => {
     if (selectedZoneId && (window as any).updateZoneTenant) {
-      (window as any).updateZoneTenant(selectedZoneId, tenantId, tenantName, category);
+      (window as any).updateZoneTenant(selectedZoneId, tenantId, tenantName, category, tenants);
       toast.success(`Zone assigned to ${tenantName}`);
     }
   };

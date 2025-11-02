@@ -20,6 +20,9 @@ interface Tenant {
   db_ordered: boolean;
   lighting_ordered: boolean;
   cost_reported: boolean;
+  area: number | null;
+  db_cost: number | null;
+  lighting_cost: number | null;
 }
 
 interface FloorPlanLegendProps {
@@ -38,12 +41,15 @@ export const FloorPlanLegend = ({ zones, tenants, compact = false }: FloorPlanLe
                        tenant.layout_received && 
                        tenant.db_ordered && 
                        tenant.lighting_ordered &&
-                       tenant.cost_reported;
+                       tenant.cost_reported &&
+                       tenant.area &&
+                       tenant.db_cost &&
+                       tenant.lighting_cost;
 
     if (allComplete) {
       return { 
         status: 'completed', 
-        label: 'Completed',
+        label: 'Complete',
         icon: CheckCircle2,
         color: 'text-green-600'
       };
@@ -53,7 +59,7 @@ export const FloorPlanLegend = ({ zones, tenants, compact = false }: FloorPlanLe
       status: 'in-progress', 
       label: 'In Progress',
       icon: Clock,
-      color: 'text-amber-600'
+      color: 'text-red-600'
     };
   };
 

@@ -67,9 +67,29 @@ export const MaskingCanvas = ({
   const [isDraggingZone, setIsDraggingZone] = useState(false);
   const [draggedHandle, setDraggedHandle] = useState<{zoneId: string, pointIndex: number} | null>(null);
 
+  // Helper to check if tenant is complete
+  const isTenantComplete = (tenantId: string, tenants: any[]): boolean => {
+    const tenant = tenants.find((t: any) => t.id === tenantId);
+    if (!tenant) return false;
+    
+    return !!(
+      tenant.sow_received &&
+      tenant.layout_received &&
+      tenant.db_ordered &&
+      tenant.lighting_ordered &&
+      tenant.cost_reported &&
+      tenant.area &&
+      tenant.db_cost &&
+      tenant.lighting_cost
+    );
+  };
+
   // Expose method to update zone with tenant info
   useEffect(() => {
-    (window as any).updateZoneTenant = (zoneId: string, tenantId: string, tenantName: string, category: string) => {
+    (window as any).updateZoneTenant = (zoneId: string, tenantId: string, tenantName: string, category: string, tenants: any[]) => {
+      const isComplete = isTenantComplete(tenantId, tenants);
+      const color = isComplete ? '#16A34A' : '#DC2626'; // Green-600 for complete, Red-600 for incomplete
+      
       const updatedZones = zones.map(zone => {
         if (zone.id === zoneId) {
           return {
@@ -77,7 +97,7 @@ export const MaskingCanvas = ({
             tenantId,
             tenantName,
             category,
-            color: getCategoryColor(category)
+            color
           };
         }
         return zone;
@@ -247,11 +267,14 @@ export const MaskingCanvas = ({
                            tenant.layout_received && 
                            tenant.db_ordered && 
                            tenant.lighting_ordered &&
-                           tenant.cost_reported;
+                           tenant.cost_reported &&
+                           tenant.area &&
+                           tenant.db_cost &&
+                           tenant.lighting_cost;
 
         return allComplete 
-          ? { label: 'Completed', color: '#16A34A' }
-          : { label: 'In Progress', color: '#F59E0B' };
+          ? { label: 'Complete', color: '#16A34A' }
+          : { label: 'In Progress', color: '#DC2626' };
       };
 
       // Draw each assigned zone in the legend
@@ -324,27 +347,9 @@ export const MaskingCanvas = ({
     };
   }, [zones]);
 
-  // Zone colors based on category
-  const getCategoryColor = (category: string | null | undefined): string => {
-    if (!category) {
-      return '#9ca3af'; // gray-400 for unassigned
-    }
-    const colors = {
-      standard: '#3b82f6', // blue
-      fast_food: '#ef4444', // red
-      restaurant: '#10b981', // emerald
-      national: '#9333ea'   // purple
-    };
-    return colors[category as keyof typeof colors] || '#9ca3af';
-  };
-
-  // Get zone color - use category color if tenant assigned, otherwise cycling colors
-  const getZoneColor = (index: number, category?: string | null): string => {
-    if (category) {
-      return getCategoryColor(category);
-    }
-    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
-    return colors[index % colors.length];
+  // Get zone color for unassigned zones (gray)
+  const getZoneColor = (index: number): string => {
+    return '#9ca3af'; // gray-400 for unassigned
   };
 
   // Check if a point is inside a polygon
