@@ -90,6 +90,61 @@ export const MaskingCanvas = ({
     };
   }, [zones, onZonesChange]);
 
+  // Expose function to get composite canvas for preview generation
+  useEffect(() => {
+    (window as any).getCompositeCanvas = () => {
+      const pdfCanvas = pdfCanvasRef.current;
+      const overlayCanvas = overlayCanvasRef.current;
+      
+      if (!pdfCanvas || !overlayCanvas) return null;
+      
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = pdfCanvas.width;
+      tempCanvas.height = pdfCanvas.height;
+      
+      const ctx = tempCanvas.getContext('2d');
+      if (!ctx) return null;
+      
+      // Draw PDF background
+      ctx.drawImage(pdfCanvas, 0, 0);
+      
+      // Draw zones directly (without transform)
+      zones.forEach(zone => {
+        ctx.beginPath();
+        zone.points.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));
+        ctx.closePath();
+        ctx.fillStyle = `${zone.color}40`; // 25% opacity
+        ctx.fill();
+        ctx.strokeStyle = zone.color;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Draw tenant name if assigned
+        if (zone.tenantName) {
+          const centerX = zone.points.reduce((sum, p) => sum + p.x, 0) / zone.points.length;
+          const centerY = zone.points.reduce((sum, p) => sum + p.y, 0) / zone.points.length;
+          
+          ctx.save();
+          ctx.font = 'bold 14px sans-serif';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillStyle = '#ffffff';
+          ctx.strokeStyle = zone.color;
+          ctx.lineWidth = 3;
+          ctx.strokeText(zone.tenantName, centerX, centerY);
+          ctx.fillText(zone.tenantName, centerX, centerY);
+          ctx.restore();
+        }
+      });
+      
+      return tempCanvas;
+    };
+
+    return () => {
+      delete (window as any).getCompositeCanvas;
+    };
+  }, [zones]);
+
   // Zone colors based on category
   const getCategoryColor = (category: string | null | undefined): string => {
     if (!category) {

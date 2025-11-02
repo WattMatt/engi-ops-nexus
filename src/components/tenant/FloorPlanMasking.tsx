@@ -253,7 +253,47 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
         if (insertError) throw insertError;
       }
 
-      toast.success(`Saved ${zones.length} zone(s)`);
+      // Generate composite preview image
+      if (pdfDoc && (window as any).getCompositeCanvas) {
+        const compositeCanvas = (window as any).getCompositeCanvas();
+        const blob = await new Promise<Blob>((resolve) => {
+          compositeCanvas.toBlob((blob: Blob) => resolve(blob), 'image/png');
+        });
+
+        // Upload composite image
+        const fileName = `${projectId}/composite.png`;
+        const { error: uploadError } = await supabase.storage
+          .from('floor-plans')
+          .upload(fileName, blob, { 
+            upsert: true,
+            contentType: 'image/png'
+          });
+
+        if (uploadError) throw uploadError;
+
+        // Get public URL
+        const { data: { publicUrl } } = supabase.storage
+          .from('floor-plans')
+          .getPublicUrl(fileName);
+
+        // Update or create floor plan record
+        const { error: upsertError } = await supabase
+          .from('project_floor_plans')
+          .upsert({
+            project_id: projectId,
+            composite_image_url: publicUrl,
+            updated_at: new Date().toISOString()
+          }, {
+            onConflict: 'project_id'
+          });
+
+        if (upsertError) throw upsertError;
+
+        // Invalidate query to refresh preview
+        queryClient.invalidateQueries({ queryKey: ['tenant-floor-plan', projectId] });
+      }
+
+      toast.success(`Saved ${zones.length} zone(s) and generated preview`);
     } catch (error) {
       console.error('Error saving zones:', error);
       toast.error('Failed to save zones');
