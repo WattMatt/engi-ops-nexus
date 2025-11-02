@@ -115,8 +115,10 @@ export const FloorPlanLegend = ({ zones, tenants, compact = false }: FloorPlanLe
         <CardTitle>Zone Legend</CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
-        {assignedZones.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No zones assigned to tenants yet</p>
+        {zones.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No zones drawn yet</p>
+        ) : assignedZones.length === 0 ? (
+          <p className="text-sm text-muted-foreground">{zones.length} zone{zones.length !== 1 ? 's' : ''} drawn, none assigned to tenants yet</p>
         ) : (
           assignedZones.map((zone) => {
             const status = getTenantStatus(zone.tenantId!);
@@ -151,7 +153,7 @@ export const FloorPlanLegend = ({ zones, tenants, compact = false }: FloorPlanLe
             );
           })
         )}
-        {unassignedZones.length > 0 && (
+        {unassignedZones.length > 0 && assignedZones.length > 0 && (
           <div className="pt-2 border-t">
             <p className="text-sm text-muted-foreground">
               {unassignedZones.length} unassigned zone{unassignedZones.length !== 1 ? 's' : ''}
