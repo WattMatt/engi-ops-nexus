@@ -47,7 +47,7 @@ export const AddCableEntryDialog = ({
     cable_tag: "",
     from_location: "",
     to_location: "",
-    voltage: "",
+    voltage: "400", // Default to 400V
     load_amps: "",
     cable_type: "",
     ohm_per_km: "",
@@ -194,7 +194,7 @@ export const AddCableEntryDialog = ({
         cable_tag: "",
         from_location: "",
         to_location: "",
-        voltage: "",
+        voltage: "400", // Reset to default 400V
         load_amps: "",
         cable_type: "",
         ohm_per_km: "",
@@ -340,15 +340,20 @@ export const AddCableEntryDialog = ({
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="voltage">Voltage</Label>
-              <Input
-                id="voltage"
-                type="number"
-                step="0.01"
+              <Select
                 value={formData.voltage}
-                onChange={(e) =>
-                  setFormData({ ...formData, voltage: e.target.value })
+                onValueChange={(value) =>
+                  setFormData({ ...formData, voltage: value })
                 }
-              />
+              >
+                <SelectTrigger id="voltage">
+                  <SelectValue placeholder="Select voltage" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="400">400V (3-Phase)</SelectItem>
+                  <SelectItem value="230">230V (Single Phase)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-2">
               <Label htmlFor="load_amps">Load (Amps)</Label>
