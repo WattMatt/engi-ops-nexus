@@ -9,41 +9,37 @@ export interface CableData {
   installCost: number; // Installation cost per meter (R)
 }
 
-// Standard copper cable sizes with typical ratings
+// Standard copper cable sizes from SANS 1507-3 Table 6.2 (Ducts installation method)
 export const COPPER_CABLE_TABLE: CableData[] = [
-  { size: "1.5mm²", currentRating: 17.5, ohmPerKm: 12.1, supplyCost: 8.5, installCost: 15 },
-  { size: "2.5mm²", currentRating: 24, ohmPerKm: 7.41, supplyCost: 12, installCost: 18 },
-  { size: "4mm²", currentRating: 32, ohmPerKm: 4.61, supplyCost: 18, installCost: 22 },
-  { size: "6mm²", currentRating: 41, ohmPerKm: 3.08, supplyCost: 25, installCost: 28 },
-  { size: "10mm²", currentRating: 57, ohmPerKm: 1.83, supplyCost: 38, installCost: 35 },
-  { size: "16mm²", currentRating: 76, ohmPerKm: 1.15, supplyCost: 52, installCost: 42 },
-  { size: "25mm²", currentRating: 101, ohmPerKm: 0.727, supplyCost: 75, installCost: 55 },
-  { size: "35mm²", currentRating: 125, ohmPerKm: 0.524, supplyCost: 95, installCost: 65 },
-  { size: "50mm²", currentRating: 151, ohmPerKm: 0.387, supplyCost: 125, installCost: 78 },
-  { size: "70mm²", currentRating: 192, ohmPerKm: 0.268, supplyCost: 165, installCost: 95 },
-  { size: "95mm²", currentRating: 232, ohmPerKm: 0.193, supplyCost: 210, installCost: 115 },
-  { size: "120mm²", currentRating: 269, ohmPerKm: 0.153, supplyCost: 255, installCost: 135 },
-  { size: "150mm²", currentRating: 309, ohmPerKm: 0.124, supplyCost: 310, installCost: 155 },
-  { size: "185mm²", currentRating: 353, ohmPerKm: 0.0991, supplyCost: 375, installCost: 180 },
-  { size: "240mm²", currentRating: 415, ohmPerKm: 0.0754, supplyCost: 475, installCost: 215 },
-  { size: "300mm²", currentRating: 478, ohmPerKm: 0.0601, supplyCost: 580, installCost: 250 },
-  { size: "400mm²", currentRating: 551, ohmPerKm: 0.047, supplyCost: 750, installCost: 295 },
+  { size: "1.5mm²", currentRating: 20, ohmPerKm: 14.48, supplyCost: 8.5, installCost: 15 },
+  { size: "2.5mm²", currentRating: 26, ohmPerKm: 8.87, supplyCost: 12, installCost: 18 },
+  { size: "4mm²", currentRating: 34, ohmPerKm: 5.52, supplyCost: 18, installCost: 22 },
+  { size: "6mm²", currentRating: 43, ohmPerKm: 3.69, supplyCost: 25, installCost: 28 },
+  { size: "10mm²", currentRating: 58, ohmPerKm: 2.19, supplyCost: 38, installCost: 35 },
+  { size: "16mm²", currentRating: 75, ohmPerKm: 1.38, supplyCost: 52, installCost: 42 },
+  { size: "25mm²", currentRating: 96, ohmPerKm: 0.8749, supplyCost: 75, installCost: 55 },
+  { size: "35mm²", currentRating: 116, ohmPerKm: 0.6335, supplyCost: 95, installCost: 65 },
+  { size: "50mm²", currentRating: 138, ohmPerKm: 0.4718, supplyCost: 125, installCost: 78 },
+  { size: "70mm²", currentRating: 171, ohmPerKm: 0.3325, supplyCost: 165, installCost: 95 },
+  { size: "95mm²", currentRating: 205, ohmPerKm: 0.2460, supplyCost: 210, installCost: 115 },
+  { size: "120mm²", currentRating: 234, ohmPerKm: 0.2012, supplyCost: 255, installCost: 135 },
+  { size: "150mm²", currentRating: 263, ohmPerKm: 0.1698, supplyCost: 310, installCost: 155 },
+  { size: "185mm²", currentRating: 298, ohmPerKm: 0.1445, supplyCost: 375, installCost: 180 },
+  { size: "240mm²", currentRating: 344, ohmPerKm: 0.1220, supplyCost: 475, installCost: 215 },
+  { size: "300mm²", currentRating: 385, ohmPerKm: 0.1090, supplyCost: 580, installCost: 250 },
 ];
 
-// Standard aluminium cable sizes with typical ratings
+// Standard aluminium cable sizes from SANS 1507-3 Table 6.3 (Ducts installation method)
 export const ALUMINIUM_CABLE_TABLE: CableData[] = [
-  { size: "16mm²", currentRating: 61, ohmPerKm: 1.91, supplyCost: 32, installCost: 42 },
-  { size: "25mm²", currentRating: 80, ohmPerKm: 1.20, supplyCost: 45, installCost: 55 },
-  { size: "35mm²", currentRating: 99, ohmPerKm: 0.868, supplyCost: 58, installCost: 65 },
-  { size: "50mm²", currentRating: 119, ohmPerKm: 0.641, supplyCost: 75, installCost: 78 },
-  { size: "70mm²", currentRating: 151, ohmPerKm: 0.443, supplyCost: 98, installCost: 95 },
-  { size: "95mm²", currentRating: 182, ohmPerKm: 0.320, supplyCost: 125, installCost: 115 },
-  { size: "120mm²", currentRating: 210, ohmPerKm: 0.253, supplyCost: 152, installCost: 135 },
-  { size: "150mm²", currentRating: 240, ohmPerKm: 0.206, supplyCost: 185, installCost: 155 },
-  { size: "185mm²", currentRating: 273, ohmPerKm: 0.164, supplyCost: 222, installCost: 180 },
-  { size: "240mm²", currentRating: 320, ohmPerKm: 0.125, supplyCost: 280, installCost: 215 },
-  { size: "300mm²", currentRating: 367, ohmPerKm: 0.100, supplyCost: 340, installCost: 250 },
-  { size: "400mm²", currentRating: 423, ohmPerKm: 0.0778, supplyCost: 435, installCost: 295 },
+  { size: "25mm²", currentRating: 73, ohmPerKm: 1.4446, supplyCost: 45, installCost: 55 },
+  { size: "35mm²", currentRating: 87, ohmPerKm: 1.0465, supplyCost: 58, installCost: 65 },
+  { size: "50mm²", currentRating: 104, ohmPerKm: 0.7749, supplyCost: 75, installCost: 78 },
+  { size: "70mm²", currentRating: 130, ohmPerKm: 0.5388, supplyCost: 98, installCost: 95 },
+  { size: "95mm²", currentRating: 157, ohmPerKm: 0.3934, supplyCost: 125, installCost: 115 },
+  { size: "120mm²", currentRating: 179, ohmPerKm: 0.3148, supplyCost: 152, installCost: 135 },
+  { size: "150mm²", currentRating: 201, ohmPerKm: 0.2607, supplyCost: 185, installCost: 155 },
+  { size: "185mm²", currentRating: 229, ohmPerKm: 0.2133, supplyCost: 222, installCost: 180 },
+  { size: "240mm²", currentRating: 268, ohmPerKm: 0.1708, supplyCost: 280, installCost: 215 },
 ];
 
 // Default to copper table for backward compatibility
