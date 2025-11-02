@@ -339,7 +339,7 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
         // Draw label with enhanced styling
         const midX = (scaleLine.start.x + scaleLine.end.x) / 2;
         const midY = (scaleLine.start.y + scaleLine.end.y) / 2;
-        const fontSize = 18 / viewState.zoom;
+        const fontSize = 12; // Fixed size in PDF coordinates - will scale with zoom
         
         ctx.font = `bold ${fontSize}px sans-serif`;
         ctx.textAlign = 'center';
@@ -351,20 +351,20 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
         const metrics = ctx.measureText(label);
         const scaleMetrics = ctx.measureText(scaleRatio);
         const maxWidth = Math.max(metrics.width, scaleMetrics.width);
-        const padding = 8 / viewState.zoom;
+        const padding = 8;
         const boxHeight = (fontSize * 2.5) + padding * 2;
         
         // Draw white background with black border
         ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
         ctx.strokeStyle = '#000000';
-        ctx.lineWidth = 2 / viewState.zoom;
+        ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.roundRect(
             midX - maxWidth / 2 - padding,
             midY - boxHeight / 2,
             maxWidth + padding * 2,
             boxHeight,
-            4 / viewState.zoom
+            4
         );
         ctx.fill();
         ctx.stroke();
