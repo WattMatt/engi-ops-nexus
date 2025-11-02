@@ -410,8 +410,9 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
         return;
       }
 
-      // Download the composite image
-      const response = await fetch(floorPlanRecord.composite_image_url);
+      // Download the composite image with cache busting
+      const imageUrl = `${floorPlanRecord.composite_image_url}?t=${Date.now()}`;
+      const response = await fetch(imageUrl);
       const blob = await response.blob();
       
       // Convert blob to base64
