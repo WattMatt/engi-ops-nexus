@@ -62,29 +62,44 @@ export const TenantList = ({
     }
   };
   const handleBulkAutoCalc = async () => {
-    if (!confirm("This will recalculate DB sizes for all standard category tenants with areas. Continue?")) return;
+    if (!confirm("This will recalculate DB sizes for all standard, fast food, and restaurant category tenants with areas. Continue?")) return;
     setIsCalculating(true);
     try {
-      // Fetch sizing rules
+      // Fetch sizing rules for categories that support auto-calculation
+      const autoCalcCategories = ['standard', 'fast_food', 'restaurant'];
       const {
         data: rules,
         error: rulesError
-      } = await supabase.from("db_sizing_rules").select("*").eq("project_id", projectId).eq("category", "standard").order("min_area", {
-        ascending: true
-      });
+      } = await supabase.from("db_sizing_rules")
+        .select("*")
+        .eq("project_id", projectId)
+        .in("category", autoCalcCategories)
+        .order("min_area", {
+          ascending: true
+        });
+        
       if (rulesError) throw rulesError;
       if (!rules || rules.length === 0) {
         toast.error("No DB sizing rules configured for this project");
         return;
       }
 
-      // Get all standard tenants with areas
-      const standardTenants = tenants.filter(t => t.shop_category === 'standard' && t.area != null);
+      // Get all tenants in auto-calc categories with areas
+      const eligibleTenants = tenants.filter(t => 
+        autoCalcCategories.includes(t.shop_category) && t.area != null
+      );
+      
       let updated = 0;
       let skipped = 0;
-      for (const tenant of standardTenants) {
-        // Use < for max_area to handle boundary cases (e.g., 200.51 should match 201-300, not 81-200)
-        const rule = rules.find(r => tenant.area! >= r.min_area && tenant.area! < r.max_area + 1);
+      
+      for (const tenant of eligibleTenants) {
+        // Find matching rule for tenant's category and area
+        const rule = rules.find(r => 
+          r.category === tenant.shop_category && 
+          tenant.area! >= r.min_area && 
+          tenant.area! < r.max_area + 1
+        );
+        
         if (rule) {
           // Use scope of work if available, otherwise use allowance
           const dbSize = rule.db_size_scope_of_work || rule.db_size_allowance;
@@ -100,6 +115,7 @@ export const TenantList = ({
           skipped++;
         }
       }
+      
       toast.success(`Updated ${updated} tenant(s). Skipped ${skipped} (no matching rule).`);
       onUpdate();
     } catch (error: any) {

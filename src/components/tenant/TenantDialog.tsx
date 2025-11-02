@@ -68,9 +68,11 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
     loadSizingRules();
   }, [projectId]);
 
-  // Auto-calculate DB size when dialog opens with an area value (only for standard category)
+  // Auto-calculate DB size when dialog opens with an area value (for standard, fast_food, and restaurant)
   useEffect(() => {
-    if (open && formData.area && !isNaN(parseFloat(formData.area)) && formData.shop_category === 'standard' && sizingRules.length > 0) {
+    const autoCalculateCategories = ['standard', 'fast_food', 'restaurant'];
+    if (open && formData.area && !isNaN(parseFloat(formData.area)) && 
+        autoCalculateCategories.includes(formData.shop_category) && sizingRules.length > 0) {
       const area = parseFloat(formData.area);
       console.log('Auto-calculating DB size for area:', area, 'category:', formData.shop_category);
       console.log('Available rules:', sizingRules);
@@ -82,14 +84,15 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
     }
   }, [open, sizingRules]);
 
-  // Get DB size from area using configured rules (only for standard category)
+  // Get DB size from area using configured rules (for standard, fast_food, and restaurant)
   const getDbSizeFromArea = (area: number, category: string): string | null => {
     console.log('getDbSizeFromArea called with area:', area, 'category:', category);
     console.log('All sizing rules:', sizingRules);
     
-    // Only auto-calculate for standard shops
-    if (category !== 'standard') {
-      console.log('Not standard category, skipping auto-calc');
+    // Auto-calculate for standard, fast_food, and restaurant shops
+    const autoCalculateCategories = ['standard', 'fast_food', 'restaurant'];
+    if (!autoCalculateCategories.includes(category)) {
+      console.log('Category not eligible for auto-calc:', category);
       return null;
     }
     
@@ -109,8 +112,9 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
   const handleAreaChange = (value: string) => {
     setFormData({ ...formData, area: value });
     
-    // Auto-calculate DB size when area is entered (only for standard category)
-    if (value && !isNaN(parseFloat(value)) && formData.shop_category === 'standard') {
+    // Auto-calculate DB size when area is entered (for standard, fast_food, and restaurant)
+    const autoCalculateCategories = ['standard', 'fast_food', 'restaurant'];
+    if (value && !isNaN(parseFloat(value)) && autoCalculateCategories.includes(formData.shop_category)) {
       const calculatedDbSize = getDbSizeFromArea(parseFloat(value), formData.shop_category);
       if (calculatedDbSize) {
         setFormData(prev => ({ ...prev, area: value, db_size_allowance: calculatedDbSize }));
@@ -121,14 +125,15 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
   const handleCategoryChange = (value: string) => {
     setFormData({ ...formData, shop_category: value });
     
-    // Auto-calculate DB size when category changes (only for standard category with area)
-    if (formData.area && !isNaN(parseFloat(formData.area)) && value === 'standard') {
+    // Auto-calculate DB size when category changes (for standard, fast_food, and restaurant with area)
+    const autoCalculateCategories = ['standard', 'fast_food', 'restaurant'];
+    if (formData.area && !isNaN(parseFloat(formData.area)) && autoCalculateCategories.includes(value)) {
       const calculatedDbSize = getDbSizeFromArea(parseFloat(formData.area), value);
       if (calculatedDbSize) {
         setFormData(prev => ({ ...prev, shop_category: value, db_size_allowance: calculatedDbSize }));
       }
-    } else if (value !== 'standard') {
-      // Clear DB size when switching to non-standard category
+    } else if (!autoCalculateCategories.includes(value)) {
+      // Clear DB size when switching to category that doesn't auto-calculate (national)
       setFormData(prev => ({ ...prev, shop_category: value, db_size_allowance: '' }));
     }
   };
