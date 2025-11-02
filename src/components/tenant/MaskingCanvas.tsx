@@ -431,13 +431,13 @@ export const MaskingCanvas = ({
         const centerX = zone.points.reduce((sum, p) => sum + p.x, 0) / zone.points.length;
         const centerY = zone.points.reduce((sum, p) => sum + p.y, 0) / zone.points.length;
         
-        // Fixed size in PDF coordinates - will scale with zoom
-        ctx.font = 'bold 24px sans-serif';
+        // Smaller size to fit within zone boundaries
+        ctx.font = 'bold 12px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillStyle = '#ffffff';
         ctx.strokeStyle = zone.color;
-        ctx.lineWidth = 4;
+        ctx.lineWidth = 3;
         ctx.strokeText(zone.tenantName, centerX, centerY);
         ctx.fillText(zone.tenantName, centerX, centerY);
       }
