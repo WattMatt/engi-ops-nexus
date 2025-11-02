@@ -7,7 +7,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-
 interface Tenant {
   id: string;
   shop_name: string;
@@ -24,21 +23,23 @@ interface Tenant {
   lighting_cost: number | null;
   cost_reported: boolean;
 }
-
 interface TenantListProps {
   tenants: Tenant[];
   projectId: string;
   onUpdate: () => void;
 }
-
-export const TenantList = ({ tenants, projectId, onUpdate }: TenantListProps) => {
+export const TenantList = ({
+  tenants,
+  projectId,
+  onUpdate
+}: TenantListProps) => {
   const [isCalculating, setIsCalculating] = useState(false);
-
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this tenant?")) return;
-
     try {
-      const { error } = await supabase.from("tenants").delete().eq("id", id);
+      const {
+        error
+      } = await supabase.from("tenants").delete().eq("id", id);
       if (error) throw error;
       toast.success("Tenant deleted");
       onUpdate();
@@ -46,36 +47,31 @@ export const TenantList = ({ tenants, projectId, onUpdate }: TenantListProps) =>
       toast.error("Failed to delete tenant");
     }
   };
-
   const handleCategoryChange = async (tenantId: string, newCategory: string) => {
     try {
-      const { error } = await supabase
-        .from("tenants")
-        .update({ shop_category: newCategory })
-        .eq("id", tenantId);
-
+      const {
+        error
+      } = await supabase.from("tenants").update({
+        shop_category: newCategory
+      }).eq("id", tenantId);
       if (error) throw error;
-      
       toast.success("Category updated");
       onUpdate();
     } catch (error: any) {
       toast.error("Failed to update category");
     }
   };
-
   const handleBulkAutoCalc = async () => {
     if (!confirm("This will recalculate DB sizes for all standard category tenants with areas. Continue?")) return;
-    
     setIsCalculating(true);
     try {
       // Fetch sizing rules
-      const { data: rules, error: rulesError } = await supabase
-        .from("db_sizing_rules")
-        .select("*")
-        .eq("project_id", projectId)
-        .eq("category", "standard")
-        .order("min_area", { ascending: true });
-
+      const {
+        data: rules,
+        error: rulesError
+      } = await supabase.from("db_sizing_rules").select("*").eq("project_id", projectId).eq("category", "standard").order("min_area", {
+        ascending: true
+      });
       if (rulesError) throw rulesError;
       if (!rules || rules.length === 0) {
         toast.error("No DB sizing rules configured for this project");
@@ -83,27 +79,20 @@ export const TenantList = ({ tenants, projectId, onUpdate }: TenantListProps) =>
       }
 
       // Get all standard tenants with areas
-      const standardTenants = tenants.filter(
-        t => t.shop_category === 'standard' && t.area != null
-      );
-
+      const standardTenants = tenants.filter(t => t.shop_category === 'standard' && t.area != null);
       let updated = 0;
       let skipped = 0;
-
       for (const tenant of standardTenants) {
         // Use < for max_area to handle boundary cases (e.g., 200.51 should match 201-300, not 81-200)
-        const rule = rules.find(
-          r => tenant.area! >= r.min_area && tenant.area! < r.max_area + 1
-        );
-
+        const rule = rules.find(r => tenant.area! >= r.min_area && tenant.area! < r.max_area + 1);
         if (rule) {
           // Use scope of work if available, otherwise use allowance
           const dbSize = rule.db_size_scope_of_work || rule.db_size_allowance;
-          const { error } = await supabase
-            .from("tenants")
-            .update({ db_size_allowance: dbSize })
-            .eq("id", tenant.id);
-
+          const {
+            error
+          } = await supabase.from("tenants").update({
+            db_size_allowance: dbSize
+          }).eq("id", tenant.id);
           if (!error) {
             updated++;
           }
@@ -111,7 +100,6 @@ export const TenantList = ({ tenants, projectId, onUpdate }: TenantListProps) =>
           skipped++;
         }
       }
-
       toast.success(`Updated ${updated} tenant(s). Skipped ${skipped} (no matching rule).`);
       onUpdate();
     } catch (error: any) {
@@ -120,11 +108,11 @@ export const TenantList = ({ tenants, projectId, onUpdate }: TenantListProps) =>
       setIsCalculating(false);
     }
   };
-
-  const StatusIcon = ({ checked }: { checked: boolean }) => (
-    checked ? <CheckCircle2 className="h-4 w-4 text-green-600" /> : <Circle className="h-4 w-4 text-muted-foreground" />
-  );
-
+  const StatusIcon = ({
+    checked
+  }: {
+    checked: boolean;
+  }) => checked ? <CheckCircle2 className="h-4 w-4 text-green-600" /> : <Circle className="h-4 w-4 text-muted-foreground" />;
   const getCategoryVariant = (category: string) => {
     const variants = {
       standard: "bg-blue-500 text-white border-blue-600",
@@ -134,7 +122,6 @@ export const TenantList = ({ tenants, projectId, onUpdate }: TenantListProps) =>
     };
     return variants[category as keyof typeof variants] || "bg-gray-100 text-gray-800";
   };
-
   const getCategoryLabel = (category: string) => {
     const labels = {
       standard: "Standard",
@@ -144,15 +131,9 @@ export const TenantList = ({ tenants, projectId, onUpdate }: TenantListProps) =>
     };
     return labels[category as keyof typeof labels] || category;
   };
-
-  return (
-    <div className="space-y-4">
+  return <div className="space-y-4">
       <div className="flex justify-end">
-        <Button 
-          onClick={handleBulkAutoCalc} 
-          disabled={isCalculating}
-          variant="outline"
-        >
+        <Button onClick={handleBulkAutoCalc} disabled={isCalculating} variant="outline">
           <Calculator className="h-4 w-4 mr-2" />
           {isCalculating ? "Calculating..." : "Bulk Auto-Calculate DB Sizes"}
         </Button>
@@ -169,7 +150,7 @@ export const TenantList = ({ tenants, projectId, onUpdate }: TenantListProps) =>
             <TableHead>DB Scope of Work</TableHead>
             <TableHead className="text-center">SOW</TableHead>
             <TableHead className="text-center">Layout</TableHead>
-            <TableHead className="text-center">DB Order</TableHead>
+            <TableHead className="text-center">DB Ordered</TableHead>
             <TableHead className="text-right">DB Cost</TableHead>
             <TableHead className="text-center">Lighting Ordered</TableHead>
             <TableHead className="text-right">Light Cost</TableHead>
@@ -177,22 +158,15 @@ export const TenantList = ({ tenants, projectId, onUpdate }: TenantListProps) =>
           </TableRow>
         </TableHeader>
         <TableBody>
-          {tenants.length === 0 ? (
-            <TableRow>
+          {tenants.length === 0 ? <TableRow>
               <TableCell colSpan={13} className="text-center text-muted-foreground">
                 No tenants added yet
               </TableCell>
-            </TableRow>
-          ) : (
-            tenants.map((tenant) => (
-              <TableRow key={tenant.id}>
+            </TableRow> : tenants.map(tenant => <TableRow key={tenant.id}>
                 <TableCell className="font-medium">{tenant.shop_number}</TableCell>
                 <TableCell>{tenant.shop_name}</TableCell>
                 <TableCell>
-                  <Select 
-                    value={tenant.shop_category} 
-                    onValueChange={(value) => handleCategoryChange(tenant.id, value)}
-                  >
+                  <Select value={tenant.shop_category} onValueChange={value => handleCategoryChange(tenant.id, value)}>
                     <SelectTrigger className="w-[140px] h-8">
                       <SelectValue>
                         <Badge variant="outline" className={getCategoryVariant(tenant.shop_category)}>
@@ -253,12 +227,9 @@ export const TenantList = ({ tenants, projectId, onUpdate }: TenantListProps) =>
                     </Button>
                   </div>
                 </TableCell>
-              </TableRow>
-            ))
-          )}
+              </TableRow>)}
         </TableBody>
       </Table>
       </div>
-    </div>
-  );
+    </div>;
 };
