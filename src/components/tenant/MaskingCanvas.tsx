@@ -145,28 +145,86 @@ export const MaskingCanvas = ({
         ctx.restore();
       });
       
-      // Draw scale indicator on PDF (bottom-left)
-      if (existingScale) {
-        const scaleBoxX = margin + 15;
-        const scaleBoxY = pdfCanvas.height + margin - 60;
-        const boxWidth = 180;
-        const boxHeight = 50;
+      // Draw scale line on PDF if it exists
+      if (existingScale && scaleLine.start && scaleLine.end) {
+        ctx.save();
+        ctx.translate(margin, margin);
+        
+        const angle = Math.atan2(scaleLine.end.y - scaleLine.start.y, scaleLine.end.x - scaleLine.start.x);
+        const perpAngle = angle + Math.PI / 2;
+        const tickLength = 15;
+        
+        // Draw main line
+        ctx.beginPath();
+        ctx.moveTo(scaleLine.start.x, scaleLine.start.y);
+        ctx.lineTo(scaleLine.end.x, scaleLine.end.y);
+        ctx.strokeStyle = '#ffff00';
+        ctx.lineWidth = 5;
+        ctx.stroke();
+        
+        // Draw ticks
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(
+          scaleLine.start.x - Math.cos(perpAngle) * tickLength,
+          scaleLine.start.y - Math.sin(perpAngle) * tickLength
+        );
+        ctx.lineTo(
+          scaleLine.start.x + Math.cos(perpAngle) * tickLength,
+          scaleLine.start.y + Math.sin(perpAngle) * tickLength
+        );
+        ctx.stroke();
+        
+        ctx.beginPath();
+        ctx.moveTo(
+          scaleLine.end.x - Math.cos(perpAngle) * tickLength,
+          scaleLine.end.y - Math.sin(perpAngle) * tickLength
+        );
+        ctx.lineTo(
+          scaleLine.end.x + Math.cos(perpAngle) * tickLength,
+          scaleLine.end.y + Math.sin(perpAngle) * tickLength
+        );
+        ctx.stroke();
+        
+        // Draw endpoints
+        ctx.fillStyle = '#ffff00';
+        ctx.beginPath();
+        ctx.arc(scaleLine.start.x, scaleLine.start.y, 8, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.strokeStyle = '#000000';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        
+        ctx.beginPath();
+        ctx.arc(scaleLine.end.x, scaleLine.end.y, 8, 0, 2 * Math.PI);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Draw label
+        const midX = (scaleLine.start.x + scaleLine.end.x) / 2;
+        const midY = (scaleLine.start.y + scaleLine.end.y) / 2;
+        const labelOffset = 25;
+        const labelX = midX + Math.cos(perpAngle) * labelOffset;
+        const labelY = midY + Math.sin(perpAngle) * labelOffset;
+        
+        const scaleText = `${existingScale.toFixed(2)} px/m`;
+        ctx.font = 'bold 14px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const metrics = ctx.measureText(scaleText);
         
         ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
-        ctx.fillRect(scaleBoxX, scaleBoxY, boxWidth, boxHeight);
+        ctx.fillRect(
+          labelX - metrics.width / 2 - 6,
+          labelY - 7 - 6,
+          metrics.width + 12,
+          14 + 12
+        );
         
-        ctx.strokeStyle = '#ffff00';
-        ctx.lineWidth = 2;
-        ctx.strokeRect(scaleBoxX, scaleBoxY, boxWidth, boxHeight);
-        
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 14px sans-serif';
-        ctx.textAlign = 'left';
-        ctx.fillText('Scale:', scaleBoxX + 10, scaleBoxY + 18);
-        
-        ctx.font = '12px monospace';
         ctx.fillStyle = '#ffff00';
-        ctx.fillText(`${existingScale.toFixed(2)} px/m`, scaleBoxX + 10, scaleBoxY + 35);
+        ctx.fillText(scaleText, labelX, labelY);
+        
+        ctx.restore();
       }
       
       // Draw legend
@@ -461,6 +519,39 @@ export const MaskingCanvas = ({
         ctx.fill();
         ctx.stroke();
       }
+
+      // Draw scale measurement label at midpoint (if scale is set)
+      if (scaleLine.end && existingScale) {
+        const midX = (scaleLine.start.x + scaleLine.end.x) / 2;
+        const midY = (scaleLine.start.y + scaleLine.end.y) / 2;
+        
+        // Calculate offset perpendicular to line for label
+        const labelOffset = 25 / viewState.zoom;
+        const labelX = midX + Math.cos(perpAngle) * labelOffset;
+        const labelY = midY + Math.sin(perpAngle) * labelOffset;
+        
+        const scaleText = `${existingScale.toFixed(2)} px/m`;
+        
+        // Draw text background
+        ctx.font = `bold ${14 / viewState.zoom}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const metrics = ctx.measureText(scaleText);
+        const textHeight = 14 / viewState.zoom;
+        const padding = 6 / viewState.zoom;
+        
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
+        ctx.fillRect(
+          labelX - metrics.width / 2 - padding,
+          labelY - textHeight / 2 - padding,
+          metrics.width + padding * 2,
+          textHeight + padding * 2
+        );
+        
+        // Draw text
+        ctx.fillStyle = '#ffff00';
+        ctx.fillText(scaleText, labelX, labelY);
+      }
     }
 
     // Draw zone polygon preview
@@ -486,41 +577,7 @@ export const MaskingCanvas = ({
       });
     }
 
-    // Draw scale display overlay (top-right corner)
-    if (existingScale) {
-      ctx.restore();
-      
-      // Draw in screen coordinates (not PDF coordinates)
-      const padding = 15;
-      const boxWidth = 180;
-      const boxHeight = 50;
-      const x = canvas.width - boxWidth - padding;
-      const y = padding;
-      
-      // Semi-transparent background
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.75)';
-      ctx.fillRect(x, y, boxWidth, boxHeight);
-      
-      // Border
-      ctx.strokeStyle = '#ffff00';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(x, y, boxWidth, boxHeight);
-      
-      // Text
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 14px sans-serif';
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'top';
-      ctx.fillText('Scale Set:', x + 10, y + 10);
-      
-      ctx.font = '12px monospace';
-      ctx.fillStyle = '#ffff00';
-      ctx.fillText(`${existingScale.toFixed(2)} px/m`, x + 10, y + 28);
-      
-      ctx.save();
-    } else {
-      ctx.restore();
-    }
+    ctx.restore();
   }, [viewState, scaleLine, currentZoneDrawing, zones, selectedZoneId]);
 
   useEffect(() => {
