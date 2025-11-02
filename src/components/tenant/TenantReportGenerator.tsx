@@ -244,9 +244,9 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
 
     yPos += 70;
 
-    // Progress Tracking Section - increased height to fit all 5 items
+    // Progress Tracking Section - increased height to fit all 5 items with proper spacing
     doc.setFillColor(245, 245, 245);
-    doc.roundedRect(20, yPos, pageWidth - 40, 95, 3, 3, 'F');
+    doc.roundedRect(20, yPos, pageWidth - 40, 105, 3, 3, 'F');
     
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(14);
@@ -295,7 +295,7 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
       doc.setFontSize(9);
       doc.text(`${percentage.toFixed(0)}%`, barX + barWidth + 3, progressY);
       
-      progressY += 13;
+      progressY += 14;
     });
 
     // Page footer
@@ -460,28 +460,34 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
       doc.setTextColor(100, 100, 100);
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
-      doc.text("Legend:", 20, pageHeight - 35);
+      doc.text("Legend:", 20, pageHeight - 40);
       
       // Green indicator - Complete
-      doc.setFillColor(22, 163, 74); // #16A34A
-      doc.roundedRect(20, pageHeight - 30, 5, 5, 1, 1, 'F');
-      doc.text("Complete - All required fields satisfied", 30, pageHeight - 26);
+      doc.setFillColor(22, 163, 74); // #16A34A - Green
+      doc.roundedRect(20, pageHeight - 35, 5, 5, 1, 1, 'F');
+      doc.text("Complete - All required fields satisfied", 30, pageHeight - 31);
       
       // Red indicator - Incomplete
-      doc.setFillColor(220, 38, 38); // #DC2626
-      doc.roundedRect(20, pageHeight - 22, 5, 5, 1, 1, 'F');
-      doc.text("In Progress - Outstanding items", 30, pageHeight - 18);
+      doc.setFillColor(220, 38, 38); // #DC2626 - Red
+      doc.roundedRect(20, pageHeight - 27, 5, 5, 1, 1, 'F');
+      doc.text("In Progress - Outstanding items", 30, pageHeight - 23);
       
       // Gray indicator - Unassigned
-      doc.setFillColor(156, 163, 175); // #9ca3af
-      doc.roundedRect(120, pageHeight - 22, 5, 5, 1, 1, 'F');
-      doc.text("Unassigned", 130, pageHeight - 18);
+      doc.setFillColor(156, 163, 175); // #9ca3af - Gray
+      doc.roundedRect(20, pageHeight - 19, 5, 5, 1, 1, 'F');
+      doc.text("Unassigned", 30, pageHeight - 15);
+      
+      // Note about updating preview
+      doc.setFontSize(8);
+      doc.setTextColor(120, 120, 120);
+      doc.setFont("helvetica", "italic");
+      doc.text("Note: Use 'Update Preview Colors' in Floor Plan Masking to refresh colors before generating reports.", 20, pageHeight - 12);
 
       // Page footer
       doc.setFontSize(9);
       doc.setTextColor(150, 150, 150);
       const currentPage = (doc as any).internal.getCurrentPageInfo().pageNumber;
-      doc.text(`Page ${currentPage}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+      doc.text(`Page ${currentPage}`, pageWidth / 2, pageHeight - 5, { align: 'center' });
       
     } catch (error) {
       console.error('Error generating layout page:', error);
