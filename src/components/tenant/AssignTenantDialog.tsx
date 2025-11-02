@@ -61,22 +61,42 @@ export const AssignTenantDialog = ({
       const { data, error } = await supabase
         .from('tenants')
         .select('id, shop_name, shop_number, shop_category')
-        .eq('project_id', projectId)
-        .order('shop_number');
+        .eq('project_id', projectId);
 
       if (error) throw error;
       
+      console.log('All tenants:', data);
+      console.log('Assigned tenant IDs:', assignedTenantIds);
+      console.log('Current tenant ID:', currentTenantId);
+      
       // Filter out already assigned tenants (except current tenant for this zone)
-      const filteredTenants = (data || []).filter(tenant => 
-        !assignedTenantIds.includes(tenant.id) || tenant.id === currentTenantId
-      );
+      const filteredTenants = (data || []).filter(tenant => {
+        const isAssigned = assignedTenantIds.includes(tenant.id);
+        const isCurrent = tenant.id === currentTenantId;
+        const shouldShow = !isAssigned || isCurrent;
+        console.log(`Tenant ${tenant.shop_number}: assigned=${isAssigned}, current=${isCurrent}, show=${shouldShow}`);
+        return shouldShow;
+      });
+      
+      console.log('Filtered tenants:', filteredTenants);
       
       // Sort by shop_number numerically
       const sortedTenants = filteredTenants.sort((a, b) => {
-        const numA = parseInt(a.shop_number) || 0;
-        const numB = parseInt(b.shop_number) || 0;
+        // Extract numeric part from shop_number (handles formats like "1", "01", "Shop 1", etc.)
+        const getNumericValue = (shopNum: string) => {
+          const match = shopNum.match(/\d+/);
+          return match ? parseInt(match[0], 10) : 0;
+        };
+        
+        const numA = getNumericValue(a.shop_number);
+        const numB = getNumericValue(b.shop_number);
+        
+        console.log(`Comparing ${a.shop_number} (${numA}) vs ${b.shop_number} (${numB})`);
+        
         return numA - numB;
       });
+      
+      console.log('Sorted tenants:', sortedTenants.map(t => t.shop_number));
       
       setTenants(sortedTenants);
     } catch (error) {
