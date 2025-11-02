@@ -103,12 +103,13 @@ const operationalModules = [
     url: "/dashboard/messages",
     icon: UsersRound,
   },
-  {
-    title: "Project Settings",
-    url: "/dashboard/project-settings",
-    icon: Settings,
-  },
 ];
+
+const settingsModule = {
+  title: "Project Settings",
+  url: "/dashboard/project-settings",
+  icon: Settings,
+};
 
 
 export function AppSidebar() {
@@ -297,6 +298,22 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        {/* Settings at the bottom */}
+        <SidebarGroup className="mt-auto">
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <NavLink to={settingsModule.url} className={getNavCls(settingsModule.url)}>
+                    <settingsModule.icon className="h-4 w-4" />
+                    {!collapsed && <span>{settingsModule.title}</span>}
+                  </NavLink>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
