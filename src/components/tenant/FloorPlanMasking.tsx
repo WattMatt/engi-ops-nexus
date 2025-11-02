@@ -98,11 +98,17 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
         const file = new File([data], 'base.pdf', { type: 'application/pdf' });
         const doc = await loadPdfFromFile(file);
         setPdfDoc(doc);
+        
+        // Load saved scale if available
+        if (floorPlanRecord?.scale_pixels_per_meter) {
+          setScale(floorPlanRecord.scale_pixels_per_meter);
+          toast.success(`Loaded saved scale: ${floorPlanRecord.scale_pixels_per_meter.toFixed(2)} px/m`);
+        }
       }
     };
 
     loadPdf();
-  }, [isEditMode, projectId]);
+  }, [isEditMode, projectId, floorPlanRecord?.scale_pixels_per_meter]);
 
   // Load saved zones
   useEffect(() => {
@@ -313,12 +319,13 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
       
       const publicUrl = await saveCompositeImage(fileName);
 
-      // Update or create floor plan record
+      // Update or create floor plan record with scale
       const { error: upsertError } = await supabase
         .from('project_floor_plans')
         .upsert({
           project_id: projectId,
           composite_image_url: publicUrl,
+          scale_pixels_per_meter: scale,
           updated_at: new Date().toISOString()
         }, {
           onConflict: 'project_id'

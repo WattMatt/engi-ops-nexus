@@ -2662,6 +2662,7 @@ export type Database = {
           id: string
           project_id: string
           scale_info: Json | null
+          scale_pixels_per_meter: number | null
           updated_at: string | null
         }
         Insert: {
@@ -2671,6 +2672,7 @@ export type Database = {
           id?: string
           project_id: string
           scale_info?: Json | null
+          scale_pixels_per_meter?: number | null
           updated_at?: string | null
         }
         Update: {
@@ -2680,6 +2682,7 @@ export type Database = {
           id?: string
           project_id?: string
           scale_info?: Json | null
+          scale_pixels_per_meter?: number | null
           updated_at?: string | null
         }
         Relationships: []
