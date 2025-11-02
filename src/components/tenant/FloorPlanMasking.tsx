@@ -71,9 +71,16 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
     enabled: !!projectId
   });
 
-  // Load PDF when in edit mode
+  // Load PDF when in edit mode OR when zones exist (for regenerating preview)
   useEffect(() => {
-    if (!projectId || !isEditMode) {
+    if (!projectId) {
+      setPdfDoc(null);
+      return;
+    }
+
+    // Only load if in edit mode or if we have zones and need to regenerate preview
+    const shouldLoadPdf = isEditMode || zones.length > 0;
+    if (!shouldLoadPdf) {
       setPdfDoc(null);
       return;
     }
@@ -111,13 +118,15 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
             });
           }
           
-          toast.success(`Loaded saved scale: ${floorPlanRecord.scale_pixels_per_meter.toFixed(2)} px/m`);
+          if (isEditMode) {
+            toast.success(`Loaded saved scale: ${floorPlanRecord.scale_pixels_per_meter.toFixed(2)} px/m`);
+          }
         }
       }
     };
 
     loadPdf();
-  }, [isEditMode, projectId, floorPlanRecord?.scale_pixels_per_meter]);
+  }, [isEditMode, projectId, floorPlanRecord?.scale_pixels_per_meter, zones.length]);
 
   // Helper to check if tenant is complete
   const isTenantComplete = (tenantId: string | null): boolean => {
@@ -145,7 +154,7 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
 
   // Load saved zones and recalculate colors based on current tenant data
   useEffect(() => {
-    if (!projectId || !isEditMode || tenants.length === 0) return;
+    if (!projectId || tenants.length === 0) return;
 
     const loadZones = async () => {
       try {
@@ -174,7 +183,7 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
     };
 
     loadZones();
-  }, [isEditMode, projectId, tenants]);
+  }, [projectId, tenants]);
 
   const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -419,10 +428,38 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
             <h3 className="text-lg font-semibold">Floor Plan Masking</h3>
             <div className="flex gap-2">
               {!isEditMode ? (
-                <Button onClick={() => setIsEditMode(true)} variant="outline">
-                  <Edit className="w-4 h-4 mr-2" />
-                  Edit Floor Plan
-                </Button>
+                <>
+                  <Button onClick={() => setIsEditMode(true)} variant="outline">
+                    <Edit className="w-4 h-4 mr-2" />
+                    Edit Floor Plan
+                  </Button>
+                  {zones.length > 0 && pdfDoc && (
+                    <Button 
+                      onClick={async () => {
+                        setIsSaving(true);
+                        try {
+                          await handleSaveZones(false);
+                          toast.success('Preview updated with current tenant status');
+                        } catch (error) {
+                          toast.error('Failed to update preview');
+                        } finally {
+                          setIsSaving(false);
+                        }
+                      }} 
+                      variant="outline"
+                      disabled={isSaving}
+                    >
+                      {isSaving ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Updating...
+                        </>
+                      ) : (
+                        'Update Preview Colors'
+                      )}
+                    </Button>
+                  )}
+                </>
               ) : (
                 floorPlanRecord?.composite_image_url && (
                   <Button onClick={() => setIsEditMode(false)} variant="outline" size="sm">
@@ -435,14 +472,20 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
           </div>
           
           <div className="flex-1 overflow-hidden flex gap-4">
-            {!isEditMode && floorPlanRecord?.composite_image_url?.endsWith('.png') ? (
+            {!isEditMode && zones.length > 0 ? (
               <>
                 <div className="flex-1 flex items-center justify-center p-4">
-                  <img 
-                    src={floorPlanRecord.composite_image_url} 
-                    alt="Masked Floor Plan"
-                    className="max-w-full max-h-full object-contain shadow-lg"
-                  />
+                  {floorPlanRecord?.composite_image_url?.endsWith('.png') ? (
+                    <img 
+                      src={`${floorPlanRecord.composite_image_url}?t=${Date.now()}`}
+                      alt="Masked Floor Plan"
+                      className="max-w-full max-h-full object-contain shadow-lg"
+                    />
+                  ) : (
+                    <div className="text-center text-muted-foreground">
+                      <p>No preview available. Switch to edit mode to create zones.</p>
+                    </div>
+                  )}
                 </div>
                 <div className="w-80 p-4 overflow-y-auto">
                   <FloorPlanLegend zones={zones} tenants={tenants} />
