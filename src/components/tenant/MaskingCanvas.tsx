@@ -637,7 +637,14 @@ export const MaskingCanvas = ({
 
   const handleMouseDown = (e: React.MouseEvent) => {
     const mousePos = getMousePos(e);
+    setLastMousePos(mousePos);
+    if (e.button === 1) { setIsPanning(true); e.preventDefault(); return; }
     const worldPos = toWorld(mousePos);
+
+    if (activeTool === 'pan') {
+      setIsPanning(true);
+      return;
+    }
 
     // Zone mode - drawing polygons
     if (isZoneMode) {
@@ -726,14 +733,6 @@ export const MaskingCanvas = ({
       return;
     }
 
-    // Middle mouse button OR left click when not in scale mode - pan
-    if (e.button === 1 || e.button === 0) {
-      setIsPanning(true);
-      setLastMousePos(mousePos);
-      if (e.button === 1) {
-        e.preventDefault();
-      }
-    }
   };
 
   const handleMouseMove = (e: React.MouseEvent) => {
