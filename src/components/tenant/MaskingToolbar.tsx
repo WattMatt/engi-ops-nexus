@@ -11,6 +11,7 @@ interface ToolbarProps {
   onPreview?: () => void;
   isPdfLoaded: boolean;
   scaleSet: boolean;
+  scaleValue?: number | null;
   isSaving?: boolean;
 }
 
@@ -65,6 +66,7 @@ export const MaskingToolbar: React.FC<ToolbarProps> = ({
   onPreview,
   isPdfLoaded,
   scaleSet,
+  scaleValue,
   isSaving
 }) => {
   return (
@@ -149,6 +151,13 @@ export const MaskingToolbar: React.FC<ToolbarProps> = ({
             onClick={() => onToolSelect('scale')}
             disabled={!isPdfLoaded}
           />
+          {scaleSet && scaleValue && (
+            <div className="px-2.5 py-2 rounded-md bg-primary/10 border border-primary/20">
+              <p className="text-xs font-medium text-foreground">
+                Scale: {scaleValue.toFixed(2)} px/m
+              </p>
+            </div>
+          )}
           <ToolButton
             icon={Square}
             label="Draw Zone"

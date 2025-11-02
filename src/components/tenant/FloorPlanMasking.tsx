@@ -374,6 +374,7 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
             onUpload={() => fileInputRef.current?.click()}
             isPdfLoaded={!!pdfDoc}
             scaleSet={!!scale}
+            scaleValue={scale}
             onSave={async () => await handleSaveZones(false)}
             onSaveAs={async () => await handleSaveZones(true)}
             isSaving={isSaving}
