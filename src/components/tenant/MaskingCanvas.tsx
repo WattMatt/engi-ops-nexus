@@ -426,30 +426,6 @@ export const MaskingCanvas = ({
       ctx.lineWidth = (isSelected ? 3 : 2) / viewState.zoom;
       ctx.stroke();
 
-      // Draw zone label (tenant name) at center
-      if (zone.tenantName) {
-        const centerX = zone.points.reduce((sum, p) => sum + p.x, 0) / zone.points.length;
-        const centerY = zone.points.reduce((sum, p) => sum + p.y, 0) / zone.points.length;
-        
-        ctx.save();
-        // Reset transform to draw text at consistent size
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
-        
-        // Calculate screen position
-        const screenX = centerX * viewState.zoom + viewState.offset.x;
-        const screenY = centerY * viewState.zoom + viewState.offset.y;
-        
-        ctx.font = 'bold 16px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillStyle = '#ffffff';
-        ctx.strokeStyle = zone.color;
-        ctx.lineWidth = 3;
-        ctx.strokeText(zone.tenantName, screenX, screenY);
-        ctx.fillText(zone.tenantName, screenX, screenY);
-        ctx.restore();
-      }
-
       // Draw resize handles for selected zone
       if (isSelected) {
         zone.points.forEach(p => {
@@ -585,7 +561,28 @@ export const MaskingCanvas = ({
     }
 
     ctx.restore();
-  }, [viewState, scaleLine, currentZoneDrawing, zones, selectedZoneId]);
+
+    // Draw zone labels at fixed size (after restore, in screen coordinates)
+    zones.forEach(zone => {
+      if (zone.tenantName) {
+        const centerX = zone.points.reduce((sum, p) => sum + p.x, 0) / zone.points.length;
+        const centerY = zone.points.reduce((sum, p) => sum + p.y, 0) / zone.points.length;
+        
+        // Calculate screen position
+        const screenX = centerX * viewState.zoom + viewState.offset.x;
+        const screenY = centerY * viewState.zoom + viewState.offset.y;
+        
+        ctx.font = 'bold 16px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillStyle = '#ffffff';
+        ctx.strokeStyle = zone.color;
+        ctx.lineWidth = 3;
+        ctx.strokeText(zone.tenantName, screenX, screenY);
+        ctx.fillText(zone.tenantName, screenX, screenY);
+      }
+    });
+  }, [viewState, scaleLine, currentZoneDrawing, zones, selectedZoneId, existingScale]);
 
   useEffect(() => {
     drawOverlay();
