@@ -119,9 +119,33 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
     loadPdf();
   }, [isEditMode, projectId, floorPlanRecord?.scale_pixels_per_meter]);
 
-  // Load saved zones
+  // Helper to check if tenant is complete
+  const isTenantComplete = (tenantId: string | null): boolean => {
+    if (!tenantId) return false;
+    const tenant = tenants.find((t: any) => t.id === tenantId);
+    if (!tenant) return false;
+    
+    return !!(
+      tenant.sow_received &&
+      tenant.layout_received &&
+      tenant.db_ordered &&
+      tenant.lighting_ordered &&
+      tenant.cost_reported &&
+      tenant.area &&
+      tenant.db_cost &&
+      tenant.lighting_cost
+    );
+  };
+
+  // Helper to get zone color based on tenant status
+  const getZoneColor = (tenantId: string | null): string => {
+    if (!tenantId) return '#9ca3af'; // Gray for unassigned
+    return isTenantComplete(tenantId) ? '#16A34A' : '#DC2626'; // Green for complete, Red for incomplete
+  };
+
+  // Load saved zones and recalculate colors based on current tenant data
   useEffect(() => {
-    if (!projectId || !isEditMode) return;
+    if (!projectId || !isEditMode || tenants.length === 0) return;
 
     const loadZones = async () => {
       try {
@@ -136,7 +160,7 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
           const loadedZones = data.map(zone => ({
             id: zone.id,
             points: zone.zone_points as Array<{ x: number; y: number }>,
-            color: zone.color,
+            color: getZoneColor(zone.tenant_id), // Recalculate color based on current tenant status
             tenantId: zone.tenant_id,
             tenantName: zone.tenant_name,
             category: zone.category
@@ -150,7 +174,7 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
     };
 
     loadZones();
-  }, [isEditMode, projectId]);
+  }, [isEditMode, projectId, tenants]);
 
   const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
