@@ -431,8 +431,12 @@ export const MaskingCanvas = ({
         const centerX = zone.points.reduce((sum, p) => sum + p.x, 0) / zone.points.length;
         const centerY = zone.points.reduce((sum, p) => sum + p.y, 0) / zone.points.length;
         
-        // Font size compensates for zoom to appear constant
-        ctx.font = `bold ${16 / viewState.zoom}px sans-serif`;
+        // Use a fixed font size in PDF coordinates that compensates for zoom
+        // Clamp to prevent extremely large or small text
+        const baseFontSize = 16;
+        const compensatedSize = Math.max(8, Math.min(100, baseFontSize / viewState.zoom));
+        
+        ctx.font = `bold ${compensatedSize}px sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillStyle = '#ffffff';
