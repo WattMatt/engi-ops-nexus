@@ -12,12 +12,25 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { calculateCableSize } from "@/utils/cableSizing";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface AddCableEntryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   scheduleId: string;
   onSuccess: () => void;
+}
+
+interface Tenant {
+  id: string;
+  shop_number: string;
+  shop_name: string;
 }
 
 export const AddCableEntryDialog = ({
@@ -28,6 +41,8 @@ export const AddCableEntryDialog = ({
 }: AddCableEntryDialogProps) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [tenants, setTenants] = useState<Tenant[]>([]);
+  const [useCustomToLocation, setUseCustomToLocation] = useState(false);
   const [formData, setFormData] = useState({
     cable_tag: "",
     from_location: "",
@@ -47,6 +62,35 @@ export const AddCableEntryDialog = ({
     install_cost: "",
     total_cost: "",
   });
+
+  // Fetch tenants when dialog opens
+  useEffect(() => {
+    if (open && scheduleId) {
+      const fetchTenants = async () => {
+        // First get the project_id from the schedule
+        const { data: schedule } = await supabase
+          .from("cable_schedules")
+          .select("project_id")
+          .eq("id", scheduleId)
+          .single();
+
+        if (schedule?.project_id) {
+          // Then fetch tenants for that project
+          const { data: tenantsData } = await supabase
+            .from("tenants")
+            .select("id, shop_number, shop_name")
+            .eq("project_id", schedule.project_id)
+            .order("shop_number");
+
+          if (tenantsData) {
+            setTenants(tenantsData);
+          }
+        }
+      };
+
+      fetchTenants();
+    }
+  }, [open, scheduleId]);
 
   // Auto-generate cable_tag
   useEffect(() => {
@@ -165,6 +209,7 @@ export const AddCableEntryDialog = ({
         install_cost: "",
         total_cost: "",
       });
+      setUseCustomToLocation(false);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -222,14 +267,73 @@ export const AddCableEntryDialog = ({
             </div>
             <div className="space-y-2">
               <Label htmlFor="to_location">To *</Label>
-              <Input
-                id="to_location"
-                value={formData.to_location}
-                onChange={(e) =>
-                  setFormData({ ...formData, to_location: e.target.value })
-                }
-                required
-              />
+              <div className="flex gap-2">
+                {!useCustomToLocation ? (
+                  <>
+                    <Select
+                      value={formData.to_location}
+                      onValueChange={(value) => {
+                        if (value === "_custom") {
+                          setUseCustomToLocation(true);
+                          setFormData({ ...formData, to_location: "" });
+                        } else {
+                          setFormData({ ...formData, to_location: value });
+                        }
+                      }}
+                    >
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Select tenant or other" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="_custom">Other (Custom)</SelectItem>
+                        {tenants.map((tenant) => (
+                          <SelectItem
+                            key={tenant.id}
+                            value={`${tenant.shop_number} - ${tenant.shop_name}`}
+                          >
+                            {tenant.shop_number} - {tenant.shop_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setUseCustomToLocation(true);
+                        setFormData({ ...formData, to_location: "" });
+                      }}
+                    >
+                      Custom
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <Input
+                      id="to_location"
+                      value={formData.to_location}
+                      onChange={(e) =>
+                        setFormData({ ...formData, to_location: e.target.value })
+                      }
+                      required
+                      placeholder="Enter custom destination"
+                      className="flex-1"
+                    />
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setUseCustomToLocation(false);
+                        setFormData({ ...formData, to_location: "" });
+                      }}
+                    >
+                      Dropdown
+                    </Button>
+                  </>
+                )}
+              </div>
             </div>
           </div>
 
