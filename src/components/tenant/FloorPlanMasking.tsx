@@ -407,6 +407,19 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
         className="hidden"
       />
       
+      {/* Preview Image at Top (when not in edit mode and zones exist) */}
+      {!isEditMode && zones.length > 0 && floorPlanRecord?.composite_image_url?.endsWith('.png') && (
+        <div className="border-b p-4 bg-muted/20">
+          <div className="flex items-center justify-center">
+            <img 
+              src={`${floorPlanRecord.composite_image_url}?t=${Date.now()}`}
+              alt="Masked Floor Plan"
+              className="max-w-full max-h-[400px] object-contain shadow-lg rounded-lg"
+            />
+          </div>
+        </div>
+      )}
+      
       <div className="flex flex-1 overflow-hidden">
         {isEditMode && (
           <MaskingToolbar
@@ -473,24 +486,9 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
           
           <div className="flex-1 overflow-hidden flex gap-4">
             {!isEditMode && zones.length > 0 ? (
-              <>
-                <div className="flex-1 flex items-center justify-center p-4">
-                  {floorPlanRecord?.composite_image_url?.endsWith('.png') ? (
-                    <img 
-                      src={`${floorPlanRecord.composite_image_url}?t=${Date.now()}`}
-                      alt="Masked Floor Plan"
-                      className="max-w-full max-h-full object-contain shadow-lg"
-                    />
-                  ) : (
-                    <div className="text-center text-muted-foreground">
-                      <p>No preview available. Switch to edit mode to create zones.</p>
-                    </div>
-                  )}
-                </div>
-                <div className="w-80 p-4 overflow-y-auto">
-                  <FloorPlanLegend zones={zones} tenants={tenants} />
-                </div>
-              </>
+              <div className="flex-1 p-4 overflow-y-auto">
+                <FloorPlanLegend zones={zones} tenants={tenants} />
+              </div>
             ) : isEditMode && pdfDoc ? (
               <MaskingCanvas 
                 pdfDoc={pdfDoc}
