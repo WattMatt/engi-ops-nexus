@@ -3563,6 +3563,7 @@ export type Database = {
           generated_at: string
           generated_by: string | null
           id: string
+          notes: string | null
           project_id: string
           report_name: string
           revision_number: number
@@ -3578,6 +3579,7 @@ export type Database = {
           generated_at?: string
           generated_by?: string | null
           id?: string
+          notes?: string | null
           project_id: string
           report_name: string
           revision_number?: number
@@ -3593,6 +3595,7 @@ export type Database = {
           generated_at?: string
           generated_by?: string | null
           id?: string
+          notes?: string | null
           project_id?: string
           report_name?: string
           revision_number?: number
