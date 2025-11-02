@@ -22,6 +22,7 @@ interface Tenant {
   lighting_ordered: boolean;
   lighting_cost: number | null;
   shop_category: string;
+  cost_reported: boolean;
 }
 
 interface TenantDialogProps {
@@ -47,6 +48,7 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
     db_cost: tenant?.db_cost?.toString() || "",
     lighting_ordered: tenant?.lighting_ordered || false,
     lighting_cost: tenant?.lighting_cost?.toString() || "",
+    cost_reported: tenant?.cost_reported || false,
   });
 
   // Load DB sizing rules from database
@@ -150,6 +152,7 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
         db_cost: formData.db_cost ? parseFloat(formData.db_cost) : null,
         lighting_ordered: formData.lighting_ordered,
         lighting_cost: formData.lighting_cost ? parseFloat(formData.lighting_cost) : null,
+        cost_reported: formData.cost_reported,
       };
 
       if (tenant) {
@@ -347,6 +350,16 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
                   }
                 />
                 <Label htmlFor="lighting_ordered" className="font-normal">Lighting Ordered</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="cost_reported"
+                  checked={formData.cost_reported}
+                  onCheckedChange={(checked) => 
+                    setFormData({ ...formData, cost_reported: checked as boolean })
+                  }
+                />
+                <Label htmlFor="cost_reported" className="font-normal">Cost Reported</Label>
               </div>
             </div>
           </div>

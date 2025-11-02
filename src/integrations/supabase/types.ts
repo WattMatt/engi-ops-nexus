@@ -3549,6 +3549,7 @@ export type Database = {
       tenants: {
         Row: {
           area: number | null
+          cost_reported: boolean | null
           created_at: string | null
           custom_fields: Json | null
           db_cost: number | null
@@ -3570,6 +3571,7 @@ export type Database = {
         }
         Insert: {
           area?: number | null
+          cost_reported?: boolean | null
           created_at?: string | null
           custom_fields?: Json | null
           db_cost?: number | null
@@ -3591,6 +3593,7 @@ export type Database = {
         }
         Update: {
           area?: number | null
+          cost_reported?: boolean | null
           created_at?: string | null
           custom_fields?: Json | null
           db_cost?: number | null

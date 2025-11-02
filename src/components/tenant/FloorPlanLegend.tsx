@@ -19,6 +19,7 @@ interface Tenant {
   layout_received: boolean;
   db_ordered: boolean;
   lighting_ordered: boolean;
+  cost_reported: boolean;
 }
 
 interface FloorPlanLegendProps {
@@ -36,7 +37,8 @@ export const FloorPlanLegend = ({ zones, tenants, compact = false }: FloorPlanLe
     const allComplete = tenant.sow_received && 
                        tenant.layout_received && 
                        tenant.db_ordered && 
-                       tenant.lighting_ordered;
+                       tenant.lighting_ordered &&
+                       tenant.cost_reported;
 
     if (allComplete) {
       return { 

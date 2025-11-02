@@ -22,6 +22,7 @@ interface Tenant {
   db_cost: number | null;
   lighting_ordered: boolean;
   lighting_cost: number | null;
+  cost_reported: boolean;
 }
 
 interface TenantListProps {

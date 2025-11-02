@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Building2, Calculator, CheckCircle2, Package, Lightbulb, FileText, LayoutGrid } from "lucide-react";
+import { Building2, Calculator, CheckCircle2, Package, Lightbulb, FileText, LayoutGrid, DollarSign } from "lucide-react";
 
 interface Tenant {
   id: string;
@@ -12,6 +12,7 @@ interface Tenant {
   lighting_cost: number | null;
   sow_received: boolean;
   layout_received: boolean;
+  cost_reported: boolean;
 }
 
 interface TenantOverviewProps {
@@ -31,6 +32,7 @@ export const TenantOverview = ({ tenants }: TenantOverviewProps) => {
   const lightingOrdered = tenants.filter(t => t.lighting_ordered).length;
   const sowReceived = tenants.filter(t => t.sow_received).length;
   const layoutReceived = tenants.filter(t => t.layout_received).length;
+  const costReported = tenants.filter(t => t.cost_reported).length;
 
   const totalDbCost = tenants.reduce((sum, t) => sum + (t.db_cost || 0), 0);
   const totalLightingCost = tenants.reduce((sum, t) => sum + (t.lighting_cost || 0), 0);
@@ -161,6 +163,17 @@ export const TenantOverview = ({ tenants }: TenantOverviewProps) => {
               </div>
               <div className="flex items-center gap-2">
                 <span className="font-semibold">{lightingOrdered}/{totalTenants}</span>
+                <CheckCircle2 className="h-4 w-4 text-green-600" />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm">Cost Reported</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="font-semibold">{costReported}/{totalTenants}</span>
                 <CheckCircle2 className="h-4 w-4 text-green-600" />
               </div>
             </div>

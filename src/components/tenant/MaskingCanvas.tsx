@@ -164,7 +164,8 @@ export const MaskingCanvas = ({
         const allComplete = tenant.sow_received && 
                            tenant.layout_received && 
                            tenant.db_ordered && 
-                           tenant.lighting_ordered;
+                           tenant.lighting_ordered &&
+                           tenant.cost_reported;
 
         return allComplete 
           ? { label: 'Completed', color: '#16A34A' }
