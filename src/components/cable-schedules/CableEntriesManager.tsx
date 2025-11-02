@@ -11,10 +11,11 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Pencil, Trash2, BookOpen } from "lucide-react";
+import { Plus, Pencil, Trash2, BookOpen, Download } from "lucide-react";
 import { AddCableEntryDialog } from "./AddCableEntryDialog";
 import { EditCableEntryDialog } from "./EditCableEntryDialog";
 import { CableSizingReference } from "./CableSizingReference";
+import { ImportFloorPlanCablesDialog } from "./ImportFloorPlanCablesDialog";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -37,11 +38,25 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showReferenceDialog, setShowReferenceDialog] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<any>(null);
+  const [projectId, setProjectId] = useState<string | null>(null);
 
   const { data: entries, refetch } = useQuery({
     queryKey: ["cable-entries", scheduleId],
     queryFn: async () => {
+      // First get the schedule to get project_id
+      const { data: schedule } = await supabase
+        .from("cable_schedules")
+        .select("project_id")
+        .eq("id", scheduleId)
+        .single();
+
+      if (schedule) {
+        setProjectId(schedule.project_id);
+      }
+
+      // Then get the cable entries
       const { data, error } = await supabase
         .from("cable_entries")
         .select("*")
@@ -111,6 +126,12 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
                 <BookOpen className="mr-2 h-4 w-4" />
                 View Cable Tables
               </Button>
+              {projectId && (
+                <Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}>
+                  <Download className="mr-2 h-4 w-4" />
+                  Import from Floor Plans
+                </Button>
+              )}
               <Button onClick={() => setShowAddDialog(true)} size="sm">
                 <Plus className="mr-2 h-4 w-4" />
                 Add Cable Entry
@@ -201,6 +222,19 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
         open={showReferenceDialog}
         onOpenChange={setShowReferenceDialog}
       />
+
+      {projectId && (
+        <ImportFloorPlanCablesDialog
+          open={showImportDialog}
+          onOpenChange={setShowImportDialog}
+          scheduleId={scheduleId}
+          projectId={projectId}
+          onSuccess={() => {
+            refetch();
+            setShowImportDialog(false);
+          }}
+        />
+      )}
 
       <AddCableEntryDialog
         open={showAddDialog}
