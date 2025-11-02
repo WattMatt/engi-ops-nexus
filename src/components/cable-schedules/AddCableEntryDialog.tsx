@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { calculateCableSize } from "@/utils/cableSizing";
 
 interface AddCableEntryDialogProps {
   open: boolean;
@@ -73,6 +74,33 @@ export const AddCableEntryDialog = ({
       total_length: (extra + measured).toString(),
     }));
   }, [formData.extra_length, formData.measured_length]);
+
+  // Auto-calculate cable sizing based on load, voltage, and length
+  useEffect(() => {
+    const loadAmps = parseFloat(formData.load_amps);
+    const voltage = parseFloat(formData.voltage);
+    const totalLength = parseFloat(formData.total_length);
+
+    if (loadAmps && voltage && totalLength) {
+      const result = calculateCableSize({
+        loadAmps,
+        voltage,
+        totalLength,
+        deratingFactor: 0.8, // Conservative derating factor
+      });
+
+      if (result) {
+        setFormData((prev) => ({
+          ...prev,
+          cable_size: result.recommendedSize,
+          ohm_per_km: result.ohmPerKm.toString(),
+          volt_drop: result.voltDrop.toString(),
+          supply_cost: result.supplyCost.toString(),
+          install_cost: result.installCost.toString(),
+        }));
+      }
+    }
+  }, [formData.load_amps, formData.voltage, formData.total_length]);
 
   // Auto-calculate total_cost
   useEffect(() => {
@@ -244,7 +272,7 @@ export const AddCableEntryDialog = ({
 
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="ohm_per_km">Ohm/km</Label>
+              <Label htmlFor="ohm_per_km">Ohm/km (Auto-calculated)</Label>
               <Input
                 id="ohm_per_km"
                 type="number"
@@ -253,10 +281,12 @@ export const AddCableEntryDialog = ({
                 onChange={(e) =>
                   setFormData({ ...formData, ohm_per_km: e.target.value })
                 }
+                className="bg-muted"
+                readOnly
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="cable_size">Cable Size</Label>
+              <Label htmlFor="cable_size">Cable Size (Auto-calculated)</Label>
               <Input
                 id="cable_size"
                 value={formData.cable_size}
@@ -264,10 +294,11 @@ export const AddCableEntryDialog = ({
                   setFormData({ ...formData, cable_size: e.target.value })
                 }
                 placeholder="e.g., 240mm²"
+                className="bg-muted"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="volt_drop">Volt Drop</Label>
+              <Label htmlFor="volt_drop">Volt Drop (V) (Auto-calculated)</Label>
               <Input
                 id="volt_drop"
                 type="number"
@@ -276,6 +307,8 @@ export const AddCableEntryDialog = ({
                 onChange={(e) =>
                   setFormData({ ...formData, volt_drop: e.target.value })
                 }
+                className="bg-muted"
+                readOnly
               />
             </div>
           </div>
@@ -320,7 +353,7 @@ export const AddCableEntryDialog = ({
 
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="supply_cost">Supply Cost (R)</Label>
+              <Label htmlFor="supply_cost">Supply Cost (R) (Auto-calculated)</Label>
               <Input
                 id="supply_cost"
                 type="number"
@@ -329,10 +362,11 @@ export const AddCableEntryDialog = ({
                 onChange={(e) =>
                   setFormData({ ...formData, supply_cost: e.target.value })
                 }
+                className="bg-muted"
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="install_cost">Install Cost (R)</Label>
+              <Label htmlFor="install_cost">Install Cost (R) (Auto-calculated)</Label>
               <Input
                 id="install_cost"
                 type="number"
@@ -341,6 +375,7 @@ export const AddCableEntryDialog = ({
                 onChange={(e) =>
                   setFormData({ ...formData, install_cost: e.target.value })
                 }
+                className="bg-muted"
               />
             </div>
             <div className="space-y-2">
