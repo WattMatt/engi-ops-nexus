@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { CableScheduleOverview } from "@/components/cable-schedules/CableScheduleOverview";
 import { CableEntriesManager } from "@/components/cable-schedules/CableEntriesManager";
+import { SavedReportsList } from "@/components/cable-schedules/SavedReportsList";
 
 const CableScheduleDetail = () => {
   const { scheduleId } = useParams();
@@ -54,6 +55,7 @@ const CableScheduleDetail = () => {
 
       <CableScheduleOverview schedule={schedule} />
       <CableEntriesManager scheduleId={scheduleId!} />
+      <SavedReportsList scheduleId={scheduleId!} />
     </div>
   );
 };

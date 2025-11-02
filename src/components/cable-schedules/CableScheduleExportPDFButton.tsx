@@ -17,6 +17,10 @@ export const CableScheduleExportPDFButton = ({ schedule }: CableScheduleExportPD
   const handleExport = async () => {
     setLoading(true);
     try {
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
       // Fetch cable entries
       const { data: entries, error } = await supabase
         .from("cable_entries")
@@ -131,12 +135,41 @@ export const CableScheduleExportPDFButton = ({ schedule }: CableScheduleExportPD
         { align: "center" }
       );
 
-      // Save
+      // Convert PDF to blob
+      const pdfBlob = doc.output("blob");
+      const fileName = `${schedule.schedule_name}_${schedule.revision}_${Date.now()}.pdf`;
+      const filePath = `${schedule.id}/${fileName}`;
+
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from("cable-schedule-reports")
+        .upload(filePath, pdfBlob, {
+          contentType: "application/pdf",
+          upsert: false,
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Save metadata to database
+      const { error: dbError } = await supabase
+        .from("cable_schedule_reports")
+        .insert({
+          schedule_id: schedule.id,
+          report_name: schedule.schedule_name,
+          revision: schedule.revision,
+          file_path: filePath,
+          file_size: pdfBlob.size,
+          generated_by: user.id,
+        });
+
+      if (dbError) throw dbError;
+
+      // Also download the file
       doc.save(`${schedule.schedule_name}_${schedule.revision}.pdf`);
 
       toast({
         title: "Success",
-        description: "Cable schedule PDF exported successfully",
+        description: "Cable schedule PDF saved and exported successfully",
       });
     } catch (error) {
       console.error("PDF export error:", error);

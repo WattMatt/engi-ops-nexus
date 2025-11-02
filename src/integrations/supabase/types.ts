@@ -506,6 +506,53 @@ export type Database = {
           },
         ]
       }
+      cable_schedule_reports: {
+        Row: {
+          created_at: string
+          file_path: string
+          file_size: number | null
+          generated_at: string
+          generated_by: string | null
+          id: string
+          notes: string | null
+          report_name: string
+          revision: string
+          schedule_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_path: string
+          file_size?: number | null
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          notes?: string | null
+          report_name: string
+          revision: string
+          schedule_id: string
+        }
+        Update: {
+          created_at?: string
+          file_path?: string
+          file_size?: number | null
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          notes?: string | null
+          report_name?: string
+          revision?: string
+          schedule_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cable_schedule_reports_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "cable_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cable_schedules: {
         Row: {
           created_at: string
