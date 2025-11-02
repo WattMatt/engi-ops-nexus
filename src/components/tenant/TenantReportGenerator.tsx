@@ -244,9 +244,9 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
 
     yPos += 70;
 
-    // Progress Tracking Section
+    // Progress Tracking Section - increased height to fit all 5 items
     doc.setFillColor(245, 245, 245);
-    doc.roundedRect(20, yPos, pageWidth - 40, 80, 3, 3, 'F');
+    doc.roundedRect(20, yPos, pageWidth - 40, 95, 3, 3, 'F');
     
     doc.setTextColor(0, 0, 0);
     doc.setFontSize(14);
@@ -275,8 +275,8 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
       doc.text(`${item.value}/${totalTenants}`, 85, progressY);
       
       // Progress bar
-      const barX = 105;
-      const barWidth = 80;
+      const barX = 110;
+      const barWidth = 70;
       const barHeight = 6;
       const filledWidth = (percentage / 100) * barWidth;
       
@@ -295,7 +295,7 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
       doc.setFontSize(9);
       doc.text(`${percentage.toFixed(0)}%`, barX + barWidth + 3, progressY);
       
-      progressY += 12;
+      progressY += 13;
     });
 
     // Page footer
