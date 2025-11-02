@@ -139,8 +139,18 @@ export const DBSizingRulesSettings = ({ projectId }: DBSizingRulesSettingsProps)
       return;
     }
 
-    const newMinArea = isFixedSizeCategory ? 0 : parseFloat(editForm.min_area);
-    const newMaxArea = isFixedSizeCategory ? 999999 : parseFloat(editForm.max_area);
+    // Use different dummy ranges for fixed size categories to avoid constraint conflicts
+    let newMinArea, newMaxArea;
+    if (activeCategory === 'fast_food') {
+      newMinArea = 0;
+      newMaxArea = 999998;
+    } else if (activeCategory === 'restaurant') {
+      newMinArea = 1000000;
+      newMaxArea = 1999999;
+    } else {
+      newMinArea = parseFloat(editForm.min_area);
+      newMaxArea = parseFloat(editForm.max_area);
+    }
 
     if (!isFixedSizeCategory && newMinArea >= newMaxArea) {
       toast.error("Min area must be less than max area");
@@ -191,8 +201,18 @@ export const DBSizingRulesSettings = ({ projectId }: DBSizingRulesSettingsProps)
       return;
     }
 
-    const minArea = isFixedSizeCategory ? 0 : parseFloat(newRule.min_area);
-    const maxArea = isFixedSizeCategory ? 999999 : parseFloat(newRule.max_area);
+    // Use different dummy ranges for fixed size categories to avoid constraint conflicts
+    let minArea, maxArea;
+    if (activeCategory === 'fast_food') {
+      minArea = 0;
+      maxArea = 999998;
+    } else if (activeCategory === 'restaurant') {
+      minArea = 1000000;
+      maxArea = 1999999;
+    } else {
+      minArea = parseFloat(newRule.min_area);
+      maxArea = parseFloat(newRule.max_area);
+    }
 
     if (!isFixedSizeCategory && minArea >= maxArea) {
       toast.error("Min area must be less than max area");
