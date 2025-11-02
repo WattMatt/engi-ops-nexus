@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { renderPdfToCanvas } from './utils/pdfCanvas';
+import { getZoneColor as getFloorPlanZoneColor } from '@/components/floor-plan/utils/styleUtils';
 
 interface Point {
   x: number;
@@ -347,9 +348,9 @@ export const MaskingCanvas = ({
     };
   }, [zones]);
 
-  // Get zone color for unassigned zones (gray)
+  // Get zone color using the same palette as Floor Plan
   const getZoneColor = (index: number): string => {
-    return '#9ca3af'; // gray-400 for unassigned
+    return getFloorPlanZoneColor(index);
   };
 
   // Check if a point is inside a polygon
