@@ -80,6 +80,7 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
   const [canvasSize, setCanvasSize] = useState({ width: 0, height: 0 });
   const [isOverHandle, setIsOverHandle] = useState(false);
   const [isDraggingScaleLabel, setIsDraggingScaleLabel] = useState(false);
+  const [isOverScaleLabel, setIsOverScaleLabel] = useState(false);
   // Snapping state
   const [previewPvArray, setPreviewPvArray] = useState<PVArrayItem | null>(null);
   const [snapLines, setSnapLines] = useState<{start: Point, end: Point}[]>([]);
@@ -360,10 +361,10 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
         const padding = 8;
         const boxHeight = (fontSize * 2.5) + padding * 2;
         
-        // Draw white background with black border
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-        ctx.strokeStyle = '#000000';
-        ctx.lineWidth = 2;
+        // Draw white background with black border (highlight if hovering)
+        ctx.fillStyle = isOverScaleLabel ? 'rgba(255, 255, 255, 1)' : 'rgba(255, 255, 255, 0.95)';
+        ctx.strokeStyle = isOverScaleLabel ? '#3B82F6' : '#000000'; // Blue border on hover
+        ctx.lineWidth = isOverScaleLabel ? 3 : 2;
         ctx.beginPath();
         ctx.roundRect(
             labelX - maxWidth / 2 - padding,
@@ -411,7 +412,7 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
     }
 
     ctx.restore();
-  }, [viewState, equipment, lines, zones, containment, roofMasks, pvArrays, isDrawingShape, currentDrawing, activeTool, scaleLine, previewPoint, selectedItemId, previewEquipment, purposeConfig, scaleInfo, pvPanelConfig, pendingPvArrayConfig, placementRotation, snapLines, previewPvArray, pendingRoofMask, directionLine, tasks]);
+  }, [viewState, equipment, lines, zones, containment, roofMasks, pvArrays, isDrawingShape, currentDrawing, activeTool, scaleLine, previewPoint, selectedItemId, previewEquipment, purposeConfig, scaleInfo, pvPanelConfig, pendingPvArrayConfig, placementRotation, snapLines, previewPvArray, pendingRoofMask, directionLine, tasks, isOverScaleLabel]);
 
   useEffect(() => { draw(); }, [draw]);
 
@@ -539,16 +540,26 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
             const labelX = scaleInfo.labelPosition?.x ?? defaultMidX;
             const labelY = scaleInfo.labelPosition?.y ?? defaultMidY;
             
+            // Calculate actual box dimensions
             const fontSize = 12;
             const padding = 8;
-            const boxWidth = 100; // Approximate
-            const boxHeight = (fontSize * 2.5) + padding * 2;
+            const label = `${(Math.hypot(scaleLine.end.x - scaleLine.start.x, scaleLine.end.y - scaleLine.start.y) * scaleInfo.ratio).toFixed(2)}m`;
             
-            // Check if clicked within label bounds
-            if (Math.abs(worldPos.x - labelX) < boxWidth / 2 &&
-                Math.abs(worldPos.y - labelY) < boxHeight / 2) {
-                setIsDraggingScaleLabel(true);
-                return;
+            // Create a temporary canvas to measure text
+            const tempCanvas = document.createElement('canvas');
+            const tempCtx = tempCanvas.getContext('2d');
+            if (tempCtx) {
+                tempCtx.font = `bold ${fontSize}px sans-serif`;
+                const metrics = tempCtx.measureText(label);
+                const boxWidth = metrics.width + padding * 2;
+                const boxHeight = (fontSize * 2.5) + padding * 2;
+                
+                // Check if clicked within label bounds (with some tolerance)
+                if (Math.abs(worldPos.x - labelX) < boxWidth / 2 + padding &&
+                    Math.abs(worldPos.y - labelY) < boxHeight / 2 + padding) {
+                    setIsDraggingScaleLabel(true);
+                    return;
+                }
             }
         }
     
@@ -657,6 +668,25 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
   const handleMouseMove = (e: React.MouseEvent) => {
     const mousePos = getMousePos(e);
     const worldPos = toWorld(mousePos);
+
+    // Check if hovering over scale label (for cursor feedback)
+    if (activeTool === Tool.SELECT && scaleLine && scaleInfo.ratio && !isDraggingScaleLabel) {
+        const defaultMidX = (scaleLine.start.x + scaleLine.end.x) / 2;
+        const defaultMidY = (scaleLine.start.y + scaleLine.end.y) / 2;
+        const labelX = scaleInfo.labelPosition?.x ?? defaultMidX;
+        const labelY = scaleInfo.labelPosition?.y ?? defaultMidY;
+        
+        const fontSize = 12;
+        const padding = 8;
+        const boxWidth = 120; // Generous hover area
+        const boxHeight = (fontSize * 2.5) + padding * 2;
+        
+        const overLabel = Math.abs(worldPos.x - labelX) < boxWidth / 2 &&
+                         Math.abs(worldPos.y - labelY) < boxHeight / 2;
+        setIsOverScaleLabel(overLabel);
+    } else if (isOverScaleLabel) {
+        setIsOverScaleLabel(false);
+    }
 
     if (activeTool === Tool.SELECT && selectedItemId && !isDraggingItem) {
         const selectedZone = zones.find(z => z.id === selectedItemId);
@@ -804,8 +834,9 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
 
   const getCursor = () => {
       if (isPanning) return 'grabbing';
-      if (isDraggingItem) return 'grabbing';
+      if (isDraggingItem || isDraggingScaleLabel) return 'grabbing';
       if (isOverHandle) return 'move';
+      if (isOverScaleLabel) return 'move';
       if (activeTool === Tool.PAN) return 'grab';
       if (activeTool === Tool.SELECT) return 'default';
       const isPlacementTool = Object.values(purposeConfig.equipmentToToolMap).includes(activeTool);
