@@ -45,6 +45,17 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
     return labels[category as keyof typeof labels] || category;
   };
 
+  const isTenantComplete = (tenant: Tenant) => {
+    return tenant.sow_received &&
+           tenant.layout_received &&
+           tenant.db_ordered &&
+           tenant.lighting_ordered &&
+           tenant.cost_reported &&
+           tenant.area !== null &&
+           tenant.db_cost !== null &&
+           tenant.lighting_cost !== null;
+  };
+
   const generateCoverPage = (doc: jsPDF) => {
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
@@ -450,8 +461,18 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
       // Add legend/note at bottom
       doc.setTextColor(100, 100, 100);
       doc.setFontSize(10);
-      doc.setFont("helvetica", "italic");
-      doc.text("Colored zones represent tenant spaces as configured in Floor Plan Masking.", 20, pageHeight - 20);
+      doc.setFont("helvetica", "normal");
+      doc.text("Legend:", 20, pageHeight - 30);
+      
+      // Green indicator
+      doc.setFillColor(46, 204, 113);
+      doc.roundedRect(20, pageHeight - 25, 5, 5, 1, 1, 'F');
+      doc.text("Complete - All required fields satisfied", 30, pageHeight - 21);
+      
+      // Red indicator
+      doc.setFillColor(231, 76, 60);
+      doc.roundedRect(120, pageHeight - 25, 5, 5, 1, 1, 'F');
+      doc.text("In Progress - Outstanding items", 130, pageHeight - 21);
 
       // Page footer
       doc.setFontSize(9);

@@ -113,6 +113,24 @@ export const TenantList = ({
   }: {
     checked: boolean;
   }) => checked ? <CheckCircle2 className="h-4 w-4 text-green-600" /> : <Circle className="h-4 w-4 text-muted-foreground" />;
+  
+  const isTenantComplete = (tenant: Tenant) => {
+    return tenant.sow_received &&
+           tenant.layout_received &&
+           tenant.db_ordered &&
+           tenant.lighting_ordered &&
+           tenant.cost_reported &&
+           tenant.area !== null &&
+           tenant.db_cost !== null &&
+           tenant.lighting_cost !== null;
+  };
+
+  const getRowClassName = (tenant: Tenant) => {
+    return isTenantComplete(tenant) 
+      ? "bg-green-50 hover:bg-green-100" 
+      : "bg-red-50 hover:bg-red-100";
+  };
+
   const getCategoryVariant = (category: string) => {
     const variants = {
       standard: "bg-blue-500 text-white border-blue-600",
@@ -162,7 +180,7 @@ export const TenantList = ({
               <TableCell colSpan={13} className="text-center text-muted-foreground">
                 No tenants added yet
               </TableCell>
-            </TableRow> : tenants.map(tenant => <TableRow key={tenant.id}>
+            </TableRow> : tenants.map(tenant => <TableRow key={tenant.id} className={getRowClassName(tenant)}>
                 <TableCell className="font-medium">{tenant.shop_number}</TableCell>
                 <TableCell>{tenant.shop_name}</TableCell>
                 <TableCell>
