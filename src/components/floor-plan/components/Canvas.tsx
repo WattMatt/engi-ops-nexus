@@ -563,7 +563,7 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
 
     if (activeTool === Tool.SELECT) {
         // Check if clicking on scale label or resize handles
-        if (scaleLine && scaleInfo.ratio) {
+        if (scaleLine && scaleInfo.ratio && scaleInfo.labelPosition) {
             const defaultMidX = (scaleLine.start.x + scaleLine.end.x) / 2;
             const defaultMidY = (scaleLine.start.y + scaleLine.end.y) / 2;
             const labelX = scaleInfo.labelPosition?.x ?? defaultMidX;
@@ -847,6 +847,14 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
         const dx = mousePos.x - lastMousePos.x;
         const dy = mousePos.y - lastMousePos.y;
         setViewState(prev => ({ ...prev, offset: { x: prev.offset.x + dx, y: prev.offset.y + dy } }));
+    } else if (isDraggingScaleLabel && scaleInfo.labelPosition && scaleLine) {
+        const lastWorldPos = toWorld(lastMousePos);
+        const dx = worldPos.x - lastWorldPos.x;
+        const dy = worldPos.y - lastWorldPos.y;
+        onScaleLabelPositionChange({
+            x: scaleInfo.labelPosition.x + dx,
+            y: scaleInfo.labelPosition.y + dy
+        });
     } else if (isDraggingItem && selectedItemId) {
         const commitChange = false; // Do not create history entries for every mouse move
         if (draggedHandle) {
