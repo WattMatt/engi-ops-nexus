@@ -11,9 +11,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, BookOpen } from "lucide-react";
 import { AddCableEntryDialog } from "./AddCableEntryDialog";
 import { EditCableEntryDialog } from "./EditCableEntryDialog";
+import { CableSizingReference } from "./CableSizingReference";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -35,6 +36,7 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showReferenceDialog, setShowReferenceDialog] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<any>(null);
 
   const { data: entries, refetch } = useQuery({
@@ -104,10 +106,16 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle>Cable Entries</CardTitle>
-            <Button onClick={() => setShowAddDialog(true)} size="sm">
-              <Plus className="mr-2 h-4 w-4" />
-              Add Cable Entry
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={() => setShowReferenceDialog(true)}>
+                <BookOpen className="mr-2 h-4 w-4" />
+                View Cable Tables
+              </Button>
+              <Button onClick={() => setShowAddDialog(true)} size="sm">
+                <Plus className="mr-2 h-4 w-4" />
+                Add Cable Entry
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -188,6 +196,11 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
           )}
         </CardContent>
       </Card>
+
+      <CableSizingReference
+        open={showReferenceDialog}
+        onOpenChange={setShowReferenceDialog}
+      />
 
       <AddCableEntryDialog
         open={showAddDialog}
