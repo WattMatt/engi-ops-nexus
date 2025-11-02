@@ -99,9 +99,18 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
         const doc = await loadPdfFromFile(file);
         setPdfDoc(doc);
         
-        // Load saved scale if available
+        // Load saved scale and scale line if available
         if (floorPlanRecord?.scale_pixels_per_meter) {
           setScale(floorPlanRecord.scale_pixels_per_meter);
+          
+          // Load saved scale line coordinates
+          if (floorPlanRecord.scale_line_start && floorPlanRecord.scale_line_end) {
+            setScaleLine({
+              start: floorPlanRecord.scale_line_start as { x: number; y: number },
+              end: floorPlanRecord.scale_line_end as { x: number; y: number }
+            });
+          }
+          
           toast.success(`Loaded saved scale: ${floorPlanRecord.scale_pixels_per_meter.toFixed(2)} px/m`);
         }
       }
@@ -211,10 +220,7 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
     } else if (tool === 'zone') {
       toast.info("Click to add points. Click the start point or press Enter to finish.");
     }
-    // Reset scale line when switching tools
-    if (tool !== 'scale') {
-      setScaleLine({ start: null, end: null });
-    }
+    // Don't reset scale line when switching tools - keep it visible
   };
 
   const handleScaleSubmit = (distance: number) => {
@@ -227,7 +233,7 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
 
     const pixelsPerMeter = lineLength / distance;
     setScale(pixelsPerMeter);
-    setScaleLine({ start: null, end: null });
+    // Keep the scale line visible instead of clearing it
     setActiveTool('select'); // Switch back to select after setting scale
     toast.success(`Scale set: ${distance}m = ${lineLength.toFixed(0)}px`);
   };
@@ -319,13 +325,15 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
       
       const publicUrl = await saveCompositeImage(fileName);
 
-      // Update or create floor plan record with scale
+      // Update or create floor plan record with scale and scale line
       const { error: upsertError } = await supabase
         .from('project_floor_plans')
         .upsert({
           project_id: projectId,
           composite_image_url: publicUrl,
           scale_pixels_per_meter: scale,
+          scale_line_start: scaleLine.start,
+          scale_line_end: scaleLine.end,
           updated_at: new Date().toISOString()
         }, {
           onConflict: 'project_id'
