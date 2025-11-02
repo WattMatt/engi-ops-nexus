@@ -10,6 +10,7 @@ import { ScaleDialog } from "./ScaleDialog";
 import { MaskingCanvas } from "./MaskingCanvas";
 import { MaskingToolbar } from "./MaskingToolbar";
 import { AssignTenantDialog } from "./AssignTenantDialog";
+import { FloorPlanLegend } from "./FloorPlanLegend";
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 
 export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
@@ -51,6 +52,23 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
       if (error && error.code !== 'PGRST116') throw error;
       return data;
     }
+  });
+
+  // Fetch tenants for legend
+  const { data: tenants = [] } = useQuery({
+    queryKey: ['tenants', projectId],
+    queryFn: async () => {
+      if (!projectId) return [];
+      const { data, error } = await supabase
+        .from('tenants')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('shop_number');
+      
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!projectId
   });
 
   // Load PDF when in edit mode
@@ -229,7 +247,7 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
       throw new Error('Cannot generate preview');
     }
 
-    const compositeCanvas = (window as any).getCompositeCanvas();
+    const compositeCanvas = (window as any).getCompositeCanvas(tenants);
     const blob = await new Promise<Blob>((resolve) => {
       compositeCanvas.toBlob((blob: Blob) => resolve(blob), 'image/png');
     });
@@ -376,15 +394,20 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
             </div>
           </div>
           
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 overflow-hidden flex gap-4">
             {!isEditMode && floorPlanRecord?.composite_image_url?.endsWith('.png') ? (
-              <div className="h-full flex items-center justify-center p-4">
-                <img 
-                  src={floorPlanRecord.composite_image_url} 
-                  alt="Masked Floor Plan"
-                  className="max-w-full max-h-full object-contain shadow-lg"
-                />
-              </div>
+              <>
+                <div className="flex-1 flex items-center justify-center p-4">
+                  <img 
+                    src={floorPlanRecord.composite_image_url} 
+                    alt="Masked Floor Plan"
+                    className="max-w-full max-h-full object-contain shadow-lg"
+                  />
+                </div>
+                <div className="w-80 p-4 overflow-y-auto">
+                  <FloorPlanLegend zones={zones} tenants={tenants} />
+                </div>
+              </>
             ) : isEditMode && pdfDoc ? (
               <MaskingCanvas 
                 pdfDoc={pdfDoc}

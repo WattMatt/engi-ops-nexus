@@ -90,26 +90,35 @@ export const MaskingCanvas = ({
     };
   }, [zones, onZonesChange]);
 
-  // Expose function to get composite canvas for preview generation
+  // Expose function to get composite canvas with legend for preview generation
   useEffect(() => {
-    (window as any).getCompositeCanvas = () => {
+    (window as any).getCompositeCanvas = (tenants = []) => {
       const pdfCanvas = pdfCanvasRef.current;
       const overlayCanvas = overlayCanvasRef.current;
       
       if (!pdfCanvas || !overlayCanvas) return null;
       
+      const legendWidth = 350;
+      const margin = 20;
+      
       const tempCanvas = document.createElement('canvas');
-      tempCanvas.width = pdfCanvas.width;
-      tempCanvas.height = pdfCanvas.height;
+      tempCanvas.width = pdfCanvas.width + legendWidth + margin * 3;
+      tempCanvas.height = Math.max(pdfCanvas.height, 800);
       
       const ctx = tempCanvas.getContext('2d');
       if (!ctx) return null;
       
+      // Fill white background
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+      
       // Draw PDF background
-      ctx.drawImage(pdfCanvas, 0, 0);
+      ctx.drawImage(pdfCanvas, margin, margin);
       
       // Draw zones directly (without transform)
       zones.forEach(zone => {
+        ctx.save();
+        ctx.translate(margin, margin);
         ctx.beginPath();
         zone.points.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));
         ctx.closePath();
@@ -124,7 +133,6 @@ export const MaskingCanvas = ({
           const centerX = zone.points.reduce((sum, p) => sum + p.x, 0) / zone.points.length;
           const centerY = zone.points.reduce((sum, p) => sum + p.y, 0) / zone.points.length;
           
-          ctx.save();
           ctx.font = 'bold 14px sans-serif';
           ctx.textAlign = 'center';
           ctx.textBaseline = 'middle';
@@ -133,9 +141,97 @@ export const MaskingCanvas = ({
           ctx.lineWidth = 3;
           ctx.strokeText(zone.tenantName, centerX, centerY);
           ctx.fillText(zone.tenantName, centerX, centerY);
-          ctx.restore();
         }
+        ctx.restore();
       });
+      
+      // Draw legend
+      const legendX = pdfCanvas.width + margin * 2;
+      let legendY = margin + 10;
+
+      // Legend title
+      ctx.fillStyle = '#000000';
+      ctx.font = 'bold 20px Arial';
+      ctx.textAlign = 'left';
+      ctx.fillText('Zone Legend', legendX, legendY);
+      legendY += 40;
+
+      // Helper to get tenant status
+      const getTenantStatus = (tenantId: string) => {
+        const tenant = tenants.find((t: any) => t.id === tenantId);
+        if (!tenant) return { label: 'Unknown', color: '#6B7280' };
+
+        const allComplete = tenant.sow_received && 
+                           tenant.layout_received && 
+                           tenant.db_ordered && 
+                           tenant.lighting_ordered;
+
+        return allComplete 
+          ? { label: 'Completed', color: '#16A34A' }
+          : { label: 'In Progress', color: '#F59E0B' };
+      };
+
+      // Draw each assigned zone in the legend
+      const assignedZones = zones.filter(z => z.tenantId && z.tenantName);
+      
+      assignedZones.forEach((zone, index) => {
+        // Color box
+        ctx.fillStyle = zone.color;
+        ctx.fillRect(legendX, legendY - 14, 24, 24);
+        ctx.strokeStyle = '#666666';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(legendX, legendY - 14, 24, 24);
+
+        // Tenant name
+        ctx.fillStyle = '#000000';
+        ctx.font = 'bold 15px Arial';
+        ctx.fillText(zone.tenantName || 'Unknown', legendX + 34, legendY);
+
+        // Category badge
+        if (zone.category) {
+          const categoryLabels: Record<string, string> = {
+            standard: "Standard",
+            fast_food: "Fast Food",
+            restaurant: "Restaurant",
+            national: "National"
+          };
+          const categoryLabel = categoryLabels[zone.category] || zone.category;
+          
+          ctx.font = '12px Arial';
+          ctx.fillStyle = '#666666';
+          ctx.fillText(categoryLabel, legendX + 34, legendY + 16);
+        }
+
+        // Status indicator
+        if (zone.tenantId) {
+          const status = getTenantStatus(zone.tenantId);
+          ctx.font = 'bold 12px Arial';
+          ctx.fillStyle = status.color;
+          
+          // Draw status dot
+          ctx.beginPath();
+          ctx.arc(legendX + 34, legendY + 32, 4, 0, 2 * Math.PI);
+          ctx.fill();
+          
+          // Draw status text
+          ctx.fillText(status.label, legendX + 44, legendY + 35);
+        }
+
+        legendY += 55;
+      });
+
+      // Unassigned zones count
+      const unassignedCount = zones.length - assignedZones.length;
+      if (unassignedCount > 0) {
+        legendY += 10;
+        ctx.font = '13px Arial';
+        ctx.fillStyle = '#999999';
+        ctx.fillText(
+          `${unassignedCount} unassigned zone${unassignedCount !== 1 ? 's' : ''}`,
+          legendX,
+          legendY
+        );
+      }
       
       return tempCanvas;
     };
