@@ -171,7 +171,7 @@ export const TenantList = ({ tenants, projectId, onUpdate }: TenantListProps) =>
             <TableHead className="text-center">Layout</TableHead>
             <TableHead className="text-center">DB Order</TableHead>
             <TableHead className="text-right">DB Cost</TableHead>
-            <TableHead className="text-center">Lighting</TableHead>
+            <TableHead className="text-center">Lighting Ordered</TableHead>
             <TableHead className="text-right">Light Cost</TableHead>
             <TableHead className="text-right">Actions</TableHead>
           </TableRow>
