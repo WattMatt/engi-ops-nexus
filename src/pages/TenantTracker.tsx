@@ -6,6 +6,7 @@ import { TenantDialog } from "@/components/tenant/TenantDialog";
 import { DBSizingRulesSettings } from "@/components/tenant/DBSizingRulesSettings";
 import { FloorPlanMasking } from "@/components/tenant/FloorPlanMasking";
 import { TenantOverview } from "@/components/tenant/TenantOverview";
+import { TenantReportGenerator } from "@/components/tenant/TenantReportGenerator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 
@@ -57,7 +58,14 @@ const TenantTracker = () => {
           <h1 className="text-3xl font-bold">Tenant Tracker</h1>
           <p className="text-muted-foreground mt-1">{projectName || "No project selected"}</p>
         </div>
-        <TenantDialog projectId={projectId || ""} onSuccess={handleUpdate} />
+        <div className="flex gap-2">
+          <TenantReportGenerator 
+            tenants={tenants} 
+            projectId={projectId || ""} 
+            projectName={projectName || "Project"} 
+          />
+          <TenantDialog projectId={projectId || ""} onSuccess={handleUpdate} />
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
