@@ -252,7 +252,7 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
                 onChange={(e) => handleAreaChange(e.target.value)}
                 placeholder="Enter shop area"
               />
-              {formData.shop_category === 'standard' && (
+              {['standard', 'fast_food', 'restaurant'].includes(formData.shop_category) && (
                 <p className="text-xs text-muted-foreground mt-1">
                   DB size will auto-calculate based on area
                 </p>
@@ -260,22 +260,22 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
             </div>
             <div>
               <Label htmlFor="db_size_allowance">
-                DB Allowance {formData.shop_category !== 'standard' ? '*' : '(Auto-calculated, editable)'}
+                DB Allowance {formData.shop_category === 'national' ? '*' : '(Auto-calculated, editable)'}
               </Label>
               <Input
                 id="db_size_allowance"
                 value={formData.db_size_allowance}
                 onChange={(e) => setFormData({ ...formData, db_size_allowance: e.target.value })}
                 placeholder="e.g., 60A TP"
-                required={formData.shop_category !== 'standard'}
+                required={formData.shop_category === 'national'}
               />
-              {formData.shop_category === 'standard' ? (
+              {formData.shop_category === 'national' ? (
                 <p className="text-xs text-muted-foreground mt-1">
-                  Auto-calculated from area and rules, but you can override
+                  Manual entry required for national shops
                 </p>
               ) : (
                 <p className="text-xs text-muted-foreground mt-1">
-                  Manual entry required for {formData.shop_category.replace('_', ' ')}
+                  Auto-calculated from area and rules, but you can override
                 </p>
               )}
             </div>
