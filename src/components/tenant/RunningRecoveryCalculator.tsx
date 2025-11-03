@@ -100,7 +100,7 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
 
   const servicingCostPerMonth = servicingCostPerYear / 12;
   const servicingCostPerMonthByHours = (servicingCostPer250Hours / 250) * expectedHoursPerMonth;
-  const additionalServicingCost = servicingCostPerMonthByHours - servicingCostPerMonth;
+  const additionalServicingCost = Math.max(0, servicingCostPerMonthByHours - servicingCostPerMonth);
   const totalServicesCostPerKWh = additionalServicingCost / netTotalEnergyKWh;
 
   const totalFuelCost = monthlyDieselCostPerKWh;
