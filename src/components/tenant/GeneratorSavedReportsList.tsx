@@ -81,33 +81,20 @@ export function GeneratorSavedReportsList({ projectId }: GeneratorSavedReportsLi
   const handlePreview = async (report: any) => {
     setPreviewReport(report);
     setIsLoadingPreview(true);
-    setPdfUrl(null); // Reset previous URL
+    setPdfUrl(null);
     
     try {
-      const { data, error } = await supabase.storage
+      // Get public URL for the PDF
+      const { data } = supabase.storage
         .from("tenant-tracker-reports")
-        .download(report.file_path);
+        .getPublicUrl(report.file_path);
 
-      if (error) {
-        console.error("Storage error:", error);
-        throw error;
+      if (!data.publicUrl) {
+        throw new Error("Failed to get PDF URL");
       }
 
-      if (!data) {
-        throw new Error("No data received from storage");
-      }
-
-      // Create blob with explicit PDF MIME type
-      const blob = new Blob([data], { type: "application/pdf" });
-      const url = URL.createObjectURL(blob);
-      
-      console.log("PDF blob created:", {
-        size: blob.size,
-        type: blob.type,
-        url: url
-      });
-      
-      setPdfUrl(url);
+      console.log("PDF URL:", data.publicUrl);
+      setPdfUrl(data.publicUrl);
     } catch (error) {
       console.error("Error previewing report:", error);
       toast.error("Failed to load preview. Please try downloading the report instead.");
@@ -118,10 +105,7 @@ export function GeneratorSavedReportsList({ projectId }: GeneratorSavedReportsLi
   };
 
   const handleClosePreview = () => {
-    if (pdfUrl) {
-      window.URL.revokeObjectURL(pdfUrl);
-      setPdfUrl(null);
-    }
+    setPdfUrl(null);
     setPreviewReport(null);
   };
 
@@ -259,28 +243,17 @@ export function GeneratorSavedReportsList({ projectId }: GeneratorSavedReportsLi
                 <p className="text-muted-foreground">Loading preview...</p>
               </div>
             ) : pdfUrl ? (
-              <object
-                data={pdfUrl}
-                type="application/pdf"
-                className="w-full h-full rounded-md border"
+              <iframe
+                src={`${pdfUrl}#view=FitH`}
+                className="w-full h-full rounded-md border-0"
                 title="PDF Preview"
-              >
-                <div className="flex flex-col items-center justify-center h-full gap-4">
-                  <p className="text-muted-foreground">Unable to display PDF preview in browser.</p>
-                  <Button
-                    onClick={() => handleDownload(previewReport.file_path, previewReport.report_name)}
-                    variant="outline"
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Download PDF Instead
-                  </Button>
-                </div>
-              </object>
+                style={{ minHeight: '600px' }}
+              />
             ) : (
               <div className="flex flex-col items-center justify-center h-full gap-4">
                 <p className="text-destructive">Failed to load preview</p>
                 <Button
-                  onClick={() => handleDownload(previewReport.file_path, previewReport.report_name)}
+                  onClick={() => previewReport && handleDownload(previewReport.file_path, previewReport.report_name)}
                   variant="outline"
                 >
                   <Download className="h-4 w-4 mr-2" />
