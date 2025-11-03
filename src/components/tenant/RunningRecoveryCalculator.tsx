@@ -499,25 +499,6 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
                 })}
               </TableRow>
 
-              {/* Expected Hours Per Month */}
-              <TableRow>
-                <TableCell className="font-medium">Expected Hours/Month</TableCell>
-                {zones.slice(0, 4).map((zone) => {
-                  const settings = zoneSettings.get(zone.id);
-                  return (
-                    <TableCell key={zone.id} className="text-center">
-                      <Input
-                        type="number"
-                        value={settings?.expected_hours_per_month || 0}
-                        onChange={(e) => updateZoneSetting(zone.id, 'expected_hours_per_month', Number(e.target.value))}
-                        disabled={!isEditing}
-                        className="text-center"
-                      />
-                    </TableCell>
-                  );
-                })}
-              </TableRow>
-
               {/* Section Header */}
               <TableRow className="bg-primary/10">
                 <TableCell colSpan={5} className="text-center font-bold text-primary">
