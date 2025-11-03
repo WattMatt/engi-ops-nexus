@@ -1,11 +1,48 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Badge } from "@/components/ui/badge";
+import { TenantList } from "@/components/tenant/TenantList";
 import { ChevronDown } from "lucide-react";
 
 const GeneratorReport = () => {
-  const [costsTab, setCostsTab] = useState<"capital" | "running">("capital");
+  const projectId = localStorage.getItem("selectedProjectId");
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  const { data: tenants = [], isLoading } = useQuery({
+    queryKey: ["tenants", projectId, refreshTrigger],
+    queryFn: async () => {
+      if (!projectId) return [];
+      const { data, error } = await supabase
+        .from("tenants")
+        .select("*")
+        .eq("project_id", projectId);
+      if (error) throw error;
+      
+      // Sort shop numbers numerically
+      return (data || []).sort((a, b) => {
+        const matchA = a.shop_number.match(/\d+/);
+        const matchB = b.shop_number.match(/\d+/);
+        
+        const numA = matchA ? parseInt(matchA[0]) : 0;
+        const numB = matchB ? parseInt(matchB[0]) : 0;
+        
+        if (numA !== numB) {
+          return numA - numB;
+        }
+        
+        return a.shop_number.localeCompare(b.shop_number, undefined, { numeric: true });
+      });
+    },
+    enabled: !!projectId,
+  });
+
+  const handleUpdate = () => {
+    setRefreshTrigger((prev) => prev + 1);
+  };
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -37,15 +74,37 @@ const GeneratorReport = () => {
         </TabsContent>
 
         <TabsContent value="tenant-schedule" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Tenant Schedule</CardTitle>
-              <CardDescription>Generator allocation and usage by tenant</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">Tenant schedule content will be displayed here.</p>
-            </CardContent>
-          </Card>
+          <div className="bg-background border rounded-lg p-4 shadow-sm">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm font-semibold">Legend:</span>
+              <Badge variant="outline" className="bg-blue-500 text-white border-blue-600">
+                Standard
+              </Badge>
+              <Badge variant="outline" className="bg-red-500 text-white border-red-600">
+                Fast Food
+              </Badge>
+              <Badge variant="outline" className="bg-emerald-500 text-white border-emerald-600">
+                Restaurant
+              </Badge>
+              <Badge variant="outline" className="bg-purple-600 text-white border-purple-700">
+                National
+              </Badge>
+            </div>
+          </div>
+          
+          <div className="h-[calc(100vh-320px)] overflow-y-auto border rounded-lg">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <p className="text-muted-foreground">Loading tenants...</p>
+              </div>
+            ) : (
+              <TenantList
+                tenants={tenants}
+                projectId={projectId || ""}
+                onUpdate={handleUpdate}
+              />
+            )}
+          </div>
         </TabsContent>
 
         <TabsContent value="sizing" className="space-y-4">
