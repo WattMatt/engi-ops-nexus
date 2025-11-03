@@ -100,7 +100,13 @@ export function ManageUserDialog({ user, onUpdated, children }: ManageUserDialog
   const handleResetPassword = async () => {
     setLoading(true);
     try {
+      // Get the current user's session token
+      const { data: { session } } = await supabase.auth.getSession();
+      
       const { data, error } = await supabase.functions.invoke("reset-user-password", {
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`
+        },
         body: {
           userId: user.id,
         },
