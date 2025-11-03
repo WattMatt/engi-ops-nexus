@@ -244,6 +244,19 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
     return tariffs.reduce((sum, t) => sum + t, 0) / tariffs.length;
   };
 
+  // Expand zones into individual generators for display
+  const expandedGenerators = zones.flatMap(zone => {
+    const numGenerators = zone.num_generators || 1;
+    return Array.from({ length: numGenerators }, (_, index) => ({
+      zoneId: zone.id,
+      zoneName: zone.zone_name,
+      generatorSize: zone.generator_size,
+      generatorIndex: index + 1,
+      totalInZone: numGenerators,
+    }));
+  }).slice(0, 4); // Limit to 4 generators
+
+  const totalGenerators = expandedGenerators.length;
   const averageTariff = calculateAverageTariff();
 
   return (
@@ -281,8 +294,8 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
             <TableHeader>
               <TableRow>
                 <TableHead className="w-48 font-bold">Parameter</TableHead>
-                {zones.slice(0, 4).map((zone, idx) => (
-                  <TableHead key={zone.id} className="text-center font-bold">
+                {expandedGenerators.map((gen, idx) => (
+                  <TableHead key={`${gen.zoneId}-${gen.generatorIndex}`} className="text-center font-bold">
                     Generator {idx + 1}
                   </TableHead>
                 ))}
@@ -292,25 +305,25 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
               {/* Zone Information */}
               <TableRow className="bg-muted/50">
                 <TableCell className="font-semibold">Zone Name</TableCell>
-                {zones.slice(0, 4).map((zone) => (
-                  <TableCell key={zone.id} className="text-center">
-                    {zone.zone_name}
+                {expandedGenerators.map((gen) => (
+                  <TableCell key={`${gen.zoneId}-${gen.generatorIndex}`} className="text-center">
+                    {gen.zoneName} (Unit {gen.generatorIndex})
                   </TableCell>
                 ))}
               </TableRow>
               <TableRow className="bg-muted/50">
                 <TableCell className="font-semibold">Generator Size</TableCell>
-                {zones.slice(0, 4).map((zone) => (
-                  <TableCell key={zone.id} className="text-center">
-                    {zone.generator_size}
+                {expandedGenerators.map((gen) => (
+                  <TableCell key={`${gen.zoneId}-${gen.generatorIndex}`} className="text-center">
+                    {gen.generatorSize}
                   </TableCell>
                 ))}
               </TableRow>
               <TableRow className="bg-muted/50">
-                <TableCell className="font-semibold">Synchronized Units</TableCell>
-                {zones.slice(0, 4).map((zone) => (
-                  <TableCell key={zone.id} className="text-center">
-                    {zone.num_generators || 1}
+                <TableCell className="font-semibold">Synchronized Pair</TableCell>
+                {expandedGenerators.map((gen) => (
+                  <TableCell key={`${gen.zoneId}-${gen.generatorIndex}`} className="text-center">
+                    {gen.totalInZone > 1 ? `Yes (${gen.totalInZone} units)` : 'No'}
                   </TableCell>
                 ))}
               </TableRow>
@@ -325,14 +338,14 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
               {/* Running Load */}
               <TableRow>
                 <TableCell className="font-medium">Running Load (%)</TableCell>
-                {zones.slice(0, 4).map((zone) => {
-                  const settings = zoneSettings.get(zone.id);
+                {expandedGenerators.map((gen) => {
+                  const settings = zoneSettings.get(gen.zoneId);
                   return (
-                    <TableCell key={zone.id} className="text-center">
+                    <TableCell key={`${gen.zoneId}-${gen.generatorIndex}`} className="text-center">
                       <Input
                         type="number"
                         value={settings?.running_load || 0}
-                        onChange={(e) => updateZoneSetting(zone.id, 'running_load', Number(e.target.value))}
+                        onChange={(e) => updateZoneSetting(gen.zoneId, 'running_load', Number(e.target.value))}
                         disabled={!isEditing}
                         className="text-center"
                       />
@@ -344,14 +357,14 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
               {/* Net Energy kVA */}
               <TableRow>
                 <TableCell className="font-medium">Net Energy (kVA)</TableCell>
-                {zones.slice(0, 4).map((zone) => {
-                  const settings = zoneSettings.get(zone.id);
+                {expandedGenerators.map((gen) => {
+                  const settings = zoneSettings.get(gen.zoneId);
                   return (
-                    <TableCell key={zone.id} className="text-center">
+                    <TableCell key={`${gen.zoneId}-${gen.generatorIndex}`} className="text-center">
                       <Input
                         type="number"
                         value={settings?.net_energy_kva || 0}
-                        onChange={(e) => updateZoneSetting(zone.id, 'net_energy_kva', Number(e.target.value))}
+                        onChange={(e) => updateZoneSetting(gen.zoneId, 'net_energy_kva', Number(e.target.value))}
                         disabled={!isEditing}
                         className="text-center"
                       />
@@ -363,15 +376,15 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
               {/* kVA to kWh Conversion */}
               <TableRow>
                 <TableCell className="font-medium">kVA to kWh Factor</TableCell>
-                {zones.slice(0, 4).map((zone) => {
-                  const settings = zoneSettings.get(zone.id);
+                {expandedGenerators.map((gen) => {
+                  const settings = zoneSettings.get(gen.zoneId);
                   return (
-                    <TableCell key={zone.id} className="text-center">
+                    <TableCell key={`${gen.zoneId}-${gen.generatorIndex}`} className="text-center">
                       <Input
                         type="number"
                         step="0.01"
                         value={settings?.kva_to_kwh_conversion || 0}
-                        onChange={(e) => updateZoneSetting(zone.id, 'kva_to_kwh_conversion', Number(e.target.value))}
+                        onChange={(e) => updateZoneSetting(gen.zoneId, 'kva_to_kwh_conversion', Number(e.target.value))}
                         disabled={!isEditing}
                         className="text-center"
                       />
@@ -383,10 +396,10 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
               {/* Fuel Consumption Rate */}
               <TableRow>
                 <TableCell className="font-medium">Fuel Rate (L/h per unit)</TableCell>
-                {zones.slice(0, 4).map((zone) => {
-                  const settings = zoneSettings.get(zone.id);
+                {expandedGenerators.map((gen) => {
+                  const settings = zoneSettings.get(gen.zoneId);
                   return (
-                    <TableCell key={zone.id} className="text-center">
+                    <TableCell key={`${gen.zoneId}-${gen.generatorIndex}`} className="text-center">
                       <Input
                         type="number"
                         step="0.01"
@@ -402,15 +415,15 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
               {/* Diesel Price */}
               <TableRow>
                 <TableCell className="font-medium">Diesel Price (R/L)</TableCell>
-                {zones.slice(0, 4).map((zone) => {
-                  const settings = zoneSettings.get(zone.id);
+                {expandedGenerators.map((gen) => {
+                  const settings = zoneSettings.get(gen.zoneId);
                   return (
-                    <TableCell key={zone.id} className="text-center">
+                    <TableCell key={`${gen.zoneId}-${gen.generatorIndex}`} className="text-center">
                       <Input
                         type="number"
                         step="0.01"
                         value={settings?.diesel_price_per_litre || 0}
-                        onChange={(e) => updateZoneSetting(zone.id, 'diesel_price_per_litre', Number(e.target.value))}
+                        onChange={(e) => updateZoneSetting(gen.zoneId, 'diesel_price_per_litre', Number(e.target.value))}
                         disabled={!isEditing}
                         className="text-center"
                       />
@@ -422,15 +435,15 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
               {/* Servicing Cost Per Year */}
               <TableRow>
                 <TableCell className="font-medium">Servicing Cost/Year (R)</TableCell>
-                {zones.slice(0, 4).map((zone) => {
-                  const settings = zoneSettings.get(zone.id);
+                {expandedGenerators.map((gen) => {
+                  const settings = zoneSettings.get(gen.zoneId);
                   return (
-                    <TableCell key={zone.id} className="text-center">
+                    <TableCell key={`${gen.zoneId}-${gen.generatorIndex}`} className="text-center">
                       <Input
                         type="number"
                         step="0.01"
                         value={settings?.servicing_cost_per_year || 0}
-                        onChange={(e) => updateZoneSetting(zone.id, 'servicing_cost_per_year', Number(e.target.value))}
+                        onChange={(e) => updateZoneSetting(gen.zoneId, 'servicing_cost_per_year', Number(e.target.value))}
                         disabled={!isEditing}
                         className="text-center"
                       />
@@ -442,15 +455,34 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
               {/* Servicing Cost Per 250 Hours */}
               <TableRow>
                 <TableCell className="font-medium">Servicing Cost/250h (R)</TableCell>
-                {zones.slice(0, 4).map((zone) => {
-                  const settings = zoneSettings.get(zone.id);
+                {expandedGenerators.map((gen) => {
+                  const settings = zoneSettings.get(gen.zoneId);
                   return (
-                    <TableCell key={zone.id} className="text-center">
+                    <TableCell key={`${gen.zoneId}-${gen.generatorIndex}`} className="text-center">
                       <Input
                         type="number"
                         step="0.01"
                         value={settings?.servicing_cost_per_250_hours || 0}
-                        onChange={(e) => updateZoneSetting(zone.id, 'servicing_cost_per_250_hours', Number(e.target.value))}
+                        onChange={(e) => updateZoneSetting(gen.zoneId, 'servicing_cost_per_250_hours', Number(e.target.value))}
+                        disabled={!isEditing}
+                        className="text-center"
+                      />
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+
+              {/* Expected Hours Per Month */}
+              <TableRow>
+                <TableCell className="font-medium">Expected Hours/Month</TableCell>
+                {expandedGenerators.map((gen) => {
+                  const settings = zoneSettings.get(gen.zoneId);
+                  return (
+                    <TableCell key={`${gen.zoneId}-${gen.generatorIndex}`} className="text-center">
+                      <Input
+                        type="number"
+                        value={settings?.expected_hours_per_month || 0}
+                        onChange={(e) => updateZoneSetting(gen.zoneId, 'expected_hours_per_month', Number(e.target.value))}
                         disabled={!isEditing}
                         className="text-center"
                       />
@@ -488,13 +520,12 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
               {/* Total Energy Capacity */}
               <TableRow>
                 <TableCell className="font-medium">Total Energy (kWh)</TableCell>
-                {zones.slice(0, 4).map((zone) => {
-                  const settings = zoneSettings.get(zone.id);
-                  if (!settings) return <TableCell key={zone.id} className="text-center">-</TableCell>;
-                  const numGenerators = zone.num_generators || 1;
-                  const totalEnergy = settings.net_energy_kva * settings.kva_to_kwh_conversion * numGenerators;
+                {expandedGenerators.map((gen) => {
+                  const settings = zoneSettings.get(gen.zoneId);
+                  if (!settings) return <TableCell key={`${gen.zoneId}-${gen.generatorIndex}`} className="text-center">-</TableCell>;
+                  const totalEnergy = settings.net_energy_kva * settings.kva_to_kwh_conversion;
                   return (
-                    <TableCell key={zone.id} className="text-center font-semibold">
+                    <TableCell key={`${gen.zoneId}-${gen.generatorIndex}`} className="text-center font-semibold">
                       {totalEnergy.toFixed(2)}
                     </TableCell>
                   );
@@ -504,14 +535,13 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
               {/* Monthly Energy */}
               <TableRow>
                 <TableCell className="font-medium">Monthly Energy (kWh)</TableCell>
-                {zones.slice(0, 4).map((zone) => {
-                  const settings = zoneSettings.get(zone.id);
-                  if (!settings) return <TableCell key={zone.id} className="text-center">-</TableCell>;
-                  const numGenerators = zone.num_generators || 1;
-                  const totalEnergy = settings.net_energy_kva * settings.kva_to_kwh_conversion * numGenerators;
+                {expandedGenerators.map((gen) => {
+                  const settings = zoneSettings.get(gen.zoneId);
+                  if (!settings) return <TableCell key={`${gen.zoneId}-${gen.generatorIndex}`} className="text-center">-</TableCell>;
+                  const totalEnergy = settings.net_energy_kva * settings.kva_to_kwh_conversion;
                   const monthlyEnergy = totalEnergy * settings.expected_hours_per_month;
                   return (
-                    <TableCell key={zone.id} className="text-center font-semibold">
+                    <TableCell key={`${gen.zoneId}-${gen.generatorIndex}`} className="text-center font-semibold">
                       {monthlyEnergy.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </TableCell>
                   );
@@ -521,13 +551,12 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
               {/* Diesel Cost Per Hour */}
               <TableRow>
                 <TableCell className="font-medium">Diesel Cost/Hour (R)</TableCell>
-                {zones.slice(0, 4).map((zone) => {
-                  const settings = zoneSettings.get(zone.id);
-                  if (!settings) return <TableCell key={zone.id} className="text-center">-</TableCell>;
-                  const numGenerators = zone.num_generators || 1;
-                  const dieselCostPerHour = settings.fuel_consumption_rate * settings.diesel_price_per_litre * numGenerators;
+                {expandedGenerators.map((gen) => {
+                  const settings = zoneSettings.get(gen.zoneId);
+                  if (!settings) return <TableCell key={`${gen.zoneId}-${gen.generatorIndex}`} className="text-center">-</TableCell>;
+                  const dieselCostPerHour = settings.fuel_consumption_rate * settings.diesel_price_per_litre;
                   return (
-                    <TableCell key={zone.id} className="text-center font-semibold">
+                    <TableCell key={`${gen.zoneId}-${gen.generatorIndex}`} className="text-center font-semibold">
                       R {dieselCostPerHour.toFixed(2)}
                     </TableCell>
                   );
@@ -537,14 +566,13 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
               {/* Monthly Diesel Cost */}
               <TableRow>
                 <TableCell className="font-medium">Monthly Diesel Cost (R)</TableCell>
-                {zones.slice(0, 4).map((zone) => {
-                  const settings = zoneSettings.get(zone.id);
-                  if (!settings) return <TableCell key={zone.id} className="text-center">-</TableCell>;
-                  const numGenerators = zone.num_generators || 1;
-                  const dieselCostPerHour = settings.fuel_consumption_rate * settings.diesel_price_per_litre * numGenerators;
+                {expandedGenerators.map((gen) => {
+                  const settings = zoneSettings.get(gen.zoneId);
+                  if (!settings) return <TableCell key={`${gen.zoneId}-${gen.generatorIndex}`} className="text-center">-</TableCell>;
+                  const dieselCostPerHour = settings.fuel_consumption_rate * settings.diesel_price_per_litre;
                   const monthlyDieselCost = dieselCostPerHour * settings.expected_hours_per_month;
                   return (
-                    <TableCell key={zone.id} className="text-center font-semibold">
+                    <TableCell key={`${gen.zoneId}-${gen.generatorIndex}`} className="text-center font-semibold">
                       R {monthlyDieselCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </TableCell>
                   );
@@ -554,15 +582,28 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
               {/* Monthly Servicing Cost */}
               <TableRow>
                 <TableCell className="font-medium">Monthly Servicing Cost (R)</TableCell>
-                {zones.slice(0, 4).map((zone) => {
-                  const settings = zoneSettings.get(zone.id);
-                  if (!settings) return <TableCell key={zone.id} className="text-center">-</TableCell>;
+                {expandedGenerators.map((gen) => {
+                  const settings = zoneSettings.get(gen.zoneId);
+                  if (!settings) return <TableCell key={`${gen.zoneId}-${gen.generatorIndex}`} className="text-center">-</TableCell>;
                   const servicingCostPerMonth = settings.servicing_cost_per_year / 12;
                   const servicingCostPerMonthByHours = (settings.servicing_cost_per_250_hours / 250) * settings.expected_hours_per_month;
                   const additionalServicingCost = Math.max(0, servicingCostPerMonthByHours - servicingCostPerMonth);
                   return (
-                    <TableCell key={zone.id} className="text-center font-semibold">
+                    <TableCell key={`${gen.zoneId}-${gen.generatorIndex}`} className="text-center font-semibold">
                       R {additionalServicingCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+
+              {/* Tariff Per kWh */}
+              <TableRow className="bg-accent">
+                <TableCell className="font-bold text-lg">TARIFF PER kWh (R)</TableCell>
+                {expandedGenerators.map((gen) => {
+                  const tariff = calculateZoneTariff(gen.zoneId);
+                  return (
+                    <TableCell key={`${gen.zoneId}-${gen.generatorIndex}`} className="text-center font-bold text-lg">
+                      R {tariff.toFixed(4)}
                     </TableCell>
                   );
                 })}
@@ -590,7 +631,7 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
         <CardHeader>
           <CardTitle className="text-center text-2xl">Average Recovery Tariff</CardTitle>
           <CardDescription className="text-center">
-            Average tariff across all {zones.length} generator{zones.length !== 1 ? 's' : ''}
+            Average tariff across {totalGenerators} generator{totalGenerators !== 1 ? 's' : ''} ({zones.length} synchronized pair{zones.length !== 1 ? 's' : ''})
           </CardDescription>
         </CardHeader>
         <CardContent>
