@@ -153,7 +153,7 @@ export const ProjectSavedReportsList = ({ projectId }: ProjectSavedReportsListPr
         <CardContent>
           {!reports || reports.length === 0 ? (
             <p className="text-muted-foreground text-center py-8">
-              No saved reports yet. Generate PDFs from your cable schedules to see them here.
+              No saved PDF reports yet. Go to a cable schedule below, then click "Export to PDF" to generate and save reports here.
             </p>
           ) : (
             <div className="rounded-md border">
