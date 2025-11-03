@@ -115,7 +115,14 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
 
   const tenantCount = tenants.length;
   const tenantRate = settings?.tenant_rate || 0;
-  const generatorCost = zones.reduce((sum, zone) => sum + (zone.generator_cost || 0), 0);
+  
+  // Calculate generator cost accounting for quantity per zone
+  const generatorCost = zones.reduce((sum, zone) => {
+    const numGens = zone.num_generators || 1;
+    const costPerGen = zone.generator_cost || 0;
+    return sum + (costPerGen * numGens);
+  }, 0);
+  
   const tenantCost = tenantCount * tenantRate;
   
   // Auto-calculate number of tenant DBs (tenants without their own generator)
@@ -160,22 +167,28 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
               </TableRow>
             ) : (
               <>
-                {zones.map((zone, index) => (
-                  <TableRow key={zone.id}>
-                    <TableCell className="font-medium">{index + 1}</TableCell>
-                    <TableCell>
-                      {zone.zone_name} - {zone.generator_size || "-"}
-                      {zone.num_generators > 1 && ` (${zone.num_generators} Synchronized)`}
-                    </TableCell>
-                    <TableCell>1</TableCell>
-                    <TableCell className="font-mono">
-                      {formatCurrency(zone.generator_cost || 0)}
-                    </TableCell>
-                    <TableCell className="text-right font-mono">
-                      {formatCurrency(zone.generator_cost || 0)}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {zones.map((zone, index) => {
+                  const numGens = zone.num_generators || 1;
+                  const costPerGen = zone.generator_cost || 0;
+                  const totalCost = costPerGen * numGens;
+                  
+                  return (
+                    <TableRow key={zone.id}>
+                      <TableCell className="font-medium">{index + 1}</TableCell>
+                      <TableCell>
+                        {zone.zone_name} - {zone.generator_size || "-"}
+                        {zone.num_generators > 1 && ` (${zone.num_generators} Synchronized)`}
+                      </TableCell>
+                      <TableCell className="font-mono">{numGens}</TableCell>
+                      <TableCell className="font-mono">
+                        {formatCurrency(costPerGen)}
+                      </TableCell>
+                      <TableCell className="text-right font-mono">
+                        {formatCurrency(totalCost)}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
                 
                 <TableRow>
                   <TableCell className="font-medium">{zones.length + 1}</TableCell>
