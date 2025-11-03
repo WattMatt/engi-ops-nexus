@@ -1355,6 +1355,121 @@ export type Database = {
           },
         ]
       }
+      final_account_items: {
+        Row: {
+          contract_amount: number | null
+          contract_quantity: number | null
+          created_at: string
+          description: string
+          final_account_id: string
+          final_amount: number | null
+          final_quantity: number | null
+          id: string
+          item_number: string | null
+          notes: string | null
+          rate: number | null
+          unit: string | null
+          variation_amount: number | null
+        }
+        Insert: {
+          contract_amount?: number | null
+          contract_quantity?: number | null
+          created_at?: string
+          description: string
+          final_account_id: string
+          final_amount?: number | null
+          final_quantity?: number | null
+          id?: string
+          item_number?: string | null
+          notes?: string | null
+          rate?: number | null
+          unit?: string | null
+          variation_amount?: number | null
+        }
+        Update: {
+          contract_amount?: number | null
+          contract_quantity?: number | null
+          created_at?: string
+          description?: string
+          final_account_id?: string
+          final_amount?: number | null
+          final_quantity?: number | null
+          id?: string
+          item_number?: string | null
+          notes?: string | null
+          rate?: number | null
+          unit?: string | null
+          variation_amount?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "final_account_items_final_account_id_fkey"
+            columns: ["final_account_id"]
+            isOneToOne: false
+            referencedRelation: "final_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      final_accounts: {
+        Row: {
+          account_name: string
+          account_number: string
+          client_name: string | null
+          contract_value: number | null
+          created_at: string
+          created_by: string | null
+          final_value: number | null
+          id: string
+          notes: string | null
+          project_id: string
+          status: string | null
+          submission_date: string | null
+          updated_at: string
+          variations_total: number | null
+        }
+        Insert: {
+          account_name: string
+          account_number: string
+          client_name?: string | null
+          contract_value?: number | null
+          created_at?: string
+          created_by?: string | null
+          final_value?: number | null
+          id?: string
+          notes?: string | null
+          project_id: string
+          status?: string | null
+          submission_date?: string | null
+          updated_at?: string
+          variations_total?: number | null
+        }
+        Update: {
+          account_name?: string
+          account_number?: string
+          client_name?: string | null
+          contract_value?: number | null
+          created_at?: string
+          created_by?: string | null
+          final_value?: number | null
+          id?: string
+          notes?: string | null
+          project_id?: string
+          status?: string | null
+          submission_date?: string | null
+          updated_at?: string
+          variations_total?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "final_accounts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       floor_plan_cables: {
         Row: {
           cable_entry_id: string | null

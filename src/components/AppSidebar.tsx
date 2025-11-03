@@ -105,6 +105,11 @@ const operationalModules = [
     icon: Map,
   },
   {
+    title: "Final Accounts",
+    url: "/dashboard/final-accounts",
+    icon: FileCheck,
+  },
+  {
     title: "Messages",
     url: "/dashboard/messages",
     icon: UsersRound,
