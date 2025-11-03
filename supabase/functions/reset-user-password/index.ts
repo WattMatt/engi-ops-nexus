@@ -66,7 +66,7 @@ Deno.serve(async (req) => {
       type: 'recovery',
       email: profile.email,
       options: {
-        redirectTo: `${req.headers.get('origin')}/set-password`
+        redirectTo: `${req.headers.get('origin')}/auth/set-password`
       }
     })
 
