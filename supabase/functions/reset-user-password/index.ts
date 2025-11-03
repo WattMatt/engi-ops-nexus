@@ -1,9 +1,12 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1'
+import { Resend } from 'https://esm.sh/resend@2.0.0'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
+
+const resend = new Resend(Deno.env.get('RESEND_API_KEY'))
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -48,28 +51,66 @@ Deno.serve(async (req) => {
       throw new Error('Insufficient permissions - admin role required')
     }
 
-    const { userId, newPassword } = await req.json()
+    const { userId } = await req.json()
 
-    if (!userId || !newPassword) {
-      throw new Error('Missing required fields: userId and newPassword')
+    if (!userId) {
+      throw new Error('Missing required field: userId')
     }
 
-    if (newPassword.length < 6) {
-      throw new Error('Password must be at least 6 characters')
+    // Get user email from profiles
+    const { data: profile, error: profileError } = await supabaseClient
+      .from('profiles')
+      .select('email, full_name')
+      .eq('id', userId)
+      .single()
+
+    if (profileError || !profile) {
+      throw new Error('User not found')
     }
 
-    // Update user password using admin API
-    const { error: updateError } = await supabaseClient.auth.admin.updateUserById(
-      userId,
-      { password: newPassword }
-    )
+    // Generate password reset link
+    const { data: resetData, error: resetError } = await supabaseClient.auth.admin.generateLink({
+      type: 'recovery',
+      email: profile.email,
+    })
 
-    if (updateError) {
-      throw updateError
+    if (resetError || !resetData.properties?.action_link) {
+      console.error('Error generating reset link:', resetError)
+      throw new Error('Failed to generate password reset link')
     }
+
+    const resetLink = resetData.properties.action_link
+
+    // Send password reset email
+    const { error: emailError } = await resend.emails.send({
+      from: 'noreply@updates.lovable.app',
+      to: profile.email,
+      subject: 'Password Reset Request',
+      html: `
+        <h2>Password Reset</h2>
+        <p>Hello ${profile.full_name || 'there'},</p>
+        <p>An administrator has initiated a password reset for your account.</p>
+        <p>Click the link below to set a new password:</p>
+        <p><a href="${resetLink}" style="background-color: #4F46E5; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; display: inline-block;">Reset Password</a></p>
+        <p>This link will expire in 24 hours.</p>
+        <p>If you didn't request this reset, you can safely ignore this email.</p>
+        <br/>
+        <p style="color: #666; font-size: 12px;">If the button doesn't work, copy and paste this link: ${resetLink}</p>
+      `,
+    })
+
+    if (emailError) {
+      console.error('Error sending email:', emailError)
+      throw new Error('Failed to send password reset email')
+    }
+
+    console.log('Password reset email sent to:', profile.email)
 
     return new Response(
-      JSON.stringify({ success: true, message: 'Password reset successfully' }),
+      JSON.stringify({ 
+        success: true, 
+        message: 'Password reset link sent successfully' 
+      }),
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
