@@ -68,7 +68,6 @@ const projectsReportModule = {
   title: "Projects Report",
   icon: BarChart3,
   items: [
-    { title: "All Projects", url: "/dashboard/projects-report" },
     { title: "Bulk Services", url: "/dashboard/projects-report/bulk-services" },
     { title: "Generator Report", url: "/dashboard/projects-report/generator" },
     { title: "Lighting", url: "/dashboard/projects-report/lighting" },
