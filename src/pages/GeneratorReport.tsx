@@ -11,6 +11,7 @@ import { RunningRecoveryCalculator } from "@/components/tenant/RunningRecoveryCa
 import { CapitalRecoveryCalculator } from "@/components/tenant/CapitalRecoveryCalculator";
 import { GeneratorLoadingSettings } from "@/components/tenant/GeneratorLoadingSettings";
 import { GeneratorCostingSection } from "@/components/tenant/GeneratorCostingSection";
+import { GeneratorOverview } from "@/components/tenant/GeneratorOverview";
 import { ChevronDown } from "lucide-react";
 
 const GeneratorReport = () => {
@@ -94,15 +95,7 @@ const GeneratorReport = () => {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Generator System Overview</CardTitle>
-              <CardDescription>Summary of generator specifications and usage</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">Overview content will be displayed here.</p>
-            </CardContent>
-          </Card>
+          {projectId && <GeneratorOverview projectId={projectId} />}
         </TabsContent>
 
         <TabsContent value="settings" className="space-y-4">
