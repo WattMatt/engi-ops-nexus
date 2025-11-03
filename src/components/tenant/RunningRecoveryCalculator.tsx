@@ -597,19 +597,6 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
                   );
                 })}
               </TableRow>
-
-              {/* Tariff Per kWh */}
-              <TableRow className="bg-accent">
-                <TableCell className="font-bold text-lg">TARIFF PER kWh (R)</TableCell>
-                {zones.slice(0, 4).map((zone) => {
-                  const tariff = calculateZoneTariff(zone.id);
-                  return (
-                    <TableCell key={zone.id} className="text-center font-bold text-lg">
-                      R {tariff.toFixed(4)}
-                    </TableCell>
-                  );
-                })}
-              </TableRow>
             </TableBody>
           </Table>
         </CardContent>
