@@ -277,27 +277,35 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
         },
       });
 
+      yPos = (doc as any).lastAutoTable.finalY + 15;
+
+      // Summary Section
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("SUMMARY", 14, yPos);
+      yPos += 8;
+
+      const summaryData = [
+        ["Annual Repayment", formatCurrency(monthlyCapitalRepayment * 12)],
+        ["Monthly Capital Repayment", formatCurrency(monthlyCapitalRepayment)],
+      ];
+
+      autoTable(doc, {
+        startY: yPos,
+        body: summaryData,
+        theme: "grid",
+        styles: { fontSize: 10, cellPadding: 4 },
+        columnStyles: {
+          0: { fontStyle: "bold", cellWidth: 100, fillColor: [240, 248, 255] },
+          1: { halign: "right", fontStyle: "bold", fontSize: 11, fillColor: [240, 248, 255] },
+        },
+        margin: { left: 14, right: 14 },
+      });
+
       yPos = (doc as any).lastAutoTable.finalY + 10;
 
-      // Key metrics
-      const avgDieselPrice = allSettings.length > 0 
-        ? allSettings.reduce((sum, s) => sum + s.diesel_price_per_litre, 0) / allSettings.length 
-        : 0;
-      const avgRunningHours = allSettings.length > 0 
-        ? allSettings.reduce((sum, s) => sum + s.expected_hours_per_month, 0) / allSettings.length 
-        : 0;
-
-      // Calculate running cost per kWh
+      // Calculate metrics for use in subsequent pages
       const metrics = calculateMetrics();
-      
-      doc.setFont("helvetica", "bold");
-      doc.text(`DIESEL COST: ${avgDieselPrice.toFixed(0)}`, 14, yPos);
-      yPos += 8;
-      doc.text(`ESTIMATED RUNNING HOURS: ${avgRunningHours.toFixed(0)}`, 14, yPos);
-      yPos += 8;
-      doc.text(`MONTHLY CAPITAL REPAYMENT: ${formatCurrency(monthlyCapitalRepayment)}`, 14, yPos);
-      yPos += 8;
-      doc.text(`RUNNING kWH COST: R${metrics?.averageTariff.toFixed(2) || "0.00"}`, 14, yPos);
 
       // ========== PAGE 3: SIZING AND ALLOWANCES ==========
       doc.addPage();
@@ -400,7 +408,7 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
         margin: { left: 14, right: 14 },
       });
 
-      // ========== PAGE 4: SYSTEM RECOVERY (AMORTIZATION) ==========
+      // ========== PAGE 4: CAPITAL RECOVERY CALCULATOR ==========
       doc.addPage();
       yPos = 20;
       
@@ -411,24 +419,72 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       
       doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
-      doc.text("SYSTEM RECOVERY:", 14, yPos);
-      yPos += 12;
+      doc.text("CAPITAL COST RECOVERY", 14, yPos);
+      yPos += 8;
       
-      doc.text("STANDBY SYSTEM - AMORT", 14, yPos);
-      yPos += 10;
-
-      // Amortization parameters
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
-      doc.text(`CAPITAL COST ${formatCurrency(totalCapitalCost)}`, 14, yPos);
-      yPos += 6;
-      doc.text(`PERIOD/ YEARS ${years}`, 14, yPos);
-      yPos += 6;
-      doc.text(`RATE ${(rate * 100).toFixed(2)}%`, 14, yPos);
-      yPos += 6;
+      doc.text("Amortization schedule for capital investment recovery", 14, yPos);
+      yPos += 15;
+
+      // Input Parameters Section
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text("INPUT PARAMETERS", 14, yPos);
+      yPos += 8;
+
+      const inputParams = [
+        ["Capital Cost (R)", formatCurrency(totalCapitalCost), "From Equipment Costing"],
+        ["Period (years)", years.toString(), "Amortization period"],
+        ["Rate (%)", (rate * 100).toFixed(2) + "%", "Annual interest rate"],
+      ];
+
+      autoTable(doc, {
+        startY: yPos,
+        body: inputParams,
+        theme: "grid",
+        styles: { fontSize: 9, cellPadding: 3 },
+        columnStyles: {
+          0: { fontStyle: "bold", cellWidth: 50, fillColor: [245, 245, 245] },
+          1: { halign: "right", cellWidth: 50, fontStyle: "bold" },
+          2: { cellWidth: 90, fontSize: 8, textColor: [100, 100, 100] },
+        },
+        margin: { left: 14 },
+      });
+
+      yPos = (doc as any).lastAutoTable.finalY + 15;
+
+      // Summary Section
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text("SUMMARY", 14, yPos);
+      yPos += 8;
+
       const annualPayment = monthlyCapitalRepayment * 12;
-      doc.text(`REPAYMENT ${formatCurrency(annualPayment)} PER/MONTH ${formatCurrency(monthlyCapitalRepayment)}`, 14, yPos);
-      yPos += 12;
+      const summaryParams = [
+        ["Annual Repayment", formatCurrency(annualPayment)],
+        ["Monthly Repayment", formatCurrency(monthlyCapitalRepayment)],
+      ];
+
+      autoTable(doc, {
+        startY: yPos,
+        body: summaryParams,
+        theme: "grid",
+        styles: { fontSize: 10, cellPadding: 4 },
+        columnStyles: {
+          0: { fontStyle: "bold", cellWidth: 90, fillColor: [240, 248, 255] },
+          1: { halign: "right", fontStyle: "bold", fontSize: 12, fillColor: [240, 248, 255] },
+        },
+        margin: { left: 14, right: 14 },
+      });
+
+      yPos = (doc as any).lastAutoTable.finalY + 15;
+
+      // Amortization Schedule Section
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text("AMORTIZATION SCHEDULE", 14, yPos);
+      yPos += 8;
 
       // Amortization schedule
       const amortRows = [];
@@ -469,7 +525,7 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
         margin: { left: 14, right: 14 },
       });
 
-      // ========== PAGE 5: DIESEL/RUNNING RECOVERY ==========
+      // ========== PAGE 5: RUNNING RECOVERY CALCULATOR ==========
       doc.addPage();
       yPos = 20;
       
@@ -480,23 +536,33 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       
       doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
-      doc.text("DIESEL/ RUNNING RECOVERY:", 14, yPos);
-      yPos += 12;
+      doc.text("RUNNING RECOVERY CALCULATOR", 14, yPos);
+      yPos += 8;
+      
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text("Operational cost analysis per generator zone", 14, yPos);
+      yPos += 15;
 
       // For each zone, show detailed running cost breakdown
       zones.forEach((zone, index) => {
         const settings = allSettings.find(s => s.generator_zone_id === zone.id);
         if (!settings) return;
 
-        if (yPos > pageHeight - 60) {
+        if (yPos > pageHeight - 80) {
           doc.addPage();
           yPos = 20;
         }
 
-        doc.setFontSize(12);
+        doc.setFontSize(11);
         doc.setFont("helvetica", "bold");
-        doc.text(`${index + 1}. DIESEL CONSUMPTION COST - Zone ${zone.zone_name}`, 14, yPos);
-        yPos += 8;
+        doc.text(`${index + 1}. ${zone.zone_name} - ${zone.generator_size}`, 14, yPos);
+        if (zone.num_generators > 1) {
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "normal");
+          doc.text(`(${zone.num_generators} Synchronized Units)`, 70, yPos);
+        }
+        yPos += 10;
 
         const netEnergyKVA = Number(settings.net_energy_kva);
         const kvaToKwhConversion = Number(settings.kva_to_kwh_conversion);
