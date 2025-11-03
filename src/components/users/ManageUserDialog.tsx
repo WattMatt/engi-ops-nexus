@@ -106,43 +106,36 @@ export function ManageUserDialog({ user, onUpdated, children }: ManageUserDialog
         },
       });
 
-      // Handle errors from edge function (both error object and 400 responses in data)
       const errorMessage = error?.message || (data as any)?.error;
       
       if (error || errorMessage) {
-        const msg = String(errorMessage || '');
-        
-        // Show specific toast for domain verification issues
-        if (msg.includes('domain not verified') || msg.includes('verify a domain') || msg.includes('verify your domain')) {
-          toast.error("Email Domain Not Verified", {
-            description: "To send password reset emails, please verify your domain at resend.com/domains. For testing, you can only send to your registered Resend email.",
-            duration: 10000,
-          });
-          setLoading(false);
-          return;
-        }
-        
-        // Show generic error for other issues
-        toast.error("Failed to Send Reset Link", {
-          description: msg || "An error occurred while sending the password reset email.",
+        toast.error("Failed to Generate Reset Link", {
+          description: String(errorMessage || 'An error occurred'),
         });
         setLoading(false);
         return;
       }
 
-      // Success - log activity and show confirmation
       await logActivity(
         'update',
-        `Sent password reset link to ${user.full_name}`,
+        `Generated password reset link for ${user.full_name}`,
         { userId: user.id }
       );
 
-      toast.success("Password Reset Link Sent", {
-        description: `An email has been sent to ${user.email}`,
-      });
+      // Copy reset link to clipboard
+      const resetLink = (data as any)?.resetLink;
+      if (resetLink) {
+        await navigator.clipboard.writeText(resetLink);
+        toast.success("Password Reset Link Copied!", {
+          description: `Share this link with ${user.email}. It has been copied to your clipboard.`,
+          duration: 10000,
+        });
+      } else {
+        toast.error("Failed to get reset link");
+      }
     } catch (error: any) {
       toast.error("Error", {
-        description: error.message || "Failed to send reset link",
+        description: error.message || "Failed to generate reset link",
       });
     } finally {
       setLoading(false);
