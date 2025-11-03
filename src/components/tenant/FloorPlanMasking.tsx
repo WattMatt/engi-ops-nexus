@@ -139,10 +139,7 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
       tenant.layout_received &&
       tenant.db_ordered &&
       tenant.lighting_ordered &&
-      tenant.cost_reported &&
-      tenant.area &&
-      tenant.db_cost &&
-      tenant.lighting_cost
+      tenant.cost_reported
     );
   };
 

@@ -79,10 +79,7 @@ export const MaskingCanvas = ({
       tenant.layout_received &&
       tenant.db_ordered &&
       tenant.lighting_ordered &&
-      tenant.cost_reported &&
-      tenant.area &&
-      tenant.db_cost &&
-      tenant.lighting_cost
+      tenant.cost_reported
     );
   };
 
@@ -269,10 +266,7 @@ export const MaskingCanvas = ({
                            tenant.layout_received && 
                            tenant.db_ordered && 
                            tenant.lighting_ordered &&
-                           tenant.cost_reported &&
-                           tenant.area &&
-                           tenant.db_cost &&
-                           tenant.lighting_cost;
+                           tenant.cost_reported;
 
         return allComplete 
           ? { label: 'Complete', color: '#16A34A' }
@@ -360,10 +354,7 @@ export const MaskingCanvas = ({
       tenant.layout_received &&
       tenant.db_ordered &&
       tenant.lighting_ordered &&
-      tenant.cost_reported &&
-      tenant.area &&
-      tenant.db_cost &&
-      tenant.lighting_cost
+      tenant.cost_reported
     );
     
     return isComplete ? '#16A34A' : '#DC2626'; // Green for complete, Red for incomplete
