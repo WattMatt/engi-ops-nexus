@@ -4,16 +4,21 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { GENERATOR_SIZING_TABLE } from "@/utils/generatorSizing";
+import { toast } from "sonner";
+import { Pencil, Save, X } from "lucide-react";
 
 interface RunningRecoveryCalculatorProps {
   projectId: string;
 }
 
 export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculatorProps) {
+  const queryClient = useQueryClient();
+  const [isEditing, setIsEditing] = useState(false);
   const [selectedGeneratorId, setSelectedGeneratorId] = useState<string>("");
   const [plantName, setPlantName] = useState("STANDBY PLANT 1");
   const [runningLoad, setRunningLoad] = useState(75);
@@ -63,6 +68,40 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
     enabled: !!projectId,
   });
 
+  // Fetch saved settings
+  const { data: savedSettings } = useQuery({
+    queryKey: ["running-recovery-settings", projectId, selectedGeneratorId],
+    queryFn: async () => {
+      if (!selectedGeneratorId) return null;
+      
+      const { data, error } = await supabase
+        .from("running_recovery_settings")
+        .select("*")
+        .eq("project_id", projectId)
+        .eq("generator_zone_id", selectedGeneratorId)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!projectId && !!selectedGeneratorId,
+  });
+
+  // Load saved settings when available
+  useEffect(() => {
+    if (savedSettings) {
+      setPlantName(savedSettings.plant_name);
+      setRunningLoad(Number(savedSettings.running_load));
+      setNetEnergyKVA(Number(savedSettings.net_energy_kva));
+      setKvaToKwhConversion(Number(savedSettings.kva_to_kwh_conversion));
+      setFuelConsumptionRate(Number(savedSettings.fuel_consumption_rate));
+      setDieselPricePerLitre(Number(savedSettings.diesel_price_per_litre));
+      setServicingCostPerYear(Number(savedSettings.servicing_cost_per_year));
+      setServicingCostPer250Hours(Number(savedSettings.servicing_cost_per_250_hours));
+      setExpectedHoursPerMonth(Number(savedSettings.expected_hours_per_month));
+    }
+  }, [savedSettings]);
+
   // Handle generator selection and auto-update fuel consumption
   const handleGeneratorSelect = (zoneId: string) => {
     setSelectedGeneratorId(zoneId);
@@ -82,21 +121,83 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
     }
   };
 
-  // Update fuel consumption when running load changes
+  // Update fuel consumption when running load changes (only in edit mode)
   useEffect(() => {
-    if (selectedGeneratorId) {
+    if (selectedGeneratorId && isEditing && !savedSettings) {
       const selectedZone = zones.find(z => z.id === selectedGeneratorId);
       if (selectedZone?.generator_size) {
         const fuelRate = getFuelConsumption(selectedZone.generator_size, runningLoad);
         setFuelConsumptionRate(fuelRate);
       }
     }
-  }, [runningLoad, selectedGeneratorId, zones]);
+  }, [runningLoad, selectedGeneratorId, zones, isEditing, savedSettings]);
 
-  // Calculations
-  const netTotalEnergyKWh = netEnergyKVA * kvaToKwhConversion;
+  // Save mutation
+  const saveMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedGeneratorId) {
+        throw new Error("Please select a generator first");
+      }
+
+      const settingsData = {
+        project_id: projectId,
+        generator_zone_id: selectedGeneratorId,
+        plant_name: plantName,
+        running_load: runningLoad,
+        net_energy_kva: netEnergyKVA,
+        kva_to_kwh_conversion: kvaToKwhConversion,
+        fuel_consumption_rate: fuelConsumptionRate,
+        diesel_price_per_litre: dieselPricePerLitre,
+        servicing_cost_per_year: servicingCostPerYear,
+        servicing_cost_per_250_hours: servicingCostPer250Hours,
+        expected_hours_per_month: expectedHoursPerMonth,
+      };
+
+      const { error } = await supabase
+        .from("running_recovery_settings")
+        .upsert(settingsData, {
+          onConflict: "project_id,generator_zone_id"
+        });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["running-recovery-settings"] });
+      toast.success("Settings saved successfully");
+      setIsEditing(false);
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to save settings");
+    },
+  });
+
+  const handleSave = () => {
+    saveMutation.mutate();
+  };
+
+  const handleCancel = () => {
+    setIsEditing(false);
+    if (savedSettings) {
+      setPlantName(savedSettings.plant_name);
+      setRunningLoad(Number(savedSettings.running_load));
+      setNetEnergyKVA(Number(savedSettings.net_energy_kva));
+      setKvaToKwhConversion(Number(savedSettings.kva_to_kwh_conversion));
+      setFuelConsumptionRate(Number(savedSettings.fuel_consumption_rate));
+      setDieselPricePerLitre(Number(savedSettings.diesel_price_per_litre));
+      setServicingCostPerYear(Number(savedSettings.servicing_cost_per_year));
+      setServicingCostPer250Hours(Number(savedSettings.servicing_cost_per_250_hours));
+      setExpectedHoursPerMonth(Number(savedSettings.expected_hours_per_month));
+    }
+  };
+
+  // Get number of synchronized generators for the selected zone
+  const selectedZone = zones.find(z => z.id === selectedGeneratorId);
+  const numGenerators = selectedZone?.num_generators || 1;
+
+  // Calculations - adjusted for multiple synchronized generators
+  const netTotalEnergyKWh = netEnergyKVA * kvaToKwhConversion * numGenerators;
   const monthlyEnergyKWh = netTotalEnergyKWh * expectedHoursPerMonth;
-  const totalDieselCostPerHour = fuelConsumptionRate * dieselPricePerLitre;
+  const totalDieselCostPerHour = fuelConsumptionRate * dieselPricePerLitre * numGenerators;
   const monthlyDieselCostPerKWh = totalDieselCostPerHour / netTotalEnergyKWh;
 
   const servicingCostPerMonth = servicingCostPerYear / 12;
@@ -119,7 +220,31 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
               <CardTitle>Running Recovery Calculator</CardTitle>
               <CardDescription>Calculate operational costs and tariff per kWh</CardDescription>
             </div>
-            <Badge variant="secondary">{plantName}</Badge>
+            <div className="flex items-center gap-2">
+              {selectedZone && selectedZone.num_generators > 1 && (
+                <Badge variant="outline">
+                  {selectedZone.num_generators} Synchronized Generators
+                </Badge>
+              )}
+              <Badge variant="secondary">{plantName}</Badge>
+              {!isEditing ? (
+                <Button onClick={() => setIsEditing(true)} size="sm" variant="outline">
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Edit
+                </Button>
+              ) : (
+                <div className="flex gap-2">
+                  <Button onClick={handleSave} size="sm" disabled={saveMutation.isPending}>
+                    <Save className="h-4 w-4 mr-2" />
+                    Save
+                  </Button>
+                  <Button onClick={handleCancel} size="sm" variant="outline">
+                    <X className="h-4 w-4 mr-2" />
+                    Cancel
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -148,15 +273,17 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
                 type="number"
                 value={runningLoad}
                 onChange={(e) => setRunningLoad(Number(e.target.value))}
+                disabled={!isEditing}
               />
             </div>
             <div>
-              <Label htmlFor="netEnergyKVA">Net Energy (kVA)</Label>
+              <Label htmlFor="netEnergyKVA">Net Energy per Generator (kVA)</Label>
               <Input
                 id="netEnergyKVA"
                 type="number"
                 value={netEnergyKVA}
                 onChange={(e) => setNetEnergyKVA(Number(e.target.value))}
+                disabled={!isEditing}
               />
             </div>
             <div>
@@ -167,10 +294,11 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
                 step="0.01"
                 value={kvaToKwhConversion}
                 onChange={(e) => setKvaToKwhConversion(Number(e.target.value))}
+                disabled={!isEditing}
               />
             </div>
             <div>
-              <Label htmlFor="fuelRate">Fuel Consumption @ {runningLoad}% (L/h)</Label>
+              <Label htmlFor="fuelRate">Fuel Consumption @ {runningLoad}% (L/h per generator)</Label>
               <Input
                 id="fuelRate"
                 type="number"
@@ -178,9 +306,9 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
                 value={fuelConsumptionRate}
                 onChange={(e) => setFuelConsumptionRate(Number(e.target.value))}
                 className="font-semibold"
-                disabled={!!selectedGeneratorId}
+                disabled={!isEditing || !!selectedGeneratorId}
               />
-              {selectedGeneratorId && (
+              {selectedGeneratorId && isEditing && (
                 <p className="text-xs text-muted-foreground mt-1">
                   Auto-calculated from sizing table
                 </p>
@@ -194,6 +322,7 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
                 step="0.01"
                 value={dieselPricePerLitre}
                 onChange={(e) => setDieselPricePerLitre(Number(e.target.value))}
+                disabled={!isEditing}
               />
             </div>
             <div>
@@ -204,6 +333,7 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
                 step="0.01"
                 value={servicingCostPerYear}
                 onChange={(e) => setServicingCostPerYear(Number(e.target.value))}
+                disabled={!isEditing}
               />
             </div>
             <div>
@@ -214,6 +344,7 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
                 step="0.01"
                 value={servicingCostPer250Hours}
                 onChange={(e) => setServicingCostPer250Hours(Number(e.target.value))}
+                disabled={!isEditing}
               />
             </div>
             <div>
@@ -223,6 +354,7 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
                 type="number"
                 value={expectedHoursPerMonth}
                 onChange={(e) => setExpectedHoursPerMonth(Number(e.target.value))}
+                disabled={!isEditing}
               />
             </div>
           </div>
@@ -240,8 +372,16 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
                   <TableCell className="text-right">{runningLoad}%</TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableCell className="font-medium">Net energy generated (usable kVA)</TableCell>
+                  <TableCell className="font-medium">Net energy per generator (usable kVA)</TableCell>
                   <TableCell className="text-right">{netEnergyKVA.toLocaleString()}</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium">Number of synchronized generators</TableCell>
+                  <TableCell className="text-right">{numGenerators}</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium">Total energy capacity (usable kVA)</TableCell>
+                  <TableCell className="text-right">{(netEnergyKVA * numGenerators).toLocaleString()}</TableCell>
                 </TableRow>
                 <TableRow>
                   <TableCell className="font-medium">Convert kVA to kWh</TableCell>
@@ -256,8 +396,12 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
                   <TableCell className="text-right">{runningLoad}%</TableCell>
                 </TableRow>
                 <TableRow>
-                  <TableCell className="font-medium">Fuel Consumption @ {runningLoad}%</TableCell>
-                  <TableCell className="text-right">{fuelConsumptionRate.toFixed(2)}</TableCell>
+                  <TableCell className="font-medium">Fuel Consumption @ {runningLoad}% (per generator)</TableCell>
+                  <TableCell className="text-right">{fuelConsumptionRate.toFixed(2)} L/h</TableCell>
+                </TableRow>
+                <TableRow>
+                  <TableCell className="font-medium">Total fuel consumption (all generators)</TableCell>
+                  <TableCell className="text-right">{(fuelConsumptionRate * numGenerators).toFixed(2)} L/h</TableCell>
                 </TableRow>
                 <TableRow>
                   <TableCell className="font-medium">Cost of diesel per litre</TableCell>

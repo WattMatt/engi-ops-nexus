@@ -3346,6 +3346,65 @@ export type Database = {
           },
         ]
       }
+      running_recovery_settings: {
+        Row: {
+          created_at: string
+          diesel_price_per_litre: number
+          expected_hours_per_month: number
+          fuel_consumption_rate: number
+          generator_zone_id: string | null
+          id: string
+          kva_to_kwh_conversion: number
+          net_energy_kva: number
+          plant_name: string
+          project_id: string
+          running_load: number
+          servicing_cost_per_250_hours: number
+          servicing_cost_per_year: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          diesel_price_per_litre?: number
+          expected_hours_per_month?: number
+          fuel_consumption_rate?: number
+          generator_zone_id?: string | null
+          id?: string
+          kva_to_kwh_conversion?: number
+          net_energy_kva?: number
+          plant_name?: string
+          project_id: string
+          running_load?: number
+          servicing_cost_per_250_hours?: number
+          servicing_cost_per_year?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          diesel_price_per_litre?: number
+          expected_hours_per_month?: number
+          fuel_consumption_rate?: number
+          generator_zone_id?: string | null
+          id?: string
+          kva_to_kwh_conversion?: number
+          net_energy_kva?: number
+          plant_name?: string
+          project_id?: string
+          running_load?: number
+          servicing_cost_per_250_hours?: number
+          servicing_cost_per_year?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "running_recovery_settings_generator_zone_id_fkey"
+            columns: ["generator_zone_id"]
+            isOneToOne: false
+            referencedRelation: "generator_zones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shared_notes: {
         Row: {
           content: string
