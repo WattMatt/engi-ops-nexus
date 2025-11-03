@@ -48,11 +48,12 @@ Deno.serve(async (req) => {
     try {
       const payload = JSON.parse(atob(parts[1]))
       console.log('JWT payload decoded successfully')
+      console.log('Payload content:', JSON.stringify(payload, null, 2))
       
       const requestingUserId = payload.sub
       
       if (!requestingUserId) {
-        console.error('No sub claim in payload:', payload)
+        console.error('No sub claim in payload. Payload keys:', Object.keys(payload))
         throw new Error('No user ID in token')
       }
 
