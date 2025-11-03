@@ -3204,13 +3204,18 @@ export type Database = {
           diary_entry_id: string | null
           due_date: string | null
           estimated_hours: number | null
+          group_id: string | null
           id: string
+          position: number | null
           priority: Database["public"]["Enums"]["task_priority"]
+          progress: number | null
           project_id: string
           start_date: string | null
           status: Database["public"]["Enums"]["task_status"]
+          time_tracked_hours: number | null
           title: string
           updated_at: string
+          view_type: string | null
         }
         Insert: {
           actual_hours?: number | null
@@ -3223,13 +3228,18 @@ export type Database = {
           diary_entry_id?: string | null
           due_date?: string | null
           estimated_hours?: number | null
+          group_id?: string | null
           id?: string
+          position?: number | null
           priority?: Database["public"]["Enums"]["task_priority"]
+          progress?: number | null
           project_id: string
           start_date?: string | null
           status?: Database["public"]["Enums"]["task_status"]
+          time_tracked_hours?: number | null
           title: string
           updated_at?: string
+          view_type?: string | null
         }
         Update: {
           actual_hours?: number | null
@@ -3242,13 +3252,18 @@ export type Database = {
           diary_entry_id?: string | null
           due_date?: string | null
           estimated_hours?: number | null
+          group_id?: string | null
           id?: string
+          position?: number | null
           priority?: Database["public"]["Enums"]["task_priority"]
+          progress?: number | null
           project_id?: string
           start_date?: string | null
           status?: Database["public"]["Enums"]["task_status"]
+          time_tracked_hours?: number | null
           title?: string
           updated_at?: string
+          view_type?: string | null
         }
         Relationships: [
           {
@@ -3256,6 +3271,13 @@ export type Database = {
             columns: ["diary_entry_id"]
             isOneToOne: false
             referencedRelation: "site_diary_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "site_diary_tasks_group_id_fkey"
+            columns: ["group_id"]
+            isOneToOne: false
+            referencedRelation: "task_groups"
             referencedColumns: ["id"]
           },
           {
@@ -3495,6 +3517,47 @@ export type Database = {
         }
         Relationships: []
       }
+      task_activity_logs: {
+        Row: {
+          action_type: string
+          created_at: string | null
+          id: string
+          metadata: Json | null
+          new_value: string | null
+          old_value: string | null
+          task_id: string
+          user_id: string
+        }
+        Insert: {
+          action_type: string
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          new_value?: string | null
+          old_value?: string | null
+          task_id: string
+          user_id: string
+        }
+        Update: {
+          action_type?: string
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          new_value?: string | null
+          old_value?: string | null
+          task_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_activity_logs_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "site_diary_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_assignments: {
         Row: {
           assigned_by: string
@@ -3534,6 +3597,47 @@ export type Database = {
         }
         Relationships: []
       }
+      task_attachments: {
+        Row: {
+          created_at: string | null
+          file_name: string
+          file_path: string
+          file_size: number | null
+          file_type: string | null
+          id: string
+          task_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          task_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          task_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_attachments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "site_diary_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       task_comments: {
         Row: {
           comment: string
@@ -3562,6 +3666,148 @@ export type Database = {
             columns: ["task_id"]
             isOneToOne: false
             referencedRelation: "site_diary_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_dependencies: {
+        Row: {
+          created_at: string | null
+          dependency_type: string | null
+          depends_on_task_id: string
+          id: string
+          task_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          dependency_type?: string | null
+          depends_on_task_id: string
+          id?: string
+          task_id: string
+        }
+        Update: {
+          created_at?: string | null
+          dependency_type?: string | null
+          depends_on_task_id?: string
+          id?: string
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_dependencies_depends_on_task_id_fkey"
+            columns: ["depends_on_task_id"]
+            isOneToOne: false
+            referencedRelation: "site_diary_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_dependencies_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "site_diary_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_groups: {
+        Row: {
+          color: string | null
+          created_at: string | null
+          id: string
+          name: string
+          position: number
+          project_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string | null
+          id?: string
+          name: string
+          position?: number
+          project_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          color?: string | null
+          created_at?: string | null
+          id?: string
+          name?: string
+          position?: number
+          project_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_groups_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_label_assignments: {
+        Row: {
+          created_at: string | null
+          label_id: string
+          task_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          label_id: string
+          task_id: string
+        }
+        Update: {
+          created_at?: string | null
+          label_id?: string
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_label_assignments_label_id_fkey"
+            columns: ["label_id"]
+            isOneToOne: false
+            referencedRelation: "task_labels"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "task_label_assignments_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "site_diary_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_labels: {
+        Row: {
+          color: string
+          created_at: string | null
+          id: string
+          name: string
+          project_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string | null
+          id?: string
+          name: string
+          project_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string | null
+          id?: string
+          name?: string
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_labels_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -3604,6 +3850,44 @@ export type Database = {
             columns: ["task_id"]
             isOneToOne: false
             referencedRelation: "tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      task_subtasks: {
+        Row: {
+          completed: boolean | null
+          created_at: string | null
+          id: string
+          parent_task_id: string
+          position: number
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          completed?: boolean | null
+          created_at?: string | null
+          id?: string
+          parent_task_id: string
+          position?: number
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          completed?: boolean | null
+          created_at?: string | null
+          id?: string
+          parent_task_id?: string
+          position?: number
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "task_subtasks_parent_task_id_fkey"
+            columns: ["parent_task_id"]
+            isOneToOne: false
+            referencedRelation: "site_diary_tasks"
             referencedColumns: ["id"]
           },
         ]

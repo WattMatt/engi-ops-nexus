@@ -12,6 +12,7 @@ import { Plus, Calendar, Cloud, ListTodo, GanttChart, Bell } from "lucide-react"
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { TasksManager } from "@/components/site-diary/TasksManager";
+import { EnhancedTasksManager } from "@/components/site-diary/task-views/EnhancedTasksManager";
 import { MeetingMinutes } from "@/components/site-diary/MeetingMinutes";
 import { TasksGanttChart } from "@/components/site-diary/TasksGanttChart";
 import { RemindersPanel } from "@/components/site-diary/RemindersPanel";
@@ -329,7 +330,7 @@ const SiteDiary = () => {
         </TabsContent>
 
         <TabsContent value="tasks" className="mt-6">
-          {projectId && <TasksManager projectId={projectId} />}
+          {projectId && <EnhancedTasksManager projectId={projectId} />}
         </TabsContent>
 
         <TabsContent value="timeline" className="mt-6">
