@@ -4,9 +4,10 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { GENERATOR_SIZING_TABLE } from "@/utils/generatorSizing";
 
 interface RunningRecoveryCalculatorProps {
   projectId: string;
@@ -24,6 +25,28 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
   const [servicingCostPer250Hours, setServicingCostPer250Hours] = useState(18800.00);
   const [expectedHoursPerMonth, setExpectedHoursPerMonth] = useState(100);
 
+  // Function to get fuel consumption from sizing table
+  const getFuelConsumption = (generatorSize: string, loadPercentage: number): number => {
+    const sizingData = GENERATOR_SIZING_TABLE.find(g => g.rating === generatorSize);
+    if (!sizingData) return 0;
+
+    // Interpolate between load percentages
+    if (loadPercentage <= 25) return sizingData.load25;
+    if (loadPercentage <= 50) {
+      const ratio = (loadPercentage - 25) / 25;
+      return sizingData.load25 + ratio * (sizingData.load50 - sizingData.load25);
+    }
+    if (loadPercentage <= 75) {
+      const ratio = (loadPercentage - 50) / 25;
+      return sizingData.load50 + ratio * (sizingData.load75 - sizingData.load50);
+    }
+    if (loadPercentage <= 100) {
+      const ratio = (loadPercentage - 75) / 25;
+      return sizingData.load75 + ratio * (sizingData.load100 - sizingData.load75);
+    }
+    return sizingData.load100;
+  };
+
   // Fetch generator zones
   const { data: zones = [] } = useQuery({
     queryKey: ["generator-zones-running", projectId],
@@ -40,7 +63,7 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
     enabled: !!projectId,
   });
 
-  // Handle generator selection
+  // Handle generator selection and auto-update fuel consumption
   const handleGeneratorSelect = (zoneId: string) => {
     setSelectedGeneratorId(zoneId);
     const selectedZone = zones.find(z => z.id === zoneId);
@@ -49,10 +72,26 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
       // Parse generator size to extract kVA value (e.g., "1200 kVA" -> 1200)
       const sizeMatch = selectedZone.generator_size?.match(/(\d+)/);
       if (sizeMatch) {
-        setNetEnergyKVA(Number(sizeMatch[1]));
+        const kvaValue = Number(sizeMatch[1]);
+        setNetEnergyKVA(kvaValue);
+        
+        // Auto-update fuel consumption based on sizing table
+        const fuelRate = getFuelConsumption(selectedZone.generator_size || "", runningLoad);
+        setFuelConsumptionRate(fuelRate);
       }
     }
   };
+
+  // Update fuel consumption when running load changes
+  useEffect(() => {
+    if (selectedGeneratorId) {
+      const selectedZone = zones.find(z => z.id === selectedGeneratorId);
+      if (selectedZone?.generator_size) {
+        const fuelRate = getFuelConsumption(selectedZone.generator_size, runningLoad);
+        setFuelConsumptionRate(fuelRate);
+      }
+    }
+  }, [runningLoad, selectedGeneratorId, zones]);
 
   // Calculations
   const netTotalEnergyKWh = netEnergyKVA * kvaToKwhConversion;
@@ -137,7 +176,14 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
                 step="0.01"
                 value={fuelConsumptionRate}
                 onChange={(e) => setFuelConsumptionRate(Number(e.target.value))}
+                className="font-semibold"
+                disabled={!!selectedGeneratorId}
               />
+              {selectedGeneratorId && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Auto-calculated from sizing table
+                </p>
+              )}
             </div>
             <div>
               <Label htmlFor="dieselPrice">Diesel Price (R/L)</Label>
