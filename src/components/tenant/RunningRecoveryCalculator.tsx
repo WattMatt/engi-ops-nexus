@@ -2,8 +2,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -16,26 +14,29 @@ interface RunningRecoveryCalculatorProps {
   projectId: string;
 }
 
+interface ZoneSettings {
+  generator_zone_id: string;
+  plant_name: string;
+  running_load: number;
+  net_energy_kva: number;
+  kva_to_kwh_conversion: number;
+  fuel_consumption_rate: number;
+  diesel_price_per_litre: number;
+  servicing_cost_per_year: number;
+  servicing_cost_per_250_hours: number;
+  expected_hours_per_month: number;
+}
+
 export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculatorProps) {
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
-  const [selectedGeneratorId, setSelectedGeneratorId] = useState<string>("");
-  const [plantName, setPlantName] = useState("STANDBY PLANT 1");
-  const [runningLoad, setRunningLoad] = useState(75);
-  const [netEnergyKVA, setNetEnergyKVA] = useState(1200);
-  const [kvaToKwhConversion, setKvaToKwhConversion] = useState(0.95);
-  const [fuelConsumptionRate, setFuelConsumptionRate] = useState(200.55);
-  const [dieselPricePerLitre, setDieselPricePerLitre] = useState(23.00);
-  const [servicingCostPerYear, setServicingCostPerYear] = useState(18800.00);
-  const [servicingCostPer250Hours, setServicingCostPer250Hours] = useState(18800.00);
-  const [expectedHoursPerMonth, setExpectedHoursPerMonth] = useState(100);
+  const [zoneSettings, setZoneSettings] = useState<Map<string, ZoneSettings>>(new Map());
 
   // Function to get fuel consumption from sizing table
   const getFuelConsumption = (generatorSize: string, loadPercentage: number): number => {
     const sizingData = GENERATOR_SIZING_TABLE.find(g => g.rating === generatorSize);
     if (!sizingData) return 0;
 
-    // Interpolate between load percentages
     if (loadPercentage <= 25) return sizingData.load25;
     if (loadPercentage <= 50) {
       const ratio = (loadPercentage - 25) / 25;
@@ -52,7 +53,7 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
     return sizingData.load100;
   };
 
-  // Fetch generator zones
+  // Fetch all generator zones
   const { data: zones = [] } = useQuery({
     queryKey: ["generator-zones-running", projectId],
     queryFn: async () => {
@@ -60,7 +61,8 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
         .from("generator_zones")
         .select("*")
         .eq("project_id", projectId)
-        .order("display_order");
+        .order("display_order")
+        .limit(4);
 
       if (error) throw error;
       return data || [];
@@ -68,101 +70,114 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
     enabled: !!projectId,
   });
 
-  // Fetch saved settings
-  const { data: savedSettings } = useQuery({
-    queryKey: ["running-recovery-settings", projectId, selectedGeneratorId],
+  // Fetch all saved settings for all zones
+  const { data: allSettings = [] } = useQuery({
+    queryKey: ["running-recovery-settings-all", projectId],
     queryFn: async () => {
-      if (!selectedGeneratorId) return null;
-      
       const { data, error } = await supabase
         .from("running_recovery_settings")
         .select("*")
-        .eq("project_id", projectId)
-        .eq("generator_zone_id", selectedGeneratorId)
-        .maybeSingle();
+        .eq("project_id", projectId);
 
       if (error) throw error;
-      return data;
+      return data || [];
     },
-    enabled: !!projectId && !!selectedGeneratorId,
+    enabled: !!projectId,
   });
 
-  // Load saved settings when available
+  // Initialize zone settings when zones and saved settings are loaded
   useEffect(() => {
-    if (savedSettings) {
-      setPlantName(savedSettings.plant_name);
-      setRunningLoad(Number(savedSettings.running_load));
-      setNetEnergyKVA(Number(savedSettings.net_energy_kva));
-      setKvaToKwhConversion(Number(savedSettings.kva_to_kwh_conversion));
-      setFuelConsumptionRate(Number(savedSettings.fuel_consumption_rate));
-      setDieselPricePerLitre(Number(savedSettings.diesel_price_per_litre));
-      setServicingCostPerYear(Number(savedSettings.servicing_cost_per_year));
-      setServicingCostPer250Hours(Number(savedSettings.servicing_cost_per_250_hours));
-      setExpectedHoursPerMonth(Number(savedSettings.expected_hours_per_month));
-    }
-  }, [savedSettings]);
-
-  // Handle generator selection and auto-update fuel consumption
-  const handleGeneratorSelect = (zoneId: string) => {
-    setSelectedGeneratorId(zoneId);
-    const selectedZone = zones.find(z => z.id === zoneId);
-    if (selectedZone) {
-      setPlantName(selectedZone.zone_name);
-      // Parse generator size to extract kVA value (e.g., "1200 kVA" -> 1200)
-      const sizeMatch = selectedZone.generator_size?.match(/(\d+)/);
-      if (sizeMatch) {
-        const kvaValue = Number(sizeMatch[1]);
-        setNetEnergyKVA(kvaValue);
+    const initialSettings = new Map<string, ZoneSettings>();
+    
+    zones.forEach((zone) => {
+      const savedSetting = allSettings.find(s => s.generator_zone_id === zone.id);
+      
+      if (savedSetting) {
+        // Load saved settings
+        initialSettings.set(zone.id, {
+          generator_zone_id: zone.id,
+          plant_name: savedSetting.plant_name,
+          running_load: Number(savedSetting.running_load),
+          net_energy_kva: Number(savedSetting.net_energy_kva),
+          kva_to_kwh_conversion: Number(savedSetting.kva_to_kwh_conversion),
+          fuel_consumption_rate: Number(savedSetting.fuel_consumption_rate),
+          diesel_price_per_litre: Number(savedSetting.diesel_price_per_litre),
+          servicing_cost_per_year: Number(savedSetting.servicing_cost_per_year),
+          servicing_cost_per_250_hours: Number(savedSetting.servicing_cost_per_250_hours),
+          expected_hours_per_month: Number(savedSetting.expected_hours_per_month),
+        });
+      } else {
+        // Initialize with defaults
+        const sizeMatch = zone.generator_size?.match(/(\d+)/);
+        const kvaValue = sizeMatch ? Number(sizeMatch[1]) : 1200;
+        const fuelRate = getFuelConsumption(zone.generator_size || "", 75);
         
-        // Auto-update fuel consumption based on sizing table
-        const fuelRate = getFuelConsumption(selectedZone.generator_size || "", runningLoad);
-        setFuelConsumptionRate(fuelRate);
+        initialSettings.set(zone.id, {
+          generator_zone_id: zone.id,
+          plant_name: zone.zone_name,
+          running_load: 75,
+          net_energy_kva: kvaValue,
+          kva_to_kwh_conversion: 0.95,
+          fuel_consumption_rate: fuelRate,
+          diesel_price_per_litre: 23.00,
+          servicing_cost_per_year: 18800.00,
+          servicing_cost_per_250_hours: 18800.00,
+          expected_hours_per_month: 100,
+        });
       }
-    }
-  };
+    });
+    
+    setZoneSettings(initialSettings);
+  }, [zones, allSettings]);
 
-  // Update fuel consumption when running load changes (only in edit mode)
-  useEffect(() => {
-    if (selectedGeneratorId && isEditing && !savedSettings) {
-      const selectedZone = zones.find(z => z.id === selectedGeneratorId);
-      if (selectedZone?.generator_size) {
-        const fuelRate = getFuelConsumption(selectedZone.generator_size, runningLoad);
-        setFuelConsumptionRate(fuelRate);
+  // Update individual zone setting
+  const updateZoneSetting = (zoneId: string, field: keyof ZoneSettings, value: number | string) => {
+    setZoneSettings(prev => {
+      const updated = new Map(prev);
+      const current = updated.get(zoneId);
+      if (current) {
+        updated.set(zoneId, { ...current, [field]: value });
+        
+        // Auto-update fuel consumption when running load changes
+        if (field === 'running_load' && isEditing) {
+          const zone = zones.find(z => z.id === zoneId);
+          if (zone?.generator_size) {
+            const fuelRate = getFuelConsumption(zone.generator_size, value as number);
+            updated.set(zoneId, { ...updated.get(zoneId)!, fuel_consumption_rate: fuelRate });
+          }
+        }
       }
-    }
-  }, [runningLoad, selectedGeneratorId, zones, isEditing, savedSettings]);
+      return updated;
+    });
+  };
 
   // Save mutation
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (!selectedGeneratorId) {
-        throw new Error("Please select a generator first");
-      }
-
-      const settingsData = {
+      const settingsArray = Array.from(zoneSettings.values()).map(settings => ({
         project_id: projectId,
-        generator_zone_id: selectedGeneratorId,
-        plant_name: plantName,
-        running_load: runningLoad,
-        net_energy_kva: netEnergyKVA,
-        kva_to_kwh_conversion: kvaToKwhConversion,
-        fuel_consumption_rate: fuelConsumptionRate,
-        diesel_price_per_litre: dieselPricePerLitre,
-        servicing_cost_per_year: servicingCostPerYear,
-        servicing_cost_per_250_hours: servicingCostPer250Hours,
-        expected_hours_per_month: expectedHoursPerMonth,
-      };
+        generator_zone_id: settings.generator_zone_id,
+        plant_name: settings.plant_name,
+        running_load: settings.running_load,
+        net_energy_kva: settings.net_energy_kva,
+        kva_to_kwh_conversion: settings.kva_to_kwh_conversion,
+        fuel_consumption_rate: settings.fuel_consumption_rate,
+        diesel_price_per_litre: settings.diesel_price_per_litre,
+        servicing_cost_per_year: settings.servicing_cost_per_year,
+        servicing_cost_per_250_hours: settings.servicing_cost_per_250_hours,
+        expected_hours_per_month: settings.expected_hours_per_month,
+      }));
 
       const { error } = await supabase
         .from("running_recovery_settings")
-        .upsert(settingsData, {
+        .upsert(settingsArray, {
           onConflict: "project_id,generator_zone_id"
         });
 
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["running-recovery-settings"] });
+      queryClient.invalidateQueries({ queryKey: ["running-recovery-settings-all"] });
       toast.success("Settings saved successfully");
       setIsEditing(false);
     },
@@ -177,39 +192,59 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
 
   const handleCancel = () => {
     setIsEditing(false);
-    if (savedSettings) {
-      setPlantName(savedSettings.plant_name);
-      setRunningLoad(Number(savedSettings.running_load));
-      setNetEnergyKVA(Number(savedSettings.net_energy_kva));
-      setKvaToKwhConversion(Number(savedSettings.kva_to_kwh_conversion));
-      setFuelConsumptionRate(Number(savedSettings.fuel_consumption_rate));
-      setDieselPricePerLitre(Number(savedSettings.diesel_price_per_litre));
-      setServicingCostPerYear(Number(savedSettings.servicing_cost_per_year));
-      setServicingCostPer250Hours(Number(savedSettings.servicing_cost_per_250_hours));
-      setExpectedHoursPerMonth(Number(savedSettings.expected_hours_per_month));
-    }
+    // Reload settings from saved data
+    const initialSettings = new Map<string, ZoneSettings>();
+    zones.forEach((zone) => {
+      const savedSetting = allSettings.find(s => s.generator_zone_id === zone.id);
+      if (savedSetting) {
+        initialSettings.set(zone.id, {
+          generator_zone_id: zone.id,
+          plant_name: savedSetting.plant_name,
+          running_load: Number(savedSetting.running_load),
+          net_energy_kva: Number(savedSetting.net_energy_kva),
+          kva_to_kwh_conversion: Number(savedSetting.kva_to_kwh_conversion),
+          fuel_consumption_rate: Number(savedSetting.fuel_consumption_rate),
+          diesel_price_per_litre: Number(savedSetting.diesel_price_per_litre),
+          servicing_cost_per_year: Number(savedSetting.servicing_cost_per_year),
+          servicing_cost_per_250_hours: Number(savedSetting.servicing_cost_per_250_hours),
+          expected_hours_per_month: Number(savedSetting.expected_hours_per_month),
+        });
+      }
+    });
+    setZoneSettings(initialSettings);
   };
 
-  // Get number of synchronized generators for the selected zone
-  const selectedZone = zones.find(z => z.id === selectedGeneratorId);
-  const numGenerators = selectedZone?.num_generators || 1;
+  // Calculate tariff for a specific zone
+  const calculateZoneTariff = (zoneId: string): number => {
+    const settings = zoneSettings.get(zoneId);
+    const zone = zones.find(z => z.id === zoneId);
+    if (!settings || !zone) return 0;
 
-  // Calculations - adjusted for multiple synchronized generators
-  const netTotalEnergyKWh = netEnergyKVA * kvaToKwhConversion * numGenerators;
-  const monthlyEnergyKWh = netTotalEnergyKWh * expectedHoursPerMonth;
-  const totalDieselCostPerHour = fuelConsumptionRate * dieselPricePerLitre * numGenerators;
-  const monthlyDieselCostPerKWh = totalDieselCostPerHour / netTotalEnergyKWh;
+    const numGenerators = zone.num_generators || 1;
+    const netTotalEnergyKWh = settings.net_energy_kva * settings.kva_to_kwh_conversion * numGenerators;
+    const monthlyEnergyKWh = netTotalEnergyKWh * settings.expected_hours_per_month;
+    const totalDieselCostPerHour = settings.fuel_consumption_rate * settings.diesel_price_per_litre * numGenerators;
+    const monthlyDieselCostPerKWh = netTotalEnergyKWh > 0 ? totalDieselCostPerHour / netTotalEnergyKWh : 0;
 
-  const servicingCostPerMonth = servicingCostPerYear / 12;
-  const servicingCostPerMonthByHours = (servicingCostPer250Hours / 250) * expectedHoursPerMonth;
-  const additionalServicingCost = Math.max(0, servicingCostPerMonthByHours - servicingCostPerMonth);
-  const totalServicesCostPerKWh = monthlyEnergyKWh > 0 ? additionalServicingCost / monthlyEnergyKWh : 0;
+    const servicingCostPerMonth = settings.servicing_cost_per_year / 12;
+    const servicingCostPerMonthByHours = (settings.servicing_cost_per_250_hours / 250) * settings.expected_hours_per_month;
+    const additionalServicingCost = Math.max(0, servicingCostPerMonthByHours - servicingCostPerMonth);
+    const totalServicesCostPerKWh = monthlyEnergyKWh > 0 ? additionalServicingCost / monthlyEnergyKWh : 0;
 
-  const totalFuelCost = monthlyDieselCostPerKWh;
-  const totalMaintenanceCost = totalServicesCostPerKWh;
-  const totalTariffBeforeContingency = totalFuelCost + totalMaintenanceCost;
-  const maintenanceContingency = totalTariffBeforeContingency * 0.1;
-  const totalTariffForUseKWh = totalTariffBeforeContingency + maintenanceContingency;
+    const totalTariffBeforeContingency = monthlyDieselCostPerKWh + totalServicesCostPerKWh;
+    const maintenanceContingency = totalTariffBeforeContingency * 0.1;
+    
+    return totalTariffBeforeContingency + maintenanceContingency;
+  };
+
+  // Calculate average tariff across all zones
+  const calculateAverageTariff = (): number => {
+    const tariffs = zones.map(zone => calculateZoneTariff(zone.id)).filter(t => t > 0);
+    if (tariffs.length === 0) return 0;
+    return tariffs.reduce((sum, t) => sum + t, 0) / tariffs.length;
+  };
+
+  const averageTariff = calculateAverageTariff();
 
   return (
     <div className="space-y-4">
@@ -218,15 +253,9 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>Running Recovery Calculator</CardTitle>
-              <CardDescription>Calculate operational costs and tariff per kWh</CardDescription>
+              <CardDescription>Compare operational costs across all generators</CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              {selectedZone && selectedZone.num_generators > 1 && (
-                <Badge variant="outline">
-                  {selectedZone.num_generators} Synchronized Generators
-                </Badge>
-              )}
-              <Badge variant="secondary">{plantName}</Badge>
               {!isEditing ? (
                 <Button onClick={() => setIsEditing(true)} size="sm" variant="outline">
                   <Pencil className="h-4 w-4 mr-2" />
@@ -247,249 +276,331 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
             </div>
           </div>
         </CardHeader>
-        <CardContent className="space-y-6">
-          {/* Input Parameters */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            <div>
-              <Label htmlFor="generator">Select Generator</Label>
-              <Select value={selectedGeneratorId} onValueChange={handleGeneratorSelect}>
-                <SelectTrigger className="bg-background">
-                  <SelectValue placeholder="Select a generator" />
-                </SelectTrigger>
-                <SelectContent className="bg-background z-50">
-                  {zones.map((zone) => (
-                    <SelectItem key={zone.id} value={zone.id}>
-                      {zone.zone_name} - {zone.generator_size}
-                      {zone.num_generators > 1 && ` (${zone.num_generators} Synchronized)`}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="runningLoad">Running Load (%)</Label>
-              <Input
-                id="runningLoad"
-                type="number"
-                value={runningLoad}
-                onChange={(e) => setRunningLoad(Number(e.target.value))}
-                disabled={!isEditing}
-              />
-            </div>
-            <div>
-              <Label htmlFor="netEnergyKVA">Net Energy per Generator (kVA)</Label>
-              <Input
-                id="netEnergyKVA"
-                type="number"
-                value={netEnergyKVA}
-                onChange={(e) => setNetEnergyKVA(Number(e.target.value))}
-                disabled={!isEditing}
-              />
-            </div>
-            <div>
-              <Label htmlFor="kvaConversion">kVA to kWh Conversion</Label>
-              <Input
-                id="kvaConversion"
-                type="number"
-                step="0.01"
-                value={kvaToKwhConversion}
-                onChange={(e) => setKvaToKwhConversion(Number(e.target.value))}
-                disabled={!isEditing}
-              />
-            </div>
-            <div>
-              <Label htmlFor="fuelRate">Fuel Consumption @ {runningLoad}% (L/h per generator)</Label>
-              <Input
-                id="fuelRate"
-                type="number"
-                step="0.01"
-                value={fuelConsumptionRate}
-                onChange={(e) => setFuelConsumptionRate(Number(e.target.value))}
-                className="font-semibold"
-                disabled={!isEditing || !!selectedGeneratorId}
-              />
-              {selectedGeneratorId && isEditing && (
-                <p className="text-xs text-muted-foreground mt-1">
-                  Auto-calculated from sizing table
-                </p>
-              )}
-            </div>
-            <div>
-              <Label htmlFor="dieselPrice">Diesel Price (R/L)</Label>
-              <Input
-                id="dieselPrice"
-                type="number"
-                step="0.01"
-                value={dieselPricePerLitre}
-                onChange={(e) => setDieselPricePerLitre(Number(e.target.value))}
-                disabled={!isEditing}
-              />
-            </div>
-            <div>
-              <Label htmlFor="servicingYear">Servicing Cost/Year (R)</Label>
-              <Input
-                id="servicingYear"
-                type="number"
-                step="0.01"
-                value={servicingCostPerYear}
-                onChange={(e) => setServicingCostPerYear(Number(e.target.value))}
-                disabled={!isEditing}
-              />
-            </div>
-            <div>
-              <Label htmlFor="servicing250">Servicing Cost/250h (R)</Label>
-              <Input
-                id="servicing250"
-                type="number"
-                step="0.01"
-                value={servicingCostPer250Hours}
-                onChange={(e) => setServicingCostPer250Hours(Number(e.target.value))}
-                disabled={!isEditing}
-              />
-            </div>
-            <div>
-              <Label htmlFor="expectedHours">Expected Hours/Month</Label>
-              <Input
-                id="expectedHours"
-                type="number"
-                value={expectedHoursPerMonth}
-                onChange={(e) => setExpectedHoursPerMonth(Number(e.target.value))}
-                disabled={!isEditing}
-              />
-            </div>
-          </div>
+        <CardContent className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-48 font-bold">Parameter</TableHead>
+                {zones.slice(0, 4).map((zone, idx) => (
+                  <TableHead key={zone.id} className="text-center font-bold">
+                    Generator {idx + 1}
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {/* Zone Information */}
+              <TableRow className="bg-muted/50">
+                <TableCell className="font-semibold">Zone Name</TableCell>
+                {zones.slice(0, 4).map((zone) => (
+                  <TableCell key={zone.id} className="text-center">
+                    {zone.zone_name}
+                  </TableCell>
+                ))}
+              </TableRow>
+              <TableRow className="bg-muted/50">
+                <TableCell className="font-semibold">Generator Size</TableCell>
+                {zones.slice(0, 4).map((zone) => (
+                  <TableCell key={zone.id} className="text-center">
+                    {zone.generator_size}
+                  </TableCell>
+                ))}
+              </TableRow>
+              <TableRow className="bg-muted/50">
+                <TableCell className="font-semibold">Synchronized Units</TableCell>
+                {zones.slice(0, 4).map((zone) => (
+                  <TableCell key={zone.id} className="text-center">
+                    {zone.num_generators || 1}
+                  </TableCell>
+                ))}
+              </TableRow>
 
-          {/* Diesel Consumption Cost */}
-          <div>
-            <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-              Diesel Consumption Cost
-              <Badge variant="outline">Fuel</Badge>
-            </h3>
-            <Table>
-              <TableBody>
-                <TableRow>
-                  <TableCell className="font-medium">Running Load (Correction already made in sizing)</TableCell>
-                  <TableCell className="text-right">{runningLoad}%</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Net energy per generator (usable kVA)</TableCell>
-                  <TableCell className="text-right">{netEnergyKVA.toLocaleString()}</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Number of synchronized generators</TableCell>
-                  <TableCell className="text-right">{numGenerators}</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Total energy capacity (usable kVA)</TableCell>
-                  <TableCell className="text-right">{(netEnergyKVA * numGenerators).toLocaleString()}</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Convert kVA to kWh</TableCell>
-                  <TableCell className="text-right">{kvaToKwhConversion.toFixed(2)}</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Net total energy generated (usable kWh)</TableCell>
-                  <TableCell className="text-right">{netTotalEnergyKWh.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Assumed running load on generators</TableCell>
-                  <TableCell className="text-right">{runningLoad}%</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Fuel Consumption @ {runningLoad}% (per generator)</TableCell>
-                  <TableCell className="text-right">{fuelConsumptionRate.toFixed(2)} L/h</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Total fuel consumption (all generators)</TableCell>
-                  <TableCell className="text-right">{(fuelConsumptionRate * numGenerators).toFixed(2)} L/h</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Cost of diesel per litre</TableCell>
-                  <TableCell className="text-right">R {dieselPricePerLitre.toFixed(2)}</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Total cost of diesel per hour</TableCell>
-                  <TableCell className="text-right">R {totalDieselCostPerHour.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                </TableRow>
-                <TableRow className="bg-primary/5">
-                  <TableCell className="font-bold">Monthly diesel cost /kWh</TableCell>
-                  <TableCell className="text-right font-bold">R {monthlyDieselCostPerKWh.toFixed(2)}</TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-          </div>
+              {/* Section Header */}
+              <TableRow className="bg-primary/10">
+                <TableCell colSpan={5} className="text-center font-bold text-primary">
+                  INPUT PARAMETERS
+                </TableCell>
+              </TableRow>
 
-          {/* Maintenance Cost */}
-          <div>
-            <h3 className="text-lg font-semibold mb-3 flex items-center gap-2">
-              Maintenance Cost
-              <Badge variant="outline">Service</Badge>
-            </h3>
-            <Table>
-              <TableBody>
-                <TableRow>
-                  <TableCell className="font-medium">Cost of servicing units per year</TableCell>
-                  <TableCell className="text-right">R {servicingCostPerYear.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Months</TableCell>
-                  <TableCell className="text-right">12.00</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Cost of servicing units per month</TableCell>
-                  <TableCell className="text-right">R {servicingCostPerMonth.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Cost of Servicing units per 250 hours</TableCell>
-                  <TableCell className="text-right">R {servicingCostPer250Hours.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Expected hours per Month</TableCell>
-                  <TableCell className="text-right">{expectedHoursPerMonth.toFixed(2)}</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Cost of servicing units per month</TableCell>
-                  <TableCell className="text-right">R {servicingCostPerMonthByHours.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">Additional Cost of Servicing - above Annual Cost</TableCell>
-                  <TableCell className="text-right">R {additionalServicingCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</TableCell>
-                </TableRow>
-                <TableRow className="bg-primary/5">
-                  <TableCell className="font-bold">Total Services cost per kWH (Excluding Annual Service)</TableCell>
-                  <TableCell className="text-right font-bold">R {totalServicesCostPerKWh.toFixed(2)}</TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
-          </div>
+              {/* Running Load */}
+              <TableRow>
+                <TableCell className="font-medium">Running Load (%)</TableCell>
+                {zones.slice(0, 4).map((zone) => {
+                  const settings = zoneSettings.get(zone.id);
+                  return (
+                    <TableCell key={zone.id} className="text-center">
+                      <Input
+                        type="number"
+                        value={settings?.running_load || 0}
+                        onChange={(e) => updateZoneSetting(zone.id, 'running_load', Number(e.target.value))}
+                        disabled={!isEditing}
+                        className="text-center"
+                      />
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
 
-          {/* Summary */}
-          <div>
-            <h3 className="text-lg font-semibold mb-3">Total Cost per kWH</h3>
-            <Table>
-              <TableBody>
-                <TableRow>
-                  <TableCell className="font-medium">TOTAL FUEL COST</TableCell>
-                  <TableCell className="text-right">R {totalFuelCost.toFixed(2)}</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">TOTAL MAINTENANCE COST</TableCell>
-                  <TableCell className="text-right">R {totalMaintenanceCost.toFixed(2)}</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">TOTAL TARIFF FOR USE KWH</TableCell>
-                  <TableCell className="text-right">R {totalTariffBeforeContingency.toFixed(2)}</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell className="font-medium">MAINTENANCE CONTINGENCY</TableCell>
-                  <TableCell className="text-right">R {maintenanceContingency.toFixed(2)}</TableCell>
-                </TableRow>
-                <TableRow className="bg-primary text-primary-foreground">
-                  <TableCell className="font-bold text-lg">TOTAL TARIFF FOR USE KWH</TableCell>
-                  <TableCell className="text-right font-bold text-lg">R {totalTariffForUseKWh.toFixed(2)}</TableCell>
-                </TableRow>
-              </TableBody>
-            </Table>
+              {/* Net Energy kVA */}
+              <TableRow>
+                <TableCell className="font-medium">Net Energy (kVA)</TableCell>
+                {zones.slice(0, 4).map((zone) => {
+                  const settings = zoneSettings.get(zone.id);
+                  return (
+                    <TableCell key={zone.id} className="text-center">
+                      <Input
+                        type="number"
+                        value={settings?.net_energy_kva || 0}
+                        onChange={(e) => updateZoneSetting(zone.id, 'net_energy_kva', Number(e.target.value))}
+                        disabled={!isEditing}
+                        className="text-center"
+                      />
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+
+              {/* kVA to kWh Conversion */}
+              <TableRow>
+                <TableCell className="font-medium">kVA to kWh Factor</TableCell>
+                {zones.slice(0, 4).map((zone) => {
+                  const settings = zoneSettings.get(zone.id);
+                  return (
+                    <TableCell key={zone.id} className="text-center">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={settings?.kva_to_kwh_conversion || 0}
+                        onChange={(e) => updateZoneSetting(zone.id, 'kva_to_kwh_conversion', Number(e.target.value))}
+                        disabled={!isEditing}
+                        className="text-center"
+                      />
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+
+              {/* Fuel Consumption Rate */}
+              <TableRow>
+                <TableCell className="font-medium">Fuel Rate (L/h per unit)</TableCell>
+                {zones.slice(0, 4).map((zone) => {
+                  const settings = zoneSettings.get(zone.id);
+                  return (
+                    <TableCell key={zone.id} className="text-center">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={settings?.fuel_consumption_rate.toFixed(2) || 0}
+                        disabled
+                        className="text-center bg-muted"
+                      />
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+
+              {/* Diesel Price */}
+              <TableRow>
+                <TableCell className="font-medium">Diesel Price (R/L)</TableCell>
+                {zones.slice(0, 4).map((zone) => {
+                  const settings = zoneSettings.get(zone.id);
+                  return (
+                    <TableCell key={zone.id} className="text-center">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={settings?.diesel_price_per_litre || 0}
+                        onChange={(e) => updateZoneSetting(zone.id, 'diesel_price_per_litre', Number(e.target.value))}
+                        disabled={!isEditing}
+                        className="text-center"
+                      />
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+
+              {/* Servicing Cost Per Year */}
+              <TableRow>
+                <TableCell className="font-medium">Servicing Cost/Year (R)</TableCell>
+                {zones.slice(0, 4).map((zone) => {
+                  const settings = zoneSettings.get(zone.id);
+                  return (
+                    <TableCell key={zone.id} className="text-center">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={settings?.servicing_cost_per_year || 0}
+                        onChange={(e) => updateZoneSetting(zone.id, 'servicing_cost_per_year', Number(e.target.value))}
+                        disabled={!isEditing}
+                        className="text-center"
+                      />
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+
+              {/* Servicing Cost Per 250 Hours */}
+              <TableRow>
+                <TableCell className="font-medium">Servicing Cost/250h (R)</TableCell>
+                {zones.slice(0, 4).map((zone) => {
+                  const settings = zoneSettings.get(zone.id);
+                  return (
+                    <TableCell key={zone.id} className="text-center">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={settings?.servicing_cost_per_250_hours || 0}
+                        onChange={(e) => updateZoneSetting(zone.id, 'servicing_cost_per_250_hours', Number(e.target.value))}
+                        disabled={!isEditing}
+                        className="text-center"
+                      />
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+
+              {/* Expected Hours Per Month */}
+              <TableRow>
+                <TableCell className="font-medium">Expected Hours/Month</TableCell>
+                {zones.slice(0, 4).map((zone) => {
+                  const settings = zoneSettings.get(zone.id);
+                  return (
+                    <TableCell key={zone.id} className="text-center">
+                      <Input
+                        type="number"
+                        value={settings?.expected_hours_per_month || 0}
+                        onChange={(e) => updateZoneSetting(zone.id, 'expected_hours_per_month', Number(e.target.value))}
+                        disabled={!isEditing}
+                        className="text-center"
+                      />
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+
+              {/* Section Header */}
+              <TableRow className="bg-primary/10">
+                <TableCell colSpan={5} className="text-center font-bold text-primary">
+                  CALCULATED VALUES
+                </TableCell>
+              </TableRow>
+
+              {/* Total Energy Capacity */}
+              <TableRow>
+                <TableCell className="font-medium">Total Energy (kWh)</TableCell>
+                {zones.slice(0, 4).map((zone) => {
+                  const settings = zoneSettings.get(zone.id);
+                  if (!settings) return <TableCell key={zone.id} className="text-center">-</TableCell>;
+                  const numGenerators = zone.num_generators || 1;
+                  const totalEnergy = settings.net_energy_kva * settings.kva_to_kwh_conversion * numGenerators;
+                  return (
+                    <TableCell key={zone.id} className="text-center font-semibold">
+                      {totalEnergy.toFixed(2)}
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+
+              {/* Monthly Energy */}
+              <TableRow>
+                <TableCell className="font-medium">Monthly Energy (kWh)</TableCell>
+                {zones.slice(0, 4).map((zone) => {
+                  const settings = zoneSettings.get(zone.id);
+                  if (!settings) return <TableCell key={zone.id} className="text-center">-</TableCell>;
+                  const numGenerators = zone.num_generators || 1;
+                  const totalEnergy = settings.net_energy_kva * settings.kva_to_kwh_conversion * numGenerators;
+                  const monthlyEnergy = totalEnergy * settings.expected_hours_per_month;
+                  return (
+                    <TableCell key={zone.id} className="text-center font-semibold">
+                      {monthlyEnergy.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+
+              {/* Diesel Cost Per Hour */}
+              <TableRow>
+                <TableCell className="font-medium">Diesel Cost/Hour (R)</TableCell>
+                {zones.slice(0, 4).map((zone) => {
+                  const settings = zoneSettings.get(zone.id);
+                  if (!settings) return <TableCell key={zone.id} className="text-center">-</TableCell>;
+                  const numGenerators = zone.num_generators || 1;
+                  const dieselCostPerHour = settings.fuel_consumption_rate * settings.diesel_price_per_litre * numGenerators;
+                  return (
+                    <TableCell key={zone.id} className="text-center font-semibold">
+                      R {dieselCostPerHour.toFixed(2)}
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+
+              {/* Monthly Diesel Cost */}
+              <TableRow>
+                <TableCell className="font-medium">Monthly Diesel Cost (R)</TableCell>
+                {zones.slice(0, 4).map((zone) => {
+                  const settings = zoneSettings.get(zone.id);
+                  if (!settings) return <TableCell key={zone.id} className="text-center">-</TableCell>;
+                  const numGenerators = zone.num_generators || 1;
+                  const dieselCostPerHour = settings.fuel_consumption_rate * settings.diesel_price_per_litre * numGenerators;
+                  const monthlyDieselCost = dieselCostPerHour * settings.expected_hours_per_month;
+                  return (
+                    <TableCell key={zone.id} className="text-center font-semibold">
+                      R {monthlyDieselCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+
+              {/* Monthly Servicing Cost */}
+              <TableRow>
+                <TableCell className="font-medium">Monthly Servicing Cost (R)</TableCell>
+                {zones.slice(0, 4).map((zone) => {
+                  const settings = zoneSettings.get(zone.id);
+                  if (!settings) return <TableCell key={zone.id} className="text-center">-</TableCell>;
+                  const servicingCostPerMonth = settings.servicing_cost_per_year / 12;
+                  const servicingCostPerMonthByHours = (settings.servicing_cost_per_250_hours / 250) * settings.expected_hours_per_month;
+                  const additionalServicingCost = Math.max(0, servicingCostPerMonthByHours - servicingCostPerMonth);
+                  return (
+                    <TableCell key={zone.id} className="text-center font-semibold">
+                      R {additionalServicingCost.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+
+              {/* Tariff Per kWh */}
+              <TableRow className="bg-accent">
+                <TableCell className="font-bold text-lg">TARIFF PER kWh (R)</TableCell>
+                {zones.slice(0, 4).map((zone) => {
+                  const tariff = calculateZoneTariff(zone.id);
+                  return (
+                    <TableCell key={zone.id} className="text-center font-bold text-lg">
+                      R {tariff.toFixed(4)}
+                    </TableCell>
+                  );
+                })}
+              </TableRow>
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
+
+      {/* Average Tariff Summary */}
+      <Card className="border-2 border-primary">
+        <CardHeader>
+          <CardTitle className="text-center text-2xl">Average Recovery Tariff</CardTitle>
+          <CardDescription className="text-center">
+            Average tariff across all {zones.length} generator{zones.length !== 1 ? 's' : ''}
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="text-center">
+            <div className="text-5xl font-bold text-primary mb-2">
+              R {averageTariff.toFixed(4)}
+            </div>
+            <div className="text-sm text-muted-foreground">
+              per kWh (including 10% contingency)
+            </div>
           </div>
         </CardContent>
       </Card>
