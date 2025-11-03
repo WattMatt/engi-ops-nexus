@@ -79,7 +79,7 @@ const ProjectSelect = () => {
             </p>
           </div>
           <div className="flex gap-3">
-            {!isAdminRoute && (
+            {!isAdminRoute && isAdmin && (
               <Button variant="outline" onClick={() => navigate("/admin/projects")}>
                 <Settings className="h-4 w-4 mr-2" />
                 Admin Portal
