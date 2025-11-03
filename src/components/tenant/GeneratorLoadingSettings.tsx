@@ -395,8 +395,8 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
                     <TableCell>
                       <Input
                         type="number"
-                        value={zone.generator_cost || 0}
-                        onChange={(e) => handleUpdateZoneCost(zone.id, parseFloat(e.target.value) || 0)}
+                        defaultValue={zone.generator_cost || 0}
+                        onBlur={(e) => handleUpdateZoneCost(zone.id, parseFloat(e.target.value) || 0)}
                         className="w-[140px]"
                         placeholder="Cost"
                       />
