@@ -31,6 +31,7 @@ import BackupManagement from "./pages/BackupManagement";
 import TenantTracker from "./pages/TenantTracker";
 import FinalAccounts from "./pages/FinalAccounts";
 import FinalAccountDetail from "./pages/FinalAccountDetail";
+import GeneratorReport from "./pages/GeneratorReport";
 import NotFound from "./pages/NotFound";
 import { HelpButton } from "./components/feedback/HelpButton";
 
@@ -80,6 +81,7 @@ const App = () => (
             <Route path="final-accounts" element={<FinalAccounts />} />
             <Route path="final-accounts/:accountId" element={<FinalAccountDetail />} />
             <Route path="messages" element={<Messages />} />
+            <Route path="projects-report/generator" element={<GeneratorReport />} />
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
