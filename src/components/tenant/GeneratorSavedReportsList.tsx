@@ -19,6 +19,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
@@ -229,20 +230,24 @@ export function GeneratorSavedReportsList({ projectId }: GeneratorSavedReportsLi
 
       {/* Preview Dialog */}
       <Dialog open={!!previewReport} onOpenChange={handleClosePreview}>
-        <DialogContent className="max-w-5xl h-[90vh]">
+        <DialogContent className="max-w-6xl h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>{previewReport?.report_name}</DialogTitle>
+            <DialogDescription>
+              Preview of the generated PDF report
+            </DialogDescription>
           </DialogHeader>
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 min-h-0">
             {isLoadingPreview ? (
               <div className="flex items-center justify-center h-full">
                 <p className="text-muted-foreground">Loading preview...</p>
               </div>
             ) : pdfUrl ? (
               <iframe
-                src={pdfUrl}
-                className="w-full h-full border-0"
+                src={`${pdfUrl}#toolbar=1&navpanes=0&scrollbar=1`}
+                className="w-full h-full rounded-md border"
                 title="PDF Preview"
+                style={{ minHeight: '600px' }}
               />
             ) : (
               <div className="flex items-center justify-center h-full">
