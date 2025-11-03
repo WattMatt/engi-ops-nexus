@@ -10,6 +10,7 @@ import { GeneratorSizingTable } from "@/components/tenant/GeneratorSizingTable";
 import { RunningRecoveryCalculator } from "@/components/tenant/RunningRecoveryCalculator";
 import { CapitalRecoveryCalculator } from "@/components/tenant/CapitalRecoveryCalculator";
 import { GeneratorLoadingSettings } from "@/components/tenant/GeneratorLoadingSettings";
+import { GeneratorCostingSection } from "@/components/tenant/GeneratorCostingSection";
 import { ChevronDown } from "lucide-react";
 
 const GeneratorReport = () => {
@@ -149,6 +150,8 @@ const GeneratorReport = () => {
 
         <TabsContent value="costs" className="space-y-4">
           <div className="space-y-4">
+            {projectId && <GeneratorCostingSection projectId={projectId} />}
+            
             <Collapsible defaultOpen>
               <CollapsibleTrigger className="flex items-center justify-between w-full p-4 bg-card rounded-lg border hover:bg-accent transition-colors">
                 <h3 className="text-lg font-semibold">Capital Recovery</h3>

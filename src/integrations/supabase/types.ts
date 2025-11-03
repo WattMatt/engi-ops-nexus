@@ -1942,7 +1942,10 @@ export type Database = {
         Row: {
           created_at: string
           display_order: number
+          generator_cost: number | null
+          generator_size: string | null
           id: string
+          notes: string | null
           project_id: string
           updated_at: string
           zone_name: string
@@ -1951,7 +1954,10 @@ export type Database = {
         Insert: {
           created_at?: string
           display_order?: number
+          generator_cost?: number | null
+          generator_size?: string | null
           id?: string
+          notes?: string | null
           project_id: string
           updated_at?: string
           zone_name: string
@@ -1960,7 +1966,10 @@ export type Database = {
         Update: {
           created_at?: string
           display_order?: number
+          generator_cost?: number | null
+          generator_size?: string | null
           id?: string
+          notes?: string | null
           project_id?: string
           updated_at?: string
           zone_name?: string

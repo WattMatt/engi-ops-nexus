@@ -3,11 +3,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
 import { Trash2, Plus } from "lucide-react";
+import { GENERATOR_SIZING_TABLE } from "@/utils/generatorSizing";
 
 interface GeneratorSettings {
   id: string;
@@ -149,6 +151,38 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
     }
   };
 
+  const handleUpdateZoneSize = async (zoneId: string, size: string | null) => {
+    try {
+      const { error } = await supabase
+        .from("generator_zones")
+        .update({ generator_size: size })
+        .eq("id", zoneId);
+
+      if (error) throw error;
+      toast.success("Generator size updated");
+      refetchZones();
+    } catch (error) {
+      console.error("Error updating zone size:", error);
+      toast.error("Failed to update generator size");
+    }
+  };
+
+  const handleUpdateZoneCost = async (zoneId: string, cost: number) => {
+    try {
+      const { error } = await supabase
+        .from("generator_zones")
+        .update({ generator_cost: cost })
+        .eq("id", zoneId);
+
+      if (error) throw error;
+      toast.success("Generator cost updated");
+      refetchZones();
+    } catch (error) {
+      console.error("Error updating zone cost:", error);
+      toast.error("Failed to update generator cost");
+    }
+  };
+
   if (isLoading) {
     return <div>Loading settings...</div>;
   }
@@ -257,6 +291,8 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
               <TableRow>
                 <TableHead>Zone Number</TableHead>
                 <TableHead>Zone Name</TableHead>
+                <TableHead>Generator Size</TableHead>
+                <TableHead>Generator Cost (R)</TableHead>
                 <TableHead className="w-[100px]">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -265,6 +301,33 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
                 <TableRow key={zone.id}>
                   <TableCell className="font-medium">Zone {zone.zone_number}</TableCell>
                   <TableCell>{zone.zone_name}</TableCell>
+                  <TableCell>
+                    <Select
+                      value={zone.generator_size || "none"}
+                      onValueChange={(value) => handleUpdateZoneSize(zone.id, value === "none" ? null : value)}
+                    >
+                      <SelectTrigger className="w-[140px]">
+                        <SelectValue placeholder="Select size" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">No size</SelectItem>
+                        {GENERATOR_SIZING_TABLE.map((gen) => (
+                          <SelectItem key={gen.rating} value={gen.rating}>
+                            {gen.rating}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      type="number"
+                      value={zone.generator_cost || 0}
+                      onChange={(e) => handleUpdateZoneCost(zone.id, parseFloat(e.target.value) || 0)}
+                      className="w-[140px]"
+                      placeholder="Cost"
+                    />
+                  </TableCell>
                   <TableCell>
                     <Button
                       variant="ghost"
