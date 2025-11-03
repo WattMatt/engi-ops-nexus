@@ -56,13 +56,71 @@ const CableSchedules = () => {
         </Button>
       </div>
 
-      <Tabs defaultValue="cables" className="w-full">
-        <TabsList className="grid w-full grid-cols-4 h-12">
+      <Tabs defaultValue="schedules" className="w-full">
+        <TabsList className="grid w-full grid-cols-5 h-12">
+          <TabsTrigger value="schedules" className="text-base">Existing Schedules</TabsTrigger>
           <TabsTrigger value="cables" className="text-base">Cable Tables</TabsTrigger>
-          <TabsTrigger value="saved" className="text-base">Saved Schedules</TabsTrigger>
+          <TabsTrigger value="saved" className="text-base">Saved Reports</TabsTrigger>
           <TabsTrigger value="rates" className="text-base">Rates</TabsTrigger>
           <TabsTrigger value="costs" className="text-base">Costs</TabsTrigger>
         </TabsList>
+        
+        <TabsContent value="schedules" className="mt-6">
+          {!schedules || schedules.length === 0 ? (
+            <Card>
+              <CardHeader>
+                <CardTitle>No cable schedules yet</CardTitle>
+                <CardDescription>
+                  Create your first cable schedule to start tracking electrical cables
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button onClick={() => setShowCreateDialog(true)}>
+                  <Plus className="mr-2 h-4 w-4" />
+                  Create Cable Schedule
+                </Button>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {schedules.map((schedule) => (
+                <Card
+                  key={schedule.id}
+                  className="cursor-pointer hover:shadow-lg transition-shadow"
+                  onClick={() => handleScheduleClick(schedule.id)}
+                >
+                  <CardHeader>
+                    <CardTitle className="text-lg">
+                      {schedule.schedule_name}
+                    </CardTitle>
+                    <CardDescription>
+                      Schedule #{schedule.schedule_number} - {schedule.revision}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2 text-sm">
+                      <div>
+                        <span className="font-medium">Date:</span>{" "}
+                        {new Date(schedule.schedule_date).toLocaleDateString()}
+                      </div>
+                      {schedule.layout_name && (
+                        <div>
+                          <span className="font-medium">Layout:</span>{" "}
+                          {schedule.layout_name}
+                        </div>
+                      )}
+                      {schedule.notes && (
+                        <div className="text-muted-foreground truncate">
+                          {schedule.notes}
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
         
         <TabsContent value="cables" className="mt-6">
           <div className="space-y-6">
@@ -83,64 +141,6 @@ const CableSchedules = () => {
           {projectId && <CableCostsSummary projectId={projectId} />}
         </TabsContent>
       </Tabs>
-
-      <div>
-        <h2 className="text-2xl font-semibold mb-4">Cable Schedules by Revision</h2>
-        {!schedules || schedules.length === 0 ? (
-          <Card>
-            <CardHeader>
-              <CardTitle>No cable schedules yet</CardTitle>
-              <CardDescription>
-                Create your first cable schedule to start tracking electrical cables
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Button onClick={() => setShowCreateDialog(true)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Create Cable Schedule
-              </Button>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {schedules.map((schedule) => (
-              <Card
-                key={schedule.id}
-                className="cursor-pointer hover:shadow-lg transition-shadow"
-                onClick={() => handleScheduleClick(schedule.id)}
-              >
-                <CardHeader>
-                  <CardTitle className="text-lg">
-                    {schedule.schedule_name}
-                  </CardTitle>
-                  <CardDescription>
-                    Schedule #{schedule.schedule_number} - {schedule.revision}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-2 text-sm">
-                    <div>
-                      <span className="font-medium">Date:</span>{" "}
-                      {new Date(schedule.schedule_date).toLocaleDateString()}
-                    </div>
-                    {schedule.layout_name && (
-                      <div>
-                        <span className="font-medium">Layout:</span>{" "}
-                        {schedule.layout_name}
-                      </div>
-                    )}
-                    {schedule.notes && (
-                      <div className="text-muted-foreground truncate">
-                        {schedule.notes}
-                      </div>
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        )}
-      </div>
 
       <CreateCableScheduleDialog
         open={showCreateDialog}
