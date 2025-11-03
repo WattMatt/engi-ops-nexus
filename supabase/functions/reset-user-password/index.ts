@@ -24,15 +24,24 @@ Deno.serve(async (req) => {
 
     const authHeader = req.headers.get('Authorization')
     if (!authHeader) {
+      console.error('No authorization header provided')
       throw new Error('No authorization header')
     }
 
     const token = authHeader.replace('Bearer ', '')
     const { data: { user: requestingUser }, error: authError } = await supabaseClient.auth.getUser(token)
     
-    if (authError || !requestingUser) {
-      throw new Error('Unauthorized')
+    if (authError) {
+      console.error('Auth error:', authError)
+      throw new Error(`Authentication failed: ${authError.message}`)
     }
+    
+    if (!requestingUser) {
+      console.error('No user found from token')
+      throw new Error('User not found')
+    }
+
+    console.log('Requesting user:', requestingUser.id)
 
     const { data: roleData, error: roleError } = await supabaseClient
       .from('user_roles')
@@ -41,9 +50,17 @@ Deno.serve(async (req) => {
       .eq('role', 'admin')
       .maybeSingle()
 
-    if (roleError || !roleData) {
+    if (roleError) {
+      console.error('Role check error:', roleError)
+      throw new Error(`Role verification failed: ${roleError.message}`)
+    }
+    
+    if (!roleData) {
+      console.error('User is not admin:', requestingUser.id)
       throw new Error('Insufficient permissions - admin role required')
     }
+
+    console.log('Admin verified:', requestingUser.id)
 
     const { userId } = await req.json()
 
