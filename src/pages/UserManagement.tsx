@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, Mail, Shield, User, Clock, CheckCircle, AlertCircle, Send } from "lucide-react";
+import { Users, Mail, Shield, User, Clock, CheckCircle, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { InviteUserDialog } from "@/components/users/InviteUserDialog";
 import { ManageUserDialog } from "@/components/users/ManageUserDialog";
@@ -10,7 +10,6 @@ import { UserActivityList } from "@/components/users/UserActivityList";
 import { Badge } from "@/components/ui/badge";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { formatDistanceToNow } from "date-fns";
-import { useActivityLogger } from "@/hooks/useActivityLogger";
 
 interface UserProfile {
   id: string;
@@ -26,8 +25,6 @@ const UserManagement = () => {
   const [users, setUsers] = useState<UserProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
-  const [resendingInvite, setResendingInvite] = useState<string | null>(null);
-  const { logActivity } = useActivityLogger();
 
   useEffect(() => {
     loadUsers();
@@ -65,46 +62,6 @@ const UserManagement = () => {
     }
   };
 
-  const resendInvite = async (user: UserProfile) => {
-    setResendingInvite(user.id);
-    try {
-      // Generate a new temporary password
-      const tempPassword = Math.random().toString(36).slice(-12) + Math.random().toString(36).slice(-12).toUpperCase();
-      
-      // Reset password using edge function
-      const { error } = await supabase.functions.invoke("reset-user-password", {
-        body: {
-          userId: user.id,
-          newPassword: tempPassword,
-        },
-      });
-
-      if (error) throw error;
-
-      // Show password to admin
-      toast.success("Password reset successfully", {
-        description: `New password: ${tempPassword}`,
-        duration: 10000,
-      });
-
-      // Copy to clipboard
-      navigator.clipboard.writeText(tempPassword);
-      toast.info("Password copied to clipboard");
-      
-      await logActivity(
-        'update',
-        `Reset password for: ${user.full_name}`,
-        { email: user.email }
-      );
-    } catch (error: any) {
-      console.error("Error resetting password:", error);
-      toast.error("Failed to reset password", {
-        description: error.message
-      });
-    } finally {
-      setResendingInvite(null);
-    }
-  };
 
   const getStatusBadge = (status?: string) => {
     const statusConfig = {
@@ -205,18 +162,7 @@ const UserManagement = () => {
                           </div>
                         </div>
                       </div>
-                      <div onClick={(e) => e.stopPropagation()} className="flex gap-2">
-                        {user.status === 'pending_verification' && (
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => resendInvite(user)}
-                            disabled={resendingInvite === user.id}
-                          >
-                            <Send className="h-4 w-4 mr-2" />
-                            {resendingInvite === user.id ? "Resetting..." : "Reset Password"}
-                          </Button>
-                        )}
+                      <div className="flex gap-2">
                         <ManageUserDialog user={user} onUpdated={loadUsers}>
                           <Button variant="outline" size="sm">
                             Manage
