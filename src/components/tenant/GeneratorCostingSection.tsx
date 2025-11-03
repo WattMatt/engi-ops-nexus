@@ -1,16 +1,27 @@
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { useState } from "react";
+import { Pencil, Save, X } from "lucide-react";
 
 interface GeneratorCostingSectionProps {
   projectId: string;
 }
 
 export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionProps) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValues, setEditValues] = useState({
+    ratePerTenantDB: 0,
+    numMainBoards: 0,
+    ratePerMainBoard: 0,
+    additionalCablingCost: 0,
+    controlWiringCost: 0,
+  });
+
   const { data: zones = [], refetch: refetchZones } = useQuery({
     queryKey: ["generator-zones-costing", projectId],
     queryFn: async () => {
@@ -40,7 +51,7 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
     enabled: !!projectId,
   });
 
-  const { data: settings } = useQuery({
+  const { data: settings, refetch: refetchSettings } = useQuery({
     queryKey: ["generator-settings-tenant-rate", projectId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -50,58 +61,83 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
         .maybeSingle();
 
       if (error) throw error;
+      
+      // Initialize edit values when settings load
+      if (data && !isEditing) {
+        setEditValues({
+          ratePerTenantDB: data.rate_per_tenant_db || 0,
+          numMainBoards: data.num_main_boards || 0,
+          ratePerMainBoard: data.rate_per_main_board || 0,
+          additionalCablingCost: data.additional_cabling_cost || 0,
+          controlWiringCost: data.control_wiring_cost || 0,
+        });
+      }
+      
       return data;
     },
     enabled: !!projectId,
   });
 
-  const handleTenantRateUpdate = async (value: number) => {
-    if (!settings?.id) return;
-
-    const { error } = await supabase
-      .from("generator_settings")
-      .update({ tenant_rate: value })
-      .eq("id", settings.id);
-
-    if (error) {
-      toast.error("Failed to update tenant rate");
-      return;
-    }
-
-    toast.success("Tenant rate updated");
+  const handleEdit = () => {
+    // Load current values into edit state
+    setEditValues({
+      ratePerTenantDB: settings?.rate_per_tenant_db || 0,
+      numMainBoards: settings?.num_main_boards || 0,
+      ratePerMainBoard: settings?.rate_per_main_board || 0,
+      additionalCablingCost: settings?.additional_cabling_cost || 0,
+      controlWiringCost: settings?.control_wiring_cost || 0,
+    });
+    setIsEditing(true);
   };
 
-  const handleSettingUpdate = async (field: string, value: number) => {
+  const handleCancel = () => {
+    setIsEditing(false);
+  };
+
+  const handleSave = async () => {
     let settingsId = settings?.id;
 
-    // If no settings exist, create them first
-    if (!settingsId) {
-      const { data: newSettings, error: createError } = await supabase
-        .from("generator_settings")
-        .insert({ 
-          project_id: projectId,
-          [field]: value 
-        })
-        .select()
-        .single();
+    try {
+      // Map edit values to database column names
+      const dbValues = {
+        rate_per_tenant_db: editValues.ratePerTenantDB,
+        num_main_boards: editValues.numMainBoards,
+        rate_per_main_board: editValues.ratePerMainBoard,
+        additional_cabling_cost: editValues.additionalCablingCost,
+        control_wiring_cost: editValues.controlWiringCost,
+      };
 
-      if (createError) {
-        toast.error("Failed to save");
-        return;
+      // If no settings exist, create them first
+      if (!settingsId) {
+        const { data: newSettings, error: createError } = await supabase
+          .from("generator_settings")
+          .insert({ 
+            project_id: projectId,
+            ...dbValues
+          })
+          .select()
+          .single();
+
+        if (createError) throw createError;
+        
+        toast.success("Settings saved");
+      } else {
+        // Update existing settings
+        const { error } = await supabase
+          .from("generator_settings")
+          .update(dbValues)
+          .eq("id", settingsId);
+
+        if (error) throw error;
+        
+        toast.success("Changes saved");
       }
-
-      return;
-    }
-
-    // Update existing settings
-    const { error } = await supabase
-      .from("generator_settings")
-      .update({ [field]: value })
-      .eq("id", settingsId);
-
-    if (error) {
+      
+      setIsEditing(false);
+      refetchSettings();
+    } catch (error) {
+      console.error("Error saving settings:", error);
       toast.error("Failed to save");
-      return;
     }
   };
 
@@ -121,27 +157,47 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
   
   const tenantCost = tenantCount * tenantRate;
   
-  // Auto-calculate number of tenant DBs (tenants without their own generator)
   const numTenantDBs = tenants.filter(t => !t.own_generator_provided).length;
-  const ratePerTenantDB = settings?.rate_per_tenant_db || 0;
+  const ratePerTenantDB = isEditing ? editValues.ratePerTenantDB : (settings?.rate_per_tenant_db || 0);
   const tenantDBsCost = numTenantDBs * ratePerTenantDB;
   
-  const numMainBoards = settings?.num_main_boards || 0;
-  const ratePerMainBoard = settings?.rate_per_main_board || 0;
+  const numMainBoards = isEditing ? editValues.numMainBoards : (settings?.num_main_boards || 0);
+  const ratePerMainBoard = isEditing ? editValues.ratePerMainBoard : (settings?.rate_per_main_board || 0);
   const mainBoardsCost = numMainBoards * ratePerMainBoard;
   
-  const additionalCablingCost = settings?.additional_cabling_cost || 0;
-  const controlWiringCost = settings?.control_wiring_cost || 0;
+  const additionalCablingCost = isEditing ? editValues.additionalCablingCost : (settings?.additional_cabling_cost || 0);
+  const controlWiringCost = isEditing ? editValues.controlWiringCost : (settings?.control_wiring_cost || 0);
   
   const totalCost = generatorCost + tenantDBsCost + mainBoardsCost + additionalCablingCost + controlWiringCost;
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Generator Equipment Costing</CardTitle>
-        <CardDescription>
-          Cost breakdown per generator zone
-        </CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>Generator Equipment Costing</CardTitle>
+            <CardDescription>
+              Cost breakdown per generator zone
+            </CardDescription>
+          </div>
+          {!isEditing ? (
+            <Button onClick={handleEdit} variant="outline" size="sm">
+              <Pencil className="h-4 w-4 mr-2" />
+              Edit
+            </Button>
+          ) : (
+            <div className="flex gap-2">
+              <Button onClick={handleCancel} variant="outline" size="sm">
+                <X className="h-4 w-4 mr-2" />
+                Cancel
+              </Button>
+              <Button onClick={handleSave} size="sm">
+                <Save className="h-4 w-4 mr-2" />
+                Save
+              </Button>
+            </div>
+          )}
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <Table>
@@ -198,13 +254,17 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
                     />
                   </TableCell>
                   <TableCell>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      defaultValue={ratePerTenantDB}
-                      onBlur={(e) => handleSettingUpdate('rate_per_tenant_db', Number(e.target.value))}
-                      className="w-32"
-                    />
+                    {isEditing ? (
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={editValues.ratePerTenantDB}
+                        onChange={(e) => setEditValues({...editValues, ratePerTenantDB: Number(e.target.value)})}
+                        className="w-32"
+                      />
+                    ) : (
+                      <span className="font-mono">{formatCurrency(ratePerTenantDB)}</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right font-mono">
                     {formatCurrency(tenantDBsCost)}
@@ -215,21 +275,29 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
                   <TableCell className="font-medium">{zones.length + 2}</TableCell>
                   <TableCell>Number of Main Boards</TableCell>
                   <TableCell>
-                    <Input
-                      type="number"
-                      defaultValue={numMainBoards}
-                      onBlur={(e) => handleSettingUpdate('num_main_boards', Number(e.target.value))}
-                      className="w-20"
-                    />
+                    {isEditing ? (
+                      <Input
+                        type="number"
+                        value={editValues.numMainBoards}
+                        onChange={(e) => setEditValues({...editValues, numMainBoards: Number(e.target.value)})}
+                        className="w-20"
+                      />
+                    ) : (
+                      <span className="font-mono">{numMainBoards}</span>
+                    )}
                   </TableCell>
                   <TableCell>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      defaultValue={ratePerMainBoard}
-                      onBlur={(e) => handleSettingUpdate('rate_per_main_board', Number(e.target.value))}
-                      className="w-32"
-                    />
+                    {isEditing ? (
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={editValues.ratePerMainBoard}
+                        onChange={(e) => setEditValues({...editValues, ratePerMainBoard: Number(e.target.value)})}
+                        className="w-32"
+                      />
+                    ) : (
+                      <span className="font-mono">{formatCurrency(ratePerMainBoard)}</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right font-mono">
                     {formatCurrency(mainBoardsCost)}
@@ -241,13 +309,17 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
                   <TableCell>Additional Cabling</TableCell>
                   <TableCell>1</TableCell>
                   <TableCell>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      defaultValue={additionalCablingCost}
-                      onBlur={(e) => handleSettingUpdate('additional_cabling_cost', Number(e.target.value))}
-                      className="w-32"
-                    />
+                    {isEditing ? (
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={editValues.additionalCablingCost}
+                        onChange={(e) => setEditValues({...editValues, additionalCablingCost: Number(e.target.value)})}
+                        className="w-32"
+                      />
+                    ) : (
+                      <span className="font-mono">{formatCurrency(additionalCablingCost)}</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right font-mono">
                     {formatCurrency(additionalCablingCost)}
@@ -259,13 +331,17 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
                   <TableCell>Control Wiring</TableCell>
                   <TableCell>1</TableCell>
                   <TableCell>
-                    <Input
-                      type="number"
-                      step="0.01"
-                      defaultValue={controlWiringCost}
-                      onBlur={(e) => handleSettingUpdate('control_wiring_cost', Number(e.target.value))}
-                      className="w-32"
-                    />
+                    {isEditing ? (
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={editValues.controlWiringCost}
+                        onChange={(e) => setEditValues({...editValues, controlWiringCost: Number(e.target.value)})}
+                        className="w-32"
+                      />
+                    ) : (
+                      <span className="font-mono">{formatCurrency(controlWiringCost)}</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-right font-mono">
                     {formatCurrency(controlWiringCost)}
