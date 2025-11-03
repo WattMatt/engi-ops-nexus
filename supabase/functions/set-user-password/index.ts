@@ -60,8 +60,21 @@ Deno.serve(async (req) => {
       throw new Error('Missing required fields: userId and password')
     }
 
-    if (password.length < 8) {
-      throw new Error('Password must be at least 8 characters')
+    // Validate password strength (matching client-side validation)
+    if (password.length < 12) {
+      throw new Error('Password must be at least 12 characters long')
+    }
+    if (!/[A-Z]/.test(password)) {
+      throw new Error('Password must contain at least one uppercase letter')
+    }
+    if (!/[a-z]/.test(password)) {
+      throw new Error('Password must contain at least one lowercase letter')
+    }
+    if (!/\d/.test(password)) {
+      throw new Error('Password must contain at least one number')
+    }
+    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) {
+      throw new Error('Password must contain at least one special character (!@#$%^&*)')
     }
 
     // Update user password
