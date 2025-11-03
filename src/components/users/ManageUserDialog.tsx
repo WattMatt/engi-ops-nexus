@@ -106,21 +106,21 @@ export function ManageUserDialog({ user, onUpdated, children }: ManageUserDialog
 
     setLoading(true);
     try {
-      // Update user password using admin API
-      const { error } = await supabase.auth.admin.updateUserById(user.id, {
-        password: newPassword
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      const { data, error } = await supabase.functions.invoke("set-user-password", {
+        headers: {
+          Authorization: `Bearer ${session?.access_token}`
+        },
+        body: {
+          userId: user.id,
+          password: newPassword
+        },
       });
 
-      if (error) throw error;
-
-      // Mark user as needing to change password on first login
-      await supabase
-        .from("profiles")
-        .update({
-          must_change_password: true,
-          status: 'active'
-        })
-        .eq("id", user.id);
+      if (error || data?.error) {
+        throw new Error(error?.message || data?.error || 'Failed to set password');
+      }
 
       await logActivity(
         'update',
@@ -129,11 +129,12 @@ export function ManageUserDialog({ user, onUpdated, children }: ManageUserDialog
       );
 
       toast.success("Password Set!", {
-        description: `Share these credentials with ${user.email}. They will be required to change it on first login.`,
+        description: `Initial password has been set for ${user.email}. They will be required to change it on first login.`,
         duration: 10000,
       });
       
       setNewPassword("");
+      onUpdated();
     } catch (error: any) {
       toast.error("Error", {
         description: error.message || "Failed to set password",
