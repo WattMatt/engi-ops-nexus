@@ -337,6 +337,9 @@ export const generatePdf = async (params: GeneratePdfParams, returnBlob: boolean
     if (returnBlob) {
         return doc.output('blob');
     } else {
+        const blob = doc.output('blob');
+        // Save locally
         doc.save(`${params.projectName}.pdf`);
+        return blob;
     }
 };

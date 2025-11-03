@@ -1667,6 +1667,36 @@ export type Database = {
           },
         ]
       }
+      floor_plan_reports: {
+        Row: {
+          comments: string | null
+          created_at: string
+          file_path: string
+          id: string
+          project_name: string
+          report_revision: number
+          user_id: string
+        }
+        Insert: {
+          comments?: string | null
+          created_at?: string
+          file_path: string
+          id?: string
+          project_name: string
+          report_revision?: number
+          user_id: string
+        }
+        Update: {
+          comments?: string | null
+          created_at?: string
+          file_path?: string
+          id?: string
+          project_name?: string
+          report_revision?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       floor_plan_tasks: {
         Row: {
           assignee: string | null

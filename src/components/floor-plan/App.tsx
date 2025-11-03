@@ -27,6 +27,8 @@ import {
     type DesignListing,
 } from './utils/supabase';
 import { Building, Loader } from 'lucide-react';
+import { SavedReportsList } from './components/SavedReportsList';
+import { supabase } from '@/integrations/supabase/client';
 
 
 // Set PDF.js worker source
@@ -149,6 +151,7 @@ const MainApp: React.FC<MainAppProps> = ({ user }) => {
   const [isLoadDesignModalOpen, setIsLoadDesignModalOpen] = useState(false);
   const [designList, setDesignList] = useState<DesignListing[]>([]);
   const [isLoadingDesigns, setIsLoadingDesigns] = useState(false);
+  const [isSavedReportsModalOpen, setIsSavedReportsModalOpen] = useState(false);
 
   const [scaleLine, setScaleLine] = useState<{start: Point, end: Point} | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
@@ -371,10 +374,55 @@ const MainApp: React.FC<MainAppProps> = ({ user }) => {
     toast.info("Generating PDF... This may take a moment.");
     setIsExportModalOpen(false);
     try {
-        await generatePdf({
+        const blob = await generatePdf({
             canvases, projectName, equipment, lines, zones, containment, comments, 
             pvPanelConfig, pvArrays, scaleInfo, roofMasks, tasks
-        });
+        }, true);
+
+        // Save to cloud if user is logged in
+        if (user && blob) {
+            try {
+                // Get next revision number
+                const { data: existingReports } = await supabase
+                    .from('floor_plan_reports')
+                    .select('report_revision')
+                    .eq('project_name', projectName)
+                    .order('report_revision', { ascending: false })
+                    .limit(1);
+
+                const nextRevision = existingReports && existingReports.length > 0 
+                    ? existingReports[0].report_revision + 1 
+                    : 1;
+
+                // Upload to storage
+                const filePath = `${user.id}/${projectName}_Rev${nextRevision}_${Date.now()}.pdf`;
+                const { error: uploadError } = await supabase.storage
+                    .from('floor-plan-reports')
+                    .upload(filePath, blob);
+
+                if (uploadError) throw uploadError;
+
+                // Save metadata to database
+                const { error: dbError } = await supabase
+                    .from('floor_plan_reports')
+                    .insert({
+                        user_id: user.id,
+                        project_name: projectName,
+                        file_path: filePath,
+                        report_revision: nextRevision,
+                        comments: comments || null,
+                    });
+
+                if (dbError) throw dbError;
+
+                toast.success(`PDF exported and saved to cloud (Rev ${nextRevision})`);
+            } catch (error) {
+                console.error('Error saving to cloud:', error);
+                toast.error('PDF downloaded but failed to save to cloud');
+            }
+        } else {
+            toast.success('PDF exported successfully');
+        }
     } catch (error) {
         console.error("Failed to generate PDF:", error);
         toast.error(`PDF Generation Error: ${error instanceof Error ? error.message : String(error)}`);
@@ -544,6 +592,7 @@ const MainApp: React.FC<MainAppProps> = ({ user }) => {
         onUndo={handleUndo} onRedo={handleRedo}
         canUndo={canUndo} canRedo={canRedo} onResetView={handleResetZoom}
         scaleInfo={scaleInfo}
+        onOpenSavedReports={() => setIsSavedReportsModalOpen(true)}
       />
       
       {/* Center - Canvas Area */}
@@ -619,6 +668,7 @@ const MainApp: React.FC<MainAppProps> = ({ user }) => {
         isLoading={isLoadingDesigns} 
       />
       <TaskModal isOpen={isTaskModalOpen} onClose={() => { setIsTaskModalOpen(false); setEditingTask(null); }} onSubmit={handleTaskSubmit} task={editingTask} assigneeList={assigneeList} />
+      <SavedReportsList open={isSavedReportsModalOpen} onOpenChange={setIsSavedReportsModalOpen} />
     </div>
   );
 };
