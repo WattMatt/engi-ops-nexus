@@ -101,14 +101,25 @@ export function ManageUserDialog({ user, onUpdated, children }: ManageUserDialog
     setLoading(true);
     try {
       // Use edge function to send reset link
-      const { error } = await supabase.functions.invoke("reset-user-password", {
+      const { data, error } = await supabase.functions.invoke("reset-user-password", {
         body: {
           userId: user.id,
           userEmail: user.email,
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        // Check if it's a domain verification error
+        if (error.message?.includes('domain not verified') || error.message?.includes('verify a domain')) {
+          toast.error("Email domain not verified", {
+            description: "Please verify your domain at resend.com/domains to send emails to other users. For testing, emails can only be sent to your registered Resend email address.",
+            duration: 8000,
+          });
+        } else {
+          throw error;
+        }
+        return;
+      }
 
       await logActivity(
         'update',
@@ -116,7 +127,9 @@ export function ManageUserDialog({ user, onUpdated, children }: ManageUserDialog
         { userId: user.id }
       );
 
-      toast.success("Password reset link sent to user's email");
+      toast.success("Password reset link sent successfully", {
+        description: `An email has been sent to ${user.email}`,
+      });
     } catch (error: any) {
       toast.error(error.message || "Failed to send reset link");
     } finally {
