@@ -250,15 +250,16 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
         head: [equipmentCostingData[0]],
         body: equipmentCostingData.slice(1),
         theme: "grid",
-        headStyles: { fillColor: [41, 128, 185], fontSize: 10 },
-        styles: { fontSize: 9 },
+        headStyles: { fillColor: [41, 128, 185], fontSize: 9 },
+        styles: { fontSize: 8 },
         columnStyles: {
-          0: { cellWidth: 20 },
-          1: { cellWidth: 80 },
-          2: { halign: "center", cellWidth: 30 },
-          3: { halign: "right", cellWidth: 35 },
-          4: { halign: "right", cellWidth: 35 },
+          0: { cellWidth: 15 },
+          1: { cellWidth: 70 },
+          2: { halign: "center", cellWidth: 22 },
+          3: { halign: "right", cellWidth: 30 },
+          4: { halign: "right", cellWidth: 30 },
         },
+        margin: { left: 14, right: 14 },
       });
       
       // Add total row
@@ -267,14 +268,15 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
         startY: finalY,
         body: [["", "TOTAL CAPITAL COST", "", "", formatCurrency(totalCapitalCost)]],
         theme: "grid",
-        styles: { fontSize: 10, fontStyle: "bold", fillColor: [240, 240, 240] },
+        styles: { fontSize: 9, fontStyle: "bold", fillColor: [240, 240, 240] },
         columnStyles: {
-          0: { cellWidth: 20 },
-          1: { cellWidth: 80 },
-          2: { halign: "center", cellWidth: 30 },
-          3: { halign: "right", cellWidth: 35 },
-          4: { halign: "right", cellWidth: 35 },
+          0: { cellWidth: 15 },
+          1: { cellWidth: 70 },
+          2: { halign: "center", cellWidth: 22 },
+          3: { halign: "right", cellWidth: 30 },
+          4: { halign: "right", cellWidth: 30 },
         },
+        margin: { left: 14, right: 14 },
       });
 
       yPos = (doc as any).lastAutoTable.finalY + 15;
@@ -296,8 +298,8 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
         theme: "grid",
         styles: { fontSize: 10, cellPadding: 4 },
         columnStyles: {
-          0: { fontStyle: "bold", cellWidth: 100, fillColor: [240, 248, 255] },
-          1: { halign: "right", fontStyle: "bold", fontSize: 11, fillColor: [240, 248, 255] },
+          0: { fontStyle: "bold", cellWidth: 80, fillColor: [240, 248, 255] },
+          1: { halign: "right", fontStyle: "bold", fontSize: 11, cellWidth: 87, fillColor: [240, 248, 255] },
         },
         margin: { left: 14, right: 14 },
       });
@@ -387,23 +389,23 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
           "SHOP NO",
           "TENANT",
           "SIZE",
-          "Actual Load (kW)",
-          "% of Total",
-          "Monthly Rental (EXCL VAT)",
-          "Cost per m²",
+          "Load (kW)",
+          "% Total",
+          "Monthly Rental",
+          "Cost/m²",
         ]],
         body: tenantRows,
         theme: "grid",
-        headStyles: { fillColor: [41, 128, 185], textColor: 255, fontSize: 8 },
+        headStyles: { fillColor: [41, 128, 185], textColor: 255, fontSize: 7 },
         styles: { fontSize: 7 },
         columnStyles: {
-          0: { cellWidth: 18 },
-          1: { cellWidth: 35 },
-          2: { cellWidth: 15, halign: "right" },
-          3: { cellWidth: 22, halign: "right" },
-          4: { cellWidth: 18, halign: "right" },
-          5: { cellWidth: 38, halign: "right" },
-          6: { cellWidth: 20, halign: "right" },
+          0: { cellWidth: 16 },
+          1: { cellWidth: 32 },
+          2: { cellWidth: 14, halign: "right" },
+          3: { cellWidth: 20, halign: "right" },
+          4: { cellWidth: 16, halign: "right" },
+          5: { cellWidth: 34, halign: "right" },
+          6: { cellWidth: 18, halign: "right" },
         },
         margin: { left: 14, right: 14 },
       });
@@ -445,11 +447,11 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
         theme: "grid",
         styles: { fontSize: 9, cellPadding: 3 },
         columnStyles: {
-          0: { fontStyle: "bold", cellWidth: 50, fillColor: [245, 245, 245] },
-          1: { halign: "right", cellWidth: 50, fontStyle: "bold" },
-          2: { cellWidth: 90, fontSize: 8, textColor: [100, 100, 100] },
+          0: { fontStyle: "bold", cellWidth: 45, fillColor: [245, 245, 245] },
+          1: { halign: "right", cellWidth: 45, fontStyle: "bold" },
+          2: { cellWidth: 77, fontSize: 8, textColor: [100, 100, 100] },
         },
-        margin: { left: 14 },
+        margin: { left: 14, right: 14 },
       });
 
       yPos = (doc as any).lastAutoTable.finalY + 15;
@@ -472,8 +474,8 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
         theme: "grid",
         styles: { fontSize: 10, cellPadding: 4 },
         columnStyles: {
-          0: { fontStyle: "bold", cellWidth: 90, fillColor: [240, 248, 255] },
-          1: { halign: "right", fontStyle: "bold", fontSize: 12, fillColor: [240, 248, 255] },
+          0: { fontStyle: "bold", cellWidth: 80, fillColor: [240, 248, 255] },
+          1: { halign: "right", fontStyle: "bold", fontSize: 11, cellWidth: 87 },
         },
         margin: { left: 14, right: 14 },
       });
@@ -509,18 +511,18 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
 
       autoTable(doc, {
         startY: yPos,
-        head: [["YEARS", "BEGINNING", "PMT", "INTEREST", "PRINCIPAL", "ENDING BALANCE"]],
+        head: [["YEARS", "BEGINNING", "PAYMENT", "INTEREST", "PRINCIPAL", "ENDING"]],
         body: amortRows,
         theme: "grid",
-        headStyles: { fillColor: [41, 128, 185], textColor: 255, fontSize: 9 },
-        styles: { fontSize: 9 },
+        headStyles: { fillColor: [41, 128, 185], textColor: 255, fontSize: 8 },
+        styles: { fontSize: 8 },
         columnStyles: {
-          0: { cellWidth: 20 },
-          1: { halign: "right" },
-          2: { halign: "right" },
-          3: { halign: "right" },
-          4: { halign: "right" },
-          5: { halign: "right" },
+          0: { cellWidth: 18 },
+          1: { halign: "right", cellWidth: 28 },
+          2: { halign: "right", cellWidth: 28 },
+          3: { halign: "right", cellWidth: 28 },
+          4: { halign: "right", cellWidth: 28 },
+          5: { halign: "right", cellWidth: 32 },
         },
         margin: { left: 14, right: 14 },
       });
@@ -580,10 +582,10 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
           theme: "plain",
           styles: { fontSize: 9 },
           columnStyles: {
-            0: { fontStyle: "bold", cellWidth: 120 },
-            1: { halign: "right" },
+            0: { fontStyle: "bold", cellWidth: 100 },
+            1: { halign: "right", cellWidth: 50 },
           },
-          margin: { left: 20 },
+          margin: { left: 20, right: 14 },
         });
 
         yPos = (doc as any).lastAutoTable.finalY + 8;
@@ -611,10 +613,10 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
           theme: "plain",
           styles: { fontSize: 9 },
           columnStyles: {
-            0: { fontStyle: "bold", cellWidth: 120 },
-            1: { halign: "right" },
+            0: { fontStyle: "bold", cellWidth: 100 },
+            1: { halign: "right", cellWidth: 50 },
           },
-          margin: { left: 20 },
+          margin: { left: 20, right: 14 },
         });
 
         yPos = (doc as any).lastAutoTable.finalY + 8;
@@ -650,10 +652,10 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
           theme: "plain",
           styles: { fontSize: 9 },
           columnStyles: {
-            0: { fontStyle: "bold", cellWidth: 120 },
-            1: { halign: "right" },
+            0: { fontStyle: "bold", cellWidth: 100 },
+            1: { halign: "right", cellWidth: 50 },
           },
-          margin: { left: 20 },
+          margin: { left: 20, right: 14 },
         });
 
         yPos = (doc as any).lastAutoTable.finalY + 8;
@@ -684,10 +686,10 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
           theme: "plain",
           styles: { fontSize: 9 },
           columnStyles: {
-            0: { fontStyle: "bold", cellWidth: 120 },
-            1: { halign: "right", fontStyle: "bold" },
+            0: { fontStyle: "bold", cellWidth: 100 },
+            1: { halign: "right", fontStyle: "bold", cellWidth: 50 },
           },
-          margin: { left: 20 },
+          margin: { left: 20, right: 14 },
         });
 
         yPos = (doc as any).lastAutoTable.finalY + 15;
