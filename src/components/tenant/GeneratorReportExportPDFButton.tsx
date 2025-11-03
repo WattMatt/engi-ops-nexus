@@ -343,114 +343,170 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       doc.text("SIZING AND ALLOWANCES:", 14, yPos);
       yPos += 10;
 
-      // Tenant schedule with calculations (matching on-screen display)
-      // First, calculate all tenant loads to get the total
-      const tenantLoads = tenants
-        .filter(t => t.generator_zone_id)
-        .map(tenant => {
-          const kwPerSqm = {
-            standard: generatorSettings?.standard_kw_per_sqm || 0.03,
-            'fast-food': generatorSettings?.fast_food_kw_per_sqm || 0.045,
-            fast_food: generatorSettings?.fast_food_kw_per_sqm || 0.045,
-            restaurant: generatorSettings?.restaurant_kw_per_sqm || 0.045,
-            national: generatorSettings?.national_kw_per_sqm || 0.03,
-          };
-          const categoryKw = kwPerSqm[tenant.shop_category as keyof typeof kwPerSqm] || 0.03;
-          return tenant.own_generator_provided ? 0 : (tenant.area || 0) * categoryKw;
-        });
+      // Tenant schedule with calculations (matching on-screen display 100%)
+      // Calculate loading for each tenant
+      const calculateLoading = (tenant: any) => {
+        if (!tenant.area || tenant.own_generator_provided) return 0;
+        
+        const kwPerSqm = {
+          standard: generatorSettings?.standard_kw_per_sqm || 0.03,
+          fast_food: generatorSettings?.fast_food_kw_per_sqm || 0.045,
+          restaurant: generatorSettings?.restaurant_kw_per_sqm || 0.045,
+          national: generatorSettings?.national_kw_per_sqm || 0.03,
+        };
+        
+        return tenant.area * (kwPerSqm[tenant.shop_category as keyof typeof kwPerSqm] || 0.03);
+      };
       
-      const totalTenantLoad = tenantLoads.reduce((sum, load) => sum + load, 0);
-
-      const tenantRowsData = tenants
-        .filter(t => t.generator_zone_id)
-        .map((tenant, index) => {
-          const adjustedLoad = tenantLoads[index];
-          
-          const isFastFood = tenant.shop_category === "fast-food" || tenant.shop_category === "fast_food";
-          const isRestaurant = tenant.shop_category === "restaurant";
-          
-          // Calculate percentage based on total tenant load (matching on-screen display)
-          const percentOfTotal = totalTenantLoad > 0 
-            ? (adjustedLoad / totalTenantLoad) * 100 
-            : 0;
-          
-          const monthlyRecovery = (percentOfTotal / 100) * monthlyCapitalRepayment;
-          const costPerArea = tenant.area && tenant.area > 0 ? monthlyRecovery / tenant.area : 0;
-          
-          return {
-            row: [
-              tenant.shop_number,
-              tenant.shop_name,
-              tenant.area?.toFixed(0) || "0",
-              adjustedLoad.toFixed(2),
-              `${percentOfTotal.toFixed(2)}%`,
-              formatCurrency(monthlyRecovery),
-              `R ${costPerArea.toFixed(2)}`,
-            ],
-            hasOwnGenerator: tenant.own_generator_provided,
-            isFastFood,
-            isRestaurant,
-          };
+      // Calculate total loading
+      const totalLoading = tenants.reduce((sum, tenant) => sum + calculateLoading(tenant), 0);
+      
+      // Get zone loading for a specific zone
+      const getZoneLoading = (zoneId: string) => {
+        return tenants
+          .filter(t => t.generator_zone_id === zoneId && !t.own_generator_provided)
+          .reduce((sum, tenant) => sum + calculateLoading(tenant), 0);
+      };
+      
+      // Build table data for each tenant
+      const tenantRowsData = tenants.map(tenant => {
+        const loading = calculateLoading(tenant);
+        const portionOfLoad = totalLoading > 0 ? (loading / totalLoading) * 100 : 0;
+        const monthlyRental = (portionOfLoad / 100) * monthlyCapitalRepayment;
+        const rentalPerSqm = tenant.area && tenant.area > 0 ? monthlyRental / tenant.area : 0;
+        
+        const isOwnGenerator = tenant.own_generator_provided || false;
+        const isFastFood = tenant.shop_category === "fast-food" || tenant.shop_category === "fast_food";
+        const isRestaurant = tenant.shop_category === "restaurant";
+        
+        // Build row: Shop No, Tenant, Size, Own Generator, Zone, [Zone columns], Portion of Load, Monthly Rental, Rental per m²
+        const row = [
+          tenant.shop_number,
+          tenant.shop_name,
+          tenant.area?.toLocaleString() || "-",
+          isOwnGenerator ? "YES" : "NO",
+          tenant.generator_zone_id ? zones.find(z => z.id === tenant.generator_zone_id)?.zone_name || "-" : "-",
+        ];
+        
+        // Add zone columns
+        zones.forEach(zone => {
+          if (!isOwnGenerator && tenant.generator_zone_id === zone.id) {
+            row.push(loading.toFixed(2));
+          } else {
+            row.push("-");
+          }
         });
+        
+        // Add metrics columns
+        row.push(
+          isOwnGenerator ? "0.00%" : `${portionOfLoad.toFixed(2)}%`,
+          isOwnGenerator ? formatCurrency(0) : formatCurrency(monthlyRental),
+          isOwnGenerator ? formatCurrency(0) : formatCurrency(rentalPerSqm)
+        );
+        
+        return {
+          row,
+          hasOwnGenerator: isOwnGenerator,
+          isFastFood,
+          isRestaurant,
+        };
+      });
 
       const tenantRows = tenantRowsData.map(t => t.row);
 
-      // Add mall common area
-      const commonAreaLoad = 15; // kW
-      const commonAreaPercent = totalTenantLoad > 0 
-        ? (commonAreaLoad / totalTenantLoad) * 100 
-        : 0;
-      const commonAreaRecovery = (commonAreaPercent / 100) * monthlyCapitalRepayment;
+      // Calculate totals
+      const totals = {
+        area: tenants.reduce((sum, t) => sum + (t.area || 0), 0),
+        loading: totalLoading,
+        portionOfLoad: tenants.reduce((sum, t) => {
+          const loading = calculateLoading(t);
+          return sum + (totalLoading > 0 ? (loading / totalLoading) * 100 : 0);
+        }, 0),
+        monthlyRental: tenants.reduce((sum, t) => {
+          const loading = calculateLoading(t);
+          const portionOfLoad = totalLoading > 0 ? (loading / totalLoading) * 100 : 0;
+          return sum + ((portionOfLoad / 100) * monthlyCapitalRepayment);
+        }, 0),
+      };
       
-      tenantRows.push([
+      // Add OVERALL TOTALS row
+      const totalsRow = [
         "",
-        "MALL AND COMMON AREA",
+        "OVERALL TOTALS",
+        totals.area.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }),
         "",
-        commonAreaLoad.toFixed(2),
-        `${commonAreaPercent.toFixed(2)}%`,
-        formatCurrency(commonAreaRecovery),
         "",
-      ]);
+      ];
+      zones.forEach(zone => {
+        totalsRow.push(getZoneLoading(zone.id).toFixed(2));
+      });
+      totalsRow.push(
+        `${totals.portionOfLoad.toFixed(2)}%`,
+        formatCurrency(totals.monthlyRental),
+        ""
+      );
+      tenantRows.push(totalsRow);
+      
+      // Add AVERAGE row
+      const averageRentalPerSqm = totals.area > 0 ? totals.monthlyRental / totals.area : 0;
+      const averageRow = [
+        "",
+        "AVERAGE",
+        ...Array(3 + zones.length).fill(""),
+        "",
+        "",
+        formatCurrency(averageRentalPerSqm)
+      ];
+      tenantRows.push(averageRow);
 
-      // Calculate subtotal
-      const totalLoad = tenantRows.reduce((sum, row) => sum + parseFloat(row[3] || "0"), 0);
-      tenantRows.push([
-        "SUB-TOTAL",
-        "",
-        "",
-        totalLoad.toFixed(2),
-        "100%",
-        formatCurrency(monthlyCapitalRepayment),
-        "",
-      ]);
+      // Build header with zone columns
+      const tableHeader = [
+        "Shop No.",
+        "Tenant",
+        "Size (m²)",
+        "Own Generator",
+        "Zone",
+      ];
+      zones.forEach(zone => {
+        tableHeader.push(`${zone.zone_name} (kW)`);
+      });
+      tableHeader.push(
+        "Portion of Load (%)",
+        "Monthly Rental (excl. VAT)",
+        "Rental per m² (excl. VAT)"
+      );
+
+      // Build column styles dynamically
+      const columnStyles: any = {
+        0: { cellWidth: 14 },  // Shop No
+        1: { cellWidth: 28 },  // Tenant
+        2: { cellWidth: 14, halign: "right" },  // Size
+        3: { cellWidth: 16 },  // Own Generator
+        4: { cellWidth: 16 },  // Zone
+      };
+      
+      // Zone columns
+      zones.forEach((_, index) => {
+        columnStyles[5 + index] = { cellWidth: 16, halign: "right" };
+      });
+      
+      // Metrics columns
+      const metricsStartCol = 5 + zones.length;
+      columnStyles[metricsStartCol] = { cellWidth: 18, halign: "right" };      // Portion of Load
+      columnStyles[metricsStartCol + 1] = { cellWidth: 28, halign: "right" };  // Monthly Rental
+      columnStyles[metricsStartCol + 2] = { cellWidth: 28, halign: "right" };  // Rental per m²
 
       autoTable(doc, {
         startY: yPos,
-        head: [[
-          "SHOP NO",
-          "TENANT",
-          "SIZE",
-          "Load (kW)",
-          "% Total",
-          "Monthly Rental",
-          "Cost/m²",
-        ]],
+        head: [tableHeader],
         body: tenantRows,
         theme: "grid",
-        headStyles: { fillColor: [41, 128, 185], textColor: 255, fontSize: 7 },
-        styles: { fontSize: 7 },
-        columnStyles: {
-          0: { cellWidth: 16 },
-          1: { cellWidth: 32 },
-          2: { cellWidth: 14, halign: "right" },
-          3: { cellWidth: 20, halign: "right" },
-          4: { cellWidth: 16, halign: "right" },
-          5: { cellWidth: 34, halign: "right" },
-          6: { cellWidth: 18, halign: "right" },
-        },
+        headStyles: { fillColor: [41, 128, 185], textColor: 255, fontSize: 6 },
+        styles: { fontSize: 6 },
+        columnStyles,
         margin: { left: 14, right: 14 },
         willDrawCell: (data) => {
-          // Apply color coding to tenant rows
+          // Apply color coding to tenant rows (not totals/average)
           if (data.section === 'body' && data.row.index < tenantRowsData.length) {
             const tenantData = tenantRowsData[data.row.index];
             
@@ -463,6 +519,18 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
             else if (tenantData.isFastFood || tenantData.isRestaurant) {
               data.cell.styles.fillColor = [200, 255, 200]; // Light green
               data.cell.styles.textColor = [0, 100, 0]; // Dark green text
+            }
+          }
+          
+          // Bold styling for totals and average rows
+          if (data.section === 'body' && data.row.index >= tenantRowsData.length) {
+            data.cell.styles.fontStyle = 'bold';
+            if (data.row.index === tenantRowsData.length) {
+              // OVERALL TOTALS row
+              data.cell.styles.fillColor = [240, 240, 255];
+            } else {
+              // AVERAGE row
+              data.cell.styles.fillColor = [245, 245, 245];
             }
           }
         },
