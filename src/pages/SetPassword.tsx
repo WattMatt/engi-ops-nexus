@@ -10,7 +10,8 @@ import { PasswordStrengthIndicator } from "@/components/auth/PasswordStrengthInd
 import { validatePassword } from "@/lib/passwordValidation";
 import { useQuery } from "@tanstack/react-query";
 
-const SetPassword = () => {
+export default function SetPassword() {
+
   const navigate = useNavigate();
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -139,6 +140,4 @@ const SetPassword = () => {
       </Card>
     </div>
   );
-};
-
-export default SetPassword;
+}
