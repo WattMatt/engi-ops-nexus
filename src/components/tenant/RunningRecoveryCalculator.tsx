@@ -95,13 +95,14 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
 
   // Calculations
   const netTotalEnergyKWh = netEnergyKVA * kvaToKwhConversion;
+  const monthlyEnergyKWh = netTotalEnergyKWh * expectedHoursPerMonth;
   const totalDieselCostPerHour = fuelConsumptionRate * dieselPricePerLitre;
   const monthlyDieselCostPerKWh = totalDieselCostPerHour / netTotalEnergyKWh;
 
   const servicingCostPerMonth = servicingCostPerYear / 12;
   const servicingCostPerMonthByHours = (servicingCostPer250Hours / 250) * expectedHoursPerMonth;
   const additionalServicingCost = Math.max(0, servicingCostPerMonthByHours - servicingCostPerMonth);
-  const totalServicesCostPerKWh = additionalServicingCost / netTotalEnergyKWh;
+  const totalServicesCostPerKWh = monthlyEnergyKWh > 0 ? additionalServicingCost / monthlyEnergyKWh : 0;
 
   const totalFuelCost = monthlyDieselCostPerKWh;
   const totalMaintenanceCost = totalServicesCostPerKWh;
