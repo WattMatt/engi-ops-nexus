@@ -66,6 +66,41 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
     enabled: !!projectId,
   });
 
+  // Fetch tenants for zone loading calculations
+  const { data: tenants = [] } = useQuery({
+    queryKey: ["generator-tenants", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tenants")
+        .select("*")
+        .eq("project_id", projectId);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!projectId,
+  });
+
+  // Calculate loading for a tenant
+  const calculateLoading = (tenant: any): number => {
+    if (!tenant.area || tenant.own_generator_provided) return 0;
+    
+    const kwPerSqm = {
+      standard: settings.standard_kw_per_sqm,
+      fast_food: settings.fast_food_kw_per_sqm,
+      restaurant: settings.restaurant_kw_per_sqm,
+      national: settings.national_kw_per_sqm,
+    };
+
+    return tenant.area * (kwPerSqm[tenant.shop_category as keyof typeof kwPerSqm] || 0.03);
+  };
+
+  // Calculate total loading per zone
+  const getZoneLoading = (zoneId: string) => {
+    return tenants
+      .filter(t => t.generator_zone_id === zoneId && !t.own_generator_provided)
+      .reduce((sum, tenant) => sum + calculateLoading(tenant), 0);
+  };
+
   useEffect(() => {
     if (existingSettings) {
       setSettings({
@@ -291,54 +326,61 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
               <TableRow>
                 <TableHead>Zone Number</TableHead>
                 <TableHead>Zone Name</TableHead>
+                <TableHead>Calculated Load (kW)</TableHead>
                 <TableHead>Generator Size</TableHead>
                 <TableHead>Generator Cost (R)</TableHead>
                 <TableHead className="w-[100px]">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {zones.map((zone) => (
-                <TableRow key={zone.id}>
-                  <TableCell className="font-medium">Zone {zone.zone_number}</TableCell>
-                  <TableCell>{zone.zone_name}</TableCell>
-                  <TableCell>
-                    <Select
-                      value={zone.generator_size || "none"}
-                      onValueChange={(value) => handleUpdateZoneSize(zone.id, value === "none" ? null : value)}
-                    >
-                      <SelectTrigger className="w-[140px]">
-                        <SelectValue placeholder="Select size" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">No size</SelectItem>
-                        {GENERATOR_SIZING_TABLE.map((gen) => (
-                          <SelectItem key={gen.rating} value={gen.rating}>
-                            {gen.rating}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </TableCell>
-                  <TableCell>
-                    <Input
-                      type="number"
-                      value={zone.generator_cost || 0}
-                      onChange={(e) => handleUpdateZoneCost(zone.id, parseFloat(e.target.value) || 0)}
-                      className="w-[140px]"
-                      placeholder="Cost"
-                    />
-                  </TableCell>
-                  <TableCell>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDeleteZone(zone.id)}
-                    >
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {zones.map((zone) => {
+                const zoneLoading = getZoneLoading(zone.id);
+                return (
+                  <TableRow key={zone.id}>
+                    <TableCell className="font-medium">Zone {zone.zone_number}</TableCell>
+                    <TableCell>{zone.zone_name}</TableCell>
+                    <TableCell className="font-mono text-lg font-semibold text-primary">
+                      {zoneLoading.toFixed(2)} kW
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        value={zone.generator_size || "none"}
+                        onValueChange={(value) => handleUpdateZoneSize(zone.id, value === "none" ? null : value)}
+                      >
+                        <SelectTrigger className="w-[140px]">
+                          <SelectValue placeholder="Select size" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">No size</SelectItem>
+                          {GENERATOR_SIZING_TABLE.map((gen) => (
+                            <SelectItem key={gen.rating} value={gen.rating}>
+                              {gen.rating}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        type="number"
+                        value={zone.generator_cost || 0}
+                        onChange={(e) => handleUpdateZoneCost(zone.id, parseFloat(e.target.value) || 0)}
+                        className="w-[140px]"
+                        placeholder="Cost"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteZone(zone.id)}
+                      >
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         ) : (
