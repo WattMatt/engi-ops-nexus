@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/table";
 
 interface CableCostsSummaryProps {
-  scheduleId: string;
+  projectId: string;
 }
 
 interface CableSummary {
@@ -25,23 +25,33 @@ interface CableSummary {
   total_cost: number;
 }
 
-export const CableCostsSummary = ({ scheduleId }: CableCostsSummaryProps) => {
+export const CableCostsSummary = ({ projectId }: CableCostsSummaryProps) => {
   const { data: summary, isLoading } = useQuery({
-    queryKey: ["cable-costs-summary", scheduleId],
+    queryKey: ["cable-costs-summary", projectId],
     queryFn: async () => {
-      // Get all cable entries
+      // Get all cable schedules for this project
+      const { data: schedules, error: schedulesError } = await supabase
+        .from("cable_schedules")
+        .select("id")
+        .eq("project_id", projectId);
+
+      if (schedulesError) throw schedulesError;
+
+      const scheduleIds = schedules?.map(s => s.id) || [];
+
+      // Get all cable entries across all schedules
       const { data: entries, error: entriesError } = await supabase
         .from("cable_entries")
         .select("cable_type, cable_size, total_length")
-        .eq("schedule_id", scheduleId);
+        .in("schedule_id", scheduleIds);
 
       if (entriesError) throw entriesError;
 
-      // Get all rates
+      // Get all rates for this project
       const { data: rates, error: ratesError } = await supabase
         .from("cable_rates")
         .select("*")
-        .eq("schedule_id", scheduleId);
+        .eq("project_id", projectId);
 
       if (ratesError) throw ratesError;
 
@@ -85,7 +95,7 @@ export const CableCostsSummary = ({ scheduleId }: CableCostsSummaryProps) => {
 
       return Array.from(grouped.values());
     },
-    enabled: !!scheduleId,
+    enabled: !!projectId,
   });
 
   const formatCurrency = (value: number) => `R ${value.toFixed(2)}`;

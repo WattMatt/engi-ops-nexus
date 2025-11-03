@@ -513,7 +513,7 @@ export type Database = {
           created_at: string
           id: string
           install_rate_per_meter: number
-          schedule_id: string
+          project_id: string
           supply_rate_per_meter: number
           updated_at: string
         }
@@ -523,7 +523,7 @@ export type Database = {
           created_at?: string
           id?: string
           install_rate_per_meter?: number
-          schedule_id: string
+          project_id: string
           supply_rate_per_meter?: number
           updated_at?: string
         }
@@ -533,16 +533,16 @@ export type Database = {
           created_at?: string
           id?: string
           install_rate_per_meter?: number
-          schedule_id?: string
+          project_id?: string
           supply_rate_per_meter?: number
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "cable_rates_schedule_id_fkey"
-            columns: ["schedule_id"]
+            foreignKeyName: "cable_rates_project_id_fkey"
+            columns: ["project_id"]
             isOneToOne: false
-            referencedRelation: "cable_schedules"
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]

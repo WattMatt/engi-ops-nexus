@@ -35,7 +35,7 @@ import {
 } from "@/components/ui/alert-dialog";
 
 interface CableRatesManagerProps {
-  scheduleId: string;
+  projectId: string;
 }
 
 interface CableRate {
@@ -46,7 +46,7 @@ interface CableRate {
   install_rate_per_meter: number;
 }
 
-export const CableRatesManager = ({ scheduleId }: CableRatesManagerProps) => {
+export const CableRatesManager = ({ projectId }: CableRatesManagerProps) => {
   const { toast } = useToast();
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
@@ -60,18 +60,18 @@ export const CableRatesManager = ({ scheduleId }: CableRatesManagerProps) => {
   });
 
   const { data: rates, refetch } = useQuery({
-    queryKey: ["cable-rates", scheduleId],
+    queryKey: ["cable-rates", projectId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("cable_rates")
         .select("*")
-        .eq("schedule_id", scheduleId)
+        .eq("project_id", projectId)
         .order("cable_type, cable_size");
 
       if (error) throw error;
       return data as CableRate[];
     },
-    enabled: !!scheduleId,
+    enabled: !!projectId,
   });
 
   const formatCurrency = (value: number) => `R ${value.toFixed(2)}`;
@@ -79,7 +79,7 @@ export const CableRatesManager = ({ scheduleId }: CableRatesManagerProps) => {
   const handleAdd = async () => {
     try {
       const { error } = await supabase.from("cable_rates").insert({
-        schedule_id: scheduleId,
+        project_id: projectId,
         cable_type: formData.cable_type,
         cable_size: formData.cable_size,
         supply_rate_per_meter: parseFloat(formData.supply_rate_per_meter),
