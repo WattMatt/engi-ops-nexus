@@ -506,6 +506,47 @@ export type Database = {
           },
         ]
       }
+      cable_rates: {
+        Row: {
+          cable_size: string
+          cable_type: string
+          created_at: string
+          id: string
+          install_rate_per_meter: number
+          schedule_id: string
+          supply_rate_per_meter: number
+          updated_at: string
+        }
+        Insert: {
+          cable_size: string
+          cable_type: string
+          created_at?: string
+          id?: string
+          install_rate_per_meter?: number
+          schedule_id: string
+          supply_rate_per_meter?: number
+          updated_at?: string
+        }
+        Update: {
+          cable_size?: string
+          cable_type?: string
+          created_at?: string
+          id?: string
+          install_rate_per_meter?: number
+          schedule_id?: string
+          supply_rate_per_meter?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cable_rates_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "cable_schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cable_schedule_reports: {
         Row: {
           created_at: string

@@ -1,0 +1,384 @@
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Plus, Pencil, Trash2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
+interface CableRatesManagerProps {
+  scheduleId: string;
+}
+
+interface CableRate {
+  id: string;
+  cable_type: string;
+  cable_size: string;
+  supply_rate_per_meter: number;
+  install_rate_per_meter: number;
+}
+
+export const CableRatesManager = ({ scheduleId }: CableRatesManagerProps) => {
+  const { toast } = useToast();
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [selectedRate, setSelectedRate] = useState<CableRate | null>(null);
+  const [formData, setFormData] = useState({
+    cable_type: "",
+    cable_size: "",
+    supply_rate_per_meter: "",
+    install_rate_per_meter: "",
+  });
+
+  const { data: rates, refetch } = useQuery({
+    queryKey: ["cable-rates", scheduleId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("cable_rates")
+        .select("*")
+        .eq("schedule_id", scheduleId)
+        .order("cable_type, cable_size");
+
+      if (error) throw error;
+      return data as CableRate[];
+    },
+    enabled: !!scheduleId,
+  });
+
+  const formatCurrency = (value: number) => `R ${value.toFixed(2)}`;
+
+  const handleAdd = async () => {
+    try {
+      const { error } = await supabase.from("cable_rates").insert({
+        schedule_id: scheduleId,
+        cable_type: formData.cable_type,
+        cable_size: formData.cable_size,
+        supply_rate_per_meter: parseFloat(formData.supply_rate_per_meter),
+        install_rate_per_meter: parseFloat(formData.install_rate_per_meter),
+      });
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Cable rate added successfully",
+      });
+
+      refetch();
+      setShowAddDialog(false);
+      setFormData({
+        cable_type: "",
+        cable_size: "",
+        supply_rate_per_meter: "",
+        install_rate_per_meter: "",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleEdit = async () => {
+    if (!selectedRate) return;
+
+    try {
+      const { error } = await supabase
+        .from("cable_rates")
+        .update({
+          cable_type: formData.cable_type,
+          cable_size: formData.cable_size,
+          supply_rate_per_meter: parseFloat(formData.supply_rate_per_meter),
+          install_rate_per_meter: parseFloat(formData.install_rate_per_meter),
+        })
+        .eq("id", selectedRate.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Cable rate updated successfully",
+      });
+
+      refetch();
+      setShowEditDialog(false);
+      setSelectedRate(null);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!selectedRate) return;
+
+    try {
+      const { error } = await supabase
+        .from("cable_rates")
+        .delete()
+        .eq("id", selectedRate.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Cable rate deleted successfully",
+      });
+
+      refetch();
+      setShowDeleteDialog(false);
+      setSelectedRate(null);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
+  const openEditDialog = (rate: CableRate) => {
+    setSelectedRate(rate);
+    setFormData({
+      cable_type: rate.cable_type,
+      cable_size: rate.cable_size,
+      supply_rate_per_meter: rate.supply_rate_per_meter.toString(),
+      install_rate_per_meter: rate.install_rate_per_meter.toString(),
+    });
+    setShowEditDialog(true);
+  };
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle>Cable Rates</CardTitle>
+            <Button onClick={() => setShowAddDialog(true)} size="sm">
+              <Plus className="mr-2 h-4 w-4" />
+              Add Rate
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {!rates || rates.length === 0 ? (
+            <p className="text-center text-muted-foreground py-8">
+              No cable rates configured. Add rates to calculate costs automatically.
+            </p>
+          ) : (
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Cable Type</TableHead>
+                    <TableHead>Cable Size</TableHead>
+                    <TableHead>Supply Rate (per meter)</TableHead>
+                    <TableHead>Install Rate (per meter)</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {rates.map((rate) => (
+                    <TableRow key={rate.id}>
+                      <TableCell className="font-medium">{rate.cable_type}</TableCell>
+                      <TableCell>{rate.cable_size}</TableCell>
+                      <TableCell>{formatCurrency(rate.supply_rate_per_meter)}</TableCell>
+                      <TableCell>{formatCurrency(rate.install_rate_per_meter)}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => openEditDialog(rate)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => {
+                              setSelectedRate(rate);
+                              setShowDeleteDialog(true);
+                            }}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Add Dialog */}
+      <Dialog open={showAddDialog} onOpenChange={setShowAddDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Cable Rate</DialogTitle>
+            <DialogDescription>
+              Add a new cable rate for cost calculations
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="cable_type">Cable Type</Label>
+              <Input
+                id="cable_type"
+                value={formData.cable_type}
+                onChange={(e) => setFormData({ ...formData, cable_type: e.target.value })}
+                placeholder="e.g., PVC/PVC, XLPE/SWA"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="cable_size">Cable Size</Label>
+              <Input
+                id="cable_size"
+                value={formData.cable_size}
+                onChange={(e) => setFormData({ ...formData, cable_size: e.target.value })}
+                placeholder="e.g., 2.5mm², 4mm²"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="supply_rate">Supply Rate (per meter)</Label>
+              <Input
+                id="supply_rate"
+                type="number"
+                step="0.01"
+                value={formData.supply_rate_per_meter}
+                onChange={(e) => setFormData({ ...formData, supply_rate_per_meter: e.target.value })}
+                placeholder="0.00"
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="install_rate">Install Rate (per meter)</Label>
+              <Input
+                id="install_rate"
+                type="number"
+                step="0.01"
+                value={formData.install_rate_per_meter}
+                onChange={(e) => setFormData({ ...formData, install_rate_per_meter: e.target.value })}
+                placeholder="0.00"
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleAdd}>Add Rate</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Dialog */}
+      <Dialog open={showEditDialog} onOpenChange={setShowEditDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit Cable Rate</DialogTitle>
+            <DialogDescription>
+              Update the cable rate information
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="edit_cable_type">Cable Type</Label>
+              <Input
+                id="edit_cable_type"
+                value={formData.cable_type}
+                onChange={(e) => setFormData({ ...formData, cable_type: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit_cable_size">Cable Size</Label>
+              <Input
+                id="edit_cable_size"
+                value={formData.cable_size}
+                onChange={(e) => setFormData({ ...formData, cable_size: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit_supply_rate">Supply Rate (per meter)</Label>
+              <Input
+                id="edit_supply_rate"
+                type="number"
+                step="0.01"
+                value={formData.supply_rate_per_meter}
+                onChange={(e) => setFormData({ ...formData, supply_rate_per_meter: e.target.value })}
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit_install_rate">Install Rate (per meter)</Label>
+              <Input
+                id="edit_install_rate"
+                type="number"
+                step="0.01"
+                value={formData.install_rate_per_meter}
+                onChange={(e) => setFormData({ ...formData, install_rate_per_meter: e.target.value })}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowEditDialog(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleEdit}>Update Rate</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Cable Rate</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this cable rate? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete}>Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div>
+  );
+};

@@ -3,9 +3,12 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CableScheduleOverview } from "@/components/cable-schedules/CableScheduleOverview";
 import { CableEntriesManager } from "@/components/cable-schedules/CableEntriesManager";
 import { SavedReportsList } from "@/components/cable-schedules/SavedReportsList";
+import { CableRatesManager } from "@/components/cable-schedules/CableRatesManager";
+import { CableCostsSummary } from "@/components/cable-schedules/CableCostsSummary";
 
 const CableScheduleDetail = () => {
   const { scheduleId } = useParams();
@@ -54,8 +57,27 @@ const CableScheduleDetail = () => {
       </div>
 
       <CableScheduleOverview schedule={schedule} />
-      <CableEntriesManager scheduleId={scheduleId!} />
-      <SavedReportsList scheduleId={scheduleId!} />
+
+      <Tabs defaultValue="cables" className="w-full">
+        <TabsList className="grid w-full grid-cols-4 h-12">
+          <TabsTrigger value="cables" className="text-base">Cable Tables</TabsTrigger>
+          <TabsTrigger value="saved" className="text-base">Saved Schedules</TabsTrigger>
+          <TabsTrigger value="rates" className="text-base">Rates</TabsTrigger>
+          <TabsTrigger value="costs" className="text-base">Costs</TabsTrigger>
+        </TabsList>
+        <TabsContent value="cables" className="mt-6">
+          <CableEntriesManager scheduleId={scheduleId!} />
+        </TabsContent>
+        <TabsContent value="saved" className="mt-6">
+          <SavedReportsList scheduleId={scheduleId!} />
+        </TabsContent>
+        <TabsContent value="rates" className="mt-6">
+          <CableRatesManager scheduleId={scheduleId!} />
+        </TabsContent>
+        <TabsContent value="costs" className="mt-6">
+          <CableCostsSummary scheduleId={scheduleId!} />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
