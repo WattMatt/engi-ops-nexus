@@ -324,7 +324,7 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       yPos += 10;
 
       // Tenant schedule with calculations
-      const tenantRows = tenants
+      const tenantRowsData = tenants
         .filter(t => t.generator_zone_id) // Only tenants assigned to generator zones
         .map(tenant => {
           const dbSize = tenant.db_size_allowance || "0A";
@@ -333,6 +333,7 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
           
           // Determine if fast food (higher load multiplier)
           const isFastFood = tenant.shop_category === "fast-food";
+          const isRestaurant = tenant.shop_category === "restaurant";
           const loadMultiplier = isFastFood ? 3 : 1;
           const adjustedLoad = actualLoad * loadMultiplier;
           
@@ -343,16 +344,23 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
           const monthlyRecovery = (percentOfTotal / 100) * monthlyCapitalRepayment;
           const costPerArea = tenant.area > 0 ? monthlyRecovery / tenant.area : 0;
           
-          return [
-            tenant.shop_number,
-            tenant.shop_name,
-            tenant.area?.toFixed(0) || "0",
-            adjustedLoad.toFixed(2),
-            `${percentOfTotal.toFixed(2)}%`,
-            formatCurrency(monthlyRecovery),
-            `R ${costPerArea.toFixed(2)}`,
-          ];
+          return {
+            row: [
+              tenant.shop_number,
+              tenant.shop_name,
+              tenant.area?.toFixed(0) || "0",
+              adjustedLoad.toFixed(2),
+              `${percentOfTotal.toFixed(2)}%`,
+              formatCurrency(monthlyRecovery),
+              `R ${costPerArea.toFixed(2)}`,
+            ],
+            hasOwnGenerator: tenant.own_generator_provided,
+            isFastFood,
+            isRestaurant,
+          };
         });
+
+      const tenantRows = tenantRowsData.map(t => t.row);
 
       // Add mall common area
       const commonAreaLoad = 15; // kW
@@ -408,6 +416,23 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
           6: { cellWidth: 18, halign: "right" },
         },
         margin: { left: 14, right: 14 },
+        willDrawCell: (data) => {
+          // Apply color coding to tenant rows
+          if (data.section === 'body' && data.row.index < tenantRowsData.length) {
+            const tenantData = tenantRowsData[data.row.index];
+            
+            // Red background for tenants with own generator
+            if (tenantData.hasOwnGenerator) {
+              data.cell.styles.fillColor = [255, 200, 200]; // Light red
+              data.cell.styles.textColor = [139, 0, 0]; // Dark red text
+            }
+            // Green background for fast food and restaurants
+            else if (tenantData.isFastFood || tenantData.isRestaurant) {
+              data.cell.styles.fillColor = [200, 255, 200]; // Light green
+              data.cell.styles.textColor = [0, 100, 0]; // Dark green text
+            }
+          }
+        },
       });
 
       // ========== PAGE 4: CAPITAL RECOVERY CALCULATOR ==========
