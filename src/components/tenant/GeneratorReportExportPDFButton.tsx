@@ -64,12 +64,27 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
   const { data: tenants = [] } = useQuery({
     queryKey: ["tenants-pdf", projectId],
     queryFn: async () => {
+      if (!projectId) return [];
       const { data, error } = await supabase
         .from("tenants")
         .select("*")
         .eq("project_id", projectId);
       if (error) throw error;
-      return data || [];
+      
+      // Sort shop numbers numerically (same as on-screen display)
+      return (data || []).sort((a, b) => {
+        const matchA = a.shop_number.match(/\d+/);
+        const matchB = b.shop_number.match(/\d+/);
+        
+        const numA = matchA ? parseInt(matchA[0]) : 0;
+        const numB = matchB ? parseInt(matchB[0]) : 0;
+        
+        if (numA !== numB) {
+          return numA - numB;
+        }
+        
+        return a.shop_number.localeCompare(b.shop_number, undefined, { numeric: true });
+      });
     },
     enabled: !!projectId,
   });
