@@ -82,8 +82,10 @@ Deno.serve(async (req) => {
     const resetLink = resetData.properties.action_link
 
     // Send password reset email
-    const { error: emailError } = await resend.emails.send({
-      from: 'noreply@updates.lovable.app',
+    console.log('Attempting to send email to:', profile.email)
+    
+    const emailResult = await resend.emails.send({
+      from: 'onboarding@resend.dev',
       to: profile.email,
       subject: 'Password Reset Request',
       html: `
@@ -99,9 +101,9 @@ Deno.serve(async (req) => {
       `,
     })
 
-    if (emailError) {
-      console.error('Error sending email:', emailError)
-      throw new Error('Failed to send password reset email')
+    if (emailResult.error) {
+      console.error('Resend API error:', JSON.stringify(emailResult.error))
+      throw new Error(`Failed to send password reset email: ${emailResult.error.message || 'Unknown error'}`)
     }
 
     console.log('Password reset email sent to:', profile.email)
