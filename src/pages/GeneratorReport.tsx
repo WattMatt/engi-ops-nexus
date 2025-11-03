@@ -7,6 +7,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Badge } from "@/components/ui/badge";
 import { GeneratorTenantList } from "@/components/tenant/GeneratorTenantList";
 import { GeneratorSizingTable } from "@/components/tenant/GeneratorSizingTable";
+import { RunningRecoveryCalculator } from "@/components/tenant/RunningRecoveryCalculator";
 import { ChevronDown } from "lucide-react";
 
 const GeneratorReport = () => {
@@ -134,15 +135,7 @@ const GeneratorReport = () => {
                 <ChevronDown className="h-5 w-5 transition-transform duration-200" />
               </CollapsibleTrigger>
               <CollapsibleContent className="mt-2">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Running Recovery Analysis</CardTitle>
-                    <CardDescription>Ongoing operational cost recovery</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="text-muted-foreground">Running recovery data will be displayed here.</p>
-                  </CardContent>
-                </Card>
+                <RunningRecoveryCalculator />
               </CollapsibleContent>
             </Collapsible>
           </div>
