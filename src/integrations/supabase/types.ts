@@ -515,6 +515,7 @@ export type Database = {
           install_rate_per_meter: number
           project_id: string
           supply_rate_per_meter: number
+          termination_cost_per_end: number
           updated_at: string
         }
         Insert: {
@@ -525,6 +526,7 @@ export type Database = {
           install_rate_per_meter?: number
           project_id: string
           supply_rate_per_meter?: number
+          termination_cost_per_end?: number
           updated_at?: string
         }
         Update: {
@@ -535,6 +537,7 @@ export type Database = {
           install_rate_per_meter?: number
           project_id?: string
           supply_rate_per_meter?: number
+          termination_cost_per_end?: number
           updated_at?: string
         }
         Relationships: [

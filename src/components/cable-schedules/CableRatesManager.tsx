@@ -44,6 +44,7 @@ interface CableRate {
   cable_size: string;
   supply_rate_per_meter: number;
   install_rate_per_meter: number;
+  termination_cost_per_end: number;
 }
 
 export const CableRatesManager = ({ projectId }: CableRatesManagerProps) => {
@@ -57,6 +58,7 @@ export const CableRatesManager = ({ projectId }: CableRatesManagerProps) => {
     cable_size: "",
     supply_rate_per_meter: "",
     install_rate_per_meter: "",
+    termination_cost_per_end: "",
   });
 
   const { data: rates, refetch } = useQuery({
@@ -84,6 +86,7 @@ export const CableRatesManager = ({ projectId }: CableRatesManagerProps) => {
         cable_size: formData.cable_size,
         supply_rate_per_meter: parseFloat(formData.supply_rate_per_meter),
         install_rate_per_meter: parseFloat(formData.install_rate_per_meter),
+        termination_cost_per_end: parseFloat(formData.termination_cost_per_end),
       });
 
       if (error) throw error;
@@ -100,6 +103,7 @@ export const CableRatesManager = ({ projectId }: CableRatesManagerProps) => {
         cable_size: "",
         supply_rate_per_meter: "",
         install_rate_per_meter: "",
+        termination_cost_per_end: "",
       });
     } catch (error: any) {
       toast({
@@ -121,6 +125,7 @@ export const CableRatesManager = ({ projectId }: CableRatesManagerProps) => {
           cable_size: formData.cable_size,
           supply_rate_per_meter: parseFloat(formData.supply_rate_per_meter),
           install_rate_per_meter: parseFloat(formData.install_rate_per_meter),
+          termination_cost_per_end: parseFloat(formData.termination_cost_per_end),
         })
         .eq("id", selectedRate.id);
 
@@ -178,6 +183,7 @@ export const CableRatesManager = ({ projectId }: CableRatesManagerProps) => {
       cable_size: rate.cable_size,
       supply_rate_per_meter: rate.supply_rate_per_meter.toString(),
       install_rate_per_meter: rate.install_rate_per_meter.toString(),
+      termination_cost_per_end: rate.termination_cost_per_end.toString(),
     });
     setShowEditDialog(true);
   };
@@ -208,6 +214,7 @@ export const CableRatesManager = ({ projectId }: CableRatesManagerProps) => {
                     <TableHead>Cable Size</TableHead>
                     <TableHead>Supply Rate (per meter)</TableHead>
                     <TableHead>Install Rate (per meter)</TableHead>
+                    <TableHead>Termination Cost (per end)</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -218,6 +225,7 @@ export const CableRatesManager = ({ projectId }: CableRatesManagerProps) => {
                       <TableCell>{rate.cable_size}</TableCell>
                       <TableCell>{formatCurrency(rate.supply_rate_per_meter)}</TableCell>
                       <TableCell>{formatCurrency(rate.install_rate_per_meter)}</TableCell>
+                      <TableCell>{formatCurrency(rate.termination_cost_per_end)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
                           <Button
@@ -298,6 +306,20 @@ export const CableRatesManager = ({ projectId }: CableRatesManagerProps) => {
                 placeholder="0.00"
               />
             </div>
+            <div className="grid gap-2">
+              <Label htmlFor="termination_cost">Termination Cost (per end)</Label>
+              <Input
+                id="termination_cost"
+                type="number"
+                step="0.01"
+                value={formData.termination_cost_per_end}
+                onChange={(e) => setFormData({ ...formData, termination_cost_per_end: e.target.value })}
+                placeholder="0.00"
+              />
+              <p className="text-xs text-muted-foreground">
+                Typically 2 terminations per cable run (one at each end)
+              </p>
+            </div>
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAddDialog(false)}>
@@ -353,6 +375,19 @@ export const CableRatesManager = ({ projectId }: CableRatesManagerProps) => {
                 value={formData.install_rate_per_meter}
                 onChange={(e) => setFormData({ ...formData, install_rate_per_meter: e.target.value })}
               />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit_termination_cost">Termination Cost (per end)</Label>
+              <Input
+                id="edit_termination_cost"
+                type="number"
+                step="0.01"
+                value={formData.termination_cost_per_end}
+                onChange={(e) => setFormData({ ...formData, termination_cost_per_end: e.target.value })}
+              />
+              <p className="text-xs text-muted-foreground">
+                Typically 2 terminations per cable run (one at each end)
+              </p>
             </div>
           </div>
           <DialogFooter>

@@ -18,10 +18,13 @@ interface CableSummary {
   cable_type: string;
   cable_size: string;
   total_length: number;
+  cable_count: number;
   supply_rate: number;
   install_rate: number;
+  termination_rate: number;
   supply_cost: number;
   install_cost: number;
+  termination_cost: number;
   total_cost: number;
 }
 
@@ -42,7 +45,7 @@ export const CableCostsSummary = ({ projectId }: CableCostsSummaryProps) => {
       // Get all cable entries across all schedules
       const { data: entries, error: entriesError } = await supabase
         .from("cable_entries")
-        .select("cable_type, cable_size, total_length")
+        .select("cable_type, cable_size, total_length, cable_number")
         .in("schedule_id", scheduleIds);
 
       if (entriesError) throw entriesError;
@@ -61,18 +64,23 @@ export const CableCostsSummary = ({ projectId }: CableCostsSummaryProps) => {
       entries?.forEach((entry) => {
         const key = `${entry.cable_type}-${entry.cable_size}`;
         const existing = grouped.get(key);
+        const cableCount = entry.cable_number || 1;
 
         if (existing) {
           existing.total_length += entry.total_length || 0;
+          existing.cable_count += cableCount;
         } else {
           grouped.set(key, {
             cable_type: entry.cable_type || "Unknown",
             cable_size: entry.cable_size || "Unknown",
             total_length: entry.total_length || 0,
+            cable_count: cableCount,
             supply_rate: 0,
             install_rate: 0,
+            termination_rate: 0,
             supply_cost: 0,
             install_cost: 0,
+            termination_cost: 0,
             total_cost: 0,
           });
         }
@@ -87,9 +95,13 @@ export const CableCostsSummary = ({ projectId }: CableCostsSummaryProps) => {
         if (rate) {
           summary.supply_rate = rate.supply_rate_per_meter;
           summary.install_rate = rate.install_rate_per_meter;
+          summary.termination_rate = rate.termination_cost_per_end;
+          
           summary.supply_cost = summary.total_length * rate.supply_rate_per_meter;
           summary.install_cost = summary.total_length * rate.install_rate_per_meter;
-          summary.total_cost = summary.supply_cost + summary.install_cost;
+          // Each cable has 2 terminations (one at each end)
+          summary.termination_cost = summary.cable_count * 2 * rate.termination_cost_per_end;
+          summary.total_cost = summary.supply_cost + summary.install_cost + summary.termination_cost;
         }
       });
 
@@ -104,9 +116,10 @@ export const CableCostsSummary = ({ projectId }: CableCostsSummaryProps) => {
     (acc, item) => ({
       supply: acc.supply + item.supply_cost,
       install: acc.install + item.install_cost,
+      termination: acc.termination + item.termination_cost,
       total: acc.total + item.total_cost,
     }),
-    { supply: 0, install: 0, total: 0 }
+    { supply: 0, install: 0, termination: 0, total: 0 }
   );
 
   if (isLoading) {
@@ -132,11 +145,11 @@ export const CableCostsSummary = ({ projectId }: CableCostsSummaryProps) => {
                     <TableRow>
                       <TableHead>Cable Type</TableHead>
                       <TableHead>Cable Size</TableHead>
+                      <TableHead className="text-right">Cables</TableHead>
                       <TableHead className="text-right">Total Length (m)</TableHead>
-                      <TableHead className="text-right">Supply Rate</TableHead>
-                      <TableHead className="text-right">Install Rate</TableHead>
                       <TableHead className="text-right">Supply Cost</TableHead>
                       <TableHead className="text-right">Install Cost</TableHead>
+                      <TableHead className="text-right">Termination Cost</TableHead>
                       <TableHead className="text-right">Total Cost</TableHead>
                     </TableRow>
                   </TableHeader>
@@ -145,18 +158,16 @@ export const CableCostsSummary = ({ projectId }: CableCostsSummaryProps) => {
                       <TableRow key={index}>
                         <TableCell className="font-medium">{item.cable_type}</TableCell>
                         <TableCell>{item.cable_size}</TableCell>
+                        <TableCell className="text-right">{item.cable_count}</TableCell>
                         <TableCell className="text-right">{item.total_length.toFixed(2)}</TableCell>
-                        <TableCell className="text-right">
-                          {item.supply_rate > 0 ? formatCurrency(item.supply_rate) : "-"}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {item.install_rate > 0 ? formatCurrency(item.install_rate) : "-"}
-                        </TableCell>
                         <TableCell className="text-right">
                           {formatCurrency(item.supply_cost)}
                         </TableCell>
                         <TableCell className="text-right">
                           {formatCurrency(item.install_cost)}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {formatCurrency(item.termination_cost)}
                         </TableCell>
                         <TableCell className="text-right font-semibold">
                           {formatCurrency(item.total_cost)}
@@ -164,9 +175,10 @@ export const CableCostsSummary = ({ projectId }: CableCostsSummaryProps) => {
                       </TableRow>
                     ))}
                     <TableRow className="bg-muted/50 font-bold">
-                      <TableCell colSpan={5}>Total</TableCell>
+                      <TableCell colSpan={4}>Total</TableCell>
                       <TableCell className="text-right">{formatCurrency(totals?.supply || 0)}</TableCell>
                       <TableCell className="text-right">{formatCurrency(totals?.install || 0)}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(totals?.termination || 0)}</TableCell>
                       <TableCell className="text-right">{formatCurrency(totals?.total || 0)}</TableCell>
                     </TableRow>
                   </TableBody>
