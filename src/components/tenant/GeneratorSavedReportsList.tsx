@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { FileText, Download, Trash2, Eye } from "lucide-react";
+import { FileText, Download, Trash2, Eye, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { useState } from "react";
@@ -23,6 +23,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Document, Page, pdfjs } from "react-pdf";
+import "react-pdf/dist/Page/AnnotationLayer.css";
+import "react-pdf/dist/Page/TextLayer.css";
+
+// Configure PDF.js worker
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 interface GeneratorSavedReportsListProps {
   projectId: string;
@@ -34,6 +40,8 @@ export function GeneratorSavedReportsList({ projectId }: GeneratorSavedReportsLi
   const [previewReport, setPreviewReport] = useState<any>(null);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [isLoadingPreview, setIsLoadingPreview] = useState(false);
+  const [numPages, setNumPages] = useState<number>(0);
+  const [pageNumber, setPageNumber] = useState<number>(1);
 
   // Fetch saved reports
   const { data: reports = [], isLoading } = useQuery({
@@ -107,6 +115,20 @@ export function GeneratorSavedReportsList({ projectId }: GeneratorSavedReportsLi
   const handleClosePreview = () => {
     setPdfUrl(null);
     setPreviewReport(null);
+    setPageNumber(1);
+    setNumPages(0);
+  };
+
+  const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
+    setNumPages(numPages);
+    setPageNumber(1);
+    setIsLoadingPreview(false);
+  };
+
+  const onDocumentLoadError = (error: Error) => {
+    console.error("Error loading PDF:", error);
+    toast.error("Failed to load PDF preview");
+    setIsLoadingPreview(false);
   };
 
   // Delete report mutation
@@ -230,25 +252,73 @@ export function GeneratorSavedReportsList({ projectId }: GeneratorSavedReportsLi
 
       {/* Preview Dialog */}
       <Dialog open={!!previewReport} onOpenChange={handleClosePreview}>
-        <DialogContent className="max-w-6xl h-[85vh] flex flex-col">
+        <DialogContent className="max-w-5xl h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>{previewReport?.report_name}</DialogTitle>
             <DialogDescription>
-              Preview of the generated PDF report
+              Preview of the generated PDF report - Page {pageNumber} of {numPages}
             </DialogDescription>
           </DialogHeader>
-          <div className="flex-1 min-h-0 overflow-hidden">
+          <div className="flex-1 overflow-auto flex flex-col items-center bg-gray-100">
             {isLoadingPreview ? (
               <div className="flex items-center justify-center h-full">
                 <p className="text-muted-foreground">Loading preview...</p>
               </div>
             ) : pdfUrl ? (
-              <iframe
-                src={`${pdfUrl}#view=FitH`}
-                className="w-full h-full rounded-md border-0"
-                title="PDF Preview"
-                style={{ minHeight: '600px' }}
-              />
+              <div className="w-full h-full flex flex-col">
+                <Document
+                  file={pdfUrl}
+                  onLoadSuccess={onDocumentLoadSuccess}
+                  onLoadError={onDocumentLoadError}
+                  loading={
+                    <div className="flex items-center justify-center h-full">
+                      <p className="text-muted-foreground">Loading PDF...</p>
+                    </div>
+                  }
+                  className="flex-1 flex justify-center"
+                >
+                  <Page
+                    pageNumber={pageNumber}
+                    renderTextLayer={true}
+                    renderAnnotationLayer={true}
+                    width={700}
+                    className="shadow-lg"
+                  />
+                </Document>
+                {numPages > 1 && (
+                  <div className="flex items-center justify-center gap-4 py-4 bg-white border-t">
+                    <Button
+                      onClick={() => setPageNumber(Math.max(1, pageNumber - 1))}
+                      disabled={pageNumber <= 1}
+                      variant="outline"
+                      size="sm"
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      Previous
+                    </Button>
+                    <span className="text-sm font-medium">
+                      Page {pageNumber} of {numPages}
+                    </span>
+                    <Button
+                      onClick={() => setPageNumber(Math.min(numPages, pageNumber + 1))}
+                      disabled={pageNumber >= numPages}
+                      variant="outline"
+                      size="sm"
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                    <Button
+                      onClick={() => previewReport && handleDownload(previewReport.file_path, previewReport.report_name)}
+                      variant="default"
+                      size="sm"
+                    >
+                      <Download className="h-4 w-4 mr-1" />
+                      Download
+                    </Button>
+                  </div>
+                )}
+              </div>
             ) : (
               <div className="flex flex-col items-center justify-center h-full gap-4">
                 <p className="text-destructive">Failed to load preview</p>
