@@ -44,7 +44,7 @@ export function CapitalRecoveryCalculator({ projectId }: CapitalRecoveryCalculat
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tenants")
-        .select("id")
+        .select("id, own_generator_provided")
         .eq("project_id", projectId);
 
       if (error) throw error;
@@ -68,11 +68,31 @@ export function CapitalRecoveryCalculator({ projectId }: CapitalRecoveryCalculat
     enabled: !!projectId,
   });
 
-  // Update capital cost when data changes
+  // Update capital cost when data changes - use same calculation as GeneratorCostingSection
   useEffect(() => {
-    const generatorCost = zones.reduce((sum, zone) => sum + (zone.generator_cost || 0), 0);
-    const tenantCost = tenants.length * (settings?.tenant_rate || 0);
-    const totalCost = generatorCost + tenantCost;
+    // Calculate generator cost accounting for quantity per zone
+    const generatorCost = zones.reduce((sum, zone) => {
+      const numGens = zone.num_generators || 1;
+      const costPerGen = zone.generator_cost || 0;
+      return sum + (costPerGen * numGens);
+    }, 0);
+    
+    // Calculate tenant DBs cost (auto-calculated based on tenants without own generator)
+    const numTenantDBs = tenants.filter(t => !t.own_generator_provided).length;
+    const ratePerTenantDB = settings?.rate_per_tenant_db || 0;
+    const tenantDBsCost = numTenantDBs * ratePerTenantDB;
+    
+    // Calculate main boards cost
+    const numMainBoards = settings?.num_main_boards || 0;
+    const ratePerMainBoard = settings?.rate_per_main_board || 0;
+    const mainBoardsCost = numMainBoards * ratePerMainBoard;
+    
+    // Get additional costs
+    const additionalCablingCost = settings?.additional_cabling_cost || 0;
+    const controlWiringCost = settings?.control_wiring_cost || 0;
+    
+    // Total matches GeneratorCostingSection exactly
+    const totalCost = generatorCost + tenantDBsCost + mainBoardsCost + additionalCablingCost + controlWiringCost;
     
     if (totalCost > 0) {
       setCapitalCost(totalCost);
