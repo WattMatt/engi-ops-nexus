@@ -31,36 +31,23 @@ export default function SetPassword() {
   });
 
   useEffect(() => {
-    // Listen for auth state changes (this will catch the recovery token processing)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth event:', event, 'Session:', !!session);
-      
-      if (event === 'PASSWORD_RECOVERY') {
-        // User clicked the reset link, now they can set password
+    // Check if user is authenticated (either from reset link or first login)
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        // User is already authenticated (first login scenario)
         setIsValidating(false);
-      } else if (event === 'SIGNED_IN' && session) {
-        // Recovery token processed successfully
-        setIsValidating(false);
-      } else if (event === 'SIGNED_OUT' || !session) {
-        // No valid session or recovery token after initial check
-        setTimeout(() => {
-          if (isValidating) {
-            toast.error("Invalid or expired reset link");
-            navigate("/auth");
-          }
-        }, 2000); // Give Supabase time to process the recovery token
       }
     });
 
-    // Also check current session
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session) {
+    // Listen for auth state changes (for recovery token processing)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'PASSWORD_RECOVERY' || (event === 'SIGNED_IN' && session)) {
         setIsValidating(false);
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [navigate, isValidating]);
+  }, []);
 
   const handleSetPassword = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -61,15 +61,27 @@ const Auth = () => {
     setLoading(true);
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) throw error;
-      
-      toast.success("Logged in successfully");
-      navigate("/projects");
+
+      // Check if user needs to change password
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("must_change_password")
+        .eq("id", data.user?.id)
+        .single();
+
+      if (profile?.must_change_password) {
+        toast.info("Please change your password");
+        navigate("/auth/set-password");
+      } else {
+        toast.success("Logged in successfully");
+        navigate("/projects");
+      }
     } catch (error: any) {
       toast.error(error.message || "Failed to login");
     } finally {

@@ -47,6 +47,7 @@ export function ManageUserDialog({ user, onUpdated, children }: ManageUserDialog
   const [open, setOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [newPassword, setNewPassword] = useState("");
   const [role, setRole] = useState(user.role || "user");
   const { logActivity } = useActivityLogger();
 
@@ -97,59 +98,45 @@ export function ManageUserDialog({ user, onUpdated, children }: ManageUserDialog
     }
   };
 
-  const handleResetPassword = async () => {
+  const handleSetPassword = async () => {
+    if (!newPassword || newPassword.length < 8) {
+      toast.error("Password must be at least 8 characters");
+      return;
+    }
+
     setLoading(true);
     try {
-      // Get the current user's session token
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      const { data, error } = await supabase.functions.invoke("reset-user-password", {
-        headers: {
-          Authorization: `Bearer ${session?.access_token}`
-        },
-        body: {
-          userId: user.id,
-        },
+      // Update user password using admin API
+      const { error } = await supabase.auth.admin.updateUserById(user.id, {
+        password: newPassword
       });
 
-      const errorMessage = error?.message || (data as any)?.error;
-      
-      if (error || errorMessage) {
-        toast.error("Failed to Generate Reset Link", {
-          description: String(errorMessage || 'An error occurred'),
-        });
-        setLoading(false);
-        return;
-      }
+      if (error) throw error;
+
+      // Mark user as needing to change password on first login
+      await supabase
+        .from("profiles")
+        .update({
+          must_change_password: true,
+          status: 'active'
+        })
+        .eq("id", user.id);
 
       await logActivity(
         'update',
-        `Generated password reset link for ${user.full_name}`,
+        `Set initial password for ${user.full_name}`,
         { userId: user.id }
       );
 
-      // Copy reset link to clipboard
-      const resetLink = (data as any)?.resetLink;
-      if (resetLink) {
-        try {
-          await navigator.clipboard.writeText(resetLink);
-          toast.success("Password Reset Link Copied!", {
-            description: `Share this link with ${user.email}. It has been copied to your clipboard.`,
-            duration: 10000,
-          });
-        } catch (clipboardError) {
-          // Fallback: Show the link in the toast if clipboard fails
-          toast.success("Password Reset Link Generated!", {
-            description: `Copy and share this link with ${user.email}: ${resetLink}`,
-            duration: 15000,
-          });
-        }
-      } else {
-        toast.error("Failed to get reset link");
-      }
+      toast.success("Password Set!", {
+        description: `Share these credentials with ${user.email}. They will be required to change it on first login.`,
+        duration: 10000,
+      });
+      
+      setNewPassword("");
     } catch (error: any) {
       toast.error("Error", {
-        description: error.message || "Failed to generate reset link",
+        description: error.message || "Failed to set password",
       });
     } finally {
       setLoading(false);
@@ -213,20 +200,27 @@ export function ManageUserDialog({ user, onUpdated, children }: ManageUserDialog
             </div>
 
             <div className="space-y-2">
-              <Label>Password Reset</Label>
+              <Label>Set Initial Password</Label>
               <p className="text-sm text-muted-foreground mb-2">
-                Send a secure password reset link to the user's email.
+                Set a temporary password. User will be required to change it on first login.
               </p>
+              <Input
+                type="password"
+                placeholder="Enter initial password"
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                disabled={loading}
+              />
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={handleResetPassword}
-                disabled={loading}
+                onClick={handleSetPassword}
+                disabled={loading || !newPassword}
                 className="w-full"
               >
                 <KeyRound className="h-4 w-4 mr-2" />
-                Send Password Reset Link
+                Set Initial Password
               </Button>
             </div>
 
