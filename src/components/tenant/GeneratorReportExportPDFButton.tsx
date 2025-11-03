@@ -338,26 +338,39 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       doc.text("SIZING AND ALLOWANCES:", 14, yPos);
       yPos += 10;
 
-      // Tenant schedule with calculations
-      const tenantRowsData = tenants
-        .filter(t => t.generator_zone_id) // Only tenants assigned to generator zones
+      // Tenant schedule with calculations (matching on-screen display)
+      // First, calculate all tenant loads to get the total
+      const tenantLoads = tenants
+        .filter(t => t.generator_zone_id)
         .map(tenant => {
-          const dbSize = tenant.db_size_allowance || "0A";
-          const amperage = parseInt(dbSize.replace(/\D/g, "")) || 0;
-          const actualLoad = (amperage * 0.4 * 3.3 * 0.8) / 1000; // kW calculation
+          const kwPerSqm = {
+            standard: generatorSettings?.standard_kw_per_sqm || 0.03,
+            'fast-food': generatorSettings?.fast_food_kw_per_sqm || 0.045,
+            fast_food: generatorSettings?.fast_food_kw_per_sqm || 0.045,
+            restaurant: generatorSettings?.restaurant_kw_per_sqm || 0.045,
+            national: generatorSettings?.national_kw_per_sqm || 0.03,
+          };
+          const categoryKw = kwPerSqm[tenant.shop_category as keyof typeof kwPerSqm] || 0.03;
+          return tenant.own_generator_provided ? 0 : (tenant.area || 0) * categoryKw;
+        });
+      
+      const totalTenantLoad = tenantLoads.reduce((sum, load) => sum + load, 0);
+
+      const tenantRowsData = tenants
+        .filter(t => t.generator_zone_id)
+        .map((tenant, index) => {
+          const adjustedLoad = tenantLoads[index];
           
-          // Determine if fast food (higher load multiplier)
-          const isFastFood = tenant.shop_category === "fast-food";
+          const isFastFood = tenant.shop_category === "fast-food" || tenant.shop_category === "fast_food";
           const isRestaurant = tenant.shop_category === "restaurant";
-          const loadMultiplier = isFastFood ? 3 : 1;
-          const adjustedLoad = actualLoad * loadMultiplier;
           
-          const percentOfTotal = metrics && metrics.totalCapacity > 0 
-            ? (adjustedLoad / metrics.totalCapacity) * 100 
+          // Calculate percentage based on total tenant load (matching on-screen display)
+          const percentOfTotal = totalTenantLoad > 0 
+            ? (adjustedLoad / totalTenantLoad) * 100 
             : 0;
           
           const monthlyRecovery = (percentOfTotal / 100) * monthlyCapitalRepayment;
-          const costPerArea = tenant.area > 0 ? monthlyRecovery / tenant.area : 0;
+          const costPerArea = tenant.area && tenant.area > 0 ? monthlyRecovery / tenant.area : 0;
           
           return {
             row: [
@@ -379,8 +392,8 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
 
       // Add mall common area
       const commonAreaLoad = 15; // kW
-      const commonAreaPercent = metrics && metrics.totalCapacity > 0 
-        ? (commonAreaLoad / metrics.totalCapacity) * 100 
+      const commonAreaPercent = totalTenantLoad > 0 
+        ? (commonAreaLoad / totalTenantLoad) * 100 
         : 0;
       const commonAreaRecovery = (commonAreaPercent / 100) * monthlyCapitalRepayment;
       
