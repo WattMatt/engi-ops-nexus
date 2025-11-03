@@ -56,10 +56,11 @@ const ProjectSelect = () => {
     navigate("/auth");
   };
 
+  // Wait for both projects and role to load before showing anything
   if (loading || roleLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-muted-foreground">Loading projects...</p>
+        <p className="text-muted-foreground">Loading...</p>
       </div>
     );
   }
