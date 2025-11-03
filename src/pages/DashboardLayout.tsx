@@ -6,12 +6,31 @@ import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { ProjectDropdown } from "@/components/ProjectDropdown";
 import { LogOut } from "lucide-react";
+import { FirstLoginModal } from "@/components/auth/FirstLoginModal";
+import { useQuery } from "@tanstack/react-query";
 
 const DashboardLayout = () => {
   const navigate = useNavigate();
   const [projectName, setProjectName] = useState<string>("");
   const [projectNumber, setProjectNumber] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<any>(null);
+  const [mustChangePassword, setMustChangePassword] = useState(false);
+
+  // Check user's profile for password change requirements
+  const { data: profile, refetch: refetchProfile } = useQuery({
+    queryKey: ['user-profile', user?.id],
+    queryFn: async () => {
+      if (!user) return null;
+      const { data } = await supabase
+        .from('profiles')
+        .select('first_login, must_change_password')
+        .eq('id', user.id)
+        .single();
+      return data;
+    },
+    enabled: !!user,
+  });
 
   useEffect(() => {
     checkAuth();
@@ -24,7 +43,15 @@ const DashboardLayout = () => {
       navigate("/auth");
       return;
     }
+    setUser(session.user);
   };
+
+  // Check if user must change password
+  useEffect(() => {
+    if (profile) {
+      setMustChangePassword(profile.first_login || profile.must_change_password);
+    }
+  }, [profile]);
 
   const loadProjectInfo = async () => {
     const projectId = localStorage.getItem("selectedProjectId");
@@ -51,6 +78,14 @@ const DashboardLayout = () => {
     localStorage.removeItem("selectedProjectId");
     navigate("/auth");
   };
+
+  // Show password change modal if required
+  if (mustChangePassword) {
+    return <FirstLoginModal onPasswordChanged={() => {
+      setMustChangePassword(false);
+      refetchProfile();
+    }} />;
+  }
 
   return (
     <SidebarProvider>

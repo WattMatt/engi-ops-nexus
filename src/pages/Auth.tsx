@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
 import { Building2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import { ForgotPasswordDialog } from "@/components/auth/ForgotPasswordDialog";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -155,6 +156,9 @@ const Auth = () => {
                     onChange={(e) => setPassword(e.target.value)}
                     required
                   />
+                </div>
+                <div className="flex justify-end">
+                  <ForgotPasswordDialog />
                 </div>
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading ? "Logging in..." : "Login"}

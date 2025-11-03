@@ -2450,6 +2450,36 @@ export type Database = {
         }
         Relationships: []
       }
+      password_reset_requests: {
+        Row: {
+          completed_at: string | null
+          created_at: string | null
+          email: string
+          id: string
+          requested_at: string | null
+          requested_by: string | null
+          user_id: string | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string | null
+          email: string
+          id?: string
+          requested_at?: string | null
+          requested_by?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string | null
+          email?: string
+          id?: string
+          requested_at?: string | null
+          requested_by?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       pay_slips: {
         Row: {
           created_at: string
@@ -2713,10 +2743,13 @@ export type Database = {
         Row: {
           created_at: string
           email: string
+          first_login: boolean | null
           full_name: string
           id: string
           last_login_at: string | null
           login_count: number | null
+          must_change_password: boolean | null
+          password_changed_at: string | null
           role: Database["public"]["Enums"]["user_role"] | null
           status: string | null
           updated_at: string
@@ -2724,10 +2757,13 @@ export type Database = {
         Insert: {
           created_at?: string
           email: string
+          first_login?: boolean | null
           full_name: string
           id: string
           last_login_at?: string | null
           login_count?: number | null
+          must_change_password?: boolean | null
+          password_changed_at?: string | null
           role?: Database["public"]["Enums"]["user_role"] | null
           status?: string | null
           updated_at?: string
@@ -2735,10 +2771,13 @@ export type Database = {
         Update: {
           created_at?: string
           email?: string
+          first_login?: boolean | null
           full_name?: string
           id?: string
           last_login_at?: string | null
           login_count?: number | null
+          must_change_password?: boolean | null
+          password_changed_at?: string | null
           role?: Database["public"]["Enums"]["user_role"] | null
           status?: string | null
           updated_at?: string

@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
+import SetPassword from "./pages/SetPassword";
 import ProjectSelect from "./pages/ProjectSelect";
 import DashboardLayout from "./pages/DashboardLayout";
 import AdminLayout from "./pages/AdminLayout";
@@ -41,10 +42,11 @@ const App = () => (
       <Sonner />
       <HelpButton />
       <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/projects" element={<ProjectSelect />} />
+      <Routes>
+        <Route path="/" element={<Index />} />
+        <Route path="/auth" element={<Auth />} />
+        <Route path="/auth/set-password" element={<SetPassword />} />
+        <Route path="/projects" element={<ProjectSelect />} />
           
           {/* Admin routes - no project required */}
           <Route path="/admin" element={<AdminLayout />}>
