@@ -100,42 +100,50 @@ export function ManageUserDialog({ user, onUpdated, children }: ManageUserDialog
   const handleResetPassword = async () => {
     setLoading(true);
     try {
-      // Use edge function to send reset link
       const { data, error } = await supabase.functions.invoke("reset-user-password", {
         body: {
           userId: user.id,
-          userEmail: user.email,
         },
       });
 
-      // Check for errors in both error object and data.error (for 400 responses)
+      // Handle errors from edge function (both error object and 400 responses in data)
       const errorMessage = error?.message || (data as any)?.error;
       
       if (error || errorMessage) {
-        // Check if it's a domain verification error
-        if (errorMessage?.includes('domain not verified') || 
-            errorMessage?.includes('verify a domain') || 
-            errorMessage?.includes('verify your domain')) {
-          toast.error("Email domain not verified", {
-            description: "Please verify your domain at resend.com/domains to send emails to other users. For testing, emails can only be sent to your registered Resend email address.",
-            duration: 8000,
+        const msg = String(errorMessage || '');
+        
+        // Show specific toast for domain verification issues
+        if (msg.includes('domain not verified') || msg.includes('verify a domain') || msg.includes('verify your domain')) {
+          toast.error("Email Domain Not Verified", {
+            description: "To send password reset emails, please verify your domain at resend.com/domains. For testing, you can only send to your registered Resend email.",
+            duration: 10000,
           });
+          setLoading(false);
           return;
         }
-        throw new Error(errorMessage || 'Failed to send reset link');
+        
+        // Show generic error for other issues
+        toast.error("Failed to Send Reset Link", {
+          description: msg || "An error occurred while sending the password reset email.",
+        });
+        setLoading(false);
+        return;
       }
 
+      // Success - log activity and show confirmation
       await logActivity(
         'update',
         `Sent password reset link to ${user.full_name}`,
         { userId: user.id }
       );
 
-      toast.success("Password reset link sent successfully", {
+      toast.success("Password Reset Link Sent", {
         description: `An email has been sent to ${user.email}`,
       });
     } catch (error: any) {
-      toast.error(error.message || "Failed to send reset link");
+      toast.error("Error", {
+        description: error.message || "Failed to send reset link",
+      });
     } finally {
       setLoading(false);
     }
