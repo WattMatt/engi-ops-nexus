@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
-import { TenantList } from "@/components/tenant/TenantList";
+import { GeneratorTenantList } from "@/components/tenant/GeneratorTenantList";
 import { ChevronDown } from "lucide-react";
 
 const GeneratorReport = () => {
@@ -92,17 +92,13 @@ const GeneratorReport = () => {
             </div>
           </div>
           
-          <div className="h-[calc(100vh-320px)] overflow-y-auto border rounded-lg">
+          <div className="h-[calc(100vh-320px)] overflow-y-auto">
             {isLoading ? (
               <div className="flex items-center justify-center py-8">
                 <p className="text-muted-foreground">Loading tenants...</p>
               </div>
             ) : (
-              <TenantList
-                tenants={tenants}
-                projectId={projectId || ""}
-                onUpdate={handleUpdate}
-              />
+              <GeneratorTenantList tenants={tenants} />
             )}
           </div>
         </TabsContent>
