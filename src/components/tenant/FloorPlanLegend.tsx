@@ -48,7 +48,7 @@ export const FloorPlanLegend = ({ zones, tenants, compact = false }: FloorPlanLe
         status: 'completed', 
         label: 'Complete',
         icon: CheckCircle2,
-        color: 'text-green-600'
+        color: 'text-emerald-500'
       };
     }
 
@@ -56,7 +56,7 @@ export const FloorPlanLegend = ({ zones, tenants, compact = false }: FloorPlanLe
       status: 'in-progress', 
       label: 'In Progress',
       icon: Clock,
-      color: 'text-red-600'
+      color: 'text-orange-500'
     };
   };
 

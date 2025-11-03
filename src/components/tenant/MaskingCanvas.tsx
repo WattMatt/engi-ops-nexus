@@ -87,7 +87,7 @@ export const MaskingCanvas = ({
   useEffect(() => {
     (window as any).updateZoneTenant = (zoneId: string, tenantId: string, tenantName: string, category: string, tenants: any[]) => {
       const isComplete = isTenantComplete(tenantId, tenants);
-      const color = isComplete ? '#16A34A' : '#DC2626'; // Green-600 for complete, Red-600 for incomplete
+      const color = isComplete ? '#10B981' : '#F97316'; // Bright green for complete, Bright orange for incomplete
       
       const updatedZones = zones.map(zone => {
         if (zone.id === zoneId) {
@@ -269,8 +269,8 @@ export const MaskingCanvas = ({
                            tenant.cost_reported;
 
         return allComplete 
-          ? { label: 'Complete', color: '#16A34A' }
-          : { label: 'In Progress', color: '#DC2626' };
+          ? { label: 'Complete', color: '#10B981' }
+          : { label: 'In Progress', color: '#F97316' };
       };
 
       // Draw each assigned zone in the legend
@@ -357,7 +357,7 @@ export const MaskingCanvas = ({
       tenant.cost_reported
     );
     
-    return isComplete ? '#16A34A' : '#DC2626'; // Green for complete, Red for incomplete
+    return isComplete ? '#10B981' : '#F97316'; // Bright green for complete, Bright orange for incomplete
   };
 
   // Check if a point is inside a polygon

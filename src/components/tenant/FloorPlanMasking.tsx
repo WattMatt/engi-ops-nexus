@@ -146,7 +146,7 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
   // Helper to get zone color based on tenant status
   const getZoneColor = (tenantId: string | null): string => {
     if (!tenantId) return '#9ca3af'; // Gray for unassigned
-    return isTenantComplete(tenantId) ? '#16A34A' : '#DC2626'; // Green for complete, Red for incomplete
+    return isTenantComplete(tenantId) ? '#10B981' : '#F97316'; // Bright green for complete, Bright orange for incomplete
   };
 
   // Load saved zones and recalculate colors based on current tenant data
