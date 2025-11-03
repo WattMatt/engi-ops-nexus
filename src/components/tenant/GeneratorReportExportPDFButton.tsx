@@ -74,6 +74,21 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
     enabled: !!projectId,
   });
 
+  // Fetch generator settings
+  const { data: generatorSettings } = useQuery({
+    queryKey: ["generator-settings-pdf", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("generator_settings")
+        .select("*")
+        .eq("project_id", projectId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!projectId,
+  });
+
   const formatCurrency = (value: number) => {
     return `R ${value.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
@@ -93,10 +108,11 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       let yPos = 20;
 
       // Calculate total costs for executive summary
-      const totalGeneratorCost = zones.reduce((sum, zone) => sum + (zone.generator_cost || 0), 0);
-      const estimatedCabling = totalGeneratorCost * 0.10; // 10% of generator cost
-      const estimatedBoardWork = totalGeneratorCost * 0.12; // 12% of generator cost
-      const totalEstimatedCost = totalGeneratorCost + estimatedCabling + estimatedBoardWork;
+      const totalGeneratorCost = zones.reduce((sum, zone) => {
+        const numGens = zone.num_generators || 1;
+        const costPerGen = zone.generator_cost || 0;
+        return sum + (costPerGen * numGens);
+      }, 0);
       
       // Build generator description
       const generatorDescription = zones.map(zone => {
@@ -105,10 +121,24 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
         return `${units}x ${zone.generator_size} @ ${formatCurrency(unitCost)} each`;
       }).join(", ");
       
+      // Get number of tenants without own generators and calculate all costs
+      const numTenantDBs = tenants.filter(t => !t.own_generator_provided).length;
+      const ratePerTenantDB = generatorSettings?.rate_per_tenant_db || 0;
+      const tenantDBsCost = numTenantDBs * ratePerTenantDB;
+      
+      const numMainBoards = generatorSettings?.num_main_boards || 0;
+      const ratePerMainBoard = generatorSettings?.rate_per_main_board || 0;
+      const mainBoardsCost = numMainBoards * ratePerMainBoard;
+      
+      const additionalCablingCost = generatorSettings?.additional_cabling_cost || 0;
+      const controlWiringCost = generatorSettings?.control_wiring_cost || 0;
+      
+      const totalCapitalCost = totalGeneratorCost + tenantDBsCost + mainBoardsCost + additionalCablingCost + controlWiringCost;
+      
       // Capital recovery calculation (10 years at 12%)
       const years = 10;
       const rate = 0.12;
-      const monthlyCapitalRepayment = (totalEstimatedCost * rate / 12) / (1 - Math.pow(1 + rate / 12, -years * 12));
+      const monthlyCapitalRepayment = (totalCapitalCost * rate / 12) / (1 - Math.pow(1 + rate / 12, -years * 12));
 
       // ========== COVER PAGE ==========
       doc.setFontSize(14);
@@ -167,25 +197,84 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       doc.text(`${project.name?.toUpperCase() || "PROJECT"} - ${format(new Date(), "yyyy.MM.dd")}`, 14, yPos);
       yPos += 8;
 
-      // Cost summary table
-      const costData = [
-        ["GENERATOR", generatorDescription, formatCurrency(totalGeneratorCost)],
-        ["CABLING", "", formatCurrency(estimatedCabling)],
-        ["WORK ON MAIN AND SHOP BOARDS", "", formatCurrency(estimatedBoardWork)],
-        ["TOTAL ESTIMATED COST", "", formatCurrency(totalEstimatedCost)],
+      // Generator Equipment Costing table
+      const equipmentCostingData = [
+        ["Item", "Description", "Quantity", "Rate (R)", "Cost (excl. VAT)"],
+        ...zones.map((zone, index) => {
+          const numGens = zone.num_generators || 1;
+          const costPerGen = zone.generator_cost || 0;
+          const totalCost = costPerGen * numGens;
+          const description = zone.num_generators > 1 
+            ? `${zone.zone_name} - ${zone.generator_size} (${zone.num_generators} Synchronized)`
+            : `${zone.zone_name} - ${zone.generator_size}`;
+          return [
+            (index + 1).toString(),
+            description,
+            numGens.toString(),
+            formatCurrency(costPerGen),
+            formatCurrency(totalCost)
+          ];
+        }),
+        [
+          (zones.length + 1).toString(),
+          "Number of Tenant DBs",
+          numTenantDBs.toString(),
+          formatCurrency(ratePerTenantDB),
+          formatCurrency(tenantDBsCost)
+        ],
+        [
+          (zones.length + 2).toString(),
+          "Number of Main Boards",
+          numMainBoards.toString(),
+          formatCurrency(ratePerMainBoard),
+          formatCurrency(mainBoardsCost)
+        ],
+        [
+          (zones.length + 3).toString(),
+          "Additional Cabling",
+          "1",
+          formatCurrency(additionalCablingCost),
+          formatCurrency(additionalCablingCost)
+        ],
+        [
+          (zones.length + 4).toString(),
+          "Control Wiring",
+          "1",
+          formatCurrency(controlWiringCost),
+          formatCurrency(controlWiringCost)
+        ],
       ];
 
       autoTable(doc, {
         startY: yPos,
-        body: costData,
+        head: [equipmentCostingData[0]],
+        body: equipmentCostingData.slice(1),
         theme: "grid",
-        styles: { fontSize: 10 },
+        headStyles: { fillColor: [41, 128, 185], fontSize: 10 },
+        styles: { fontSize: 9 },
         columnStyles: {
-          0: { fontStyle: "bold", cellWidth: 100 },
-          1: { cellWidth: 40 },
-          2: { fontStyle: "bold", halign: "right" },
+          0: { cellWidth: 20 },
+          1: { cellWidth: 80 },
+          2: { halign: "center", cellWidth: 30 },
+          3: { halign: "right", cellWidth: 35 },
+          4: { halign: "right", cellWidth: 35 },
         },
-        margin: { left: 14 },
+      });
+      
+      // Add total row
+      const finalY = (doc as any).lastAutoTable.finalY;
+      autoTable(doc, {
+        startY: finalY,
+        body: [["", "TOTAL CAPITAL COST", "", "", formatCurrency(totalCapitalCost)]],
+        theme: "grid",
+        styles: { fontSize: 10, fontStyle: "bold", fillColor: [240, 240, 240] },
+        columnStyles: {
+          0: { cellWidth: 20 },
+          1: { cellWidth: 80 },
+          2: { halign: "center", cellWidth: 30 },
+          3: { halign: "right", cellWidth: 35 },
+          4: { halign: "right", cellWidth: 35 },
+        },
       });
 
       yPos = (doc as any).lastAutoTable.finalY + 10;
@@ -331,7 +420,7 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       // Amortization parameters
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
-      doc.text(`CAPITAL COST ${formatCurrency(totalEstimatedCost)}`, 14, yPos);
+      doc.text(`CAPITAL COST ${formatCurrency(totalCapitalCost)}`, 14, yPos);
       yPos += 6;
       doc.text(`PERIOD/ YEARS ${years}`, 14, yPos);
       yPos += 6;
@@ -343,7 +432,7 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
 
       // Amortization schedule
       const amortRows = [];
-      let balance = totalEstimatedCost;
+      let balance = totalCapitalCost;
       
       for (let year = 1; year <= years; year++) {
         const interest = balance * rate;
