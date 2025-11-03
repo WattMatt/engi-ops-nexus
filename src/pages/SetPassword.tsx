@@ -11,11 +11,11 @@ import { validatePassword } from "@/lib/passwordValidation";
 import { useQuery } from "@tanstack/react-query";
 
 export default function SetPassword() {
-
   const navigate = useNavigate();
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isValidating, setIsValidating] = useState(true);
 
   // Fetch company settings for branding
   const { data: companySettings } = useQuery({
@@ -31,14 +31,36 @@ export default function SetPassword() {
   });
 
   useEffect(() => {
-    // Check if user is authenticated (came from reset link)
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
-        toast.error("Invalid or expired reset link");
-        navigate("/auth");
+    // Listen for auth state changes (this will catch the recovery token processing)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth event:', event, 'Session:', !!session);
+      
+      if (event === 'PASSWORD_RECOVERY') {
+        // User clicked the reset link, now they can set password
+        setIsValidating(false);
+      } else if (event === 'SIGNED_IN' && session) {
+        // Recovery token processed successfully
+        setIsValidating(false);
+      } else if (event === 'SIGNED_OUT' || !session) {
+        // No valid session or recovery token after initial check
+        setTimeout(() => {
+          if (isValidating) {
+            toast.error("Invalid or expired reset link");
+            navigate("/auth");
+          }
+        }, 2000); // Give Supabase time to process the recovery token
       }
     });
-  }, [navigate]);
+
+    // Also check current session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session) {
+        setIsValidating(false);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [navigate, isValidating]);
 
   const handleSetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,6 +110,20 @@ export default function SetPassword() {
       setLoading(false);
     }
   };
+
+  if (isValidating) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <p className="text-muted-foreground">Validating reset link...</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-background via-background to-muted p-4">
