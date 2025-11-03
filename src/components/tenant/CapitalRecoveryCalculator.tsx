@@ -2,7 +2,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 interface AmortizationRow {
   year: number;
@@ -13,10 +15,37 @@ interface AmortizationRow {
   ending: number;
 }
 
-export function CapitalRecoveryCalculator() {
-  const [capitalCost, setCapitalCost] = useState(3594200.00);
+interface CapitalRecoveryCalculatorProps {
+  projectId: string;
+}
+
+export function CapitalRecoveryCalculator({ projectId }: CapitalRecoveryCalculatorProps) {
+  const [capitalCost, setCapitalCost] = useState(0);
   const [periodYears, setPeriodYears] = useState(10);
   const [rate, setRate] = useState(12.00);
+
+  // Fetch generator zones to calculate total equipment cost
+  const { data: zones = [] } = useQuery({
+    queryKey: ["generator-zones-capital", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("generator_zones")
+        .select("*")
+        .eq("project_id", projectId);
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!projectId,
+  });
+
+  // Update capital cost when zones data changes
+  useEffect(() => {
+    const totalCost = zones.reduce((sum, zone) => sum + (zone.generator_cost || 0), 0);
+    if (totalCost > 0) {
+      setCapitalCost(totalCost);
+    }
+  }, [zones]);
 
   // Calculate annual repayment using annuity formula
   // PMT = PV × [r(1 + r)^n] / [(1 + r)^n - 1]
@@ -78,13 +107,14 @@ export function CapitalRecoveryCalculator() {
         {/* Input Parameters */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg">
           <div>
-            <Label htmlFor="capitalCost">Capital Cost (R)</Label>
+            <Label htmlFor="capitalCost">Capital Cost (R) - Auto-populated from Equipment Costing</Label>
             <Input
               id="capitalCost"
               type="number"
               step="0.01"
               value={capitalCost}
               onChange={(e) => setCapitalCost(Number(e.target.value))}
+              className="font-semibold"
             />
           </div>
           <div>
