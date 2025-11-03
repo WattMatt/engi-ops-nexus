@@ -496,6 +496,13 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       columnStyles[metricsStartCol + 1] = { cellWidth: 28, halign: "right" };  // Monthly Rental
       columnStyles[metricsStartCol + 2] = { cellWidth: 28, halign: "right" };  // Rental per m²
 
+      // Calculate table width and center it
+      let tableWidth = 0;
+      for (let col = 0; col < (8 + zones.length); col++) {
+        tableWidth += columnStyles[col]?.cellWidth || 20;
+      }
+      const centerMargin = (pageWidth - tableWidth) / 2;
+
       autoTable(doc, {
         startY: yPos,
         head: [tableHeader],
@@ -504,7 +511,7 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
         headStyles: { fillColor: [41, 128, 185], textColor: 255, fontSize: 6 },
         styles: { fontSize: 6 },
         columnStyles,
-        margin: { left: 14, right: 14 },
+        margin: { left: centerMargin, right: centerMargin },
         willDrawCell: (data) => {
           // Apply color coding to tenant rows (not totals/average)
           if (data.section === 'body' && data.row.index < tenantRowsData.length) {
