@@ -86,12 +86,10 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
         .single();
 
       if (createError) {
-        toast.error("Failed to create generator settings");
+        toast.error("Failed to save");
         return;
       }
 
-      settingsId = newSettings.id;
-      toast.success("Settings initialized and updated");
       return;
     }
 
@@ -102,11 +100,9 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
       .eq("id", settingsId);
 
     if (error) {
-      toast.error(`Failed to update ${field}`);
+      toast.error("Failed to save");
       return;
     }
-
-    toast.success("Updated successfully");
   };
 
   const formatCurrency = (value: number): string => {
