@@ -31,7 +31,7 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tenants")
-        .select("id")
+        .select("id, own_generator_provided")
         .eq("project_id", projectId);
 
       if (error) throw error;
@@ -99,7 +99,8 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
   const generatorCost = zones.reduce((sum, zone) => sum + (zone.generator_cost || 0), 0);
   const tenantCost = tenantCount * tenantRate;
   
-  const numTenantDBs = settings?.num_tenant_dbs || 0;
+  // Auto-calculate number of tenant DBs (tenants without their own generator)
+  const numTenantDBs = tenants.filter(t => !t.own_generator_provided).length;
   const ratePerTenantDB = settings?.rate_per_tenant_db || 0;
   const tenantDBsCost = numTenantDBs * ratePerTenantDB;
   
@@ -163,9 +164,9 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
                   <TableCell>
                     <Input
                       type="number"
-                      defaultValue={numTenantDBs}
-                      onBlur={(e) => handleSettingUpdate('num_tenant_dbs', Number(e.target.value))}
-                      className="w-20"
+                      value={numTenantDBs}
+                      disabled
+                      className="w-20 font-semibold bg-background"
                     />
                   </TableCell>
                   <TableCell>
