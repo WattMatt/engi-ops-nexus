@@ -1906,6 +1906,7 @@ export type Database = {
           project_id: string
           restaurant_kw_per_sqm: number | null
           standard_kw_per_sqm: number | null
+          tenant_rate: number | null
           updated_at: string | null
         }
         Insert: {
@@ -1916,6 +1917,7 @@ export type Database = {
           project_id: string
           restaurant_kw_per_sqm?: number | null
           standard_kw_per_sqm?: number | null
+          tenant_rate?: number | null
           updated_at?: string | null
         }
         Update: {
@@ -1926,6 +1928,7 @@ export type Database = {
           project_id?: string
           restaurant_kw_per_sqm?: number | null
           standard_kw_per_sqm?: number | null
+          tenant_rate?: number | null
           updated_at?: string | null
         }
         Relationships: [

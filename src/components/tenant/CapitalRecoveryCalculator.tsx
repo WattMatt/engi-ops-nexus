@@ -24,9 +24,7 @@ export function CapitalRecoveryCalculator({ projectId }: CapitalRecoveryCalculat
   const [periodYears, setPeriodYears] = useState(10);
   const [rate, setRate] = useState(12.00);
 
-  const [ratePerTenant, setRatePerTenant] = useState(0);
-
-  // Fetch generator zones to calculate total equipment cost
+  // Fetch generator zones and settings to calculate total equipment cost
   const { data: zones = [] } = useQuery({
     queryKey: ["generator-zones-capital", projectId],
     queryFn: async () => {
@@ -41,9 +39,8 @@ export function CapitalRecoveryCalculator({ projectId }: CapitalRecoveryCalculat
     enabled: !!projectId,
   });
 
-  // Fetch tenant count
   const { data: tenants = [] } = useQuery({
-    queryKey: ["tenants-count", projectId],
+    queryKey: ["tenants-capital", projectId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("tenants")
@@ -56,18 +53,31 @@ export function CapitalRecoveryCalculator({ projectId }: CapitalRecoveryCalculat
     enabled: !!projectId,
   });
 
-  const tenantCount = tenants.length;
+  const { data: settings } = useQuery({
+    queryKey: ["generator-settings-capital", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("generator_settings")
+        .select("*")
+        .eq("project_id", projectId)
+        .maybeSingle();
 
-  // Update capital cost when zones data or tenant rate changes
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!projectId,
+  });
+
+  // Update capital cost when data changes
   useEffect(() => {
     const generatorCost = zones.reduce((sum, zone) => sum + (zone.generator_cost || 0), 0);
-    const tenantCost = tenantCount * ratePerTenant;
+    const tenantCost = tenants.length * (settings?.tenant_rate || 0);
     const totalCost = generatorCost + tenantCost;
     
     if (totalCost > 0) {
       setCapitalCost(totalCost);
     }
-  }, [zones, tenantCount, ratePerTenant]);
+  }, [zones, tenants, settings]);
 
   // Calculate annual repayment using annuity formula
   // PMT = PV × [r(1 + r)^n] / [(1 + r)^n - 1]
@@ -126,33 +136,10 @@ export function CapitalRecoveryCalculator({ projectId }: CapitalRecoveryCalculat
         <CardDescription>Amortization schedule for capital investment recovery</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        {/* Tenant Costing */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
-          <div>
-            <Label>Number of Tenants</Label>
-            <Input
-              type="number"
-              value={tenantCount}
-              disabled
-              className="font-semibold bg-background"
-            />
-          </div>
-          <div>
-            <Label htmlFor="ratePerTenant">Rate per Tenant (R)</Label>
-            <Input
-              id="ratePerTenant"
-              type="number"
-              step="0.01"
-              value={ratePerTenant}
-              onChange={(e) => setRatePerTenant(Number(e.target.value))}
-            />
-          </div>
-        </div>
-
         {/* Input Parameters */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg">
           <div>
-            <Label htmlFor="capitalCost">Capital Cost (R) - Auto-calculated</Label>
+            <Label htmlFor="capitalCost">Capital Cost (R) - From Equipment Costing</Label>
             <Input
               id="capitalCost"
               type="number"
@@ -161,9 +148,6 @@ export function CapitalRecoveryCalculator({ projectId }: CapitalRecoveryCalculat
               onChange={(e) => setCapitalCost(Number(e.target.value))}
               className="font-semibold"
             />
-            <p className="text-xs text-muted-foreground mt-1">
-              Generator Cost + ({tenantCount} tenants × R{ratePerTenant.toFixed(2)})
-            </p>
           </div>
           <div>
             <Label htmlFor="periodYears">Period (years)</Label>
