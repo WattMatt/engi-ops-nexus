@@ -15,39 +15,14 @@ Deno.serve(async (req) => {
   console.log('Processing reset password request')
 
   try {
-    // Create anon client to verify user authentication
-    const supabaseAnon = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false
-        },
-        global: {
-          headers: {
-            Authorization: req.headers.get('Authorization') ?? ''
-          }
-        }
-      }
-    )
-
-    // Verify user is authenticated
-    const { data: { user: requestingUser }, error: authError } = await supabaseAnon.auth.getUser()
-    
-    if (authError) {
-      console.error('Auth error:', authError)
-      throw new Error(`Authentication failed: ${authError.message}`)
-    }
-    
-    if (!requestingUser) {
-      console.error('No user found from token')
-      throw new Error('User not found')
+    // Get the authorization header
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      console.error('No authorization header provided')
+      throw new Error('No authorization header')
     }
 
-    console.log('Requesting user:', requestingUser.id)
-
-    // Create service role client for admin operations
+    // Create service role client for all operations
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
@@ -58,6 +33,17 @@ Deno.serve(async (req) => {
         }
       }
     )
+
+    // Verify the JWT token to get the user
+    const jwt = authHeader.replace('Bearer ', '')
+    const { data: { user: requestingUser }, error: verifyError } = await supabaseClient.auth.getUser(jwt)
+    
+    if (verifyError || !requestingUser) {
+      console.error('Token verification failed:', verifyError)
+      throw new Error('Invalid authentication token')
+    }
+
+    console.log('Requesting user:', requestingUser.id)
 
     const { data: roleData, error: roleError } = await supabaseClient
       .from('user_roles')
