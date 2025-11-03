@@ -125,11 +125,19 @@ export function ManageUserDialog({ user, onUpdated, children }: ManageUserDialog
       // Copy reset link to clipboard
       const resetLink = (data as any)?.resetLink;
       if (resetLink) {
-        await navigator.clipboard.writeText(resetLink);
-        toast.success("Password Reset Link Copied!", {
-          description: `Share this link with ${user.email}. It has been copied to your clipboard.`,
-          duration: 10000,
-        });
+        try {
+          await navigator.clipboard.writeText(resetLink);
+          toast.success("Password Reset Link Copied!", {
+            description: `Share this link with ${user.email}. It has been copied to your clipboard.`,
+            duration: 10000,
+          });
+        } catch (clipboardError) {
+          // Fallback: Show the link in the toast if clipboard fails
+          toast.success("Password Reset Link Generated!", {
+            description: `Copy and share this link with ${user.email}: ${resetLink}`,
+            duration: 15000,
+          });
+        }
       } else {
         toast.error("Failed to get reset link");
       }
