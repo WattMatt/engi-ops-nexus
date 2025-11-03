@@ -2192,6 +2192,7 @@ export type Database = {
       issue_reports: {
         Row: {
           admin_notes: string | null
+          admin_response: string | null
           browser_info: Json | null
           category: string
           created_at: string
@@ -2201,6 +2202,8 @@ export type Database = {
           reported_by: string
           resolved_at: string | null
           resolved_by: string | null
+          responded_at: string | null
+          responded_by: string | null
           screenshot_url: string | null
           severity: string
           status: string
@@ -2210,6 +2213,7 @@ export type Database = {
         }
         Insert: {
           admin_notes?: string | null
+          admin_response?: string | null
           browser_info?: Json | null
           category?: string
           created_at?: string
@@ -2219,6 +2223,8 @@ export type Database = {
           reported_by: string
           resolved_at?: string | null
           resolved_by?: string | null
+          responded_at?: string | null
+          responded_by?: string | null
           screenshot_url?: string | null
           severity?: string
           status?: string
@@ -2228,6 +2234,7 @@ export type Database = {
         }
         Update: {
           admin_notes?: string | null
+          admin_response?: string | null
           browser_info?: Json | null
           category?: string
           created_at?: string
@@ -2237,6 +2244,8 @@ export type Database = {
           reported_by?: string
           resolved_at?: string | null
           resolved_by?: string | null
+          responded_at?: string | null
+          responded_by?: string | null
           screenshot_url?: string | null
           severity?: string
           status?: string
@@ -3608,6 +3617,7 @@ export type Database = {
       suggestions: {
         Row: {
           admin_notes: string | null
+          admin_response: string | null
           browser_info: Json | null
           category: string
           created_at: string
@@ -3618,6 +3628,8 @@ export type Database = {
           reported_by: string
           resolved_at: string | null
           resolved_by: string | null
+          responded_at: string | null
+          responded_by: string | null
           screenshot_url: string | null
           status: string
           title: string
@@ -3627,6 +3639,7 @@ export type Database = {
         }
         Insert: {
           admin_notes?: string | null
+          admin_response?: string | null
           browser_info?: Json | null
           category?: string
           created_at?: string
@@ -3637,6 +3650,8 @@ export type Database = {
           reported_by: string
           resolved_at?: string | null
           resolved_by?: string | null
+          responded_at?: string | null
+          responded_by?: string | null
           screenshot_url?: string | null
           status?: string
           title: string
@@ -3646,6 +3661,7 @@ export type Database = {
         }
         Update: {
           admin_notes?: string | null
+          admin_response?: string | null
           browser_info?: Json | null
           category?: string
           created_at?: string
@@ -3656,6 +3672,8 @@ export type Database = {
           reported_by?: string
           resolved_at?: string | null
           resolved_by?: string | null
+          responded_at?: string | null
+          responded_by?: string | null
           screenshot_url?: string | null
           status?: string
           title?: string

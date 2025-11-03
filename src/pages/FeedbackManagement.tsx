@@ -38,6 +38,8 @@ interface Issue {
   page_url: string;
   resolved_at: string | null;
   admin_notes: string | null;
+  admin_response: string | null;
+  responded_at: string | null;
 }
 
 interface Suggestion {
@@ -54,6 +56,8 @@ interface Suggestion {
   page_url: string;
   resolved_at: string | null;
   admin_notes: string | null;
+  admin_response: string | null;
+  responded_at: string | null;
 }
 
 const FeedbackManagement = () => {
@@ -130,6 +134,44 @@ const FeedbackManagement = () => {
     }
 
     toast.success("Notes saved");
+  };
+
+  const sendResponse = async (
+    table: "issue_reports" | "suggestions",
+    id: string,
+    response: string,
+    userEmail: string,
+    userName: string,
+    itemTitle: string
+  ) => {
+    const { error } = await supabase
+      .from(table)
+      .update({ admin_response: response })
+      .eq("id", id);
+
+    if (error) {
+      toast.error("Failed to send response");
+      return;
+    }
+
+    // Send email notification
+    try {
+      await supabase.functions.invoke('send-feedback-response', {
+        body: {
+          userEmail,
+          userName,
+          itemTitle,
+          response,
+          type: table === 'issue_reports' ? 'issue' : 'suggestion'
+        }
+      });
+    } catch (emailError) {
+      console.error("Email notification failed:", emailError);
+      // Don't fail the whole operation if email fails
+    }
+
+    toast.success("Response sent to user");
+    loadFeedback();
   };
 
   const getSeverityBadge = (severity: string) => {
@@ -272,13 +314,50 @@ const FeedbackManagement = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <p className="text-sm font-medium">Admin Notes</p>
+                    <p className="text-sm font-medium">Admin Notes (Internal Only)</p>
                     <Textarea
                       placeholder="Add internal notes about this issue..."
                       defaultValue={issue.admin_notes || ""}
                       onBlur={(e) => updateNotes("issue_reports", issue.id, e.target.value)}
                       rows={2}
                     />
+                  </div>
+
+                  <div className="space-y-2 border-t pt-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium">Response to User</p>
+                      {issue.responded_at && (
+                        <p className="text-xs text-muted-foreground">
+                          Sent {formatDistanceToNow(new Date(issue.responded_at), { addSuffix: true })}
+                        </p>
+                      )}
+                    </div>
+                    <Textarea
+                      placeholder="Write a response that will be sent to the user via email..."
+                      defaultValue={issue.admin_response || ""}
+                      rows={3}
+                      className={issue.admin_response ? "bg-muted/50" : ""}
+                    />
+                    <Button
+                      onClick={(e) => {
+                        const textarea = e.currentTarget.previousElementSibling as HTMLTextAreaElement;
+                        if (textarea?.value.trim()) {
+                          sendResponse(
+                            "issue_reports",
+                            issue.id,
+                            textarea.value,
+                            issue.user_email,
+                            issue.user_name,
+                            "Issue Report"
+                          );
+                        } else {
+                          toast.error("Please enter a response");
+                        }
+                      }}
+                      size="sm"
+                    >
+                      Send Response to User
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
@@ -375,13 +454,50 @@ const FeedbackManagement = () => {
                   </div>
 
                   <div className="space-y-2">
-                    <p className="text-sm font-medium">Admin Notes</p>
+                    <p className="text-sm font-medium">Admin Notes (Internal Only)</p>
                     <Textarea
                       placeholder="Add internal notes about this suggestion..."
                       defaultValue={suggestion.admin_notes || ""}
                       onBlur={(e) => updateNotes("suggestions", suggestion.id, e.target.value)}
                       rows={2}
                     />
+                  </div>
+
+                  <div className="space-y-2 border-t pt-4">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium">Response to User</p>
+                      {suggestion.responded_at && (
+                        <p className="text-xs text-muted-foreground">
+                          Sent {formatDistanceToNow(new Date(suggestion.responded_at), { addSuffix: true })}
+                        </p>
+                      )}
+                    </div>
+                    <Textarea
+                      placeholder="Write a response that will be sent to the user via email..."
+                      defaultValue={suggestion.admin_response || ""}
+                      rows={3}
+                      className={suggestion.admin_response ? "bg-muted/50" : ""}
+                    />
+                    <Button
+                      onClick={(e) => {
+                        const textarea = e.currentTarget.previousElementSibling as HTMLTextAreaElement;
+                        if (textarea?.value.trim()) {
+                          sendResponse(
+                            "suggestions",
+                            suggestion.id,
+                            textarea.value,
+                            suggestion.user_email,
+                            suggestion.user_name,
+                            suggestion.title
+                          );
+                        } else {
+                          toast.error("Please enter a response");
+                        }
+                      }}
+                      size="sm"
+                    >
+                      Send Response to User
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
