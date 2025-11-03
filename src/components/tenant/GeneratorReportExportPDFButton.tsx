@@ -98,6 +98,13 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       const estimatedBoardWork = totalGeneratorCost * 0.12; // 12% of generator cost
       const totalEstimatedCost = totalGeneratorCost + estimatedCabling + estimatedBoardWork;
       
+      // Build generator description
+      const generatorDescription = zones.map(zone => {
+        const units = zone.num_generators || 1;
+        const unitCost = (zone.generator_cost || 0) / units;
+        return `${units}x ${zone.generator_size} @ ${formatCurrency(unitCost)} each`;
+      }).join(", ");
+      
       // Capital recovery calculation (10 years at 12%)
       const years = 10;
       const rate = 0.12;
@@ -162,7 +169,7 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
 
       // Cost summary table
       const costData = [
-        ["GENERATOR", zones.map(z => z.generator_size).join(", "), formatCurrency(totalGeneratorCost)],
+        ["GENERATOR", generatorDescription, formatCurrency(totalGeneratorCost)],
         ["CABLING", "", formatCurrency(estimatedCabling)],
         ["WORK ON MAIN AND SHOP BOARDS", "", formatCurrency(estimatedBoardWork)],
         ["TOTAL ESTIMATED COST", "", formatCurrency(totalEstimatedCost)],
