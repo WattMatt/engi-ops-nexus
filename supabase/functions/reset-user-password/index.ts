@@ -103,6 +103,14 @@ Deno.serve(async (req) => {
 
     if (emailResult.error) {
       console.error('Resend API error:', JSON.stringify(emailResult.error))
+      
+      // Check if it's a domain verification error
+      if (emailResult.error.message && emailResult.error.message.includes('verify a domain')) {
+        throw new Error(
+          'Email domain not verified. Please verify your domain at https://resend.com/domains and update the "from" address to use your verified domain (e.g., noreply@yourdomain.com). For testing, you can only send emails to the email address you used to sign up with Resend.'
+        )
+      }
+      
       throw new Error(`Failed to send password reset email: ${emailResult.error.message || 'Unknown error'}`)
     }
 
