@@ -2003,6 +2003,45 @@ export type Database = {
           },
         ]
       }
+      generator_sizing_data: {
+        Row: {
+          created_at: string
+          display_order: number
+          id: string
+          load_100: number
+          load_25: number
+          load_50: number
+          load_75: number
+          project_id: string
+          rating: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          load_100?: number
+          load_25?: number
+          load_50?: number
+          load_75?: number
+          project_id: string
+          rating: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          load_100?: number
+          load_25?: number
+          load_50?: number
+          load_75?: number
+          project_id?: string
+          rating?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       generator_zones: {
         Row: {
           created_at: string

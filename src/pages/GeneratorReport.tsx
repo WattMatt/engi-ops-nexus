@@ -150,7 +150,7 @@ const GeneratorReport = () => {
         </TabsContent>
 
         <TabsContent value="sizing" className="space-y-4">
-          <GeneratorSizingTable />
+          <GeneratorSizingTable projectId={projectId || undefined} />
         </TabsContent>
 
         <TabsContent value="costs" className="space-y-4">
