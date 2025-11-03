@@ -36,39 +36,51 @@ Deno.serve(async (req) => {
 
     // Decode JWT to get user ID (the JWT is already validated by Supabase)
     const jwt = authHeader.replace('Bearer ', '')
+    console.log('JWT token length:', jwt.length)
+    
     const parts = jwt.split('.')
+    console.log('JWT parts:', parts.length)
+    
     if (parts.length !== 3) {
       throw new Error('Invalid JWT format')
     }
     
-    const payload = JSON.parse(atob(parts[1]))
-    const requestingUserId = payload.sub
-    
-    if (!requestingUserId) {
-      throw new Error('No user ID in token')
+    try {
+      const payload = JSON.parse(atob(parts[1]))
+      console.log('JWT payload decoded successfully')
+      
+      const requestingUserId = payload.sub
+      
+      if (!requestingUserId) {
+        console.error('No sub claim in payload:', payload)
+        throw new Error('No user ID in token')
+      }
+
+      console.log('Requesting user:', requestingUserId)
+
+      // Check if requesting user is admin
+      const { data: roleData, error: roleError } = await supabaseClient
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', requestingUserId)
+        .eq('role', 'admin')
+        .maybeSingle()
+
+      if (roleError) {
+        console.error('Role check error:', roleError)
+        throw new Error(`Role verification failed: ${roleError.message}`)
+      }
+      
+      if (!roleData) {
+        console.error('User is not admin:', requestingUserId)
+        throw new Error('Insufficient permissions - admin role required')
+      }
+
+      console.log('Admin verified:', requestingUserId)
+    } catch (decodeError) {
+      console.error('JWT decode error:', decodeError)
+      throw new Error('Invalid authentication token')
     }
-
-    console.log('Requesting user:', requestingUserId)
-
-    // Check if requesting user is admin
-    const { data: roleData, error: roleError } = await supabaseClient
-      .from('user_roles')
-      .select('role')
-      .eq('user_id', requestingUserId)
-      .eq('role', 'admin')
-      .maybeSingle()
-
-    if (roleError) {
-      console.error('Role check error:', roleError)
-      throw new Error(`Role verification failed: ${roleError.message}`)
-    }
-    
-    if (!roleData) {
-      console.error('User is not admin:', requestingUserId)
-      throw new Error('Insufficient permissions - admin role required')
-    }
-
-    console.log('Admin verified:', requestingUserId)
 
     const { userId } = await req.json()
 
