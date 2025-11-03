@@ -72,15 +72,34 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
   };
 
   const handleSettingUpdate = async (field: string, value: number) => {
-    if (!settings?.id) {
-      toast.error("Please configure generator settings first");
+    let settingsId = settings?.id;
+
+    // If no settings exist, create them first
+    if (!settingsId) {
+      const { data: newSettings, error: createError } = await supabase
+        .from("generator_settings")
+        .insert({ 
+          project_id: projectId,
+          [field]: value 
+        })
+        .select()
+        .single();
+
+      if (createError) {
+        toast.error("Failed to create generator settings");
+        return;
+      }
+
+      settingsId = newSettings.id;
+      toast.success("Settings initialized and updated");
       return;
     }
 
+    // Update existing settings
     const { error } = await supabase
       .from("generator_settings")
       .update({ [field]: value })
-      .eq("id", settings.id);
+      .eq("id", settingsId);
 
     if (error) {
       toast.error(`Failed to update ${field}`);
