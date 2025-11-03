@@ -127,7 +127,11 @@ const GeneratorReport = () => {
                 <p className="text-muted-foreground">Loading tenants...</p>
               </div>
             ) : (
-              <GeneratorTenantList tenants={tenants} capitalCostRecovery={capitalCostRecovery} />
+              <GeneratorTenantList 
+                tenants={tenants} 
+                capitalCostRecovery={capitalCostRecovery}
+                onUpdate={() => refetch()}
+              />
             )}
           </div>
         </TabsContent>

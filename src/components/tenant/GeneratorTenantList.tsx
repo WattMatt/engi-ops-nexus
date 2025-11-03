@@ -20,9 +20,10 @@ interface Tenant {
 interface GeneratorTenantListProps {
   tenants: Tenant[];
   capitalCostRecovery?: number; // Monthly repayment from capital recovery
+  onUpdate?: () => void; // Callback to trigger refetch
 }
 
-export const GeneratorTenantList = ({ tenants, capitalCostRecovery = 53009.71 }: GeneratorTenantListProps) => {
+export const GeneratorTenantList = ({ tenants, capitalCostRecovery = 53009.71, onUpdate }: GeneratorTenantListProps) => {
   const [editingTenant, setEditingTenant] = useState<string | null>(null);
 
   // Calculate total generator loading across all tenants
@@ -64,6 +65,11 @@ export const GeneratorTenantList = ({ tenants, capitalCostRecovery = 53009.71 }:
 
       if (error) throw error;
       toast.success("Tenant updated successfully");
+      
+      // Trigger refetch in parent component
+      if (onUpdate) {
+        onUpdate();
+      }
     } catch (error) {
       console.error("Error updating tenant:", error);
       toast.error("Failed to update tenant");
@@ -136,7 +142,7 @@ export const GeneratorTenantList = ({ tenants, capitalCostRecovery = 53009.71 }:
                         <Checkbox
                           checked={isOwnGenerator}
                           onCheckedChange={(checked) => 
-                            handleUpdateTenant(tenant.id, "own_generator_provided", checked)
+                            handleUpdateTenant(tenant.id, "own_generator_provided", checked === true)
                           }
                         />
                         <span className="text-sm font-medium">{isOwnGenerator ? "YES" : "NO"}</span>
