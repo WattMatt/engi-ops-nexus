@@ -42,6 +42,7 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
           <TableHeader>
             <TableRow>
               <TableHead>Zone</TableHead>
+              <TableHead>No. of Generators</TableHead>
               <TableHead>Generator Size</TableHead>
               <TableHead className="text-right">Cost (excl. VAT)</TableHead>
             </TableRow>
@@ -58,6 +59,11 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
                 {zones.map((zone) => (
                   <TableRow key={zone.id}>
                     <TableCell className="font-medium">{zone.zone_name}</TableCell>
+                    <TableCell>
+                      {zone.num_generators === 1 
+                        ? "1 Generator" 
+                        : `${zone.num_generators} Synchronized`}
+                    </TableCell>
                     <TableCell>{zone.generator_size || "-"}</TableCell>
                     <TableCell className="text-right font-mono">
                       {formatCurrency(zone.generator_cost || 0)}

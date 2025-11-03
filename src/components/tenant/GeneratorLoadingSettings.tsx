@@ -218,6 +218,22 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
     }
   };
 
+  const handleUpdateNumGenerators = async (zoneId: string, numGenerators: number) => {
+    try {
+      const { error } = await supabase
+        .from("generator_zones")
+        .update({ num_generators: numGenerators })
+        .eq("id", zoneId);
+
+      if (error) throw error;
+      toast.success("Number of generators updated");
+      refetchZones();
+    } catch (error) {
+      console.error("Error updating number of generators:", error);
+      toast.error("Failed to update number of generators");
+    }
+  };
+
   if (isLoading) {
     return <div>Loading settings...</div>;
   }
@@ -327,6 +343,7 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
                 <TableHead>Zone Number</TableHead>
                 <TableHead>Zone Name</TableHead>
                 <TableHead>Calculated Load (kW)</TableHead>
+                <TableHead>No. of Generators</TableHead>
                 <TableHead>Generator Size</TableHead>
                 <TableHead>Generator Cost (R)</TableHead>
                 <TableHead className="w-[100px]">Actions</TableHead>
@@ -341,6 +358,21 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
                     <TableCell>{zone.zone_name}</TableCell>
                     <TableCell className="font-mono text-lg font-semibold text-primary">
                       {zoneLoading.toFixed(2)} kW
+                    </TableCell>
+                    <TableCell>
+                      <Select
+                        value={(zone.num_generators || 1).toString()}
+                        onValueChange={(value) => handleUpdateNumGenerators(zone.id, parseInt(value))}
+                      >
+                        <SelectTrigger className="w-[100px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1">1 Generator</SelectItem>
+                          <SelectItem value="2">2 Synchronized</SelectItem>
+                          <SelectItem value="3">3 Synchronized</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </TableCell>
                     <TableCell>
                       <Select

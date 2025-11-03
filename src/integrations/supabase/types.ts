@@ -1946,6 +1946,7 @@ export type Database = {
           generator_size: string | null
           id: string
           notes: string | null
+          num_generators: number | null
           project_id: string
           updated_at: string
           zone_name: string
@@ -1958,6 +1959,7 @@ export type Database = {
           generator_size?: string | null
           id?: string
           notes?: string | null
+          num_generators?: number | null
           project_id: string
           updated_at?: string
           zone_name: string
@@ -1970,6 +1972,7 @@ export type Database = {
           generator_size?: string | null
           id?: string
           notes?: string | null
+          num_generators?: number | null
           project_id?: string
           updated_at?: string
           zone_name?: string
