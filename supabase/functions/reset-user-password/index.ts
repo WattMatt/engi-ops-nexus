@@ -15,25 +15,25 @@ Deno.serve(async (req) => {
   console.log('Processing reset password request')
 
   try {
-    const supabaseClient = createClient(
+    // Create anon client to verify user authentication
+    const supabaseAnon = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
       {
         auth: {
           autoRefreshToken: false,
           persistSession: false
+        },
+        global: {
+          headers: {
+            Authorization: req.headers.get('Authorization') ?? ''
+          }
         }
       }
     )
 
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
-      console.error('No authorization header provided')
-      throw new Error('No authorization header')
-    }
-
-    const token = authHeader.replace('Bearer ', '')
-    const { data: { user: requestingUser }, error: authError } = await supabaseClient.auth.getUser(token)
+    // Verify user is authenticated
+    const { data: { user: requestingUser }, error: authError } = await supabaseAnon.auth.getUser()
     
     if (authError) {
       console.error('Auth error:', authError)
@@ -46,6 +46,18 @@ Deno.serve(async (req) => {
     }
 
     console.log('Requesting user:', requestingUser.id)
+
+    // Create service role client for admin operations
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    )
 
     const { data: roleData, error: roleError } = await supabaseClient
       .from('user_roles')
