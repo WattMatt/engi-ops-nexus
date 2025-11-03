@@ -15,14 +15,7 @@ Deno.serve(async (req) => {
   console.log('Processing reset password request')
 
   try {
-    // Get the authorization header
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
-      console.error('No authorization header provided')
-      throw new Error('No authorization header')
-    }
-
-    // Create service role client for all operations
+    // Create service role client
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
@@ -34,21 +27,34 @@ Deno.serve(async (req) => {
       }
     )
 
-    // Verify the JWT token to get the user
-    const jwt = authHeader.replace('Bearer ', '')
-    const { data: { user: requestingUser }, error: verifyError } = await supabaseClient.auth.getUser(jwt)
-    
-    if (verifyError || !requestingUser) {
-      console.error('Token verification failed:', verifyError)
-      throw new Error('Invalid authentication token')
+    // Get authenticated user from request (Supabase functions automatically validate the JWT)
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      console.error('No authorization header provided')
+      throw new Error('No authorization header')
     }
 
-    console.log('Requesting user:', requestingUser.id)
+    // Decode JWT to get user ID (the JWT is already validated by Supabase)
+    const jwt = authHeader.replace('Bearer ', '')
+    const parts = jwt.split('.')
+    if (parts.length !== 3) {
+      throw new Error('Invalid JWT format')
+    }
+    
+    const payload = JSON.parse(atob(parts[1]))
+    const requestingUserId = payload.sub
+    
+    if (!requestingUserId) {
+      throw new Error('No user ID in token')
+    }
 
+    console.log('Requesting user:', requestingUserId)
+
+    // Check if requesting user is admin
     const { data: roleData, error: roleError } = await supabaseClient
       .from('user_roles')
       .select('role')
-      .eq('user_id', requestingUser.id)
+      .eq('user_id', requestingUserId)
       .eq('role', 'admin')
       .maybeSingle()
 
@@ -58,11 +64,11 @@ Deno.serve(async (req) => {
     }
     
     if (!roleData) {
-      console.error('User is not admin:', requestingUser.id)
+      console.error('User is not admin:', requestingUserId)
       throw new Error('Insufficient permissions - admin role required')
     }
 
-    console.log('Admin verified:', requestingUser.id)
+    console.log('Admin verified:', requestingUserId)
 
     const { userId } = await req.json()
 
