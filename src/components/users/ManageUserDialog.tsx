@@ -108,17 +108,21 @@ export function ManageUserDialog({ user, onUpdated, children }: ManageUserDialog
         },
       });
 
-      if (error) {
+      // Check for errors in both error object and data.error (for 400 responses)
+      const errorMessage = error?.message || (data as any)?.error;
+      
+      if (error || errorMessage) {
         // Check if it's a domain verification error
-        if (error.message?.includes('domain not verified') || error.message?.includes('verify a domain')) {
+        if (errorMessage?.includes('domain not verified') || 
+            errorMessage?.includes('verify a domain') || 
+            errorMessage?.includes('verify your domain')) {
           toast.error("Email domain not verified", {
             description: "Please verify your domain at resend.com/domains to send emails to other users. For testing, emails can only be sent to your registered Resend email address.",
             duration: 8000,
           });
-        } else {
-          throw error;
+          return;
         }
-        return;
+        throw new Error(errorMessage || 'Failed to send reset link');
       }
 
       await logActivity(
