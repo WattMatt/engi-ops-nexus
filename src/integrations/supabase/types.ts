@@ -1897,6 +1897,47 @@ export type Database = {
           },
         ]
       }
+      generator_settings: {
+        Row: {
+          created_at: string | null
+          fast_food_kw_per_sqm: number | null
+          id: string
+          national_kw_per_sqm: number | null
+          project_id: string
+          restaurant_kw_per_sqm: number | null
+          standard_kw_per_sqm: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          fast_food_kw_per_sqm?: number | null
+          id?: string
+          national_kw_per_sqm?: number | null
+          project_id: string
+          restaurant_kw_per_sqm?: number | null
+          standard_kw_per_sqm?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          fast_food_kw_per_sqm?: number | null
+          id?: string
+          national_kw_per_sqm?: number | null
+          project_id?: string
+          restaurant_kw_per_sqm?: number | null
+          standard_kw_per_sqm?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generator_settings_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: true
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       import_sessions: {
         Row: {
           created_at: string

@@ -1,10 +1,10 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
 import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
 
 interface Tenant {
   id: string;
@@ -19,37 +19,70 @@ interface Tenant {
 
 interface GeneratorTenantListProps {
   tenants: Tenant[];
-  capitalCostRecovery?: number; // Monthly repayment from capital recovery
-  onUpdate?: () => void; // Callback to trigger refetch
+  capitalCostRecovery?: number;
+  onUpdate?: () => void;
+  projectId: string;
 }
 
-export const GeneratorTenantList = ({ tenants, capitalCostRecovery = 53009.71, onUpdate }: GeneratorTenantListProps) => {
-  const [editingTenant, setEditingTenant] = useState<string | null>(null);
+export const GeneratorTenantList = ({ tenants, capitalCostRecovery = 53009.71, onUpdate, projectId }: GeneratorTenantListProps) => {
+  // Fetch generator settings
+  const { data: settings } = useQuery({
+    queryKey: ["generator-settings", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("generator_settings")
+        .select("*")
+        .eq("project_id", projectId)
+        .single();
 
-  // Calculate total generator loading across all tenants
+      if (error && error.code !== "PGRST116") throw error;
+      return data || {
+        standard_kw_per_sqm: 0.03,
+        fast_food_kw_per_sqm: 0.045,
+        restaurant_kw_per_sqm: 0.045,
+        national_kw_per_sqm: 0.03,
+      };
+    },
+    enabled: !!projectId,
+  });
+
+  // Calculate loading based on category and area
+  const calculateLoading = (tenant: Tenant): number => {
+    if (!tenant.area || tenant.own_generator_provided) return 0;
+    
+    const kwPerSqm = {
+      standard: settings?.standard_kw_per_sqm || 0.03,
+      fast_food: settings?.fast_food_kw_per_sqm || 0.045,
+      restaurant: settings?.restaurant_kw_per_sqm || 0.045,
+      national: settings?.national_kw_per_sqm || 0.03,
+    };
+
+    return tenant.area * (kwPerSqm[tenant.shop_category as keyof typeof kwPerSqm] || 0.03);
+  };
+
+  // Calculate total generator loading using calculated values
   const totalLoading = tenants.reduce((sum, tenant) => {
-    if (tenant.own_generator_provided) return sum;
-    const sector1 = tenant.generator_loading_sector_1 || 0;
-    const sector2 = tenant.generator_loading_sector_2 || 0;
-    return sum + sector1 + sector2;
+    return sum + calculateLoading(tenant);
   }, 0);
 
   // Calculate portion of total load and monthly rental for a tenant
   const calculateTenantMetrics = (tenant: Tenant) => {
     if (tenant.own_generator_provided) {
       return {
+        loading: 0,
         portionOfLoad: 0,
         monthlyRental: 0,
         rentalPerSqm: 0
       };
     }
 
-    const tenantLoad = (tenant.generator_loading_sector_1 || 0) + (tenant.generator_loading_sector_2 || 0);
-    const portionOfLoad = totalLoading > 0 ? (tenantLoad / totalLoading) * 100 : 0;
+    const loading = calculateLoading(tenant);
+    const portionOfLoad = totalLoading > 0 ? (loading / totalLoading) * 100 : 0;
     const monthlyRental = (portionOfLoad / 100) * capitalCostRecovery;
     const rentalPerSqm = tenant.area && tenant.area > 0 ? monthlyRental / tenant.area : 0;
 
     return {
+      loading,
       portionOfLoad,
       monthlyRental,
       rentalPerSqm
@@ -93,8 +126,7 @@ export const GeneratorTenantList = ({ tenants, capitalCostRecovery = 53009.71, o
   // Calculate totals for the bottom row
   const totals = {
     area: tenants.reduce((sum, t) => sum + (t.area || 0), 0),
-    sector1: tenants.reduce((sum, t) => sum + (t.generator_loading_sector_1 || 0), 0),
-    sector2: tenants.reduce((sum, t) => sum + (t.generator_loading_sector_2 || 0), 0),
+    loading: tenants.reduce((sum, t) => sum + calculateLoading(t), 0),
     portionOfLoad: tenants.reduce((sum, t) => sum + calculateTenantMetrics(t).portionOfLoad, 0),
     monthlyRental: tenants.reduce((sum, t) => sum + calculateTenantMetrics(t).monthlyRental, 0),
   };
@@ -109,8 +141,7 @@ export const GeneratorTenantList = ({ tenants, capitalCostRecovery = 53009.71, o
             <TableHead className="min-w-[150px]">Tenant</TableHead>
             <TableHead className="min-w-[100px]">Size (m²)</TableHead>
             <TableHead className="min-w-[120px]">Own Generator</TableHead>
-            <TableHead className="min-w-[120px]">Loading Sector 1 (kW)</TableHead>
-            <TableHead className="min-w-[120px]">Loading Sector 2 (kW)</TableHead>
+            <TableHead className="min-w-[120px]">Calculated Loading (kW)</TableHead>
             <TableHead className="min-w-[120px]">Portion of Load (%)</TableHead>
             <TableHead className="min-w-[150px]">Monthly Rental (excl. VAT)</TableHead>
             <TableHead className="min-w-[150px]">Rental per m² (excl. VAT)</TableHead>
@@ -119,7 +150,7 @@ export const GeneratorTenantList = ({ tenants, capitalCostRecovery = 53009.71, o
         <TableBody>
           {tenants.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={9} className="text-center text-muted-foreground">
+              <TableCell colSpan={8} className="text-center text-muted-foreground">
                 No tenants added yet
               </TableCell>
             </TableRow>
@@ -148,29 +179,8 @@ export const GeneratorTenantList = ({ tenants, capitalCostRecovery = 53009.71, o
                         <span className="text-sm font-medium">{isOwnGenerator ? "YES" : "NO"}</span>
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={tenant.generator_loading_sector_1 || ""}
-                        onChange={(e) => 
-                          handleUpdateTenant(tenant.id, "generator_loading_sector_1", e.target.value ? Number(e.target.value) : null)
-                        }
-                        className="w-24"
-                        disabled={isOwnGenerator}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={tenant.generator_loading_sector_2 || ""}
-                        onChange={(e) => 
-                          handleUpdateTenant(tenant.id, "generator_loading_sector_2", e.target.value ? Number(e.target.value) : null)
-                        }
-                        className="w-24"
-                        disabled={isOwnGenerator}
-                      />
+                    <TableCell className="text-right font-mono">
+                      {metrics.loading.toFixed(2)}
                     </TableCell>
                     <TableCell className="text-right">
                       {isOwnGenerator ? "0.00%" : `${metrics.portionOfLoad.toFixed(2)}%`}
@@ -190,8 +200,7 @@ export const GeneratorTenantList = ({ tenants, capitalCostRecovery = 53009.71, o
                 <TableCell colSpan={2}>OVERALL TOTALS</TableCell>
                 <TableCell>{totals.area.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</TableCell>
                 <TableCell></TableCell>
-                <TableCell className="text-right">{totals.sector1.toFixed(2)}</TableCell>
-                <TableCell className="text-right">{totals.sector2.toFixed(2)}</TableCell>
+                <TableCell className="text-right font-mono">{totals.loading.toFixed(2)}</TableCell>
                 <TableCell className="text-right">{totals.portionOfLoad.toFixed(2)}%</TableCell>
                 <TableCell className="text-right">{formatCurrency(totals.monthlyRental)}</TableCell>
                 <TableCell></TableCell>
@@ -200,7 +209,7 @@ export const GeneratorTenantList = ({ tenants, capitalCostRecovery = 53009.71, o
               {/* Average Row */}
               <TableRow className="bg-muted/50">
                 <TableCell colSpan={2}>AVERAGE</TableCell>
-                <TableCell colSpan={6}></TableCell>
+                <TableCell colSpan={5}></TableCell>
                 <TableCell className="text-right font-medium">{formatCurrency(averageRentalPerSqm)}</TableCell>
               </TableRow>
             </>

@@ -9,6 +9,7 @@ import { GeneratorTenantList } from "@/components/tenant/GeneratorTenantList";
 import { GeneratorSizingTable } from "@/components/tenant/GeneratorSizingTable";
 import { RunningRecoveryCalculator } from "@/components/tenant/RunningRecoveryCalculator";
 import { CapitalRecoveryCalculator } from "@/components/tenant/CapitalRecoveryCalculator";
+import { GeneratorLoadingSettings } from "@/components/tenant/GeneratorLoadingSettings";
 import { ChevronDown } from "lucide-react";
 
 const GeneratorReport = () => {
@@ -83,8 +84,9 @@ const GeneratorReport = () => {
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="settings">Settings</TabsTrigger>
           <TabsTrigger value="tenant-schedule">Tenant Schedule</TabsTrigger>
           <TabsTrigger value="sizing">Generator Sizing & Consumption</TabsTrigger>
           <TabsTrigger value="costs">Costs</TabsTrigger>
@@ -100,6 +102,10 @@ const GeneratorReport = () => {
               <p className="text-muted-foreground">Overview content will be displayed here.</p>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="settings" className="space-y-4">
+          {projectId && <GeneratorLoadingSettings projectId={projectId} />}
         </TabsContent>
 
         <TabsContent value="tenant-schedule" className="space-y-4">
@@ -131,6 +137,7 @@ const GeneratorReport = () => {
                 tenants={tenants} 
                 capitalCostRecovery={capitalCostRecovery}
                 onUpdate={() => refetch()}
+                projectId={projectId}
               />
             )}
           </div>
