@@ -1,10 +1,13 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
+import { Trash2, Plus } from "lucide-react";
 
 interface GeneratorSettings {
   id: string;
@@ -28,6 +31,8 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
     national_kw_per_sqm: 0.03,
   });
 
+  const [newZoneName, setNewZoneName] = useState("");
+
   const { data: existingSettings, isLoading } = useQuery({
     queryKey: ["generator-settings", projectId],
     queryFn: async () => {
@@ -39,6 +44,22 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
 
       if (error && error.code !== "PGRST116") throw error;
       return data as GeneratorSettings | null;
+    },
+    enabled: !!projectId,
+  });
+
+  // Fetch zones
+  const { data: zones = [], refetch: refetchZones } = useQuery({
+    queryKey: ["generator-zones", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("generator_zones")
+        .select("*")
+        .eq("project_id", projectId)
+        .order("display_order");
+
+      if (error) throw error;
+      return data || [];
     },
     enabled: !!projectId,
   });
@@ -86,12 +107,55 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
     saveMutation.mutate();
   };
 
+  const handleAddZone = async () => {
+    if (!newZoneName.trim()) {
+      toast.error("Please enter a zone name");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("generator_zones")
+        .insert({
+          project_id: projectId,
+          zone_name: newZoneName,
+          zone_number: zones.length + 1,
+          display_order: zones.length,
+        });
+
+      if (error) throw error;
+      toast.success("Zone added successfully");
+      setNewZoneName("");
+      refetchZones();
+    } catch (error) {
+      console.error("Error adding zone:", error);
+      toast.error("Failed to add zone");
+    }
+  };
+
+  const handleDeleteZone = async (zoneId: string) => {
+    try {
+      const { error } = await supabase
+        .from("generator_zones")
+        .delete()
+        .eq("id", zoneId);
+
+      if (error) throw error;
+      toast.success("Zone deleted successfully");
+      refetchZones();
+    } catch (error) {
+      console.error("Error deleting zone:", error);
+      toast.error("Failed to delete zone");
+    }
+  };
+
   if (isLoading) {
     return <div>Loading settings...</div>;
   }
 
   return (
-    <Card>
+    <div className="space-y-6">
+      <Card>
       <CardHeader>
         <CardTitle>Generator Loading Settings</CardTitle>
         <CardDescription>
@@ -163,5 +227,64 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
         </div>
       </CardContent>
     </Card>
+
+    <Card>
+      <CardHeader>
+        <CardTitle>Generator Zones</CardTitle>
+        <CardDescription>
+          Define generator zones for separate load calculations
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex gap-2">
+          <div className="flex-1">
+            <Input
+              placeholder="Enter zone name (e.g., Zone 1, Sector A)"
+              value={newZoneName}
+              onChange={(e) => setNewZoneName(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleAddZone()}
+            />
+          </div>
+          <Button onClick={handleAddZone}>
+            <Plus className="h-4 w-4 mr-2" />
+            Add Zone
+          </Button>
+        </div>
+
+        {zones.length > 0 ? (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Zone Number</TableHead>
+                <TableHead>Zone Name</TableHead>
+                <TableHead className="w-[100px]">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {zones.map((zone) => (
+                <TableRow key={zone.id}>
+                  <TableCell className="font-medium">Zone {zone.zone_number}</TableCell>
+                  <TableCell>{zone.zone_name}</TableCell>
+                  <TableCell>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDeleteZone(zone.id)}
+                    >
+                      <Trash2 className="h-4 w-4 text-destructive" />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        ) : (
+          <p className="text-muted-foreground text-sm text-center py-4">
+            No zones configured yet. Add zones to enable zone-based load calculations.
+          </p>
+        )}
+      </CardContent>
+    </Card>
+    </div>
   );
 }

@@ -1,6 +1,7 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -13,8 +14,13 @@ interface Tenant {
   area: number | null;
   shop_category: string;
   own_generator_provided: boolean | null;
-  generator_loading_sector_1: number | null;
-  generator_loading_sector_2: number | null;
+  generator_zone_id: string | null;
+}
+
+interface Zone {
+  id: string;
+  zone_name: string;
+  zone_number: number;
 }
 
 interface GeneratorTenantListProps {
@@ -46,6 +52,22 @@ export const GeneratorTenantList = ({ tenants, capitalCostRecovery = 53009.71, o
     enabled: !!projectId,
   });
 
+  // Fetch zones
+  const { data: zones = [] } = useQuery({
+    queryKey: ["generator-zones", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("generator_zones")
+        .select("*")
+        .eq("project_id", projectId)
+        .order("display_order");
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!projectId,
+  });
+
   // Calculate loading based on category and area
   const calculateLoading = (tenant: Tenant): number => {
     if (!tenant.area || tenant.own_generator_provided) return 0;
@@ -58,6 +80,13 @@ export const GeneratorTenantList = ({ tenants, capitalCostRecovery = 53009.71, o
     };
 
     return tenant.area * (kwPerSqm[tenant.shop_category as keyof typeof kwPerSqm] || 0.03);
+  };
+
+  // Calculate total loading per zone
+  const getZoneLoading = (zoneId: string) => {
+    return tenants
+      .filter(t => t.generator_zone_id === zoneId && !t.own_generator_provided)
+      .reduce((sum, tenant) => sum + calculateLoading(tenant), 0);
   };
 
   // Calculate total generator loading using calculated values
@@ -141,7 +170,12 @@ export const GeneratorTenantList = ({ tenants, capitalCostRecovery = 53009.71, o
             <TableHead className="min-w-[150px]">Tenant</TableHead>
             <TableHead className="min-w-[100px]">Size (m²)</TableHead>
             <TableHead className="min-w-[120px]">Own Generator</TableHead>
-            <TableHead className="min-w-[120px]">Calculated Loading (kW)</TableHead>
+            <TableHead className="min-w-[120px]">Zone</TableHead>
+            {zones.map((zone) => (
+              <TableHead key={zone.id} className="min-w-[120px]">
+                {zone.zone_name} (kW)
+              </TableHead>
+            ))}
             <TableHead className="min-w-[120px]">Portion of Load (%)</TableHead>
             <TableHead className="min-w-[150px]">Monthly Rental (excl. VAT)</TableHead>
             <TableHead className="min-w-[150px]">Rental per m² (excl. VAT)</TableHead>
@@ -159,6 +193,7 @@ export const GeneratorTenantList = ({ tenants, capitalCostRecovery = 53009.71, o
               {tenants.map((tenant) => {
                 const metrics = calculateTenantMetrics(tenant);
                 const isOwnGenerator = tenant.own_generator_provided || false;
+                const loading = calculateLoading(tenant);
                 
                 return (
                   <TableRow 
@@ -179,9 +214,34 @@ export const GeneratorTenantList = ({ tenants, capitalCostRecovery = 53009.71, o
                         <span className="text-sm font-medium">{isOwnGenerator ? "YES" : "NO"}</span>
                       </div>
                     </TableCell>
-                    <TableCell className="text-right font-mono">
-                      {metrics.loading.toFixed(2)}
+                    <TableCell>
+                      <Select
+                        value={tenant.generator_zone_id || "none"}
+                        onValueChange={(value) => 
+                          handleUpdateTenant(tenant.id, "generator_zone_id", value === "none" ? null : value)
+                        }
+                        disabled={isOwnGenerator}
+                      >
+                        <SelectTrigger className="w-[140px]">
+                          <SelectValue placeholder="Select zone" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">No zone</SelectItem>
+                          {zones.map((zone) => (
+                            <SelectItem key={zone.id} value={zone.id}>
+                              {zone.zone_name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                     </TableCell>
+                    {zones.map((zone) => (
+                      <TableCell key={zone.id} className="text-right font-mono">
+                        {!isOwnGenerator && tenant.generator_zone_id === zone.id
+                          ? loading.toFixed(2)
+                          : "-"}
+                      </TableCell>
+                    ))}
                     <TableCell className="text-right">
                       {isOwnGenerator ? "0.00%" : `${metrics.portionOfLoad.toFixed(2)}%`}
                     </TableCell>
@@ -200,7 +260,12 @@ export const GeneratorTenantList = ({ tenants, capitalCostRecovery = 53009.71, o
                 <TableCell colSpan={2}>OVERALL TOTALS</TableCell>
                 <TableCell>{totals.area.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</TableCell>
                 <TableCell></TableCell>
-                <TableCell className="text-right font-mono">{totals.loading.toFixed(2)}</TableCell>
+                <TableCell></TableCell>
+                {zones.map((zone) => (
+                  <TableCell key={zone.id} className="text-right font-mono">
+                    {getZoneLoading(zone.id).toFixed(2)}
+                  </TableCell>
+                ))}
                 <TableCell className="text-right">{totals.portionOfLoad.toFixed(2)}%</TableCell>
                 <TableCell className="text-right">{formatCurrency(totals.monthlyRental)}</TableCell>
                 <TableCell></TableCell>
@@ -209,7 +274,9 @@ export const GeneratorTenantList = ({ tenants, capitalCostRecovery = 53009.71, o
               {/* Average Row */}
               <TableRow className="bg-muted/50">
                 <TableCell colSpan={2}>AVERAGE</TableCell>
-                <TableCell colSpan={5}></TableCell>
+                <TableCell colSpan={3 + zones.length}></TableCell>
+                <TableCell></TableCell>
+                <TableCell></TableCell>
                 <TableCell className="text-right font-medium">{formatCurrency(averageRentalPerSqm)}</TableCell>
               </TableRow>
             </>

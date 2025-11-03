@@ -1938,6 +1938,36 @@ export type Database = {
           },
         ]
       }
+      generator_zones: {
+        Row: {
+          created_at: string
+          display_order: number
+          id: string
+          project_id: string
+          updated_at: string
+          zone_name: string
+          zone_number: number
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          project_id: string
+          updated_at?: string
+          zone_name: string
+          zone_number: number
+        }
+        Update: {
+          created_at?: string
+          display_order?: number
+          id?: string
+          project_id?: string
+          updated_at?: string
+          zone_name?: string
+          zone_number?: number
+        }
+        Relationships: []
+      }
       import_sessions: {
         Row: {
           created_at: string
@@ -4354,6 +4384,7 @@ export type Database = {
           db_size_scope_of_work: string | null
           generator_loading_sector_1: number | null
           generator_loading_sector_2: number | null
+          generator_zone_id: string | null
           id: string
           layout_received: boolean | null
           lighting_cost: number | null
@@ -4379,6 +4410,7 @@ export type Database = {
           db_size_scope_of_work?: string | null
           generator_loading_sector_1?: number | null
           generator_loading_sector_2?: number | null
+          generator_zone_id?: string | null
           id?: string
           layout_received?: boolean | null
           lighting_cost?: number | null
@@ -4404,6 +4436,7 @@ export type Database = {
           db_size_scope_of_work?: string | null
           generator_loading_sector_1?: number | null
           generator_loading_sector_2?: number | null
+          generator_zone_id?: string | null
           id?: string
           layout_received?: boolean | null
           lighting_cost?: number | null
@@ -4419,6 +4452,13 @@ export type Database = {
           zone_points?: Json | null
         }
         Relationships: [
+          {
+            foreignKeyName: "tenants_generator_zone_id_fkey"
+            columns: ["generator_zone_id"]
+            isOneToOne: false
+            referencedRelation: "generator_zones"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "tenants_project_id_fkey"
             columns: ["project_id"]
