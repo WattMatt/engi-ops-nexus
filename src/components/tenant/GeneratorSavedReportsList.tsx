@@ -16,6 +16,12 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface GeneratorSavedReportsListProps {
   projectId: string;
@@ -24,6 +30,9 @@ interface GeneratorSavedReportsListProps {
 export function GeneratorSavedReportsList({ projectId }: GeneratorSavedReportsListProps) {
   const queryClient = useQueryClient();
   const [deleteReportId, setDeleteReportId] = useState<string | null>(null);
+  const [previewReport, setPreviewReport] = useState<any>(null);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
 
   // Fetch saved reports
   const { data: reports = [], isLoading } = useQuery({
@@ -68,24 +77,35 @@ export function GeneratorSavedReportsList({ projectId }: GeneratorSavedReportsLi
   };
 
   // Preview report
-  const handlePreview = async (filePath: string) => {
+  const handlePreview = async (report: any) => {
+    setPreviewReport(report);
+    setIsLoadingPreview(true);
+    
     try {
       const { data, error } = await supabase.storage
         .from("tenant-tracker-reports")
-        .download(filePath);
+        .download(report.file_path);
 
       if (error) throw error;
 
-      // Open PDF in new tab
       const blob = new Blob([data], { type: "application/pdf" });
       const url = window.URL.createObjectURL(blob);
-      window.open(url, "_blank");
-      
-      toast.success("Opening report preview");
+      setPdfUrl(url);
     } catch (error) {
       console.error("Error previewing report:", error);
-      toast.error("Failed to preview report");
+      toast.error("Failed to load preview");
+      setPreviewReport(null);
+    } finally {
+      setIsLoadingPreview(false);
     }
+  };
+
+  const handleClosePreview = () => {
+    if (pdfUrl) {
+      window.URL.revokeObjectURL(pdfUrl);
+      setPdfUrl(null);
+    }
+    setPreviewReport(null);
   };
 
   // Delete report mutation
@@ -179,7 +199,7 @@ export function GeneratorSavedReportsList({ projectId }: GeneratorSavedReportsLi
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => handlePreview(report.file_path)}
+                      onClick={() => handlePreview(report)}
                     >
                       <Eye className="h-4 w-4 mr-1" />
                       Preview
@@ -206,6 +226,32 @@ export function GeneratorSavedReportsList({ projectId }: GeneratorSavedReportsLi
           )}
         </CardContent>
       </Card>
+
+      {/* Preview Dialog */}
+      <Dialog open={!!previewReport} onOpenChange={handleClosePreview}>
+        <DialogContent className="max-w-5xl h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>{previewReport?.report_name}</DialogTitle>
+          </DialogHeader>
+          <div className="flex-1 overflow-hidden">
+            {isLoadingPreview ? (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-muted-foreground">Loading preview...</p>
+              </div>
+            ) : pdfUrl ? (
+              <iframe
+                src={pdfUrl}
+                className="w-full h-full border-0"
+                title="PDF Preview"
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <p className="text-destructive">Failed to load preview</p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deleteReportId} onOpenChange={() => setDeleteReportId(null)}>
