@@ -1899,33 +1899,51 @@ export type Database = {
       }
       generator_settings: {
         Row: {
+          additional_cabling_cost: number | null
+          control_wiring_cost: number | null
           created_at: string | null
           fast_food_kw_per_sqm: number | null
           id: string
           national_kw_per_sqm: number | null
+          num_main_boards: number | null
+          num_tenant_dbs: number | null
           project_id: string
+          rate_per_main_board: number | null
+          rate_per_tenant_db: number | null
           restaurant_kw_per_sqm: number | null
           standard_kw_per_sqm: number | null
           tenant_rate: number | null
           updated_at: string | null
         }
         Insert: {
+          additional_cabling_cost?: number | null
+          control_wiring_cost?: number | null
           created_at?: string | null
           fast_food_kw_per_sqm?: number | null
           id?: string
           national_kw_per_sqm?: number | null
+          num_main_boards?: number | null
+          num_tenant_dbs?: number | null
           project_id: string
+          rate_per_main_board?: number | null
+          rate_per_tenant_db?: number | null
           restaurant_kw_per_sqm?: number | null
           standard_kw_per_sqm?: number | null
           tenant_rate?: number | null
           updated_at?: string | null
         }
         Update: {
+          additional_cabling_cost?: number | null
+          control_wiring_cost?: number | null
           created_at?: string | null
           fast_food_kw_per_sqm?: number | null
           id?: string
           national_kw_per_sqm?: number | null
+          num_main_boards?: number | null
+          num_tenant_dbs?: number | null
           project_id?: string
+          rate_per_main_board?: number | null
+          rate_per_tenant_db?: number | null
           restaurant_kw_per_sqm?: number | null
           standard_kw_per_sqm?: number | null
           tenant_rate?: number | null

@@ -71,6 +71,25 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
     toast.success("Tenant rate updated");
   };
 
+  const handleSettingUpdate = async (field: string, value: number) => {
+    if (!settings?.id) {
+      toast.error("Please configure generator settings first");
+      return;
+    }
+
+    const { error } = await supabase
+      .from("generator_settings")
+      .update({ [field]: value })
+      .eq("id", settings.id);
+
+    if (error) {
+      toast.error(`Failed to update ${field}`);
+      return;
+    }
+
+    toast.success("Updated successfully");
+  };
+
   const formatCurrency = (value: number): string => {
     return `R ${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
@@ -79,7 +98,19 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
   const tenantRate = settings?.tenant_rate || 0;
   const generatorCost = zones.reduce((sum, zone) => sum + (zone.generator_cost || 0), 0);
   const tenantCost = tenantCount * tenantRate;
-  const totalCost = generatorCost + tenantCost;
+  
+  const numTenantDBs = settings?.num_tenant_dbs || 0;
+  const ratePerTenantDB = settings?.rate_per_tenant_db || 0;
+  const tenantDBsCost = numTenantDBs * ratePerTenantDB;
+  
+  const numMainBoards = settings?.num_main_boards || 0;
+  const ratePerMainBoard = settings?.rate_per_main_board || 0;
+  const mainBoardsCost = numMainBoards * ratePerMainBoard;
+  
+  const additionalCablingCost = settings?.additional_cabling_cost || 0;
+  const controlWiringCost = settings?.control_wiring_cost || 0;
+  
+  const totalCost = generatorCost + tenantDBsCost + mainBoardsCost + additionalCablingCost + controlWiringCost;
 
   return (
     <Card>
@@ -90,68 +121,130 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 bg-muted/50 rounded-lg">
-          <div>
-            <Label>Number of Tenants</Label>
-            <Input
-              type="number"
-              value={tenantCount}
-              disabled
-              className="font-semibold bg-background"
-            />
-          </div>
-          <div>
-            <Label htmlFor="tenantRate">Rate per Tenant (R)</Label>
-            <Input
-              id="tenantRate"
-              type="number"
-              step="0.01"
-              defaultValue={tenantRate}
-              onBlur={(e) => handleTenantRateUpdate(Number(e.target.value))}
-            />
-          </div>
-        </div>
-
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Zone</TableHead>
-              <TableHead>No. of Generators</TableHead>
-              <TableHead>Generator Size</TableHead>
+              <TableHead>Item</TableHead>
+              <TableHead>Description</TableHead>
+              <TableHead>Quantity</TableHead>
+              <TableHead>Rate (R)</TableHead>
               <TableHead className="text-right">Cost (excl. VAT)</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
             {zones.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={3} className="text-center text-muted-foreground">
+                <TableCell colSpan={5} className="text-center text-muted-foreground">
                   No generator zones configured yet
                 </TableCell>
               </TableRow>
             ) : (
               <>
-                {zones.map((zone) => (
+                {zones.map((zone, index) => (
                   <TableRow key={zone.id}>
-                    <TableCell className="font-medium">{zone.zone_name}</TableCell>
+                    <TableCell className="font-medium">{index + 1}</TableCell>
                     <TableCell>
-                      {zone.num_generators === 1 
-                        ? "1 Generator" 
-                        : `${zone.num_generators} Synchronized`}
+                      {zone.zone_name} - {zone.generator_size || "-"}
+                      {zone.num_generators > 1 && ` (${zone.num_generators} Synchronized)`}
                     </TableCell>
-                    <TableCell>{zone.generator_size || "-"}</TableCell>
+                    <TableCell>1</TableCell>
+                    <TableCell className="font-mono">
+                      {formatCurrency(zone.generator_cost || 0)}
+                    </TableCell>
                     <TableCell className="text-right font-mono">
                       {formatCurrency(zone.generator_cost || 0)}
                     </TableCell>
                   </TableRow>
                 ))}
-                <TableRow className="border-t-2">
-                  <TableCell colSpan={3} className="font-medium">Tenant Charges</TableCell>
+                
+                <TableRow>
+                  <TableCell className="font-medium">{zones.length + 1}</TableCell>
+                  <TableCell>Number of Tenant DBs</TableCell>
+                  <TableCell>
+                    <Input
+                      type="number"
+                      defaultValue={numTenantDBs}
+                      onBlur={(e) => handleSettingUpdate('num_tenant_dbs', Number(e.target.value))}
+                      className="w-20"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      defaultValue={ratePerTenantDB}
+                      onBlur={(e) => handleSettingUpdate('rate_per_tenant_db', Number(e.target.value))}
+                      className="w-32"
+                    />
+                  </TableCell>
                   <TableCell className="text-right font-mono">
-                    {formatCurrency(tenantCost)}
+                    {formatCurrency(tenantDBsCost)}
                   </TableCell>
                 </TableRow>
-                <TableRow className="bg-primary/5 font-bold">
-                  <TableCell colSpan={3}>TOTAL CAPITAL COST</TableCell>
+
+                <TableRow>
+                  <TableCell className="font-medium">{zones.length + 2}</TableCell>
+                  <TableCell>Number of Main Boards</TableCell>
+                  <TableCell>
+                    <Input
+                      type="number"
+                      defaultValue={numMainBoards}
+                      onBlur={(e) => handleSettingUpdate('num_main_boards', Number(e.target.value))}
+                      className="w-20"
+                    />
+                  </TableCell>
+                  <TableCell>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      defaultValue={ratePerMainBoard}
+                      onBlur={(e) => handleSettingUpdate('rate_per_main_board', Number(e.target.value))}
+                      className="w-32"
+                    />
+                  </TableCell>
+                  <TableCell className="text-right font-mono">
+                    {formatCurrency(mainBoardsCost)}
+                  </TableCell>
+                </TableRow>
+
+                <TableRow>
+                  <TableCell className="font-medium">{zones.length + 3}</TableCell>
+                  <TableCell>Additional Cabling</TableCell>
+                  <TableCell>1</TableCell>
+                  <TableCell>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      defaultValue={additionalCablingCost}
+                      onBlur={(e) => handleSettingUpdate('additional_cabling_cost', Number(e.target.value))}
+                      className="w-32"
+                    />
+                  </TableCell>
+                  <TableCell className="text-right font-mono">
+                    {formatCurrency(additionalCablingCost)}
+                  </TableCell>
+                </TableRow>
+
+                <TableRow>
+                  <TableCell className="font-medium">{zones.length + 4}</TableCell>
+                  <TableCell>Control Wiring</TableCell>
+                  <TableCell>1</TableCell>
+                  <TableCell>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      defaultValue={controlWiringCost}
+                      onBlur={(e) => handleSettingUpdate('control_wiring_cost', Number(e.target.value))}
+                      className="w-32"
+                    />
+                  </TableCell>
+                  <TableCell className="text-right font-mono">
+                    {formatCurrency(controlWiringCost)}
+                  </TableCell>
+                </TableRow>
+
+                <TableRow className="bg-primary/5 font-bold border-t-2">
+                  <TableCell colSpan={4}>TOTAL CAPITAL COST</TableCell>
                   <TableCell className="text-right font-mono">{formatCurrency(totalCost)}</TableCell>
                 </TableRow>
               </>
