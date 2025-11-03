@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Badge } from "@/components/ui/badge";
 import { GeneratorTenantList } from "@/components/tenant/GeneratorTenantList";
+import { GeneratorSizingTable } from "@/components/tenant/GeneratorSizingTable";
 import { ChevronDown } from "lucide-react";
 
 const GeneratorReport = () => {
@@ -104,15 +105,7 @@ const GeneratorReport = () => {
         </TabsContent>
 
         <TabsContent value="sizing" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Generator Sizing & Consumption</CardTitle>
-              <CardDescription>Capacity planning and consumption analysis</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground">Sizing and consumption data will be displayed here.</p>
-            </CardContent>
-          </Card>
+          <GeneratorSizingTable />
         </TabsContent>
 
         <TabsContent value="costs" className="space-y-4">
