@@ -97,24 +97,17 @@ const GeneratorReport = () => {
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
           <TabsTrigger value="tenant-schedule">Tenant Schedule</TabsTrigger>
           <TabsTrigger value="sizing">Generator Sizing & Consumption</TabsTrigger>
           <TabsTrigger value="costs">Costs</TabsTrigger>
+          <TabsTrigger value="saved-reports">Saved Reports</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
-          {projectId && (
-            <>
-              <GeneratorOverview projectId={projectId} />
-              <GeneratorSavedReportsList 
-                key={reportsRefreshTrigger} 
-                projectId={projectId} 
-              />
-            </>
-          )}
+          {projectId && <GeneratorOverview projectId={projectId} />}
         </TabsContent>
 
         <TabsContent value="settings" className="space-y-4">
@@ -184,6 +177,15 @@ const GeneratorReport = () => {
               </CollapsibleContent>
             </Collapsible>
           </div>
+        </TabsContent>
+
+        <TabsContent value="saved-reports" className="space-y-4">
+          {projectId && (
+            <GeneratorSavedReportsList 
+              key={reportsRefreshTrigger} 
+              projectId={projectId} 
+            />
+          )}
         </TabsContent>
       </Tabs>
     </div>
