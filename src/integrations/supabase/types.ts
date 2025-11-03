@@ -1897,6 +1897,50 @@ export type Database = {
           },
         ]
       }
+      generator_reports: {
+        Row: {
+          created_at: string | null
+          file_path: string
+          file_size: number | null
+          generated_at: string | null
+          generated_by: string | null
+          id: string
+          notes: string | null
+          project_id: string
+          report_name: string
+        }
+        Insert: {
+          created_at?: string | null
+          file_path: string
+          file_size?: number | null
+          generated_at?: string | null
+          generated_by?: string | null
+          id?: string
+          notes?: string | null
+          project_id: string
+          report_name: string
+        }
+        Update: {
+          created_at?: string | null
+          file_path?: string
+          file_size?: number | null
+          generated_at?: string | null
+          generated_by?: string | null
+          id?: string
+          notes?: string | null
+          project_id?: string
+          report_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "generator_reports_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       generator_settings: {
         Row: {
           additional_cabling_cost: number | null

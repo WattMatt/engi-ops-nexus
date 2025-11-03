@@ -12,12 +12,15 @@ import { CapitalRecoveryCalculator } from "@/components/tenant/CapitalRecoveryCa
 import { GeneratorLoadingSettings } from "@/components/tenant/GeneratorLoadingSettings";
 import { GeneratorCostingSection } from "@/components/tenant/GeneratorCostingSection";
 import { GeneratorOverview } from "@/components/tenant/GeneratorOverview";
+import { GeneratorReportExportPDFButton } from "@/components/tenant/GeneratorReportExportPDFButton";
+import { GeneratorSavedReportsList } from "@/components/tenant/GeneratorSavedReportsList";
 import { ChevronDown } from "lucide-react";
 
 const GeneratorReport = () => {
   const projectId = localStorage.getItem("selectedProjectId");
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [capitalCostRecovery, setCapitalCostRecovery] = useState(68985.48); // Monthly repayment
+  const [reportsRefreshTrigger, setReportsRefreshTrigger] = useState(0);
 
   const { data: tenants = [], isLoading, refetch } = useQuery({
     queryKey: ["generator-tenants", projectId, refreshTrigger],
@@ -78,11 +81,19 @@ const GeneratorReport = () => {
 
   return (
     <div className="container mx-auto p-6 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold mb-2">Generator Report</h1>
-        <p className="text-muted-foreground">
-          Comprehensive generator analysis and cost recovery planning
-        </p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold mb-2">Generator Report</h1>
+          <p className="text-muted-foreground">
+            Comprehensive generator analysis and cost recovery planning
+          </p>
+        </div>
+        {projectId && (
+          <GeneratorReportExportPDFButton 
+            projectId={projectId} 
+            onReportSaved={() => setReportsRefreshTrigger(prev => prev + 1)}
+          />
+        )}
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
@@ -95,7 +106,15 @@ const GeneratorReport = () => {
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
-          {projectId && <GeneratorOverview projectId={projectId} />}
+          {projectId && (
+            <>
+              <GeneratorOverview projectId={projectId} />
+              <GeneratorSavedReportsList 
+                key={reportsRefreshTrigger} 
+                projectId={projectId} 
+              />
+            </>
+          )}
         </TabsContent>
 
         <TabsContent value="settings" className="space-y-4">
