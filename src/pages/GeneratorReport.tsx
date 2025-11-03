@@ -168,7 +168,7 @@ const GeneratorReport = () => {
                 <ChevronDown className="h-5 w-5 transition-transform duration-200" />
               </CollapsibleTrigger>
               <CollapsibleContent className="mt-2">
-                <RunningRecoveryCalculator />
+                <RunningRecoveryCalculator projectId={projectId} />
               </CollapsibleContent>
             </Collapsible>
           </div>

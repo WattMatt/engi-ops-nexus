@@ -3,9 +3,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
-export function RunningRecoveryCalculator() {
+interface RunningRecoveryCalculatorProps {
+  projectId: string;
+}
+
+export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculatorProps) {
+  const [selectedGeneratorId, setSelectedGeneratorId] = useState<string>("");
   const [plantName, setPlantName] = useState("STANDBY PLANT 1");
   const [runningLoad, setRunningLoad] = useState(75);
   const [netEnergyKVA, setNetEnergyKVA] = useState(1200);
@@ -15,6 +23,36 @@ export function RunningRecoveryCalculator() {
   const [servicingCostPerYear, setServicingCostPerYear] = useState(18800.00);
   const [servicingCostPer250Hours, setServicingCostPer250Hours] = useState(18800.00);
   const [expectedHoursPerMonth, setExpectedHoursPerMonth] = useState(100);
+
+  // Fetch generator zones
+  const { data: zones = [] } = useQuery({
+    queryKey: ["generator-zones-running", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("generator_zones")
+        .select("*")
+        .eq("project_id", projectId)
+        .order("display_order");
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!projectId,
+  });
+
+  // Handle generator selection
+  const handleGeneratorSelect = (zoneId: string) => {
+    setSelectedGeneratorId(zoneId);
+    const selectedZone = zones.find(z => z.id === zoneId);
+    if (selectedZone) {
+      setPlantName(selectedZone.zone_name);
+      // Parse generator size to extract kVA value (e.g., "1200 kVA" -> 1200)
+      const sizeMatch = selectedZone.generator_size?.match(/(\d+)/);
+      if (sizeMatch) {
+        setNetEnergyKVA(Number(sizeMatch[1]));
+      }
+    }
+  };
 
   // Calculations
   const netTotalEnergyKWh = netEnergyKVA * kvaToKwhConversion;
@@ -47,6 +85,22 @@ export function RunningRecoveryCalculator() {
         <CardContent className="space-y-6">
           {/* Input Parameters */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div>
+              <Label htmlFor="generator">Select Generator</Label>
+              <Select value={selectedGeneratorId} onValueChange={handleGeneratorSelect}>
+                <SelectTrigger className="bg-background">
+                  <SelectValue placeholder="Select a generator" />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  {zones.map((zone) => (
+                    <SelectItem key={zone.id} value={zone.id}>
+                      {zone.zone_name} - {zone.generator_size}
+                      {zone.num_generators > 1 && ` (${zone.num_generators} Synchronized)`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div>
               <Label htmlFor="runningLoad">Running Load (%)</Label>
               <Input
