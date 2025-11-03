@@ -4552,6 +4552,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_project_member: {
+        Args: { _project_id: string; _user_id: string }
+        Returns: boolean
+      }
       log_user_activity: {
         Args: {
           p_action_description: string
