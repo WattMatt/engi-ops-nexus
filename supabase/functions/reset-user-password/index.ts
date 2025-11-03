@@ -61,10 +61,13 @@ Deno.serve(async (req) => {
       throw new Error('User not found')
     }
 
-    // Generate password reset link
+    // Generate password reset link with redirect to set-password page
     const { data: resetData, error: resetError } = await supabaseClient.auth.admin.generateLink({
       type: 'recovery',
       email: profile.email,
+      options: {
+        redirectTo: `${req.headers.get('origin')}/set-password`
+      }
     })
 
     if (resetError || !resetData.properties?.action_link) {
