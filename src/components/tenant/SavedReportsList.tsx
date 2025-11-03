@@ -3,13 +3,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { FileText, Download, Trash2, Loader2, Edit, StickyNote } from "lucide-react";
+import { FileText, Download, Trash2, Loader2, Edit, StickyNote, Eye } from "lucide-react";
 import { toast } from "sonner";
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { EditReportDialog } from "./EditReportDialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
+import { ReportPreviewDialog } from "./ReportPreviewDialog";
 
 interface SavedReportsListProps {
   projectId: string;
@@ -19,6 +20,7 @@ export const SavedReportsList = ({ projectId }: SavedReportsListProps) => {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [editingReport, setEditingReport] = useState<any | null>(null);
+  const [previewingReport, setPreviewingReport] = useState<any | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const queryClient = useQueryClient();
 
@@ -218,6 +220,20 @@ export const SavedReportsList = ({ projectId }: SavedReportsListProps) => {
                               <Button
                                 variant="ghost"
                                 size="sm"
+                                onClick={() => setPreviewingReport(report)}
+                              >
+                                <Eye className="h-4 w-4 text-blue-600" />
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent>Preview</TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
                                 onClick={() => setEditingReport(report)}
                               >
                                 <Edit className="h-4 w-4" />
@@ -283,6 +299,14 @@ export const SavedReportsList = ({ projectId }: SavedReportsListProps) => {
         onSuccess={() => {
           queryClient.invalidateQueries({ queryKey: ['tenant-tracker-reports', projectId] });
         }}
+      />
+    )}
+
+    {previewingReport && (
+      <ReportPreviewDialog
+        report={previewingReport}
+        open={!!previewingReport}
+        onOpenChange={(open) => !open && setPreviewingReport(null)}
       />
     )}
     </>
