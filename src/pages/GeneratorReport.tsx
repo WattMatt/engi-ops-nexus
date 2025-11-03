@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -14,9 +14,10 @@ import { ChevronDown } from "lucide-react";
 const GeneratorReport = () => {
   const projectId = localStorage.getItem("selectedProjectId");
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [capitalCostRecovery, setCapitalCostRecovery] = useState(53009.71); // Monthly repayment
 
-  const { data: tenants = [], isLoading } = useQuery({
-    queryKey: ["tenants", projectId, refreshTrigger],
+  const { data: tenants = [], isLoading, refetch } = useQuery({
+    queryKey: ["generator-tenants", projectId, refreshTrigger],
     queryFn: async () => {
       if (!projectId) return [];
       const { data, error } = await supabase
@@ -46,6 +47,31 @@ const GeneratorReport = () => {
   const handleUpdate = () => {
     setRefreshTrigger((prev) => prev + 1);
   };
+
+  // Set up real-time subscription for tenant updates
+  useEffect(() => {
+    if (!projectId) return;
+
+    const channel = supabase
+      .channel('generator-tenants-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tenants',
+          filter: `project_id=eq.${projectId}`,
+        },
+        () => {
+          refetch();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [projectId, refetch]);
 
   return (
     <div className="container mx-auto p-6 space-y-6">
@@ -101,7 +127,7 @@ const GeneratorReport = () => {
                 <p className="text-muted-foreground">Loading tenants...</p>
               </div>
             ) : (
-              <GeneratorTenantList tenants={tenants} />
+              <GeneratorTenantList tenants={tenants} capitalCostRecovery={capitalCostRecovery} />
             )}
           </div>
         </TabsContent>

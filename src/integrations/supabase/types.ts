@@ -4311,10 +4311,13 @@ export type Database = {
           db_ordered: boolean | null
           db_size_allowance: string | null
           db_size_scope_of_work: string | null
+          generator_loading_sector_1: number | null
+          generator_loading_sector_2: number | null
           id: string
           layout_received: boolean | null
           lighting_cost: number | null
           lighting_ordered: boolean | null
+          own_generator_provided: boolean | null
           project_id: string
           shop_category: string
           shop_name: string
@@ -4333,10 +4336,13 @@ export type Database = {
           db_ordered?: boolean | null
           db_size_allowance?: string | null
           db_size_scope_of_work?: string | null
+          generator_loading_sector_1?: number | null
+          generator_loading_sector_2?: number | null
           id?: string
           layout_received?: boolean | null
           lighting_cost?: number | null
           lighting_ordered?: boolean | null
+          own_generator_provided?: boolean | null
           project_id: string
           shop_category?: string
           shop_name: string
@@ -4355,10 +4361,13 @@ export type Database = {
           db_ordered?: boolean | null
           db_size_allowance?: string | null
           db_size_scope_of_work?: string | null
+          generator_loading_sector_1?: number | null
+          generator_loading_sector_2?: number | null
           id?: string
           layout_received?: boolean | null
           lighting_cost?: number | null
           lighting_ordered?: boolean | null
+          own_generator_provided?: boolean | null
           project_id?: string
           shop_category?: string
           shop_name?: string
