@@ -153,6 +153,7 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
                       <TableHead>Cable Tag</TableHead>
                       <TableHead>From</TableHead>
                       <TableHead>To</TableHead>
+                      <TableHead>Qty</TableHead>
                       <TableHead>Voltage</TableHead>
                       <TableHead>Load (A)</TableHead>
                       <TableHead>Cable Type</TableHead>
@@ -171,6 +172,7 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
                         <TableCell className="font-medium">{entry.cable_tag}</TableCell>
                         <TableCell>{entry.from_location}</TableCell>
                         <TableCell>{entry.to_location}</TableCell>
+                        <TableCell className="font-medium">{entry.quantity || 1}</TableCell>
                         <TableCell>{entry.voltage || "-"}</TableCell>
                         <TableCell>{entry.load_amps || "-"}</TableCell>
                         <TableCell>{entry.cable_type || "-"}</TableCell>

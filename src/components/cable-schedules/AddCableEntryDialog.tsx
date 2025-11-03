@@ -52,6 +52,7 @@ export const AddCableEntryDialog = ({
     cable_type: "",
     ohm_per_km: "",
     cable_number: "",
+    quantity: "1",
     extra_length: "",
     measured_length: "",
     total_length: "",
@@ -199,6 +200,7 @@ export const AddCableEntryDialog = ({
         cable_type: "",
         ohm_per_km: "",
         cable_number: "",
+        quantity: "1",
         extra_length: "",
         measured_length: "",
         total_length: "",
@@ -422,7 +424,19 @@ export const AddCableEntryDialog = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-4 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="quantity">Quantity</Label>
+              <Input
+                id="quantity"
+                type="number"
+                min="1"
+                value={formData.quantity}
+                onChange={(e) =>
+                  setFormData({ ...formData, quantity: e.target.value })
+                }
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="extra_length">Extra Length (m)</Label>
               <Input

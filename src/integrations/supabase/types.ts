@@ -437,6 +437,7 @@ export type Database = {
           measured_length: number | null
           notes: string | null
           ohm_per_km: number | null
+          quantity: number
           schedule_id: string
           supply_cost: number | null
           to_location: string
@@ -462,6 +463,7 @@ export type Database = {
           measured_length?: number | null
           notes?: string | null
           ohm_per_km?: number | null
+          quantity?: number
           schedule_id: string
           supply_cost?: number | null
           to_location: string
@@ -487,6 +489,7 @@ export type Database = {
           measured_length?: number | null
           notes?: string | null
           ohm_per_km?: number | null
+          quantity?: number
           schedule_id?: string
           supply_cost?: number | null
           to_location?: string

@@ -36,6 +36,7 @@ export const EditCableEntryDialog = ({
     cable_type: "",
     ohm_per_km: "",
     cable_number: "",
+    quantity: "",
     extra_length: "",
     measured_length: "",
     total_length: "",
@@ -59,6 +60,7 @@ export const EditCableEntryDialog = ({
         cable_type: entry.cable_type || "",
         ohm_per_km: entry.ohm_per_km?.toString() || "",
         cable_number: entry.cable_number?.toString() || "",
+        quantity: entry.quantity?.toString() || "1",
         extra_length: entry.extra_length?.toString() || "",
         measured_length: entry.measured_length?.toString() || "",
         total_length: entry.total_length?.toString() || "",
@@ -289,7 +291,19 @@ export const EditCableEntryDialog = ({
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-4 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="quantity">Quantity</Label>
+              <Input
+                id="quantity"
+                type="number"
+                min="1"
+                value={formData.quantity}
+                onChange={(e) =>
+                  setFormData({ ...formData, quantity: e.target.value })
+                }
+              />
+            </div>
             <div className="space-y-2">
               <Label htmlFor="extra_length">Extra Length (m)</Label>
               <Input
