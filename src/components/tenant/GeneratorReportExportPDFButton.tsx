@@ -117,10 +117,10 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
     setIsGenerating(true);
 
     try {
-      const doc = new jsPDF();
+      const doc = new jsPDF('landscape', 'mm', 'a4');
       const pageWidth = doc.internal.pageSize.width;
       const pageHeight = doc.internal.pageSize.height;
-      let yPos = 20;
+      let yPos = 15;
 
       // Calculate total costs for executive summary
       const totalGeneratorCost = zones.reduce((sum, zone) => {
@@ -160,191 +160,144 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       const annualRepayment = totalCapitalCost * (numerator / denominator);
       const monthlyCapitalRepayment = annualRepayment / 12;
 
-      // ========== COVER PAGE ==========
-      doc.setFontSize(14);
+      // ========== SINGLE PAGE COMPREHENSIVE REPORT ==========
+      
+      // Header with gradient background
+      doc.setFillColor(41, 128, 185);
+      doc.rect(0, 0, pageWidth, 35, 'F');
+      
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(18);
       doc.setFont("helvetica", "bold");
-      doc.text("Financial Evaluation", pageWidth / 2, 80, { align: "center" });
-      
-      yPos = 100;
-      doc.setFontSize(20);
-      doc.text(project.name || "Generator Report", pageWidth / 2, yPos, { align: "center" });
-      
-      yPos += 15;
-      doc.setFontSize(16);
-      doc.text("Centre Standby Plant", pageWidth / 2, yPos, { align: "center" });
-      
-      // Company details
-      yPos = 160;
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "bold");
-      doc.text("PREPARED BY:", pageWidth / 2, yPos, { align: "center" });
-      yPos += 8;
-      doc.setFont("helvetica", "normal");
-      doc.text("WATSON MATTHEUS CONSULTING ELECTRICAL ENGINEERS (PTY) LTD", pageWidth / 2, yPos, { align: "center" });
-      yPos += 6;
-      doc.text("141 Witch Hazel Ave, Highveld Techno Park", pageWidth / 2, yPos, { align: "center" });
-      yPos += 6;
-      doc.text("Building 1A", pageWidth / 2, yPos, { align: "center" });
-      yPos += 6;
-      doc.text("Tel: (012) 665 3487", pageWidth / 2, yPos, { align: "center" });
-      yPos += 6;
-      doc.text("Contact: Mr Arno Mattheus", pageWidth / 2, yPos, { align: "center" });
-      
-      yPos = 220;
-      doc.setFont("helvetica", "bold");
-      doc.text(`DATE: ${format(new Date(), "EEEE, dd MMMM yyyy")}`, pageWidth / 2, yPos, { align: "center" });
-      yPos += 8;
-      doc.text("REVISION: Rev 1", pageWidth / 2, yPos, { align: "center" });
-
-      // ========== PAGE 2: EXECUTIVE SUMMARY ==========
-      doc.addPage();
-      yPos = 20;
+      doc.text(project.name?.toUpperCase() || "GENERATOR REPORT", pageWidth / 2, 12, { align: "center" });
       
       doc.setFontSize(12);
       doc.setFont("helvetica", "normal");
-      doc.text(`${project.name?.toUpperCase() || "PROJECT"} - STANDBY SYSTEM`, 14, yPos);
-      yPos += 10;
+      doc.text("Centre Standby Plant - Financial Evaluation", pageWidth / 2, 20, { align: "center" });
       
-      doc.setFontSize(14);
+      doc.setFontSize(9);
+      doc.text(`Generated: ${format(new Date(), "dd MMMM yyyy")}`, pageWidth / 2, 28, { align: "center" });
+      
+      yPos = 42;
+      doc.setTextColor(0, 0, 0);
+      
+      // Two-column layout
+      const leftCol = 15;
+      const rightCol = pageWidth / 2 + 5;
+      const colWidth = pageWidth / 2 - 20;
+      
+      // LEFT COLUMN - Generator Equipment Overview
+      doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
-      doc.text("EXECUTIVE SUMMARY:", 14, yPos);
-      yPos += 12;
+      doc.setFillColor(240, 248, 255);
+      doc.rect(leftCol, yPos, colWidth, 8, 'F');
+      doc.text("GENERATOR EQUIPMENT", leftCol + 2, yPos + 5.5);
       
-      doc.text("GENERATOR VARIABLES:", 14, yPos);
       yPos += 10;
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
       
-      doc.setFontSize(10);
-      doc.text(`${project.name?.toUpperCase() || "PROJECT"} - ${format(new Date(), "yyyy.MM.dd")}`, 14, yPos);
-      yPos += 8;
-
-      // Generator Equipment Costing table
-      const equipmentCostingData = [
-        ["Item", "Description", "Quantity", "Rate (R)", "Cost (excl. VAT)"],
-        ...zones.map((zone, index) => {
-          const numGens = zone.num_generators || 1;
-          const costPerGen = zone.generator_cost || 0;
-          const totalCost = costPerGen * numGens;
-          const description = zone.num_generators > 1 
-            ? `${zone.zone_name} - ${zone.generator_size} (${zone.num_generators} Synchronized)`
-            : `${zone.zone_name} - ${zone.generator_size}`;
-          return [
-            (index + 1).toString(),
-            description,
-            numGens.toString(),
-            formatCurrency(costPerGen),
-            formatCurrency(totalCost)
-          ];
-        }),
-        [
-          (zones.length + 1).toString(),
-          "Number of Tenant DBs",
-          numTenantDBs.toString(),
-          formatCurrency(ratePerTenantDB),
-          formatCurrency(tenantDBsCost)
-        ],
-        [
-          (zones.length + 2).toString(),
-          "Number of Main Boards",
-          numMainBoards.toString(),
-          formatCurrency(ratePerMainBoard),
-          formatCurrency(mainBoardsCost)
-        ],
-        [
-          (zones.length + 3).toString(),
-          "Additional Cabling",
-          "1",
-          formatCurrency(additionalCablingCost),
-          formatCurrency(additionalCablingCost)
-        ],
-        [
-          (zones.length + 4).toString(),
-          "Control Wiring",
-          "1",
-          formatCurrency(controlWiringCost),
-          formatCurrency(controlWiringCost)
-        ],
-      ];
-
+      const equipmentData = zones.map((zone, idx) => {
+        const numGens = zone.num_generators || 1;
+        const costPerGen = zone.generator_cost || 0;
+        const totalCost = costPerGen * numGens;
+        return [
+          zone.zone_name,
+          `${numGens}x ${zone.generator_size}`,
+          formatCurrency(totalCost)
+        ];
+      });
+      
       autoTable(doc, {
         startY: yPos,
-        head: [equipmentCostingData[0]],
-        body: equipmentCostingData.slice(1),
-        theme: "grid",
-        headStyles: { fillColor: [41, 128, 185], fontSize: 9 },
-        styles: { fontSize: 8 },
+        head: [["Zone", "Equipment", "Cost"]],
+        body: equipmentData,
+        theme: "striped",
+        headStyles: { fillColor: [41, 128, 185], fontSize: 7, fontStyle: 'bold' },
+        styles: { fontSize: 7, cellPadding: 1.5 },
         columnStyles: {
-          0: { cellWidth: 15 },
-          1: { cellWidth: 70 },
-          2: { halign: "center", cellWidth: 22 },
-          3: { halign: "right", cellWidth: 30 },
-          4: { halign: "right", cellWidth: 30 },
+          0: { cellWidth: 25 },
+          1: { cellWidth: 35 },
+          2: { cellWidth: colWidth - 60, halign: "right" },
         },
-        margin: { left: 14, right: 14 },
+        margin: { left: leftCol, right: pageWidth - leftCol - colWidth },
       });
       
-      // Add total row
-      const finalY = (doc as any).lastAutoTable.finalY;
-      autoTable(doc, {
-        startY: finalY,
-        body: [["", "TOTAL CAPITAL COST", "", "", formatCurrency(totalCapitalCost)]],
-        theme: "grid",
-        styles: { fontSize: 9, fontStyle: "bold", fillColor: [240, 240, 240] },
-        columnStyles: {
-          0: { cellWidth: 15 },
-          1: { cellWidth: 70 },
-          2: { halign: "center", cellWidth: 22 },
-          3: { halign: "right", cellWidth: 30 },
-          4: { halign: "right", cellWidth: 30 },
-        },
-        margin: { left: 14, right: 14 },
-      });
-
-      yPos = (doc as any).lastAutoTable.finalY + 15;
-
-      // Summary Section
-      doc.setFontSize(12);
+      yPos = (doc as any).lastAutoTable.finalY + 5;
+      
+      // Financial Summary Box
+      doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
-      doc.text("SUMMARY", 14, yPos);
-      yPos += 8;
-
-      const summaryData = [
-        ["Annual Repayment", formatCurrency(monthlyCapitalRepayment * 12)],
-        ["Monthly Capital Repayment", formatCurrency(monthlyCapitalRepayment)],
+      doc.setFillColor(240, 248, 255);
+      doc.rect(leftCol, yPos, colWidth, 8, 'F');
+      doc.text("FINANCIAL SUMMARY", leftCol + 2, yPos + 5.5);
+      
+      yPos += 10;
+      
+      const financialData = [
+        ["Total Equipment Cost", formatCurrency(totalGeneratorCost)],
+        ["Tenant DBs", `${numTenantDBs} x ${formatCurrency(ratePerTenantDB)} = ${formatCurrency(tenantDBsCost)}`],
+        ["Main Boards", `${numMainBoards} x ${formatCurrency(ratePerMainBoard)} = ${formatCurrency(mainBoardsCost)}`],
+        ["Additional Cabling", formatCurrency(additionalCablingCost)],
+        ["Control Wiring", formatCurrency(controlWiringCost)],
       ];
-
+      
       autoTable(doc, {
         startY: yPos,
-        body: summaryData,
-        theme: "grid",
-        styles: { fontSize: 10, cellPadding: 4 },
+        body: financialData,
+        theme: "plain",
+        styles: { fontSize: 7, cellPadding: 1 },
         columnStyles: {
-          0: { fontStyle: "bold", cellWidth: 80, fillColor: [240, 248, 255] },
-          1: { halign: "right", fontStyle: "bold", fontSize: 11, cellWidth: 87, fillColor: [240, 248, 255] },
+          0: { cellWidth: colWidth * 0.6, fontStyle: 'bold' },
+          1: { cellWidth: colWidth * 0.4, halign: "right" },
         },
-        margin: { left: 14, right: 14 },
+        margin: { left: leftCol, right: pageWidth - leftCol - colWidth },
       });
-
-      yPos = (doc as any).lastAutoTable.finalY + 10;
-
-      // Calculate metrics for use in subsequent pages
-      const metrics = calculateMetrics();
-
-      // ========== PAGE 3: SIZING AND ALLOWANCES ==========
-      doc.addPage();
-      yPos = 20;
       
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "normal");
-      doc.text(`${project.name?.toUpperCase() || "PROJECT"} - STANDBY SYSTEM`, 14, yPos);
-      yPos += 10;
+      yPos = (doc as any).lastAutoTable.finalY + 3;
       
-      doc.setFontSize(14);
+      // Total Capital Cost - Highlighted
+      doc.setFillColor(41, 128, 185);
+      doc.rect(leftCol, yPos, colWidth, 8, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
-      doc.text("SIZING AND ALLOWANCES:", 14, yPos);
+      doc.text("TOTAL CAPITAL COST", leftCol + 2, yPos + 5.5);
+      doc.text(formatCurrency(totalCapitalCost), leftCol + colWidth - 2, yPos + 5.5, { align: "right" });
+      
       yPos += 10;
-
-      // Tenant schedule with calculations (matching on-screen display 100%)
-      // Calculate loading for each tenant
+      doc.setTextColor(0, 0, 0);
+      
+      // Capital Recovery
+      const recoveryData = [
+        ["Recovery Period", `${years} years @ ${(rate * 100).toFixed(0)}%`],
+        ["Monthly Repayment", formatCurrency(monthlyCapitalRepayment)],
+      ];
+      
+      autoTable(doc, {
+        startY: yPos,
+        body: recoveryData,
+        theme: "plain",
+        styles: { fontSize: 7, cellPadding: 1 },
+        columnStyles: {
+          0: { cellWidth: colWidth * 0.6, fontStyle: 'bold' },
+          1: { cellWidth: colWidth * 0.4, halign: "right" },
+        },
+        margin: { left: leftCol, right: pageWidth - leftCol - colWidth },
+      });
+      
+      // RIGHT COLUMN - Tenant Schedule (starting from top)
+      let rightYPos = 42;
+      
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.setFillColor(240, 248, 255);
+      doc.rect(rightCol, rightYPos, pageWidth - rightCol - 15, 8, 'F');
+      doc.text("TENANT SCHEDULE & COST ALLOCATION", rightCol + 2, rightYPos + 5.5);
+      
+      rightYPos += 10;
+      
+      // Tenant schedule calculations (matching on-screen)
       const calculateLoading = (tenant: any) => {
         if (!tenant.area || tenant.own_generator_provided) return 0;
         
@@ -358,70 +311,41 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
         return tenant.area * (kwPerSqm[tenant.shop_category as keyof typeof kwPerSqm] || 0.03);
       };
       
-      // Calculate total loading
       const totalLoading = tenants.reduce((sum, tenant) => sum + calculateLoading(tenant), 0);
       
-      // Get zone loading for a specific zone
-      const getZoneLoading = (zoneId: string) => {
-        return tenants
-          .filter(t => t.generator_zone_id === zoneId && !t.own_generator_provided)
-          .reduce((sum, tenant) => sum + calculateLoading(tenant), 0);
-      };
+      // Compact tenant table - show top 10 tenants only for single page
+      const displayTenants = tenants.slice(0, 10);
       
-      // Build table data for each tenant
-      const tenantRowsData = tenants.map(tenant => {
+      const tenantTableData = displayTenants.map(tenant => {
         const loading = calculateLoading(tenant);
         const portionOfLoad = totalLoading > 0 ? (loading / totalLoading) * 100 : 0;
         const monthlyRental = (portionOfLoad / 100) * monthlyCapitalRepayment;
         const rentalPerSqm = tenant.area && tenant.area > 0 ? monthlyRental / tenant.area : 0;
         
         const isOwnGenerator = tenant.own_generator_provided || false;
-        const isFastFood = tenant.shop_category === "fast-food" || tenant.shop_category === "fast_food";
-        const isRestaurant = tenant.shop_category === "restaurant";
-        
-        // Build row: Shop No, Tenant, Size, Own Generator, Zone, [Zone columns], Portion of Load, Monthly Rental, Rental per m²
-        const row = [
-          tenant.shop_number,
-          tenant.shop_name,
-          tenant.area?.toLocaleString() || "-",
-          isOwnGenerator ? "YES" : "NO",
-          tenant.generator_zone_id ? zones.find(z => z.id === tenant.generator_zone_id)?.zone_name || "-" : "-",
-        ];
-        
-        // Add zone columns
-        zones.forEach(zone => {
-          if (!isOwnGenerator && tenant.generator_zone_id === zone.id) {
-            row.push(loading.toFixed(2));
-          } else {
-            row.push("-");
-          }
-        });
-        
-        // Add metrics columns
-        row.push(
-          isOwnGenerator ? "0.00%" : `${portionOfLoad.toFixed(2)}%`,
-          isOwnGenerator ? formatCurrency(0) : formatCurrency(monthlyRental),
-          isOwnGenerator ? formatCurrency(0) : formatCurrency(rentalPerSqm)
-        );
+        const zoneName = tenant.generator_zone_id ? zones.find(z => z.id === tenant.generator_zone_id)?.zone_name || "-" : "-";
         
         return {
-          row,
+          row: [
+            tenant.shop_number,
+            tenant.shop_name.substring(0, 15) + (tenant.shop_name.length > 15 ? "..." : ""),
+            tenant.area?.toFixed(0) || "-",
+            loading.toFixed(1),
+            `${portionOfLoad.toFixed(1)}%`,
+            formatCurrency(rentalPerSqm)
+          ],
           hasOwnGenerator: isOwnGenerator,
-          isFastFood,
-          isRestaurant,
+          isFastFood: tenant.shop_category === "fast-food" || tenant.shop_category === "fast_food",
+          isRestaurant: tenant.shop_category === "restaurant",
         };
       });
-
-      const tenantRows = tenantRowsData.map(t => t.row);
-
-      // Calculate totals
+      
+      const tenantRows = tenantTableData.map(t => t.row);
+      
+      // Add totals row
       const totals = {
         area: tenants.reduce((sum, t) => sum + (t.area || 0), 0),
         loading: totalLoading,
-        portionOfLoad: tenants.reduce((sum, t) => {
-          const loading = calculateLoading(t);
-          return sum + (totalLoading > 0 ? (loading / totalLoading) * 100 : 0);
-        }, 0),
         monthlyRental: tenants.reduce((sum, t) => {
           const loading = calculateLoading(t);
           const portionOfLoad = totalLoading > 0 ? (loading / totalLoading) * 100 : 0;
@@ -429,404 +353,73 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
         }, 0),
       };
       
-      // Add OVERALL TOTALS row
-      const totalsRow = [
-        "",
-        "OVERALL TOTALS",
-        totals.area.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 }),
-        "",
-        "",
-      ];
-      zones.forEach(zone => {
-        totalsRow.push(getZoneLoading(zone.id).toFixed(2));
-      });
-      totalsRow.push(
-        `${totals.portionOfLoad.toFixed(2)}%`,
-        formatCurrency(totals.monthlyRental),
-        ""
-      );
-      tenantRows.push(totalsRow);
-      
-      // Add AVERAGE row
       const averageRentalPerSqm = totals.area > 0 ? totals.monthlyRental / totals.area : 0;
-      const averageRow = [
+      
+      tenantRows.push([
         "",
-        "AVERAGE",
-        ...Array(3 + zones.length).fill(""),
-        "",
-        "",
+        `TOTALS (${tenants.length} tenants)`,
+        totals.area.toFixed(0),
+        totals.loading.toFixed(1),
+        "100%",
         formatCurrency(averageRentalPerSqm)
-      ];
-      tenantRows.push(averageRow);
-
-      // Build header with zone columns
-      const tableHeader = [
-        "Shop No.",
-        "Tenant",
-        "Size (m²)",
-        "Own Generator",
-        "Zone",
-      ];
-      zones.forEach(zone => {
-        tableHeader.push(`${zone.zone_name} (kW)`);
-      });
-      tableHeader.push(
-        "Portion of Load (%)",
-        "Monthly Rental (excl. VAT)",
-        "Rental per m² (excl. VAT)"
-      );
-
-      // Build column styles dynamically
-      const columnStyles: any = {
-        0: { cellWidth: 14 },  // Shop No
-        1: { cellWidth: 28 },  // Tenant
-        2: { cellWidth: 14, halign: "right" },  // Size
-        3: { cellWidth: 16 },  // Own Generator
-        4: { cellWidth: 16 },  // Zone
-      };
+      ]);
       
-      // Zone columns
-      zones.forEach((_, index) => {
-        columnStyles[5 + index] = { cellWidth: 16, halign: "right" };
-      });
+      const rightColWidth = pageWidth - rightCol - 15;
       
-      // Metrics columns
-      const metricsStartCol = 5 + zones.length;
-      columnStyles[metricsStartCol] = { cellWidth: 18, halign: "right" };      // Portion of Load
-      columnStyles[metricsStartCol + 1] = { cellWidth: 28, halign: "right" };  // Monthly Rental
-      columnStyles[metricsStartCol + 2] = { cellWidth: 28, halign: "right" };  // Rental per m²
-
-      // Calculate table width and center it
-      let tableWidth = 0;
-      for (let col = 0; col < (8 + zones.length); col++) {
-        tableWidth += columnStyles[col]?.cellWidth || 20;
-      }
-      const centerMargin = (pageWidth - tableWidth) / 2;
-
       autoTable(doc, {
-        startY: yPos,
-        head: [tableHeader],
+        startY: rightYPos,
+        head: [["Shop", "Tenant", "Area", "Load", "% Load", "R/m²"]],
         body: tenantRows,
-        theme: "grid",
-        headStyles: { fillColor: [41, 128, 185], textColor: 255, fontSize: 6 },
-        styles: { fontSize: 6 },
-        columnStyles,
-        margin: { left: centerMargin, right: centerMargin },
+        theme: "striped",
+        headStyles: { fillColor: [41, 128, 185], textColor: 255, fontSize: 7, fontStyle: 'bold' },
+        styles: { fontSize: 6.5, cellPadding: 1 },
+        columnStyles: {
+          0: { cellWidth: 12 },
+          1: { cellWidth: 30 },
+          2: { cellWidth: 12, halign: "right" },
+          3: { cellWidth: 15, halign: "right" },
+          4: { cellWidth: 15, halign: "right" },
+          5: { cellWidth: 18, halign: "right" },
+        },
+        margin: { left: rightCol, right: 15 },
         willDrawCell: (data) => {
-          // Apply color coding to tenant rows (not totals/average)
-          if (data.section === 'body' && data.row.index < tenantRowsData.length) {
-            const tenantData = tenantRowsData[data.row.index];
+          if (data.section === 'body' && data.row.index < tenantTableData.length) {
+            const tenantData = tenantTableData[data.row.index];
             
-            // Red background for tenants with own generator
             if (tenantData.hasOwnGenerator) {
-              data.cell.styles.fillColor = [255, 200, 200]; // Light red
-              data.cell.styles.textColor = [139, 0, 0]; // Dark red text
+              data.cell.styles.fillColor = [255, 220, 220];
+              data.cell.styles.textColor = [139, 0, 0];
             }
-            // Green background for fast food and restaurants
             else if (tenantData.isFastFood || tenantData.isRestaurant) {
-              data.cell.styles.fillColor = [200, 255, 200]; // Light green
-              data.cell.styles.textColor = [0, 100, 0]; // Dark green text
+              data.cell.styles.fillColor = [220, 255, 220];
+              data.cell.styles.textColor = [0, 100, 0];
             }
           }
           
-          // Bold styling for totals and average rows
-          if (data.section === 'body' && data.row.index >= tenantRowsData.length) {
+          if (data.section === 'body' && data.row.index === tenantTableData.length) {
             data.cell.styles.fontStyle = 'bold';
-            if (data.row.index === tenantRowsData.length) {
-              // OVERALL TOTALS row
-              data.cell.styles.fillColor = [240, 240, 255];
-            } else {
-              // AVERAGE row
-              data.cell.styles.fillColor = [245, 245, 245];
-            }
+            data.cell.styles.fillColor = [240, 248, 255];
           }
         },
       });
-
-      // ========== PAGE 4: CAPITAL RECOVERY CALCULATOR ==========
-      doc.addPage();
-      yPos = 20;
       
-      doc.setFontSize(12);
+      // Legend at bottom
+      const legendY = pageHeight - 20;
+      doc.setFontSize(7);
       doc.setFont("helvetica", "normal");
-      doc.text(`${project.name?.toUpperCase() || "PROJECT"} - STANDBY SYSTEM`, 14, yPos);
-      yPos += 10;
+      doc.text("Legend:", leftCol, legendY);
+      doc.setFillColor(255, 220, 220);
+      doc.rect(leftCol + 15, legendY - 3, 4, 3, 'F');
+      doc.text("Own Generator", leftCol + 20, legendY);
+      doc.setFillColor(220, 255, 220);
+      doc.rect(leftCol + 45, legendY - 3, 4, 3, 'F');
+      doc.text("Fast Food/Restaurant", leftCol + 50, legendY);
       
-      doc.setFontSize(14);
-      doc.setFont("helvetica", "bold");
-      doc.text("CAPITAL COST RECOVERY", 14, yPos);
-      yPos += 8;
-      
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      doc.text("Amortization schedule for capital investment recovery", 14, yPos);
-      yPos += 15;
-
-      // Input Parameters Section
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "bold");
-      doc.text("INPUT PARAMETERS", 14, yPos);
-      yPos += 8;
-
-      const inputParams = [
-        ["Capital Cost (R)", formatCurrency(totalCapitalCost), "From Equipment Costing"],
-        ["Period (years)", years.toString(), "Amortization period"],
-        ["Rate (%)", (rate * 100).toFixed(2) + "%", "Annual interest rate"],
-      ];
-
-      autoTable(doc, {
-        startY: yPos,
-        body: inputParams,
-        theme: "grid",
-        styles: { fontSize: 9, cellPadding: 3 },
-        columnStyles: {
-          0: { fontStyle: "bold", cellWidth: 45, fillColor: [245, 245, 245] },
-          1: { halign: "right", cellWidth: 45, fontStyle: "bold" },
-          2: { cellWidth: 77, fontSize: 8, textColor: [100, 100, 100] },
-        },
-        margin: { left: 14, right: 14 },
-      });
-
-      yPos = (doc as any).lastAutoTable.finalY + 15;
-
-      // Summary Section
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "bold");
-      doc.text("SUMMARY", 14, yPos);
-      yPos += 8;
-
-      const annualPayment = monthlyCapitalRepayment * 12;
-      const summaryParams = [
-        ["Annual Repayment", formatCurrency(annualPayment)],
-        ["Monthly Repayment", formatCurrency(monthlyCapitalRepayment)],
-      ];
-
-      autoTable(doc, {
-        startY: yPos,
-        body: summaryParams,
-        theme: "grid",
-        styles: { fontSize: 10, cellPadding: 4 },
-        columnStyles: {
-          0: { fontStyle: "bold", cellWidth: 80, fillColor: [240, 248, 255] },
-          1: { halign: "right", fontStyle: "bold", fontSize: 11, cellWidth: 87 },
-        },
-        margin: { left: 14, right: 14 },
-      });
-
-      yPos = (doc as any).lastAutoTable.finalY + 15;
-
-      // Amortization Schedule Section
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "bold");
-      doc.text("AMORTIZATION SCHEDULE", 14, yPos);
-      yPos += 8;
-
-      // Amortization schedule
-      const amortRows = [];
-      let balance = totalCapitalCost;
-      
-      for (let year = 1; year <= years; year++) {
-        const interest = balance * rate;
-        const principal = annualPayment - interest;
-        const endingBalance = year === years ? 0 : balance - principal;
-        
-        amortRows.push([
-          year.toString(),
-          formatCurrency(balance),
-          formatCurrency(annualPayment),
-          formatCurrency(interest),
-          formatCurrency(principal),
-          endingBalance > 0 ? formatCurrency(endingBalance) : "R -",
-        ]);
-        
-        balance = endingBalance;
-      }
-
-      autoTable(doc, {
-        startY: yPos,
-        head: [["YEARS", "BEGINNING", "PAYMENT", "INTEREST", "PRINCIPAL", "ENDING"]],
-        body: amortRows,
-        theme: "grid",
-        headStyles: { fillColor: [41, 128, 185], textColor: 255, fontSize: 8 },
-        styles: { fontSize: 8 },
-        columnStyles: {
-          0: { cellWidth: 18 },
-          1: { halign: "right", cellWidth: 28 },
-          2: { halign: "right", cellWidth: 28 },
-          3: { halign: "right", cellWidth: 28 },
-          4: { halign: "right", cellWidth: 28 },
-          5: { halign: "right", cellWidth: 32 },
-        },
-        margin: { left: 14, right: 14 },
-      });
-
-      // ========== PAGE 5: RUNNING RECOVERY CALCULATOR ==========
-      doc.addPage();
-      yPos = 20;
-      
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "normal");
-      doc.text(`${project.name?.toUpperCase() || "PROJECT"} - STANDBY SYSTEM`, 14, yPos);
-      yPos += 10;
-      
-      doc.setFontSize(14);
-      doc.setFont("helvetica", "bold");
-      doc.text("RUNNING RECOVERY CALCULATOR", 14, yPos);
-      yPos += 8;
-      
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      doc.text("Operational cost analysis per generator zone", 14, yPos);
-      yPos += 15;
-
-      // For each zone, show detailed running cost breakdown
-      zones.forEach((zone, index) => {
-        const settings = allSettings.find(s => s.generator_zone_id === zone.id);
-        if (!settings) return;
-
-        if (yPos > pageHeight - 80) {
-          doc.addPage();
-          yPos = 20;
-        }
-
-        doc.setFontSize(11);
-        doc.setFont("helvetica", "bold");
-        doc.text(`${index + 1}. ${zone.zone_name} - ${zone.generator_size}`, 14, yPos);
-        if (zone.num_generators > 1) {
-          doc.setFontSize(9);
-          doc.setFont("helvetica", "normal");
-          doc.text(`(${zone.num_generators} Synchronized Units)`, 70, yPos);
-        }
-        yPos += 10;
-
-        const netEnergyKVA = Number(settings.net_energy_kva);
-        const kvaToKwhConversion = Number(settings.kva_to_kwh_conversion);
-        const netEnergyKWh = netEnergyKVA * kvaToKwhConversion;
-        const runningLoad = Number(settings.running_load);
-
-        autoTable(doc, {
-          startY: yPos,
-          body: [
-            ["Running Load (Correction already made in sizing)", `${runningLoad}%`],
-            ["Net energy generated (usable kVA)", netEnergyKVA.toFixed(2)],
-            ["Convert kVA to kWh", kvaToKwhConversion.toFixed(2)],
-            ["Net total energy generated (usable kWh)", netEnergyKWh.toFixed(2)],
-          ],
-          theme: "plain",
-          styles: { fontSize: 9 },
-          columnStyles: {
-            0: { fontStyle: "bold", cellWidth: 100 },
-            1: { halign: "right", cellWidth: 50 },
-          },
-          margin: { left: 20, right: 14 },
-        });
-
-        yPos = (doc as any).lastAutoTable.finalY + 8;
-
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        doc.text("FUEL CONSUMPTION", 14, yPos);
-        yPos += 6;
-
-        const fuelRate = Number(settings.fuel_consumption_rate);
-        const dieselPrice = Number(settings.diesel_price_per_litre);
-        const costPerHour = fuelRate * dieselPrice;
-        const expectedHours = Number(settings.expected_hours_per_month);
-        const monthlyEnergy = netEnergyKWh * expectedHours;
-        const dieselCostPerKWh = netEnergyKWh > 0 ? costPerHour / netEnergyKWh : 0;
-
-        autoTable(doc, {
-          startY: yPos,
-          body: [
-            ["Assumed running load on generators", `${runningLoad}%`],
-            ["Fuel Consumption @ 100%", fuelRate.toFixed(2)],
-            ["Cost of diesel per litre", formatCurrency(dieselPrice)],
-            ["Total cost of diesel per hour", formatCurrency(costPerHour)],
-          ],
-          theme: "plain",
-          styles: { fontSize: 9 },
-          columnStyles: {
-            0: { fontStyle: "bold", cellWidth: 100 },
-            1: { halign: "right", cellWidth: 50 },
-          },
-          margin: { left: 20, right: 14 },
-        });
-
-        yPos = (doc as any).lastAutoTable.finalY + 8;
-
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "bold");
-        doc.text(`Monthly diesel cost /kWh: R ${dieselCostPerKWh.toFixed(2)}`, 20, yPos);
-        yPos += 10;
-
-        // Maintenance costs
-        doc.setFontSize(12);
-        doc.text("MAINTENANCE COST", 14, yPos);
-        yPos += 6;
-
-        const servicingPerYear = Number(settings.servicing_cost_per_year);
-        const servicingPer250Hours = Number(settings.servicing_cost_per_250_hours);
-        const servicingPerMonth = servicingPerYear / 12;
-        const servicingByHours = (servicingPer250Hours / 250) * expectedHours;
-        const additionalServicing = Math.max(0, servicingByHours - servicingPerMonth);
-        const servicingPerKWh = monthlyEnergy > 0 ? additionalServicing / monthlyEnergy : 0;
-
-        autoTable(doc, {
-          startY: yPos,
-          body: [
-            ["Cost of servicing units per year", formatCurrency(servicingPerYear)],
-            ["Months", "12.00"],
-            ["Cost of servicing units per month", formatCurrency(servicingPerMonth)],
-            ["Cost of Servicing units per 250 hours", formatCurrency(servicingPer250Hours)],
-            ["Expected hours per Month", expectedHours.toFixed(2)],
-            ["Cost of servicing units per month", formatCurrency(servicingByHours)],
-            ["Additional Cost of Servicing - above Annual Cost", formatCurrency(additionalServicing)],
-          ],
-          theme: "plain",
-          styles: { fontSize: 9 },
-          columnStyles: {
-            0: { fontStyle: "bold", cellWidth: 100 },
-            1: { halign: "right", cellWidth: 50 },
-          },
-          margin: { left: 20, right: 14 },
-        });
-
-        yPos = (doc as any).lastAutoTable.finalY + 8;
-
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "bold");
-        doc.text(`Total Services cost per kWH (Excluding Annual Service): R ${servicingPerKWh.toFixed(2)}`, 20, yPos);
-        yPos += 10;
-
-        // Total cost summary
-        doc.setFontSize(12);
-        doc.text("Total Cost per kWH", 14, yPos);
-        yPos += 6;
-
-        const totalBeforeContingency = dieselCostPerKWh + servicingPerKWh;
-        const contingency = totalBeforeContingency * 0.1;
-        const totalTariff = totalBeforeContingency + contingency;
-
-        autoTable(doc, {
-          startY: yPos,
-          body: [
-            ["TOTAL FUEL COST", `R ${dieselCostPerKWh.toFixed(2)}`],
-            ["TOTAL MAINTENANCE COST", `R ${servicingPerKWh.toFixed(2)}`],
-            ["TOTAL TARIFF FOR USE KWH", `R ${totalBeforeContingency.toFixed(2)}`],
-            ["MAINTENANCE CONTINGENCY", `R ${contingency.toFixed(2)}`],
-            ["TOTAL TARIFF FOR USE KWH", `R ${totalTariff.toFixed(2)}`],
-          ],
-          theme: "plain",
-          styles: { fontSize: 9 },
-          columnStyles: {
-            0: { fontStyle: "bold", cellWidth: 100 },
-            1: { halign: "right", fontStyle: "bold", cellWidth: 50 },
-          },
-          margin: { left: 20, right: 14 },
-        });
-
-        yPos = (doc as any).lastAutoTable.finalY + 15;
-      });
+      // Footer
+      doc.setFontSize(7);
+      doc.setTextColor(128, 128, 128);
+      doc.text("Watson Mattheus Consulting Electrical Engineers (PTY) LTD", pageWidth / 2, pageHeight - 8, { align: "center" });
+      doc.text("Tel: (012) 665 3487 | Contact: Mr Arno Mattheus", pageWidth / 2, pageHeight - 4, { align: "center" });
 
       // Save PDF to blob
       const pdfBlob = doc.output("blob");
