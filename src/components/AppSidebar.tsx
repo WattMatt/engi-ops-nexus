@@ -18,6 +18,7 @@ import {
   Wallet,
   Map,
   CheckSquare,
+  BarChart3,
 } from "lucide-react";
 import {
   Sidebar,
@@ -62,6 +63,14 @@ const singleModules = [
     icon: Zap,
   },
 ];
+
+const projectsReportModule = {
+  title: "Projects Report",
+  icon: BarChart3,
+  items: [
+    { title: "All Projects", url: "/dashboard/projects-report" },
+  ],
+};
 
 const budgetsModule = {
   title: "Budgets",
@@ -219,6 +228,32 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+
+              {/* Projects Report - Collapsible */}
+              <Collapsible defaultOpen={isGroupActive(projectsReportModule.items)}>
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton className="hover:bg-muted/50">
+                      <projectsReportModule.icon className="h-4 w-4" />
+                      {!collapsed && <span>{projectsReportModule.title}</span>}
+                      {!collapsed && <ChevronDown className="ml-auto h-4 w-4" />}
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {projectsReportModule.items.map((item) => (
+                        <SidebarMenuSubItem key={item.title}>
+                          <SidebarMenuSubButton asChild>
+                            <NavLink to={item.url} className={getNavCls(item.url)}>
+                              <span>{item.title}</span>
+                            </NavLink>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
 
               {/* Budgets - Collapsible */}
               <Collapsible defaultOpen={isGroupActive(budgetsModule.items)}>
