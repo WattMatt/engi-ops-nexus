@@ -85,7 +85,7 @@ Deno.serve(async (req) => {
     console.log('Attempting to send email to:', profile.email)
     
     const emailResult = await resend.emails.send({
-      from: 'onboarding@resend.dev',
+      from: 'noreply@wmeng.co.za', // Change this to your verified domain
       to: profile.email,
       subject: 'Password Reset Request',
       html: `
