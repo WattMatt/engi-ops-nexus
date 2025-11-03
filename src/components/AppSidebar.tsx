@@ -17,6 +17,7 @@ import {
   UsersRound,
   Wallet,
   Map,
+  CheckSquare,
 } from "lucide-react";
 import {
   Sidebar,
@@ -88,6 +89,11 @@ const cableSchedulesModule = {
 };
 
 const operationalModules = [
+  {
+    title: "Task Manager",
+    url: "/dashboard/tasks",
+    icon: CheckSquare,
+  },
   {
     title: "Site Diary",
     url: "/dashboard/site-diary",
