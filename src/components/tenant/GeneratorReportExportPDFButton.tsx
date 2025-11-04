@@ -217,9 +217,9 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       doc.text(`${project.name?.toUpperCase() || "PROJECT"} - ${format(new Date(), "yyyy.MM.dd")}`, 14, yPos);
       yPos += 8;
 
-      // Generator Equipment Costing table
+      // Generator Equipment Costing table (without Rate column)
       const equipmentCostingData = [
-        ["Item", "Description", "Quantity", "Rate (R)", "Cost (excl. VAT)"],
+        ["Item", "Description", "Quantity", "Cost (excl. VAT)"],
         ...zones.map((zone, index) => {
           const numGens = zone.num_generators || 1;
           const costPerGen = zone.generator_cost || 0;
@@ -231,7 +231,6 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
             (index + 1).toString(),
             description,
             numGens.toString(),
-            formatCurrency(costPerGen),
             formatCurrency(totalCost)
           ];
         }),
@@ -239,28 +238,24 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
           (zones.length + 1).toString(),
           "Number of Tenant DBs",
           numTenantDBs.toString(),
-          formatCurrency(ratePerTenantDB),
           formatCurrency(tenantDBsCost)
         ],
         [
           (zones.length + 2).toString(),
           "Number of Main Boards",
           numMainBoards.toString(),
-          formatCurrency(ratePerMainBoard),
           formatCurrency(mainBoardsCost)
         ],
         [
           (zones.length + 3).toString(),
           "Additional Cabling",
           "1",
-          formatCurrency(additionalCablingCost),
           formatCurrency(additionalCablingCost)
         ],
         [
           (zones.length + 4).toString(),
           "Control Wiring",
           "1",
-          formatCurrency(controlWiringCost),
           formatCurrency(controlWiringCost)
         ],
       ];
@@ -274,10 +269,9 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
         styles: { fontSize: 8 },
         columnStyles: {
           0: { cellWidth: 15 },
-          1: { cellWidth: 70 },
+          1: { cellWidth: 92 },
           2: { halign: "center", cellWidth: 22 },
-          3: { halign: "right", cellWidth: 30 },
-          4: { halign: "right", cellWidth: 30 },
+          3: { halign: "right", cellWidth: 38 },
         },
         margin: { left: 14, right: 14 },
       });
@@ -286,15 +280,14 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       const finalY = (doc as any).lastAutoTable.finalY;
       autoTable(doc, {
         startY: finalY,
-        body: [["", "TOTAL CAPITAL COST", "", "", formatCurrency(totalCapitalCost)]],
+        body: [["", "TOTAL CAPITAL COST", "", formatCurrency(totalCapitalCost)]],
         theme: "grid",
         styles: { fontSize: 9, fontStyle: "bold", fillColor: [240, 240, 240] },
         columnStyles: {
           0: { cellWidth: 15 },
-          1: { cellWidth: 70 },
+          1: { cellWidth: 92 },
           2: { halign: "center", cellWidth: 22 },
-          3: { halign: "right", cellWidth: 30 },
-          4: { halign: "right", cellWidth: 30 },
+          3: { halign: "right", cellWidth: 38 },
         },
         margin: { left: 14, right: 14 },
       });
