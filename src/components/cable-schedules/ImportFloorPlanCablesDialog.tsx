@@ -62,11 +62,10 @@ export const ImportFloorPlanCablesDialog = ({
   const fetchFloorPlanCables = async () => {
     setLoading(true);
     try {
-      // Fetch cable entries that were created from floor plans for this project
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // Get all cable entries from floor plans for this user
+      // Get all cable entries from floor plans for this project
       const { data: cables, error } = await supabase
         .from("cable_entries")
         .select(`
@@ -79,23 +78,28 @@ export const ImportFloorPlanCablesDialog = ({
           total_length,
           schedule_id,
           floor_plan_id,
-          floor_plan_projects!inner(name, user_id, project_id)
+          floor_plan_projects!floor_plan_id(id, name, project_id)
         `)
-        .eq("floor_plan_projects.project_id", projectId)
-        .eq("created_from", "floor_plan");
+        .eq("created_from", "floor_plan")
+        .not("floor_plan_id", "is", null);
 
       if (error) throw error;
 
-      const formattedCables = cables?.map((cable: any) => ({
+      // Filter cables that belong to this project
+      const projectCables = cables?.filter((cable: any) => 
+        cable.floor_plan_projects?.project_id === projectId
+      ) || [];
+
+      const formattedCables = projectCables.map((cable: any) => ({
         id: cable.id,
         cable_type: cable.cable_type || "Unknown",
         label: cable.cable_tag,
         from_label: cable.from_location,
         to_label: cable.to_location,
         length_meters: cable.total_length,
-        cable_entry_id: cable.schedule_id ? cable.id : null, // If linked to schedule, mark as linked
-        floor_plan_name: cable.floor_plan_projects.name,
-      })) || [];
+        cable_entry_id: cable.schedule_id ? cable.id : null,
+        floor_plan_name: cable.floor_plan_projects?.name || "Unknown",
+      }));
 
       setFloorPlanCables(formattedCables);
     } catch (error: any) {
