@@ -508,11 +508,11 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
       if (options.includeKPIPage) {
         generateKPIPage(doc);
       }
-      if (options.includeTenantSchedule) {
-        generateTenantSchedule(doc, options);
-      }
       if (options.includeFloorPlan) {
         await generateLayoutPages(doc);
+      }
+      if (options.includeTenantSchedule) {
+        generateTenantSchedule(doc, options);
       }
 
       // Convert PDF to blob
