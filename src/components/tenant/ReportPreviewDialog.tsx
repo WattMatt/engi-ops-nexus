@@ -1,11 +1,17 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Download, Loader2, Eye } from "lucide-react";
+import { Download, Loader2, Eye, ChevronLeft, ChevronRight } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TenantReportPreview } from "./TenantReportPreview";
+import { Document, Page, pdfjs } from "react-pdf";
+import "react-pdf/dist/Page/AnnotationLayer.css";
+import "react-pdf/dist/Page/TextLayer.css";
+
+// Configure PDF.js worker
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 interface ReportPreviewDialogProps {
   report: any;
@@ -25,6 +31,8 @@ export const ReportPreviewDialog = ({
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
+  const [numPages, setNumPages] = useState<number>(0);
+  const [pageNumber, setPageNumber] = useState<number>(1);
 
   useEffect(() => {
     if (open && report) {
@@ -32,28 +40,45 @@ export const ReportPreviewDialog = ({
     }
     return () => {
       if (pdfUrl) {
-        URL.revokeObjectURL(pdfUrl);
+        setPdfUrl(null);
       }
     };
   }, [open, report]);
 
   const loadPdfUrl = async () => {
     setLoading(true);
+    setPageNumber(1);
+    setNumPages(0);
+    
     try {
-      const { data, error } = await supabase.storage
+      // Get public URL for the PDF
+      const { data } = supabase.storage
         .from('tenant-tracker-reports')
-        .download(report.file_path);
+        .getPublicUrl(report.file_path);
 
-      if (error) throw error;
+      if (!data.publicUrl) {
+        throw new Error("Failed to get PDF URL");
+      }
 
-      const url = URL.createObjectURL(data);
-      setPdfUrl(url);
+      setPdfUrl(data.publicUrl);
     } catch (error) {
       console.error('Preview error:', error);
-      toast.error('Failed to load saved PDF');
+      toast.error('Failed to load PDF preview');
     } finally {
       setLoading(false);
     }
+  };
+
+  const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
+    setNumPages(numPages);
+    setPageNumber(1);
+    setLoading(false);
+  };
+
+  const onDocumentLoadError = (error: Error) => {
+    console.error("Error loading PDF:", error);
+    toast.error("Failed to load PDF preview");
+    setLoading(false);
   };
 
   const handleDownload = async () => {
@@ -88,7 +113,14 @@ export const ReportPreviewDialog = ({
       <DialogContent className="max-w-6xl h-[90vh] flex flex-col">
         <DialogHeader>
           <div className="flex items-center justify-between">
-            <DialogTitle>{report?.report_name}</DialogTitle>
+            <div className="flex-1">
+              <DialogTitle>{report?.report_name}</DialogTitle>
+              {numPages > 0 && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  Page {pageNumber} of {numPages}
+                </p>
+              )}
+            </div>
             <Button 
               onClick={handleDownload}
               disabled={downloading || loading}
@@ -132,14 +164,63 @@ export const ReportPreviewDialog = ({
                 <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
               </div>
             ) : pdfUrl ? (
-              <iframe
-                src={pdfUrl}
-                className="w-full h-full"
-                title={`Preview of ${report?.report_name}`}
-              />
+              <div className="w-full h-full flex flex-col">
+                <Document
+                  file={pdfUrl}
+                  onLoadSuccess={onDocumentLoadSuccess}
+                  onLoadError={onDocumentLoadError}
+                  loading={
+                    <div className="flex items-center justify-center h-full">
+                      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    </div>
+                  }
+                  className="flex-1 flex justify-center items-center"
+                >
+                  <Page
+                    pageNumber={pageNumber}
+                    renderTextLayer={true}
+                    renderAnnotationLayer={true}
+                    width={700}
+                    className="shadow-lg"
+                  />
+                </Document>
+                
+                {numPages > 1 && (
+                  <div className="flex items-center justify-center gap-4 py-4 bg-background border-t">
+                    <Button
+                      onClick={() => setPageNumber(Math.max(1, pageNumber - 1))}
+                      disabled={pageNumber <= 1}
+                      variant="outline"
+                      size="sm"
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      Previous
+                    </Button>
+                    <span className="text-sm font-medium">
+                      Page {pageNumber} of {numPages}
+                    </span>
+                    <Button
+                      onClick={() => setPageNumber(Math.min(numPages, pageNumber + 1))}
+                      disabled={pageNumber >= numPages}
+                      variant="outline"
+                      size="sm"
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  </div>
+                )}
+              </div>
             ) : (
-              <div className="flex items-center justify-center h-full text-muted-foreground">
-                Failed to load saved PDF
+              <div className="flex flex-col items-center justify-center h-full gap-4 text-muted-foreground">
+                <p>Failed to load PDF preview</p>
+                <Button
+                  onClick={handleDownload}
+                  variant="outline"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Download PDF Instead
+                </Button>
               </div>
             )}
           </TabsContent>
