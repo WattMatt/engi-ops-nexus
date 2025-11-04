@@ -21,6 +21,7 @@ import TaskModal from './components/TaskModal';
 import { ToastProvider, useToast } from './components/ToastProvider';
 import { 
     saveDesign,
+    updateDesign,
     listDesigns,
     loadDesign,
     deleteDesign,
@@ -149,6 +150,8 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
   const [pendingContainment, setPendingContainment] = useState<{ points: Point[]; length: number; type: ContainmentType; } | null>(null);
 
   // Cloud State
+  const [currentDesignId, setCurrentDesignId] = useState<string | null>(null);
+  const [currentDesignName, setCurrentDesignName] = useState<string | null>(null);
   const [isLoadDesignModalOpen, setIsLoadDesignModalOpen] = useState(false);
   const [designList, setDesignList] = useState<DesignListing[]>([]);
   const [isLoadingDesigns, setIsLoadingDesigns] = useState(false);
@@ -228,6 +231,8 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
     setPendingRoofMask(null);
     setPendingPvArrayConfig(null);
     setIsSnappingEnabled(true);
+    setCurrentDesignId(null);
+    setCurrentDesignName(null);
   }
 
   useEffect(() => {
@@ -258,10 +263,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
         toast.error("Cannot save a design without an associated PDF file.");
         return;
     }
-    const designName = prompt("Enter a name for this design:", `Design - ${new Date().toLocaleDateString()}`);
-    if (!designName) return;
 
-    setGlobalLoadingMessage("Saving design to cloud...");
     const designData = {
         ...currentDesign,
         designPurpose,
@@ -270,9 +272,26 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
         scaleLine,
     };
 
+    setGlobalLoadingMessage("Saving design to cloud...");
+    
     try {
-        await saveDesign(designName, designData, pdfFile);
-        toast.success(`Design '${designName}' saved successfully!`);
+        if (currentDesignId) {
+            // Update existing design
+            await updateDesign(currentDesignId, designData);
+            toast.success(`Design '${currentDesignName}' updated successfully!`);
+        } else {
+            // Create new design
+            const designName = prompt("Enter a name for this design:", `Design - ${new Date().toLocaleDateString()}`);
+            if (!designName) {
+                setGlobalLoadingMessage(null);
+                return;
+            }
+            
+            const newDesignId = await saveDesign(designName, designData, pdfFile);
+            setCurrentDesignId(newDesignId);
+            setCurrentDesignName(designName);
+            toast.success(`Design '${designName}' saved successfully!`);
+        }
     } catch (error) {
         console.error("Error saving design:", error);
         toast.error(`Failed to save design: ${error instanceof Error ? error.message : 'Unknown Error'}`);
@@ -321,6 +340,8 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
           setScaleInfo(designData.scale_info || { pixelDistance: null, realDistance: null, ratio: null });
           setScaleLine(designData.scale_line || null);
           setPvPanelConfig(designData.pv_panel_config || null);
+          setCurrentDesignId(designData.id);
+          setCurrentDesignName(designData.name);
 
           if (designData.design_purpose && purposeConfigs[designData.design_purpose as DesignPurpose]) {
               handleSelectPurpose(designData.design_purpose as DesignPurpose);

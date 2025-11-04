@@ -18,7 +18,7 @@ export interface DesignDataForSave {
     scaleLine: { start: { x: number; y: number }; end: { x: number; y: number } } | null;
 }
 
-export const saveDesign = async (designName: string, designData: DesignDataForSave, pdfFile: File): Promise<void> => {
+export const saveDesign = async (designName: string, designData: DesignDataForSave, pdfFile: File): Promise<string> => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("User not authenticated.");
 
@@ -49,7 +49,58 @@ export const saveDesign = async (designName: string, designData: DesignDataForSa
     if (projectError) throw projectError;
     const floorPlanId = project.id;
     
-    // 3. Insert all related items in parallel
+    // 3. Insert all related items
+    await insertDesignComponents(floorPlanId, designData);
+
+    return floorPlanId;
+};
+
+/**
+ * Updates an existing design with new data
+ */
+export const updateDesign = async (designId: string, designData: DesignDataForSave): Promise<void> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("User not authenticated.");
+
+    // 1. Update the main project record
+    const { error: projectError } = await supabase
+        .from('floor_plan_projects')
+        .update({
+            design_purpose: designData.designPurpose,
+            scale_meters_per_pixel: designData.scaleInfo.ratio,
+            state_json: {
+                scaleInfo: designData.scaleInfo,
+                pvPanelConfig: designData.pvPanelConfig,
+                scaleLine: designData.scaleLine
+            } as any,
+            updated_at: new Date().toISOString()
+        })
+        .eq('id', designId)
+        .eq('user_id', user.id);
+
+    if (projectError) throw projectError;
+
+    // 2. Delete existing components (cascade will handle this)
+    await Promise.all([
+        supabase.from('floor_plan_equipment').delete().eq('floor_plan_id', designId),
+        supabase.from('floor_plan_cables').delete().eq('floor_plan_id', designId),
+        supabase.from('floor_plan_zones').delete().eq('floor_plan_id', designId),
+        supabase.from('floor_plan_containment').delete().eq('floor_plan_id', designId),
+        supabase.from('floor_plan_pv_config').delete().eq('floor_plan_id', designId),
+        supabase.from('floor_plan_pv_roofs').delete().eq('floor_plan_id', designId),
+        supabase.from('floor_plan_tasks').delete().eq('floor_plan_id', designId),
+        // Delete cable entries created from this floor plan
+        supabase.from('cable_entries').delete().eq('floor_plan_id', designId).eq('created_from', 'floor_plan')
+    ]);
+
+    // 3. Insert new components
+    await insertDesignComponents(designId, designData);
+};
+
+/**
+ * Helper function to insert all design components
+ */
+const insertDesignComponents = async (floorPlanId: string, designData: DesignDataForSave): Promise<void> => {
     const { equipment, lines, zones, containment, roofMasks, pvArrays, tasks, pvPanelConfig } = designData;
     const promises = [];
     
