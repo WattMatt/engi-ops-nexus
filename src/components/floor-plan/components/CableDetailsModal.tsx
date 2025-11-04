@@ -76,17 +76,24 @@ const CableDetailsModal: React.FC<CableDetailsModalProps> = ({
   useEffect(() => {
     if (isOpen && projectId) {
       const fetchSchedules = async () => {
-        const { data } = await supabase
+        console.log('Fetching cable schedules for project:', projectId);
+        const { data, error } = await supabase
           .from('cable_schedules')
           .select('id, schedule_name, schedule_number')
           .eq('project_id', projectId)
           .order('schedule_number');
         
-        if (data) {
-          setSchedules(data);
+        if (error) {
+          console.error('Error fetching cable schedules:', error);
+        } else {
+          console.log('Fetched cable schedules:', data);
+          setSchedules(data || []);
         }
       };
       fetchSchedules();
+    } else if (isOpen && !projectId) {
+      console.log('No project ID available for fetching cable schedules');
+      setSchedules([]);
     }
   }, [isOpen, projectId]);
 
@@ -94,14 +101,18 @@ const CableDetailsModal: React.FC<CableDetailsModalProps> = ({
   useEffect(() => {
     if (selectedSchedule) {
       const fetchEntries = async () => {
-        const { data } = await supabase
+        console.log('Fetching cable entries for schedule:', selectedSchedule);
+        const { data, error } = await supabase
           .from('cable_entries')
           .select('id, cable_tag, from_location, to_location, cable_type, measured_length, schedule_id')
           .eq('schedule_id', selectedSchedule)
           .order('cable_tag');
         
-        if (data) {
-          setCableEntries(data);
+        if (error) {
+          console.error('Error fetching cable entries:', error);
+        } else {
+          console.log('Fetched cable entries:', data);
+          setCableEntries(data || []);
         }
       };
       fetchEntries();
@@ -210,44 +221,70 @@ const CableDetailsModal: React.FC<CableDetailsModalProps> = ({
           {/* Schedule and Entry Selection (only for existing mode) */}
           {mode === 'existing' && (
             <>
-              <div className="space-y-2">
-                <Label htmlFor="schedule" className="text-gray-300">Cable Schedule</Label>
-                <Select value={selectedSchedule} onValueChange={setSelectedSchedule}>
-                  <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
-                    <SelectValue placeholder="Select a cable schedule" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {schedules.map((schedule) => (
-                      <SelectItem key={schedule.id} value={schedule.id}>
-                        {schedule.schedule_number} - {schedule.schedule_name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {selectedSchedule && (
-                <div className="space-y-2">
-                  <Label htmlFor="entry" className="text-gray-300">Cable Entry</Label>
-                  <Select value={selectedEntry} onValueChange={setSelectedEntry}>
-                    <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
-                      <SelectValue placeholder="Select a cable entry" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {cableEntries.map((entry) => (
-                        <SelectItem key={entry.id} value={entry.id}>
-                          {entry.cable_tag} | {entry.from_location} → {entry.to_location}
-                          {entry.measured_length && ` (${entry.measured_length}m)`}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {selectedEntry && (
-                    <p className="text-sm text-green-400 mt-1">
-                      ✓ Length will be updated to {calculatedLength.toFixed(2)}m in the schedule
-                    </p>
-                  )}
+              {!projectId ? (
+                <div className="p-4 bg-yellow-900/20 border border-yellow-700 rounded-md">
+                  <p className="text-sm text-yellow-400">
+                    ⚠️ No project linked to this floor plan. Please link this floor plan to a project to access cable schedules.
+                  </p>
                 </div>
+              ) : schedules.length === 0 ? (
+                <div className="p-4 bg-blue-900/20 border border-blue-700 rounded-md">
+                  <p className="text-sm text-blue-400">
+                    ℹ️ No cable schedules found for this project. Create cable schedules in the Cable Schedules page first.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="schedule" className="text-gray-300">Cable Schedule</Label>
+                    <Select value={selectedSchedule} onValueChange={setSelectedSchedule}>
+                      <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
+                        <SelectValue placeholder="Select a cable schedule" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {schedules.map((schedule) => (
+                          <SelectItem key={schedule.id} value={schedule.id}>
+                            {schedule.schedule_number} - {schedule.schedule_name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {selectedSchedule && (
+                    <>
+                      {cableEntries.length === 0 ? (
+                        <div className="p-4 bg-blue-900/20 border border-blue-700 rounded-md">
+                          <p className="text-sm text-blue-400">
+                            ℹ️ No cable entries found in this schedule. Add entries to the schedule first.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2">
+                          <Label htmlFor="entry" className="text-gray-300">Cable Entry</Label>
+                          <Select value={selectedEntry} onValueChange={setSelectedEntry}>
+                            <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
+                              <SelectValue placeholder="Select a cable entry" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {cableEntries.map((entry) => (
+                                <SelectItem key={entry.id} value={entry.id}>
+                                  {entry.cable_tag} | {entry.from_location} → {entry.to_location}
+                                  {entry.measured_length && ` (${entry.measured_length}m)`}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {selectedEntry && (
+                            <p className="text-sm text-green-400 mt-1">
+                              ✓ Length will be updated to {calculatedLength.toFixed(2)}m in the schedule
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </>
               )}
             </>
           )}
