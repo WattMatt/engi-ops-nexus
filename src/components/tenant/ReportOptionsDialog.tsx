@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { FileText, Loader2 } from "lucide-react";
+import { FileText, Loader2, LayoutDashboard } from "lucide-react";
 
 export interface ReportOptions {
   includeCoverPage: boolean;
@@ -20,6 +20,12 @@ export interface ReportOptions {
   includeTenantSchedule: boolean;
   includeFloorPlan: boolean;
   kpiLayout: 'compact' | 'detailed';
+  kpiCards: {
+    totalTenants: boolean;
+    totalArea: boolean;
+    totalDbCost: boolean;
+    totalLightingCost: boolean;
+  };
   tenantFields: {
     shopNumber: boolean;
     shopName: boolean;
@@ -55,6 +61,12 @@ export const ReportOptionsDialog = ({
     includeTenantSchedule: true,
     includeFloorPlan: true,
     kpiLayout: 'compact',
+    kpiCards: {
+      totalTenants: true,
+      totalArea: true,
+      totalDbCost: true,
+      totalLightingCost: true,
+    },
     tenantFields: {
       shopNumber: true,
       shopName: true,
@@ -78,6 +90,12 @@ export const ReportOptionsDialog = ({
       includeTenantSchedule: true,
       includeFloorPlan: true,
       kpiLayout: 'compact',
+      kpiCards: {
+        totalTenants: true,
+        totalArea: true,
+        totalDbCost: true,
+        totalLightingCost: true,
+      },
       tenantFields: {
         shopNumber: true,
         shopName: true,
@@ -102,6 +120,12 @@ export const ReportOptionsDialog = ({
       includeTenantSchedule: false,
       includeFloorPlan: false,
       kpiLayout: 'compact',
+      kpiCards: {
+        totalTenants: false,
+        totalArea: false,
+        totalDbCost: false,
+        totalLightingCost: false,
+      },
       tenantFields: {
         shopNumber: false,
         shopName: false,
@@ -201,6 +225,83 @@ export const ReportOptionsDialog = ({
                   </div>
                 )}
               </div>
+
+              <Separator className="my-2" />
+
+              {/* KPI Cards Selection - Only shown if KPI page is enabled */}
+              {options.includeKPIPage && (
+                <div className="ml-6 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <LayoutDashboard className="h-4 w-4 text-muted-foreground" />
+                    <Label className="text-xs text-muted-foreground">KPI Cards to Include</Label>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 pl-2">
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="kpiTotalTenants"
+                        checked={options.kpiCards.totalTenants}
+                        onCheckedChange={(checked) =>
+                          setOptions({
+                            ...options,
+                            kpiCards: { ...options.kpiCards, totalTenants: checked as boolean },
+                          })
+                        }
+                      />
+                      <Label htmlFor="kpiTotalTenants" className="cursor-pointer font-normal text-xs">
+                        Total Tenants
+                      </Label>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="kpiTotalArea"
+                        checked={options.kpiCards.totalArea}
+                        onCheckedChange={(checked) =>
+                          setOptions({
+                            ...options,
+                            kpiCards: { ...options.kpiCards, totalArea: checked as boolean },
+                          })
+                        }
+                      />
+                      <Label htmlFor="kpiTotalArea" className="cursor-pointer font-normal text-xs">
+                        Total Area
+                      </Label>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="kpiTotalDbCost"
+                        checked={options.kpiCards.totalDbCost}
+                        onCheckedChange={(checked) =>
+                          setOptions({
+                            ...options,
+                            kpiCards: { ...options.kpiCards, totalDbCost: checked as boolean },
+                          })
+                        }
+                      />
+                      <Label htmlFor="kpiTotalDbCost" className="cursor-pointer font-normal text-xs">
+                        Total DB Cost
+                      </Label>
+                    </div>
+
+                    <div className="flex items-center space-x-2">
+                      <Checkbox
+                        id="kpiTotalLightingCost"
+                        checked={options.kpiCards.totalLightingCost}
+                        onCheckedChange={(checked) =>
+                          setOptions({
+                            ...options,
+                            kpiCards: { ...options.kpiCards, totalLightingCost: checked as boolean },
+                          })
+                        }
+                      />
+                      <Label htmlFor="kpiTotalLightingCost" className="cursor-pointer font-normal text-xs">
+                        Total Lighting Cost
+                      </Label>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               <div className="flex items-center space-x-2">
                 <Checkbox

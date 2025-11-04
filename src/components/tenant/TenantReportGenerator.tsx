@@ -121,24 +121,26 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
     const leftColX = 20;
     const rightColX = 20 + cardWidth + cardSpacing;
 
-    // Card 1: Total Tenants (always shown)
-    doc.setFillColor(248, 250, 252);
-    doc.setDrawColor(226, 232, 240);
-    doc.setLineWidth(0.3);
-    doc.roundedRect(leftColX, yPos, cardWidth, cardHeight, 2, 2, 'FD');
-    
-    doc.setTextColor(71, 85, 105);
-    doc.setFontSize(fontSize.cardLabel);
-    doc.setFont("helvetica", "normal");
-    doc.text("TOTAL TENANTS", leftColX + 4, yPos + (isCompact ? 7 : 9));
-    
-    doc.setTextColor(15, 23, 42);
-    doc.setFontSize(fontSize.cardValue);
-    doc.setFont("helvetica", "bold");
-    doc.text(totalTenants.toString(), leftColX + 4, yPos + (isCompact ? 19 : 23));
+    // Card 1: Total Tenants
+    if (options.kpiCards.totalTenants) {
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(leftColX, yPos, cardWidth, cardHeight, 2, 2, 'FD');
+      
+      doc.setTextColor(71, 85, 105);
+      doc.setFontSize(fontSize.cardLabel);
+      doc.setFont("helvetica", "normal");
+      doc.text("TOTAL TENANTS", leftColX + 4, yPos + (isCompact ? 7 : 9));
+      
+      doc.setTextColor(15, 23, 42);
+      doc.setFontSize(fontSize.cardValue);
+      doc.setFont("helvetica", "bold");
+      doc.text(totalTenants.toString(), leftColX + 4, yPos + (isCompact ? 19 : 23));
+    }
 
-    // Card 2: Total Area (if area field selected)
-    if (options.tenantFields.area) {
+    // Card 2: Total Area
+    if (options.kpiCards.totalArea) {
       doc.setFillColor(248, 250, 252);
       doc.roundedRect(rightColX, yPos, cardWidth, cardHeight, 2, 2, 'FD');
       
@@ -152,10 +154,14 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
       doc.text(`${totalArea.toFixed(0)} m²`, rightColX + 4, yPos + (isCompact ? 19 : 23));
     }
 
-    yPos += cardHeight + spacing.cardSpacing;
+    // Check if we should move to next row
+    const hasFirstRow = options.kpiCards.totalTenants || options.kpiCards.totalArea;
+    if (hasFirstRow) {
+      yPos += cardHeight + spacing.cardSpacing;
+    }
 
-    // Card 3: Total DB Cost (if dbCost field selected)
-    if (options.tenantFields.dbCost) {
+    // Card 3: Total DB Cost
+    if (options.kpiCards.totalDbCost) {
       doc.setFillColor(248, 250, 252);
       doc.roundedRect(leftColX, yPos, cardWidth, cardHeight, 2, 2, 'FD');
       
@@ -169,8 +175,8 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
       doc.text(`R${totalDbCost.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, leftColX + 4, yPos + (isCompact ? 19 : 23));
     }
 
-    // Card 4: Total Lighting Cost (if lightingCost field selected)
-    if (options.tenantFields.lightingCost) {
+    // Card 4: Total Lighting Cost
+    if (options.kpiCards.totalLightingCost) {
       doc.setFillColor(248, 250, 252);
       doc.roundedRect(rightColX, yPos, cardWidth, cardHeight, 2, 2, 'FD');
       
@@ -184,7 +190,13 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
       doc.text(`R${totalLightingCost.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, rightColX + 4, yPos + (isCompact ? 19 : 23));
     }
 
-    yPos += cardHeight + spacing.sectionSpacing;
+    // Check if we should add spacing after second row
+    const hasSecondRow = options.kpiCards.totalDbCost || options.kpiCards.totalLightingCost;
+    if (hasSecondRow) {
+      yPos += cardHeight + spacing.sectionSpacing;
+    } else if (hasFirstRow) {
+      yPos += spacing.sectionSpacing;
+    }
 
     // Category Breakdown with Donut Chart (if category field selected)
     if (options.tenantFields.category && Object.keys(categoryCounts).length > 0) {
