@@ -78,6 +78,19 @@ export interface CableCalculationResult {
   totalCost: number;
   cablesInParallel: number; // Number of cables needed in parallel
   loadPerCable: number; // Load carried by each cable
+  alternatives?: CableAlternative[]; // Other cost-effective options
+  costSavings?: number; // Savings vs most expensive option
+}
+
+export interface CableAlternative {
+  cableSize: string;
+  cablesInParallel: number;
+  loadPerCable: number;
+  totalCost: number;
+  supplyCost: number;
+  installCost: number;
+  voltDropPercentage: number;
+  isRecommended: boolean;
 }
 
 /**
@@ -106,99 +119,232 @@ export function calculateCableSize(
   // Select appropriate cable table based on material
   const cableTable = material === "aluminium" ? ALUMINIUM_CABLE_TABLE : COPPER_CABLE_TABLE;
 
-  // Determine if we need multiple cables in parallel
-  let cablesInParallel = 1;
-  let loadPerCable = loadAmps;
-
-  // Check if load exceeds max amps per cable
-  if (loadAmps > maxAmpsPerCable) {
-    // Try to group in preferred increments (200A) first
-    const cablesAtPreferred = Math.ceil(loadAmps / preferredAmpsPerCable);
-    const loadAtPreferred = loadAmps / cablesAtPreferred;
+  // If load is low enough for single cable, use standard calculation
+  if (loadAmps <= maxAmpsPerCable) {
+    // Apply derating factor to get required current rating
+    const requiredRating = loadAmps / deratingFactor;
     
-    // If using preferred grouping keeps us under max, use it
-    if (loadAtPreferred <= maxAmpsPerCable) {
-      cablesInParallel = cablesAtPreferred;
-      loadPerCable = loadAtPreferred;
-    } else {
-      // Otherwise, just split to stay under max
-      cablesInParallel = Math.ceil(loadAmps / maxAmpsPerCable);
-      loadPerCable = loadAmps / cablesInParallel;
+    // Find the smallest cable that can handle the required current
+    let selectedCable = cableTable.find(
+      (cable) => cable.currentRatingDucts >= requiredRating
+    );
+
+    if (!selectedCable) {
+      return null;
     }
+
+    // Check voltage drop if length provided
+    if (totalLength > 0) {
+      selectedCable = findCableWithAcceptableVoltDrop(
+        cableTable,
+        selectedCable,
+        loadAmps,
+        voltage,
+        totalLength
+      );
+    }
+
+    const result = calculateSingleCableResult(selectedCable, loadAmps, voltage, totalLength);
+    return {
+      ...result,
+      cablesInParallel: 1,
+      loadPerCable: loadAmps,
+    };
   }
 
-  // Find the smallest cable that can handle the required current per cable
-  const requiredRatingPerCable = loadPerCable / deratingFactor;
-  let selectedCable = cableTable.find(
-    (cable) => cable.currentRatingDucts >= requiredRatingPerCable
+  // For high loads, evaluate all possible parallel configurations
+  const alternatives = evaluateParallelOptions(
+    loadAmps,
+    voltage,
+    totalLength,
+    deratingFactor,
+    maxAmpsPerCable,
+    preferredAmpsPerCable,
+    cableTable
   );
 
-  if (!selectedCable) {
+  if (alternatives.length === 0) {
     return null;
   }
 
-  // If length is provided, check voltage drop and upsize if necessary
-  if (totalLength > 0) {
-    const maxVoltDropPercentage = voltage === 400 ? 5 : 3; // 5% for 400V, 3% for 230V
+  // Find the most cost-effective option
+  const recommended = alternatives.reduce((best, current) => 
+    current.totalCost < best.totalCost ? current : best
+  );
+
+  const mostExpensive = alternatives.reduce((max, current) => 
+    current.totalCost > max.totalCost ? current : max
+  );
+
+  const costSavings = mostExpensive.totalCost - recommended.totalCost;
+
+  // Find the cable details for the recommended option
+  const recommendedCable = cableTable.find(c => c.size === recommended.cableSize)!;
+  
+  return {
+    recommendedSize: recommended.cableSize,
+    ohmPerKm: recommendedCable.impedance,
+    voltDrop: calculateVoltDrop(recommended.loadPerCable, voltage, totalLength, recommendedCable.impedance),
+    voltDropPercentage: recommended.voltDropPercentage,
+    supplyCost: recommended.supplyCost,
+    installCost: recommended.installCost,
+    totalCost: recommended.totalCost,
+    cablesInParallel: recommended.cablesInParallel,
+    loadPerCable: recommended.loadPerCable,
+    alternatives: alternatives.map(alt => ({
+      ...alt,
+      isRecommended: alt === recommended,
+    })),
+    costSavings,
+  };
+}
+
+/**
+ * Evaluate all possible parallel cable configurations and return viable options
+ */
+function evaluateParallelOptions(
+  totalLoad: number,
+  voltage: number,
+  totalLength: number,
+  deratingFactor: number,
+  maxAmpsPerCable: number,
+  preferredAmpsPerCable: number,
+  cableTable: CableData[]
+): CableAlternative[] {
+  const alternatives: CableAlternative[] = [];
+  const maxVoltDropPercentage = voltage === 400 ? 5 : 3;
+
+  // Calculate minimum number of cables needed to stay under max amps
+  const minCables = Math.ceil(totalLoad / maxAmpsPerCable);
+  
+  // Try configurations from min cables up to reasonable maximum (e.g., 6 cables)
+  const maxCablesToTry = Math.min(Math.ceil(totalLoad / preferredAmpsPerCable) + 2, 8);
+
+  for (let numCables = minCables; numCables <= maxCablesToTry; numCables++) {
+    const loadPerCable = totalLoad / numCables;
     
-    let voltDrop = 0;
-    let voltDropPercentage = 0;
-    let cableIndex = cableTable.findIndex(c => c.size === selectedCable!.size);
+    // Skip if load per cable still exceeds max
+    if (loadPerCable > maxAmpsPerCable) continue;
 
-    // Keep upsizing until voltage drop is acceptable
-    while (cableIndex < cableTable.length) {
-      const testCable = cableTable[cableIndex];
+    const requiredRatingPerCable = loadPerCable / deratingFactor;
+    
+    // Find smallest cable that can handle this current
+    let selectedCable = cableTable.find(
+      cable => cable.currentRatingDucts >= requiredRatingPerCable
+    );
+
+    if (!selectedCable) continue;
+
+    // Check voltage drop if length provided
+    if (totalLength > 0) {
+      selectedCable = findCableWithAcceptableVoltDrop(
+        cableTable,
+        selectedCable,
+        loadPerCable,
+        voltage,
+        totalLength
+      );
       
-      // Calculate voltage drop per cable (for parallel cables, each carries less current)
-      if (voltage === 400) {
-        voltDrop = (Math.sqrt(3) * loadPerCable * testCable.impedance * totalLength) / 1000;
-      } else {
-        voltDrop = (2 * loadPerCable * testCable.impedance * totalLength) / 1000;
-      }
+      // Calculate voltage drop percentage
+      const voltDrop = calculateVoltDrop(loadPerCable, voltage, totalLength, selectedCable.impedance);
+      const voltDropPercentage = (voltDrop / voltage) * 100;
       
-      voltDropPercentage = (voltDrop / voltage) * 100;
-
-      // If voltage drop is acceptable, use this cable
-      if (voltDropPercentage <= maxVoltDropPercentage) {
-        selectedCable = testCable;
-        break;
-      }
-
-      // Try next larger cable
-      cableIndex++;
+      // Skip if voltage drop is still too high
+      if (voltDropPercentage > maxVoltDropPercentage) continue;
     }
 
-    // If we've exhausted all cables and still have excessive voltage drop
-    if (cableIndex >= cableTable.length) {
-      selectedCable = cableTable[cableTable.length - 1]; // Use largest available
-    }
+    // Calculate total costs for this configuration
+    const supplyCostPerCable = selectedCable.supplyCost * (totalLength || 0);
+    const installCostPerCable = selectedCable.installCost * (totalLength || 0);
+    const totalSupplyCost = supplyCostPerCable * numCables;
+    const totalInstallCost = installCostPerCable * numCables;
+    const totalCost = totalSupplyCost + totalInstallCost;
+
+    const voltDrop = calculateVoltDrop(loadPerCable, voltage, totalLength, selectedCable.impedance);
+    const voltDropPercentage = totalLength > 0 ? (voltDrop / voltage) * 100 : 0;
+
+    alternatives.push({
+      cableSize: selectedCable.size,
+      cablesInParallel: numCables,
+      loadPerCable,
+      totalCost: parseFloat(totalCost.toFixed(2)),
+      supplyCost: parseFloat(totalSupplyCost.toFixed(2)),
+      installCost: parseFloat(totalInstallCost.toFixed(2)),
+      voltDropPercentage: parseFloat(voltDropPercentage.toFixed(2)),
+      isRecommended: false,
+    });
   }
 
-  // Calculate final voltage drop with selected cable
-  let voltDrop = 0;
-  if (totalLength > 0) {
-    if (voltage === 400) {
-      voltDrop = (Math.sqrt(3) * loadPerCable * selectedCable.impedance * totalLength) / 1000;
-    } else {
-      voltDrop = (2 * loadPerCable * selectedCable.impedance * totalLength) / 1000;
+  return alternatives;
+}
+
+/**
+ * Find cable size that meets voltage drop requirements
+ */
+function findCableWithAcceptableVoltDrop(
+  cableTable: CableData[],
+  startCable: CableData,
+  loadAmps: number,
+  voltage: number,
+  totalLength: number
+): CableData {
+  const maxVoltDropPercentage = voltage === 400 ? 5 : 3;
+  let cableIndex = cableTable.findIndex(c => c.size === startCable.size);
+
+  while (cableIndex < cableTable.length) {
+    const testCable = cableTable[cableIndex];
+    const voltDrop = calculateVoltDrop(loadAmps, voltage, totalLength, testCable.impedance);
+    const voltDropPercentage = (voltDrop / voltage) * 100;
+
+    if (voltDropPercentage <= maxVoltDropPercentage) {
+      return testCable;
     }
+    cableIndex++;
   }
+
+  return cableTable[cableTable.length - 1];
+}
+
+/**
+ * Calculate voltage drop in volts
+ */
+function calculateVoltDrop(
+  loadAmps: number,
+  voltage: number,
+  totalLength: number,
+  impedance: number
+): number {
+  if (totalLength === 0) return 0;
+  
+  if (voltage === 400) {
+    return (Math.sqrt(3) * loadAmps * impedance * totalLength) / 1000;
+  } else {
+    return (2 * loadAmps * impedance * totalLength) / 1000;
+  }
+}
+
+/**
+ * Calculate result for a single cable
+ */
+function calculateSingleCableResult(
+  cable: CableData,
+  loadAmps: number,
+  voltage: number,
+  totalLength: number
+): Omit<CableCalculationResult, 'cablesInParallel' | 'loadPerCable'> {
+  const voltDrop = calculateVoltDrop(loadAmps, voltage, totalLength, cable.impedance);
   const voltDropPercentage = totalLength > 0 ? (voltDrop / voltage) * 100 : 0;
-
-  // Calculate costs (per cable)
-  const supplyCost = selectedCable.supplyCost * (totalLength || 0);
-  const installCost = selectedCable.installCost * (totalLength || 0);
+  const supplyCost = cable.supplyCost * (totalLength || 0);
+  const installCost = cable.installCost * (totalLength || 0);
   const totalCost = supplyCost + installCost;
 
   return {
-    recommendedSize: selectedCable.size,
-    ohmPerKm: selectedCable.impedance,
+    recommendedSize: cable.size,
+    ohmPerKm: cable.impedance,
     voltDrop: parseFloat(voltDrop.toFixed(2)),
     voltDropPercentage: parseFloat(voltDropPercentage.toFixed(2)),
     supplyCost: parseFloat(supplyCost.toFixed(2)),
     installCost: parseFloat(installCost.toFixed(2)),
     totalCost: parseFloat(totalCost.toFixed(2)),
-    cablesInParallel,
-    loadPerCable: parseFloat(loadPerCable.toFixed(2)),
   };
 }

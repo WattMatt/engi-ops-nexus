@@ -46,6 +46,8 @@ export const AddCableEntryDialog = ({
   const [useCustomToLocation, setUseCustomToLocation] = useState(false);
   const [cablesInParallel, setCablesInParallel] = useState(1); // Track parallel cables needed
   const [loadPerCable, setLoadPerCable] = useState<number | null>(null); // Track load per cable
+  const [costAlternatives, setCostAlternatives] = useState<any[]>([]); // Track alternative configurations
+  const [costSavings, setCostSavings] = useState<number>(0); // Track cost savings
   const [formData, setFormData] = useState({
     cable_tag: "",
     from_location: "",
@@ -162,6 +164,8 @@ export const AddCableEntryDialog = ({
       if (result) {
         setCablesInParallel(result.cablesInParallel);
         setLoadPerCable(result.loadPerCable);
+        setCostAlternatives(result.alternatives || []);
+        setCostSavings(result.costSavings || 0);
         
         setFormData((prev) => ({
           ...prev,
@@ -286,14 +290,35 @@ export const AddCableEntryDialog = ({
             </div>
             <div className="space-y-2 col-span-2">
               {cablesInParallel > 1 && (
-                <div className="p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-md">
-                  <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
-                    ⚠️ High Load Detected - Parallel Cables Required
-                  </p>
-                  <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
-                    This will create <strong>{cablesInParallel} cable entries</strong> numbered 1-{cablesInParallel}, 
-                    each carrying <strong>{loadPerCable?.toFixed(2)}A</strong> of the total load.
-                  </p>
+                <div className="space-y-3">
+                  <div className="p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-md">
+                    <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                      💰 Cost-Optimized Recommendation
+                    </p>
+                    <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
+                      <strong>{cablesInParallel}x {formData.cable_size}</strong> cables @ <strong>{loadPerCable?.toFixed(2)}A</strong> each
+                      <br />
+                      Total Cost: <strong>R {formData.total_cost}</strong>
+                      {costSavings > 0 && (
+                        <span className="text-green-600 dark:text-green-400"> (Saves R {costSavings.toFixed(2)})</span>
+                      )}
+                    </p>
+                  </div>
+                  
+                  {costAlternatives.length > 1 && (
+                    <div className="p-3 bg-muted rounded-md">
+                      <p className="text-sm font-medium mb-2">Alternative Configurations:</p>
+                      <div className="space-y-1">
+                        {costAlternatives.map((alt, idx) => (
+                          <div key={idx} className={`text-xs p-2 rounded ${alt.isRecommended ? 'bg-green-100 dark:bg-green-950 border border-green-300 dark:border-green-800' : 'bg-background'}`}>
+                            {alt.isRecommended && <span className="text-green-600 dark:text-green-400 font-medium">✓ </span>}
+                            <strong>{alt.cablesInParallel}x {alt.cableSize}</strong> @ {alt.loadPerCable.toFixed(2)}A each
+                            <span className="float-right">R {alt.totalCost.toFixed(2)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
               {cablesInParallel === 1 && formData.cable_size && (
