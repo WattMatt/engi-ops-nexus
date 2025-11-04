@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { EditReportDialog } from "./EditReportDialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Input } from "@/components/ui/input";
-import { ReportPreviewDialog } from "./ReportPreviewDialog";
+import { StandardReportPreview } from "@/components/shared/StandardReportPreview";
 
 interface SavedReportsListProps {
   projectId: string;
@@ -304,12 +304,11 @@ export const SavedReportsList = ({ projectId, projectName }: SavedReportsListPro
     )}
 
     {previewingReport && (
-      <ReportPreviewDialog
+      <StandardReportPreview
         report={previewingReport}
         open={!!previewingReport}
         onOpenChange={(open) => !open && setPreviewingReport(null)}
-        projectId={projectId}
-        projectName={projectName}
+        storageBucket="tenant-tracker-reports"
       />
     )}
     </>
