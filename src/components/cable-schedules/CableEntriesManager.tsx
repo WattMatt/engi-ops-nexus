@@ -160,6 +160,7 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
                       <TableHead>Voltage</TableHead>
                       <TableHead>Load (A)</TableHead>
                       <TableHead>Cable Type</TableHead>
+                      <TableHead>Install Method</TableHead>
                       <TableHead>Cable Size</TableHead>
                       <TableHead>Length (m)</TableHead>
                       <TableHead>Supply Cost</TableHead>
@@ -180,6 +181,7 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
                         <TableCell>{entry.voltage || "-"}</TableCell>
                         <TableCell>{entry.load_amps || "-"}</TableCell>
                         <TableCell>{entry.cable_type || "-"}</TableCell>
+                        <TableCell className="capitalize">{entry.installation_method || "air"}</TableCell>
                         <TableCell>{entry.cable_size || "-"}</TableCell>
                         <TableCell>{entry.total_length?.toFixed(2) || "0.00"}</TableCell>
                         <TableCell>{formatCurrency(entry.supply_cost)}</TableCell>

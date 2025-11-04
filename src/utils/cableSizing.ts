@@ -66,6 +66,7 @@ export interface CableCalculationParams {
   material?: "copper" | "aluminium"; // default copper
   maxAmpsPerCable?: number; // Maximum amps per cable (default 300A)
   preferredAmpsPerCable?: number; // Preferred amps per cable for parallel runs (default 200A)
+  installationMethod?: 'air' | 'ducts' | 'ground'; // Installation method (default 'air')
 }
 
 export interface CableCalculationResult {
@@ -109,7 +110,8 @@ export function calculateCableSize(
     deratingFactor = 1.0, 
     material = "copper",
     maxAmpsPerCable = 300, // Don't exceed 300A per cable
-    preferredAmpsPerCable = 200 // Prefer 200A per cable for parallel runs
+    preferredAmpsPerCable = 200, // Prefer 200A per cable for parallel runs
+    installationMethod = 'air' // Default to Air installation
   } = params;
 
   if (!loadAmps || loadAmps <= 0 || !voltage || voltage <= 0) {
@@ -124,10 +126,13 @@ export function calculateCableSize(
     // Apply derating factor to get required current rating
     const requiredRating = loadAmps / deratingFactor;
     
-    // Find the smallest cable that can handle the required current
-    let selectedCable = cableTable.find(
-      (cable) => cable.currentRatingDucts >= requiredRating
-    );
+    // Find the smallest cable that can handle the required current based on installation method
+    let selectedCable = cableTable.find((cable) => {
+      const currentRating = installationMethod === 'air' ? cable.currentRatingAir :
+                           installationMethod === 'ground' ? cable.currentRatingGround :
+                           cable.currentRatingDucts;
+      return currentRating >= requiredRating;
+    });
 
     if (!selectedCable) {
       return null;
@@ -160,7 +165,8 @@ export function calculateCableSize(
     deratingFactor,
     maxAmpsPerCable,
     preferredAmpsPerCable,
-    cableTable
+    cableTable,
+    installationMethod
   );
 
   if (alternatives.length === 0) {
@@ -209,7 +215,8 @@ function evaluateParallelOptions(
   deratingFactor: number,
   maxAmpsPerCable: number,
   preferredAmpsPerCable: number,
-  cableTable: CableData[]
+  cableTable: CableData[],
+  installationMethod: 'air' | 'ducts' | 'ground' = 'air'
 ): CableAlternative[] {
   const alternatives: CableAlternative[] = [];
   const maxVoltDropPercentage = voltage === 400 ? 5 : 3;
@@ -228,10 +235,13 @@ function evaluateParallelOptions(
 
     const requiredRatingPerCable = loadPerCable / deratingFactor;
     
-    // Find smallest cable that can handle this current
-    let selectedCable = cableTable.find(
-      cable => cable.currentRatingDucts >= requiredRatingPerCable
-    );
+    // Find smallest cable that can handle this current based on installation method
+    let selectedCable = cableTable.find(cable => {
+      const currentRating = installationMethod === 'air' ? cable.currentRatingAir :
+                           installationMethod === 'ground' ? cable.currentRatingGround :
+                           cable.currentRatingDucts;
+      return currentRating >= requiredRatingPerCable;
+    });
 
     if (!selectedCable) continue;
 

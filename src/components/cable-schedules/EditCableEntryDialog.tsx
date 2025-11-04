@@ -43,6 +43,7 @@ export const EditCableEntryDialog = ({
     voltage: "",
     load_amps: "",
     cable_type: "",
+    installation_method: "air",
     ohm_per_km: "",
     cable_number: "",
     quantity: "",
@@ -94,6 +95,7 @@ export const EditCableEntryDialog = ({
         voltage: entry.voltage?.toString() || "",
         load_amps: entry.load_amps?.toString() || "",
         cable_type: entry.cable_type || "",
+        installation_method: entry.installation_method || "air",
         ohm_per_km: entry.ohm_per_km?.toString() || "",
         cable_number: entry.cable_number?.toString() || "",
         quantity: entry.quantity?.toString() || "1",
@@ -153,6 +155,7 @@ export const EditCableEntryDialog = ({
         totalLength: totalLength || 0,
         deratingFactor: 0.8,
         material: material as "copper" | "aluminium",
+        installationMethod: formData.installation_method as 'air' | 'ducts' | 'ground',
       });
 
       if (result) {
@@ -166,7 +169,7 @@ export const EditCableEntryDialog = ({
         }));
       }
     }
-  }, [formData.load_amps, formData.voltage, formData.total_length, formData.cable_type]);
+  }, [formData.load_amps, formData.voltage, formData.total_length, formData.cable_type, formData.installation_method]);
 
   // Auto-calculate total_cost
   useEffect(() => {
@@ -192,6 +195,7 @@ export const EditCableEntryDialog = ({
           voltage: formData.voltage ? parseFloat(formData.voltage) : null,
           load_amps: formData.load_amps ? parseFloat(formData.load_amps) : null,
           cable_type: formData.cable_type || null,
+          installation_method: formData.installation_method || 'air',
           ohm_per_km: formData.ohm_per_km ? parseFloat(formData.ohm_per_km) : null,
           cable_number: formData.cable_number ? parseInt(formData.cable_number) : null,
           extra_length: formData.extra_length ? parseFloat(formData.extra_length) : 0,
@@ -323,6 +327,24 @@ export const EditCableEntryDialog = ({
                 <SelectContent>
                   <SelectItem value="Aluminium">Aluminium</SelectItem>
                   <SelectItem value="Copper">Copper</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="installation_method">Installation Method</Label>
+              <Select
+                value={formData.installation_method || "air"}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, installation_method: value })
+                }
+              >
+                <SelectTrigger id="installation_method">
+                  <SelectValue placeholder="Select installation" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="air">Air</SelectItem>
+                  <SelectItem value="ducts">Ducts</SelectItem>
+                  <SelectItem value="ground">Ground</SelectItem>
                 </SelectContent>
               </Select>
             </div>

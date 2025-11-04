@@ -435,6 +435,7 @@ export type Database = {
           from_location: string
           id: string
           install_cost: number | null
+          installation_method: string
           load_amps: number | null
           measured_length: number | null
           notes: string | null
@@ -463,6 +464,7 @@ export type Database = {
           from_location: string
           id?: string
           install_cost?: number | null
+          installation_method?: string
           load_amps?: number | null
           measured_length?: number | null
           notes?: string | null
@@ -491,6 +493,7 @@ export type Database = {
           from_location?: string
           id?: string
           install_cost?: number | null
+          installation_method?: string
           load_amps?: number | null
           measured_length?: number | null
           notes?: string | null
