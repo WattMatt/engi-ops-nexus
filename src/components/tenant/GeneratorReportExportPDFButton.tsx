@@ -203,7 +203,13 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       doc.setFillColor(220, 230, 240);
       doc.rect(0, 0, 8, pageHeight, 'F');
       
-      // Main titles - RIGHT-ALIGNED as per reference
+      // Add right-side colored shape (large light blue rectangle)
+      doc.setFillColor(220, 235, 250); // Very light blue
+      const rightBoxWidth = 100;
+      const rightBoxHeight = pageHeight;
+      doc.rect(pageWidth - rightBoxWidth, 0, rightBoxWidth, rightBoxHeight, 'F');
+      
+      // Main titles - RIGHT-ALIGNED as per reference, positioned over the colored box
       doc.setTextColor(titleColor[0], titleColor[1], titleColor[2]);
       doc.setFontSize(18);
       doc.setFont("helvetica", "bold");
@@ -217,14 +223,14 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       doc.setFontSize(18);
       doc.text("Centre Standby Plant", pageWidth - 14, yPos, { align: "right" });
       
-      // First horizontal divider line
-      yPos = 150;
+      // First horizontal divider line - positioned higher on page
+      yPos = 145;
       doc.setDrawColor(0, 0, 0);
       doc.setLineWidth(0.5);
       doc.line(14, yPos, pageWidth - 14, yPos);
       
-      // Company details section - left aligned
-      yPos = 160;
+      // Company details section - left aligned with more top spacing
+      yPos = 158;
       doc.setTextColor(0, 0, 0);
       doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
@@ -271,12 +277,12 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
         }
       }
       
-      // Second horizontal divider line
-      yPos = 208;
+      // Second horizontal divider line - more spacing from company details
+      yPos = 202;
       doc.line(14, yPos, pageWidth - 14, yPos);
       
-      // Date and Revision - formatted like reference with cyan values
-      yPos = 230;
+      // Date and Revision - formatted like reference with cyan values, more spacing below line
+      yPos = 222;
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(0, 0, 0);
