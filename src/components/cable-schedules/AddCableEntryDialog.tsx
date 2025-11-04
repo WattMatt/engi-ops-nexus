@@ -50,7 +50,7 @@ export const AddCableEntryDialog = ({
     to_location: "",
     voltage: "400", // Default to 400V
     load_amps: "",
-    cable_type: "",
+    cable_type: "Aluminium", // Default to Aluminium
     ohm_per_km: "",
     cable_number: "",
     quantity: "1",
@@ -216,7 +216,7 @@ export const AddCableEntryDialog = ({
         to_location: "",
         voltage: "400", // Reset to default 400V
         load_amps: "",
-        cable_type: "",
+        cable_type: "Aluminium", // Reset to default Aluminium
         ohm_per_km: "",
         cable_number: "",
         quantity: "1",
@@ -391,13 +391,20 @@ export const AddCableEntryDialog = ({
             </div>
             <div className="space-y-2">
               <Label htmlFor="cable_type">Cable Type</Label>
-              <Input
-                id="cable_type"
+              <Select
                 value={formData.cable_type}
-                onChange={(e) =>
-                  setFormData({ ...formData, cable_type: e.target.value })
+                onValueChange={(value) =>
+                  setFormData({ ...formData, cable_type: value })
                 }
-              />
+              >
+                <SelectTrigger id="cable_type">
+                  <SelectValue placeholder="Select cable type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Aluminium">Aluminium</SelectItem>
+                  <SelectItem value="Copper">Copper</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

@@ -154,6 +154,7 @@ export const ImportTenantsDialog = ({
           notes: row.db_size_allowance ? `DB Allowance: ${row.db_size_allowance}` : null,
           voltage: 400,
           load_amps: loadAmps,
+          cable_type: "Aluminium", // Default to Aluminium
           quantity: 1,
         };
       });

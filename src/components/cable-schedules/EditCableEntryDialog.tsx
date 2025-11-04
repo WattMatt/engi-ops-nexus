@@ -11,6 +11,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface EditCableEntryDialogProps {
   open: boolean;
@@ -272,13 +279,20 @@ export const EditCableEntryDialog = ({
             </div>
             <div className="space-y-2">
               <Label htmlFor="cable_type">Cable Type</Label>
-              <Input
-                id="cable_type"
-                value={formData.cable_type}
-                onChange={(e) =>
-                  setFormData({ ...formData, cable_type: e.target.value })
+              <Select
+                value={formData.cable_type || "Aluminium"}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, cable_type: value })
                 }
-              />
+              >
+                <SelectTrigger id="cable_type">
+                  <SelectValue placeholder="Select cable type" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Aluminium">Aluminium</SelectItem>
+                  <SelectItem value="Copper">Copper</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
