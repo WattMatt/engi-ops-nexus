@@ -12,6 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Pencil, Trash2, RefreshCw } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
 
 interface Tenant {
   id: string;
@@ -27,6 +29,9 @@ interface AssignTenantDialogProps {
   zoneId: string;
   currentTenantId: string | null;
   onAssign: (tenantId: string, tenantName: string, category: string) => void;
+  onRedraw?: () => void;
+  onReassign?: () => void;
+  onDelete?: () => void;
   assignedTenantIds: string[]; // List of already assigned tenant IDs
 }
 
@@ -37,6 +42,9 @@ export const AssignTenantDialog = ({
   zoneId,
   currentTenantId,
   onAssign,
+  onRedraw,
+  onReassign,
+  onDelete,
   assignedTenantIds
 }: AssignTenantDialogProps) => {
   const [tenants, setTenants] = useState<Tenant[]>([]);
@@ -109,6 +117,21 @@ export const AssignTenantDialog = ({
     }
   };
 
+  const handleRedraw = () => {
+    onRedraw?.();
+    onClose();
+  };
+
+  const handleReassign = () => {
+    onReassign?.();
+    onClose();
+  };
+
+  const handleDelete = () => {
+    onDelete?.();
+    onClose();
+  };
+
   const getCategoryColor = (category: string) => {
     const colors = {
       standard: "bg-blue-500",
@@ -139,9 +162,53 @@ export const AssignTenantDialog = ({
           </DialogDescription>
         </DialogHeader>
         
-        <div className="space-y-4 py-4">
+        
+        {/* Zone Actions */}
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold">Zone Actions</h3>
+          <div className="grid grid-cols-3 gap-2">
+            {onRedraw && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleRedraw}
+                className="flex items-center gap-2"
+              >
+                <Pencil className="h-4 w-4" />
+                Re-draw
+              </Button>
+            )}
+            {onReassign && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleReassign}
+                className="flex items-center gap-2"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Re-assign
+              </Button>
+            )}
+            {onDelete && (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleDelete}
+                className="flex items-center gap-2 text-destructive hover:text-destructive"
+              >
+                <Trash2 className="h-4 w-4" />
+                Delete
+              </Button>
+            )}
+          </div>
+        </div>
+
+        <Separator />
+
+        {/* Tenant Assignment */}
+        <div className="space-y-4">
           <div className="space-y-2">
-            <label className="text-sm font-medium">Tenant</label>
+            <label className="text-sm font-medium">Assign Tenant</label>
             <Select value={selectedTenantId} onValueChange={setSelectedTenantId}>
               <SelectTrigger>
                 <SelectValue placeholder="Select a tenant" />
