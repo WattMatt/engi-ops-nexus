@@ -87,6 +87,8 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
 
   // Initialize zone settings when zones and saved settings are loaded
   useEffect(() => {
+    if (!zones.length) return;
+    
     const initialSettings = new Map<string, ZoneSettings>();
     
     zones.forEach((zone) => {
@@ -127,8 +129,17 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
       }
     });
     
-    setZoneSettings(initialSettings);
-  }, [zones, allSettings]);
+    // Only update if settings have actually changed to prevent infinite loops
+    setZoneSettings(prev => {
+      const hasChanged = prev.size !== initialSettings.size || 
+        Array.from(initialSettings.entries()).some(([key, value]) => {
+          const prevValue = prev.get(key);
+          return !prevValue || JSON.stringify(prevValue) !== JSON.stringify(value);
+        });
+      
+      return hasChanged ? initialSettings : prev;
+    });
+  }, [zones, allSettings, getFuelConsumption]);
 
   // Update individual zone setting
   const updateZoneSetting = (zoneId: string, field: keyof ZoneSettings, value: number | string) => {
