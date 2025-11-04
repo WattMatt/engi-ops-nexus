@@ -11,11 +11,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Pencil, Trash2, BookOpen, Download } from "lucide-react";
+import { Plus, Pencil, Trash2, BookOpen, Download, Users } from "lucide-react";
 import { AddCableEntryDialog } from "./AddCableEntryDialog";
 import { EditCableEntryDialog } from "./EditCableEntryDialog";
 import { CableSizingReference } from "./CableSizingReference";
 import { ImportFloorPlanCablesDialog } from "./ImportFloorPlanCablesDialog";
+import { ImportTenantsDialog } from "./ImportTenantsDialog";
 import { useToast } from "@/hooks/use-toast";
 import {
   AlertDialog,
@@ -39,6 +40,7 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showReferenceDialog, setShowReferenceDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
+  const [showImportTenantsDialog, setShowImportTenantsDialog] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<any>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
 
@@ -127,10 +129,16 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
                 View Cable Tables
               </Button>
               {projectId && (
-                <Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}>
-                  <Download className="mr-2 h-4 w-4" />
-                  Import from Floor Plans
-                </Button>
+                <>
+                  <Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}>
+                    <Download className="mr-2 h-4 w-4" />
+                    Import from Floor Plans
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={() => setShowImportTenantsDialog(true)}>
+                    <Users className="mr-2 h-4 w-4" />
+                    Import Tenants
+                  </Button>
+                </>
               )}
               <Button onClick={() => setShowAddDialog(true)} size="sm">
                 <Plus className="mr-2 h-4 w-4" />
@@ -226,16 +234,28 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
       />
 
       {projectId && (
-        <ImportFloorPlanCablesDialog
-          open={showImportDialog}
-          onOpenChange={setShowImportDialog}
-          scheduleId={scheduleId}
-          projectId={projectId}
-          onSuccess={() => {
-            refetch();
-            setShowImportDialog(false);
-          }}
-        />
+        <>
+          <ImportFloorPlanCablesDialog
+            open={showImportDialog}
+            onOpenChange={setShowImportDialog}
+            scheduleId={scheduleId}
+            projectId={projectId}
+            onSuccess={() => {
+              refetch();
+              setShowImportDialog(false);
+            }}
+          />
+          <ImportTenantsDialog
+            open={showImportTenantsDialog}
+            onOpenChange={setShowImportTenantsDialog}
+            scheduleId={scheduleId}
+            projectId={projectId}
+            onSuccess={() => {
+              refetch();
+              setShowImportTenantsDialog(false);
+            }}
+          />
+        </>
       )}
 
       <AddCableEntryDialog
