@@ -431,6 +431,7 @@ export type Database = {
           display_order: number
           extra_length: number | null
           floor_plan_cable_id: string | null
+          floor_plan_id: string | null
           from_location: string
           id: string
           install_cost: number | null
@@ -458,6 +459,7 @@ export type Database = {
           display_order?: number
           extra_length?: number | null
           floor_plan_cable_id?: string | null
+          floor_plan_id?: string | null
           from_location: string
           id?: string
           install_cost?: number | null
@@ -485,6 +487,7 @@ export type Database = {
           display_order?: number
           extra_length?: number | null
           floor_plan_cable_id?: string | null
+          floor_plan_id?: string | null
           from_location?: string
           id?: string
           install_cost?: number | null
@@ -508,6 +511,13 @@ export type Database = {
             columns: ["floor_plan_cable_id"]
             isOneToOne: false
             referencedRelation: "floor_plan_cables"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "cable_entries_floor_plan_id_fkey"
+            columns: ["floor_plan_id"]
+            isOneToOne: false
+            referencedRelation: "floor_plan_projects"
             referencedColumns: ["id"]
           },
         ]

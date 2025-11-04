@@ -68,22 +68,47 @@ export const saveDesign = async (designName: string, designData: DesignDataForSa
         ));
     }
     
-    // Cables (previously "lines")
+    // Cables - Create in cable_entries as the single source of truth
+    // Also create lightweight reference in floor_plan_cables for backward compatibility
     if (lines.length > 0) {
-        promises.push(supabase.from('floor_plan_cables').insert(
+        // Insert into cable_entries first
+        const cableEntriesPromise = supabase.from('cable_entries').insert(
             lines.map(({id, from, to, pathLength, ...d}) => ({ 
                 floor_plan_id: floorPlanId,
-                cable_type: d.cableType || d.type,
-                points: d.points as any,
-                length_meters: d.length,
-                from_label: from,
-                to_label: to,
-                label: d.label,
-                termination_count: d.terminationCount,
-                start_height: d.startHeight,
-                end_height: d.endHeight
+                created_from: 'floor_plan',
+                cable_tag: d.label || `${from || "?"}-${to || "?"}`,
+                from_location: from || "",
+                to_location: to || "",
+                cable_type: "Aluminium", // Default material
+                measured_length: d.length || 0,
+                extra_length: d.startHeight + d.endHeight || 0, // Use rise/drop as extra length
+                total_length: (d.length || 0) + (d.startHeight + d.endHeight || 0),
+                notes: `Terminations: ${d.terminationCount || 0}`
             }))
-        ));
+        ).select();
+        
+        promises.push(cableEntriesPromise.then(async ({ data: cableEntries, error }) => {
+            if (error) throw error;
+            
+            // Create corresponding floor_plan_cables entries for reference
+            if (cableEntries && cableEntries.length > 0) {
+                const floorPlanCablesData = lines.map(({id, from, to, pathLength, ...d}, index) => ({ 
+                    floor_plan_id: floorPlanId,
+                    cable_type: d.cableType || d.type,
+                    points: d.points as any,
+                    length_meters: d.length,
+                    from_label: from,
+                    to_label: to,
+                    label: d.label,
+                    termination_count: d.terminationCount,
+                    start_height: d.startHeight,
+                    end_height: d.endHeight,
+                    cable_entry_id: cableEntries[index]?.id
+                }));
+                
+                return supabase.from('floor_plan_cables').insert(floorPlanCablesData);
+            }
+        }));
     }
     
     // Zones

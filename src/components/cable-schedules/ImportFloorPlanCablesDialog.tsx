@@ -62,30 +62,38 @@ export const ImportFloorPlanCablesDialog = ({
   const fetchFloorPlanCables = async () => {
     setLoading(true);
     try {
+      // Fetch cable entries that were created from floor plans for this project
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      // Get all cable entries from floor plans for this user
       const { data: cables, error } = await supabase
-        .from("floor_plan_cables")
+        .from("cable_entries")
         .select(`
           id,
+          cable_tag,
+          from_location,
+          to_location,
           cable_type,
-          label,
-          from_label,
-          to_label,
-          length_meters,
-          cable_entry_id,
-          floor_plan_projects!inner(name, project_id)
+          measured_length,
+          total_length,
+          schedule_id,
+          floor_plan_id,
+          floor_plan_projects!inner(name, user_id, project_id)
         `)
-        .eq("floor_plan_projects.project_id", projectId);
+        .eq("floor_plan_projects.project_id", projectId)
+        .eq("created_from", "floor_plan");
 
       if (error) throw error;
 
       const formattedCables = cables?.map((cable: any) => ({
         id: cable.id,
-        cable_type: cable.cable_type,
-        label: cable.label,
-        from_label: cable.from_label,
-        to_label: cable.to_label,
-        length_meters: cable.length_meters,
-        cable_entry_id: cable.cable_entry_id,
+        cable_type: cable.cable_type || "Unknown",
+        label: cable.cable_tag,
+        from_label: cable.from_location,
+        to_label: cable.to_location,
+        length_meters: cable.total_length,
+        cable_entry_id: cable.schedule_id ? cable.id : null, // If linked to schedule, mark as linked
         floor_plan_name: cable.floor_plan_projects.name,
       })) || [];
 
@@ -122,53 +130,17 @@ export const ImportFloorPlanCablesDialog = ({
 
     setImporting(true);
     try {
-      const cablesToImport = floorPlanCables.filter((cable) =>
-        selectedCables.has(cable.id)
-      );
+      // Simply update the cable_entries to link them to this schedule
+      const { error: updateError } = await supabase
+        .from("cable_entries")
+        .update({ schedule_id: scheduleId })
+        .in("id", Array.from(selectedCables));
 
-      // Link floor plan cables to this schedule by updating the cable_entry that already exists
-      // Or create new cable entry if it doesn't exist yet
-      for (const cable of cablesToImport) {
-        if (cable.cable_entry_id) {
-          // Cable entry already exists, just link it to this schedule
-          await supabase
-            .from("cable_entries")
-            .update({ schedule_id: scheduleId })
-            .eq("floor_plan_cable_id", cable.id);
-        } else {
-          // Create new cable entry from floor plan data
-          const entry = {
-            schedule_id: scheduleId,
-            floor_plan_cable_id: cable.id,
-            cable_tag: cable.label || `${cable.from_label || "?"}-${cable.to_label || "?"}`,
-            from_location: cable.from_label || "",
-            to_location: cable.to_label || "",
-            cable_type: "Aluminium", // Default material
-            measured_length: cable.length_meters || 0,
-            extra_length: 0,
-            total_length: cable.length_meters || 0,
-            created_from: "floor_plan",
-          };
-
-          const { data: newEntry, error: insertError } = await supabase
-            .from("cable_entries")
-            .insert([entry])
-            .select()
-            .single();
-
-          if (insertError) throw insertError;
-
-          // Update floor plan cable to reference this entry
-          await supabase
-            .from("floor_plan_cables")
-            .update({ cable_entry_id: newEntry.id })
-            .eq("id", cable.id);
-        }
-      }
+      if (updateError) throw updateError;
 
       toast({
         title: "Success",
-        description: `Linked ${selectedCables.size} cable(s) from floor plans`,
+        description: `Linked ${selectedCables.size} cable(s) from floor plans to this schedule`,
       });
 
       onSuccess();
