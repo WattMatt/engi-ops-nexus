@@ -671,29 +671,9 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
                 </div>
             </div>
           ) : !purposeConfig ? (
-            <>
-              <DesignPurposeSelector onSelectPurpose={handleSelectPurpose} />
-              {user && (
-                <div className="absolute top-4 right-4 bg-card border border-border rounded-lg p-4 shadow-lg w-80">
-                  <ProjectSelector 
-                    value={currentProjectId} 
-                    onChange={setCurrentProjectId}
-                    userId={user.id}
-                  />
-                </div>
-              )}
-            </>
+            <DesignPurposeSelector onSelectPurpose={handleSelectPurpose} />
           ) : (
             <>
-              {user && (
-                <div className="absolute top-4 right-4 bg-card border border-border rounded-lg p-4 shadow-lg w-80 z-10">
-                  <ProjectSelector 
-                    value={currentProjectId} 
-                    onChange={setCurrentProjectId}
-                    userId={user.id}
-                  />
-                </div>
-              )}
               <Canvas
                   ref={canvasApiRef} pdfDoc={pdfDoc} activeTool={activeTool} viewState={viewState} setViewState={setViewState}
                   equipment={equipment} setEquipment={setEquipment} lines={lines} setLines={setLines}
