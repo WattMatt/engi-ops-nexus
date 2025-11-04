@@ -11,10 +11,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Pencil, Trash2, BookOpen, Download, Users } from "lucide-react";
+import { Plus, Pencil, Trash2, Download, Users } from "lucide-react";
 import { AddCableEntryDialog } from "./AddCableEntryDialog";
 import { EditCableEntryDialog } from "./EditCableEntryDialog";
-import { CableSizingReference } from "./CableSizingReference";
 import { ImportFloorPlanCablesDialog } from "./ImportFloorPlanCablesDialog";
 import { ImportTenantsDialog } from "./ImportTenantsDialog";
 import { useToast } from "@/hooks/use-toast";
@@ -38,7 +37,6 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [showReferenceDialog, setShowReferenceDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [showImportTenantsDialog, setShowImportTenantsDialog] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<any>(null);
@@ -124,10 +122,6 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
           <div className="flex items-center justify-between">
             <CardTitle>Cable Entries</CardTitle>
             <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => setShowReferenceDialog(true)}>
-                <BookOpen className="mr-2 h-4 w-4" />
-                View Cable Tables
-              </Button>
               {projectId && (
                 <>
                   <Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}>
@@ -227,11 +221,6 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
           )}
         </CardContent>
       </Card>
-
-      <CableSizingReference
-        open={showReferenceDialog}
-        onOpenChange={setShowReferenceDialog}
-      />
 
       {projectId && (
         <>
