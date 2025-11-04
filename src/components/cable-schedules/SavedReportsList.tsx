@@ -3,8 +3,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Download, Trash2, FileText } from "lucide-react";
+import { Download, Trash2, FileText, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { StandardReportPreview } from "@/components/shared/StandardReportPreview";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,6 +34,7 @@ export const SavedReportsList = ({ scheduleId }: SavedReportsListProps) => {
   const queryClient = useQueryClient();
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [downloading, setDownloading] = useState<string | null>(null);
+  const [previewReport, setPreviewReport] = useState<any>(null);
 
   const { data: reports, isLoading } = useQuery({
     queryKey: ["cable-schedule-reports", scheduleId],
@@ -175,6 +177,13 @@ export const SavedReportsList = ({ scheduleId }: SavedReportsListProps) => {
                           <Button
                             size="sm"
                             variant="outline"
+                            onClick={() => setPreviewReport(report)}
+                          >
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
                             onClick={() => handleDownload(report)}
                             disabled={downloading === report.id}
                           >
@@ -197,6 +206,15 @@ export const SavedReportsList = ({ scheduleId }: SavedReportsListProps) => {
           )}
         </CardContent>
       </Card>
+
+      {previewReport && (
+        <StandardReportPreview
+          report={previewReport}
+          open={!!previewReport}
+          onOpenChange={(open) => !open && setPreviewReport(null)}
+          storageBucket="cable-schedule-reports"
+        />
+      )}
 
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent>
