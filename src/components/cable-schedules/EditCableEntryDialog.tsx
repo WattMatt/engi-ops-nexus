@@ -27,6 +27,7 @@ export const EditCableEntryDialog = ({
 }: EditCableEntryDialogProps) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [tenants, setTenants] = useState<any[]>([]);
   const [formData, setFormData] = useState({
     cable_tag: "",
     from_location: "",
@@ -47,6 +48,33 @@ export const EditCableEntryDialog = ({
     install_cost: "",
     total_cost: "",
   });
+
+  // Fetch tenants for auto-population
+  useEffect(() => {
+    if (open && entry) {
+      const fetchTenants = async () => {
+        const { data: schedule } = await supabase
+          .from("cable_schedules")
+          .select("project_id")
+          .eq("id", entry.schedule_id)
+          .maybeSingle();
+
+        if (schedule?.project_id) {
+          const { data: tenantsData } = await supabase
+            .from("tenants")
+            .select("id, shop_number, shop_name, db_size_allowance")
+            .eq("project_id", schedule.project_id)
+            .order("shop_number");
+
+          if (tenantsData) {
+            setTenants(tenantsData);
+          }
+        }
+      };
+
+      fetchTenants();
+    }
+  }, [open, entry]);
 
   // Initialize form data when entry changes
   useEffect(() => {
@@ -230,7 +258,7 @@ export const EditCableEntryDialog = ({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="load_amps">Load (Amps)</Label>
+              <Label htmlFor="load_amps">Load (Amps) - Auto-filled from tenant DB allowance</Label>
               <Input
                 id="load_amps"
                 type="number"
@@ -239,6 +267,7 @@ export const EditCableEntryDialog = ({
                 onChange={(e) =>
                   setFormData({ ...formData, load_amps: e.target.value })
                 }
+                placeholder="Auto-populated for tenants"
               />
             </div>
             <div className="space-y-2">

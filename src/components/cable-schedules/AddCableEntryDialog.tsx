@@ -31,6 +31,7 @@ interface Tenant {
   id: string;
   shop_number: string;
   shop_name: string;
+  db_size_allowance: string | null;
 }
 
 export const AddCableEntryDialog = ({
@@ -76,10 +77,10 @@ export const AddCableEntryDialog = ({
           .single();
 
         if (schedule?.project_id) {
-          // Then fetch tenants for that project
+          // Then fetch tenants for that project with DB allowance
           const { data: tenantsData } = await supabase
             .from("tenants")
-            .select("id, shop_number, shop_name")
+            .select("id, shop_number, shop_name, db_size_allowance")
             .eq("project_id", schedule.project_id)
             .order("shop_number");
 
@@ -92,6 +93,24 @@ export const AddCableEntryDialog = ({
       fetchTenants();
     }
   }, [open, scheduleId]);
+
+  // Auto-populate load_amps from tenant's DB allowance when tenant is selected
+  useEffect(() => {
+    const selectedTenant = tenants.find(
+      (t) => `${t.shop_number} - ${t.shop_name}` === formData.to_location
+    );
+    
+    if (selectedTenant?.db_size_allowance) {
+      // Extract amperage from DB allowance (e.g., "63A TPN DB" -> 63)
+      const match = selectedTenant.db_size_allowance.match(/(\d+)\s*A/);
+      if (match) {
+        setFormData((prev) => ({
+          ...prev,
+          load_amps: match[1],
+        }));
+      }
+    }
+  }, [formData.to_location, tenants]);
 
   // Auto-generate cable_tag
   useEffect(() => {
@@ -358,7 +377,7 @@ export const AddCableEntryDialog = ({
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="load_amps">Load (Amps)</Label>
+              <Label htmlFor="load_amps">Load (Amps) - Auto-filled from tenant DB allowance</Label>
               <Input
                 id="load_amps"
                 type="number"
@@ -367,6 +386,7 @@ export const AddCableEntryDialog = ({
                 onChange={(e) =>
                   setFormData({ ...formData, load_amps: e.target.value })
                 }
+                placeholder="Auto-populated for tenants"
               />
             </div>
             <div className="space-y-2">
