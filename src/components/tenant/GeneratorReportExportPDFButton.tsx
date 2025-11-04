@@ -7,6 +7,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
+import html2canvas from "html2canvas";
+import { LoadDistributionChart } from "./charts/LoadDistributionChart";
+import { CostBreakdownChart } from "./charts/CostBreakdownChart";
+import { RecoveryProjectionChart } from "./charts/RecoveryProjectionChart";
 
 interface GeneratorReportExportPDFButtonProps {
   projectId: string;
@@ -951,6 +955,192 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       // Reset text color
       doc.setTextColor(0, 0, 0);
 
+      // Calculate metrics needed for charts
+      const metricsForCharts = calculateMetrics();
+      const monthlyRunningRecovery = metricsForCharts ? 
+        (metricsForCharts.totalDieselCost + metricsForCharts.totalServicingCost) * 1.1 : 0;
+
+      // ========== PAGE 6: CHARTS & ANALYSIS ==========
+      // Create a hidden container for rendering charts
+      const chartContainer = document.createElement("div");
+      chartContainer.style.position = "absolute";
+      chartContainer.style.left = "-9999px";
+      chartContainer.style.top = "-9999px";
+      chartContainer.style.width = "800px";
+      chartContainer.style.backgroundColor = "white";
+      chartContainer.style.padding = "20px";
+      document.body.appendChild(chartContainer);
+
+      // Calculate zone loading data for LoadDistributionChart
+      const calculateTenantLoading = (tenant: any) => {
+        if (!tenant.area || tenant.own_generator_provided) return 0;
+        const kwPerSqm = {
+          standard: generatorSettings?.standard_kw_per_sqm || 0.03,
+          fast_food: generatorSettings?.fast_food_kw_per_sqm || 0.045,
+          restaurant: generatorSettings?.restaurant_kw_per_sqm || 0.045,
+          national: generatorSettings?.national_kw_per_sqm || 0.03,
+        };
+        return tenant.area * (kwPerSqm[tenant.shop_category as keyof typeof kwPerSqm] || 0.03);
+      };
+
+      const zoneLoadingData = zones.map(zone => ({
+        id: zone.id,
+        zone_name: zone.zone_name,
+        loading: tenants
+          .filter(t => t.generator_zone_id === zone.id && !t.own_generator_provided)
+          .reduce((sum, tenant) => sum + calculateTenantLoading(tenant), 0)
+      }));
+
+      // Calculate cost breakdown data
+      const costBreakdownData = {
+        generatorCost: totalGeneratorCost,
+        tenantDBsCost: tenantDBsCost,
+        mainBoardsCost: mainBoardsCost,
+        additionalCablingCost: additionalCablingCost,
+        controlWiringCost: controlWiringCost,
+      };
+
+      try {
+        doc.addPage();
+        yPos = 20;
+        
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "normal");
+        doc.text(`${project.name?.toUpperCase() || "PROJECT"} - STANDBY SYSTEM`, 14, yPos);
+        yPos += 10;
+        
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text("CHARTS & ANALYSIS", 14, yPos);
+        yPos += 15;
+
+        // Render Load Distribution Chart
+        const loadChartDiv = document.createElement("div");
+        loadChartDiv.style.width = "800px";
+        loadChartDiv.style.height = "400px";
+        chartContainer.appendChild(loadChartDiv);
+        
+        // We need to use React.createElement to render the component
+        const React = await import("react");
+        const { createRoot } = await import("react-dom/client");
+        const root1 = createRoot(loadChartDiv);
+        root1.render(
+          React.createElement(LoadDistributionChart, { zones: zoneLoadingData })
+        );
+
+        // Wait for chart to render
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        const loadCanvas = await html2canvas(loadChartDiv, { 
+          backgroundColor: "#ffffff",
+          scale: 2 
+        });
+        const loadImgData = loadCanvas.toDataURL("image/png");
+        
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "bold");
+        doc.text("Load Distribution by Zone", 14, yPos);
+        yPos += 8;
+        
+        const loadImgWidth = pageWidth - 28;
+        const loadImgHeight = (loadCanvas.height * loadImgWidth) / loadCanvas.width;
+        doc.addImage(loadImgData, "PNG", 14, yPos, loadImgWidth, Math.min(loadImgHeight, 80));
+        yPos += Math.min(loadImgHeight, 80) + 15;
+
+        // Render Cost Breakdown Chart
+        root1.unmount();
+        loadChartDiv.remove();
+        
+        const costChartDiv = document.createElement("div");
+        costChartDiv.style.width = "800px";
+        costChartDiv.style.height = "400px";
+        chartContainer.appendChild(costChartDiv);
+        
+        const root2 = createRoot(costChartDiv);
+        root2.render(
+          React.createElement(CostBreakdownChart, { costs: costBreakdownData })
+        );
+
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        const costCanvas = await html2canvas(costChartDiv, { 
+          backgroundColor: "#ffffff",
+          scale: 2 
+        });
+        const costImgData = costCanvas.toDataURL("image/png");
+        
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "bold");
+        doc.text("Capital Cost Breakdown", 14, yPos);
+        yPos += 8;
+        
+        const costImgWidth = pageWidth - 28;
+        const costImgHeight = (costCanvas.height * costImgWidth) / costCanvas.width;
+        doc.addImage(costImgData, "PNG", 14, yPos, costImgWidth, Math.min(costImgHeight, 80));
+        yPos += Math.min(costImgHeight, 80) + 15;
+
+        // Check if we need a new page for the recovery chart
+        if (yPos > pageHeight - 100) {
+          doc.addPage();
+          yPos = 20;
+          
+          doc.setFontSize(12);
+          doc.setFont("helvetica", "normal");
+          doc.text(`${project.name?.toUpperCase() || "PROJECT"} - STANDBY SYSTEM`, 14, yPos);
+          yPos += 10;
+          
+          doc.setFontSize(14);
+          doc.setFont("helvetica", "bold");
+          doc.text("CHARTS & ANALYSIS (continued)", 14, yPos);
+          yPos += 15;
+        }
+
+        // Render Recovery Projection Chart
+        root2.unmount();
+        costChartDiv.remove();
+        
+        const recoveryChartDiv = document.createElement("div");
+        recoveryChartDiv.style.width = "800px";
+        recoveryChartDiv.style.height = "400px";
+        chartContainer.appendChild(recoveryChartDiv);
+        
+        const root3 = createRoot(recoveryChartDiv);
+        root3.render(
+          React.createElement(RecoveryProjectionChart, { 
+            monthlyCapitalRecovery: monthlyCapitalRepayment,
+            monthlyRunningRecovery: monthlyRunningRecovery
+          })
+        );
+
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        const recoveryCanvas = await html2canvas(recoveryChartDiv, { 
+          backgroundColor: "#ffffff",
+          scale: 2 
+        });
+        const recoveryImgData = recoveryCanvas.toDataURL("image/png");
+        
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "bold");
+        doc.text("10-Year Recovery Projection", 14, yPos);
+        yPos += 8;
+        
+        const recoveryImgWidth = pageWidth - 28;
+        const recoveryImgHeight = (recoveryCanvas.height * recoveryImgWidth) / recoveryCanvas.width;
+        doc.addImage(recoveryImgData, "PNG", 14, yPos, recoveryImgWidth, Math.min(recoveryImgHeight, 80));
+
+        // Cleanup
+        root3.unmount();
+        recoveryChartDiv.remove();
+        document.body.removeChild(chartContainer);
+      } catch (error) {
+        console.error("Error rendering charts:", error);
+        // Clean up on error
+        if (document.body.contains(chartContainer)) {
+          document.body.removeChild(chartContainer);
+        }
+      }
+
       // Save PDF to blob
       const pdfBlob = doc.output("blob");
       const timestamp = new Date().getTime();
@@ -1046,16 +1236,18 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       ? zoneTariffs.reduce((sum, t) => sum + t, 0) / zoneTariffs.length 
       : 0;
 
-    const totalMonthlyCost = totalDieselCost + totalServicingCost;
-    const contingencyCost = totalMonthlyCost * 0.1;
-    const totalWithContingency = totalMonthlyCost + contingencyCost;
-    const annualCost = totalWithContingency * 12;
+      const totalMonthlyCost = totalDieselCost + totalServicingCost;
+      const contingencyCost = totalMonthlyCost * 0.1;
+      const totalWithContingency = totalMonthlyCost + contingencyCost;
+      const annualCost = totalWithContingency * 12;
 
     return {
       averageTariff,
       totalCapacity,
       totalMonthlyEnergy,
       totalMonthlyCost,
+      totalDieselCost,
+      totalServicingCost,
       annualCost,
       totalGenerators,
     };
