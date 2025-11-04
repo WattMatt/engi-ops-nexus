@@ -186,14 +186,31 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       
       const currentTenantVersion = versionData || 0;
 
-      // Fetch company logo
+      // Fetch company settings and user details
       const { data: companySettings } = await supabase
         .from("company_settings")
-        .select("company_logo_url")
+        .select("*")
         .limit(1)
         .maybeSingle();
 
       const logoUrl = companySettings?.company_logo_url;
+      const companyName = companySettings?.company_name || "WATSON MATTHEUS CONSULTING ELECTRICAL ENGINEERS (PTY) LTD";
+
+      // Fetch current user details
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      
+      // Try to get employee details for more information
+      const { data: employeeData } = await supabase
+        .from("employees")
+        .select("first_name, last_name, phone")
+        .eq("user_id", currentUser?.id)
+        .maybeSingle();
+
+      const contactName = employeeData 
+        ? `${employeeData.first_name} ${employeeData.last_name}`
+        : currentUser?.email?.split("@")[0] || "Contact Person";
+      
+      const contactPhone = employeeData?.phone || "(012) 665 3487";
 
       // ========== COVER PAGE ==========
       // Color definitions matching Word template
@@ -241,7 +258,7 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       yPos += 8;
       doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
-      doc.text("WATSON MATTHEUS CONSULTING ELECTRICAL ENGINEERS (PTY) LTD", 20, yPos);
+      doc.text(companyName.toUpperCase(), 20, yPos);
       
       yPos += 6;
       doc.text("141 Which Hazel ave,", 20, yPos);
@@ -253,10 +270,10 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       doc.text("Building 1A", 20, yPos);
       
       yPos += 6;
-      doc.text("Tel: (012) 665 3487", 20, yPos);
+      doc.text(`Tel: ${contactPhone}`, 20, yPos);
       
       yPos += 6;
-      doc.text("Contact: Mr Arno Mattheus", 20, yPos);
+      doc.text(`Contact: ${contactName}`, 20, yPos);
       
       // Add company logo to the right of company name line
       if (logoUrl) {
