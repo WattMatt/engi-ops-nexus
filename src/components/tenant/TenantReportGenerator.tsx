@@ -86,9 +86,33 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
       chartRadius: isCompact ? 16 : 22,
       progressRow: isCompact ? 14 : 18,
     };
+
+    // Color theme configuration
+    const colorThemes = {
+      professional: {
+        header: [41, 128, 185],
+        cardBg: [248, 250, 252],
+        cardBorder: [226, 232, 240],
+        accent: [59, 130, 246],
+      },
+      vibrant: {
+        header: [139, 92, 246],
+        cardBg: [250, 245, 255],
+        cardBorder: [233, 213, 255],
+        accent: [168, 85, 247],
+      },
+      minimal: {
+        header: [71, 85, 105],
+        cardBg: [255, 255, 255],
+        cardBorder: [203, 213, 225],
+        accent: [100, 116, 139],
+      },
+    };
+
+    const theme = colorThemes[options.kpiAppearance.colorTheme];
     
     // Header section
-    doc.setFillColor(41, 128, 185);
+    doc.setFillColor(theme.header[0], theme.header[1], theme.header[2]);
     doc.rect(0, 0, pageWidth, spacing.headerHeight, 'F');
     
     doc.setTextColor(255, 255, 255);
@@ -121,37 +145,53 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
     const leftColX = 20;
     const rightColX = 20 + cardWidth + cardSpacing;
 
-    // Card 1: Total Tenants
-    if (options.kpiCards.totalTenants) {
-      doc.setFillColor(248, 250, 252);
-      doc.setDrawColor(226, 232, 240);
-      doc.setLineWidth(0.3);
-      doc.roundedRect(leftColX, yPos, cardWidth, cardHeight, 2, 2, 'FD');
+    // Helper function to draw a card with theme and icons
+    const drawCard = (x: number, y: number, label: string, value: string, icon?: string) => {
+      // Background
+      doc.setFillColor(theme.cardBg[0], theme.cardBg[1], theme.cardBg[2]);
       
+      if (options.kpiAppearance.showBorders) {
+        doc.setDrawColor(theme.cardBorder[0], theme.cardBorder[1], theme.cardBorder[2]);
+        doc.setLineWidth(0.3);
+        doc.roundedRect(x, y, cardWidth, cardHeight, 2, 2, 'FD');
+      } else {
+        doc.roundedRect(x, y, cardWidth, cardHeight, 2, 2, 'F');
+      }
+
+      let contentX = x + 4;
+      
+      // Icon (if enabled)
+      if (options.kpiAppearance.showIcons && icon) {
+        doc.setFillColor(theme.accent[0], theme.accent[1], theme.accent[2]);
+        doc.circle(x + 6, y + (isCompact ? 8 : 10), 2.5, 'F');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(6);
+        doc.setFont("helvetica", "bold");
+        doc.text(icon, x + 6, y + (isCompact ? 9 : 11), { align: 'center' });
+        contentX = x + 12;
+      }
+      
+      // Label
       doc.setTextColor(71, 85, 105);
       doc.setFontSize(fontSize.cardLabel);
       doc.setFont("helvetica", "normal");
-      doc.text("TOTAL TENANTS", leftColX + 4, yPos + (isCompact ? 7 : 9));
+      doc.text(label, contentX, y + (isCompact ? 7 : 9));
       
+      // Value
       doc.setTextColor(15, 23, 42);
-      doc.setFontSize(fontSize.cardValue);
+      doc.setFontSize(value.length > 8 ? fontSize.cardValueSmall : fontSize.cardValue);
       doc.setFont("helvetica", "bold");
-      doc.text(totalTenants.toString(), leftColX + 4, yPos + (isCompact ? 19 : 23));
+      doc.text(value, contentX, y + (isCompact ? 19 : 23));
+    };
+
+    // Card 1: Total Tenants
+    if (options.kpiCards.totalTenants) {
+      drawCard(leftColX, yPos, "TOTAL TENANTS", totalTenants.toString(), "T");
     }
 
     // Card 2: Total Area
     if (options.kpiCards.totalArea) {
-      doc.setFillColor(248, 250, 252);
-      doc.roundedRect(rightColX, yPos, cardWidth, cardHeight, 2, 2, 'FD');
-      
-      doc.setTextColor(71, 85, 105);
-      doc.setFontSize(fontSize.cardLabel);
-      doc.text("TOTAL AREA", rightColX + 4, yPos + (isCompact ? 7 : 9));
-      
-      doc.setTextColor(15, 23, 42);
-      doc.setFontSize(fontSize.cardValueSmall);
-      doc.setFont("helvetica", "bold");
-      doc.text(`${totalArea.toFixed(0)} m²`, rightColX + 4, yPos + (isCompact ? 19 : 23));
+      drawCard(rightColX, yPos, "TOTAL AREA", `${totalArea.toFixed(0)} m²`, "A");
     }
 
     // Check if we should move to next row
@@ -162,32 +202,12 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
 
     // Card 3: Total DB Cost
     if (options.kpiCards.totalDbCost) {
-      doc.setFillColor(248, 250, 252);
-      doc.roundedRect(leftColX, yPos, cardWidth, cardHeight, 2, 2, 'FD');
-      
-      doc.setTextColor(71, 85, 105);
-      doc.setFontSize(fontSize.cardLabel);
-      doc.text("TOTAL DB COST", leftColX + 4, yPos + (isCompact ? 7 : 9));
-      
-      doc.setTextColor(15, 23, 42);
-      doc.setFontSize(fontSize.cardValueLarge);
-      doc.setFont("helvetica", "bold");
-      doc.text(`R${totalDbCost.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, leftColX + 4, yPos + (isCompact ? 19 : 23));
+      drawCard(leftColX, yPos, "TOTAL DB COST", `R${totalDbCost.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, "D");
     }
 
     // Card 4: Total Lighting Cost
     if (options.kpiCards.totalLightingCost) {
-      doc.setFillColor(248, 250, 252);
-      doc.roundedRect(rightColX, yPos, cardWidth, cardHeight, 2, 2, 'FD');
-      
-      doc.setTextColor(71, 85, 105);
-      doc.setFontSize(fontSize.cardLabel);
-      doc.text("TOTAL LIGHTING COST", rightColX + 4, yPos + (isCompact ? 7 : 9));
-      
-      doc.setTextColor(15, 23, 42);
-      doc.setFontSize(fontSize.cardValueLarge);
-      doc.setFont("helvetica", "bold");
-      doc.text(`R${totalLightingCost.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, rightColX + 4, yPos + (isCompact ? 19 : 23));
+      drawCard(rightColX, yPos, "TOTAL LIGHTING COST", `R${totalLightingCost.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, "L");
     }
 
     // Check if we should add spacing after second row
@@ -292,8 +312,14 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
 
     if (visibleProgress.length > 0) {
       const progressHeight = visibleProgress.length * spacing.progressRow + (isCompact ? 18 : 22);
-      doc.setFillColor(248, 250, 252);
+      doc.setFillColor(theme.cardBg[0], theme.cardBg[1], theme.cardBg[2]);
       doc.roundedRect(20, yPos, pageWidth - 40, progressHeight, 2, 2, 'F');
+      
+      if (options.kpiAppearance.showBorders) {
+        doc.setDrawColor(theme.cardBorder[0], theme.cardBorder[1], theme.cardBorder[2]);
+        doc.setLineWidth(0.3);
+        doc.roundedRect(20, yPos, pageWidth - 40, progressHeight, 2, 2, 'S');
+      }
       
       doc.setTextColor(15, 23, 42);
       doc.setFontSize(fontSize.sectionTitle);

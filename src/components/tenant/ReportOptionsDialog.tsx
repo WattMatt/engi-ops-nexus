@@ -20,6 +20,11 @@ export interface ReportOptions {
   includeTenantSchedule: boolean;
   includeFloorPlan: boolean;
   kpiLayout: 'compact' | 'detailed';
+  kpiAppearance: {
+    colorTheme: 'professional' | 'vibrant' | 'minimal';
+    showIcons: boolean;
+    showBorders: boolean;
+  };
   kpiCards: {
     totalTenants: boolean;
     totalArea: boolean;
@@ -61,6 +66,11 @@ export const ReportOptionsDialog = ({
     includeTenantSchedule: true,
     includeFloorPlan: true,
     kpiLayout: 'compact',
+    kpiAppearance: {
+      colorTheme: 'professional',
+      showIcons: true,
+      showBorders: true,
+    },
     kpiCards: {
       totalTenants: true,
       totalArea: true,
@@ -90,6 +100,11 @@ export const ReportOptionsDialog = ({
       includeTenantSchedule: true,
       includeFloorPlan: true,
       kpiLayout: 'compact',
+      kpiAppearance: {
+        colorTheme: 'professional',
+        showIcons: true,
+        showBorders: true,
+      },
       kpiCards: {
         totalTenants: true,
         totalArea: true,
@@ -120,6 +135,11 @@ export const ReportOptionsDialog = ({
       includeTenantSchedule: false,
       includeFloorPlan: false,
       kpiLayout: 'compact',
+      kpiAppearance: {
+        colorTheme: 'professional',
+        showIcons: true,
+        showBorders: true,
+      },
       kpiCards: {
         totalTenants: false,
         totalArea: false,
@@ -200,28 +220,99 @@ export const ReportOptionsDialog = ({
                 </div>
                 
                 {options.includeKPIPage && (
-                  <div className="ml-6 space-y-2">
-                    <Label className="text-xs text-muted-foreground">Layout Style</Label>
-                    <RadioGroup
-                      value={options.kpiLayout}
-                      onValueChange={(value: 'compact' | 'detailed') =>
-                        setOptions({ ...options, kpiLayout: value })
-                      }
-                      className="flex gap-4"
-                    >
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="compact" id="compact" />
-                        <Label htmlFor="compact" className="cursor-pointer font-normal">
-                          Compact
-                        </Label>
+                  <div className="ml-6 space-y-4">
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Layout Style</Label>
+                      <RadioGroup
+                        value={options.kpiLayout}
+                        onValueChange={(value: 'compact' | 'detailed') =>
+                          setOptions({ ...options, kpiLayout: value })
+                        }
+                        className="flex gap-4"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="compact" id="compact" />
+                          <Label htmlFor="compact" className="cursor-pointer font-normal">
+                            Compact
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="detailed" id="detailed" />
+                          <Label htmlFor="detailed" className="cursor-pointer font-normal">
+                            Detailed
+                          </Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Color Theme</Label>
+                      <RadioGroup
+                        value={options.kpiAppearance.colorTheme}
+                        onValueChange={(value: 'professional' | 'vibrant' | 'minimal') =>
+                          setOptions({
+                            ...options,
+                            kpiAppearance: { ...options.kpiAppearance, colorTheme: value }
+                          })
+                        }
+                        className="flex gap-4"
+                      >
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="professional" id="professional" />
+                          <Label htmlFor="professional" className="cursor-pointer font-normal">
+                            Professional
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="vibrant" id="vibrant" />
+                          <Label htmlFor="vibrant" className="cursor-pointer font-normal">
+                            Vibrant
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <RadioGroupItem value="minimal" id="minimal" />
+                          <Label htmlFor="minimal" className="cursor-pointer font-normal">
+                            Minimal
+                          </Label>
+                        </div>
+                      </RadioGroup>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Visual Elements</Label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="showIcons"
+                            checked={options.kpiAppearance.showIcons}
+                            onCheckedChange={(checked) =>
+                              setOptions({
+                                ...options,
+                                kpiAppearance: { ...options.kpiAppearance, showIcons: checked as boolean }
+                              })
+                            }
+                          />
+                          <Label htmlFor="showIcons" className="cursor-pointer font-normal text-xs">
+                            Show Icons
+                          </Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Checkbox
+                            id="showBorders"
+                            checked={options.kpiAppearance.showBorders}
+                            onCheckedChange={(checked) =>
+                              setOptions({
+                                ...options,
+                                kpiAppearance: { ...options.kpiAppearance, showBorders: checked as boolean }
+                              })
+                            }
+                          />
+                          <Label htmlFor="showBorders" className="cursor-pointer font-normal text-xs">
+                            Show Borders
+                          </Label>
+                        </div>
                       </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="detailed" id="detailed" />
-                        <Label htmlFor="detailed" className="cursor-pointer font-normal">
-                          Detailed
-                        </Label>
-                      </div>
-                    </RadioGroup>
+                    </div>
                   </div>
                 )}
               </div>
