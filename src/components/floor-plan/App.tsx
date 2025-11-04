@@ -591,6 +591,12 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
   const handleEquipmentUpdate = (updatedItem: EquipmentItem) => setEquipment(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
   const handleZoneUpdate = (updatedZone: SupplyZone) => setZones(prev => prev.map(zone => zone.id === updatedZone.id ? updatedZone : zone));
 
+  const handleJumpToZone = useCallback((zone: SupplyZone) => {
+    if (canvasApiRef.current) {
+      canvasApiRef.current.jumpToZone(zone);
+    }
+  }, []);
+
   const handleDeleteSelectedItem = () => {
     if (!selectedItemId) return;
     if (window.confirm(`Are you sure you want to delete this item? This will also delete any linked tasks.`)) {
@@ -706,6 +712,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
         setSelectedItemId={setSelectedItemId} onEquipmentUpdate={handleEquipmentUpdate} onZoneUpdate={handleZoneUpdate}
         purposeConfig={purposeConfig} designPurpose={designPurpose} pvPanelConfig={pvPanelConfig}
         pvArrays={pvArrays} onDeleteItem={handleDeleteSelectedItem} tasks={tasks} onOpenTaskModal={handleOpenTaskModal}
+        onJumpToZone={handleJumpToZone}
       />
       
       {/* Modals */}

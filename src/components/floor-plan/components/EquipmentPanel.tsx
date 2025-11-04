@@ -24,6 +24,8 @@ interface EquipmentPanelProps {
   // Task Props
   tasks: Task[];
   onOpenTaskModal: (task: Partial<Task> | null) => void;
+  // Zones Props
+  onJumpToZone: (zone: SupplyZone) => void;
 }
 
 type EquipmentPanelTab = 'summary' | 'equipment' | 'cables' | 'containment' | 'zones' | 'tasks';
@@ -446,7 +448,7 @@ const PVDesignSummary: React.FC<{lines: SupplyLine[], pvPanelConfig: PVPanelConf
 const EquipmentPanel: React.FC<EquipmentPanelProps> = ({ 
     equipment, lines, zones, containment, selectedItemId, setSelectedItemId,
     onEquipmentUpdate, onZoneUpdate, onDeleteItem, purposeConfig, designPurpose,
-    pvPanelConfig, pvArrays, tasks, onOpenTaskModal,
+    pvPanelConfig, pvArrays, tasks, onOpenTaskModal, onJumpToZone,
 }) => {
   const [activeTab, setActiveTab] = useState<EquipmentPanelTab>('summary');
   const [expandedAssignees, setExpandedAssignees] = useState<Record<string, boolean>>({});
@@ -632,12 +634,34 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
                 <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Supply Zones ({zones.length})</h3>
                 <div className="space-y-1.5 text-sm max-h-[60vh] overflow-y-auto pr-2">
                     {zones.length > 0 ? zones.map(zone => (
-                         <button key={zone.id} onClick={() => setSelectedItemId(zone.id)}
-                            className={`w-full text-left flex justify-between items-center p-2 rounded-md transition-colors ${selectedItemId === zone.id ? 'bg-indigo-600/30 ring-1 ring-indigo-400' : 'bg-gray-700/50 hover:bg-gray-700'}`}>
-                            <div className="flex items-center gap-3">
-                                <div className="w-4 h-4 rounded" style={{ backgroundColor: zone.color }}></div>
-                                <span className="text-gray-300 font-medium">{zone.name}</span></div>
-                            <span className="font-mono font-bold text-yellow-400">{zone.area > 0 ? `${zone.area.toFixed(2)}m²` : '--'}</span></button>
+                         <div key={zone.id}
+                            className={`w-full text-left p-2 rounded-md transition-colors ${selectedItemId === zone.id ? 'bg-indigo-600/30 ring-1 ring-indigo-400' : 'bg-gray-700/50'}`}>
+                            <div className="flex justify-between items-center">
+                                <button 
+                                    onClick={() => setSelectedItemId(zone.id)}
+                                    className="flex items-center gap-3 flex-1 text-left hover:opacity-80 transition-opacity"
+                                >
+                                    <div className="w-4 h-4 rounded" style={{ backgroundColor: zone.color }}></div>
+                                    <span className="text-gray-300 font-medium">{zone.name}</span>
+                                </button>
+                                <div className="flex items-center gap-2">
+                                    <span className="font-mono font-bold text-yellow-400">{zone.area > 0 ? `${zone.area.toFixed(2)}m²` : '--'}</span>
+                                    <button
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onJumpToZone(zone);
+                                        }}
+                                        className="p-1 hover:bg-indigo-500/30 rounded transition-colors"
+                                        title="Jump to zone in drawing"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-indigo-400">
+                                            <path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/>
+                                            <circle cx="12" cy="12" r="3"/>
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
                     )) : <p className="text-gray-500 text-xs text-center p-4">No supply zones defined.</p>}
                 </div>
             </div>

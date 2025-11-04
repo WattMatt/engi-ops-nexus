@@ -15,6 +15,7 @@ export interface CanvasHandles {
     pdf: HTMLCanvasElement | null;
     drawing: HTMLCanvasElement | null;
   };
+  jumpToZone: (zone: SupplyZone) => void;
 }
 
 interface CanvasProps {
@@ -99,7 +100,40 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
       pdf: pdfCanvasRef.current,
       drawing: drawingCanvasRef.current,
     }),
-  }));
+    jumpToZone: (zone: SupplyZone) => {
+      if (!containerRef.current) return;
+      
+      // Calculate bounding box of the zone
+      const minX = Math.min(...zone.points.map(p => p.x));
+      const maxX = Math.max(...zone.points.map(p => p.x));
+      const minY = Math.min(...zone.points.map(p => p.y));
+      const maxY = Math.max(...zone.points.map(p => p.y));
+      
+      const zoneWidth = maxX - minX;
+      const zoneHeight = maxY - minY;
+      const zoneCenterX = (minX + maxX) / 2;
+      const zoneCenterY = (minY + maxY) / 2;
+      
+      // Get container dimensions
+      const containerWidth = containerRef.current.offsetWidth;
+      const containerHeight = containerRef.current.offsetHeight;
+      
+      // Calculate zoom to fit zone with some padding (80% of viewport)
+      const zoomX = (containerWidth * 0.8) / zoneWidth;
+      const zoomY = (containerHeight * 0.8) / zoneHeight;
+      const targetZoom = Math.min(zoomX, zoomY, 3); // Cap at 3x zoom
+      
+      // Calculate offset to center the zone
+      const targetOffsetX = containerWidth / 2 - zoneCenterX * targetZoom;
+      const targetOffsetY = containerHeight / 2 - zoneCenterY * targetZoom;
+      
+      // Animate to the target position
+      setViewState({
+        zoom: targetZoom,
+        offset: { x: targetOffsetX, y: targetOffsetY }
+      });
+    },
+  }), []);
 
   const resetDrawingState = useCallback(() => {
     setIsDrawingShape(false);
