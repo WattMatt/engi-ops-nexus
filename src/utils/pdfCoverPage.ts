@@ -95,17 +95,21 @@ export async function fetchCompanyDetails(): Promise<CompanyDetails> {
   // Fetch current user details
   const { data: { user: currentUser } } = await supabase.auth.getUser();
   
-  // Try to get employee details for more information
+  // Get user profile for full name
+  const { data: profileData } = await supabase
+    .from("profiles")
+    .select("full_name")
+    .eq("id", currentUser?.id)
+    .maybeSingle();
+
+  // Try to get employee details for phone number
   const { data: employeeData } = await supabase
     .from("employees")
-    .select("first_name, last_name, phone")
+    .select("phone")
     .eq("user_id", currentUser?.id)
     .maybeSingle();
 
-  const contactName = employeeData 
-    ? `${employeeData.first_name} ${employeeData.last_name}`
-    : currentUser?.email?.split("@")[0] || "Contact Person";
-  
+  const contactName = profileData?.full_name || currentUser?.email?.split("@")[0] || "Contact Person";
   const contactPhone = employeeData?.phone || "(012) 665 3487";
 
   return {
