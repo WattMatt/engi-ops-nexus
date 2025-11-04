@@ -661,28 +661,39 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
                     <h2 className="text-2xl font-semibold text-foreground">Load a PDF Floor Plan</h2>
                     <p className="mt-2 text-muted-foreground">Use the toolbar on the left to begin your project.</p>
                     {user && (
-                      <>
-                        <div className="mt-4">
-                          <ProjectSelector 
-                            value={currentProjectId} 
-                            onChange={setCurrentProjectId}
-                            userId={user.id}
-                          />
-                        </div>
-                        <button 
-                          onClick={handleOpenLoadModal}
-                          className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
-                        >
-                          View My Saved Designs
-                        </button>
-                      </>
+                      <button 
+                        onClick={handleOpenLoadModal}
+                        className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+                      >
+                        View My Saved Designs
+                      </button>
                     )}
                 </div>
             </div>
           ) : !purposeConfig ? (
-            <DesignPurposeSelector onSelectPurpose={handleSelectPurpose} />
+            <>
+              <DesignPurposeSelector onSelectPurpose={handleSelectPurpose} />
+              {user && (
+                <div className="absolute top-4 right-4 bg-card border border-border rounded-lg p-4 shadow-lg w-80">
+                  <ProjectSelector 
+                    value={currentProjectId} 
+                    onChange={setCurrentProjectId}
+                    userId={user.id}
+                  />
+                </div>
+              )}
+            </>
           ) : (
             <>
+              {user && (
+                <div className="absolute top-4 right-4 bg-card border border-border rounded-lg p-4 shadow-lg w-80 z-10">
+                  <ProjectSelector 
+                    value={currentProjectId} 
+                    onChange={setCurrentProjectId}
+                    userId={user.id}
+                  />
+                </div>
+              )}
               <Canvas
                   ref={canvasApiRef} pdfDoc={pdfDoc} activeTool={activeTool} viewState={viewState} setViewState={setViewState}
                   equipment={equipment} setEquipment={setEquipment} lines={lines} setLines={setLines}
