@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { InteractiveReportEditor } from "@/components/reports/InteractiveReportEditor";
+import { DirectEditReportEditor } from "@/components/reports/DirectEditReportEditor";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
@@ -102,7 +102,7 @@ export default function InteractiveReportEditorPage() {
 
   return (
     <div className="h-screen flex flex-col">
-      <InteractiveReportEditor
+      <DirectEditReportEditor
         reportData={reportData}
         reportType={reportType as any}
         projectId={projectId!}
