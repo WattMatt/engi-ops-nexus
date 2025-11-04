@@ -81,6 +81,7 @@ export const AllCableEntriesView = ({ projectId }: AllCableEntriesViewProps) => 
                 <TableHeader>
                   <TableRow>
                     <TableHead>Revision</TableHead>
+                    <TableHead>Cable #</TableHead>
                     <TableHead>Cable Tag</TableHead>
                     <TableHead>From</TableHead>
                     <TableHead>To</TableHead>
@@ -103,6 +104,7 @@ export const AllCableEntriesView = ({ projectId }: AllCableEntriesViewProps) => 
                       onClick={() => navigate(`/dashboard/cable-schedules/${entry.schedule_id}`)}
                     >
                       <TableCell className="font-medium">{entry.revision}</TableCell>
+                      <TableCell className="font-medium">{entry.cable_number || "1"}</TableCell>
                       <TableCell>{entry.cable_tag}</TableCell>
                       <TableCell>{entry.from_location}</TableCell>
                       <TableCell>{entry.to_location}</TableCell>

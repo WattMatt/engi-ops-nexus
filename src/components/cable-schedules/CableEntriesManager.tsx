@@ -152,6 +152,7 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead>Cable #</TableHead>
                       <TableHead>Cable Tag</TableHead>
                       <TableHead>From</TableHead>
                       <TableHead>To</TableHead>
@@ -171,6 +172,7 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
                   <TableBody>
                     {entries.map((entry) => (
                       <TableRow key={entry.id}>
+                        <TableCell className="font-medium">{entry.cable_number || "1"}</TableCell>
                         <TableCell className="font-medium">{entry.cable_tag}</TableCell>
                         <TableCell>{entry.from_location}</TableCell>
                         <TableCell>{entry.to_location}</TableCell>
