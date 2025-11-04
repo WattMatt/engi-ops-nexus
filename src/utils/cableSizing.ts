@@ -79,6 +79,7 @@ export interface CableCalculationResult {
 /**
  * Calculate recommended cable size based on load current
  * Applies derating factor and selects cable with adequate current rating
+ * If length is provided, also checks voltage drop and upsizes if necessary
  */
 export function calculateCableSize(
   params: CableCalculationParams
@@ -96,7 +97,7 @@ export function calculateCableSize(
   const requiredRating = loadAmps / deratingFactor;
 
   // Find the smallest cable that can handle the required current (using Ducts rating)
-  const selectedCable = cableTable.find(
+  let selectedCable = cableTable.find(
     (cable) => cable.currentRatingDucts >= requiredRating
   );
 
@@ -105,17 +106,59 @@ export function calculateCableSize(
     return null;
   }
 
-  // Calculate voltage drop
-  // For single phase: Vd = 2 × I × R × L / 1000
-  // For three phase: Vd = √3 × I × R × L / 1000
-  // Assuming single phase for now (can be enhanced later)
-  const voltDrop =
-    (2 * loadAmps * selectedCable.impedance * totalLength) / 1000;
-  const voltDropPercentage = (voltDrop / voltage) * 100;
+  // If length is provided, check voltage drop and upsize if necessary
+  if (totalLength > 0) {
+    const maxVoltDropPercentage = voltage === 400 ? 5 : 3; // 5% for 400V, 3% for 230V
+    
+    let voltDrop = 0;
+    let voltDropPercentage = 0;
+    let cableIndex = cableTable.findIndex(c => c.size === selectedCable!.size);
+
+    // Keep upsizing until voltage drop is acceptable
+    while (cableIndex < cableTable.length) {
+      const testCable = cableTable[cableIndex];
+      
+      // Calculate voltage drop
+      // For 400V (3-phase): Vd = √3 × I × R × L / 1000
+      // For 230V (single phase): Vd = 2 × I × R × L / 1000
+      if (voltage === 400) {
+        voltDrop = (Math.sqrt(3) * loadAmps * testCable.impedance * totalLength) / 1000;
+      } else {
+        voltDrop = (2 * loadAmps * testCable.impedance * totalLength) / 1000;
+      }
+      
+      voltDropPercentage = (voltDrop / voltage) * 100;
+
+      // If voltage drop is acceptable, use this cable
+      if (voltDropPercentage <= maxVoltDropPercentage) {
+        selectedCable = testCable;
+        break;
+      }
+
+      // Try next larger cable
+      cableIndex++;
+    }
+
+    // If we've exhausted all cables and still have excessive voltage drop
+    if (cableIndex >= cableTable.length) {
+      selectedCable = cableTable[cableTable.length - 1]; // Use largest available
+    }
+  }
+
+  // Calculate final voltage drop with selected cable
+  let voltDrop = 0;
+  if (totalLength > 0) {
+    if (voltage === 400) {
+      voltDrop = (Math.sqrt(3) * loadAmps * selectedCable.impedance * totalLength) / 1000;
+    } else {
+      voltDrop = (2 * loadAmps * selectedCable.impedance * totalLength) / 1000;
+    }
+  }
+  const voltDropPercentage = totalLength > 0 ? (voltDrop / voltage) * 100 : 0;
 
   // Calculate costs
-  const supplyCost = selectedCable.supplyCost * totalLength;
-  const installCost = selectedCable.installCost * totalLength;
+  const supplyCost = selectedCable.supplyCost * (totalLength || 0);
+  const installCost = selectedCable.installCost * (totalLength || 0);
   const totalCost = supplyCost + installCost;
 
   return {

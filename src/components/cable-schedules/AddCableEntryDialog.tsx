@@ -139,19 +139,20 @@ export const AddCableEntryDialog = ({
     }));
   }, [formData.extra_length, formData.measured_length]);
 
-  // Auto-calculate cable sizing based on load, voltage, and length
+  // Auto-calculate cable sizing based on load, voltage, and optionally length
   useEffect(() => {
     const loadAmps = parseFloat(formData.load_amps);
     const voltage = parseFloat(formData.voltage);
     const totalLength = parseFloat(formData.total_length);
 
-    if (loadAmps && voltage && totalLength) {
+    // Calculate if we have at least load and voltage
+    if (loadAmps && voltage) {
       const material = formData.cable_type.toLowerCase() === "copper" ? "copper" : "aluminium";
       
       const result = calculateCableSize({
         loadAmps,
         voltage,
-        totalLength,
+        totalLength: totalLength || 0, // Use 0 if no length provided yet
         deratingFactor: 0.8, // Conservative derating factor
         material: material as "copper" | "aluminium",
       });
@@ -161,7 +162,7 @@ export const AddCableEntryDialog = ({
           ...prev,
           cable_size: result.recommendedSize,
           ohm_per_km: result.ohmPerKm.toString(),
-          volt_drop: result.voltDrop.toString(),
+          volt_drop: totalLength ? result.voltDrop.toString() : "0",
           supply_cost: result.supplyCost.toString(),
           install_cost: result.installCost.toString(),
         }));
