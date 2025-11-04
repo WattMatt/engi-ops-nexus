@@ -13,7 +13,7 @@ const corsHeaders = {
 
 interface StatusUpdateRequest {
   userId: string;
-  notificationType: 'status_update' | 'task_assigned' | 'client_request';
+  notificationType: 'status_update' | 'approval_request' | 'task_assigned' | 'mention' | 'client_request';
   title: string;
   description: string;
   link?: string;
@@ -69,6 +69,10 @@ serve(async (req) => {
           return { icon: "📋", color: "#3b82f6" };
         case "client_request":
           return { icon: "📨", color: "#8b5cf6" };
+        case "approval_request":
+          return { icon: "✅", color: "#f59e0b" };
+        case "mention":
+          return { icon: "💬", color: "#ec4899" };
         case "status_update":
         default:
           return { icon: "🔔", color: "#10b981" };
