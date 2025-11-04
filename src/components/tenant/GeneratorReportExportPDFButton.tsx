@@ -296,32 +296,6 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
         margin: { left: 14, right: 14 },
       });
 
-      yPos = (doc as any).lastAutoTable.finalY + 15;
-
-      // Summary Section
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "bold");
-      doc.text("SUMMARY", 14, yPos);
-      yPos += 8;
-
-      const summaryData = [
-        ["Annual Repayment", formatCurrency(monthlyCapitalRepayment * 12)],
-        ["Monthly Capital Repayment", formatCurrency(monthlyCapitalRepayment)],
-      ];
-
-      autoTable(doc, {
-        startY: yPos,
-        body: summaryData,
-        theme: "grid",
-        styles: { fontSize: 10, cellPadding: 4 },
-        columnStyles: {
-          0: { fontStyle: "bold", cellWidth: 80, fillColor: [240, 248, 255] },
-          1: { halign: "right", fontStyle: "bold", fontSize: 11, cellWidth: 87, fillColor: [240, 248, 255] },
-        },
-        margin: { left: 14, right: 14 },
-      });
-
-      yPos = (doc as any).lastAutoTable.finalY + 10;
 
       // Calculate metrics for use in subsequent pages
       const metrics = calculateMetrics();
