@@ -1007,11 +1007,11 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
 
         const loadCanvas = await html2canvas(loadChartDiv, { 
           backgroundColor: "#ffffff",
-          scale: 2.5,
+          scale: 1.5,
           logging: false,
           useCORS: true
         });
-        const loadImgData = loadCanvas.toDataURL("image/jpeg", 0.85);
+        const loadImgData = loadCanvas.toDataURL("image/jpeg", 0.75);
         
         doc.setFontSize(11);
         doc.setFont("helvetica", "bold");
@@ -1048,11 +1048,11 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
 
         const costCanvas = await html2canvas(costChartDiv, { 
           backgroundColor: "#ffffff",
-          scale: 2.5,
+          scale: 1.5,
           logging: false,
           useCORS: true
         });
-        const costImgData = costCanvas.toDataURL("image/jpeg", 0.85);
+        const costImgData = costCanvas.toDataURL("image/jpeg", 0.75);
         
         doc.setFontSize(11);
         doc.setFont("helvetica", "bold");
@@ -1105,11 +1105,11 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
 
         const recoveryCanvas = await html2canvas(recoveryChartDiv, { 
           backgroundColor: "#ffffff",
-          scale: 2.5,
+          scale: 1.5,
           logging: false,
           useCORS: true
         });
-        const recoveryImgData = recoveryCanvas.toDataURL("image/jpeg", 0.85);
+        const recoveryImgData = recoveryCanvas.toDataURL("image/jpeg", 0.75);
         
         doc.setFontSize(11);
         doc.setFont("helvetica", "bold");
