@@ -112,10 +112,24 @@ const CableDetailsModal: React.FC<CableDetailsModalProps> = ({
           console.error('Error fetching cable entries:', error);
         } else {
           console.log('Fetched cable entries:', data);
-          // Sort by natural order to handle tenant numbering properly
-          const sorted = (data || []).sort((a, b) => 
-            a.cable_tag.localeCompare(b.cable_tag, undefined, { numeric: true, sensitivity: 'base' })
-          );
+          // Sort by shop number extracted from cable_tag
+          const sorted = (data || []).sort((a, b) => {
+            // Extract shop numbers (e.g., "Shop 13/14" -> 13, "Shop 17B" -> 17, "Shop 1A" -> 1)
+            const shopRegex = /Shop\s+(\d+)/i;
+            const matchA = a.cable_tag.match(shopRegex);
+            const matchB = b.cable_tag.match(shopRegex);
+            
+            const numA = matchA ? parseInt(matchA[1], 10) : 0;
+            const numB = matchB ? parseInt(matchB[1], 10) : 0;
+            
+            // If shop numbers are different, sort by number
+            if (numA !== numB) {
+              return numA - numB;
+            }
+            
+            // If same shop number, sort alphabetically (handles 17, 17A, 17B, etc.)
+            return a.cable_tag.localeCompare(b.cable_tag, undefined, { numeric: true });
+          });
           setCableEntries(sorted);
         }
       };
