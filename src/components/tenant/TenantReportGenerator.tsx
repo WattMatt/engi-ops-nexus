@@ -493,17 +493,22 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
 
       const doc = new jsPDF('p', 'mm', 'a4');
 
+      console.log('[TENANT REPORT] Starting report generation with standardized cover page');
+      
       // Fetch company details for standardized cover page
       const companyDetails = await fetchCompanyDetails();
+      console.log('[TENANT REPORT] Company details fetched:', companyDetails);
 
       // Generate pages based on options
       if (options.includeCoverPage) {
+        console.log('[TENANT REPORT] Generating standardized cover page');
         await generateCoverPage(doc, {
           title: "Tenant Tracker Report",
           projectName: projectName,
           subtitle: "Tenant Schedule & Progress Analysis",
           revision: `Rev.${nextRevision}`,
         }, companyDetails);
+        console.log('[TENANT REPORT] Standardized cover page generated successfully');
       }
       if (options.includeKPIPage) {
         generateKPIPage(doc);
