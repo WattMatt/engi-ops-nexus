@@ -221,7 +221,7 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
     if (!settings || !zone) return 0;
 
     const numGenerators = zone.num_generators || 1;
-    const netTotalEnergyKWh = settings.net_energy_kva * settings.kva_to_kwh_conversion * numGenerators;
+    const netTotalEnergyKWh = settings.net_energy_kva * settings.kva_to_kwh_conversion * (settings.running_load / 100) * numGenerators;
     const monthlyEnergyKWh = netTotalEnergyKWh * settings.expected_hours_per_month;
     const totalDieselCostPerHour = settings.fuel_consumption_rate * settings.diesel_price_per_litre * numGenerators;
     const monthlyDieselCostPerKWh = netTotalEnergyKWh > 0 ? totalDieselCostPerHour / netTotalEnergyKWh : 0;
@@ -512,7 +512,7 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
                 {expandedGenerators.map((gen) => {
                   const settings = zoneSettings.get(gen.zoneId);
                   if (!settings) return <TableCell key={`${gen.zoneId}-${gen.generatorIndex}`} className="text-center">-</TableCell>;
-                  const totalEnergy = settings.net_energy_kva * settings.kva_to_kwh_conversion;
+                  const totalEnergy = settings.net_energy_kva * settings.kva_to_kwh_conversion * (settings.running_load / 100);
                   return (
                     <TableCell key={`${gen.zoneId}-${gen.generatorIndex}`} className="text-center font-semibold">
                       {totalEnergy.toFixed(2)}
@@ -527,7 +527,7 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
                 {expandedGenerators.map((gen) => {
                   const settings = zoneSettings.get(gen.zoneId);
                   if (!settings) return <TableCell key={`${gen.zoneId}-${gen.generatorIndex}`} className="text-center">-</TableCell>;
-                  const totalEnergy = settings.net_energy_kva * settings.kva_to_kwh_conversion;
+                  const totalEnergy = settings.net_energy_kva * settings.kva_to_kwh_conversion * (settings.running_load / 100);
                   const monthlyEnergy = totalEnergy * settings.expected_hours_per_month;
                   return (
                     <TableCell key={`${gen.zoneId}-${gen.generatorIndex}`} className="text-center font-semibold">

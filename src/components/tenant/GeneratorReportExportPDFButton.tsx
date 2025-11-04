@@ -802,7 +802,7 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
         const numGenerators = zone.num_generators || 1;
         const netEnergyKVA = Number(settings.net_energy_kva);
         const kvaToKwhConversion = Number(settings.kva_to_kwh_conversion);
-        const netTotalEnergyKWh = netEnergyKVA * kvaToKwhConversion * numGenerators;
+        const netTotalEnergyKWh = netEnergyKVA * kvaToKwhConversion * (Number(settings.running_load) / 100) * numGenerators;
         const expectedHours = Number(settings.expected_hours_per_month);
         const monthlyEnergyKWh = netTotalEnergyKWh * expectedHours;
         
