@@ -3429,6 +3429,158 @@ export type Database = {
           },
         ]
       }
+      report_settings: {
+        Row: {
+          author_name: string | null
+          background_pattern: string | null
+          company_contact: Json | null
+          company_logo_url: string | null
+          company_name: string | null
+          company_tagline: string | null
+          cover_layout: Json | null
+          created_at: string
+          font_family: string | null
+          font_size: number | null
+          footer_style: Json | null
+          header_style: Json | null
+          id: string
+          include_cover_page: boolean | null
+          is_template: boolean | null
+          line_spacing: number | null
+          margins: Json | null
+          page_orientation: string | null
+          paragraph_spacing: number | null
+          primary_color: string | null
+          project_id: string | null
+          secondary_color: string | null
+          sections_order: Json | null
+          show_date: boolean | null
+          show_page_numbers: boolean | null
+          table_style: Json | null
+          template_name: string | null
+          updated_at: string
+          user_id: string
+          watermark_opacity: number | null
+          watermark_text: string | null
+        }
+        Insert: {
+          author_name?: string | null
+          background_pattern?: string | null
+          company_contact?: Json | null
+          company_logo_url?: string | null
+          company_name?: string | null
+          company_tagline?: string | null
+          cover_layout?: Json | null
+          created_at?: string
+          font_family?: string | null
+          font_size?: number | null
+          footer_style?: Json | null
+          header_style?: Json | null
+          id?: string
+          include_cover_page?: boolean | null
+          is_template?: boolean | null
+          line_spacing?: number | null
+          margins?: Json | null
+          page_orientation?: string | null
+          paragraph_spacing?: number | null
+          primary_color?: string | null
+          project_id?: string | null
+          secondary_color?: string | null
+          sections_order?: Json | null
+          show_date?: boolean | null
+          show_page_numbers?: boolean | null
+          table_style?: Json | null
+          template_name?: string | null
+          updated_at?: string
+          user_id: string
+          watermark_opacity?: number | null
+          watermark_text?: string | null
+        }
+        Update: {
+          author_name?: string | null
+          background_pattern?: string | null
+          company_contact?: Json | null
+          company_logo_url?: string | null
+          company_name?: string | null
+          company_tagline?: string | null
+          cover_layout?: Json | null
+          created_at?: string
+          font_family?: string | null
+          font_size?: number | null
+          footer_style?: Json | null
+          header_style?: Json | null
+          id?: string
+          include_cover_page?: boolean | null
+          is_template?: boolean | null
+          line_spacing?: number | null
+          margins?: Json | null
+          page_orientation?: string | null
+          paragraph_spacing?: number | null
+          primary_color?: string | null
+          project_id?: string | null
+          secondary_color?: string | null
+          sections_order?: Json | null
+          show_date?: boolean | null
+          show_page_numbers?: boolean | null
+          table_style?: Json | null
+          template_name?: string | null
+          updated_at?: string
+          user_id?: string
+          watermark_opacity?: number | null
+          watermark_text?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_settings_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      report_templates: {
+        Row: {
+          config: Json
+          created_at: string
+          description: string | null
+          id: string
+          is_default: boolean | null
+          is_public: boolean | null
+          report_type: string | null
+          template_name: string
+          updated_at: string
+          usage_count: number | null
+          user_id: string
+        }
+        Insert: {
+          config: Json
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_default?: boolean | null
+          is_public?: boolean | null
+          report_type?: string | null
+          template_name: string
+          updated_at?: string
+          usage_count?: number | null
+          user_id: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_default?: boolean | null
+          is_public?: boolean | null
+          report_type?: string | null
+          template_name?: string
+          updated_at?: string
+          usage_count?: number | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       running_recovery_settings: {
         Row: {
           created_at: string

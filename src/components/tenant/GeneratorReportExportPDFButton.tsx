@@ -7,6 +7,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
+import { ReportFormattingDialog } from "@/components/reports/ReportFormattingDialog";
+import { ReportSettings } from "@/hooks/useReportSettings";
 
 interface GeneratorReportExportPDFButtonProps {
   projectId: string;
@@ -15,6 +17,7 @@ interface GeneratorReportExportPDFButtonProps {
 
 export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: GeneratorReportExportPDFButtonProps) {
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showFormattingDialog, setShowFormattingDialog] = useState(false);
 
   // Fetch project details
   const { data: project } = useQuery({
@@ -108,7 +111,7 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
     return `R ${value.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
-  const generatePDF = async () => {
+  const generatePDF = async (formattingSettings: ReportSettings) => {
     if (!project || zones.length === 0) {
       toast.error("No data available to generate report");
       return;
@@ -117,7 +120,7 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
     setIsGenerating(true);
 
     try {
-      const doc = new jsPDF();
+      const doc = new jsPDF(formattingSettings.page_orientation, 'mm', 'a4');
       const pageWidth = doc.internal.pageSize.width;
       const pageHeight = doc.internal.pageSize.height;
       let yPos = 20;
@@ -939,22 +942,32 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
   };
 
   return (
-    <Button
-      onClick={generatePDF}
-      disabled={isGenerating || !project || zones.length === 0}
-      className="gap-2"
-    >
-      {isGenerating ? (
-        <>
-          <Loader2 className="h-4 w-4 animate-spin" />
-          Generating...
-        </>
-      ) : (
-        <>
-          <FileDown className="h-4 w-4" />
-          Export & Save Report
-        </>
-      )}
-    </Button>
+    <>
+      <Button
+        onClick={() => setShowFormattingDialog(true)}
+        disabled={isGenerating || !project || zones.length === 0}
+        className="gap-2"
+      >
+        {isGenerating ? (
+          <>
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Generating...
+          </>
+        ) : (
+          <>
+            <FileDown className="h-4 w-4" />
+            Export & Save Report
+          </>
+        )}
+      </Button>
+
+      <ReportFormattingDialog
+        open={showFormattingDialog}
+        onOpenChange={setShowFormattingDialog}
+        onGenerate={generatePDF}
+        reportType="generator"
+        projectId={projectId}
+      />
+    </>
   );
 }
