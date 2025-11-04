@@ -119,6 +119,8 @@ export const ProjectDropdown = () => {
       </DropdownMenu>
 
       <CreateProjectDialog
+        open={createDialogOpen}
+        onOpenChange={setCreateDialogOpen}
         onProjectCreated={() => {
           loadProjects();
           setCreateDialogOpen(false);
