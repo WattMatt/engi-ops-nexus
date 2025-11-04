@@ -102,7 +102,7 @@ const ProjectSelect = () => {
                 </Button>
               </>
             )}
-            {isAdmin && <CreateProjectDialog onProjectCreated={loadProjects} />}
+            <CreateProjectDialog onProjectCreated={loadProjects} />
             <Button variant="outline" onClick={handleLogout}>
               <LogOut className="h-4 w-4 mr-2" />
               Logout
