@@ -184,7 +184,7 @@ export function calculateCableSize(
   return {
     recommendedSize: recommended.cableSize,
     ohmPerKm: recommendedCable.impedance,
-    voltDrop: calculateVoltDrop(recommended.loadPerCable, voltage, totalLength, recommendedCable.impedance),
+    voltDrop: calculateVoltDrop(recommended.loadPerCable, voltage, totalLength, recommendedCable),
     voltDropPercentage: recommended.voltDropPercentage,
     supplyCost: recommended.supplyCost,
     installCost: recommended.installCost,
@@ -245,8 +245,8 @@ function evaluateParallelOptions(
         totalLength
       );
       
-      // Calculate voltage drop percentage
-      const voltDrop = calculateVoltDrop(loadPerCable, voltage, totalLength, selectedCable.impedance);
+      // Calculate voltage drop percentage using proper SANS values
+      const voltDrop = calculateVoltDrop(loadPerCable, voltage, totalLength, selectedCable);
       const voltDropPercentage = (voltDrop / voltage) * 100;
       
       // Skip if voltage drop is still too high
@@ -260,7 +260,7 @@ function evaluateParallelOptions(
     const totalInstallCost = installCostPerCable * numCables;
     const totalCost = totalSupplyCost + totalInstallCost;
 
-    const voltDrop = calculateVoltDrop(loadPerCable, voltage, totalLength, selectedCable.impedance);
+    const voltDrop = calculateVoltDrop(loadPerCable, voltage, totalLength, selectedCable);
     const voltDropPercentage = totalLength > 0 ? (voltDrop / voltage) * 100 : 0;
 
     alternatives.push({
@@ -293,7 +293,7 @@ function findCableWithAcceptableVoltDrop(
 
   while (cableIndex < cableTable.length) {
     const testCable = cableTable[cableIndex];
-    const voltDrop = calculateVoltDrop(loadAmps, voltage, totalLength, testCable.impedance);
+    const voltDrop = calculateVoltDrop(loadAmps, voltage, totalLength, testCable);
     const voltDropPercentage = (voltDrop / voltage) * 100;
 
     if (voltDropPercentage <= maxVoltDropPercentage) {
@@ -306,20 +306,30 @@ function findCableWithAcceptableVoltDrop(
 }
 
 /**
- * Calculate voltage drop in volts
+ * Calculate voltage drop in volts using SANS voltage drop values
  */
 function calculateVoltDrop(
   loadAmps: number,
   voltage: number,
   totalLength: number,
-  impedance: number
+  cableData: CableData | number
 ): number {
   if (totalLength === 0) return 0;
   
-  if (voltage === 400) {
-    return (Math.sqrt(3) * loadAmps * impedance * totalLength) / 1000;
+  // If passed a CableData object, use the proper voltage drop values
+  if (typeof cableData === 'object') {
+    // Use SANS voltage drop values (mV/A/m)
+    const voltDropPerAmpPerMeter = voltage === 400 ? cableData.voltDrop3Phase : cableData.voltDrop1Phase;
+    // Convert mV to V: (mV/A/m) * A * m / 1000
+    return (voltDropPerAmpPerMeter * loadAmps * totalLength) / 1000;
   } else {
-    return (2 * loadAmps * impedance * totalLength) / 1000;
+    // Legacy: if just impedance value is passed
+    const impedance = cableData;
+    if (voltage === 400) {
+      return (Math.sqrt(3) * loadAmps * impedance * totalLength) / 1000;
+    } else {
+      return (2 * loadAmps * impedance * totalLength) / 1000;
+    }
   }
 }
 
@@ -332,7 +342,7 @@ function calculateSingleCableResult(
   voltage: number,
   totalLength: number
 ): Omit<CableCalculationResult, 'cablesInParallel' | 'loadPerCable'> {
-  const voltDrop = calculateVoltDrop(loadAmps, voltage, totalLength, cable.impedance);
+  const voltDrop = calculateVoltDrop(loadAmps, voltage, totalLength, cable);
   const voltDropPercentage = totalLength > 0 ? (voltDrop / voltage) * 100 : 0;
   const supplyCost = cable.supplyCost * (totalLength || 0);
   const installCost = cable.installCost * (totalLength || 0);
