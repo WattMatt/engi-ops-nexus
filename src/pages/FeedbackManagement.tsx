@@ -25,6 +25,13 @@ import {
 } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
+interface BrowserInfo {
+  userAgent: string;
+  screenResolution: string;
+  viewportSize: string;
+  timestamp: string;
+}
+
 interface Issue {
   id: string;
   created_at: string;
@@ -39,6 +46,7 @@ interface Issue {
   console_logs: string | null;
   additional_context: string | null;
   page_url: string;
+  browser_info: BrowserInfo | null;
   resolved_at: string | null;
   admin_notes: string | null;
   admin_response: string | null;
@@ -60,6 +68,7 @@ interface Suggestion {
   console_logs: string | null;
   additional_context: string | null;
   page_url: string;
+  browser_info: BrowserInfo | null;
   resolved_at: string | null;
   admin_notes: string | null;
   admin_response: string | null;
@@ -106,6 +115,138 @@ const FeedbackManagement = () => {
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
     toast.success(`${label} copied to clipboard`);
+  };
+
+  const copyIssueForAI = (issue: Issue) => {
+    const sections = [];
+    
+    // Header
+    sections.push("=== ISSUE REPORT ===");
+    sections.push(`Severity: ${issue.severity.toUpperCase()}`);
+    sections.push(`Category: ${issue.category}`);
+    sections.push(`Status: ${issue.status}`);
+    sections.push(`Reported: ${new Date(issue.created_at).toLocaleString()}`);
+    sections.push(`Reporter: ${issue.user_name} (${issue.user_email})`);
+    sections.push("");
+    
+    // Description
+    sections.push("DESCRIPTION:");
+    sections.push(issue.description);
+    sections.push("");
+    
+    // Page Context
+    sections.push("PAGE CONTEXT:");
+    sections.push(`URL: ${issue.page_url}`);
+    if (issue.browser_info) {
+      sections.push(`Browser: ${issue.browser_info.userAgent}`);
+      sections.push(`Screen: ${issue.browser_info.screenResolution}`);
+      sections.push(`Viewport: ${issue.browser_info.viewportSize}`);
+    }
+    sections.push("");
+    
+    // Console Logs
+    if (issue.console_logs) {
+      sections.push("CONSOLE LOGS / ERROR MESSAGES:");
+      sections.push(issue.console_logs);
+      sections.push("");
+    }
+    
+    // Additional Context
+    if (issue.additional_context) {
+      sections.push("ADDITIONAL CONTEXT:");
+      sections.push(issue.additional_context);
+      sections.push("");
+    }
+    
+    // Attachments
+    if (issue.attachments && issue.attachments.length > 0) {
+      sections.push(`ATTACHMENTS (${issue.attachments.length}):`);
+      issue.attachments.forEach((att, idx) => {
+        sections.push(`${idx + 1}. ${att.filename} (${att.type})`);
+        sections.push(`   URL: ${att.url}`);
+      });
+      sections.push("");
+    }
+    
+    // Screenshot (legacy field)
+    if (issue.screenshot_url) {
+      sections.push("SCREENSHOT:");
+      sections.push(issue.screenshot_url);
+      sections.push("");
+    }
+    
+    // Admin Notes
+    if (issue.admin_notes) {
+      sections.push("ADMIN NOTES:");
+      sections.push(issue.admin_notes);
+      sections.push("");
+    }
+    
+    const fullText = sections.join("\n");
+    copyToClipboard(fullText, "Complete issue report");
+  };
+
+  const copySuggestionForAI = (suggestion: Suggestion) => {
+    const sections = [];
+    
+    // Header
+    sections.push("=== FEATURE SUGGESTION ===");
+    sections.push(`Title: ${suggestion.title}`);
+    sections.push(`Category: ${suggestion.category}`);
+    sections.push(`Priority: ${suggestion.priority.toUpperCase()}`);
+    sections.push(`Status: ${suggestion.status}`);
+    sections.push(`Submitted: ${new Date(suggestion.created_at).toLocaleString()}`);
+    sections.push(`Submitted by: ${suggestion.user_name} (${suggestion.user_email})`);
+    sections.push("");
+    
+    // Description
+    sections.push("DESCRIPTION:");
+    sections.push(suggestion.description);
+    sections.push("");
+    
+    // Page Context
+    sections.push("CONTEXT:");
+    sections.push(`Page: ${suggestion.page_url}`);
+    if (suggestion.browser_info) {
+      sections.push(`Browser: ${suggestion.browser_info.userAgent}`);
+      sections.push(`Screen: ${suggestion.browser_info.screenResolution}`);
+      sections.push(`Viewport: ${suggestion.browser_info.viewportSize}`);
+    }
+    sections.push("");
+    
+    // Additional Context
+    if (suggestion.additional_context) {
+      sections.push("ADDITIONAL CONTEXT:");
+      sections.push(suggestion.additional_context);
+      sections.push("");
+    }
+    
+    // Attachments
+    if (suggestion.attachments && suggestion.attachments.length > 0) {
+      sections.push(`ATTACHMENTS (${suggestion.attachments.length}):`);
+      suggestion.attachments.forEach((att, idx) => {
+        sections.push(`${idx + 1}. ${att.filename} (${att.type})`);
+        sections.push(`   URL: ${att.url}`);
+      });
+      sections.push("");
+    }
+    
+    // Screenshot (legacy field)
+    if (suggestion.screenshot_url) {
+      sections.push("SCREENSHOT:");
+      sections.push(suggestion.screenshot_url);
+      sections.push("");
+    }
+    
+    // Admin Notes
+    if (suggestion.admin_notes) {
+      sections.push("ADMIN NOTES:");
+      sections.push(suggestion.admin_notes);
+      sections.push("");
+    }
+    
+    const fullText = sections.join("\n");
+    copyToClipboard(fullText, "Complete suggestion");
   };
 
   const updateStatus = async (
@@ -267,34 +408,34 @@ const FeedbackManagement = () => {
                         {formatDistanceToNow(new Date(issue.created_at), { addSuffix: true })}
                       </CardDescription>
                     </div>
-                    <Select
-                      value={issue.status}
-                      onValueChange={(value) => updateStatus("issue_reports", issue.id, value)}
-                    >
-                      <SelectTrigger className="w-[150px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="in-progress">In Progress</SelectItem>
-                        <SelectItem value="resolved">Resolved</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => copyIssueForAI(issue)}
+                      >
+                        <Copy className="h-4 w-4 mr-2" />
+                        Copy All for AI
+                      </Button>
+                      <Select
+                        value={issue.status}
+                        onValueChange={(value) => updateStatus("issue_reports", issue.id, value)}
+                      >
+                        <SelectTrigger className="w-[150px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pending">Pending</SelectItem>
+                          <SelectItem value="in-progress">In Progress</SelectItem>
+                          <SelectItem value="resolved">Resolved</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium">Description</p>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => copyToClipboard(issue.description, "Description")}
-                      >
-                        <Copy className="h-4 w-4 mr-2" />
-                        Copy for AI
-                      </Button>
-                    </div>
+                    <p className="text-sm font-medium">Description</p>
                     <p className="text-sm text-muted-foreground whitespace-pre-wrap rounded-md bg-muted p-3">
                       {issue.description}
                     </p>
@@ -360,17 +501,7 @@ const FeedbackManagement = () => {
                   {/* Console Logs */}
                   {issue.console_logs && (
                     <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm font-medium">Console Logs / Error Messages</p>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => copyToClipboard(issue.console_logs!, "Console logs")}
-                        >
-                          <Copy className="h-4 w-4 mr-2" />
-                          Copy
-                        </Button>
-                      </div>
+                      <p className="text-sm font-medium">Console Logs / Error Messages</p>
                       <pre className="text-xs text-muted-foreground whitespace-pre-wrap rounded-md bg-muted p-3 font-mono overflow-x-auto">
                         {issue.console_logs}
                       </pre>
@@ -380,20 +511,22 @@ const FeedbackManagement = () => {
                   {/* Additional Context */}
                   {issue.additional_context && (
                     <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm font-medium">Additional Context</p>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => copyToClipboard(issue.additional_context!, "Additional context")}
-                        >
-                          <Copy className="h-4 w-4 mr-2" />
-                          Copy
-                        </Button>
-                      </div>
+                      <p className="text-sm font-medium">Additional Context</p>
                       <p className="text-sm text-muted-foreground whitespace-pre-wrap rounded-md bg-muted p-3">
                         {issue.additional_context}
                       </p>
+                    </div>
+                  )}
+
+                  {/* Browser Info */}
+                  {issue.browser_info && (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Browser & Environment</p>
+                      <div className="text-xs text-muted-foreground rounded-md bg-muted p-3 space-y-1 font-mono">
+                        <p><span className="font-semibold">Browser:</span> {issue.browser_info.userAgent}</p>
+                        <p><span className="font-semibold">Screen:</span> {issue.browser_info.screenResolution}</p>
+                        <p><span className="font-semibold">Viewport:</span> {issue.browser_info.viewportSize}</p>
+                      </div>
                     </div>
                   )}
 
@@ -473,39 +606,34 @@ const FeedbackManagement = () => {
                         {formatDistanceToNow(new Date(suggestion.created_at), { addSuffix: true })}
                       </CardDescription>
                     </div>
-                    <Select
-                      value={suggestion.status}
-                      onValueChange={(value) => updateStatus("suggestions", suggestion.id, value)}
-                    >
-                      <SelectTrigger className="w-[150px]">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="in-progress">In Progress</SelectItem>
-                        <SelectItem value="resolved">Resolved</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => copySuggestionForAI(suggestion)}
+                      >
+                        <Copy className="h-4 w-4 mr-2" />
+                        Copy All for AI
+                      </Button>
+                      <Select
+                        value={suggestion.status}
+                        onValueChange={(value) => updateStatus("suggestions", suggestion.id, value)}
+                      >
+                        <SelectTrigger className="w-[150px]">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="pending">Pending</SelectItem>
+                          <SelectItem value="in-progress">In Progress</SelectItem>
+                          <SelectItem value="resolved">Resolved</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <p className="text-sm font-medium">Description</p>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() =>
-                          copyToClipboard(
-                            `${suggestion.title}\n\n${suggestion.description}`,
-                            "Suggestion"
-                          )
-                        }
-                      >
-                        <Copy className="h-4 w-4 mr-2" />
-                        Copy for AI
-                      </Button>
-                    </div>
+                    <p className="text-sm font-medium">Description</p>
                     <p className="text-sm text-muted-foreground whitespace-pre-wrap rounded-md bg-muted p-3">
                       {suggestion.description}
                     </p>
@@ -536,6 +664,69 @@ const FeedbackManagement = () => {
                       </a>
                     </div>
                   </div>
+
+                  {/* Attachments */}
+                  {suggestion.attachments && suggestion.attachments.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Attachments ({suggestion.attachments.length})</p>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                        {suggestion.attachments.map((attachment, idx) => (
+                          <div key={idx} className="relative group">
+                            {attachment.type.startsWith('image/') ? (
+                              <img
+                                src={attachment.url}
+                                alt={attachment.filename}
+                                className="rounded-md border w-full aspect-video object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                                onClick={() => setSelectedImage(attachment.url)}
+                              />
+                            ) : (
+                              <a
+                                href={attachment.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex flex-col items-center justify-center p-4 border rounded-md hover:bg-accent transition-colors aspect-video"
+                              >
+                                <ExternalLink className="h-6 w-6 mb-2 text-muted-foreground" />
+                                <p className="text-xs text-center truncate w-full px-2">{attachment.filename}</p>
+                              </a>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Console Logs */}
+                  {suggestion.console_logs && (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Console Logs / Error Messages</p>
+                      <pre className="text-xs text-muted-foreground whitespace-pre-wrap rounded-md bg-muted p-3 font-mono overflow-x-auto">
+                        {suggestion.console_logs}
+                      </pre>
+                    </div>
+                  )}
+
+                  {/* Additional Context */}
+                  {suggestion.additional_context && (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Additional Context</p>
+                      <p className="text-sm text-muted-foreground whitespace-pre-wrap rounded-md bg-muted p-3">
+                        {suggestion.additional_context}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Browser Info */}
+                  {suggestion.browser_info && (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Browser & Environment</p>
+                      <div className="text-xs text-muted-foreground rounded-md bg-muted p-3 space-y-1 font-mono">
+                        <p><span className="font-semibold">Browser:</span> {suggestion.browser_info.userAgent}</p>
+                        <p><span className="font-semibold">Screen:</span> {suggestion.browser_info.screenResolution}</p>
+                        <p><span className="font-semibold">Viewport:</span> {suggestion.browser_info.viewportSize}</p>
+                      </div>
+                    </div>
+                  )}
 
                   <div className="space-y-2">
                     <p className="text-sm font-medium">Admin Notes (Internal Only)</p>

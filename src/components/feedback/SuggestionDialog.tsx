@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { useState, useRef, useEffect } from "react";
+import { Loader2, Upload, X, FileIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -21,6 +21,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { z } from "zod";
 
 interface SuggestionDialogProps {
   open: boolean;
@@ -28,12 +29,124 @@ interface SuggestionDialogProps {
   screenshot: string | null;
 }
 
+interface Attachment {
+  file?: File;
+  preview: string;
+  name: string;
+  type: string;
+  url?: string;
+}
+
+// Validation schema
+const attachmentSchema = z.object({
+  file: z.instanceof(File)
+    .refine((file) => file.size <= 20 * 1024 * 1024, "File must be less than 20MB")
+    .refine(
+      (file) => ['image/png', 'image/jpeg', 'image/jpg', 'image/gif', 'image/webp', 'text/plain', 'application/pdf'].includes(file.type),
+      "File must be an image, text file, or PDF"
+    ),
+});
+
 export function SuggestionDialog({ open, onOpenChange, screenshot }: SuggestionDialogProps) {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState("feature");
   const [priority, setPriority] = useState("medium");
+  const [additionalContext, setAdditionalContext] = useState("");
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // Add screenshot to attachments when dialog opens
+  useEffect(() => {
+    if (open && screenshot && !attachments.some(a => a.preview === screenshot)) {
+      setAttachments(prev => [{
+        preview: screenshot,
+        name: `screenshot-${Date.now()}.png`,
+        type: 'image/png'
+      }, ...prev]);
+    }
+  }, [open, screenshot]);
+
+  // Handle file selection
+  const handleFileSelect = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+
+    const newAttachments: Attachment[] = [];
+    
+    for (const file of Array.from(files)) {
+      try {
+        attachmentSchema.parse({ file });
+        
+        const preview = file.type.startsWith('image/') 
+          ? URL.createObjectURL(file)
+          : '';
+        
+        newAttachments.push({
+          file,
+          preview,
+          name: file.name,
+          type: file.type
+        });
+      } catch (error) {
+        if (error instanceof z.ZodError) {
+          toast.error(`${file.name}: ${error.errors[0].message}`);
+        }
+      }
+    }
+    
+    if (newAttachments.length > 0) {
+      setAttachments(prev => [...prev, ...newAttachments]);
+    }
+  };
+
+  // Handle clipboard paste
+  useEffect(() => {
+    if (!open) return;
+
+    const handlePaste = async (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+
+      for (const item of Array.from(items)) {
+        if (item.type.startsWith('image/')) {
+          const file = item.getAsFile();
+          if (file) {
+            try {
+              attachmentSchema.parse({ file });
+              const preview = URL.createObjectURL(file);
+              setAttachments(prev => [...prev, {
+                file,
+                preview,
+                name: `pasted-image-${Date.now()}.png`,
+                type: file.type
+              }]);
+              toast.success("Image pasted successfully!");
+            } catch (error) {
+              if (error instanceof z.ZodError) {
+                toast.error(error.errors[0].message);
+              }
+            }
+          }
+        }
+      }
+    };
+
+    document.addEventListener('paste', handlePaste);
+    return () => document.removeEventListener('paste', handlePaste);
+  }, [open]);
+
+  // Remove attachment
+  const removeAttachment = (index: number) => {
+    setAttachments(prev => {
+      const newAttachments = [...prev];
+      const removed = newAttachments.splice(index, 1)[0];
+      if (removed.preview && removed.preview.startsWith('blob:')) {
+        URL.revokeObjectURL(removed.preview);
+      }
+      return newAttachments;
+    });
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,6 +197,69 @@ export function SuggestionDialog({ open, onOpenChange, screenshot }: SuggestionD
         }
       }
 
+      // Upload all attachments
+      const uploadedAttachments = [];
+      for (const attachment of attachments) {
+        if (attachment.url) {
+          uploadedAttachments.push({
+            url: attachment.url,
+            filename: attachment.name,
+            type: attachment.type
+          });
+          continue;
+        }
+
+        if (attachment.file) {
+          const fileName = `${user.id}/${Date.now()}-${attachment.name}`;
+          
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('suggestion-screenshots')
+            .upload(fileName, attachment.file, {
+              contentType: attachment.type,
+            });
+
+          if (uploadError) {
+            console.error('Attachment upload failed:', uploadError);
+            toast.error(`Failed to upload ${attachment.name}`);
+            continue;
+          }
+
+          const { data: { publicUrl } } = supabase.storage
+            .from('suggestion-screenshots')
+            .getPublicUrl(uploadData.path);
+          
+          uploadedAttachments.push({
+            url: publicUrl,
+            filename: attachment.name,
+            type: attachment.type
+          });
+        } else if (attachment.preview && !attachment.preview.startsWith('blob:')) {
+          const blob = await (await fetch(attachment.preview)).blob();
+          const fileName = `${user.id}/${Date.now()}-${attachment.name}`;
+          
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('suggestion-screenshots')
+            .upload(fileName, blob, {
+              contentType: 'image/png',
+            });
+
+          if (uploadError) {
+            console.error('Screenshot upload failed:', uploadError);
+            continue;
+          }
+
+          const { data: { publicUrl } } = supabase.storage
+            .from('suggestion-screenshots')
+            .getPublicUrl(uploadData.path);
+          
+          uploadedAttachments.push({
+            url: publicUrl,
+            filename: attachment.name,
+            type: 'image/png'
+          });
+        }
+      }
+
       // Collect browser info
       const browserInfo = {
         userAgent: navigator.userAgent,
@@ -91,6 +267,9 @@ export function SuggestionDialog({ open, onOpenChange, screenshot }: SuggestionD
         viewportSize: `${window.innerWidth}x${window.innerHeight}`,
         timestamp: new Date().toISOString(),
       };
+
+      // Keep old screenshot_url for backwards compatibility
+      const legacyScreenshotUrl = uploadedAttachments.find(a => a.type.startsWith('image/'))?.url || screenshotUrl;
 
       // Insert suggestion
       const { error: insertError } = await supabase
@@ -103,7 +282,9 @@ export function SuggestionDialog({ open, onOpenChange, screenshot }: SuggestionD
           description: description.trim(),
           category,
           priority,
-          screenshot_url: screenshotUrl,
+          screenshot_url: legacyScreenshotUrl,
+          attachments: uploadedAttachments,
+          additional_context: additionalContext.trim() || null,
           page_url: window.location.href,
           browser_info: browserInfo,
         });
@@ -117,6 +298,8 @@ export function SuggestionDialog({ open, onOpenChange, screenshot }: SuggestionD
       setDescription("");
       setCategory("feature");
       setPriority("medium");
+      setAdditionalContext("");
+      setAttachments([]);
       onOpenChange(false);
     } catch (error) {
       console.error('Failed to submit suggestion:', error);
@@ -150,6 +333,68 @@ export function SuggestionDialog({ open, onOpenChange, screenshot }: SuggestionD
             </div>
           )}
 
+          {/* Attachments Section */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Attachments ({attachments.length})</Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isSubmitting}
+              >
+                <Upload className="h-4 w-4 mr-2" />
+                Upload Files
+              </Button>
+            </div>
+            
+            <input
+              ref={fileInputRef}
+              type="file"
+              multiple
+              accept="image/*,.pdf,.txt"
+              className="hidden"
+              onChange={(e) => handleFileSelect(e.target.files)}
+            />
+
+            {/* Attachments Grid */}
+            {attachments.length > 0 && (
+              <div className="grid grid-cols-2 gap-2 p-3 bg-muted rounded-lg border">
+                {attachments.map((attachment, index) => (
+                  <div key={index} className="relative group">
+                    {attachment.type.startsWith('image/') ? (
+                      <div className="aspect-video rounded-md overflow-hidden border">
+                        <img 
+                          src={attachment.preview} 
+                          alt={attachment.name}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    ) : (
+                      <div className="aspect-video rounded-md border bg-card flex flex-col items-center justify-center p-2">
+                        <FileIcon className="h-8 w-8 text-muted-foreground mb-2" />
+                        <p className="text-xs text-center truncate w-full px-2">{attachment.name}</p>
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => removeAttachment(index)}
+                      className="absolute top-1 right-1 p-1 bg-destructive text-destructive-foreground rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                      disabled={isSubmitting}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <p className="text-xs text-muted-foreground">
+              💡 Tip: You can paste images directly with Ctrl+V
+            </p>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="title">
               Title <span className="text-destructive">*</span>
@@ -174,6 +419,18 @@ export function SuggestionDialog({ open, onOpenChange, screenshot }: SuggestionD
               onChange={(e) => setDescription(e.target.value)}
               rows={5}
               required
+            />
+          </div>
+
+          {/* Additional Context */}
+          <div className="space-y-2">
+            <Label htmlFor="additionalContext">Additional Context / Use Cases</Label>
+            <Textarea
+              id="additionalContext"
+              placeholder="Any additional information that might help (examples, use cases, benefits, etc.)..."
+              value={additionalContext}
+              onChange={(e) => setAdditionalContext(e.target.value)}
+              rows={3}
             />
           </div>
 
