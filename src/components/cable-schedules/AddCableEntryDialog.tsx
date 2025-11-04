@@ -146,11 +146,14 @@ export const AddCableEntryDialog = ({
     const totalLength = parseFloat(formData.total_length);
 
     if (loadAmps && voltage && totalLength) {
+      const material = formData.cable_type.toLowerCase() === "copper" ? "copper" : "aluminium";
+      
       const result = calculateCableSize({
         loadAmps,
         voltage,
         totalLength,
         deratingFactor: 0.8, // Conservative derating factor
+        material: material as "copper" | "aluminium",
       });
 
       if (result) {
@@ -164,7 +167,7 @@ export const AddCableEntryDialog = ({
         }));
       }
     }
-  }, [formData.load_amps, formData.voltage, formData.total_length]);
+  }, [formData.load_amps, formData.voltage, formData.total_length, formData.cable_type]);
 
   // Auto-calculate total_cost
   useEffect(() => {
