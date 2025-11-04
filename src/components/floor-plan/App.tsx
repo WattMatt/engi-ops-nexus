@@ -26,6 +26,7 @@ import {
     listDesigns,
     loadDesign,
     deleteDesign,
+    assignDesignToProject,
     type DesignListing,
 } from './utils/supabase';
 import { Building, Loader } from 'lucide-react';
@@ -315,13 +316,32 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
     setIsLoadDesignModalOpen(true);
     setIsLoadingDesigns(true);
     try {
-      const designs = await listDesigns(currentProjectId);
+      // Show all designs initially
+      const designs = await listDesigns(true);
       setDesignList(designs);
     } catch (error) {
       console.error("Error listing designs:", error);
       toast.error(`Failed to load design list: ${error instanceof Error ? error.message : 'Unknown Error'}`);
     } finally {
       setIsLoadingDesigns(false);
+    }
+  };
+
+  const handleAssignToProject = async (designId: string) => {
+    if (!currentProjectId) {
+      toast.error("No project selected. Please select a project first.");
+      return;
+    }
+    
+    try {
+      await assignDesignToProject(designId, currentProjectId);
+      toast.success("Design assigned to current project!");
+      // Refresh the design list
+      const designs = await listDesigns(true);
+      setDesignList(designs);
+    } catch (error) {
+      console.error("Error assigning design:", error);
+      toast.error(`Failed to assign design: ${error instanceof Error ? error.message : 'Unknown Error'}`);
     }
   };
 
@@ -741,8 +761,10 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
         onLoad={handleLoadFromCloud}
         onDelete={handleDeleteDesign}
         onNewDesign={() => document.getElementById('pdf-upload')?.click()}
+        onAssignToProject={handleAssignToProject}
         designs={designList} 
-        isLoading={isLoadingDesigns} 
+        isLoading={isLoadingDesigns}
+        currentProjectId={currentProjectId}
       />
       <TaskModal isOpen={isTaskModalOpen} onClose={() => { setIsTaskModalOpen(false); setEditingTask(null); }} onSubmit={handleTaskSubmit} task={editingTask} assigneeList={assigneeList} />
       <SavedReportsList open={isSavedReportsModalOpen} onOpenChange={setIsSavedReportsModalOpen} />

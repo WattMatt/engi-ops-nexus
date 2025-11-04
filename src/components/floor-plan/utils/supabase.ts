@@ -266,22 +266,42 @@ export interface DesignListing {
     name: string;
     createdAt: string;
     design_purpose: string | null;
+    project_id: string | null;
 }
 
-export const listDesigns = async (projectId?: string | null): Promise<DesignListing[]> => {
+export const listDesigns = async (showAll: boolean = false, projectId?: string | null): Promise<DesignListing[]> => {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error("User not authenticated");
+
   let query = supabase
     .from('floor_plan_projects')
-    .select('id, name, created_at, design_purpose')
+    .select('id, name, created_at, design_purpose, project_id')
+    .eq('user_id', user.id)
     .order('created_at', { ascending: false });
   
-  if (projectId) {
+  if (!showAll && projectId) {
     query = query.eq('project_id', projectId);
   }
   
   const { data, error } = await query;
   
   if (error) throw error;
-  return data.map(d => ({ id: d.id, name: d.name, createdAt: d.created_at, design_purpose: d.design_purpose }));
+  return data.map(d => ({ 
+    id: d.id, 
+    name: d.name, 
+    createdAt: d.created_at, 
+    design_purpose: d.design_purpose,
+    project_id: d.project_id 
+  }));
+};
+
+export const assignDesignToProject = async (designId: string, projectId: string): Promise<void> => {
+  const { error } = await supabase
+    .from('floor_plan_projects')
+    .update({ project_id: projectId })
+    .eq('id', designId);
+  
+  if (error) throw error;
 };
 
 export interface FullDesignData {
