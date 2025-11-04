@@ -62,11 +62,34 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
       const { data, error } = await supabase
         .from("cable_entries")
         .select("*")
-        .eq("schedule_id", scheduleId)
-        .order("display_order");
+        .eq("schedule_id", scheduleId);
 
       if (error) throw error;
-      return data;
+      
+      // Sort by shop number extracted from to_location or cable_tag
+      const sorted = (data || []).sort((a, b) => {
+        // Extract shop numbers (e.g., "Shop 13" -> 13, "Shop 13/14 - MR DIY" -> 13)
+        const shopRegex = /Shop\s+(\d+)/i;
+        const matchA = (a.to_location || a.cable_tag).match(shopRegex);
+        const matchB = (b.to_location || b.cable_tag).match(shopRegex);
+        
+        const numA = matchA ? parseInt(matchA[1], 10) : 9999;
+        const numB = matchB ? parseInt(matchB[1], 10) : 9999;
+        
+        // If shop numbers are different, sort by number
+        if (numA !== numB) {
+          return numA - numB;
+        }
+        
+        // If same shop number, sort alphabetically (handles Shop 17, Shop 17A, Shop 17B)
+        return (a.to_location || a.cable_tag).localeCompare(
+          b.to_location || b.cable_tag, 
+          undefined, 
+          { numeric: true }
+        );
+      });
+      
+      return sorted;
     },
     enabled: !!scheduleId,
   });
