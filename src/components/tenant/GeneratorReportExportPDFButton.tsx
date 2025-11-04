@@ -1009,11 +1009,11 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
 
         const loadCanvas = await html2canvas(loadChartDiv, { 
           backgroundColor: "#ffffff",
-          scale: 3,
+          scale: 2.5,
           logging: false,
           useCORS: true
         });
-        const loadImgData = loadCanvas.toDataURL("image/png", 1.0);
+        const loadImgData = loadCanvas.toDataURL("image/jpeg", 0.85);
         
         doc.setFontSize(11);
         doc.setFont("helvetica", "bold");
@@ -1027,7 +1027,7 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
         const maxChartHeight = 65;
         const finalLoadHeight = Math.min(loadImgHeight, maxChartHeight);
         
-        doc.addImage(loadImgData, "PNG", chartMargin, yPos, loadImgWidth, finalLoadHeight);
+        doc.addImage(loadImgData, "JPEG", chartMargin, yPos, loadImgWidth, finalLoadHeight);
         yPos += finalLoadHeight + 18;
 
         // Render Cost Breakdown Chart
@@ -1050,11 +1050,11 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
 
         const costCanvas = await html2canvas(costChartDiv, { 
           backgroundColor: "#ffffff",
-          scale: 3,
+          scale: 2.5,
           logging: false,
           useCORS: true
         });
-        const costImgData = costCanvas.toDataURL("image/png", 1.0);
+        const costImgData = costCanvas.toDataURL("image/jpeg", 0.85);
         
         doc.setFontSize(11);
         doc.setFont("helvetica", "bold");
@@ -1065,7 +1065,7 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
         const costImgHeight = (costCanvas.height * costImgWidth) / costCanvas.width;
         const finalCostHeight = Math.min(costImgHeight, maxChartHeight);
         
-        doc.addImage(costImgData, "PNG", chartMargin, yPos, costImgWidth, finalCostHeight);
+        doc.addImage(costImgData, "JPEG", chartMargin, yPos, costImgWidth, finalCostHeight);
         yPos += finalCostHeight + 18;
 
         // Check if we need a new page for the recovery chart
@@ -1107,11 +1107,11 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
 
         const recoveryCanvas = await html2canvas(recoveryChartDiv, { 
           backgroundColor: "#ffffff",
-          scale: 3,
+          scale: 2.5,
           logging: false,
           useCORS: true
         });
-        const recoveryImgData = recoveryCanvas.toDataURL("image/png", 1.0);
+        const recoveryImgData = recoveryCanvas.toDataURL("image/jpeg", 0.85);
         
         doc.setFontSize(11);
         doc.setFont("helvetica", "bold");
@@ -1122,7 +1122,7 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
         const recoveryImgHeight = (recoveryCanvas.height * recoveryImgWidth) / recoveryCanvas.width;
         const finalRecoveryHeight = Math.min(recoveryImgHeight, maxChartHeight);
         
-        doc.addImage(recoveryImgData, "PNG", chartMargin, yPos, recoveryImgWidth, finalRecoveryHeight);
+        doc.addImage(recoveryImgData, "JPEG", chartMargin, yPos, recoveryImgWidth, finalRecoveryHeight);
 
         // Cleanup
         root3.unmount();
