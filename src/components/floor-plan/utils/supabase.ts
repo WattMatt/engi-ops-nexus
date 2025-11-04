@@ -265,14 +265,20 @@ export interface DesignListing {
     design_purpose: string | null;
 }
 
-export const listDesigns = async (): Promise<DesignListing[]> => {
-    const { data, error } = await supabase
-        .from('floor_plan_projects')
-        .select('id, name, created_at, design_purpose')
-        .order('created_at', { ascending: false });
-    
-    if (error) throw error;
-    return data.map(d => ({ id: d.id, name: d.name, createdAt: d.created_at, design_purpose: d.design_purpose }));
+export const listDesigns = async (projectId?: string | null): Promise<DesignListing[]> => {
+  let query = supabase
+    .from('floor_plan_projects')
+    .select('id, name, created_at, design_purpose')
+    .order('created_at', { ascending: false });
+  
+  if (projectId) {
+    query = query.eq('project_id', projectId);
+  }
+  
+  const { data, error } = await query;
+  
+  if (error) throw error;
+  return data.map(d => ({ id: d.id, name: d.name, createdAt: d.created_at, design_purpose: d.design_purpose }));
 };
 
 export interface FullDesignData {

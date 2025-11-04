@@ -305,21 +305,21 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
   };
 
   const handleOpenLoadModal = async () => {
-      if(!user) {
-          toast.error("Please sign in to load designs from the cloud.");
-          return;
-      }
-      setIsLoadDesignModalOpen(true);
-      setIsLoadingDesigns(true);
-      try {
-          const designs = await listDesigns();
-          setDesignList(designs);
-      } catch (error) {
-          console.error("Error listing designs:", error);
-          toast.error(`Failed to load design list: ${error instanceof Error ? error.message : 'Unknown Error'}`);
-      } finally {
-          setIsLoadingDesigns(false);
-      }
+    if(!user) {
+      toast.error("Please sign in to load designs from the cloud.");
+      return;
+    }
+    setIsLoadDesignModalOpen(true);
+    setIsLoadingDesigns(true);
+    try {
+      const designs = await listDesigns(currentProjectId);
+      setDesignList(designs);
+    } catch (error) {
+      console.error("Error listing designs:", error);
+      toast.error(`Failed to load design list: ${error instanceof Error ? error.message : 'Unknown Error'}`);
+    } finally {
+      setIsLoadingDesigns(false);
+    }
   };
 
   const handleLoadFromCloud = async (designId: string) => {
