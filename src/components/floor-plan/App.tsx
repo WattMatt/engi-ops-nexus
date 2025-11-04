@@ -153,7 +153,8 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
   // Cloud State
   const [currentDesignId, setCurrentDesignId] = useState<string | null>(null);
   const [currentDesignName, setCurrentDesignName] = useState<string | null>(null);
-  const [currentProjectId, setCurrentProjectId] = useState<string | null>(projectId || null);
+  // Use the project ID from props (dashboard context) as the source of truth
+  const currentProjectId = projectId || null;
   const [isLoadDesignModalOpen, setIsLoadDesignModalOpen] = useState(false);
   const [designList, setDesignList] = useState<DesignListing[]>([]);
   const [isLoadingDesigns, setIsLoadingDesigns] = useState(false);
@@ -235,7 +236,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
     setIsSnappingEnabled(true);
     setCurrentDesignId(null);
     setCurrentDesignName(null);
-    setCurrentProjectId(projectId || null);
+    // Don't reset currentProjectId - it comes from dashboard context
   }
 
   useEffect(() => {
@@ -345,7 +346,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
           setPvPanelConfig(designData.pv_panel_config || null);
           setCurrentDesignId(designData.id);
           setCurrentDesignName(designData.name);
-          setCurrentProjectId(designData.project_id || null);
+          // Don't override the currentProjectId from dashboard context
 
           if (designData.design_purpose && purposeConfigs[designData.design_purpose as DesignPurpose]) {
               handleSelectPurpose(designData.design_purpose as DesignPurpose);
