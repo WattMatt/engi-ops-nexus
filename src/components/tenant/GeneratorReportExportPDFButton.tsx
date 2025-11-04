@@ -196,66 +196,69 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       const logoUrl = companySettings?.company_logo_url;
 
       // ========== COVER PAGE ==========
-      // Light blue/grey color for titles (matching reference)
-      const titleColor = [133, 163, 207]; // Light blue-grey
+      // Color definitions matching Word template
+      const titleColor = [133, 163, 207]; // Light blue for titles
+      const cyanColor = [0, 191, 255]; // Cyan for date/revision values
       
-      // Add left vertical accent bar (light blue gradient effect)
-      doc.setFillColor(220, 230, 240);
-      doc.rect(0, 0, 8, pageHeight, 'F');
+      // Add left vertical accent bar with gradient effect (light blue)
+      // Creating gradient-like effect with multiple rectangles
+      const barWidth = 8;
+      for (let i = 0; i < pageHeight; i += 5) {
+        const blueShade = 220 - (i / pageHeight) * 40; // Gradient from light to darker
+        doc.setFillColor(blueShade, blueShade + 15, 250);
+        doc.rect(0, i, barWidth, 5, 'F');
+      }
       
-      // Add right-side colored shape (large light blue rectangle)
-      doc.setFillColor(220, 235, 250); // Very light blue
-      const rightBoxWidth = 100;
-      const rightBoxHeight = pageHeight;
-      doc.rect(pageWidth - rightBoxWidth, 0, rightBoxWidth, rightBoxHeight, 'F');
-      
-      // Main titles - RIGHT-ALIGNED as per reference, positioned over the colored box
+      // Main titles - CENTERED on page (not right-aligned)
       doc.setTextColor(titleColor[0], titleColor[1], titleColor[2]);
-      doc.setFontSize(18);
+      doc.setFontSize(16);
       doc.setFont("helvetica", "bold");
-      doc.text("Financial Evaluation", pageWidth - 14, 70, { align: "right" });
+      doc.text("Financial Evaluation", pageWidth / 2, 65, { align: "center" });
       
-      yPos = 95;
-      doc.setFontSize(20);
-      doc.text(project.name || "Generator Report", pageWidth - 14, yPos, { align: "right" });
+      // Project name - larger heading
+      yPos = 90;
+      doc.setFontSize(22);
+      doc.text(project.name || "Generator Report", pageWidth / 2, yPos, { align: "center" });
       
-      yPos += 25;
+      // Subtitle
+      yPos += 30;
       doc.setFontSize(18);
-      doc.text("Centre Standby Plant", pageWidth - 14, yPos, { align: "right" });
+      doc.text("Centre Standby Plant", pageWidth / 2, yPos, { align: "center" });
       
-      // First horizontal divider line - positioned higher on page
-      yPos = 145;
+      // First horizontal divider line
+      yPos = 180;
       doc.setDrawColor(0, 0, 0);
-      doc.setLineWidth(0.5);
-      doc.line(14, yPos, pageWidth - 14, yPos);
+      doc.setLineWidth(1);
+      doc.line(20, yPos, pageWidth - 20, yPos);
       
-      // Company details section - left aligned with more top spacing
-      yPos = 158;
+      // Company details section
+      yPos = 192;
       doc.setTextColor(0, 0, 0);
-      doc.setFontSize(9);
+      doc.setFontSize(10);
       doc.setFont("helvetica", "bold");
-      doc.text("PREPARED BY:", 14, yPos);
+      doc.text("PREPARED BY:", 20, yPos);
+      
+      yPos += 8;
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.text("WATSON MATTHEUS CONSULTING ELECTRICAL ENGINEERS (PTY) LTD", 20, yPos);
       
       yPos += 6;
-      doc.setFont("helvetica", "normal");
-      doc.text("WATSON MATTHEUS CONSULTING ELECTRICAL ENGINEERS (PTY) LTD", 14, yPos);
+      doc.text("141 Which Hazel ave,", 20, yPos);
       
-      yPos += 5;
-      doc.text("141 Witch Hazel Ave,", 14, yPos);
+      yPos += 6;
+      doc.text("Highveld Techno Park", 20, yPos);
       
-      yPos += 5;
-      doc.text("Highveld Techno Park", 14, yPos);
+      yPos += 6;
+      doc.text("Building 1A", 20, yPos);
       
-      yPos += 5;
-      doc.text("Building 1A", 14, yPos);
+      yPos += 6;
+      doc.text("Tel: (012) 665 3487", 20, yPos);
       
-      yPos += 5;
-      doc.text("Tel: (012) 665 3487", 14, yPos);
+      yPos += 6;
+      doc.text("Contact: Mr Arno Mattheus", 20, yPos);
       
-      yPos += 5;
-      doc.text("Contact: Mr Arno Mattheus", 14, yPos);
-      
-      // Add company logo to the right of company details if available
+      // Add company logo to the right of company name line
       if (logoUrl) {
         try {
           const logoResponse = await fetch(logoUrl);
@@ -266,38 +269,41 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
             reader.readAsDataURL(logoBlob);
           });
           
-          // Position logo to the right of company details
-          const logoWidth = 35;
-          const logoHeight = 25;
-          const logoX = pageWidth - logoWidth - 20;
-          const logoY = 160;
+          // Position logo on the right side, aligned with company name
+          const logoWidth = 30;
+          const logoHeight = 22;
+          const logoX = pageWidth - logoWidth - 25;
+          const logoY = 198;
           doc.addImage(logoDataUrl, 'PNG', logoX, logoY, logoWidth, logoHeight);
         } catch (error) {
           console.error("Failed to add logo to PDF:", error);
         }
       }
       
-      // Second horizontal divider line - more spacing from company details
-      yPos = 202;
-      doc.line(14, yPos, pageWidth - 14, yPos);
+      // Second horizontal divider line
+      yPos = 240;
+      doc.setLineWidth(1);
+      doc.line(20, yPos, pageWidth - 20, yPos);
       
-      // Date and Revision - formatted like reference with cyan values, more spacing below line
-      yPos = 222;
-      doc.setFontSize(11);
+      // Date and Revision section
+      yPos = 258;
+      doc.setFontSize(12);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(0, 0, 0);
-      doc.text("DATE:", 14, yPos);
-      doc.text("REVISION:", 14, yPos + 10);
+      doc.text("DATE:", 20, yPos);
+      
+      yPos += 12;
+      doc.text("REVISION:", 20, yPos);
       
       // Values in cyan, right-aligned
-      doc.setTextColor(0, 191, 255); // Cyan color matching reference
+      doc.setTextColor(cyanColor[0], cyanColor[1], cyanColor[2]);
       doc.setFont("helvetica", "normal");
-      doc.text(format(new Date(), "EEEE, dd MMMM yyyy"), pageWidth - 14, yPos, { align: "right" });
-      doc.text(nextRevision.replace("Rev.", "Rev "), pageWidth - 14, yPos + 10, { align: "right" });
+      doc.text(format(new Date(), "EEEE, dd MMMM yyyy"), pageWidth - 20, 258, { align: "right" });
+      doc.text(nextRevision.replace("Rev.", "Rev "), pageWidth - 20, 270, { align: "right" });
       
       // Page number at bottom center
       doc.setTextColor(0, 0, 0);
-      doc.setFontSize(10);
+      doc.setFontSize(11);
       doc.text("1", pageWidth / 2, pageHeight - 15, { align: "center" });
 
       // ========== PAGE 2: EXECUTIVE SUMMARY ==========
