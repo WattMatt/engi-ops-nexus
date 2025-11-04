@@ -206,7 +206,14 @@ export function GeneratorSavedReportsList({ projectId }: GeneratorSavedReportsLi
                   <div className="flex items-center gap-3 flex-1">
                     <FileText className="h-5 w-5 text-primary" />
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{report.report_name}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium truncate">{report.report_name}</p>
+                        {report.revision && (
+                          <span className="px-2 py-0.5 text-xs font-semibold rounded-md bg-primary/10 text-primary">
+                            {report.revision}
+                          </span>
+                        )}
+                      </div>
                       <div className="flex items-center gap-3 text-sm text-muted-foreground">
                         <span>{format(new Date(report.generated_at), "MMM d, yyyy 'at' h:mm a")}</span>
                         {report.file_size && (

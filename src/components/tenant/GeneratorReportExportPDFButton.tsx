@@ -164,6 +164,22 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       const annualRepayment = totalCapitalCost * (numerator / denominator);
       const monthlyCapitalRepayment = annualRepayment / 12;
 
+      // Get the latest revision for this project
+      const { data: latestReport } = await supabase
+        .from("generator_reports")
+        .select("revision")
+        .eq("project_id", projectId)
+        .order("generated_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      // Calculate next revision number
+      let nextRevision = "Rev.0";
+      if (latestReport?.revision) {
+        const currentRevNum = parseInt(latestReport.revision.replace("Rev.", ""));
+        nextRevision = `Rev.${currentRevNum + 1}`;
+      }
+
       // ========== COVER PAGE ==========
       doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
@@ -198,7 +214,7 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       doc.setFont("helvetica", "bold");
       doc.text(`DATE: ${format(new Date(), "EEEE, dd MMMM yyyy")}`, pageWidth / 2, yPos, { align: "center" });
       yPos += 8;
-      doc.text("REVISION: Rev 1", pageWidth / 2, yPos, { align: "center" });
+      doc.text(`REVISION: ${nextRevision}`, pageWidth / 2, yPos, { align: "center" });
 
       // ========== PAGE 2: EXECUTIVE SUMMARY ==========
       doc.addPage();
@@ -1160,10 +1176,11 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
         .from("generator_reports")
         .insert({
           project_id: projectId,
-          report_name: `Generator Report - ${format(new Date(), "dd/MM/yyyy")}`,
+          report_name: `Generator Report - ${format(new Date(), "dd/MM/yyyy")} - ${nextRevision}`,
           file_path: filePath,
           file_size: pdfBlob.size,
           generated_by: user?.id,
+          revision: nextRevision,
         });
 
       if (dbError) throw dbError;
