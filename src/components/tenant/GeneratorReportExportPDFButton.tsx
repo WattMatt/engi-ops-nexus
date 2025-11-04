@@ -676,157 +676,287 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
-      doc.text("Operational cost analysis per generator zone", 14, yPos);
+      doc.text("Comparative operational cost analysis", 14, yPos);
       yPos += 15;
 
-      // For each zone, show detailed running cost breakdown
-      zones.forEach((zone, index) => {
-        const settings = allSettings.find(s => s.generator_zone_id === zone.id);
-        if (!settings) return;
+      // Expand zones into individual generators for display
+      const expandedGenerators = zones.flatMap(zone => {
+        const numGenerators = zone.num_generators || 1;
+        return Array.from({ length: numGenerators }, (_, index) => ({
+          zoneId: zone.id,
+          zoneName: zone.zone_name,
+          generatorSize: zone.generator_size,
+          generatorIndex: index + 1,
+          totalInZone: numGenerators,
+        }));
+      }).slice(0, 4); // Limit to 4 generators to fit on page
 
-        if (yPos > pageHeight - 80) {
-          doc.addPage();
-          yPos = 20;
-        }
+      // Build table header
+      const runningTableHeader = ["Parameter"];
+      expandedGenerators.forEach((gen, idx) => {
+        runningTableHeader.push(`Generator ${idx + 1}`);
+      });
 
-        doc.setFontSize(11);
-        doc.setFont("helvetica", "bold");
-        doc.text(`${index + 1}. ${zone.zone_name} - ${zone.generator_size}`, 14, yPos);
-        if (zone.num_generators > 1) {
-          doc.setFontSize(9);
-          doc.setFont("helvetica", "normal");
-          doc.text(`(${zone.num_generators} Synchronized Units)`, 70, yPos);
-        }
-        yPos += 10;
+      // Build table body with color-coded sections
+      const runningTableBody: any[] = [];
 
+      // ZONE INFORMATION SECTION (Gray background)
+      runningTableBody.push([
+        "Zone Name",
+        ...expandedGenerators.map(gen => `${gen.zoneName} (Unit ${gen.generatorIndex})`)
+      ]);
+      runningTableBody.push([
+        "Generator Size",
+        ...expandedGenerators.map(gen => gen.generatorSize)
+      ]);
+      runningTableBody.push([
+        "Synchronized Pair",
+        ...expandedGenerators.map(gen => gen.totalInZone > 1 ? `Yes (${gen.totalInZone} units)` : 'No')
+      ]);
+
+      // INPUT PARAMETERS HEADER
+      runningTableBody.push([{ 
+        content: "INPUT PARAMETERS", 
+        colSpan: expandedGenerators.length + 1,
+        styles: { halign: "center", fontStyle: "bold", fillColor: [235, 245, 255], textColor: [41, 128, 185] }
+      }]);
+
+      // For each unique zone, add input parameter rows
+      const uniqueZones = Array.from(new Set(expandedGenerators.map(g => g.zoneId)));
+      
+      // Running Load
+      const runningLoadRow = ["Running Load (%)"];
+      expandedGenerators.forEach(gen => {
+        const settings = allSettings.find(s => s.generator_zone_id === gen.zoneId);
+        runningLoadRow.push(settings ? Number(settings.running_load).toFixed(0) : "-");
+      });
+      runningTableBody.push(runningLoadRow);
+
+      // Net Energy
+      const netEnergyRow = ["Net Energy (kVA)"];
+      expandedGenerators.forEach(gen => {
+        const settings = allSettings.find(s => s.generator_zone_id === gen.zoneId);
+        netEnergyRow.push(settings ? Number(settings.net_energy_kva).toFixed(0) : "-");
+      });
+      runningTableBody.push(netEnergyRow);
+
+      // kVA to kWh Factor
+      const conversionRow = ["kVA to kWh Factor"];
+      expandedGenerators.forEach(gen => {
+        const settings = allSettings.find(s => s.generator_zone_id === gen.zoneId);
+        conversionRow.push(settings ? Number(settings.kva_to_kwh_conversion).toFixed(2) : "-");
+      });
+      runningTableBody.push(conversionRow);
+
+      // Fuel Rate
+      const fuelRateRow = ["Fuel Rate (L/h per unit)"];
+      expandedGenerators.forEach(gen => {
+        const settings = allSettings.find(s => s.generator_zone_id === gen.zoneId);
+        fuelRateRow.push(settings ? Number(settings.fuel_consumption_rate).toFixed(2) : "-");
+      });
+      runningTableBody.push(fuelRateRow);
+
+      // Diesel Price
+      const dieselPriceRow = ["Diesel Price (R/L)"];
+      expandedGenerators.forEach(gen => {
+        const settings = allSettings.find(s => s.generator_zone_id === gen.zoneId);
+        dieselPriceRow.push(settings ? formatCurrency(Number(settings.diesel_price_per_litre)) : "-");
+      });
+      runningTableBody.push(dieselPriceRow);
+
+      // Servicing Cost/Year
+      const servicingYearRow = ["Servicing Cost/Year (R)"];
+      expandedGenerators.forEach(gen => {
+        const settings = allSettings.find(s => s.generator_zone_id === gen.zoneId);
+        servicingYearRow.push(settings ? formatCurrency(Number(settings.servicing_cost_per_year)) : "-");
+      });
+      runningTableBody.push(servicingYearRow);
+
+      // Servicing Cost/250h
+      const servicing250Row = ["Servicing Cost/250h (R)"];
+      expandedGenerators.forEach(gen => {
+        const settings = allSettings.find(s => s.generator_zone_id === gen.zoneId);
+        servicing250Row.push(settings ? formatCurrency(Number(settings.servicing_cost_per_250_hours)) : "-");
+      });
+      runningTableBody.push(servicing250Row);
+
+      // Expected Hours/Month
+      const expectedHoursRow = ["Expected Hours/Month"];
+      expandedGenerators.forEach(gen => {
+        const settings = allSettings.find(s => s.generator_zone_id === gen.zoneId);
+        expectedHoursRow.push(settings ? Number(settings.expected_hours_per_month).toFixed(0) : "-");
+      });
+      runningTableBody.push(expectedHoursRow);
+
+      // CALCULATED VALUES HEADER
+      runningTableBody.push([{ 
+        content: "CALCULATED VALUES", 
+        colSpan: expandedGenerators.length + 1,
+        styles: { halign: "center", fontStyle: "bold", fillColor: [235, 245, 255], textColor: [41, 128, 185] }
+      }]);
+
+      // Calculate values for each generator
+      const calculatedValues = expandedGenerators.map(gen => {
+        const settings = allSettings.find(s => s.generator_zone_id === gen.zoneId);
+        const zone = zones.find(z => z.id === gen.zoneId);
+        
+        if (!settings || !zone) return null;
+
+        const numGenerators = zone.num_generators || 1;
         const netEnergyKVA = Number(settings.net_energy_kva);
         const kvaToKwhConversion = Number(settings.kva_to_kwh_conversion);
-        const netEnergyKWh = netEnergyKVA * kvaToKwhConversion;
-        const runningLoad = Number(settings.running_load);
-
-        autoTable(doc, {
-          startY: yPos,
-          body: [
-            ["Running Load (Correction already made in sizing)", `${runningLoad}%`],
-            ["Net energy generated (usable kVA)", netEnergyKVA.toFixed(2)],
-            ["Convert kVA to kWh", kvaToKwhConversion.toFixed(2)],
-            ["Net total energy generated (usable kWh)", netEnergyKWh.toFixed(2)],
-          ],
-          theme: "plain",
-          styles: { fontSize: 9 },
-          columnStyles: {
-            0: { fontStyle: "bold", cellWidth: 100 },
-            1: { halign: "right", cellWidth: 50 },
-          },
-          margin: { left: 20, right: 14 },
-        });
-
-        yPos = (doc as any).lastAutoTable.finalY + 8;
-
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        doc.text("FUEL CONSUMPTION", 14, yPos);
-        yPos += 6;
-
+        const netTotalEnergyKWh = netEnergyKVA * kvaToKwhConversion * numGenerators;
+        const expectedHours = Number(settings.expected_hours_per_month);
+        const monthlyEnergyKWh = netTotalEnergyKWh * expectedHours;
+        
         const fuelRate = Number(settings.fuel_consumption_rate);
         const dieselPrice = Number(settings.diesel_price_per_litre);
-        const costPerHour = fuelRate * dieselPrice;
-        const expectedHours = Number(settings.expected_hours_per_month);
-        const monthlyEnergy = netEnergyKWh * expectedHours;
-        const dieselCostPerKWh = netEnergyKWh > 0 ? costPerHour / netEnergyKWh : 0;
-
-        autoTable(doc, {
-          startY: yPos,
-          body: [
-            ["Assumed running load on generators", `${runningLoad}%`],
-            ["Fuel Consumption @ 100%", fuelRate.toFixed(2)],
-            ["Cost of diesel per litre", formatCurrency(dieselPrice)],
-            ["Total cost of diesel per hour", formatCurrency(costPerHour)],
-          ],
-          theme: "plain",
-          styles: { fontSize: 9 },
-          columnStyles: {
-            0: { fontStyle: "bold", cellWidth: 100 },
-            1: { halign: "right", cellWidth: 50 },
-          },
-          margin: { left: 20, right: 14 },
-        });
-
-        yPos = (doc as any).lastAutoTable.finalY + 8;
-
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "bold");
-        doc.text(`Monthly diesel cost /kWh: R ${dieselCostPerKWh.toFixed(2)}`, 20, yPos);
-        yPos += 10;
-
-        // Maintenance costs
-        doc.setFontSize(12);
-        doc.text("MAINTENANCE COST", 14, yPos);
-        yPos += 6;
-
+        const totalDieselCostPerHour = fuelRate * dieselPrice * numGenerators;
+        const monthlyDieselCost = totalDieselCostPerHour * expectedHours;
+        
         const servicingPerYear = Number(settings.servicing_cost_per_year);
         const servicingPer250Hours = Number(settings.servicing_cost_per_250_hours);
         const servicingPerMonth = servicingPerYear / 12;
         const servicingByHours = (servicingPer250Hours / 250) * expectedHours;
         const additionalServicing = Math.max(0, servicingByHours - servicingPerMonth);
-        const servicingPerKWh = monthlyEnergy > 0 ? additionalServicing / monthlyEnergy : 0;
+        
+        const monthlyDieselCostPerKWh = netTotalEnergyKWh > 0 ? totalDieselCostPerHour / netTotalEnergyKWh : 0;
+        const totalServicesCostPerKWh = monthlyEnergyKWh > 0 ? additionalServicing / monthlyEnergyKWh : 0;
+        const totalTariffBeforeContingency = monthlyDieselCostPerKWh + totalServicesCostPerKWh;
+        const maintenanceContingency = totalTariffBeforeContingency * 0.1;
+        const totalTariff = totalTariffBeforeContingency + maintenanceContingency;
 
-        autoTable(doc, {
-          startY: yPos,
-          body: [
-            ["Cost of servicing units per year", formatCurrency(servicingPerYear)],
-            ["Months", "12.00"],
-            ["Cost of servicing units per month", formatCurrency(servicingPerMonth)],
-            ["Cost of Servicing units per 250 hours", formatCurrency(servicingPer250Hours)],
-            ["Expected hours per Month", expectedHours.toFixed(2)],
-            ["Cost of servicing units per month", formatCurrency(servicingByHours)],
-            ["Additional Cost of Servicing - above Annual Cost", formatCurrency(additionalServicing)],
-          ],
-          theme: "plain",
-          styles: { fontSize: 9 },
-          columnStyles: {
-            0: { fontStyle: "bold", cellWidth: 100 },
-            1: { halign: "right", cellWidth: 50 },
-          },
-          margin: { left: 20, right: 14 },
-        });
-
-        yPos = (doc as any).lastAutoTable.finalY + 8;
-
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "bold");
-        doc.text(`Total Services cost per kWH (Excluding Annual Service): R ${servicingPerKWh.toFixed(2)}`, 20, yPos);
-        yPos += 10;
-
-        // Total cost summary
-        doc.setFontSize(12);
-        doc.text("Total Cost per kWH", 14, yPos);
-        yPos += 6;
-
-        const totalBeforeContingency = dieselCostPerKWh + servicingPerKWh;
-        const contingency = totalBeforeContingency * 0.1;
-        const totalTariff = totalBeforeContingency + contingency;
-
-        autoTable(doc, {
-          startY: yPos,
-          body: [
-            ["TOTAL FUEL COST", `R ${dieselCostPerKWh.toFixed(2)}`],
-            ["TOTAL MAINTENANCE COST", `R ${servicingPerKWh.toFixed(2)}`],
-            ["TOTAL TARIFF FOR USE KWH", `R ${totalBeforeContingency.toFixed(2)}`],
-            ["MAINTENANCE CONTINGENCY", `R ${contingency.toFixed(2)}`],
-            ["TOTAL TARIFF FOR USE KWH", `R ${totalTariff.toFixed(2)}`],
-          ],
-          theme: "plain",
-          styles: { fontSize: 9 },
-          columnStyles: {
-            0: { fontStyle: "bold", cellWidth: 100 },
-            1: { halign: "right", fontStyle: "bold", cellWidth: 50 },
-          },
-          margin: { left: 20, right: 14 },
-        });
-
-        yPos = (doc as any).lastAutoTable.finalY + 15;
+        return {
+          totalEnergy: netTotalEnergyKWh,
+          monthlyEnergy: monthlyEnergyKWh,
+          dieselCostPerHour: totalDieselCostPerHour,
+          monthlyDieselCost: monthlyDieselCost,
+          monthlyServicingCost: additionalServicing,
+          tariff: totalTariff
+        };
       });
+
+      // Total Energy (kWh)
+      const totalEnergyRow = ["Total Energy (kWh)"];
+      calculatedValues.forEach(val => {
+        totalEnergyRow.push(val ? val.totalEnergy.toFixed(2) : "-");
+      });
+      runningTableBody.push(totalEnergyRow);
+
+      // Monthly Energy (kWh)
+      const monthlyEnergyRow = ["Monthly Energy (kWh)"];
+      calculatedValues.forEach(val => {
+        monthlyEnergyRow.push(val ? val.monthlyEnergy.toFixed(2) : "-");
+      });
+      runningTableBody.push(monthlyEnergyRow);
+
+      // Diesel Cost/Hour (R)
+      const dieselCostHourRow = ["Diesel Cost/Hour (R)"];
+      calculatedValues.forEach(val => {
+        dieselCostHourRow.push(val ? formatCurrency(val.dieselCostPerHour) : "-");
+      });
+      runningTableBody.push(dieselCostHourRow);
+
+      // Monthly Diesel Cost (R)
+      const monthlyDieselRow = ["Monthly Diesel Cost (R)"];
+      calculatedValues.forEach(val => {
+        monthlyDieselRow.push(val ? formatCurrency(val.monthlyDieselCost) : "-");
+      });
+      runningTableBody.push(monthlyDieselRow);
+
+      // Monthly Servicing Cost (R)
+      const monthlyServicingRow = ["Monthly Servicing Cost (R)"];
+      calculatedValues.forEach(val => {
+        monthlyServicingRow.push(val ? formatCurrency(val.monthlyServicingCost) : "-");
+      });
+      runningTableBody.push(monthlyServicingRow);
+
+      // TARIFF PER kWh (R) - Highlighted row
+      const tariffRow = ["TARIFF PER kWh (R)"];
+      calculatedValues.forEach(val => {
+        tariffRow.push(val ? `R ${val.tariff.toFixed(4)}` : "-");
+      });
+      runningTableBody.push(tariffRow);
+
+      // Calculate dynamic column widths
+      const paramColWidth = 55;
+      const generatorColWidth = (pageWidth - 28 - paramColWidth) / expandedGenerators.length;
+      
+      const runningColumnStyles: any = {
+        0: { cellWidth: paramColWidth },
+      };
+      
+      for (let i = 0; i < expandedGenerators.length; i++) {
+        runningColumnStyles[i + 1] = { cellWidth: generatorColWidth, halign: "center" };
+      }
+
+      autoTable(doc, {
+        startY: yPos,
+        head: [runningTableHeader],
+        body: runningTableBody,
+        theme: "grid",
+        headStyles: { fillColor: [41, 128, 185], textColor: 255, fontSize: 9 },
+        styles: { fontSize: 8, cellPadding: 2 },
+        columnStyles: runningColumnStyles,
+        margin: { left: 14, right: 14 },
+        willDrawCell: (data) => {
+          // Zone Information rows (gray background)
+          if (data.section === 'body' && data.row.index >= 0 && data.row.index <= 2) {
+            data.cell.styles.fillColor = [248, 248, 248];
+            if (data.column.index === 0) {
+              data.cell.styles.fontStyle = 'bold';
+            }
+          }
+          // Make parameter labels bold (first column)
+          if (data.section === 'body' && data.column.index === 0 && data.row.index > 3 && data.row.index !== 4 && data.row.index !== 13) {
+            data.cell.styles.fontStyle = 'bold';
+          }
+          // Tariff row (accent background and larger font)
+          if (data.section === 'body' && data.row.index === runningTableBody.length - 1) {
+            data.cell.styles.fillColor = [255, 250, 240];
+            data.cell.styles.textColor = [41, 128, 185];
+            data.cell.styles.fontStyle = 'bold';
+            data.cell.styles.fontSize = 10;
+          }
+        },
+      });
+
+      yPos = (doc as any).lastAutoTable.finalY + 15;
+
+      // Summary Card - Average Recovery Tariff
+      const avgTariff = calculatedValues.filter(v => v !== null).reduce((sum, v) => sum + v!.tariff, 0) / calculatedValues.filter(v => v !== null).length;
+      const totalSyncPairs = uniqueZones.length;
+
+      // Create a bordered summary box
+      doc.setDrawColor(41, 128, 185); // Primary blue border
+      doc.setLineWidth(1);
+      doc.rect(14, yPos, pageWidth - 28, 35);
+
+      yPos += 8;
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("Average Recovery Tariff", pageWidth / 2, yPos, { align: "center" });
+      
+      yPos += 6;
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(100, 100, 100);
+      doc.text(`Average tariff across ${expandedGenerators.length} generators (${totalSyncPairs} synchronized pairs)`, pageWidth / 2, yPos, { align: "center" });
+      
+      yPos += 8;
+      doc.setFontSize(18);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(41, 128, 185); // Primary blue
+      doc.text(`R ${avgTariff.toFixed(4)}`, pageWidth / 2, yPos, { align: "center" });
+      
+      yPos += 6;
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(100, 100, 100);
+      doc.text("per kWh (including 10% contingency)", pageWidth / 2, yPos, { align: "center" });
+      
+      // Reset text color
+      doc.setTextColor(0, 0, 0);
 
       // Save PDF to blob
       const pdfBlob = doc.output("blob");
