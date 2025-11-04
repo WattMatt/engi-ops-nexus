@@ -18,7 +18,7 @@ export interface DesignDataForSave {
     scaleLine: { start: { x: number; y: number }; end: { x: number; y: number } } | null;
 }
 
-export const saveDesign = async (designName: string, designData: DesignDataForSave, pdfFile: File): Promise<string> => {
+export const saveDesign = async (designName: string, designData: DesignDataForSave, pdfFile: File, projectId?: string | null): Promise<string> => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("User not authenticated.");
 
@@ -37,6 +37,7 @@ export const saveDesign = async (designName: string, designData: DesignDataForSa
             design_purpose: designData.designPurpose,
             pdf_url: pdfPath,
             scale_meters_per_pixel: designData.scaleInfo.ratio,
+            project_id: projectId || null,
             state_json: {
                 scaleInfo: designData.scaleInfo,
                 pvPanelConfig: designData.pvPanelConfig,
@@ -279,6 +280,7 @@ export interface FullDesignData {
     name: string;
     pdf_url: string;
     design_purpose: DesignPurpose | null;
+    project_id: string | null;
     scale_info: ScaleInfo;
     pv_panel_config: PVPanelConfig | null;
     equipment: EquipmentItem[];
@@ -394,6 +396,7 @@ export const loadDesign = async (designId: string): Promise<{ designData: FullDe
         name: project.name,
         pdf_url: project.pdf_url,
         design_purpose: project.design_purpose as DesignPurpose | null,
+        project_id: project.project_id || null,
         scale_info: stateJson.scaleInfo || { pixelDistance: null, realDistance: null, ratio: project.scale_meters_per_pixel },
         scale_line: stateJson.scaleLine || null,
         pv_panel_config: pvConfig ? {

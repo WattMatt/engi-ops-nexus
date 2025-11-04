@@ -19,6 +19,7 @@ import PVArrayModal, { PVArrayConfig } from './components/PVArrayModal';
 import LoadDesignModal from './components/LoadDesignModal';
 import TaskModal from './components/TaskModal';
 import { ToastProvider, useToast } from './components/ToastProvider';
+import { ProjectSelector } from './components/ProjectSelector';
 import { 
     saveDesign,
     updateDesign,
@@ -152,6 +153,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
   // Cloud State
   const [currentDesignId, setCurrentDesignId] = useState<string | null>(null);
   const [currentDesignName, setCurrentDesignName] = useState<string | null>(null);
+  const [currentProjectId, setCurrentProjectId] = useState<string | null>(projectId || null);
   const [isLoadDesignModalOpen, setIsLoadDesignModalOpen] = useState(false);
   const [designList, setDesignList] = useState<DesignListing[]>([]);
   const [isLoadingDesigns, setIsLoadingDesigns] = useState(false);
@@ -233,6 +235,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
     setIsSnappingEnabled(true);
     setCurrentDesignId(null);
     setCurrentDesignName(null);
+    setCurrentProjectId(projectId || null);
   }
 
   useEffect(() => {
@@ -287,7 +290,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
                 return;
             }
             
-            const newDesignId = await saveDesign(designName, designData, pdfFile);
+            const newDesignId = await saveDesign(designName, designData, pdfFile, currentProjectId);
             setCurrentDesignId(newDesignId);
             setCurrentDesignName(designName);
             toast.success(`Design '${designName}' saved successfully!`);
@@ -342,6 +345,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
           setPvPanelConfig(designData.pv_panel_config || null);
           setCurrentDesignId(designData.id);
           setCurrentDesignName(designData.name);
+          setCurrentProjectId(designData.project_id || null);
 
           if (designData.design_purpose && purposeConfigs[designData.design_purpose as DesignPurpose]) {
               handleSelectPurpose(designData.design_purpose as DesignPurpose);
@@ -652,17 +656,26 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
       <main ref={mainContainerRef} className="flex-1 min-w-0 flex flex-col relative overflow-hidden bg-background">
           {!pdfDoc ? (
              <div className="flex-1 flex justify-center items-center bg-muted/30">
-                <div className="text-center p-8 border-2 border-dashed border-border rounded-lg animate-fade-in">
+                <div className="text-center p-8 border-2 border-dashed border-border rounded-lg animate-fade-in max-w-md">
                     <Building className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
                     <h2 className="text-2xl font-semibold text-foreground">Load a PDF Floor Plan</h2>
                     <p className="mt-2 text-muted-foreground">Use the toolbar on the left to begin your project.</p>
                     {user && (
-                      <button 
-                        onClick={handleOpenLoadModal}
-                        className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
-                      >
-                        View My Saved Designs
-                      </button>
+                      <>
+                        <div className="mt-4">
+                          <ProjectSelector 
+                            value={currentProjectId} 
+                            onChange={setCurrentProjectId}
+                            userId={user.id}
+                          />
+                        </div>
+                        <button 
+                          onClick={handleOpenLoadModal}
+                          className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
+                        >
+                          View My Saved Designs
+                        </button>
+                      </>
                     )}
                 </div>
             </div>
@@ -712,7 +725,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
         existingCableTypes={uniqueCableTypes} 
         purposeConfig={purposeConfig}
         calculatedLength={pendingLine ? pendingLine.length : 0}
-        projectId={projectId}
+        projectId={currentProjectId || undefined}
       />
       <ContainmentDetailsModal isOpen={isContainmentModalOpen} onClose={() => { setIsContainmentModalOpen(false); setPendingContainment(null); }} onSubmit={handleContainmentDetailsSubmit} purposeConfig={purposeConfig} />
       <ExportPreviewModal isOpen={isExportModalOpen} onClose={() => setIsExportModalOpen(false)} onConfirm={handleConfirmExport} equipment={equipment} lines={lines} zones={zones} containment={containment} pvPanelConfig={pvPanelConfig} pvArrays={pvArrays} />
