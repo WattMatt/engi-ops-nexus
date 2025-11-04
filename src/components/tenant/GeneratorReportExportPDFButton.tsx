@@ -123,7 +123,25 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       const doc = new jsPDF(formattingSettings.page_orientation, 'mm', 'a4');
       const pageWidth = doc.internal.pageSize.width;
       const pageHeight = doc.internal.pageSize.height;
-      let yPos = 20;
+      let yPos = formattingSettings.margins.top;
+      
+      // Apply default font settings
+      doc.setFont(formattingSettings.font_family);
+      
+      // Helper to convert hex to RGB
+      const hexToRgb = (hex: string) => {
+        const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+        return result ? {
+          r: parseInt(result[1], 16),
+          g: parseInt(result[2], 16),
+          b: parseInt(result[3], 16)
+        } : { r: 30, g: 64, b: 175 };
+      };
+      
+      const primaryColor = hexToRgb(formattingSettings.primary_color);
+      const secondaryColor = hexToRgb(formattingSettings.secondary_color);
+      const tableHeaderColor = hexToRgb(formattingSettings.table_style.headerBg);
+      const tableTextColor = hexToRgb(formattingSettings.table_style.headerColor);
 
       // Calculate total costs for executive summary
       const totalGeneratorCost = zones.reduce((sum, zone) => {
@@ -164,39 +182,91 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       const monthlyCapitalRepayment = annualRepayment / 12;
 
       // ========== COVER PAGE ==========
-      doc.setFontSize(14);
-      doc.setFont("helvetica", "bold");
-      doc.text("Financial Evaluation", pageWidth / 2, 80, { align: "center" });
-      
-      yPos = 100;
-      doc.setFontSize(20);
-      doc.text(project.name || "Generator Report", pageWidth / 2, yPos, { align: "center" });
-      
-      yPos += 15;
-      doc.setFontSize(16);
-      doc.text("Centre Standby Plant", pageWidth / 2, yPos, { align: "center" });
-      
-      // Company details
-      yPos = 160;
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "bold");
-      doc.text("PREPARED BY:", pageWidth / 2, yPos, { align: "center" });
-      yPos += 8;
-      doc.setFont("helvetica", "normal");
-      doc.text("WATSON MATTHEUS CONSULTING ELECTRICAL ENGINEERS (PTY) LTD", pageWidth / 2, yPos, { align: "center" });
-      yPos += 6;
-      doc.text("141 Witch Hazel Ave, Highveld Techno Park", pageWidth / 2, yPos, { align: "center" });
-      yPos += 6;
-      doc.text("Building 1A", pageWidth / 2, yPos, { align: "center" });
-      yPos += 6;
-      doc.text("Tel: (012) 665 3487", pageWidth / 2, yPos, { align: "center" });
-      yPos += 6;
-      doc.text("Contact: Mr Arno Mattheus", pageWidth / 2, yPos, { align: "center" });
-      
-      yPos = 220;
-      doc.setFont("helvetica", "bold");
-      doc.text(`DATE: ${format(new Date(), "EEEE, dd MMMM yyyy")}`, pageWidth / 2, yPos, { align: "center" });
-      yPos += 8;
+      if (formattingSettings.include_cover_page) {
+        // Add company logo if available
+        if (formattingSettings.company_logo_url) {
+          try {
+            doc.addImage(formattingSettings.company_logo_url, 'PNG', pageWidth / 2 - 25, 30, 50, 50);
+          } catch (e) {
+            console.error('Failed to add logo:', e);
+          }
+        }
+        
+        doc.setFontSize(14);
+        doc.setFont(formattingSettings.font_family, "bold");
+        doc.setTextColor(primaryColor.r, primaryColor.g, primaryColor.b);
+        doc.text("Financial Evaluation", pageWidth / 2, formattingSettings.company_logo_url ? 90 : 80, { align: "center" });
+        
+        yPos = formattingSettings.company_logo_url ? 110 : 100;
+        doc.setFontSize(20);
+        doc.text(project.name || "Generator Report", pageWidth / 2, yPos, { align: "center" });
+        
+        yPos += 15;
+        doc.setFontSize(16);
+        doc.text("Centre Standby Plant", pageWidth / 2, yPos, { align: "center" });
+        
+        // Company details from settings
+        yPos = 160;
+        doc.setFontSize(10);
+        doc.setFont(formattingSettings.font_family, "bold");
+        doc.setTextColor(0, 0, 0);
+        doc.text("PREPARED BY:", pageWidth / 2, yPos, { align: "center" });
+        yPos += 8;
+        doc.setFont(formattingSettings.font_family, "normal");
+        
+        if (formattingSettings.company_name) {
+          doc.text(formattingSettings.company_name.toUpperCase(), pageWidth / 2, yPos, { align: "center" });
+          yPos += 6;
+        }
+        
+        if (formattingSettings.company_tagline) {
+          doc.text(formattingSettings.company_tagline, pageWidth / 2, yPos, { align: "center" });
+          yPos += 6;
+        }
+        
+        // Contact info from settings
+        if (formattingSettings.company_contact && typeof formattingSettings.company_contact === 'string') {
+          const contactLines = formattingSettings.company_contact.split('\n');
+          contactLines.forEach(line => {
+            doc.text(line, pageWidth / 2, yPos, { align: "center" });
+            yPos += 6;
+          });
+        } else {
+          // Fallback to default
+          doc.text("WATSON MATTHEUS CONSULTING ELECTRICAL ENGINEERS (PTY) LTD", pageWidth / 2, yPos, { align: "center" });
+          yPos += 6;
+          doc.text("141 Witch Hazel Ave, Highveld Techno Park", pageWidth / 2, yPos, { align: "center" });
+          yPos += 6;
+          doc.text("Building 1A", pageWidth / 2, yPos, { align: "center" });
+          yPos += 6;
+          doc.text("Tel: (012) 665 3487", pageWidth / 2, yPos, { align: "center" });
+          yPos += 6;
+          doc.text("Contact: Mr Arno Mattheus", pageWidth / 2, yPos, { align: "center" });
+        }
+        
+        yPos = 220;
+        doc.setFont(formattingSettings.font_family, "bold");
+        if (formattingSettings.show_date) {
+          doc.text(`DATE: ${format(new Date(), "EEEE, dd MMMM yyyy")}`, pageWidth / 2, yPos, { align: "center" });
+          yPos += 8;
+        }
+        if (formattingSettings.author_name) {
+          doc.text(`PREPARED BY: ${formattingSettings.author_name}`, pageWidth / 2, yPos, { align: "center" });
+        }
+        
+        // Add watermark if configured
+        if (formattingSettings.watermark_text) {
+          doc.setFontSize(60);
+          doc.setTextColor(200, 200, 200, formattingSettings.watermark_opacity);
+          doc.text(formattingSettings.watermark_text, pageWidth / 2, pageHeight / 2, {
+            align: 'center',
+            angle: 45
+          });
+        }
+        
+        doc.addPage();
+        yPos = formattingSettings.margins.top;
+      }
       doc.text("REVISION: Rev 1", pageWidth / 2, yPos, { align: "center" });
 
       // ========== PAGE 2: EXECUTIVE SUMMARY ==========
@@ -830,6 +900,25 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
 
         yPos = (doc as any).lastAutoTable.finalY + 15;
       });
+      
+      // Add page numbers if enabled
+      if (formattingSettings.show_page_numbers) {
+        const pageCount = doc.getNumberOfPages();
+        doc.setFontSize(formattingSettings.footer_style.fontSize);
+        doc.setFont(formattingSettings.font_family, 'normal');
+        const footerColor = hexToRgb(formattingSettings.footer_style.color);
+        doc.setTextColor(footerColor.r, footerColor.g, footerColor.b);
+        
+        for (let i = 1; i <= pageCount; i++) {
+          doc.setPage(i);
+          doc.text(
+            `Page ${i} of ${pageCount}`,
+            pageWidth / 2,
+            pageHeight - formattingSettings.margins.bottom + 5,
+            { align: 'center' }
+          );
+        }
+      }
 
       // Save PDF to blob
       const pdfBlob = doc.output("blob");
