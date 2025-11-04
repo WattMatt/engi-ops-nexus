@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { FileText, Loader2 } from "lucide-react";
 
 export interface ReportOptions {
@@ -18,6 +19,7 @@ export interface ReportOptions {
   includeKPIPage: boolean;
   includeTenantSchedule: boolean;
   includeFloorPlan: boolean;
+  kpiLayout: 'compact' | 'detailed';
   tenantFields: {
     shopNumber: boolean;
     shopName: boolean;
@@ -52,6 +54,7 @@ export const ReportOptionsDialog = ({
     includeKPIPage: true,
     includeTenantSchedule: true,
     includeFloorPlan: true,
+    kpiLayout: 'compact',
     tenantFields: {
       shopNumber: true,
       shopName: true,
@@ -74,6 +77,7 @@ export const ReportOptionsDialog = ({
       includeKPIPage: true,
       includeTenantSchedule: true,
       includeFloorPlan: true,
+      kpiLayout: 'compact',
       tenantFields: {
         shopNumber: true,
         shopName: true,
@@ -97,6 +101,7 @@ export const ReportOptionsDialog = ({
       includeKPIPage: false,
       includeTenantSchedule: false,
       includeFloorPlan: false,
+      kpiLayout: 'compact',
       tenantFields: {
         shopNumber: false,
         shopName: false,
@@ -156,17 +161,45 @@ export const ReportOptionsDialog = ({
                 </Label>
               </div>
 
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="kpiPage"
-                  checked={options.includeKPIPage}
-                  onCheckedChange={(checked) =>
-                    setOptions({ ...options, includeKPIPage: checked as boolean })
-                  }
-                />
-                <Label htmlFor="kpiPage" className="cursor-pointer">
-                  KPI Summary Page
-                </Label>
+              <div className="space-y-3">
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="kpiPage"
+                    checked={options.includeKPIPage}
+                    onCheckedChange={(checked) =>
+                      setOptions({ ...options, includeKPIPage: checked as boolean })
+                    }
+                  />
+                  <Label htmlFor="kpiPage" className="cursor-pointer">
+                    KPI Summary Page
+                  </Label>
+                </div>
+                
+                {options.includeKPIPage && (
+                  <div className="ml-6 space-y-2">
+                    <Label className="text-xs text-muted-foreground">Layout Style</Label>
+                    <RadioGroup
+                      value={options.kpiLayout}
+                      onValueChange={(value: 'compact' | 'detailed') =>
+                        setOptions({ ...options, kpiLayout: value })
+                      }
+                      className="flex gap-4"
+                    >
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="compact" id="compact" />
+                        <Label htmlFor="compact" className="cursor-pointer font-normal">
+                          Compact
+                        </Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="detailed" id="detailed" />
+                        <Label htmlFor="detailed" className="cursor-pointer font-normal">
+                          Detailed
+                        </Label>
+                      </div>
+                    </RadioGroup>
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center space-x-2">

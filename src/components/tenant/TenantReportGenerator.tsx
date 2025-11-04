@@ -65,14 +65,36 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     
+    // Layout configuration based on mode
+    const isCompact = options.kpiLayout === 'compact';
+    const fontSize = {
+      title: isCompact ? 20 : 24,
+      cardLabel: isCompact ? 8 : 9,
+      cardValue: isCompact ? 18 : 22,
+      cardValueSmall: isCompact ? 14 : 16,
+      cardValueLarge: isCompact ? 12 : 14,
+      sectionTitle: isCompact ? 10 : 12,
+      legendText: isCompact ? 8 : 9,
+      progressLabel: isCompact ? 7 : 8,
+      progressPercent: isCompact ? 7 : 8,
+    };
+    const spacing = {
+      headerHeight: isCompact ? 30 : 40,
+      cardHeight: isCompact ? 25 : 32,
+      cardSpacing: isCompact ? 8 : 12,
+      sectionSpacing: isCompact ? 12 : 18,
+      chartRadius: isCompact ? 16 : 22,
+      progressRow: isCompact ? 14 : 18,
+    };
+    
     // Header section
     doc.setFillColor(41, 128, 185);
-    doc.rect(0, 0, pageWidth, 30, 'F');
+    doc.rect(0, 0, pageWidth, spacing.headerHeight, 'F');
     
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(20);
+    doc.setFontSize(fontSize.title);
     doc.setFont("helvetica", "bold");
-    doc.text("Project Overview & KPIs", 20, 20);
+    doc.text("Project Overview & KPIs", 20, spacing.headerHeight / 2 + 3);
 
     // Calculate metrics
     const totalTenants = tenants.length;
@@ -90,11 +112,11 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
     const sowReceived = tenants.filter(t => t.sow_received).length;
     const layoutReceived = tenants.filter(t => t.layout_received).length;
 
-    let yPos = 40;
+    let yPos = spacing.headerHeight + (isCompact ? 10 : 15);
 
     // KPI Cards in 2-column grid
     const cardWidth = (pageWidth - 50) / 2;
-    const cardHeight = 25;
+    const cardHeight = spacing.cardHeight;
     const cardSpacing = 10;
     const leftColX = 20;
     const rightColX = 20 + cardWidth + cardSpacing;
@@ -106,14 +128,14 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
     doc.roundedRect(leftColX, yPos, cardWidth, cardHeight, 2, 2, 'FD');
     
     doc.setTextColor(71, 85, 105);
-    doc.setFontSize(8);
+    doc.setFontSize(fontSize.cardLabel);
     doc.setFont("helvetica", "normal");
-    doc.text("TOTAL TENANTS", leftColX + 4, yPos + 7);
+    doc.text("TOTAL TENANTS", leftColX + 4, yPos + (isCompact ? 7 : 9));
     
     doc.setTextColor(15, 23, 42);
-    doc.setFontSize(18);
+    doc.setFontSize(fontSize.cardValue);
     doc.setFont("helvetica", "bold");
-    doc.text(totalTenants.toString(), leftColX + 4, yPos + 19);
+    doc.text(totalTenants.toString(), leftColX + 4, yPos + (isCompact ? 19 : 23));
 
     // Card 2: Total Area (if area field selected)
     if (options.tenantFields.area) {
@@ -121,16 +143,16 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
       doc.roundedRect(rightColX, yPos, cardWidth, cardHeight, 2, 2, 'FD');
       
       doc.setTextColor(71, 85, 105);
-      doc.setFontSize(8);
-      doc.text("TOTAL AREA", rightColX + 4, yPos + 7);
+      doc.setFontSize(fontSize.cardLabel);
+      doc.text("TOTAL AREA", rightColX + 4, yPos + (isCompact ? 7 : 9));
       
       doc.setTextColor(15, 23, 42);
-      doc.setFontSize(14);
+      doc.setFontSize(fontSize.cardValueSmall);
       doc.setFont("helvetica", "bold");
-      doc.text(`${totalArea.toFixed(0)} m²`, rightColX + 4, yPos + 19);
+      doc.text(`${totalArea.toFixed(0)} m²`, rightColX + 4, yPos + (isCompact ? 19 : 23));
     }
 
-    yPos += cardHeight + 8;
+    yPos += cardHeight + spacing.cardSpacing;
 
     // Card 3: Total DB Cost (if dbCost field selected)
     if (options.tenantFields.dbCost) {
@@ -138,13 +160,13 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
       doc.roundedRect(leftColX, yPos, cardWidth, cardHeight, 2, 2, 'FD');
       
       doc.setTextColor(71, 85, 105);
-      doc.setFontSize(8);
-      doc.text("TOTAL DB COST", leftColX + 4, yPos + 7);
+      doc.setFontSize(fontSize.cardLabel);
+      doc.text("TOTAL DB COST", leftColX + 4, yPos + (isCompact ? 7 : 9));
       
       doc.setTextColor(15, 23, 42);
-      doc.setFontSize(12);
+      doc.setFontSize(fontSize.cardValueLarge);
       doc.setFont("helvetica", "bold");
-      doc.text(`R${totalDbCost.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, leftColX + 4, yPos + 19);
+      doc.text(`R${totalDbCost.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, leftColX + 4, yPos + (isCompact ? 19 : 23));
     }
 
     // Card 4: Total Lighting Cost (if lightingCost field selected)
@@ -153,32 +175,32 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
       doc.roundedRect(rightColX, yPos, cardWidth, cardHeight, 2, 2, 'FD');
       
       doc.setTextColor(71, 85, 105);
-      doc.setFontSize(8);
-      doc.text("TOTAL LIGHTING COST", rightColX + 4, yPos + 7);
+      doc.setFontSize(fontSize.cardLabel);
+      doc.text("TOTAL LIGHTING COST", rightColX + 4, yPos + (isCompact ? 7 : 9));
       
       doc.setTextColor(15, 23, 42);
-      doc.setFontSize(12);
+      doc.setFontSize(fontSize.cardValueLarge);
       doc.setFont("helvetica", "bold");
-      doc.text(`R${totalLightingCost.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, rightColX + 4, yPos + 19);
+      doc.text(`R${totalLightingCost.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, rightColX + 4, yPos + (isCompact ? 19 : 23));
     }
 
-    yPos += cardHeight + 12;
+    yPos += cardHeight + spacing.sectionSpacing;
 
     // Category Breakdown with Donut Chart (if category field selected)
     if (options.tenantFields.category && Object.keys(categoryCounts).length > 0) {
-      const sectionHeight = 55;
+      const sectionHeight = isCompact ? 55 : 70;
       doc.setFillColor(248, 250, 252);
       doc.roundedRect(20, yPos, pageWidth - 40, sectionHeight, 2, 2, 'F');
       
       doc.setTextColor(15, 23, 42);
-      doc.setFontSize(10);
+      doc.setFontSize(fontSize.sectionTitle);
       doc.setFont("helvetica", "bold");
-      doc.text("Category Distribution", 25, yPos + 10);
+      doc.text("Category Distribution", 25, yPos + (isCompact ? 10 : 12));
 
       // Donut Chart
-      const chartCenterX = 45;
-      const chartCenterY = yPos + 32;
-      const chartRadius = 16;
+      const chartCenterX = isCompact ? 45 : 55;
+      const chartCenterY = yPos + (isCompact ? 32 : 40);
+      const chartRadius = spacing.chartRadius;
       
       const categoryColors: Record<string, [number, number, number]> = {
         standard: [59, 130, 246],
@@ -214,9 +236,10 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
       doc.setFillColor(248, 250, 252);
       doc.circle(chartCenterX, chartCenterY, chartRadius * 0.55, 'F');
 
-      // Compact Legend
-      let legendY = yPos + 18;
-      const legendX = 75;
+      // Legend
+      let legendY = yPos + (isCompact ? 18 : 22);
+      const legendX = isCompact ? 75 : 90;
+      const legendSpacing = isCompact ? 8 : 10;
       
       categories.forEach(([category, count]) => {
         const color = categoryColors[category] || [100, 116, 139];
@@ -226,17 +249,17 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
         doc.roundedRect(legendX, legendY - 2.5, 3, 3, 0.5, 0.5, 'F');
         
         doc.setTextColor(51, 65, 85);
-        doc.setFontSize(8);
+        doc.setFontSize(fontSize.legendText);
         doc.setFont("helvetica", "normal");
         doc.text(`${getCategoryLabel(category)}`, legendX + 5, legendY);
         
         doc.setFont("helvetica", "bold");
         doc.text(`${count} (${percentage}%)`, legendX + 40, legendY);
         
-        legendY += 8;
+        legendY += legendSpacing;
       });
 
-      yPos += sectionHeight + 12;
+      yPos += sectionHeight + spacing.sectionSpacing;
     }
 
     // Progress Tracking with Enhanced Bars
@@ -256,21 +279,21 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
     });
 
     if (visibleProgress.length > 0) {
-      const progressHeight = visibleProgress.length * 14 + 18;
+      const progressHeight = visibleProgress.length * spacing.progressRow + (isCompact ? 18 : 22);
       doc.setFillColor(248, 250, 252);
       doc.roundedRect(20, yPos, pageWidth - 40, progressHeight, 2, 2, 'F');
       
       doc.setTextColor(15, 23, 42);
-      doc.setFontSize(10);
+      doc.setFontSize(fontSize.sectionTitle);
       doc.setFont("helvetica", "bold");
-      doc.text("Completion Progress", 25, yPos + 10);
+      doc.text("Completion Progress", 25, yPos + (isCompact ? 10 : 12));
 
-      let progressY = yPos + 20;
+      let progressY = yPos + (isCompact ? 20 : 24);
       visibleProgress.forEach(item => {
         const percentage = (item.value / totalTenants * 100);
         
         doc.setTextColor(51, 65, 85);
-        doc.setFontSize(7);
+        doc.setFontSize(fontSize.progressLabel);
         doc.setFont("helvetica", "normal");
         doc.text(item.label, 25, progressY);
         
@@ -301,11 +324,11 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
         
         // Percentage
         doc.setTextColor(71, 85, 105);
-        doc.setFontSize(7);
+        doc.setFontSize(fontSize.progressPercent);
         doc.setFont("helvetica", "bold");
         doc.text(`${percentage.toFixed(0)}%`, barX + barWidth + 2, progressY);
         
-        progressY += 14;
+        progressY += spacing.progressRow;
       });
     }
 
