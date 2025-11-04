@@ -12,7 +12,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { FileText, Loader2, LayoutDashboard } from "lucide-react";
+import { FileText, Loader2, LayoutDashboard, Users, Square, DollarSign, Lightbulb } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 
 export interface ReportOptions {
   includeCoverPage: boolean;
@@ -127,6 +128,33 @@ export const ReportOptionsDialog = ({
       },
     });
   };
+
+  // Get theme colors for preview
+  const getThemeColors = () => {
+    const themes = {
+      professional: {
+        bg: 'bg-slate-50',
+        border: 'border-slate-200',
+        accent: 'bg-blue-500',
+        text: 'text-slate-900',
+      },
+      vibrant: {
+        bg: 'bg-purple-50',
+        border: 'border-purple-200',
+        accent: 'bg-purple-500',
+        text: 'text-slate-900',
+      },
+      minimal: {
+        bg: 'bg-white',
+        border: 'border-slate-300',
+        accent: 'bg-slate-500',
+        text: 'text-slate-900',
+      },
+    };
+    return themes[options.kpiAppearance.colorTheme];
+  };
+
+  const themeColors = getThemeColors();
 
   const handleDeselectAll = () => {
     setOptions({
@@ -311,6 +339,72 @@ export const ReportOptionsDialog = ({
                             Show Borders
                           </Label>
                         </div>
+                      </div>
+                    </div>
+
+                    {/* Live Preview Section */}
+                    <div className="space-y-2 pt-2">
+                      <Label className="text-xs text-muted-foreground">Preview</Label>
+                      <div className="grid grid-cols-2 gap-2 p-3 bg-muted/30 rounded-lg">
+                        {/* Sample KPI Card 1 */}
+                        <Card className={`${themeColors.bg} ${options.kpiAppearance.showBorders ? `border ${themeColors.border}` : 'border-0'} shadow-sm`}>
+                          <CardContent className="p-3 space-y-1">
+                            <div className="flex items-center gap-2">
+                              {options.kpiAppearance.showIcons && (
+                                <div className={`${themeColors.accent} w-5 h-5 rounded-full flex items-center justify-center`}>
+                                  <Users className="w-3 h-3 text-white" />
+                                </div>
+                              )}
+                              <span className="text-[10px] font-medium text-muted-foreground uppercase">Total Tenants</span>
+                            </div>
+                            <p className={`text-xl font-bold ${themeColors.text}`}>24</p>
+                          </CardContent>
+                        </Card>
+
+                        {/* Sample KPI Card 2 */}
+                        <Card className={`${themeColors.bg} ${options.kpiAppearance.showBorders ? `border ${themeColors.border}` : 'border-0'} shadow-sm`}>
+                          <CardContent className="p-3 space-y-1">
+                            <div className="flex items-center gap-2">
+                              {options.kpiAppearance.showIcons && (
+                                <div className={`${themeColors.accent} w-5 h-5 rounded-full flex items-center justify-center`}>
+                                  <Square className="w-3 h-3 text-white" />
+                                </div>
+                              )}
+                              <span className="text-[10px] font-medium text-muted-foreground uppercase">Total Area</span>
+                            </div>
+                            <p className={`text-xl font-bold ${themeColors.text}`}>1,250 m²</p>
+                          </CardContent>
+                        </Card>
+
+                        {/* Sample KPI Card 3 */}
+                        <Card className={`${themeColors.bg} ${options.kpiAppearance.showBorders ? `border ${themeColors.border}` : 'border-0'} shadow-sm`}>
+                          <CardContent className="p-3 space-y-1">
+                            <div className="flex items-center gap-2">
+                              {options.kpiAppearance.showIcons && (
+                                <div className={`${themeColors.accent} w-5 h-5 rounded-full flex items-center justify-center`}>
+                                  <DollarSign className="w-3 h-3 text-white" />
+                                </div>
+                              )}
+                              <span className="text-[10px] font-medium text-muted-foreground uppercase">DB Cost</span>
+                            </div>
+                            <p className={`text-sm font-bold ${themeColors.text}`}>R 45,000</p>
+                          </CardContent>
+                        </Card>
+
+                        {/* Sample KPI Card 4 */}
+                        <Card className={`${themeColors.bg} ${options.kpiAppearance.showBorders ? `border ${themeColors.border}` : 'border-0'} shadow-sm`}>
+                          <CardContent className="p-3 space-y-1">
+                            <div className="flex items-center gap-2">
+                              {options.kpiAppearance.showIcons && (
+                                <div className={`${themeColors.accent} w-5 h-5 rounded-full flex items-center justify-center`}>
+                                  <Lightbulb className="w-3 h-3 text-white" />
+                                </div>
+                              )}
+                              <span className="text-[10px] font-medium text-muted-foreground uppercase">Lighting</span>
+                            </div>
+                            <p className={`text-sm font-bold ${themeColors.text}`}>R 32,500</p>
+                          </CardContent>
+                        </Card>
                       </div>
                     </div>
                   </div>
