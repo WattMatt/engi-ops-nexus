@@ -136,15 +136,27 @@ export const ImportTenantsDialog = ({
     setLoading(true);
 
     try {
-      const entries = selectedTenants.map((row) => ({
-        schedule_id: scheduleId,
-        from_location: row.from_location,
-        to_location: `${row.shop_number} - ${row.shop_name}`,
-        cable_tag: `${row.from_location}-${row.shop_number}`,
-        notes: row.db_size_allowance ? `DB Allowance: ${row.db_size_allowance}` : null,
-        voltage: 400,
-        quantity: 1,
-      }));
+      const entries = selectedTenants.map((row) => {
+        // Extract amperage from DB allowance (e.g., "80A TP" -> 80)
+        let loadAmps = null;
+        if (row.db_size_allowance) {
+          const match = row.db_size_allowance.match(/(\d+)\s*A/);
+          if (match) {
+            loadAmps = parseFloat(match[1]);
+          }
+        }
+
+        return {
+          schedule_id: scheduleId,
+          from_location: row.from_location,
+          to_location: `${row.shop_number} - ${row.shop_name}`,
+          cable_tag: `${row.from_location}-${row.shop_number}`,
+          notes: row.db_size_allowance ? `DB Allowance: ${row.db_size_allowance}` : null,
+          voltage: 400,
+          load_amps: loadAmps,
+          quantity: 1,
+        };
+      });
 
       const { error } = await supabase.from("cable_entries").insert(entries);
 
