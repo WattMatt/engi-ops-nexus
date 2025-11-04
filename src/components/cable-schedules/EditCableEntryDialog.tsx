@@ -153,7 +153,7 @@ export const EditCableEntryDialog = ({
         loadAmps,
         voltage,
         totalLength: totalLength || 0,
-        deratingFactor: 0.8,
+        deratingFactor: 1.0, // Use 1.0 for accurate sizing (was 0.8)
         material: material as "copper" | "aluminium",
         installationMethod: formData.installation_method as 'air' | 'ducts' | 'ground',
       });
