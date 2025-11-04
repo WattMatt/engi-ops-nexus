@@ -1,17 +1,27 @@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Download, Loader2 } from "lucide-react";
+import { Download, Loader2, Eye } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TenantReportPreview } from "./TenantReportPreview";
 
 interface ReportPreviewDialogProps {
   report: any;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  projectId?: string;
+  projectName?: string;
 }
 
-export const ReportPreviewDialog = ({ report, open, onOpenChange }: ReportPreviewDialogProps) => {
+export const ReportPreviewDialog = ({ 
+  report, 
+  open, 
+  onOpenChange, 
+  projectId,
+  projectName 
+}: ReportPreviewDialogProps) => {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
@@ -40,7 +50,7 @@ export const ReportPreviewDialog = ({ report, open, onOpenChange }: ReportPrevie
       setPdfUrl(url);
     } catch (error) {
       console.error('Preview error:', error);
-      toast.error('Failed to load preview');
+      toast.error('Failed to load saved PDF');
     } finally {
       setLoading(false);
     }
@@ -93,23 +103,47 @@ export const ReportPreviewDialog = ({ report, open, onOpenChange }: ReportPrevie
             </Button>
           </div>
         </DialogHeader>
-        <div className="flex-1 overflow-hidden rounded-lg border bg-muted">
-          {loading ? (
-            <div className="flex items-center justify-center h-full">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          ) : pdfUrl ? (
-            <iframe
-              src={pdfUrl}
-              className="w-full h-full"
-              title={`Preview of ${report?.report_name}`}
-            />
-          ) : (
-            <div className="flex items-center justify-center h-full text-muted-foreground">
-              Failed to load preview
-            </div>
-          )}
-        </div>
+        
+        <Tabs defaultValue="live" className="flex-1 flex flex-col overflow-hidden">
+          <TabsList className="grid w-full max-w-md grid-cols-2">
+            <TabsTrigger value="live" className="flex items-center gap-2">
+              <Eye className="h-4 w-4" />
+              Live Preview
+            </TabsTrigger>
+            <TabsTrigger value="saved" className="flex items-center gap-2">
+              <Download className="h-4 w-4" />
+              Saved PDF
+            </TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="live" className="flex-1 overflow-hidden rounded-lg border bg-muted mt-4">
+            {projectId && projectName ? (
+              <TenantReportPreview projectId={projectId} projectName={projectName} />
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                Project information not available for live preview
+              </div>
+            )}
+          </TabsContent>
+          
+          <TabsContent value="saved" className="flex-1 overflow-hidden rounded-lg border bg-muted mt-4">
+            {loading ? (
+              <div className="flex items-center justify-center h-full">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : pdfUrl ? (
+              <iframe
+                src={pdfUrl}
+                className="w-full h-full"
+                title={`Preview of ${report?.report_name}`}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full text-muted-foreground">
+                Failed to load saved PDF
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
       </DialogContent>
     </Dialog>
   );

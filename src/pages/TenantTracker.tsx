@@ -139,7 +139,10 @@ const TenantTracker = () => {
         </TabsContent>
         
         <TabsContent value="reports" className="mt-4">
-          <SavedReportsList projectId={projectId || ""} />
+          <SavedReportsList 
+            projectId={projectId || ""} 
+            projectName={projectName || undefined}
+          />
         </TabsContent>
         
         <TabsContent value="floor-plan" className="mt-4">

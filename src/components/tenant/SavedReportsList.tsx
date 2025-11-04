@@ -14,9 +14,10 @@ import { ReportPreviewDialog } from "./ReportPreviewDialog";
 
 interface SavedReportsListProps {
   projectId: string;
+  projectName?: string;
 }
 
-export const SavedReportsList = ({ projectId }: SavedReportsListProps) => {
+export const SavedReportsList = ({ projectId, projectName }: SavedReportsListProps) => {
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
   const [editingReport, setEditingReport] = useState<any | null>(null);
@@ -307,6 +308,8 @@ export const SavedReportsList = ({ projectId }: SavedReportsListProps) => {
         report={previewingReport}
         open={!!previewingReport}
         onOpenChange={(open) => !open && setPreviewingReport(null)}
+        projectId={projectId}
+        projectName={projectName}
       />
     )}
     </>
