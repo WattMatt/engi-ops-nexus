@@ -1172,7 +1172,8 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       onReportSaved?.();
     } catch (error) {
       console.error("Error generating PDF:", error);
-      toast.error("Failed to generate report");
+      const errorMessage = error instanceof Error ? error.message : "Failed to generate report";
+      toast.error(`PDF Generation Failed: ${errorMessage}`);
     } finally {
       setIsGenerating(false);
     }
