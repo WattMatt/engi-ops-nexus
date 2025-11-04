@@ -23,6 +23,7 @@ import { AllCableEntriesView } from "@/components/cable-schedules/AllCableEntrie
 import { CableRatesManager } from "@/components/cable-schedules/CableRatesManager";
 import { CableCostsSummary } from "@/components/cable-schedules/CableCostsSummary";
 import { CableSizingReferenceView } from "@/components/cable-schedules/CableSizingReferenceView";
+import { EditableCableSizingReference } from "@/components/cable-schedules/EditableCableSizingReference";
 
 const CableSchedules = () => {
   const navigate = useNavigate();
@@ -181,7 +182,7 @@ const CableSchedules = () => {
         
         <TabsContent value="cables" className="mt-6">
           <div className="space-y-6">
-            <CableSizingReferenceView />
+            <EditableCableSizingReference />
             {projectId && <AllCableEntriesView projectId={projectId} />}
           </div>
         </TabsContent>
