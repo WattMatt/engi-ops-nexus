@@ -1,16 +1,62 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { PurposeConfig } from '../purpose.config';
+import { supabase } from '@/integrations/supabase/client';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 
 interface CableDetailsModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (details: { from: string; to: string; cableType: string; terminationCount: number; startHeight: number; endHeight: number; label: string; }) => void;
+  onSubmit: (details: { 
+    from: string; 
+    to: string; 
+    cableType: string; 
+    terminationCount: number; 
+    startHeight: number; 
+    endHeight: number; 
+    label: string;
+    cableEntryId?: string;
+    scheduleId?: string;
+    calculatedLength?: number;
+  }) => void;
   existingCableTypes: string[];
   purposeConfig: PurposeConfig | null;
+  calculatedLength: number;
+  projectId?: string;
 }
 
-const CableDetailsModal: React.FC<CableDetailsModalProps> = ({ isOpen, onClose, onSubmit, existingCableTypes, purposeConfig }) => {
+interface CableSchedule {
+  id: string;
+  schedule_name: string;
+  schedule_number: string;
+}
+
+interface CableEntry {
+  id: string;
+  cable_tag: string;
+  from_location: string;
+  to_location: string;
+  cable_type: string;
+  measured_length: number | null;
+  schedule_id: string;
+}
+
+const CableDetailsModal: React.FC<CableDetailsModalProps> = ({ 
+  isOpen, 
+  onClose, 
+  onSubmit, 
+  existingCableTypes, 
+  purposeConfig,
+  calculatedLength,
+  projectId 
+}) => {
+  const [mode, setMode] = useState<'new' | 'existing'>('new');
+  const [schedules, setSchedules] = useState<CableSchedule[]>([]);
+  const [selectedSchedule, setSelectedSchedule] = useState('');
+  const [cableEntries, setCableEntries] = useState<CableEntry[]>([]);
+  const [selectedEntry, setSelectedEntry] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
   const [label, setLabel] = useState('');
@@ -26,9 +72,64 @@ const CableDetailsModal: React.FC<CableDetailsModalProps> = ({ isOpen, onClose, 
     return Array.from(combined).sort((a,b) => a.localeCompare(b, undefined, { numeric: true }));
   }, [existingCableTypes, purposeConfig]);
 
+  // Fetch cable schedules
+  useEffect(() => {
+    if (isOpen && projectId) {
+      const fetchSchedules = async () => {
+        const { data } = await supabase
+          .from('cable_schedules')
+          .select('id, schedule_name, schedule_number')
+          .eq('project_id', projectId)
+          .order('schedule_number');
+        
+        if (data) {
+          setSchedules(data);
+        }
+      };
+      fetchSchedules();
+    }
+  }, [isOpen, projectId]);
+
+  // Fetch cable entries when schedule is selected
+  useEffect(() => {
+    if (selectedSchedule) {
+      const fetchEntries = async () => {
+        const { data } = await supabase
+          .from('cable_entries')
+          .select('id, cable_tag, from_location, to_location, cable_type, measured_length, schedule_id')
+          .eq('schedule_id', selectedSchedule)
+          .order('cable_tag');
+        
+        if (data) {
+          setCableEntries(data);
+        }
+      };
+      fetchEntries();
+    } else {
+      setCableEntries([]);
+      setSelectedEntry('');
+    }
+  }, [selectedSchedule]);
+
+  // Auto-populate fields when cable entry is selected
+  useEffect(() => {
+    if (selectedEntry && mode === 'existing') {
+      const entry = cableEntries.find(e => e.id === selectedEntry);
+      if (entry) {
+        setFrom(entry.from_location);
+        setTo(entry.to_location);
+        setLabel(entry.cable_tag);
+        setSelectedCableType(entry.cable_type || '');
+      }
+    }
+  }, [selectedEntry, cableEntries, mode]);
+
   useEffect(() => {
     if (isOpen) {
       // Reset fields when modal opens
+      setMode('new');
+      setSelectedSchedule('');
+      setSelectedEntry('');
       setFrom('');
       setTo('');
       setLabel('');
@@ -48,7 +149,18 @@ const CableDetailsModal: React.FC<CableDetailsModalProps> = ({ isOpen, onClose, 
     const endH = parseFloat(endHeight);
 
     if (from.trim() && to.trim() && finalCableType && !isNaN(count) && count >= 0 && !isNaN(startH) && startH >= 0 && !isNaN(endH) && endH >= 0) {
-      onSubmit({ from, to, cableType: finalCableType, terminationCount: count, startHeight: startH, endHeight: endH, label: label.trim() });
+      onSubmit({ 
+        from, 
+        to, 
+        cableType: finalCableType, 
+        terminationCount: count, 
+        startHeight: startH, 
+        endHeight: endH, 
+        label: label.trim(),
+        cableEntryId: mode === 'existing' ? selectedEntry : undefined,
+        scheduleId: mode === 'existing' ? selectedSchedule : undefined,
+        calculatedLength
+      });
     } else {
       alert('Please fill in all fields with valid values.');
     }
@@ -60,78 +172,156 @@ const CableDetailsModal: React.FC<CableDetailsModalProps> = ({ isOpen, onClose, 
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50">
-      <div className="bg-gray-800 rounded-lg shadow-xl p-8 w-full max-w-lg">
+      <div className="bg-gray-800 rounded-lg shadow-xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <h2 className="text-2xl font-bold text-white mb-4">LV/AC Cable Details</h2>
-        <p className="text-gray-400 mb-6">Enter the details for the Low Voltage or AC cable you just drew.</p>
+        <p className="text-gray-400 mb-6">
+          Calculated Length: <span className="text-green-400 font-semibold">{calculatedLength.toFixed(2)}m</span>
+        </p>
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Mode Selection */}
+          <div className="space-y-2">
+            <Label className="text-gray-300">Cable Entry Mode</Label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setMode('new')}
+                className={`px-4 py-2 rounded-md transition-colors ${
+                  mode === 'new' 
+                    ? 'bg-indigo-600 text-white' 
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                }`}
+              >
+                New Cable
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode('existing')}
+                className={`px-4 py-2 rounded-md transition-colors ${
+                  mode === 'existing' 
+                    ? 'bg-indigo-600 text-white' 
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+                }`}
+              >
+                Link to Schedule
+              </button>
+            </div>
+          </div>
+
+          {/* Schedule and Entry Selection (only for existing mode) */}
+          {mode === 'existing' && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="schedule" className="text-gray-300">Cable Schedule</Label>
+                <Select value={selectedSchedule} onValueChange={setSelectedSchedule}>
+                  <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
+                    <SelectValue placeholder="Select a cable schedule" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {schedules.map((schedule) => (
+                      <SelectItem key={schedule.id} value={schedule.id}>
+                        {schedule.schedule_number} - {schedule.schedule_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {selectedSchedule && (
+                <div className="space-y-2">
+                  <Label htmlFor="entry" className="text-gray-300">Cable Entry</Label>
+                  <Select value={selectedEntry} onValueChange={setSelectedEntry}>
+                    <SelectTrigger className="bg-gray-700 border-gray-600 text-white">
+                      <SelectValue placeholder="Select a cable entry" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {cableEntries.map((entry) => (
+                        <SelectItem key={entry.id} value={entry.id}>
+                          {entry.cable_tag} | {entry.from_location} → {entry.to_location}
+                          {entry.measured_length && ` (${entry.measured_length}m)`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {selectedEntry && (
+                    <p className="text-sm text-green-400 mt-1">
+                      ✓ Length will be updated to {calculatedLength.toFixed(2)}m in the schedule
+                    </p>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label htmlFor="from" className="block text-sm font-medium text-gray-300 mb-2">
+              <Label htmlFor="from" className="text-gray-300">
                 Supply From
-              </label>
-              <input
+              </Label>
+              <Input
                 type="text"
                 id="from"
                 value={from}
                 onChange={(e) => setFrom(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="bg-gray-700 border-gray-600 text-white"
                 placeholder="e.g., Main Board 1"
                 autoFocus
+                disabled={mode === 'existing' && !!selectedEntry}
               />
             </div>
             <div>
-              <label htmlFor="to" className="block text-sm font-medium text-gray-300 mb-2">
+              <Label htmlFor="to" className="text-gray-300">
                 Supply To
-              </label>
-              <input
+              </Label>
+              <Input
                 type="text"
                 id="to"
                 value={to}
                 onChange={(e) => setTo(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="bg-gray-700 border-gray-600 text-white"
                 placeholder="e.g., Shop 1"
+                disabled={mode === 'existing' && !!selectedEntry}
               />
             </div>
           </div>
            <div>
-            <label htmlFor="label" className="block text-sm font-medium text-gray-300 mb-2">
+            <Label htmlFor="label" className="text-gray-300">
               Line Label (Optional)
-            </label>
-            <input
+            </Label>
+            <Input
               type="text"
               id="label"
               value={label}
               onChange={(e) => setLabel(e.target.value)}
-              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="bg-gray-700 border-gray-600 text-white"
               placeholder="e.g., Feeder 1"
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-                <label htmlFor="startHeight" className="block text-sm font-medium text-gray-300 mb-2">
+                <Label htmlFor="startHeight" className="text-gray-300">
                 Start Height / Rise (m)
-                </label>
-                <input
+                </Label>
+                <Input
                 type="number"
                 id="startHeight"
                 value={startHeight}
                 onChange={(e) => setStartHeight(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="bg-gray-700 border-gray-600 text-white"
                 placeholder="e.g., 3.0"
                 min="0"
                 step="0.1"
                 />
             </div>
             <div>
-                <label htmlFor="endHeight" className="block text-sm font-medium text-gray-300 mb-2">
+                <Label htmlFor="endHeight" className="text-gray-300">
                 End Height / Drop (m)
-                </label>
-                <input
+                </Label>
+                <Input
                 type="number"
                 id="endHeight"
                 value={endHeight}
                 onChange={(e) => setEndHeight(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="bg-gray-700 border-gray-600 text-white"
                 placeholder="e.g., 3.0"
                 min="0"
                 step="0.1"
@@ -157,30 +347,30 @@ const CableDetailsModal: React.FC<CableDetailsModalProps> = ({ isOpen, onClose, 
           </div>
           {selectedCableType === 'other' && (
             <div>
-              <label htmlFor="customCableType" className="block text-sm font-medium text-gray-300 mb-2">
+              <Label htmlFor="customCableType" className="text-gray-300">
                 Custom Cable Type
-              </label>
-              <input
+              </Label>
+              <Input
                 type="text"
                 id="customCableType"
                 value={customCableType}
                 onChange={(e) => setCustomCableType(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="bg-gray-700 border-gray-600 text-white"
                 placeholder="e.g., 2Core x 10mm Cu"
                 autoFocus
               />
             </div>
           )}
           <div>
-            <label htmlFor="terminationCount" className="block text-sm font-medium text-gray-300 mb-2">
+            <Label htmlFor="terminationCount" className="text-gray-300">
               Number of Terminations
-            </label>
-            <input
+            </Label>
+            <Input
               type="number"
               id="terminationCount"
               value={terminationCount}
               onChange={(e) => setTerminationCount(e.target.value)}
-              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-md text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              className="bg-gray-700 border-gray-600 text-white"
               placeholder="e.g., 2"
               min="0"
               step="1"

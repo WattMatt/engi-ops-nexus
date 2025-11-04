@@ -58,9 +58,10 @@ const initialDesignState: DesignState = {
 
 interface MainAppProps {
   user: User | null;
+  projectId?: string;
 }
 
-const MainApp: React.FC<MainAppProps> = ({ user }) => {
+const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
   const [pdfDoc, setPdfDoc] = useState<PDFDocumentProxy | null>(null);
   const [pdfFile, setPdfFile] = useState<File | null>(null);
   const [designPurpose, setDesignPurpose] = useState<DesignPurpose | null>(null);
@@ -509,10 +510,41 @@ const MainApp: React.FC<MainAppProps> = ({ user }) => {
       }
   }, []);
 
-  const handleCableDetailsSubmit = (details: { from: string, to: string, cableType: string, terminationCount: number, startHeight: number, endHeight: number, label: string }) => {
+  const handleCableDetailsSubmit = async (details: { 
+    from: string, 
+    to: string, 
+    cableType: string, 
+    terminationCount: number, 
+    startHeight: number, 
+    endHeight: number, 
+    label: string,
+    cableEntryId?: string,
+    scheduleId?: string,
+    calculatedLength?: number
+  }) => {
       if (!pendingLine) return;
       const pathLength = pendingLine.length;
       const totalLength = pathLength + details.startHeight + details.endHeight;
+      
+      // If linked to cable schedule, update the entry's measured length
+      if (details.cableEntryId && details.calculatedLength) {
+        try {
+          const { error } = await supabase
+            .from('cable_entries')
+            .update({ measured_length: details.calculatedLength })
+            .eq('id', details.cableEntryId);
+          
+          if (error) {
+            toast.error('Failed to update cable schedule entry');
+            console.error(error);
+          } else {
+            toast.success('Cable length updated in schedule');
+          }
+        } catch (error) {
+          console.error('Error updating cable entry:', error);
+        }
+      }
+
       const newLine: SupplyLine = {
           id: `line-${Date.now()}`, name: `${details.from} to ${details.to}`, type: 'lv' as const, points: pendingLine.points, 
           length: totalLength, pathLength: pathLength, from: details.from, to: details.to, cableType: details.cableType,
@@ -652,7 +684,15 @@ const MainApp: React.FC<MainAppProps> = ({ user }) => {
       
       {/* Modals */}
       <ScaleModal isOpen={isScaleModalOpen} onClose={() => { setIsScaleModalOpen(false); if (!scaleInfo.ratio) { setScaleLine(null); setActiveTool(Tool.PAN); } }} onSubmit={handleScaleSubmit} />
-      <CableDetailsModal isOpen={isCableModalOpen} onClose={() => { setIsCableModalOpen(false); setPendingLine(null); }} onSubmit={handleCableDetailsSubmit} existingCableTypes={uniqueCableTypes} purposeConfig={purposeConfig} />
+      <CableDetailsModal 
+        isOpen={isCableModalOpen} 
+        onClose={() => { setIsCableModalOpen(false); setPendingLine(null); }} 
+        onSubmit={handleCableDetailsSubmit} 
+        existingCableTypes={uniqueCableTypes} 
+        purposeConfig={purposeConfig}
+        calculatedLength={pendingLine ? pendingLine.length : 0}
+        projectId={projectId}
+      />
       <ContainmentDetailsModal isOpen={isContainmentModalOpen} onClose={() => { setIsContainmentModalOpen(false); setPendingContainment(null); }} onSubmit={handleContainmentDetailsSubmit} purposeConfig={purposeConfig} />
       <ExportPreviewModal isOpen={isExportModalOpen} onClose={() => setIsExportModalOpen(false)} onConfirm={handleConfirmExport} equipment={equipment} lines={lines} zones={zones} containment={containment} pvPanelConfig={pvPanelConfig} pvArrays={pvArrays} />
       <PVConfigModal isOpen={isPvConfigModalOpen} onClose={() => setIsPvConfigModalOpen(false)} onSubmit={handlePvConfigSubmit} />
@@ -673,9 +713,9 @@ const MainApp: React.FC<MainAppProps> = ({ user }) => {
   );
 };
 
-const App: React.FC<{ user: User | null }> = ({ user }) => (
+const App: React.FC<{ user: User | null; projectId?: string }> = ({ user, projectId }) => (
     <ToastProvider>
-        <MainApp user={user} />
+        <MainApp user={user} projectId={projectId} />
     </ToastProvider>
 );
 

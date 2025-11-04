@@ -2,11 +2,13 @@ import { Suspense, lazy, useState, useEffect } from 'react';
 import { Loader } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { User } from '@supabase/supabase-js';
+import { useParams } from 'react-router-dom';
 
 const FloorPlanApp = lazy(() => import('../components/floor-plan/App'));
 
 export default function FloorPlan() {
   const [user, setUser] = useState<User | null>(null);
+  const { projectId } = useParams();
 
   useEffect(() => {
     // Get current user
@@ -31,7 +33,7 @@ export default function FloorPlan() {
           </div>
         }
       >
-        <FloorPlanApp user={user} />
+        <FloorPlanApp user={user} projectId={projectId} />
       </Suspense>
     </div>
   );
