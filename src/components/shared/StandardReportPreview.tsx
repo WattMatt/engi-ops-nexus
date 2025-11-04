@@ -61,7 +61,10 @@ export const StandardReportPreview = ({
         throw new Error("Failed to get PDF URL");
       }
 
-      setPdfUrl(data.publicUrl);
+      // Add cache-busting timestamp to force fresh PDF load
+      const cacheBustedUrl = `${data.publicUrl}?t=${Date.now()}`;
+      console.log('[PDF PREVIEW] Loading PDF with cache-busting:', cacheBustedUrl);
+      setPdfUrl(cacheBustedUrl);
     } catch (error) {
       console.error('Preview error:', error);
       toast.error('Failed to load PDF preview');
