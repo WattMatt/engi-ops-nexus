@@ -116,69 +116,69 @@ export const TenantReportPreview = ({ projectId, projectName }: TenantReportPrev
 
   return (
     <div className="h-full overflow-auto bg-white p-8 space-y-8">
-      {/* Cover Page - Standardized Design */}
+      {/* Cover Page - Standardized Design matching PDF exactly */}
       <div className="min-h-[900px] bg-white relative rounded-lg overflow-hidden">
-        {/* Left gradient accent bar */}
-        <div className="absolute left-0 top-0 bottom-0 w-2 bg-gradient-to-b from-[#E0E8F0] to-[#A0B8D0]"></div>
+        {/* Left gradient accent bar - matching PDF gradient */}
+        <div className="absolute left-0 top-0 bottom-0 w-2 bg-gradient-to-b from-[#DCEAFA] to-[#B4C3FA]"></div>
         
         {/* Main content */}
-        <div className="flex flex-col items-center pt-24 px-12">
-          {/* Title */}
-          <h1 className="text-xl font-bold text-[#85A3CF] mb-12">TENANT TRACKER REPORT</h1>
+        <div className="flex flex-col items-center pt-16 px-12">
+          {/* Title - RGB(133, 163, 207) = #85A3CF */}
+          <h1 className="text-base font-bold text-[#85A3CF] mb-6">TENANT TRACKER REPORT</h1>
           
-          {/* Project name */}
-          <h2 className="text-3xl font-bold text-[#85A3CF] mb-8">{projectName}</h2>
+          {/* Project name - RGB(133, 163, 207) = #85A3CF */}
+          <h2 className="text-[22px] font-bold text-[#85A3CF] mb-8 text-center">{projectName}</h2>
           
-          {/* Subtitle */}
-          <h3 className="text-2xl text-[#85A3CF]">Tenant Schedule & Progress</h3>
+          {/* Subtitle - RGB(133, 163, 207) = #85A3CF */}
+          <h3 className="text-lg text-[#85A3CF]">Tenant Schedule & Progress</h3>
           
           {/* First divider */}
-          <div className="w-[calc(100%-80px)] h-px bg-black mt-16 mb-4"></div>
+          <div className="w-[calc(100%-80px)] h-[1px] bg-black mt-[60px] mb-3"></div>
           
           {/* Company details */}
-          <div className="w-full px-8 mt-4">
+          <div className="w-full px-5 mt-3">
             <div className="flex justify-between items-start">
-              <div className="text-left">
-                <p className="font-bold text-sm text-black mb-2">PREPARED BY:</p>
-                <p className="text-xs text-black">{companyDetails?.companyName.toUpperCase()}</p>
-                <p className="text-xs text-black">141 Which Hazel ave,</p>
-                <p className="text-xs text-black">Highveld Techno Park</p>
-                <p className="text-xs text-black">Building 1A</p>
-                <p className="text-xs text-black">Tel: {companyDetails?.contactPhone}</p>
-                <p className="text-xs text-black">Contact: {companyDetails?.contactName}</p>
+              <div className="text-left space-y-[6px]">
+                <p className="font-bold text-[10px] text-black">PREPARED BY:</p>
+                <p className="text-[9px] text-black leading-tight">{companyDetails?.companyName.toUpperCase()}</p>
+                <p className="text-[9px] text-black leading-tight">141 Which Hazel ave,</p>
+                <p className="text-[9px] text-black leading-tight">Highveld Techno Park</p>
+                <p className="text-[9px] text-black leading-tight">Building 1A</p>
+                <p className="text-[9px] text-black leading-tight">Tel: {companyDetails?.contactPhone}</p>
+                <p className="text-[9px] text-black leading-tight">Contact: {companyDetails?.contactName}</p>
               </div>
               
-              {/* Logo */}
+              {/* Logo - positioned to match PDF */}
               {companyDetails?.logoUrl && (
                 <img 
                   src={companyDetails.logoUrl} 
                   alt="Company Logo" 
-                  className="w-32 h-24 object-contain"
+                  className="w-[120px] h-[88px] object-contain"
                 />
               )}
             </div>
           </div>
           
           {/* Second divider */}
-          <div className="w-[calc(100%-80px)] h-px bg-black mt-12 mb-6"></div>
+          <div className="w-[calc(100%-80px)] h-[1px] bg-black mt-[48px] mb-[18px]"></div>
           
-          {/* Date and Revision */}
-          <div className="w-full px-8">
+          {/* Date and Revision - RGB(0, 191, 255) = #00BFFF */}
+          <div className="w-full px-5">
             <div className="flex justify-between">
-              <div className="text-left">
-                <p className="font-bold text-sm text-black mb-3">DATE:</p>
-                <p className="font-bold text-sm text-black">REVISION:</p>
+              <div className="text-left space-y-3">
+                <p className="font-bold text-xs text-black">DATE:</p>
+                <p className="font-bold text-xs text-black">REVISION:</p>
               </div>
-              <div className="text-right">
-                <p className="text-sm text-[#00BFFF] mb-3">{format(new Date(), "EEEE, dd MMMM yyyy")}</p>
-                <p className="text-sm text-[#00BFFF]">Rev 0</p>
+              <div className="text-right space-y-3">
+                <p className="text-xs text-[#00BFFF]">{format(new Date(), "EEEE, dd MMMM yyyy")}</p>
+                <p className="text-xs text-[#00BFFF]">Rev 0</p>
               </div>
             </div>
           </div>
           
           {/* Page number */}
           <div className="absolute bottom-4 left-0 right-0 text-center">
-            <p className="text-sm text-black">1</p>
+            <p className="text-[11px] text-black">1</p>
           </div>
         </div>
       </div>
