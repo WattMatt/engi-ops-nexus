@@ -15,6 +15,7 @@ export interface DesignDataForSave {
     designPurpose: DesignPurpose | null;
     scaleInfo: ScaleInfo;
     pvPanelConfig: PVPanelConfig | null;
+    modulesPerString?: number;
     scaleLine: { start: { x: number; y: number }; end: { x: number; y: number } } | null;
 }
 
@@ -41,6 +42,7 @@ export const saveDesign = async (designName: string, designData: DesignDataForSa
             state_json: {
                 scaleInfo: designData.scaleInfo,
                 pvPanelConfig: designData.pvPanelConfig,
+                modulesPerString: designData.modulesPerString,
                 scaleLine: designData.scaleLine
             } as any
         })
@@ -72,6 +74,7 @@ export const updateDesign = async (designId: string, designData: DesignDataForSa
             state_json: {
                 scaleInfo: designData.scaleInfo,
                 pvPanelConfig: designData.pvPanelConfig,
+                modulesPerString: designData.modulesPerString,
                 scaleLine: designData.scaleLine
             } as any,
             updated_at: new Date().toISOString()
@@ -289,6 +292,7 @@ export interface FullDesignData {
     project_id: string | null;
     scale_info: ScaleInfo;
     pv_panel_config: PVPanelConfig | null;
+    modules_per_string?: number;
     equipment: EquipmentItem[];
     lines: any[];
     zones: SupplyZone[];
@@ -410,6 +414,7 @@ export const loadDesign = async (designId: string): Promise<{ designData: FullDe
             width: pvConfig.panel_width_m,
             wattage: pvConfig.panel_wattage
         } : (stateJson.pvPanelConfig || null),
+        modules_per_string: stateJson.modulesPerString || 20,
         equipment: transformedEquipment,
         lines: transformedLines,
         zones: transformedZones,

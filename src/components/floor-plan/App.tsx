@@ -140,6 +140,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
 
   // PV Design State
   const [pvPanelConfig, setPvPanelConfig] = useState<PVPanelConfig | null>(null);
+  const [modulesPerString, setModulesPerString] = useState<number>(20); // Default 20 modules per string
   const [isPvConfigModalOpen, setIsPvConfigModalOpen] = useState(false);
   const [isRoofMaskModalOpen, setIsRoofMaskModalOpen] = useState(false);
   const [isPvArrayModalOpen, setIsPvArrayModalOpen] = useState(false);
@@ -231,6 +232,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
     setDesignPurpose(null);
     setPurposeConfig(null);
     setPvPanelConfig(null);
+    setModulesPerString(20);
     setPendingRoofMask(null);
     setPendingPvArrayConfig(null);
     setIsSnappingEnabled(true);
@@ -273,6 +275,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
         designPurpose,
         scaleInfo,
         pvPanelConfig,
+        modulesPerString,
         scaleLine,
     };
 
@@ -344,6 +347,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
           setScaleInfo(designData.scale_info || { pixelDistance: null, realDistance: null, ratio: null });
           setScaleLine(designData.scale_line || null);
           setPvPanelConfig(designData.pv_panel_config || null);
+          setModulesPerString(designData.modules_per_string || 20);
           setCurrentDesignId(designData.id);
           setCurrentDesignName(designData.name);
           // Don't override the currentProjectId from dashboard context
@@ -712,7 +716,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
         setSelectedItemId={setSelectedItemId} onEquipmentUpdate={handleEquipmentUpdate} onZoneUpdate={handleZoneUpdate}
         purposeConfig={purposeConfig} designPurpose={designPurpose} pvPanelConfig={pvPanelConfig}
         pvArrays={pvArrays} onDeleteItem={handleDeleteSelectedItem} tasks={tasks} onOpenTaskModal={handleOpenTaskModal}
-        onJumpToZone={handleJumpToZone}
+        onJumpToZone={handleJumpToZone} modulesPerString={modulesPerString} onModulesPerStringChange={setModulesPerString}
       />
       
       {/* Modals */}

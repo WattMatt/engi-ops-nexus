@@ -21,6 +21,8 @@ interface EquipmentPanelProps {
   // PV Props
   pvPanelConfig: PVPanelConfig | null;
   pvArrays: PVArrayItem[];
+  modulesPerString: number;
+  onModulesPerStringChange: (value: number) => void;
   // Task Props
   tasks: Task[];
   onOpenTaskModal: (task: Partial<Task> | null) => void;
@@ -365,7 +367,14 @@ const LineShopSummary: React.FC<{lines: SupplyLine[], containment: Containment[]
 };
 
 
-const PVDesignSummary: React.FC<{lines: SupplyLine[], pvPanelConfig: PVPanelConfig | null, pvArrays: PVArrayItem[], zones: SupplyZone[]}> = ({ lines, pvPanelConfig, pvArrays, zones }) => {
+const PVDesignSummary: React.FC<{
+    lines: SupplyLine[], 
+    pvPanelConfig: PVPanelConfig | null, 
+    pvArrays: PVArrayItem[], 
+    zones: SupplyZone[],
+    modulesPerString: number,
+    onModulesPerStringChange: (value: number) => void
+}> = ({ lines, pvPanelConfig, pvArrays, zones, modulesPerString, onModulesPerStringChange }) => {
     const { dcTotalLength, acTotalLength } = useMemo(() => {
         const dcLines = lines.filter(l => l.type === 'dc');
         const acLines = lines.filter(l => l.type === 'lv'); // 'lv' is used for AC
@@ -375,14 +384,16 @@ const PVDesignSummary: React.FC<{lines: SupplyLine[], pvPanelConfig: PVPanelConf
         };
     }, [lines]);
 
-    const { totalPanels, totalWattage } = useMemo(() => {
-        if (!pvPanelConfig) return { totalPanels: 0, totalWattage: 0 };
+    const { totalPanels, totalWattage, totalStrings } = useMemo(() => {
+        if (!pvPanelConfig) return { totalPanels: 0, totalWattage: 0, totalStrings: 0 };
         const totalPanels = pvArrays.reduce((sum, arr) => sum + arr.rows * arr.columns, 0);
+        const totalStrings = modulesPerString > 0 ? Math.ceil(totalPanels / modulesPerString) : 0;
         return {
             totalPanels,
-            totalWattage: totalPanels * pvPanelConfig.wattage
+            totalWattage: totalPanels * pvPanelConfig.wattage,
+            totalStrings
         };
-    }, [pvArrays, pvPanelConfig]);
+    }, [pvArrays, pvPanelConfig, modulesPerString]);
 
     return (
         <>
@@ -411,6 +422,30 @@ const PVDesignSummary: React.FC<{lines: SupplyLine[], pvPanelConfig: PVPanelConf
                         <div className="flex justify-between items-center">
                             <span className="text-sky-400">Total Panels</span>
                             <span className="font-mono font-bold text-sky-400">{totalPanels}</span>
+                        </div>
+                    </div>
+                    <div className="bg-gray-700/50 p-2 rounded-md">
+                        <label className="flex justify-between items-center gap-2">
+                            <span className="text-purple-400 text-xs">Modules per String</span>
+                            <input
+                                type="number"
+                                min="1"
+                                max="100"
+                                value={modulesPerString}
+                                onChange={(e) => {
+                                    const val = parseInt(e.target.value);
+                                    if (!isNaN(val) && val > 0 && val <= 100) {
+                                        onModulesPerStringChange(val);
+                                    }
+                                }}
+                                className="w-16 px-2 py-1 bg-gray-900 border border-gray-600 rounded text-purple-400 font-mono font-bold text-sm text-right focus:outline-none focus:ring-1 focus:ring-purple-500"
+                            />
+                        </label>
+                    </div>
+                    <div className="bg-gray-700/50 p-2 rounded-md">
+                        <div className="flex justify-between items-center">
+                            <span className="text-purple-400">Total Strings</span>
+                            <span className="font-mono font-bold text-purple-400">{totalStrings}</span>
                         </div>
                     </div>
                      <div className="bg-gray-700/50 p-2 rounded-md">
@@ -448,7 +483,7 @@ const PVDesignSummary: React.FC<{lines: SupplyLine[], pvPanelConfig: PVPanelConf
 const EquipmentPanel: React.FC<EquipmentPanelProps> = ({ 
     equipment, lines, zones, containment, selectedItemId, setSelectedItemId,
     onEquipmentUpdate, onZoneUpdate, onDeleteItem, purposeConfig, designPurpose,
-    pvPanelConfig, pvArrays, tasks, onOpenTaskModal, onJumpToZone,
+    pvPanelConfig, pvArrays, tasks, onOpenTaskModal, onJumpToZone, modulesPerString, onModulesPerStringChange,
 }) => {
   const [activeTab, setActiveTab] = useState<EquipmentPanelTab>('summary');
   const [expandedAssignees, setExpandedAssignees] = useState<Record<string, boolean>>({});
@@ -537,7 +572,14 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
   const renderSummaryTab = () => {
     switch(designPurpose) {
         case DesignPurpose.PV_DESIGN:
-            return <PVDesignSummary lines={lines} pvPanelConfig={pvPanelConfig} pvArrays={pvArrays} zones={zones} />;
+            return <PVDesignSummary 
+                lines={lines} 
+                pvPanelConfig={pvPanelConfig} 
+                pvArrays={pvArrays} 
+                zones={zones} 
+                modulesPerString={modulesPerString}
+                onModulesPerStringChange={onModulesPerStringChange}
+            />;
         case DesignPurpose.LINE_SHOP_MEASUREMENTS:
             return <LineShopSummary lines={lines} containment={containment} zones={zones} />;
         default:
