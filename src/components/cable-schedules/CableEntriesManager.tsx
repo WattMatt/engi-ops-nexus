@@ -11,12 +11,13 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Pencil, Trash2, Download, Users } from "lucide-react";
+import { Plus, Pencil, Trash2, Download, Users, RefreshCw } from "lucide-react";
 import { AddCableEntryDialog } from "./AddCableEntryDialog";
 import { EditCableEntryDialog } from "./EditCableEntryDialog";
 import { ImportFloorPlanCablesDialog } from "./ImportFloorPlanCablesDialog";
 import { ImportTenantsDialog } from "./ImportTenantsDialog";
 import { useToast } from "@/hooks/use-toast";
+import { calculateCableSize } from "@/utils/cableSizing";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -115,6 +116,58 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
     }
   };
 
+  const handleRecalculateAll = async () => {
+    if (!entries || entries.length === 0) return;
+
+    try {
+      let updatedCount = 0;
+
+      for (const entry of entries) {
+        // Skip entries without required data
+        if (!entry.load_amps || !entry.voltage) continue;
+
+        const material = entry.cable_type?.toLowerCase() === "copper" ? "copper" : "aluminium";
+        
+        const result = calculateCableSize({
+          loadAmps: entry.load_amps,
+          voltage: entry.voltage,
+          totalLength: entry.total_length || 0,
+          deratingFactor: 0.8,
+          material: material as "copper" | "aluminium",
+        });
+
+        if (result) {
+          const { error } = await supabase
+            .from("cable_entries")
+            .update({
+              cable_size: result.recommendedSize,
+              ohm_per_km: result.ohmPerKm,
+              volt_drop: entry.total_length ? result.voltDrop : 0,
+              supply_cost: result.supplyCost,
+              install_cost: result.installCost,
+              total_cost: result.totalCost,
+            })
+            .eq("id", entry.id);
+
+          if (!error) updatedCount++;
+        }
+      }
+
+      toast({
+        title: "Success",
+        description: `Recalculated ${updatedCount} cable entries`,
+      });
+
+      refetch();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    }
+  };
+
   return (
     <div className="space-y-4">
       <Card>
@@ -122,6 +175,12 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
           <div className="flex items-center justify-between">
             <CardTitle>Cable Entries</CardTitle>
             <div className="flex gap-2">
+              {entries && entries.length > 0 && (
+                <Button variant="outline" size="sm" onClick={handleRecalculateAll}>
+                  <RefreshCw className="mr-2 h-4 w-4" />
+                  Recalculate All
+                </Button>
+              )}
               {projectId && (
                 <>
                   <Button variant="outline" size="sm" onClick={() => setShowImportDialog(true)}>
