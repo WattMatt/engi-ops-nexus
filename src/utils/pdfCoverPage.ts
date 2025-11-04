@@ -235,22 +235,9 @@ export async function generateCoverPage(
     try {
       const logoResponse = await fetch(companyDetails.logoUrl);
       const logoBlob = await logoResponse.blob();
-      
-      // Convert to compressed JPEG for smaller file size
       const logoDataUrl = await new Promise<string>((resolve) => {
         const reader = new FileReader();
-        reader.onloadend = () => {
-          const img = new Image();
-          img.onload = () => {
-            const canvas = document.createElement('canvas');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            const ctx = canvas.getContext('2d');
-            ctx?.drawImage(img, 0, 0);
-            resolve(canvas.toDataURL('image/jpeg', 0.8));
-          };
-          img.src = reader.result as string;
-        };
+        reader.onloadend = () => resolve(reader.result as string);
         reader.readAsDataURL(logoBlob);
       });
       
@@ -259,7 +246,7 @@ export async function generateCoverPage(
       const logoHeight = 22;
       const logoX = pageWidth - logoWidth - 25;
       const logoY = 198;
-      doc.addImage(logoDataUrl, 'JPEG', logoX, logoY, logoWidth, logoHeight);
+      doc.addImage(logoDataUrl, 'PNG', logoX, logoY, logoWidth, logoHeight);
     } catch (error) {
       console.error("Failed to add logo to PDF:", error);
     }
