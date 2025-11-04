@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,10 +15,12 @@ import { GeneratorCostingSection } from "@/components/tenant/GeneratorCostingSec
 import { GeneratorOverview } from "@/components/tenant/GeneratorOverview";
 import { GeneratorReportExportPDFButton } from "@/components/tenant/GeneratorReportExportPDFButton";
 import { GeneratorSavedReportsList } from "@/components/tenant/GeneratorSavedReportsList";
-import { ChevronDown } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { ChevronDown, Edit3 } from "lucide-react";
 
 const GeneratorReport = () => {
   const projectId = localStorage.getItem("selectedProjectId");
+  const navigate = useNavigate();
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [capitalCostRecovery, setCapitalCostRecovery] = useState(68985.48); // Monthly repayment
   const [reportsRefreshTrigger, setReportsRefreshTrigger] = useState(0);
@@ -88,12 +91,23 @@ const GeneratorReport = () => {
             Comprehensive generator analysis and cost recovery planning
           </p>
         </div>
-        {projectId && (
-          <GeneratorReportExportPDFButton 
-            projectId={projectId} 
-            onReportSaved={() => setReportsRefreshTrigger(prev => prev + 1)}
-          />
-        )}
+        <div className="flex gap-2">
+          {projectId && (
+            <>
+              <Button
+                variant="outline"
+                onClick={() => navigate(`/dashboard/interactive-report/${projectId}/generator`)}
+              >
+                <Edit3 className="h-4 w-4 mr-2" />
+                Edit Interactively
+              </Button>
+              <GeneratorReportExportPDFButton 
+                projectId={projectId} 
+                onReportSaved={() => setReportsRefreshTrigger(prev => prev + 1)}
+              />
+            </>
+          )}
+        </div>
       </div>
 
       <Tabs defaultValue="overview" className="w-full">

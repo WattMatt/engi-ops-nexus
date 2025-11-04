@@ -32,6 +32,7 @@ import TenantTracker from "./pages/TenantTracker";
 import FinalAccounts from "./pages/FinalAccounts";
 import FinalAccountDetail from "./pages/FinalAccountDetail";
 import GeneratorReport from "./pages/GeneratorReport";
+import InteractiveReportEditor from "./pages/InteractiveReportEditor";
 import NotFound from "./pages/NotFound";
 import { HelpButton } from "./components/feedback/HelpButton";
 
@@ -83,6 +84,10 @@ const App = () => (
             <Route path="messages" element={<Messages />} />
             <Route path="projects-report/generator" element={<GeneratorReport />} />
           </Route>
+          
+          {/* Full screen interactive editor - outside dashboard layout */}
+          <Route path="/dashboard/interactive-report/:projectId/:reportType" element={<InteractiveReportEditor />} />
+          
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

@@ -3429,6 +3429,44 @@ export type Database = {
           },
         ]
       }
+      report_drafts: {
+        Row: {
+          content: Json
+          created_at: string
+          created_by: string | null
+          id: string
+          project_id: string
+          report_type: string
+          updated_at: string
+        }
+        Insert: {
+          content?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          project_id: string
+          report_type: string
+          updated_at?: string
+        }
+        Update: {
+          content?: Json
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          project_id?: string
+          report_type?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "report_drafts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       report_settings: {
         Row: {
           author_name: string | null
