@@ -5,6 +5,7 @@ import { useState } from "react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
+import { fetchCompanyDetails, generateCoverPage } from "@/utils/pdfCoverPage";
 
 interface CableScheduleExportPDFButtonProps {
   schedule: any;
@@ -33,18 +34,21 @@ export const CableScheduleExportPDFButton = ({ schedule }: CableScheduleExportPD
       // Create PDF
       const doc = new jsPDF("landscape");
       const pageWidth = doc.internal.pageSize.width;
-      
-      // Header
-      doc.setFontSize(20);
-      doc.text(schedule.schedule_name, pageWidth / 2, 20, { align: "center" });
-      
-      doc.setFontSize(10);
-      doc.text(
-        `Schedule #${schedule.schedule_number} - ${schedule.revision} | ${new Date(schedule.schedule_date).toLocaleDateString()}`,
-        pageWidth / 2,
-        28,
-        { align: "center" }
-      );
+
+      // Fetch company details for cover page
+      const companyDetails = await fetchCompanyDetails();
+
+      // ========== COVER PAGE ==========
+      await generateCoverPage(doc, {
+        title: "Cable Schedule",
+        projectName: schedule.schedule_name,
+        subtitle: `Schedule #${schedule.schedule_number}`,
+        revision: schedule.revision,
+      }, companyDetails);
+
+      // ========== PAGE 2: CABLE ENTRIES TABLE ==========
+      doc.addPage();
+      let yPos = 20;
 
       // Cable entries table
       const tableData = entries?.map((entry) => [
@@ -67,7 +71,7 @@ export const CableScheduleExportPDFButton = ({ schedule }: CableScheduleExportPD
       ]) || [];
 
       autoTable(doc, {
-        startY: 35,
+        startY: yPos,
         head: [[
           "Cable Tag",
           "From",
