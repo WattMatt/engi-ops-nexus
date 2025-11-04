@@ -4,8 +4,19 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { CreateCableScheduleDialog } from "@/components/cable-schedules/CreateCableScheduleDialog";
 import { ProjectSavedReportsList } from "@/components/cable-schedules/ProjectSavedReportsList";
 import { AllCableEntriesView } from "@/components/cable-schedules/AllCableEntriesView";
@@ -15,7 +26,10 @@ import { CableSizingReferenceView } from "@/components/cable-schedules/CableSizi
 
 const CableSchedules = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [scheduleToDelete, setScheduleToDelete] = useState<any>(null);
   const projectId = localStorage.getItem("selectedProjectId");
 
   const { data: schedules, isLoading, refetch } = useQuery({
@@ -35,6 +49,41 @@ const CableSchedules = () => {
 
   const handleScheduleClick = (scheduleId: string) => {
     navigate(`/dashboard/cable-schedules/${scheduleId}`);
+  };
+
+  const handleDeleteClick = (e: React.MouseEvent, schedule: any) => {
+    e.stopPropagation(); // Prevent card click
+    setScheduleToDelete(schedule);
+    setShowDeleteDialog(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!scheduleToDelete) return;
+
+    try {
+      const { error } = await supabase
+        .from("cable_schedules")
+        .delete()
+        .eq("id", scheduleToDelete.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Cable schedule deleted successfully",
+      });
+
+      refetch();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setShowDeleteDialog(false);
+      setScheduleToDelete(null);
+    }
   };
 
   if (isLoading) {
@@ -84,11 +133,19 @@ const CableSchedules = () => {
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {schedules.map((schedule) => (
-                <Card
+                 <Card
                   key={schedule.id}
-                  className="cursor-pointer hover:shadow-lg transition-shadow"
+                  className="cursor-pointer hover:shadow-lg transition-shadow relative group"
                   onClick={() => handleScheduleClick(schedule.id)}
                 >
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity z-10 hover:bg-destructive hover:text-destructive-foreground"
+                    onClick={(e) => handleDeleteClick(e, schedule)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                   <CardHeader>
                     <CardTitle className="text-lg">
                       {schedule.schedule_name}
@@ -150,6 +207,23 @@ const CableSchedules = () => {
           setShowCreateDialog(false);
         }}
       />
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Cable Schedule</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete "{scheduleToDelete?.schedule_name}"? This will also delete all cable entries in this schedule. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
