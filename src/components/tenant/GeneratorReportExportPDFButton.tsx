@@ -187,40 +187,76 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       const currentTenantVersion = versionData || 0;
 
       // ========== COVER PAGE ==========
-      doc.setFontSize(14);
-      doc.setFont("helvetica", "bold");
-      doc.text("Financial Evaluation", pageWidth / 2, 80, { align: "center" });
+      // Light blue/grey color for titles (matching reference)
+      const titleColor = [133, 163, 207]; // Light blue-grey
       
-      yPos = 100;
+      // Add left vertical accent bar (light grey)
+      doc.setFillColor(220, 230, 240);
+      doc.rect(0, 0, 8, pageHeight, 'F');
+      
+      // Main titles - centered and styled
+      doc.setTextColor(titleColor[0], titleColor[1], titleColor[2]);
+      doc.setFontSize(18);
+      doc.setFont("helvetica", "bold");
+      doc.text("Financial Evaluation", pageWidth / 2, 70, { align: "center" });
+      
+      yPos = 95;
       doc.setFontSize(20);
       doc.text(project.name || "Generator Report", pageWidth / 2, yPos, { align: "center" });
       
-      yPos += 15;
-      doc.setFontSize(16);
+      yPos += 25;
+      doc.setFontSize(18);
       doc.text("Centre Standby Plant", pageWidth / 2, yPos, { align: "center" });
       
-      // Company details
-      yPos = 160;
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "bold");
-      doc.text("PREPARED BY:", pageWidth / 2, yPos, { align: "center" });
-      yPos += 8;
-      doc.setFont("helvetica", "normal");
-      doc.text("WATSON MATTHEUS CONSULTING ELECTRICAL ENGINEERS (PTY) LTD", pageWidth / 2, yPos, { align: "center" });
-      yPos += 6;
-      doc.text("141 Witch Hazel Ave, Highveld Techno Park", pageWidth / 2, yPos, { align: "center" });
-      yPos += 6;
-      doc.text("Building 1A", pageWidth / 2, yPos, { align: "center" });
-      yPos += 6;
-      doc.text("Tel: (012) 665 3487", pageWidth / 2, yPos, { align: "center" });
-      yPos += 6;
-      doc.text("Contact: Mr Arno Mattheus", pageWidth / 2, yPos, { align: "center" });
+      // First horizontal divider line
+      yPos = 150;
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0.5);
+      doc.line(14, yPos, pageWidth - 14, yPos);
       
-      yPos = 220;
+      // Company details section - left aligned
+      yPos = 160;
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
-      doc.text(`DATE: ${format(new Date(), "EEEE, dd MMMM yyyy")}`, pageWidth / 2, yPos, { align: "center" });
-      yPos += 8;
-      doc.text(`REVISION: ${nextRevision}`, pageWidth / 2, yPos, { align: "center" });
+      doc.text("PREPARED BY:", 14, yPos);
+      
+      yPos += 6;
+      doc.setFont("helvetica", "normal");
+      doc.text("WATSON MATTHEUS CONSULTING ELECTRICAL ENGINEERS (PTY) LTD", 14, yPos);
+      
+      yPos += 5;
+      doc.text("141 Witch Hazel Ave,", 14, yPos);
+      
+      yPos += 5;
+      doc.text("Highveld Techno Park", 14, yPos);
+      
+      yPos += 5;
+      doc.text("Building 1A", 14, yPos);
+      
+      yPos += 5;
+      doc.text("Tel: (012) 665 3487", 14, yPos);
+      
+      yPos += 5;
+      doc.text("Contact: Mr Arno Mattheus", 14, yPos);
+      
+      // Second horizontal divider line
+      yPos = 208;
+      doc.line(14, yPos, pageWidth - 14, yPos);
+      
+      // Date and Revision - formatted like reference
+      yPos = 230;
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(0, 0, 0);
+      doc.text("DATE:", 14, yPos);
+      doc.text("REVISION:", 14, yPos + 10);
+      
+      // Values in blue, right-aligned to page center
+      doc.setTextColor(0, 153, 255);
+      doc.setFont("helvetica", "normal");
+      doc.text(format(new Date(), "EEEE, dd MMMM yyyy"), pageWidth - 14, yPos, { align: "right" });
+      doc.text(nextRevision.replace(".", " "), pageWidth - 14, yPos + 10, { align: "right" });
 
       // ========== PAGE 2: EXECUTIVE SUMMARY ==========
       doc.addPage();
