@@ -126,36 +126,49 @@ export const ImportFloorPlanCablesDialog = ({
         selectedCables.has(cable.id)
       );
 
-      // Create cable entries for selected cables
-      const entries = cablesToImport.map((cable) => ({
-        schedule_id: scheduleId,
-        floor_plan_cable_id: cable.id,
-        cable_tag: cable.label || `${cable.from_label || "?"}-${cable.to_label || "?"}`,
-        from_location: cable.from_label || "",
-        to_location: cable.to_label || "",
-        cable_type: cable.cable_type,
-        measured_length: cable.length_meters || 0,
-        extra_length: 0,
-        total_length: cable.length_meters || 0,
-      }));
+      // Link floor plan cables to this schedule by updating the cable_entry that already exists
+      // Or create new cable entry if it doesn't exist yet
+      for (const cable of cablesToImport) {
+        if (cable.cable_entry_id) {
+          // Cable entry already exists, just link it to this schedule
+          await supabase
+            .from("cable_entries")
+            .update({ schedule_id: scheduleId })
+            .eq("floor_plan_cable_id", cable.id);
+        } else {
+          // Create new cable entry from floor plan data
+          const entry = {
+            schedule_id: scheduleId,
+            floor_plan_cable_id: cable.id,
+            cable_tag: cable.label || `${cable.from_label || "?"}-${cable.to_label || "?"}`,
+            from_location: cable.from_label || "",
+            to_location: cable.to_label || "",
+            cable_type: "Aluminium", // Default material
+            measured_length: cable.length_meters || 0,
+            extra_length: 0,
+            total_length: cable.length_meters || 0,
+            created_from: "floor_plan",
+          };
 
-      const { error: insertError } = await supabase
-        .from("cable_entries")
-        .insert(entries);
+          const { data: newEntry, error: insertError } = await supabase
+            .from("cable_entries")
+            .insert([entry])
+            .select()
+            .single();
 
-      if (insertError) throw insertError;
+          if (insertError) throw insertError;
 
-      // Update floor plan cables to link them
-      const { error: updateError } = await supabase
-        .from("floor_plan_cables")
-        .update({ cable_entry_id: scheduleId })
-        .in("id", Array.from(selectedCables));
-
-      if (updateError) throw updateError;
+          // Update floor plan cable to reference this entry
+          await supabase
+            .from("floor_plan_cables")
+            .update({ cable_entry_id: newEntry.id })
+            .eq("id", cable.id);
+        }
+      }
 
       toast({
         title: "Success",
-        description: `Imported ${selectedCables.size} cable(s) from floor plans`,
+        description: `Linked ${selectedCables.size} cable(s) from floor plans`,
       });
 
       onSuccess();
@@ -181,8 +194,9 @@ export const ImportFloorPlanCablesDialog = ({
         <DialogHeader>
           <DialogTitle>Import Cables from Floor Plans</DialogTitle>
           <DialogDescription>
-            Select cables from floor plan drawings to import into this cable schedule.
-            Cable lengths and routing will be automatically populated.
+            Link cables from floor plan drawings to this cable schedule.
+            Lengths and routing from the floor plan will be automatically populated.
+            Each cable exists only once - linking it here makes it appear in this schedule.
           </DialogDescription>
         </DialogHeader>
 
@@ -264,7 +278,7 @@ export const ImportFloorPlanCablesDialog = ({
                 {linkedCables.length > 0 && (
                   <div className="space-y-2">
                     <h4 className="font-medium text-muted-foreground">
-                      Already Imported ({linkedCables.length})
+                      Already Linked ({linkedCables.length})
                     </h4>
                     <ScrollArea className="h-[200px] border rounded-md">
                       <Table>
@@ -276,7 +290,7 @@ export const ImportFloorPlanCablesDialog = ({
                               <TableCell>{cable.from_label || "-"}</TableCell>
                               <TableCell>{cable.to_label || "-"}</TableCell>
                               <TableCell>
-                                <Badge variant="secondary">Imported</Badge>
+                                <Badge variant="secondary">Linked</Badge>
                               </TableCell>
                             </TableRow>
                           ))}
@@ -298,7 +312,7 @@ export const ImportFloorPlanCablesDialog = ({
             onClick={handleImport}
             disabled={importing || selectedCables.size === 0}
           >
-            {importing ? "Importing..." : `Import ${selectedCables.size} Cable(s)`}
+            {importing ? "Linking..." : `Link ${selectedCables.size} Cable(s)`}
           </Button>
         </div>
       </DialogContent>

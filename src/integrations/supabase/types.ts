@@ -427,6 +427,7 @@ export type Database = {
           cable_tag: string
           cable_type: string | null
           created_at: string
+          created_from: string | null
           display_order: number
           extra_length: number | null
           floor_plan_cable_id: string | null
@@ -438,7 +439,7 @@ export type Database = {
           notes: string | null
           ohm_per_km: number | null
           quantity: number
-          schedule_id: string
+          schedule_id: string | null
           supply_cost: number | null
           to_location: string
           total_cost: number | null
@@ -453,6 +454,7 @@ export type Database = {
           cable_tag: string
           cable_type?: string | null
           created_at?: string
+          created_from?: string | null
           display_order?: number
           extra_length?: number | null
           floor_plan_cable_id?: string | null
@@ -464,7 +466,7 @@ export type Database = {
           notes?: string | null
           ohm_per_km?: number | null
           quantity?: number
-          schedule_id: string
+          schedule_id?: string | null
           supply_cost?: number | null
           to_location: string
           total_cost?: number | null
@@ -479,6 +481,7 @@ export type Database = {
           cable_tag?: string
           cable_type?: string | null
           created_at?: string
+          created_from?: string | null
           display_order?: number
           extra_length?: number | null
           floor_plan_cable_id?: string | null
@@ -490,7 +493,7 @@ export type Database = {
           notes?: string | null
           ohm_per_km?: number | null
           quantity?: number
-          schedule_id?: string
+          schedule_id?: string | null
           supply_cost?: number | null
           to_location?: string
           total_cost?: number | null
