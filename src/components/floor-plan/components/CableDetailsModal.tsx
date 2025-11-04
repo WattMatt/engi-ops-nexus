@@ -39,6 +39,7 @@ interface CableEntry {
   from_location: string;
   to_location: string;
   cable_type: string;
+  cable_size: string | null;
   measured_length: number | null;
   schedule_id: string;
 }
@@ -104,7 +105,7 @@ const CableDetailsModal: React.FC<CableDetailsModalProps> = ({
         console.log('Fetching cable entries for schedule:', selectedSchedule);
         const { data, error } = await supabase
           .from('cable_entries')
-          .select('id, cable_tag, from_location, to_location, cable_type, measured_length, schedule_id, floor_plan_cable_id')
+          .select('id, cable_tag, from_location, to_location, cable_type, cable_size, measured_length, schedule_id, floor_plan_cable_id')
           .eq('schedule_id', selectedSchedule)
           .is('floor_plan_cable_id', null); // Only fetch unlinked cables
         
@@ -148,7 +149,11 @@ const CableDetailsModal: React.FC<CableDetailsModalProps> = ({
         setFrom(entry.from_location);
         setTo(entry.to_location);
         setLabel(entry.cable_tag);
-        setSelectedCableType(entry.cable_type || '');
+        // Combine cable_type and cable_size if both exist
+        const fullCableType = entry.cable_size 
+          ? `${entry.cable_type} - ${entry.cable_size}`
+          : entry.cable_type || '';
+        setSelectedCableType(fullCableType);
       }
     }
   }, [selectedEntry, cableEntries, mode]);
