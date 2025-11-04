@@ -34,6 +34,16 @@ export const CreateCableScheduleDialog = ({
     notes: "",
   });
 
+  // Auto-generate schedule number from name if not provided
+  const getScheduleNumber = (name: string, manualNumber: string) => {
+    if (manualNumber.trim()) return manualNumber;
+    
+    // Auto-generate from name: take first 3 letters + timestamp
+    const prefix = name.trim().substring(0, 3).toUpperCase() || "CS";
+    const timestamp = Date.now().toString().slice(-6);
+    return `${prefix}-${timestamp}`;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -68,8 +78,15 @@ export const CreateCableScheduleDialog = ({
         return;
       }
 
+      const scheduleNumber = getScheduleNumber(formData.schedule_name, formData.schedule_number);
+
       const { error } = await supabase.from("cable_schedules").insert({
-        ...formData,
+        schedule_name: formData.schedule_name,
+        schedule_number: scheduleNumber,
+        revision: formData.revision,
+        schedule_date: formData.schedule_date,
+        layout_name: formData.layout_name || null,
+        notes: formData.notes || null,
         project_id: projectId,
         created_by: session.user.id,
       });
@@ -109,29 +126,29 @@ export const CreateCableScheduleDialog = ({
           <DialogTitle>Create New Cable Schedule</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="schedule_name">Schedule Name</Label>
-              <Input
-                id="schedule_name"
-                value={formData.schedule_name}
-                onChange={(e) =>
-                  setFormData({ ...formData, schedule_name: e.target.value })
-                }
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="schedule_number">Schedule Number</Label>
-              <Input
-                id="schedule_number"
-                value={formData.schedule_number}
-                onChange={(e) =>
-                  setFormData({ ...formData, schedule_number: e.target.value })
-                }
-                required
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="schedule_name">Schedule Name *</Label>
+            <Input
+              id="schedule_name"
+              value={formData.schedule_name}
+              onChange={(e) =>
+                setFormData({ ...formData, schedule_name: e.target.value })
+              }
+              placeholder="e.g., Ground Floor Cables, Main Distribution"
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="schedule_number">Schedule Number (Optional - Auto-generated if blank)</Label>
+            <Input
+              id="schedule_number"
+              value={formData.schedule_number}
+              onChange={(e) =>
+                setFormData({ ...formData, schedule_number: e.target.value })
+              }
+              placeholder="Leave blank to auto-generate"
+            />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
