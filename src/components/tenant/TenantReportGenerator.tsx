@@ -379,12 +379,44 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
       const response = await fetch(imageUrl);
       const blob = await response.blob();
       
-      // Convert blob to base64
-      const reader = new FileReader();
-      const base64Image = await new Promise<string>((resolve) => {
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.readAsDataURL(blob);
+      // Convert blob to base64 and compress
+      const img = new Image();
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = URL.createObjectURL(blob);
       });
+
+      // Create canvas to compress image
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      // Calculate dimensions (max width for PDF page)
+      const maxWidth = (pageWidth - 40) * 4; // Convert mm to pixels (approx)
+      const maxHeight = (pageHeight - 80) * 4;
+      
+      let imgWidth = img.width;
+      let imgHeight = img.height;
+      
+      if (imgWidth > maxWidth) {
+        imgHeight = (maxWidth / imgWidth) * imgHeight;
+        imgWidth = maxWidth;
+      }
+      
+      if (imgHeight > maxHeight) {
+        imgWidth = (maxHeight / imgHeight) * imgWidth;
+        imgHeight = maxHeight;
+      }
+      
+      canvas.width = imgWidth;
+      canvas.height = imgHeight;
+      
+      // Draw and compress to JPEG with 0.6 quality
+      ctx?.drawImage(img, 0, 0, imgWidth, imgHeight);
+      const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6);
+      
+      // Clean up
+      URL.revokeObjectURL(img.src);
 
       doc.addPage();
       
@@ -397,29 +429,22 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
       doc.setFont("helvetica", "bold");
       doc.text("Floor Plan with Tenant Zones", 20, 25);
 
-      // Add the composite image
-      const maxWidth = pageWidth - 40;
-      const maxHeight = pageHeight - 80;
+      // Add the compressed image
+      const pdfMaxWidth = pageWidth - 40;
+      const pdfMaxHeight = pageHeight - 80;
       
-      // Calculate aspect ratio to fit the image properly
-      const img = new Image();
-      await new Promise((resolve) => {
-        img.onload = resolve;
-        img.src = base64Image;
-      });
+      let pdfImgWidth = pdfMaxWidth;
+      let pdfImgHeight = (imgHeight / imgWidth) * pdfMaxWidth;
       
-      let imgWidth = maxWidth;
-      let imgHeight = (img.height / img.width) * maxWidth;
-      
-      if (imgHeight > maxHeight) {
-        imgHeight = maxHeight;
-        imgWidth = (img.width / img.height) * maxHeight;
+      if (pdfImgHeight > pdfMaxHeight) {
+        pdfImgHeight = pdfMaxHeight;
+        pdfImgWidth = (imgWidth / imgHeight) * pdfMaxHeight;
       }
       
-      const imgX = (pageWidth - imgWidth) / 2;
+      const imgX = (pageWidth - pdfImgWidth) / 2;
       const imgY = 50;
 
-      doc.addImage(base64Image, 'PNG', imgX, imgY, imgWidth, imgHeight, undefined, 'FAST');
+      doc.addImage(compressedBase64, 'JPEG', imgX, imgY, pdfImgWidth, pdfImgHeight, undefined, 'FAST');
 
       // Add legend/note at bottom
       doc.setTextColor(100, 100, 100);
