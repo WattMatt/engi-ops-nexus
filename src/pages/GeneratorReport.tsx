@@ -14,6 +14,9 @@ import { GeneratorCostingSection } from "@/components/tenant/GeneratorCostingSec
 import { GeneratorOverview } from "@/components/tenant/GeneratorOverview";
 import { GeneratorReportExportPDFButton } from "@/components/tenant/GeneratorReportExportPDFButton";
 import { GeneratorSavedReportsList } from "@/components/tenant/GeneratorSavedReportsList";
+import { LoadDistributionChart } from "@/components/tenant/charts/LoadDistributionChart";
+import { CostBreakdownChart } from "@/components/tenant/charts/CostBreakdownChart";
+import { RecoveryProjectionChart } from "@/components/tenant/charts/RecoveryProjectionChart";
 import { ChevronDown } from "lucide-react";
 
 const GeneratorReport = () => {
@@ -49,6 +52,121 @@ const GeneratorReport = () => {
     },
     enabled: !!projectId,
   });
+
+  const { data: zones = [] } = useQuery({
+    queryKey: ["generator-zones", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("generator_zones")
+        .select("*")
+        .eq("project_id", projectId)
+        .order("display_order");
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!projectId,
+  });
+
+  const { data: generatorSettings } = useQuery({
+    queryKey: ["generator-settings", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("generator_settings")
+        .select("*")
+        .eq("project_id", projectId)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!projectId,
+  });
+
+  const { data: allSettings = [] } = useQuery({
+    queryKey: ["running-recovery-settings", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("running_recovery_settings")
+        .select("*")
+        .eq("project_id", projectId);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!projectId,
+  });
+
+  // Calculate chart data
+  const calculateLoading = (tenant: any) => {
+    if (!tenant.area || tenant.own_generator_provided) return 0;
+    
+    const kwPerSqm = {
+      standard: generatorSettings?.standard_kw_per_sqm || 0.03,
+      fast_food: generatorSettings?.fast_food_kw_per_sqm || 0.045,
+      restaurant: generatorSettings?.restaurant_kw_per_sqm || 0.045,
+      national: generatorSettings?.national_kw_per_sqm || 0.03,
+    };
+    
+    return tenant.area * (kwPerSqm[tenant.shop_category as keyof typeof kwPerSqm] || 0.03);
+  };
+
+  const zoneLoadingData = zones.map(zone => {
+    const loading = tenants
+      .filter(t => t.generator_zone_id === zone.id && !t.own_generator_provided)
+      .reduce((sum, tenant) => sum + calculateLoading(tenant), 0);
+    
+    return {
+      id: zone.id,
+      zone_name: zone.zone_name,
+      loading,
+    };
+  });
+
+  const totalGeneratorCost = zones.reduce((sum, zone) => {
+    const numGens = zone.num_generators || 1;
+    const costPerGen = zone.generator_cost || 0;
+    return sum + (costPerGen * numGens);
+  }, 0);
+
+  const numTenantDBs = tenants.filter(t => !t.own_generator_provided).length;
+  const ratePerTenantDB = generatorSettings?.rate_per_tenant_db || 0;
+  const tenantDBsCost = numTenantDBs * ratePerTenantDB;
+  
+  const numMainBoards = generatorSettings?.num_main_boards || 0;
+  const ratePerMainBoard = generatorSettings?.rate_per_main_board || 0;
+  const mainBoardsCost = numMainBoards * ratePerMainBoard;
+  
+  const additionalCablingCost = generatorSettings?.additional_cabling_cost || 0;
+  const controlWiringCost = generatorSettings?.control_wiring_cost || 0;
+  
+  const totalCapitalCost = totalGeneratorCost + tenantDBsCost + mainBoardsCost + additionalCablingCost + controlWiringCost;
+  
+  // Calculate capital recovery (10 years at 12%)
+  const years = 10;
+  const rate = 0.12;
+  const numerator = rate * Math.pow(1 + rate, years);
+  const denominator = Math.pow(1 + rate, years) - 1;
+  const annualRepayment = totalCapitalCost * (numerator / denominator);
+  const monthlyCapitalRepayment = annualRepayment / 12;
+
+  // Calculate total monthly running recovery from all settings
+  const monthlyRunningRecovery = allSettings.reduce((sum, setting) => {
+    const zone = zones.find(z => z.id === setting.generator_zone_id);
+    const numGenerators = zone?.num_generators || 1;
+    
+    // Monthly diesel cost
+    const dieselCostPerHour = setting.fuel_consumption_rate * setting.diesel_price_per_litre;
+    const monthlyDieselCost = dieselCostPerHour * setting.expected_hours_per_month * numGenerators;
+    
+    // Monthly servicing cost
+    const servicingCostPerMonth = setting.servicing_cost_per_year / 12;
+    const servicingCostPerMonthByHours = (setting.servicing_cost_per_250_hours / 250) * setting.expected_hours_per_month;
+    const additionalServicingCost = Math.max(0, servicingCostPerMonthByHours - servicingCostPerMonth) * numGenerators;
+    
+    // Total monthly cost for this zone
+    const totalMonthlyCost = monthlyDieselCost + additionalServicingCost;
+    
+    // Add 10% contingency
+    return sum + (totalMonthlyCost * 1.1);
+  }, 0);
 
   const handleUpdate = () => {
     setRefreshTrigger((prev) => prev + 1);
@@ -97,12 +215,13 @@ const GeneratorReport = () => {
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
           <TabsTrigger value="tenant-schedule">Tenant Schedule</TabsTrigger>
           <TabsTrigger value="sizing">Generator Sizing & Consumption</TabsTrigger>
           <TabsTrigger value="costs">Costs</TabsTrigger>
+          <TabsTrigger value="charts">Charts & Analysis</TabsTrigger>
           <TabsTrigger value="saved-reports">Saved Reports</TabsTrigger>
         </TabsList>
 
@@ -177,6 +296,25 @@ const GeneratorReport = () => {
               </CollapsibleContent>
             </Collapsible>
           </div>
+        </TabsContent>
+
+        <TabsContent value="charts" className="space-y-4">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <LoadDistributionChart zones={zoneLoadingData} />
+            <CostBreakdownChart 
+              costs={{
+                generatorCost: totalGeneratorCost,
+                tenantDBsCost,
+                mainBoardsCost,
+                additionalCablingCost,
+                controlWiringCost,
+              }}
+            />
+          </div>
+          <RecoveryProjectionChart 
+            monthlyCapitalRecovery={monthlyCapitalRepayment}
+            monthlyRunningRecovery={monthlyRunningRecovery}
+          />
         </TabsContent>
 
         <TabsContent value="saved-reports" className="space-y-4">
