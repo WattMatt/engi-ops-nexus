@@ -12,6 +12,16 @@ import { MaskingToolbar } from "./MaskingToolbar";
 import { AssignTenantDialog } from "./AssignTenantDialog";
 import { FloorPlanLegend } from "./FloorPlanLegend";
 import type { PDFDocumentProxy } from 'pdfjs-dist';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
   const [isEditMode, setIsEditMode] = useState(false);
@@ -28,6 +38,7 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
   const [selectedZoneTenantId, setSelectedZoneTenantId] = useState<string | null>(null);
   const [assignTenantDialogOpen, setAssignTenantDialogOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [zones, setZones] = useState<Array<{
     id: string;
     points: Array<{ x: number; y: number }>;
@@ -318,7 +329,13 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
     toast.info("Select a new tenant for this zone");
   };
 
-  const handleDeleteZone = async () => {
+  const handleDeleteZone = () => {
+    if (!selectedZoneId) return;
+    // Show confirmation dialog instead of deleting immediately
+    setDeleteConfirmOpen(true);
+  };
+
+  const confirmDeleteZone = async () => {
     if (!selectedZoneId) return;
     
     try {
@@ -334,6 +351,7 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
       setZones(prevZones => prevZones.filter(z => z.id !== selectedZoneId));
       
       toast.success('Zone deleted successfully');
+      setDeleteConfirmOpen(false);
     } catch (error) {
       console.error('Error deleting zone:', error);
       toast.error('Failed to delete zone');
@@ -621,6 +639,28 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
         onDelete={handleDeleteZone}
         assignedTenantIds={zones.filter(z => z.tenantId).map(z => z.tenantId!)}
       />
+
+      <AlertDialog open={deleteConfirmOpen} onOpenChange={setDeleteConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Zone</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this zone? This action cannot be undone.
+              {selectedZoneId && zones.find(z => z.id === selectedZoneId)?.tenantName && (
+                <span className="block mt-2 font-medium">
+                  Currently assigned to: {zones.find(z => z.id === selectedZoneId)?.tenantName}
+                </span>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmDeleteZone} className="bg-destructive hover:bg-destructive/90">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
