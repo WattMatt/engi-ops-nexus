@@ -60,19 +60,19 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
   };
 
 
-  const generateKPIPage = (doc: jsPDF) => {
+  const generateKPIPage = (doc: jsPDF, options: ReportOptions) => {
     doc.addPage();
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     
     // Professional header section
     doc.setFillColor(41, 128, 185);
-    doc.rect(0, 0, pageWidth, 50, 'F');
+    doc.rect(0, 0, pageWidth, 35, 'F');
     
     doc.setTextColor(255, 255, 255);
-    doc.setFontSize(28);
+    doc.setFontSize(22);
     doc.setFont("helvetica", "bold");
-    doc.text("Project Overview & KPIs", 20, 30);
+    doc.text("Project Overview & KPIs", 20, 22);
 
     // Calculate metrics
     const totalTenants = tenants.length;
@@ -91,180 +91,189 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
     const layoutReceived = tenants.filter(t => t.layout_received).length;
     const costReported = tenants.filter(t => t.cost_reported).length;
 
-    let yPos = 65;
-    const cardWidth = 85;
-    const cardHeight = 45;
+    let yPos = 45;
+
+    // Compact KPI Cards in a 2x2 grid
+    const cardWidth = (pageWidth - 60) / 2; // Two columns with spacing
+    const cardHeight = 30;
     const cardSpacing = 10;
+    const leftColX = 20;
+    const rightColX = 20 + cardWidth + cardSpacing;
 
-    // Professional KPI Cards Row 1
-    // Card 1: Total Tenants
-    doc.setFillColor(255, 255, 255);
-    doc.setDrawColor(220, 220, 220);
-    doc.setLineWidth(0.5);
-    doc.roundedRect(20, yPos, cardWidth, cardHeight, 3, 3, 'FD');
+    // Card 1: Total Tenants (always shown)
+    doc.setFillColor(248, 250, 252);
+    doc.setDrawColor(226, 232, 240);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(leftColX, yPos, cardWidth, cardHeight, 2, 2, 'FD');
     
-    doc.setFillColor(41, 128, 185);
-    doc.circle(30, yPos + 10, 4, 'F');
-    
-    doc.setTextColor(100, 100, 100);
-    doc.setFontSize(10);
+    doc.setTextColor(71, 85, 105);
+    doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
-    doc.text("TOTAL TENANTS", 40, yPos + 12);
+    doc.text("TOTAL TENANTS", leftColX + 5, yPos + 8);
     
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(28);
-    doc.setFont("helvetica", "bold");
-    doc.text(totalTenants.toString(), 25, yPos + 35);
-
-    // Card 2: Total Area
-    const card2X = 20 + cardWidth + cardSpacing;
-    doc.setFillColor(255, 255, 255);
-    doc.roundedRect(card2X, yPos, cardWidth, cardHeight, 3, 3, 'FD');
-    
-    doc.setFillColor(46, 204, 113);
-    doc.circle(card2X + 10, yPos + 10, 4, 'F');
-    
-    doc.setTextColor(100, 100, 100);
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text("TOTAL AREA", card2X + 20, yPos + 12);
-    
-    doc.setTextColor(0, 0, 0);
+    doc.setTextColor(15, 23, 42);
     doc.setFontSize(20);
     doc.setFont("helvetica", "bold");
-    doc.text(`${totalArea.toFixed(0)} m²`, card2X + 5, yPos + 35);
+    doc.text(totalTenants.toString(), leftColX + 5, yPos + 22);
+
+    // Card 2: Total Area (if area field selected)
+    if (options.tenantFields.area) {
+      doc.setFillColor(248, 250, 252);
+      doc.roundedRect(rightColX, yPos, cardWidth, cardHeight, 2, 2, 'FD');
+      
+      doc.setTextColor(71, 85, 105);
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.text("TOTAL AREA", rightColX + 5, yPos + 8);
+      
+      doc.setTextColor(15, 23, 42);
+      doc.setFontSize(16);
+      doc.setFont("helvetica", "bold");
+      doc.text(`${totalArea.toFixed(0)} m²`, rightColX + 5, yPos + 22);
+    }
 
     yPos += cardHeight + cardSpacing;
 
-    // Professional KPI Cards Row 2
-    // Card 3: Total DB Cost
-    doc.setFillColor(255, 255, 255);
-    doc.roundedRect(20, yPos, cardWidth, cardHeight, 3, 3, 'FD');
-    
-    doc.setFillColor(230, 126, 34);
-    doc.circle(30, yPos + 10, 4, 'F');
-    
-    doc.setTextColor(100, 100, 100);
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text("TOTAL DB COST", 40, yPos + 12);
-    
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(18);
-    doc.setFont("helvetica", "bold");
-    doc.text(`R${totalDbCost.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, 25, yPos + 35);
-
-    // Card 4: Total Lighting Cost
-    doc.setFillColor(255, 255, 255);
-    doc.roundedRect(card2X, yPos, cardWidth, cardHeight, 3, 3, 'FD');
-    
-    doc.setFillColor(241, 196, 15);
-    doc.circle(card2X + 10, yPos + 10, 4, 'F');
-    
-    doc.setTextColor(100, 100, 100);
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.text("LIGHTING COST", card2X + 20, yPos + 12);
-    
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(18);
-    doc.setFont("helvetica", "bold");
-    doc.text(`R${totalLightingCost.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, card2X + 5, yPos + 35);
-
-    yPos += cardHeight + 20;
-
-    // Category Breakdown Section
-    doc.setFillColor(245, 245, 245);
-    doc.roundedRect(20, yPos, pageWidth - 40, 60, 3, 3, 'F');
-    
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.text("Category Breakdown", 30, yPos + 15);
-
-    let categoryY = yPos + 28;
-    const categoryColors: Record<string, [number, number, number]> = {
-      standard: [52, 152, 219],
-      fast_food: [231, 76, 60],
-      restaurant: [46, 204, 113],
-      national: [155, 89, 182]
-    };
-
-    Object.entries(categoryCounts).forEach(([category, count]) => {
-      const color = categoryColors[category] || [128, 128, 128];
-      doc.setFillColor(color[0], color[1], color[2]);
-      doc.circle(35, categoryY, 3, 'F');
+    // Card 3: Total DB Cost (if dbCost field selected)
+    if (options.tenantFields.dbCost) {
+      doc.setFillColor(248, 250, 252);
+      doc.roundedRect(leftColX, yPos, cardWidth, cardHeight, 2, 2, 'FD');
       
-      doc.setTextColor(60, 60, 60);
-      doc.setFontSize(11);
+      doc.setTextColor(71, 85, 105);
+      doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
-      doc.text(`${getCategoryLabel(category)}`, 45, categoryY + 2);
+      doc.text("TOTAL DB COST", leftColX + 5, yPos + 8);
       
+      doc.setTextColor(15, 23, 42);
+      doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
-      doc.text(`${count} tenant${count !== 1 ? 's' : ''}`, 130, categoryY + 2);
+      doc.text(`R${totalDbCost.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, leftColX + 5, yPos + 22);
+    }
+
+    // Card 4: Total Lighting Cost (if lightingCost field selected)
+    if (options.tenantFields.lightingCost) {
+      doc.setFillColor(248, 250, 252);
+      doc.roundedRect(rightColX, yPos, cardWidth, cardHeight, 2, 2, 'FD');
       
-      categoryY += 10;
-    });
+      doc.setTextColor(71, 85, 105);
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.text("TOTAL LIGHTING COST", rightColX + 5, yPos + 8);
+      
+      doc.setTextColor(15, 23, 42);
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text(`R${totalLightingCost.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, rightColX + 5, yPos + 22);
+    }
 
-    yPos += 70;
+    yPos += cardHeight + 15;
 
-    // Progress Tracking Section - increased height to fit all 5 items with proper spacing
-    doc.setFillColor(245, 245, 245);
-    doc.roundedRect(20, yPos, pageWidth - 40, 105, 3, 3, 'F');
-    
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.text("Progress Tracking", 30, yPos + 15);
+    // Category Breakdown Section (if category field selected)
+    if (options.tenantFields.category && Object.keys(categoryCounts).length > 0) {
+      doc.setFillColor(248, 250, 252);
+      const categoryHeight = Math.min(Object.keys(categoryCounts).length * 8 + 20, 50);
+      doc.roundedRect(20, yPos, pageWidth - 40, categoryHeight, 2, 2, 'F');
+      
+      doc.setTextColor(15, 23, 42);
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text("Category Breakdown", 25, yPos + 12);
 
-    const progressData = [
-      { label: 'SOW Received', value: sowReceived, color: [41, 128, 185] },
-      { label: 'Layout Received', value: layoutReceived, color: [46, 204, 113] },
-      { label: 'DB Ordered', value: dbOrdered, color: [230, 126, 34] },
-      { label: 'Lighting Ordered', value: lightingOrdered, color: [241, 196, 15] },
-      { label: 'Cost Reported', value: costReported, color: [155, 89, 182] },
+      let categoryY = yPos + 22;
+      const categoryColors: Record<string, [number, number, number]> = {
+        standard: [59, 130, 246],
+        fast_food: [239, 68, 68],
+        restaurant: [34, 197, 94],
+        national: [168, 85, 247]
+      };
+
+      Object.entries(categoryCounts).forEach(([category, count]) => {
+        const color = categoryColors[category] || [100, 116, 139];
+        doc.setFillColor(color[0], color[1], color[2]);
+        doc.circle(30, categoryY - 1, 2, 'F');
+        
+        doc.setTextColor(51, 65, 85);
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+        doc.text(`${getCategoryLabel(category)}:`, 38, categoryY);
+        
+        doc.setFont("helvetica", "bold");
+        doc.text(`${count} tenant${count !== 1 ? 's' : ''}`, 90, categoryY);
+        
+        categoryY += 8;
+      });
+
+      yPos += categoryHeight + 15;
+    }
+
+    // Progress Tracking Section - compact horizontal bars
+    const progressFields = [
+      { key: 'sowReceived', label: 'SOW Received', value: sowReceived },
+      { key: 'layoutReceived', label: 'Layout Received', value: layoutReceived },
+      { key: 'dbOrdered', label: 'DB Ordered', value: dbOrdered },
+      { key: 'lightingOrdered', label: 'Lighting Ordered', value: lightingOrdered },
     ];
 
-    let progressY = yPos + 28;
-    progressData.forEach(item => {
-      const percentage = (item.value / totalTenants * 100);
-      
-      // Label and count
-      doc.setTextColor(60, 60, 60);
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      doc.text(item.label, 30, progressY);
-      
-      doc.setFont("helvetica", "bold");
-      doc.text(`${item.value}/${totalTenants}`, 85, progressY);
-      
-      // Progress bar
-      const barX = 110;
-      const barWidth = 70;
-      const barHeight = 6;
-      const filledWidth = (percentage / 100) * barWidth;
-      
-      // Background
-      doc.setFillColor(220, 220, 220);
-      doc.roundedRect(barX, progressY - 4, barWidth, barHeight, 1, 1, 'F');
-      
-      // Filled portion
-      if (filledWidth > 0) {
-        doc.setFillColor(item.color[0], item.color[1], item.color[2]);
-        doc.roundedRect(barX, progressY - 4, filledWidth, barHeight, 1, 1, 'F');
-      }
-      
-      // Percentage text
-      doc.setTextColor(100, 100, 100);
-      doc.setFontSize(9);
-      doc.text(`${percentage.toFixed(0)}%`, barX + barWidth + 3, progressY);
-      
-      progressY += 14;
+    // Filter progress items based on selected fields
+    const visibleProgress = progressFields.filter(item => {
+      if (item.key === 'sowReceived') return options.tenantFields.sowReceived;
+      if (item.key === 'layoutReceived') return options.tenantFields.layoutReceived;
+      if (item.key === 'dbOrdered') return options.tenantFields.dbOrdered;
+      if (item.key === 'lightingOrdered') return options.tenantFields.lightingOrdered;
+      return false;
     });
+
+    if (visibleProgress.length > 0) {
+      const progressHeight = visibleProgress.length * 18 + 20;
+      doc.setFillColor(248, 250, 252);
+      doc.roundedRect(20, yPos, pageWidth - 40, progressHeight, 2, 2, 'F');
+      
+      doc.setTextColor(15, 23, 42);
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text("Progress Tracking", 25, yPos + 12);
+
+      let progressY = yPos + 22;
+      visibleProgress.forEach(item => {
+        const percentage = (item.value / totalTenants * 100);
+        
+        // Label and count
+        doc.setTextColor(51, 65, 85);
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "normal");
+        doc.text(item.label, 25, progressY);
+        
+        doc.setFont("helvetica", "bold");
+        doc.text(`${item.value}/${totalTenants}`, 70, progressY);
+        
+        // Compact progress bar
+        const barX = 95;
+        const barWidth = pageWidth - 135;
+        const barHeight = 5;
+        const filledWidth = (percentage / 100) * barWidth;
+        
+        // Background
+        doc.setFillColor(226, 232, 240);
+        doc.roundedRect(barX, progressY - 3, barWidth, barHeight, 1, 1, 'F');
+        
+        // Filled portion
+        if (filledWidth > 0) {
+          doc.setFillColor(59, 130, 246);
+          doc.roundedRect(barX, progressY - 3, filledWidth, barHeight, 1, 1, 'F');
+        }
+        
+        // Percentage text
+        doc.setTextColor(100, 116, 139);
+        doc.setFontSize(8);
+        doc.text(`${percentage.toFixed(0)}%`, barX + barWidth + 3, progressY);
+        
+        progressY += 18;
+      });
+    }
 
     // Page footer
     doc.setFontSize(9);
-    doc.setTextColor(150, 150, 150);
+    doc.setTextColor(148, 163, 184);
     doc.setFont("helvetica", "italic");
     doc.text(`Page 2`, pageWidth / 2, pageHeight - 10, { align: 'center' });
   };
@@ -536,7 +545,7 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
         console.log('[TENANT REPORT] Standardized cover page generated successfully');
       }
       if (options.includeKPIPage) {
-        generateKPIPage(doc);
+        generateKPIPage(doc, options);
       }
       if (options.includeFloorPlan) {
         await generateLayoutPages(doc);
