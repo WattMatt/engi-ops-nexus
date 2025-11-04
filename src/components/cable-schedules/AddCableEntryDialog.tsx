@@ -81,15 +81,44 @@ export const AddCableEntryDialog = ({
           .single();
 
         if (schedule?.project_id) {
-          // Then fetch tenants for that project with DB allowance
+          // Fetch all tenants for the project
           const { data: tenantsData } = await supabase
             .from("tenants")
             .select("id, shop_number, shop_name, db_size_allowance")
-            .eq("project_id", schedule.project_id)
-            .order("shop_number");
+            .eq("project_id", schedule.project_id);
+
+          // Fetch existing cable entries to filter out already used tenants
+          const { data: existingEntries } = await supabase
+            .from("cable_entries")
+            .select("to_location")
+            .eq("schedule_id", scheduleId);
 
           if (tenantsData) {
-            setTenants(tenantsData);
+            // Create set of used tenant identifiers
+            const usedTenants = new Set(
+              existingEntries?.map(entry => entry.to_location) || []
+            );
+
+            // Filter out already used tenants and sort numerically
+            const availableTenants = tenantsData
+              .filter(tenant => {
+                const identifier = `${tenant.shop_number} - ${tenant.shop_name}`;
+                return !usedTenants.has(identifier);
+              })
+              .sort((a, b) => {
+                // Extract numeric part from shop_number for proper sorting
+                const getNumericValue = (str: string) => {
+                  const match = str.match(/\d+/);
+                  return match ? parseInt(match[0], 10) : 0;
+                };
+                
+                const numA = getNumericValue(a.shop_number);
+                const numB = getNumericValue(b.shop_number);
+                
+                return numA - numB;
+              });
+
+            setTenants(availableTenants);
           }
         }
       };
