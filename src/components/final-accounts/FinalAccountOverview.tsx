@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Pencil, Save } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { FinalAccountExportPDFButton } from "./FinalAccountExportPDFButton";
 
 interface FinalAccountOverviewProps {
   account: any;
@@ -57,14 +58,17 @@ export function FinalAccountOverview({ account }: FinalAccountOverviewProps) {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Account Details</CardTitle>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => (isEditing ? handleSave() : setIsEditing(true))}
-          >
-            {isEditing ? <Save className="h-4 w-4 mr-2" /> : <Pencil className="h-4 w-4 mr-2" />}
-            {isEditing ? "Save" : "Edit"}
-          </Button>
+          <div className="flex gap-2">
+            <FinalAccountExportPDFButton account={account} />
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => (isEditing ? handleSave() : setIsEditing(true))}
+            >
+              {isEditing ? <Save className="h-4 w-4 mr-2" /> : <Pencil className="h-4 w-4 mr-2" />}
+              {isEditing ? "Save" : "Edit"}
+            </Button>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="grid grid-cols-2 gap-4">

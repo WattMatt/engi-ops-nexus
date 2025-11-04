@@ -2,6 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { FileText, Calendar, User, Building } from "lucide-react";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
+import { SpecificationExportPDFButton } from "./SpecificationExportPDFButton";
 
 interface SpecificationOverviewProps {
   specification: any;
@@ -11,11 +12,12 @@ export const SpecificationOverview = ({ specification }: SpecificationOverviewPr
   return (
     <div className="grid gap-4 md:grid-cols-2">
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="text-lg flex items-center gap-2">
             <FileText className="h-5 w-5" />
             Specification Information
           </CardTitle>
+          <SpecificationExportPDFButton specification={specification} />
         </CardHeader>
         <CardContent className="space-y-3">
           <div>
