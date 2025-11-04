@@ -22,32 +22,50 @@ export function ReportLivePreview({ sections, settings, viewportSize }: ReportLi
     }
   };
 
-  const getPageDimensions = () => {
+  // A4 dimensions in pixels at 96 DPI
+  const getPageStyle = () => {
     if (settings.page_orientation === "landscape") {
-      return "w-[297mm] h-[210mm]"; // A4 landscape
+      return {
+        width: "1122px", // 297mm in px
+        height: "794px",  // 210mm in px
+        minHeight: "794px",
+      };
     }
-    return "w-[210mm] h-[297mm]"; // A4 portrait
+    return {
+      width: "794px",  // 210mm in px
+      height: "1122px", // 297mm in px
+      minHeight: "1122px",
+    };
+  };
+
+  const getScale = () => {
+    switch (viewportSize) {
+      case "mobile":
+        return 0.3;
+      case "tablet":
+        return 0.5;
+      default:
+        return 0.65;
+    }
   };
 
   return (
     <div className="h-full flex flex-col bg-muted/30">
       <div className="border-b bg-card px-4 py-2">
-        <h3 className="font-medium text-sm">Live Preview</h3>
+        <h3 className="font-medium text-sm">Live Preview - A4 Page</h3>
       </div>
 
       <ScrollArea className="flex-1">
         <div className="p-8 flex justify-center">
-          <div className={cn("mx-auto transition-all", getViewportWidth())}>
-            {/* PDF Page Preview */}
+          <div 
+            style={{
+              transform: `scale(${getScale()})`,
+              transformOrigin: "top center",
+            }}
+          >
             <Card
-              className={cn(
-                "bg-white shadow-2xl mx-auto overflow-hidden",
-                getPageDimensions()
-              )}
-              style={{
-                transform: viewportSize === "desktop" ? "scale(0.7)" : "scale(0.5)",
-                transformOrigin: "top center",
-              }}
+              className="bg-white shadow-2xl overflow-hidden"
+              style={getPageStyle()}
             >
               <div
                 style={{
