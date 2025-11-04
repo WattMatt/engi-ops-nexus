@@ -284,6 +284,62 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
     }
   };
 
+  const handleRedrawZone = () => {
+    if (!selectedZoneId) return;
+    
+    // Remove the selected zone from the zones array
+    setZones(prevZones => prevZones.filter(z => z.id !== selectedZoneId));
+    
+    // Switch to zone drawing mode
+    setActiveTool('zone');
+    toast.info("Click to add points for the new zone. Click the start point or press Enter to finish.");
+  };
+
+  const handleReassignZone = () => {
+    if (!selectedZoneId) return;
+    
+    // Find the zone and clear its tenant assignment
+    setZones(prevZones => prevZones.map(z => {
+      if (z.id === selectedZoneId) {
+        return {
+          ...z,
+          tenantId: null,
+          tenantName: null,
+          category: null,
+          color: '#9ca3af' // Reset to unassigned gray
+        };
+      }
+      return z;
+    }));
+    
+    // Reopen the assign dialog
+    setSelectedZoneTenantId(null);
+    setAssignTenantDialogOpen(true);
+    toast.info("Select a new tenant for this zone");
+  };
+
+  const handleDeleteZone = async () => {
+    if (!selectedZoneId) return;
+    
+    try {
+      // Delete from database if it exists
+      const { error } = await supabase
+        .from('tenant_floor_plan_zones')
+        .delete()
+        .eq('id', selectedZoneId);
+      
+      if (error) throw error;
+      
+      // Remove from local state
+      setZones(prevZones => prevZones.filter(z => z.id !== selectedZoneId));
+      
+      toast.success('Zone deleted successfully');
+    } catch (error) {
+      console.error('Error deleting zone:', error);
+      toast.error('Failed to delete zone');
+    }
+  };
+
   const saveCompositeImage = async (fileName: string = 'composite.png') => {
     if (!pdfDoc || !(window as any).getCompositeCanvas) {
       throw new Error('Cannot generate preview');
@@ -560,6 +616,9 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
         zoneId={selectedZoneId || ""}
         currentTenantId={selectedZoneTenantId}
         onAssign={handleAssignTenant}
+        onRedraw={handleRedrawZone}
+        onReassign={handleReassignZone}
+        onDelete={handleDeleteZone}
         assignedTenantIds={zones.filter(z => z.tenantId).map(z => z.tenantId!)}
       />
     </div>
