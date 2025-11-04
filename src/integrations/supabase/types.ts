@@ -1909,6 +1909,7 @@ export type Database = {
           project_id: string
           report_name: string
           revision: string | null
+          tenant_schedule_version: number | null
         }
         Insert: {
           created_at?: string | null
@@ -1921,6 +1922,7 @@ export type Database = {
           project_id: string
           report_name: string
           revision?: string | null
+          tenant_schedule_version?: number | null
         }
         Update: {
           created_at?: string | null
@@ -1933,6 +1935,7 @@ export type Database = {
           project_id?: string
           report_name?: string
           revision?: string | null
+          tenant_schedule_version?: number | null
         }
         Relationships: [
           {
@@ -4562,6 +4565,67 @@ export type Database = {
           },
         ]
       }
+      tenant_change_audit_log: {
+        Row: {
+          change_type: string
+          changed_at: string | null
+          changed_by: string | null
+          changed_fields: Json | null
+          id: string
+          new_values: Json | null
+          old_values: Json | null
+          project_id: string
+          tenant_id: string | null
+          version_id: string | null
+        }
+        Insert: {
+          change_type: string
+          changed_at?: string | null
+          changed_by?: string | null
+          changed_fields?: Json | null
+          id?: string
+          new_values?: Json | null
+          old_values?: Json | null
+          project_id: string
+          tenant_id?: string | null
+          version_id?: string | null
+        }
+        Update: {
+          change_type?: string
+          changed_at?: string | null
+          changed_by?: string | null
+          changed_fields?: Json | null
+          id?: string
+          new_values?: Json | null
+          old_values?: Json | null
+          project_id?: string
+          tenant_id?: string | null
+          version_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_change_audit_log_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_change_audit_log_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_change_audit_log_version_id_fkey"
+            columns: ["version_id"]
+            isOneToOne: false
+            referencedRelation: "tenant_schedule_versions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_field_config: {
         Row: {
           created_at: string | null
@@ -4681,6 +4745,41 @@ export type Database = {
           },
         ]
       }
+      tenant_schedule_versions: {
+        Row: {
+          change_summary: string | null
+          changed_by: string | null
+          created_at: string | null
+          id: string
+          project_id: string
+          version_number: number
+        }
+        Insert: {
+          change_summary?: string | null
+          changed_by?: string | null
+          created_at?: string | null
+          id?: string
+          project_id: string
+          version_number?: number
+        }
+        Update: {
+          change_summary?: string | null
+          changed_by?: string | null
+          created_at?: string | null
+          id?: string
+          project_id?: string
+          version_number?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_schedule_versions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_tracker_reports: {
         Row: {
           created_at: string
@@ -4754,6 +4853,8 @@ export type Database = {
           generator_loading_sector_2: number | null
           generator_zone_id: string | null
           id: string
+          last_modified_at: string | null
+          last_modified_by: string | null
           layout_received: boolean | null
           lighting_cost: number | null
           lighting_ordered: boolean | null
@@ -4780,6 +4881,8 @@ export type Database = {
           generator_loading_sector_2?: number | null
           generator_zone_id?: string | null
           id?: string
+          last_modified_at?: string | null
+          last_modified_by?: string | null
           layout_received?: boolean | null
           lighting_cost?: number | null
           lighting_ordered?: boolean | null
@@ -4806,6 +4909,8 @@ export type Database = {
           generator_loading_sector_2?: number | null
           generator_zone_id?: string | null
           id?: string
+          last_modified_at?: string | null
+          last_modified_by?: string | null
           layout_received?: boolean | null
           lighting_cost?: number | null
           lighting_ordered?: boolean | null
@@ -5138,6 +5243,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      get_current_tenant_schedule_version: {
+        Args: { p_project_id: string }
+        Returns: number
+      }
       get_next_employee_number: { Args: never; Returns: string }
       has_role: {
         Args: {
@@ -5145,6 +5254,10 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      increment_tenant_schedule_version: {
+        Args: { p_change_summary: string; p_project_id: string }
+        Returns: string
       }
       is_project_member: {
         Args: { _project_id: string; _user_id: string }

@@ -8,6 +8,9 @@ import { FloorPlanMasking } from "@/components/tenant/FloorPlanMasking";
 import { TenantOverview } from "@/components/tenant/TenantOverview";
 import { TenantReportGenerator } from "@/components/tenant/TenantReportGenerator";
 import { SavedReportsList } from "@/components/tenant/SavedReportsList";
+import { TenantChangeAuditLog } from "@/components/tenant/TenantChangeAuditLog";
+import { OutdatedReportsIndicator } from "@/components/tenant/OutdatedReportsIndicator";
+import { TenantVersionBadge } from "@/components/tenant/TenantVersionBadge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 
@@ -56,7 +59,10 @@ const TenantTracker = () => {
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Tenant Tracker</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold">Tenant Tracker</h1>
+            {projectId && <TenantVersionBadge projectId={projectId} />}
+          </div>
           <p className="text-muted-foreground mt-1">{projectName || "No project selected"}</p>
         </div>
         <div className="flex gap-2">
@@ -73,6 +79,8 @@ const TenantTracker = () => {
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="tenants">Tenant Schedule</TabsTrigger>
+          <TabsTrigger value="report-status">Report Status</TabsTrigger>
+          <TabsTrigger value="change-history">Change History</TabsTrigger>
           <TabsTrigger value="floor-plan">Floor Plan Masking</TabsTrigger>
           <TabsTrigger value="settings">DB Sizing Rules</TabsTrigger>
           <TabsTrigger value="reports">Saved Reports</TabsTrigger>
@@ -120,6 +128,14 @@ const TenantTracker = () => {
               />
             )}
           </div>
+        </TabsContent>
+        
+        <TabsContent value="report-status" className="mt-4">
+          {projectId && <OutdatedReportsIndicator projectId={projectId} />}
+        </TabsContent>
+        
+        <TabsContent value="change-history" className="mt-4">
+          {projectId && <TenantChangeAuditLog projectId={projectId} />}
         </TabsContent>
         
         <TabsContent value="reports" className="mt-4">

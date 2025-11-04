@@ -180,6 +180,12 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
         nextRevision = `Rev.${currentRevNum + 1}`;
       }
 
+      // Get current tenant schedule version
+      const { data: versionData } = await supabase
+        .rpc("get_current_tenant_schedule_version", { p_project_id: projectId });
+      
+      const currentTenantVersion = versionData || 0;
+
       // ========== COVER PAGE ==========
       doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
@@ -1181,6 +1187,7 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
           file_size: pdfBlob.size,
           generated_by: user?.id,
           revision: nextRevision,
+          tenant_schedule_version: currentTenantVersion,
         });
 
       if (dbError) throw dbError;

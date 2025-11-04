@@ -14,6 +14,8 @@ import { GeneratorCostingSection } from "@/components/tenant/GeneratorCostingSec
 import { GeneratorOverview } from "@/components/tenant/GeneratorOverview";
 import { GeneratorReportExportPDFButton } from "@/components/tenant/GeneratorReportExportPDFButton";
 import { GeneratorSavedReportsList } from "@/components/tenant/GeneratorSavedReportsList";
+import { OutdatedReportsIndicator } from "@/components/tenant/OutdatedReportsIndicator";
+import { TenantVersionBadge } from "@/components/tenant/TenantVersionBadge";
 import { LoadDistributionChart } from "@/components/tenant/charts/LoadDistributionChart";
 import { CostBreakdownChart } from "@/components/tenant/charts/CostBreakdownChart";
 import { RecoveryProjectionChart } from "@/components/tenant/charts/RecoveryProjectionChart";
@@ -201,8 +203,11 @@ const GeneratorReport = () => {
     <div className="container mx-auto p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Generator Report</h1>
-          <p className="text-muted-foreground">
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-bold">Generator Report</h1>
+            {projectId && <TenantVersionBadge projectId={projectId} />}
+          </div>
+          <p className="text-muted-foreground mt-2">
             Comprehensive generator analysis and cost recovery planning
           </p>
         </div>
@@ -319,10 +324,13 @@ const GeneratorReport = () => {
 
         <TabsContent value="saved-reports" className="space-y-4">
           {projectId && (
-            <GeneratorSavedReportsList 
-              key={reportsRefreshTrigger} 
-              projectId={projectId} 
-            />
+            <>
+              <OutdatedReportsIndicator projectId={projectId} />
+              <GeneratorSavedReportsList 
+                key={reportsRefreshTrigger} 
+                projectId={projectId} 
+              />
+            </>
           )}
         </TabsContent>
       </Tabs>
