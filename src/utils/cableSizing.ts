@@ -94,6 +94,24 @@ export interface CableAlternative {
 }
 
 /**
+ * Get cable table from localStorage if available, otherwise use default
+ */
+function getCableTable(material: "copper" | "aluminium"): CableData[] {
+  try {
+    const storageKey = material === "copper" ? "custom_copper_cable_table" : "custom_aluminium_cable_table";
+    const savedData = localStorage.getItem(storageKey);
+    
+    if (savedData) {
+      return JSON.parse(savedData);
+    }
+  } catch (error) {
+    console.warn("Failed to load custom cable table, using defaults", error);
+  }
+  
+  return material === "aluminium" ? ALUMINIUM_CABLE_TABLE : COPPER_CABLE_TABLE;
+}
+
+/**
  * Calculate recommended cable size based on load current
  * Applies derating factor and selects cable with adequate current rating
  * If length is provided, also checks voltage drop and upsizes if necessary
@@ -116,8 +134,8 @@ export function calculateCableSize(
     return null;
   }
 
-  // Select appropriate cable table based on material
-  const cableTable = material === "aluminium" ? ALUMINIUM_CABLE_TABLE : COPPER_CABLE_TABLE;
+  // Get cable table (custom if available, otherwise default)
+  const cableTable = getCableTable(material);
 
   // If load is low enough for single cable, use standard calculation
   if (loadAmps <= maxAmpsPerCable) {
