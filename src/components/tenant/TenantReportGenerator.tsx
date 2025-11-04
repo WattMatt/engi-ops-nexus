@@ -474,44 +474,19 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
       const response = await fetch(imageUrl);
       const blob = await response.blob();
       
-      // Convert blob to base64 and compress
-      const img = new Image();
-      await new Promise((resolve, reject) => {
-        img.onload = resolve;
-        img.onerror = reject;
-        img.src = URL.createObjectURL(blob);
+      // Convert blob to base64 - keep original PNG quality for floor plans
+      const reader = new FileReader();
+      const base64Image = await new Promise<string>((resolve) => {
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(blob);
       });
 
-      // Create canvas to compress image
-      const canvas = document.createElement('canvas');
-      const ctx = canvas.getContext('2d');
-      
-      // Calculate dimensions (max width for PDF page)
-      const maxWidth = (pageWidth - 40) * 4; // Convert mm to pixels (approx)
-      const maxHeight = (pageHeight - 80) * 4;
-      
-      let imgWidth = img.width;
-      let imgHeight = img.height;
-      
-      if (imgWidth > maxWidth) {
-        imgHeight = (maxWidth / imgWidth) * imgHeight;
-        imgWidth = maxWidth;
-      }
-      
-      if (imgHeight > maxHeight) {
-        imgWidth = (maxHeight / imgHeight) * imgWidth;
-        imgHeight = maxHeight;
-      }
-      
-      canvas.width = imgWidth;
-      canvas.height = imgHeight;
-      
-      // Draw and compress to JPEG with 0.6 quality
-      ctx?.drawImage(img, 0, 0, imgWidth, imgHeight);
-      const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6);
-      
-      // Clean up
-      URL.revokeObjectURL(img.src);
+      // Load image to get dimensions
+      const img = new Image();
+      await new Promise((resolve) => {
+        img.onload = resolve;
+        img.src = base64Image;
+      });
 
       doc.addPage();
       
@@ -524,22 +499,23 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
       doc.setFont("helvetica", "bold");
       doc.text("Floor Plan with Tenant Zones", 20, 25);
 
-      // Add the compressed image
-      const pdfMaxWidth = pageWidth - 40;
-      const pdfMaxHeight = pageHeight - 80;
+      // Add the image at high quality
+      const maxWidth = pageWidth - 40;
+      const maxHeight = pageHeight - 80;
       
-      let pdfImgWidth = pdfMaxWidth;
-      let pdfImgHeight = (imgHeight / imgWidth) * pdfMaxWidth;
+      let imgWidth = maxWidth;
+      let imgHeight = (img.height / img.width) * maxWidth;
       
-      if (pdfImgHeight > pdfMaxHeight) {
-        pdfImgHeight = pdfMaxHeight;
-        pdfImgWidth = (imgWidth / imgHeight) * pdfMaxHeight;
+      if (imgHeight > maxHeight) {
+        imgHeight = maxHeight;
+        imgWidth = (img.width / img.height) * maxHeight;
       }
       
-      const imgX = (pageWidth - pdfImgWidth) / 2;
+      const imgX = (pageWidth - imgWidth) / 2;
       const imgY = 50;
 
-      doc.addImage(compressedBase64, 'JPEG', imgX, imgY, pdfImgWidth, pdfImgHeight, undefined, 'FAST');
+      // Use original PNG format with FAST compression (maintains quality)
+      doc.addImage(base64Image, 'PNG', imgX, imgY, imgWidth, imgHeight, undefined, 'FAST');
 
       // Add legend/note at bottom
       doc.setTextColor(100, 100, 100);
