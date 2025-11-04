@@ -186,6 +186,15 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       
       const currentTenantVersion = versionData || 0;
 
+      // Fetch company logo
+      const { data: companySettings } = await supabase
+        .from("company_settings")
+        .select("company_logo_url")
+        .limit(1)
+        .maybeSingle();
+
+      const logoUrl = companySettings?.company_logo_url;
+
       // ========== COVER PAGE ==========
       // Light blue/grey color for titles (matching reference)
       const titleColor = [133, 163, 207]; // Light blue-grey
@@ -193,6 +202,28 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       // Add left vertical accent bar (light grey)
       doc.setFillColor(220, 230, 240);
       doc.rect(0, 0, 8, pageHeight, 'F');
+      
+      // Add company logo in top right corner if available
+      if (logoUrl) {
+        try {
+          // Fetch and add logo as image
+          const logoResponse = await fetch(logoUrl);
+          const logoBlob = await logoResponse.blob();
+          const logoDataUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(logoBlob);
+          });
+          
+          // Add logo with fixed dimensions (approx 40x40mm)
+          const logoWidth = 40;
+          const logoHeight = 40;
+          doc.addImage(logoDataUrl, 'PNG', pageWidth - logoWidth - 14, 14, logoWidth, logoHeight);
+        } catch (error) {
+          console.error("Failed to add logo to PDF:", error);
+          // Continue without logo if it fails
+        }
+      }
       
       // Main titles - centered and styled
       doc.setTextColor(titleColor[0], titleColor[1], titleColor[2]);
