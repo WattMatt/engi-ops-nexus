@@ -2,22 +2,84 @@ import jsPDF from "jspdf";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 
+/**
+ * STANDARD PDF COVER PAGE UTILITY
+ * ================================
+ * This utility provides a standardized cover page format for ALL PDF exports in the application.
+ * 
+ * MANDATORY USAGE:
+ * All new PDF export features MUST use this utility to maintain consistent branding across all reports.
+ * 
+ * USAGE EXAMPLE:
+ * ```typescript
+ * import { fetchCompanyDetails, generateCoverPage } from "@/utils/pdfCoverPage";
+ * 
+ * const handleExport = async () => {
+ *   const doc = new jsPDF("portrait"); // or "landscape"
+ *   
+ *   // Fetch company details once
+ *   const companyDetails = await fetchCompanyDetails();
+ *   
+ *   // Generate standardized cover page
+ *   await generateCoverPage(doc, {
+ *     title: "Your Report Type",           // e.g., "Financial Evaluation", "Cable Schedule"
+ *     projectName: project.name,            // The main project/report name
+ *     subtitle: "Your Subtitle",            // e.g., "Centre Standby Plant", "Schedule #123"
+ *     revision: "Rev 1",                    // Revision information
+ *   }, companyDetails);
+ *   
+ *   // Add your report content starting from page 2
+ *   doc.addPage();
+ *   // ... your report content here
+ * };
+ * ```
+ * 
+ * COVER PAGE FEATURES:
+ * - Gradient blue accent bar on the left
+ * - Centered titles in light blue
+ * - Company name from company_settings table
+ * - Contact person from logged-in user's employee record
+ * - Company logo (if configured)
+ * - Current date and revision in cyan
+ * - Page number "1" at bottom
+ * 
+ * @module pdfCoverPage
+ */
+
 export interface CoverPageOptions {
+  /** Main title at top of page (e.g., "Financial Evaluation", "Cable Schedule") */
   title: string;
+  /** Project or report name (e.g., "Segonyana Mall", "Generator Report") */
   projectName: string;
+  /** Subtitle below project name (e.g., "Centre Standby Plant", "Schedule #123") */
   subtitle: string;
+  /** Revision information (e.g., "Rev 0", "Rev 1") */
   revision: string;
 }
 
 export interface CompanyDetails {
+  /** Company name from settings (defaults to "WATSON MATTHEUS...") */
   companyName: string;
+  /** URL to company logo from storage (optional) */
   logoUrl?: string;
+  /** Contact person name from logged-in user's employee record */
   contactName: string;
+  /** Contact phone number from employee record or default */
   contactPhone: string;
 }
 
 /**
- * Fetches company settings and current user details for the cover page
+ * Fetches company settings and current user details for the cover page.
+ * This function retrieves:
+ * - Company name and logo from company_settings table
+ * - Logged-in user's details from employees table
+ * 
+ * @returns {Promise<CompanyDetails>} Company and contact information
+ * 
+ * @example
+ * const companyDetails = await fetchCompanyDetails();
+ * console.log(companyDetails.companyName); // "WATSON MATTHEUS..."
+ * console.log(companyDetails.contactName); // "John Doe"
  */
 export async function fetchCompanyDetails(): Promise<CompanyDetails> {
   // Fetch company settings
@@ -55,7 +117,48 @@ export async function fetchCompanyDetails(): Promise<CompanyDetails> {
 }
 
 /**
- * Generates a standardized cover page for all reports
+ * Generates a standardized cover page for ALL PDF reports.
+ * 
+ * This is the REQUIRED method for creating cover pages in all PDF exports.
+ * The cover page includes:
+ * - Gradient blue accent bar on left edge
+ * - Centered titles in company branding colors
+ * - Company details and logo
+ * - Date and revision information
+ * - Page number
+ * 
+ * IMPORTANT: Always call this on page 1, then add your content starting from page 2.
+ * 
+ * @param {jsPDF} doc - The jsPDF document instance
+ * @param {CoverPageOptions} options - Cover page content options
+ * @param {CompanyDetails} companyDetails - Company and contact information from fetchCompanyDetails()
+ * 
+ * @example
+ * // For a generator report
+ * await generateCoverPage(doc, {
+ *   title: "Financial Evaluation",
+ *   projectName: "Segonyana Mall",
+ *   subtitle: "Centre Standby Plant",
+ *   revision: "Rev 3",
+ * }, companyDetails);
+ * 
+ * @example
+ * // For a cable schedule
+ * await generateCoverPage(doc, {
+ *   title: "Cable Schedule",
+ *   projectName: schedule.schedule_name,
+ *   subtitle: `Schedule #${schedule.schedule_number}`,
+ *   revision: schedule.revision,
+ * }, companyDetails);
+ * 
+ * @example
+ * // For a cost report
+ * await generateCoverPage(doc, {
+ *   title: "Cost Report",
+ *   projectName: report.project_name,
+ *   subtitle: `Report #${report.report_number}`,
+ *   revision: `Report ${report.report_number}`,
+ * }, companyDetails);
  */
 export async function generateCoverPage(
   doc: jsPDF,

@@ -1,3 +1,18 @@
+/**
+ * Floor Plan PDF Generator
+ * 
+ * ⚠️ IMPORTANT: This PDF generator currently uses a custom format.
+ * 
+ * For NEW PDF export features, you MUST use the standardized cover page format.
+ * See: src/utils/README_PDF_EXPORTS.md
+ * 
+ * Quick start: src/utils/PDF_QUICK_START.md
+ * Standards: src/utils/PDF_EXPORT_STANDARDS.md
+ * 
+ * TODO: Migrate this floor plan exporter to use the standard cover page format
+ * from src/utils/pdfCoverPage.ts
+ */
+
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import type { GeneratePdfParams, EquipmentType, SupplyLine, Task } from '../types';
