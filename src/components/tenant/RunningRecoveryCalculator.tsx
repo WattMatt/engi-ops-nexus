@@ -3,12 +3,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { GENERATOR_SIZING_TABLE } from "@/utils/generatorSizing";
 import { toast } from "sonner";
-import { Pencil, Save, X } from "lucide-react";
+import { Pencil, Save, X, HelpCircle } from "lucide-react";
 
 interface RunningRecoveryCalculatorProps {
   projectId: string;
@@ -616,7 +617,23 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
       {/* Average Tariff Summary */}
       <Card className="border-2 border-primary">
         <CardHeader>
-          <CardTitle className="text-center text-2xl">Average Recovery Tariff</CardTitle>
+          <div className="flex items-center justify-center gap-2">
+            <CardTitle className="text-center text-2xl">Average Recovery Tariff</CardTitle>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <HelpCircle className="h-5 w-5 text-muted-foreground cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p className="font-semibold mb-1">Real-World Operating Tariff</p>
+                  <p className="text-sm mb-2">This tariff is calculated based on your actual running load settings (typically 50-75%). Since diesel costs remain constant while energy output decreases at partial load, the per-kWh cost is higher than theoretical full-capacity rates.</p>
+                  <p className="text-sm font-semibold">Example:</p>
+                  <p className="text-xs">• 100% load: R100/hr ÷ 1000 kWh = R0.100/kWh</p>
+                  <p className="text-xs">• 75% load: R100/hr ÷ 750 kWh = R0.133/kWh</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
           <CardDescription className="text-center">
             Average tariff across {totalGenerators} generator{totalGenerators !== 1 ? 's' : ''} ({zones.length} synchronized pair{zones.length !== 1 ? 's' : ''})
           </CardDescription>
@@ -629,6 +646,7 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
             <div className="text-sm text-muted-foreground">
               per kWh (including 10% contingency)
             </div>
+            <p className="text-xs text-muted-foreground mt-1 italic">Based on actual running load settings</p>
           </div>
         </CardContent>
       </Card>

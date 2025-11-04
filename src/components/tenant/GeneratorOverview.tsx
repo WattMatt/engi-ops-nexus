@@ -2,7 +2,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { GENERATOR_SIZING_TABLE } from "@/utils/generatorSizing";
-import { TrendingUp, Zap, DollarSign, Activity, Gauge, BarChart3 } from "lucide-react";
+import { TrendingUp, Zap, DollarSign, Activity, Gauge, BarChart3, HelpCircle } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface GeneratorOverviewProps {
   projectId: string;
@@ -159,7 +160,20 @@ export function GeneratorOverview({ projectId }: GeneratorOverviewProps) {
       {/* Primary KPI - Average Tariff */}
       <Card className="border-2 border-primary">
         <CardHeader className="pb-3">
-          <CardTitle className="text-center text-xl">Average Recovery Tariff</CardTitle>
+          <div className="flex items-center justify-center gap-2">
+            <CardTitle className="text-center text-xl">Average Recovery Tariff</CardTitle>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <HelpCircle className="h-4 w-4 text-muted-foreground cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs">
+                  <p className="font-semibold mb-1">Theoretical Tariff at Full Capacity</p>
+                  <p className="text-sm">This tariff assumes generators run at 100% capacity. In practice, generators typically operate at 50-75% load, which results in higher per-kWh costs. See the "Running Recovery" tab for real-world operating costs.</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
           <CardDescription className="text-center">Your primary pricing metric across all generators</CardDescription>
         </CardHeader>
         <CardContent>
@@ -168,6 +182,7 @@ export function GeneratorOverview({ projectId }: GeneratorOverviewProps) {
               R {metrics.averageTariff.toFixed(4)}
             </div>
             <p className="text-sm text-muted-foreground">per kWh (including 10% contingency)</p>
+            <p className="text-xs text-muted-foreground mt-1 italic">Based on 100% generator capacity</p>
           </div>
         </CardContent>
       </Card>
