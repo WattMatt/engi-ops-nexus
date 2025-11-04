@@ -30,6 +30,8 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
+import { validatePassword } from "@/lib/passwordValidation";
+import { PasswordStrengthIndicator } from "@/components/auth/PasswordStrengthIndicator";
 import { KeyRound } from "lucide-react";
 
 interface ManageUserDialogProps {
@@ -99,8 +101,10 @@ export function ManageUserDialog({ user, onUpdated, children }: ManageUserDialog
   };
 
   const handleSetPassword = async () => {
-    if (!newPassword || newPassword.length < 8) {
-      toast.error("Password must be at least 8 characters");
+    // Validate password strength using the same validation as SetPassword page
+    const validation = validatePassword(newPassword);
+    if (!validation.isValid) {
+      toast.error(validation.errors[0]);
       return;
     }
 
@@ -207,11 +211,12 @@ export function ManageUserDialog({ user, onUpdated, children }: ManageUserDialog
               </p>
               <Input
                 type="password"
-                placeholder="Enter initial password"
+                placeholder="Min 12 chars, uppercase, lowercase, number, special char"
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 disabled={loading}
               />
+              {newPassword && <PasswordStrengthIndicator password={newPassword} />}
               <Button
                 type="button"
                 variant="outline"
