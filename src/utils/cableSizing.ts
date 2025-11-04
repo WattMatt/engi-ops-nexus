@@ -64,6 +64,8 @@ export interface CableCalculationParams {
   cableType?: string; // for future expansion (e.g., "3C", "4C")
   deratingFactor?: number; // default 1.0
   material?: "copper" | "aluminium"; // default copper
+  maxAmpsPerCable?: number; // Maximum amps per cable (default 300A)
+  preferredAmpsPerCable?: number; // Preferred amps per cable for parallel runs (default 200A)
 }
 
 export interface CableCalculationResult {
@@ -87,7 +89,15 @@ export interface CableCalculationResult {
 export function calculateCableSize(
   params: CableCalculationParams
 ): CableCalculationResult | null {
-  const { loadAmps, voltage, totalLength, deratingFactor = 1.0, material = "copper" } = params;
+  const { 
+    loadAmps, 
+    voltage, 
+    totalLength, 
+    deratingFactor = 1.0, 
+    material = "copper",
+    maxAmpsPerCable = 300, // Don't exceed 300A per cable
+    preferredAmpsPerCable = 200 // Prefer 200A per cable for parallel runs
+  } = params;
 
   if (!loadAmps || loadAmps <= 0 || !voltage || voltage <= 0) {
     return null;
@@ -96,21 +106,25 @@ export function calculateCableSize(
   // Select appropriate cable table based on material
   const cableTable = material === "aluminium" ? ALUMINIUM_CABLE_TABLE : COPPER_CABLE_TABLE;
 
-  // Apply derating factor to get required current rating
-  const requiredRating = loadAmps / deratingFactor;
-
-  // Get the largest cable capacity
-  const largestCable = cableTable[cableTable.length - 1];
-  const maxSingleCableCapacity = largestCable.currentRatingDucts;
-
   // Determine if we need multiple cables in parallel
   let cablesInParallel = 1;
   let loadPerCable = loadAmps;
 
-  if (requiredRating > maxSingleCableCapacity) {
-    // Calculate how many cables needed in parallel
-    cablesInParallel = Math.ceil(requiredRating / maxSingleCableCapacity);
-    loadPerCable = loadAmps / cablesInParallel;
+  // Check if load exceeds max amps per cable
+  if (loadAmps > maxAmpsPerCable) {
+    // Try to group in preferred increments (200A) first
+    const cablesAtPreferred = Math.ceil(loadAmps / preferredAmpsPerCable);
+    const loadAtPreferred = loadAmps / cablesAtPreferred;
+    
+    // If using preferred grouping keeps us under max, use it
+    if (loadAtPreferred <= maxAmpsPerCable) {
+      cablesInParallel = cablesAtPreferred;
+      loadPerCable = loadAtPreferred;
+    } else {
+      // Otherwise, just split to stay under max
+      cablesInParallel = Math.ceil(loadAmps / maxAmpsPerCable);
+      loadPerCable = loadAmps / cablesInParallel;
+    }
   }
 
   // Find the smallest cable that can handle the required current per cable
