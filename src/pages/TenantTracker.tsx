@@ -16,9 +16,26 @@ import { Badge } from "@/components/ui/badge";
 
 const TenantTracker = () => {
   const projectId = localStorage.getItem("selectedProjectId");
-  const projectName = localStorage.getItem("currentProjectName");
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [activeTab, setActiveTab] = useState("overview");
+
+  // Fetch project name from database
+  const { data: projectData } = useQuery({
+    queryKey: ["project", projectId],
+    queryFn: async () => {
+      if (!projectId) return null;
+      const { data, error } = await supabase
+        .from("projects")
+        .select("name")
+        .eq("id", projectId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!projectId,
+  });
+
+  const projectName = projectData?.name || "Project";
 
   const { data: tenants = [], isLoading } = useQuery({
     queryKey: ["tenants", projectId, refreshTrigger],
