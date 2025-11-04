@@ -2400,10 +2400,13 @@ export type Database = {
       }
       issue_reports: {
         Row: {
+          additional_context: string | null
           admin_notes: string | null
           admin_response: string | null
+          attachments: Json | null
           browser_info: Json | null
           category: string
+          console_logs: string | null
           created_at: string
           description: string
           id: string
@@ -2421,10 +2424,13 @@ export type Database = {
           user_name: string | null
         }
         Insert: {
+          additional_context?: string | null
           admin_notes?: string | null
           admin_response?: string | null
+          attachments?: Json | null
           browser_info?: Json | null
           category?: string
+          console_logs?: string | null
           created_at?: string
           description: string
           id?: string
@@ -2442,10 +2448,13 @@ export type Database = {
           user_name?: string | null
         }
         Update: {
+          additional_context?: string | null
           admin_notes?: string | null
           admin_response?: string | null
+          attachments?: Json | null
           browser_info?: Json | null
           category?: string
+          console_logs?: string | null
           created_at?: string
           description?: string
           id?: string
@@ -4074,10 +4083,13 @@ export type Database = {
       }
       suggestions: {
         Row: {
+          additional_context: string | null
           admin_notes: string | null
           admin_response: string | null
+          attachments: Json | null
           browser_info: Json | null
           category: string
+          console_logs: string | null
           created_at: string
           description: string
           id: string
@@ -4096,10 +4108,13 @@ export type Database = {
           user_name: string | null
         }
         Insert: {
+          additional_context?: string | null
           admin_notes?: string | null
           admin_response?: string | null
+          attachments?: Json | null
           browser_info?: Json | null
           category?: string
+          console_logs?: string | null
           created_at?: string
           description: string
           id?: string
@@ -4118,10 +4133,13 @@ export type Database = {
           user_name?: string | null
         }
         Update: {
+          additional_context?: string | null
           admin_notes?: string | null
           admin_response?: string | null
+          attachments?: Json | null
           browser_info?: Json | null
           category?: string
+          console_logs?: string | null
           created_at?: string
           description?: string
           id?: string

@@ -35,6 +35,9 @@ interface Issue {
   category: string;
   status: string;
   screenshot_url: string | null;
+  attachments: Array<{ url: string; filename: string; type: string }> | null;
+  console_logs: string | null;
+  additional_context: string | null;
   page_url: string;
   resolved_at: string | null;
   admin_notes: string | null;
@@ -53,6 +56,9 @@ interface Suggestion {
   priority: string;
   status: string;
   screenshot_url: string | null;
+  attachments: Array<{ url: string; filename: string; type: string }> | null;
+  console_logs: string | null;
+  additional_context: string | null;
   page_url: string;
   resolved_at: string | null;
   admin_notes: string | null;
@@ -80,8 +86,15 @@ const FeedbackManagement = () => {
       if (issuesRes.error) throw issuesRes.error;
       if (suggestionsRes.error) throw suggestionsRes.error;
 
-      setIssues(issuesRes.data || []);
-      setSuggestions(suggestionsRes.data || []);
+      // Transform the data to match our interfaces
+      setIssues((issuesRes.data || []).map((issue: any) => ({
+        ...issue,
+        attachments: Array.isArray(issue.attachments) ? issue.attachments : []
+      })));
+      setSuggestions((suggestionsRes.data || []).map((suggestion: any) => ({
+        ...suggestion,
+        attachments: Array.isArray(suggestion.attachments) ? suggestion.attachments : []
+      })));
     } catch (error) {
       console.error("Error loading feedback:", error);
       toast.error("Failed to load feedback");
@@ -312,6 +325,77 @@ const FeedbackManagement = () => {
                       </a>
                     </div>
                   </div>
+
+                  {/* Attachments */}
+                  {issue.attachments && issue.attachments.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium">Attachments ({issue.attachments.length})</p>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                        {issue.attachments.map((attachment, idx) => (
+                          <div key={idx} className="relative group">
+                            {attachment.type.startsWith('image/') ? (
+                              <img
+                                src={attachment.url}
+                                alt={attachment.filename}
+                                className="rounded-md border w-full aspect-video object-cover cursor-pointer hover:opacity-80 transition-opacity"
+                                onClick={() => setSelectedImage(attachment.url)}
+                              />
+                            ) : (
+                              <a
+                                href={attachment.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex flex-col items-center justify-center p-4 border rounded-md hover:bg-accent transition-colors aspect-video"
+                              >
+                                <ExternalLink className="h-6 w-6 mb-2 text-muted-foreground" />
+                                <p className="text-xs text-center truncate w-full px-2">{attachment.filename}</p>
+                              </a>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Console Logs */}
+                  {issue.console_logs && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium">Console Logs / Error Messages</p>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => copyToClipboard(issue.console_logs!, "Console logs")}
+                        >
+                          <Copy className="h-4 w-4 mr-2" />
+                          Copy
+                        </Button>
+                      </div>
+                      <pre className="text-xs text-muted-foreground whitespace-pre-wrap rounded-md bg-muted p-3 font-mono overflow-x-auto">
+                        {issue.console_logs}
+                      </pre>
+                    </div>
+                  )}
+
+                  {/* Additional Context */}
+                  {issue.additional_context && (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm font-medium">Additional Context</p>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => copyToClipboard(issue.additional_context!, "Additional context")}
+                        >
+                          <Copy className="h-4 w-4 mr-2" />
+                          Copy
+                        </Button>
+                      </div>
+                      <p className="text-sm text-muted-foreground whitespace-pre-wrap rounded-md bg-muted p-3">
+                        {issue.additional_context}
+                      </p>
+                    </div>
+                  )}
 
                   <div className="space-y-2">
                     <p className="text-sm font-medium">Admin Notes (Internal Only)</p>
