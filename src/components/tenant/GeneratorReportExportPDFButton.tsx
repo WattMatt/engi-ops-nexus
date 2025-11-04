@@ -986,12 +986,14 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
         doc.setFontSize(14);
         doc.setFont("helvetica", "bold");
         doc.text("CHARTS & ANALYSIS", 14, yPos);
-        yPos += 15;
+        yPos += 18;
 
         // Render Load Distribution Chart
         const loadChartDiv = document.createElement("div");
-        loadChartDiv.style.width = "800px";
-        loadChartDiv.style.height = "400px";
+        loadChartDiv.style.width = "1200px";
+        loadChartDiv.style.height = "500px";
+        loadChartDiv.style.padding = "20px";
+        loadChartDiv.style.backgroundColor = "#ffffff";
         chartContainer.appendChild(loadChartDiv);
         
         // We need to use React.createElement to render the component
@@ -1003,31 +1005,40 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
         );
 
         // Wait for chart to render
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        await new Promise(resolve => setTimeout(resolve, 2000));
 
         const loadCanvas = await html2canvas(loadChartDiv, { 
           backgroundColor: "#ffffff",
-          scale: 2 
+          scale: 3,
+          logging: false,
+          useCORS: true
         });
-        const loadImgData = loadCanvas.toDataURL("image/png");
+        const loadImgData = loadCanvas.toDataURL("image/png", 1.0);
         
         doc.setFontSize(11);
         doc.setFont("helvetica", "bold");
         doc.text("Load Distribution by Zone", 14, yPos);
-        yPos += 8;
+        yPos += 10;
         
-        const loadImgWidth = pageWidth - 28;
+        // Add chart with better sizing and margins
+        const chartMargin = 20;
+        const loadImgWidth = pageWidth - (chartMargin * 2);
         const loadImgHeight = (loadCanvas.height * loadImgWidth) / loadCanvas.width;
-        doc.addImage(loadImgData, "PNG", 14, yPos, loadImgWidth, Math.min(loadImgHeight, 80));
-        yPos += Math.min(loadImgHeight, 80) + 15;
+        const maxChartHeight = 65;
+        const finalLoadHeight = Math.min(loadImgHeight, maxChartHeight);
+        
+        doc.addImage(loadImgData, "PNG", chartMargin, yPos, loadImgWidth, finalLoadHeight);
+        yPos += finalLoadHeight + 18;
 
         // Render Cost Breakdown Chart
         root1.unmount();
         loadChartDiv.remove();
         
         const costChartDiv = document.createElement("div");
-        costChartDiv.style.width = "800px";
-        costChartDiv.style.height = "400px";
+        costChartDiv.style.width = "1200px";
+        costChartDiv.style.height = "500px";
+        costChartDiv.style.padding = "20px";
+        costChartDiv.style.backgroundColor = "#ffffff";
         chartContainer.appendChild(costChartDiv);
         
         const root2 = createRoot(costChartDiv);
@@ -1035,26 +1046,30 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
           React.createElement(CostBreakdownChart, { costs: costBreakdownData })
         );
 
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        await new Promise(resolve => setTimeout(resolve, 2000));
 
         const costCanvas = await html2canvas(costChartDiv, { 
           backgroundColor: "#ffffff",
-          scale: 2 
+          scale: 3,
+          logging: false,
+          useCORS: true
         });
-        const costImgData = costCanvas.toDataURL("image/png");
+        const costImgData = costCanvas.toDataURL("image/png", 1.0);
         
         doc.setFontSize(11);
         doc.setFont("helvetica", "bold");
         doc.text("Capital Cost Breakdown", 14, yPos);
-        yPos += 8;
+        yPos += 10;
         
-        const costImgWidth = pageWidth - 28;
+        const costImgWidth = pageWidth - (chartMargin * 2);
         const costImgHeight = (costCanvas.height * costImgWidth) / costCanvas.width;
-        doc.addImage(costImgData, "PNG", 14, yPos, costImgWidth, Math.min(costImgHeight, 80));
-        yPos += Math.min(costImgHeight, 80) + 15;
+        const finalCostHeight = Math.min(costImgHeight, maxChartHeight);
+        
+        doc.addImage(costImgData, "PNG", chartMargin, yPos, costImgWidth, finalCostHeight);
+        yPos += finalCostHeight + 18;
 
         // Check if we need a new page for the recovery chart
-        if (yPos > pageHeight - 100) {
+        if (yPos > pageHeight - 90) {
           doc.addPage();
           yPos = 20;
           
@@ -1066,7 +1081,7 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
           doc.setFontSize(14);
           doc.setFont("helvetica", "bold");
           doc.text("CHARTS & ANALYSIS (continued)", 14, yPos);
-          yPos += 15;
+          yPos += 18;
         }
 
         // Render Recovery Projection Chart
@@ -1074,8 +1089,10 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
         costChartDiv.remove();
         
         const recoveryChartDiv = document.createElement("div");
-        recoveryChartDiv.style.width = "800px";
-        recoveryChartDiv.style.height = "400px";
+        recoveryChartDiv.style.width = "1200px";
+        recoveryChartDiv.style.height = "500px";
+        recoveryChartDiv.style.padding = "20px";
+        recoveryChartDiv.style.backgroundColor = "#ffffff";
         chartContainer.appendChild(recoveryChartDiv);
         
         const root3 = createRoot(recoveryChartDiv);
@@ -1086,22 +1103,26 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
           })
         );
 
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        await new Promise(resolve => setTimeout(resolve, 2000));
 
         const recoveryCanvas = await html2canvas(recoveryChartDiv, { 
           backgroundColor: "#ffffff",
-          scale: 2 
+          scale: 3,
+          logging: false,
+          useCORS: true
         });
-        const recoveryImgData = recoveryCanvas.toDataURL("image/png");
+        const recoveryImgData = recoveryCanvas.toDataURL("image/png", 1.0);
         
         doc.setFontSize(11);
         doc.setFont("helvetica", "bold");
         doc.text("10-Year Recovery Projection", 14, yPos);
-        yPos += 8;
+        yPos += 10;
         
-        const recoveryImgWidth = pageWidth - 28;
+        const recoveryImgWidth = pageWidth - (chartMargin * 2);
         const recoveryImgHeight = (recoveryCanvas.height * recoveryImgWidth) / recoveryCanvas.width;
-        doc.addImage(recoveryImgData, "PNG", 14, yPos, recoveryImgWidth, Math.min(recoveryImgHeight, 80));
+        const finalRecoveryHeight = Math.min(recoveryImgHeight, maxChartHeight);
+        
+        doc.addImage(recoveryImgData, "PNG", chartMargin, yPos, recoveryImgWidth, finalRecoveryHeight);
 
         // Cleanup
         root3.unmount();
