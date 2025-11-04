@@ -282,7 +282,9 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
                         <TableCell>{entry.cable_type || "-"}</TableCell>
                         <TableCell className="capitalize">{entry.installation_method || "air"}</TableCell>
                         <TableCell>{entry.cable_size || "-"}</TableCell>
-                        <TableCell>{entry.total_length?.toFixed(2) || "0.00"}</TableCell>
+                        <TableCell>
+                          {(entry.total_length || (entry.measured_length || 0) + (entry.extra_length || 0)).toFixed(2)}
+                        </TableCell>
                         <TableCell>{formatCurrency(entry.supply_cost)}</TableCell>
                         <TableCell>{formatCurrency(entry.install_cost)}</TableCell>
                         <TableCell>{formatCurrency(entry.total_cost)}</TableCell>
