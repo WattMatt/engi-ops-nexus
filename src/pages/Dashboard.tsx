@@ -15,6 +15,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
+import { TenantChangesWidget } from "@/components/dashboard/TenantChangesWidget";
 
 const Dashboard = () => {
   const projectId = localStorage.getItem("selectedProjectId");
@@ -122,60 +123,68 @@ const Dashboard = () => {
       </div>
 
       {/* Main Content Grid */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Activity className="h-5 w-5" />
-              Project Activity
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Documentation</span>
-                <span className="font-medium">{totalDocuments} items</span>
-              </div>
-              <Progress value={totalDocuments > 0 ? 65 : 0} />
-            </div>
-            <div className="space-y-2">
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">Technical Drawings</span>
-                <span className="font-medium">{cableSchedules.length} schedules</span>
-              </div>
-              <Progress value={cableSchedules.length > 0 ? 45 : 0} />
-            </div>
-          </CardContent>
-        </Card>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {/* Tenant Changes Widget - Full height on left */}
+        <div className="lg:col-span-1">
+          <TenantChangesWidget />
+        </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5" />
-              Quick Actions
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid gap-3 md:grid-cols-2">
-              <Button variant="outline" onClick={() => navigate("/dashboard/cost-reports")}>
-                <FileText className="h-4 w-4 mr-2" />
-                New Cost Report
-              </Button>
-              <Button variant="outline" onClick={() => navigate("/dashboard/budgets/electrical")}>
-                <DollarSign className="h-4 w-4 mr-2" />
-                New Budget
-              </Button>
-              <Button variant="outline" onClick={() => navigate("/dashboard/cable-schedules")}>
-                <Cable className="h-4 w-4 mr-2" />
-                New Cable Schedule
-              </Button>
-              <Button variant="outline" onClick={() => navigate("/dashboard/site-diary")}>
-                <Calendar className="h-4 w-4 mr-2" />
-                Site Diary
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Right column with stacked cards */}
+        <div className="lg:col-span-2 space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Activity className="h-5 w-5" />
+                Project Activity
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Documentation</span>
+                  <span className="font-medium">{totalDocuments} items</span>
+                </div>
+                <Progress value={totalDocuments > 0 ? 65 : 0} />
+              </div>
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-muted-foreground">Technical Drawings</span>
+                  <span className="font-medium">{cableSchedules.length} schedules</span>
+                </div>
+                <Progress value={cableSchedules.length > 0 ? 45 : 0} />
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <TrendingUp className="h-5 w-5" />
+                Quick Actions
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-3 md:grid-cols-2">
+                <Button variant="outline" onClick={() => navigate("/dashboard/cost-reports")}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  New Cost Report
+                </Button>
+                <Button variant="outline" onClick={() => navigate("/dashboard/budgets/electrical")}>
+                  <DollarSign className="h-4 w-4 mr-2" />
+                  New Budget
+                </Button>
+                <Button variant="outline" onClick={() => navigate("/dashboard/cable-schedules")}>
+                  <Cable className="h-4 w-4 mr-2" />
+                  New Cable Schedule
+                </Button>
+                <Button variant="outline" onClick={() => navigate("/dashboard/site-diary")}>
+                  <Calendar className="h-4 w-4 mr-2" />
+                  Site Diary
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </div>
   );
