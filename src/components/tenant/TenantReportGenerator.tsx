@@ -7,6 +7,7 @@ import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { ReportOptionsDialog, ReportOptions } from "./ReportOptionsDialog";
+import { fetchCompanyDetails, generateCoverPage } from "@/utils/pdfCoverPage";
 
 interface Tenant {
   id: string;
@@ -58,43 +59,6 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
            tenant.lighting_cost !== null;
   };
 
-  const generateCoverPage = (doc: jsPDF) => {
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-
-    // Cover background
-    doc.setFillColor(41, 128, 185);
-    doc.rect(0, 0, pageWidth, pageHeight, 'F');
-
-    // Title
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(36);
-    doc.setFont("helvetica", "bold");
-    doc.text("TENANT TRACKER REPORT", pageWidth / 2, 80, { align: 'center' });
-
-    // Project name
-    doc.setFontSize(24);
-    doc.setFont("helvetica", "normal");
-    doc.text(projectName, pageWidth / 2, 110, { align: 'center' });
-
-    // Date
-    doc.setFontSize(14);
-    const currentDate = new Date().toLocaleDateString('en-GB', {
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric'
-    });
-    doc.text(`Generated: ${currentDate}`, pageWidth / 2, 140, { align: 'center' });
-
-    // Decorative line
-    doc.setDrawColor(255, 255, 255);
-    doc.setLineWidth(2);
-    doc.line(50, 160, pageWidth - 50, 160);
-
-    // Footer
-    doc.setFontSize(12);
-    doc.text("WM Consulting", pageWidth / 2, pageHeight - 30, { align: 'center' });
-  };
 
   const generateKPIPage = (doc: jsPDF) => {
     doc.addPage();
@@ -529,9 +493,17 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
 
       const doc = new jsPDF('p', 'mm', 'a4');
 
+      // Fetch company details for standardized cover page
+      const companyDetails = await fetchCompanyDetails();
+
       // Generate pages based on options
       if (options.includeCoverPage) {
-        generateCoverPage(doc);
+        await generateCoverPage(doc, {
+          title: "Tenant Tracker Report",
+          projectName: projectName,
+          subtitle: "Tenant Schedule & Progress Analysis",
+          revision: `Rev.${nextRevision}`,
+        }, companyDetails);
       }
       if (options.includeKPIPage) {
         generateKPIPage(doc);
