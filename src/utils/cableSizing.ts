@@ -74,12 +74,15 @@ export interface CableCalculationResult {
   supplyCost: number;
   installCost: number;
   totalCost: number;
+  cablesInParallel: number; // Number of cables needed in parallel
+  loadPerCable: number; // Load carried by each cable
 }
 
 /**
  * Calculate recommended cable size based on load current
  * Applies derating factor and selects cable with adequate current rating
  * If length is provided, also checks voltage drop and upsizes if necessary
+ * Returns number of cables needed in parallel if load exceeds maximum cable capacity
  */
 export function calculateCableSize(
   params: CableCalculationParams
@@ -96,13 +99,27 @@ export function calculateCableSize(
   // Apply derating factor to get required current rating
   const requiredRating = loadAmps / deratingFactor;
 
-  // Find the smallest cable that can handle the required current (using Ducts rating)
+  // Get the largest cable capacity
+  const largestCable = cableTable[cableTable.length - 1];
+  const maxSingleCableCapacity = largestCable.currentRatingDucts;
+
+  // Determine if we need multiple cables in parallel
+  let cablesInParallel = 1;
+  let loadPerCable = loadAmps;
+
+  if (requiredRating > maxSingleCableCapacity) {
+    // Calculate how many cables needed in parallel
+    cablesInParallel = Math.ceil(requiredRating / maxSingleCableCapacity);
+    loadPerCable = loadAmps / cablesInParallel;
+  }
+
+  // Find the smallest cable that can handle the required current per cable
+  const requiredRatingPerCable = loadPerCable / deratingFactor;
   let selectedCable = cableTable.find(
-    (cable) => cable.currentRatingDucts >= requiredRating
+    (cable) => cable.currentRatingDucts >= requiredRatingPerCable
   );
 
   if (!selectedCable) {
-    // Load exceeds largest cable in table
     return null;
   }
 
@@ -118,13 +135,11 @@ export function calculateCableSize(
     while (cableIndex < cableTable.length) {
       const testCable = cableTable[cableIndex];
       
-      // Calculate voltage drop
-      // For 400V (3-phase): Vd = √3 × I × R × L / 1000
-      // For 230V (single phase): Vd = 2 × I × R × L / 1000
+      // Calculate voltage drop per cable (for parallel cables, each carries less current)
       if (voltage === 400) {
-        voltDrop = (Math.sqrt(3) * loadAmps * testCable.impedance * totalLength) / 1000;
+        voltDrop = (Math.sqrt(3) * loadPerCable * testCable.impedance * totalLength) / 1000;
       } else {
-        voltDrop = (2 * loadAmps * testCable.impedance * totalLength) / 1000;
+        voltDrop = (2 * loadPerCable * testCable.impedance * totalLength) / 1000;
       }
       
       voltDropPercentage = (voltDrop / voltage) * 100;
@@ -149,14 +164,14 @@ export function calculateCableSize(
   let voltDrop = 0;
   if (totalLength > 0) {
     if (voltage === 400) {
-      voltDrop = (Math.sqrt(3) * loadAmps * selectedCable.impedance * totalLength) / 1000;
+      voltDrop = (Math.sqrt(3) * loadPerCable * selectedCable.impedance * totalLength) / 1000;
     } else {
-      voltDrop = (2 * loadAmps * selectedCable.impedance * totalLength) / 1000;
+      voltDrop = (2 * loadPerCable * selectedCable.impedance * totalLength) / 1000;
     }
   }
   const voltDropPercentage = totalLength > 0 ? (voltDrop / voltage) * 100 : 0;
 
-  // Calculate costs
+  // Calculate costs (per cable)
   const supplyCost = selectedCable.supplyCost * (totalLength || 0);
   const installCost = selectedCable.installCost * (totalLength || 0);
   const totalCost = supplyCost + installCost;
@@ -169,5 +184,7 @@ export function calculateCableSize(
     supplyCost: parseFloat(supplyCost.toFixed(2)),
     installCost: parseFloat(installCost.toFixed(2)),
     totalCost: parseFloat(totalCost.toFixed(2)),
+    cablesInParallel,
+    loadPerCable: parseFloat(loadPerCable.toFixed(2)),
   };
 }

@@ -44,6 +44,8 @@ export const AddCableEntryDialog = ({
   const [loading, setLoading] = useState(false);
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [useCustomToLocation, setUseCustomToLocation] = useState(false);
+  const [cablesInParallel, setCablesInParallel] = useState(1); // Track parallel cables needed
+  const [loadPerCable, setLoadPerCable] = useState<number | null>(null); // Track load per cable
   const [formData, setFormData] = useState({
     cable_tag: "",
     from_location: "",
@@ -52,7 +54,7 @@ export const AddCableEntryDialog = ({
     load_amps: "",
     cable_type: "Aluminium", // Default to Aluminium
     ohm_per_km: "",
-    cable_number: "",
+    cable_number: "1",
     quantity: "1",
     extra_length: "",
     measured_length: "",
@@ -158,6 +160,9 @@ export const AddCableEntryDialog = ({
       });
 
       if (result) {
+        setCablesInParallel(result.cablesInParallel);
+        setLoadPerCable(result.loadPerCable);
+        
         setFormData((prev) => ({
           ...prev,
           cable_size: result.recommendedSize,
@@ -165,6 +170,7 @@ export const AddCableEntryDialog = ({
           volt_drop: totalLength ? result.voltDrop.toString() : "0",
           supply_cost: result.supplyCost.toString(),
           install_cost: result.installCost.toString(),
+          load_amps: result.loadPerCable.toString(), // Update to show load per cable
         }));
       }
     }
@@ -185,32 +191,43 @@ export const AddCableEntryDialog = ({
     setLoading(true);
 
     try {
-      const { error } = await supabase.from("cable_entries").insert({
-        schedule_id: scheduleId,
-        cable_tag: formData.cable_tag,
-        from_location: formData.from_location,
-        to_location: formData.to_location,
-        voltage: formData.voltage ? parseFloat(formData.voltage) : null,
-        load_amps: formData.load_amps ? parseFloat(formData.load_amps) : null,
-        cable_type: formData.cable_type || null,
-        ohm_per_km: formData.ohm_per_km ? parseFloat(formData.ohm_per_km) : null,
-        cable_number: formData.cable_number ? parseInt(formData.cable_number) : null,
-        extra_length: formData.extra_length ? parseFloat(formData.extra_length) : 0,
-        measured_length: formData.measured_length ? parseFloat(formData.measured_length) : 0,
-        total_length: formData.total_length ? parseFloat(formData.total_length) : 0,
-        volt_drop: formData.volt_drop ? parseFloat(formData.volt_drop) : null,
-        notes: formData.notes || null,
-        cable_size: formData.cable_size || null,
-        supply_cost: formData.supply_cost ? parseFloat(formData.supply_cost) : 0,
-        install_cost: formData.install_cost ? parseFloat(formData.install_cost) : 0,
-        total_cost: formData.total_cost ? parseFloat(formData.total_cost) : 0,
-      });
+      // Create multiple cable entries if cables are in parallel
+      const entriesToCreate = [];
+      
+      for (let i = 0; i < cablesInParallel; i++) {
+        entriesToCreate.push({
+          schedule_id: scheduleId,
+          cable_tag: formData.cable_tag,
+          from_location: formData.from_location,
+          to_location: formData.to_location,
+          voltage: formData.voltage ? parseFloat(formData.voltage) : null,
+          load_amps: formData.load_amps ? parseFloat(formData.load_amps) : null,
+          cable_type: formData.cable_type || null,
+          ohm_per_km: formData.ohm_per_km ? parseFloat(formData.ohm_per_km) : null,
+          cable_number: i + 1, // Number cables 1, 2, 3, 4...
+          extra_length: formData.extra_length ? parseFloat(formData.extra_length) : 0,
+          measured_length: formData.measured_length ? parseFloat(formData.measured_length) : 0,
+          total_length: formData.total_length ? parseFloat(formData.total_length) : 0,
+          volt_drop: formData.volt_drop ? parseFloat(formData.volt_drop) : null,
+          notes: cablesInParallel > 1 
+            ? `Cable ${i + 1} of ${cablesInParallel} in parallel. ${formData.notes || ""}`.trim()
+            : formData.notes || null,
+          cable_size: formData.cable_size || null,
+          supply_cost: formData.supply_cost ? parseFloat(formData.supply_cost) : 0,
+          install_cost: formData.install_cost ? parseFloat(formData.install_cost) : 0,
+          total_cost: formData.total_cost ? parseFloat(formData.total_cost) : 0,
+        });
+      }
+
+      const { error } = await supabase.from("cable_entries").insert(entriesToCreate);
 
       if (error) throw error;
 
       toast({
         title: "Success",
-        description: "Cable entry added successfully",
+        description: cablesInParallel > 1 
+          ? `Created ${cablesInParallel} cable entries in parallel`
+          : "Cable entry added successfully",
       });
 
       onSuccess();
@@ -222,7 +239,7 @@ export const AddCableEntryDialog = ({
         load_amps: "",
         cable_type: "Aluminium", // Reset to default Aluminium
         ohm_per_km: "",
-        cable_number: "",
+        cable_number: "1",
         quantity: "1",
         extra_length: "",
         measured_length: "",
@@ -234,6 +251,8 @@ export const AddCableEntryDialog = ({
         install_cost: "",
         total_cost: "",
       });
+      setCablesInParallel(1);
+      setLoadPerCable(null);
       setUseCustomToLocation(false);
     } catch (error: any) {
       toast({
@@ -265,16 +284,25 @@ export const AddCableEntryDialog = ({
                 placeholder="Will be generated from: From-To-Voltage-Number"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="cable_number">Cable Number</Label>
-              <Input
-                id="cable_number"
-                type="number"
-                value={formData.cable_number}
-                onChange={(e) =>
-                  setFormData({ ...formData, cable_number: e.target.value })
-                }
-              />
+            <div className="space-y-2 col-span-2">
+              {cablesInParallel > 1 && (
+                <div className="p-3 bg-amber-50 dark:bg-amber-950 border border-amber-200 dark:border-amber-800 rounded-md">
+                  <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                    ⚠️ High Load Detected - Parallel Cables Required
+                  </p>
+                  <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                    This will create <strong>{cablesInParallel} cable entries</strong> numbered 1-{cablesInParallel}, 
+                    each carrying <strong>{loadPerCable?.toFixed(2)}A</strong> of the total load.
+                  </p>
+                </div>
+              )}
+              {cablesInParallel === 1 && formData.cable_size && (
+                <div className="p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-md">
+                  <p className="text-sm text-green-700 dark:text-green-300">
+                    ✓ Single cable (No.1) is sufficient for this load
+                  </p>
+                </div>
+              )}
             </div>
           </div>
 
