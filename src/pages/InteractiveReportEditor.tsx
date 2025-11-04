@@ -55,15 +55,44 @@ export default function InteractiveReportEditorPage() {
     enabled: !!projectId && reportType === "generator",
   });
 
+  const { data: generatorSettings } = useQuery({
+    queryKey: ["generator-settings", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("generator_settings")
+        .select("*")
+        .eq("project_id", projectId)
+        .single();
+      if (error && error.code !== 'PGRST116') throw error;
+      return data;
+    },
+    enabled: !!projectId && reportType === "generator",
+  });
+
+  const { data: allSettings = [] } = useQuery({
+    queryKey: ["running-recovery-settings", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("running_recovery_settings")
+        .select("*")
+        .eq("project_id", projectId);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!projectId && reportType === "generator",
+  });
+
   useEffect(() => {
-    if (project && reportType === "generator") {
+    if (project && reportType === "generator" && zones.length > 0) {
       setReportData({
         projectName: project.name,
         zones,
         tenants,
+        generatorSettings,
+        allSettings,
       });
     }
-  }, [project, zones, tenants, reportType]);
+  }, [project, zones, tenants, generatorSettings, allSettings, reportType]);
 
   const handleSave = async (content: any) => {
     try {

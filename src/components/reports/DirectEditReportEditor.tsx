@@ -42,99 +42,189 @@ export function DirectEditReportEditor({
   }, [reportData, reportType, settings]);
 
   const generateInitialPages = (data: any, type: string, settings: ReportSettings) => {
-    const basePage = {
-      id: "page-1",
-      pageNumber: 1,
-      sections: [] as any[],
-    };
+    const pages: any[] = [];
+    const formatCurrency = (value: number) => 
+      `R ${value.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-    // Cover page content
+    // PAGE 1: Cover Page
     if (settings.include_cover_page) {
-      basePage.sections.push({
-        id: "cover-title",
-        type: "heading",
-        editable: true,
-        content: `<h1 style="text-align: center; margin-top: 100px; font-size: 32px; color: ${settings.primary_color}">${data.projectName || "Project Report"}</h1>`,
-        style: { marginTop: "100px" },
-      });
-      
-      if (settings.company_name) {
-        basePage.sections.push({
-          id: "cover-company",
-          type: "text",
-          editable: true,
-          content: `<p style="text-align: center; margin-top: 50px; font-size: 18px;">${settings.company_name}</p>`,
-          style: { marginTop: "50px" },
-        });
-      }
-
-      basePage.sections.push({
-        id: "cover-date",
-        type: "text",
-        editable: true,
-        content: `<p style="text-align: center; margin-top: 20px;">${new Date().toLocaleDateString()}</p>`,
-        style: { marginTop: "20px" },
+      pages.push({
+        id: "page-1",
+        pageNumber: 1,
+        sections: [
+          {
+            id: "cover-title",
+            type: "heading",
+            editable: true,
+            content: `<h1 style="text-align: center; margin-top: 80px; font-size: 28px; color: ${settings.primary_color}">Financial Evaluation</h1>`,
+          },
+          {
+            id: "cover-project",
+            type: "heading",
+            editable: true,
+            content: `<h2 style="text-align: center; margin-top: 20px; font-size: 24px;">${data.projectName || "Project Report"}</h2>`,
+          },
+          {
+            id: "cover-subtitle",
+            type: "text",
+            editable: true,
+            content: `<p style="text-align: center; margin-top: 15px; font-size: 18px;">Centre Standby Plant</p>`,
+          },
+          {
+            id: "cover-company",
+            type: "text",
+            editable: true,
+            content: `<div style="text-align: center; margin-top: 80px;">
+              <p style="font-weight: bold;">PREPARED BY:</p>
+              <p>${settings.company_name || 'Company Name'}</p>
+              <p style="margin-top: 10px; font-size: 12px;">${settings.company_contact || 'Contact information'}</p>
+            </div>`,
+          },
+          {
+            id: "cover-date",
+            type: "text",
+            editable: true,
+            content: `<p style="text-align: center; margin-top: 40px; font-weight: bold;">DATE: ${new Date().toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}</p>`,
+          },
+        ],
       });
     }
 
-    // Additional pages
-    const pages = [basePage];
+    if (type === "generator" && data.zones && data.zones.length > 0) {
+      // Calculate totals
+      const totalGeneratorCost = data.zones.reduce((sum: number, zone: any) => {
+        return sum + ((zone.generator_cost || 0) * (zone.num_generators || 1));
+      }, 0);
 
-    // Page 2 - Executive Summary
-    pages.push({
-      id: "page-2",
-      pageNumber: 2,
-      sections: [
-        {
-          id: "summary-heading",
-          type: "heading",
-          editable: true,
-          content: `<h2 style="color: ${settings.primary_color}">Executive Summary</h2>`,
-        },
-        {
-          id: "summary-content",
-          type: "text",
-          editable: true,
-          content: "<p>This report provides a comprehensive analysis of the project requirements and deliverables. Click to edit this content...</p>",
-        },
-      ],
-    });
+      const numTenantDBs = data.tenants?.filter((t: any) => !t.own_generator_provided).length || 0;
+      const ratePerTenantDB = data.generatorSettings?.rate_per_tenant_db || 0;
+      const tenantDBsCost = numTenantDBs * ratePerTenantDB;
 
-    // Page 3 - Details (type-specific)
-    if (type === "generator") {
+      const numMainBoards = data.generatorSettings?.num_main_boards || 0;
+      const ratePerMainBoard = data.generatorSettings?.rate_per_main_board || 0;
+      const mainBoardsCost = numMainBoards * ratePerMainBoard;
+
+      const additionalCablingCost = data.generatorSettings?.additional_cabling_cost || 0;
+      const controlWiringCost = data.generatorSettings?.control_wiring_cost || 0;
+
+      const totalCapitalCost = totalGeneratorCost + tenantDBsCost + mainBoardsCost + additionalCablingCost + controlWiringCost;
+
+      // PAGE 2: Equipment Costing
       pages.push({
-        id: "page-3",
-        pageNumber: 3,
+        id: "page-2",
+        pageNumber: pages.length + 1,
         sections: [
           {
             id: "equipment-heading",
             type: "heading",
             editable: true,
-            content: `<h2 style="color: ${settings.primary_color}">Equipment Overview</h2>`,
+            content: `<h2 style="color: ${settings.primary_color}; margin-bottom: 20px;">Equipment Costing</h2>`,
           },
           {
             id: "equipment-table",
             type: "table",
             editable: true,
-            content: `<table style="width: 100%; border-collapse: collapse;">
+            content: `<table style="width: 100%; border-collapse: collapse; font-size: 10px;">
               <thead>
                 <tr style="background-color: ${settings.table_style.headerBg}; color: ${settings.table_style.headerColor};">
-                  <th style="padding: ${settings.table_style.cellPadding}px; border: 1px solid #ddd;">Item</th>
-                  <th style="padding: ${settings.table_style.cellPadding}px; border: 1px solid #ddd;">Description</th>
-                  <th style="padding: ${settings.table_style.cellPadding}px; border: 1px solid #ddd;">Quantity</th>
+                  <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">ITEM</th>
+                  <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">DESCRIPTION</th>
+                  <th style="padding: 8px; border: 1px solid #ddd; text-align: center;">QTY</th>
+                  <th style="padding: 8px; border: 1px solid #ddd; text-align: right;">RATE</th>
+                  <th style="padding: 8px; border: 1px solid #ddd; text-align: right;">AMOUNT</th>
                 </tr>
               </thead>
               <tbody>
+                ${data.zones.map((zone: any, idx: number) => `
+                  <tr>
+                    <td style="padding: 6px; border: 1px solid #ddd;">${idx + 1}</td>
+                    <td style="padding: 6px; border: 1px solid #ddd;">Generator ${zone.generator_size || 'N/A'}</td>
+                    <td style="padding: 6px; border: 1px solid #ddd; text-align: center;">${zone.num_generators || 1}</td>
+                    <td style="padding: 6px; border: 1px solid #ddd; text-align: right;">${formatCurrency((zone.generator_cost || 0) / (zone.num_generators || 1))}</td>
+                    <td style="padding: 6px; border: 1px solid #ddd; text-align: right;">${formatCurrency((zone.generator_cost || 0) * (zone.num_generators || 1))}</td>
+                  </tr>
+                `).join('')}
                 <tr>
-                  <td style="padding: ${settings.table_style.cellPadding}px; border: 1px solid #ddd;">Generator</td>
-                  <td style="padding: ${settings.table_style.cellPadding}px; border: 1px solid #ddd;">Main Power Unit</td>
-                  <td style="padding: ${settings.table_style.cellPadding}px; border: 1px solid #ddd;">1</td>
+                  <td style="padding: 6px; border: 1px solid #ddd;">${data.zones.length + 1}</td>
+                  <td style="padding: 6px; border: 1px solid #ddd;">Tenant Distribution Boards</td>
+                  <td style="padding: 6px; border: 1px solid #ddd; text-align: center;">${numTenantDBs}</td>
+                  <td style="padding: 6px; border: 1px solid #ddd; text-align: right;">${formatCurrency(ratePerTenantDB)}</td>
+                  <td style="padding: 6px; border: 1px solid #ddd; text-align: right;">${formatCurrency(tenantDBsCost)}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px; border: 1px solid #ddd;">${data.zones.length + 2}</td>
+                  <td style="padding: 6px; border: 1px solid #ddd;">Main Boards</td>
+                  <td style="padding: 6px; border: 1px solid #ddd; text-align: center;">${numMainBoards}</td>
+                  <td style="padding: 6px; border: 1px solid #ddd; text-align: right;">${formatCurrency(ratePerMainBoard)}</td>
+                  <td style="padding: 6px; border: 1px solid #ddd; text-align: right;">${formatCurrency(mainBoardsCost)}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px; border: 1px solid #ddd;">${data.zones.length + 3}</td>
+                  <td style="padding: 6px; border: 1px solid #ddd;">Additional Cabling & Accessories</td>
+                  <td style="padding: 6px; border: 1px solid #ddd; text-align: center;">1</td>
+                  <td style="padding: 6px; border: 1px solid #ddd; text-align: right;">${formatCurrency(additionalCablingCost)}</td>
+                  <td style="padding: 6px; border: 1px solid #ddd; text-align: right;">${formatCurrency(additionalCablingCost)}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 6px; border: 1px solid #ddd;">${data.zones.length + 4}</td>
+                  <td style="padding: 6px; border: 1px solid #ddd;">Control Wiring & Commissioning</td>
+                  <td style="padding: 6px; border: 1px solid #ddd; text-align: center;">1</td>
+                  <td style="padding: 6px; border: 1px solid #ddd; text-align: right;">${formatCurrency(controlWiringCost)}</td>
+                  <td style="padding: 6px; border: 1px solid #ddd; text-align: right;">${formatCurrency(controlWiringCost)}</td>
+                </tr>
+                <tr style="background-color: #f0f0f0; font-weight: bold;">
+                  <td colspan="4" style="padding: 8px; border: 1px solid #ddd; text-align: right;">TOTAL CAPITAL COST</td>
+                  <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">${formatCurrency(totalCapitalCost)}</td>
                 </tr>
               </tbody>
             </table>`,
           },
         ],
       });
+
+      // PAGE 3: Tenant Schedule (Top 20)
+      const tenantsToShow = data.tenants?.slice(0, 20) || [];
+      if (tenantsToShow.length > 0) {
+        pages.push({
+          id: "page-3",
+          pageNumber: pages.length + 1,
+          sections: [
+            {
+              id: "tenant-heading",
+              type: "heading",
+              editable: true,
+              content: `<h2 style="color: ${settings.primary_color}; margin-bottom: 20px;">Tenant Schedule (Top 20)</h2>`,
+            },
+            {
+              id: "tenant-table",
+              type: "table",
+              editable: true,
+              content: `<table style="width: 100%; border-collapse: collapse; font-size: 9px;">
+                <thead>
+                  <tr style="background-color: ${settings.table_style.headerBg}; color: ${settings.table_style.headerColor};">
+                    <th style="padding: 6px; border: 1px solid #ddd;">Shop</th>
+                    <th style="padding: 6px; border: 1px solid #ddd;">Tenant</th>
+                    <th style="padding: 6px; border: 1px solid #ddd;">Area (m²)</th>
+                    <th style="padding: 6px; border: 1px solid #ddd;">Load (kVA)</th>
+                    <th style="padding: 6px; border: 1px solid #ddd;">% Load</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${tenantsToShow.map((tenant: any) => `
+                    <tr style="${tenant.own_generator_provided ? 'background-color: #ffebee;' : tenant.is_fast_food ? 'background-color: #ffcdd2;' : tenant.is_restaurant ? 'background-color: #c8e6c9;' : ''}">
+                      <td style="padding: 4px; border: 1px solid #ddd;">${tenant.shop_number}</td>
+                      <td style="padding: 4px; border: 1px solid #ddd;">${tenant.tenant_name}</td>
+                      <td style="padding: 4px; border: 1px solid #ddd; text-align: right;">${tenant.area || 0}</td>
+                      <td style="padding: 4px; border: 1px solid #ddd; text-align: right;">${(tenant.load || 0).toFixed(2)}</td>
+                      <td style="padding: 4px; border: 1px solid #ddd; text-align: right;">${(tenant.load_percentage || 0).toFixed(2)}%</td>
+                    </tr>
+                  `).join('')}
+                </tbody>
+              </table>`,
+            },
+          ],
+        });
+      }
     }
 
     return pages;
