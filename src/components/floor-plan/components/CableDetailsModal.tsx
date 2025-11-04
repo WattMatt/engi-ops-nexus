@@ -104,15 +104,19 @@ const CableDetailsModal: React.FC<CableDetailsModalProps> = ({
         console.log('Fetching cable entries for schedule:', selectedSchedule);
         const { data, error } = await supabase
           .from('cable_entries')
-          .select('id, cable_tag, from_location, to_location, cable_type, measured_length, schedule_id')
+          .select('id, cable_tag, from_location, to_location, cable_type, measured_length, schedule_id, floor_plan_cable_id')
           .eq('schedule_id', selectedSchedule)
-          .order('cable_tag');
+          .is('floor_plan_cable_id', null); // Only fetch unlinked cables
         
         if (error) {
           console.error('Error fetching cable entries:', error);
         } else {
           console.log('Fetched cable entries:', data);
-          setCableEntries(data || []);
+          // Sort by natural order to handle tenant numbering properly
+          const sorted = (data || []).sort((a, b) => 
+            a.cable_tag.localeCompare(b.cable_tag, undefined, { numeric: true, sensitivity: 'base' })
+          );
+          setCableEntries(sorted);
         }
       };
       fetchEntries();
