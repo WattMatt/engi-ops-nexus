@@ -199,45 +199,23 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       // Light blue/grey color for titles (matching reference)
       const titleColor = [133, 163, 207]; // Light blue-grey
       
-      // Add left vertical accent bar (light grey)
+      // Add left vertical accent bar (light blue gradient effect)
       doc.setFillColor(220, 230, 240);
       doc.rect(0, 0, 8, pageHeight, 'F');
       
-      // Add company logo in top right corner if available
-      if (logoUrl) {
-        try {
-          // Fetch and add logo as image
-          const logoResponse = await fetch(logoUrl);
-          const logoBlob = await logoResponse.blob();
-          const logoDataUrl = await new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.readAsDataURL(logoBlob);
-          });
-          
-          // Add logo with fixed dimensions (approx 40x40mm)
-          const logoWidth = 40;
-          const logoHeight = 40;
-          doc.addImage(logoDataUrl, 'PNG', pageWidth - logoWidth - 14, 14, logoWidth, logoHeight);
-        } catch (error) {
-          console.error("Failed to add logo to PDF:", error);
-          // Continue without logo if it fails
-        }
-      }
-      
-      // Main titles - centered and styled
+      // Main titles - RIGHT-ALIGNED as per reference
       doc.setTextColor(titleColor[0], titleColor[1], titleColor[2]);
       doc.setFontSize(18);
       doc.setFont("helvetica", "bold");
-      doc.text("Financial Evaluation", pageWidth / 2, 70, { align: "center" });
+      doc.text("Financial Evaluation", pageWidth - 14, 70, { align: "right" });
       
       yPos = 95;
       doc.setFontSize(20);
-      doc.text(project.name || "Generator Report", pageWidth / 2, yPos, { align: "center" });
+      doc.text(project.name || "Generator Report", pageWidth - 14, yPos, { align: "right" });
       
       yPos += 25;
       doc.setFontSize(18);
-      doc.text("Centre Standby Plant", pageWidth / 2, yPos, { align: "center" });
+      doc.text("Centre Standby Plant", pageWidth - 14, yPos, { align: "right" });
       
       // First horizontal divider line
       yPos = 150;
@@ -271,11 +249,33 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       yPos += 5;
       doc.text("Contact: Mr Arno Mattheus", 14, yPos);
       
+      // Add company logo to the right of company details if available
+      if (logoUrl) {
+        try {
+          const logoResponse = await fetch(logoUrl);
+          const logoBlob = await logoResponse.blob();
+          const logoDataUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(logoBlob);
+          });
+          
+          // Position logo to the right of company details
+          const logoWidth = 35;
+          const logoHeight = 25;
+          const logoX = pageWidth - logoWidth - 20;
+          const logoY = 160;
+          doc.addImage(logoDataUrl, 'PNG', logoX, logoY, logoWidth, logoHeight);
+        } catch (error) {
+          console.error("Failed to add logo to PDF:", error);
+        }
+      }
+      
       // Second horizontal divider line
       yPos = 208;
       doc.line(14, yPos, pageWidth - 14, yPos);
       
-      // Date and Revision - formatted like reference
+      // Date and Revision - formatted like reference with cyan values
       yPos = 230;
       doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
@@ -283,11 +283,16 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       doc.text("DATE:", 14, yPos);
       doc.text("REVISION:", 14, yPos + 10);
       
-      // Values in blue, right-aligned to page center
-      doc.setTextColor(0, 153, 255);
+      // Values in cyan, right-aligned
+      doc.setTextColor(0, 191, 255); // Cyan color matching reference
       doc.setFont("helvetica", "normal");
       doc.text(format(new Date(), "EEEE, dd MMMM yyyy"), pageWidth - 14, yPos, { align: "right" });
-      doc.text(nextRevision.replace(".", " "), pageWidth - 14, yPos + 10, { align: "right" });
+      doc.text(nextRevision.replace("Rev.", "Rev "), pageWidth - 14, yPos + 10, { align: "right" });
+      
+      // Page number at bottom center
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(10);
+      doc.text("1", pageWidth / 2, pageHeight - 15, { align: "center" });
 
       // ========== PAGE 2: EXECUTIVE SUMMARY ==========
       doc.addPage();
