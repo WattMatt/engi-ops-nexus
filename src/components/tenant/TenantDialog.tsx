@@ -63,7 +63,10 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
         .order("min_area", { ascending: true });
 
       if (!error && data) {
+        console.log('Loaded sizing rules:', data);
         setSizingRules(data);
+      } else if (error) {
+        console.error('Error loading sizing rules:', error);
       }
     };
     
@@ -107,9 +110,16 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
   const getFixedDbSize = (category: string): string | null => {
     if (!['fast_food', 'restaurant'].includes(category)) return null;
     
+    console.log('Looking for fixed DB size for category:', category);
+    console.log('Available rules:', sizingRules);
+    
     // For fixed sizes, just get the first rule for this category
     const rule = sizingRules.find(r => r.category === category);
-    return rule?.db_size_allowance || null;
+    console.log('Found rule:', rule);
+    
+    const result = rule?.db_size_allowance || null;
+    console.log('Returning DB size:', result);
+    return result;
   };
 
   const handleAreaChange = (value: string) => {
@@ -126,16 +136,23 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
   };
 
   const handleCategoryChange = (value: string) => {
+    console.log('Category changed to:', value);
+    console.log('Current sizing rules:', sizingRules);
+    
     let calculatedDbSize = null;
     
     // For standard shops, calculate from area
     if (value === 'standard' && formData.area && !isNaN(parseFloat(formData.area))) {
       calculatedDbSize = getDbSizeFromArea(parseFloat(formData.area), value);
+      console.log('Standard category - calculated from area:', calculatedDbSize);
     }
     // For fast_food and restaurant, get fixed size
     else if (['fast_food', 'restaurant'].includes(value)) {
       calculatedDbSize = getFixedDbSize(value);
+      console.log('Fast food/restaurant category - fixed size:', calculatedDbSize);
     }
+    
+    console.log('Final calculated DB size:', calculatedDbSize);
     
     // Update form data with category and calculated DB size
     setFormData(prev => ({ 
