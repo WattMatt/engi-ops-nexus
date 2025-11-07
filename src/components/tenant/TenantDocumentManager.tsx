@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { UploadTenantDocumentDialog } from "./UploadTenantDocumentDialog";
 import { toast } from "sonner";
-import { Download, Trash2, Upload, FileText, CheckCircle2, AlertCircle } from "lucide-react";
+import { Download, Trash2, Upload, FileText, CheckCircle2, AlertCircle, UserCheck } from "lucide-react";
 import { format } from "date-fns";
 import { Progress } from "@/components/ui/progress";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
@@ -59,6 +59,84 @@ export const TenantDocumentManager = ({
       return data;
     },
     enabled: open,
+  });
+
+  const { data: exclusions = [] } = useQuery({
+    queryKey: ["tenant-document-exclusions", tenantId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tenant_document_exclusions")
+        .select("*")
+        .eq("tenant_id", tenantId);
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: open,
+  });
+
+  const markByTenantMutation = useMutation({
+    mutationFn: async ({ documentType, notes }: { documentType: string; notes?: string }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { error } = await supabase
+        .from('tenant_document_exclusions')
+        .insert({
+          tenant_id: tenantId,
+          project_id: projectId,
+          document_type: documentType,
+          exclusion_reason: 'by_tenant',
+          notes: notes || null,
+          marked_by: user.id,
+        });
+
+      if (error) throw error;
+      return { documentType };
+    },
+    onSuccess: ({ documentType }) => {
+      queryClient.invalidateQueries({ queryKey: ["tenant-document-exclusions", tenantId] });
+      queryClient.invalidateQueries({ queryKey: ["tenant-documents-summary"] });
+      toast.success("Marked as handled by tenant");
+      
+      logActivity(
+        'tenant_document_exclusion',
+        `Marked ${documentType} as "By Tenant" for ${shopNumber}`,
+        { tenant_id: tenantId, document_type: documentType },
+        projectId
+      );
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to mark as by tenant");
+    },
+  });
+
+  const unmarkByTenantMutation = useMutation({
+    mutationFn: async (documentType: string) => {
+      const { error } = await supabase
+        .from('tenant_document_exclusions')
+        .delete()
+        .eq('tenant_id', tenantId)
+        .eq('document_type', documentType);
+
+      if (error) throw error;
+      return documentType;
+    },
+    onSuccess: (documentType) => {
+      queryClient.invalidateQueries({ queryKey: ["tenant-document-exclusions", tenantId] });
+      queryClient.invalidateQueries({ queryKey: ["tenant-documents-summary"] });
+      toast.success("Unmarked from by tenant");
+      
+      logActivity(
+        'tenant_document_exclusion_removed',
+        `Removed "By Tenant" marking for ${documentType} for ${shopNumber}`,
+        { tenant_id: tenantId, document_type: documentType },
+        projectId
+      );
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to unmark");
+    },
   });
 
   const deleteMutation = useMutation({
@@ -117,9 +195,15 @@ export const TenantDocumentManager = ({
     return documents.find(doc => doc.document_type === type);
   };
 
-  const completedCount = DOCUMENT_TYPES.filter(type => 
-    getDocumentForType(type.key)
-  ).length;
+  const getExclusionForType = (type: string) => {
+    return exclusions.find(exc => exc.document_type === type);
+  };
+
+  const completedCount = DOCUMENT_TYPES.filter(type => {
+    const hasDoc = getDocumentForType(type.key);
+    const hasExclusion = getExclusionForType(type.key);
+    return hasDoc || hasExclusion;
+  }).length;
   const completionPercentage = (completedCount / DOCUMENT_TYPES.length) * 100;
 
   return (
@@ -156,7 +240,9 @@ export const TenantDocumentManager = ({
               ) : (
                 DOCUMENT_TYPES.map((type) => {
                   const doc = getDocumentForType(type.key);
+                  const exclusion = getExclusionForType(type.key);
                   const hasDocument = !!doc;
+                  const isByTenant = !!exclusion;
 
                   return (
                     <Card key={type.key} className="p-4">
@@ -168,6 +254,11 @@ export const TenantDocumentManager = ({
                               <Badge variant="default" className="bg-emerald-500">
                                 <CheckCircle2 className="h-3 w-3 mr-1" />
                                 Uploaded
+                              </Badge>
+                            ) : isByTenant ? (
+                              <Badge variant="secondary" className="bg-blue-500 text-white">
+                                <UserCheck className="h-3 w-3 mr-1" />
+                                By Tenant
                               </Badge>
                             ) : (
                               <Badge variant="outline" className="text-muted-foreground">
@@ -189,9 +280,20 @@ export const TenantDocumentManager = ({
                               )}
                             </div>
                           )}
+                          
+                          {isByTenant && exclusion && (
+                            <div className="text-sm text-muted-foreground space-y-1">
+                              <p>
+                                Marked {format(new Date(exclusion.marked_at), "PPp")}
+                              </p>
+                              {exclusion.notes && (
+                                <p className="italic">Note: {exclusion.notes}</p>
+                              )}
+                            </div>
+                          )}
                         </div>
 
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 flex-wrap">
                           {hasDocument && doc ? (
                             <>
                               <Button
@@ -209,15 +311,52 @@ export const TenantDocumentManager = ({
                               >
                                 <Trash2 className="h-4 w-4" />
                               </Button>
+                              <Button
+                                size="sm"
+                                onClick={() => handleUpload(type.key)}
+                              >
+                                <Upload className="h-4 w-4 mr-2" />
+                                Replace
+                              </Button>
                             </>
-                          ) : null}
-                          <Button
-                            size="sm"
-                            onClick={() => handleUpload(type.key)}
-                          >
-                            <Upload className="h-4 w-4 mr-2" />
-                            {hasDocument ? "Replace" : "Upload"}
-                          </Button>
+                          ) : isByTenant ? (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => unmarkByTenantMutation.mutate(type.key)}
+                                disabled={unmarkByTenantMutation.isPending}
+                              >
+                                Unmark
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={() => handleUpload(type.key)}
+                              >
+                                <Upload className="h-4 w-4 mr-2" />
+                                Upload Instead
+                              </Button>
+                            </>
+                          ) : (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => markByTenantMutation.mutate({ documentType: type.key })}
+                                disabled={markByTenantMutation.isPending}
+                              >
+                                <UserCheck className="h-4 w-4 mr-2" />
+                                By Tenant
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={() => handleUpload(type.key)}
+                              >
+                                <Upload className="h-4 w-4 mr-2" />
+                                Upload
+                              </Button>
+                            </>
+                          )}
                         </div>
                       </div>
                     </Card>

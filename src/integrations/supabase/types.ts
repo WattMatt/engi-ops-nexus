@@ -4660,6 +4660,57 @@ export type Database = {
           },
         ]
       }
+      tenant_document_exclusions: {
+        Row: {
+          created_at: string
+          document_type: string
+          exclusion_reason: string
+          id: string
+          marked_at: string
+          marked_by: string
+          notes: string | null
+          project_id: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string
+          document_type: string
+          exclusion_reason?: string
+          id?: string
+          marked_at?: string
+          marked_by: string
+          notes?: string | null
+          project_id: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string
+          document_type?: string
+          exclusion_reason?: string
+          id?: string
+          marked_at?: string
+          marked_by?: string
+          notes?: string | null
+          project_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_document_exclusions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tenant_document_exclusions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_documents: {
         Row: {
           created_at: string

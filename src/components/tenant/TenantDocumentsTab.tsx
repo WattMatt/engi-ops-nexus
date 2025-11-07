@@ -29,24 +29,43 @@ export const TenantDocumentsTab = ({ projectId, tenants }: TenantDocumentsTabPro
   const { data: documentsSummary = {}, isLoading } = useQuery({
     queryKey: ["tenant-documents-summary", projectId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Get documents
+      const { data: docs, error: docsError } = await supabase
         .from("tenant_documents")
         .select("tenant_id, document_type")
         .eq("project_id", projectId);
 
-      if (error) throw error;
+      if (docsError) throw docsError;
 
-      // Count unique document types per tenant
+      // Get exclusions
+      const { data: exclusions, error: exclusionsError } = await supabase
+        .from("tenant_document_exclusions")
+        .select("tenant_id, document_type")
+        .eq("project_id", projectId);
+
+      if (exclusionsError) throw exclusionsError;
+
+      // Count unique document types + exclusions per tenant
       const summary: Record<string, number> = {};
-      data.forEach(doc => {
+      
+      // Count documents
+      docs?.forEach(doc => {
         if (!summary[doc.tenant_id]) {
           summary[doc.tenant_id] = 0;
         }
-        // Count unique document types
-        const existingTypes = data
-          .filter(d => d.tenant_id === doc.tenant_id)
-          .map(d => d.document_type);
-        summary[doc.tenant_id] = new Set(existingTypes).size;
+      });
+      
+      // Count unique types from both documents and exclusions
+      const allTenantIds = new Set([
+        ...(docs?.map(d => d.tenant_id) || []),
+        ...(exclusions?.map(e => e.tenant_id) || [])
+      ]);
+
+      allTenantIds.forEach(tenantId => {
+        const tenantDocs = docs?.filter(d => d.tenant_id === tenantId).map(d => d.document_type) || [];
+        const tenantExclusions = exclusions?.filter(e => e.tenant_id === tenantId).map(e => e.document_type) || [];
+        const uniqueTypes = new Set([...tenantDocs, ...tenantExclusions]);
+        summary[tenantId] = uniqueTypes.size;
       });
 
       return summary;
