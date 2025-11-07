@@ -11,6 +11,7 @@ import { SavedReportsList } from "@/components/tenant/SavedReportsList";
 import { TenantChangeAuditLog } from "@/components/tenant/TenantChangeAuditLog";
 import { OutdatedReportsIndicator } from "@/components/tenant/OutdatedReportsIndicator";
 import { TenantVersionBadge } from "@/components/tenant/TenantVersionBadge";
+import { TenantDocumentsTab } from "@/components/tenant/TenantDocumentsTab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 
@@ -96,6 +97,7 @@ const TenantTracker = () => {
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="tenants">Tenant Schedule</TabsTrigger>
+          <TabsTrigger value="documents">Documents</TabsTrigger>
           <TabsTrigger value="report-status">Report Status</TabsTrigger>
           <TabsTrigger value="change-history">Change History</TabsTrigger>
           <TabsTrigger value="floor-plan">Floor Plan Masking</TabsTrigger>
@@ -145,6 +147,10 @@ const TenantTracker = () => {
               />
             )}
           </div>
+        </TabsContent>
+        
+        <TabsContent value="documents" className="mt-4">
+          <TenantDocumentsTab projectId={projectId || ""} tenants={tenants} />
         </TabsContent>
         
         <TabsContent value="report-status" className="mt-4">
