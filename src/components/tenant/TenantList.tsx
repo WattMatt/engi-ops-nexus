@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Trash2, CheckCircle2, Circle, Calculator } from "lucide-react";
 import { TenantDialog } from "./TenantDialog";
+import { DeleteTenantDialog } from "./DeleteTenantDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useState } from "react";
@@ -35,16 +36,27 @@ export const TenantList = ({
   onUpdate
 }: TenantListProps) => {
   const [isCalculating, setIsCalculating] = useState(false);
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this tenant? This will also delete all associated change history.")) return;
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [tenantToDelete, setTenantToDelete] = useState<Tenant | null>(null);
+  
+  const handleDeleteClick = (tenant: Tenant) => {
+    setTenantToDelete(tenant);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!tenantToDelete) return;
+    
     try {
       const { error } = await supabase
         .from("tenants")
         .delete()
-        .eq("id", id);
+        .eq("id", tenantToDelete.id);
       
       if (error) throw error;
       toast.success("Tenant deleted successfully");
+      setDeleteDialogOpen(false);
+      setTenantToDelete(null);
       onUpdate();
     } catch (error: any) {
       console.error("Delete error:", error);
@@ -259,7 +271,7 @@ export const TenantList = ({
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
                         <TenantDialog projectId={projectId} tenant={tenant} onSuccess={onUpdate} />
-                        <Button variant="ghost" size="sm" onClick={() => handleDelete(tenant.id)}>
+                        <Button variant="ghost" size="sm" onClick={() => handleDeleteClick(tenant)}>
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
@@ -269,5 +281,14 @@ export const TenantList = ({
           </Table>
         </ScrollArea>
       </div>
+
+      {tenantToDelete && (
+        <DeleteTenantDialog
+          open={deleteDialogOpen}
+          onOpenChange={setDeleteDialogOpen}
+          tenant={tenantToDelete}
+          onConfirm={handleDeleteConfirm}
+        />
+      )}
     </div>;
 };
