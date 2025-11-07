@@ -358,6 +358,10 @@ export const DBSizingRulesSettings = ({ projectId }: DBSizingRulesSettingsProps)
   };
 
   const filteredRules = rules.filter(rule => rule.category === activeCategory);
+  
+  console.log('All rules:', rules);
+  console.log('Active category:', activeCategory);
+  console.log('Filtered rules:', filteredRules);
 
   if (loading) {
     return <div>Loading...</div>;
@@ -391,9 +395,9 @@ export const DBSizingRulesSettings = ({ projectId }: DBSizingRulesSettingsProps)
             )}
 
             {filteredRules.length > 0 && (
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label>Current Rules for {activeCategory.replace('_', ' ')}</Label>
+              <div className="space-y-2 max-h-96 overflow-y-auto">
+                <div className="flex items-center justify-between sticky top-0 bg-background pb-2">
+                  <Label>Current Rules for {activeCategory.replace('_', ' ')} ({filteredRules.length} rules)</Label>
                   {['fast_food', 'restaurant'].includes(activeCategory) && filteredRules.length > 0 && (
                     <p className="text-xs text-muted-foreground">Only one fixed size allowed per category</p>
                   )}
