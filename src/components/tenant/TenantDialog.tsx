@@ -4,9 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Plus, Edit } from "lucide-react";
+import { Plus, Edit, Sparkles, PencilLine } from "lucide-react";
 
 interface Tenant {
   id: string;
@@ -34,6 +35,7 @@ interface TenantDialogProps {
 export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps) => {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isDbSizeAutoCalculated, setIsDbSizeAutoCalculated] = useState(false);
   const [sizingRules, setSizingRules] = useState<Array<{ min_area: number; max_area: number; db_size_allowance: string; db_size_scope_of_work: string | null; category: string }>>([]);
   const [formData, setFormData] = useState({
     shop_name: tenant?.shop_name || "",
@@ -85,6 +87,7 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
       
       if (calculatedDbSize) {
         setFormData(prev => ({ ...prev, db_size_allowance: calculatedDbSize }));
+        setIsDbSizeAutoCalculated(true);
       }
     }
   }, [open, sizingRules]);
@@ -117,6 +120,7 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
       const calculatedDbSize = getDbSizeFromArea(parseFloat(value), formData.shop_category);
       if (calculatedDbSize) {
         setFormData(prev => ({ ...prev, area: value, db_size_allowance: calculatedDbSize }));
+        setIsDbSizeAutoCalculated(true);
       }
     }
   };
@@ -139,6 +143,12 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
       shop_category: value, 
       db_size_allowance: calculatedDbSize || (value === 'national' ? '' : prev.db_size_allowance)
     }));
+    
+    if (calculatedDbSize) {
+      setIsDbSizeAutoCalculated(true);
+    } else if (value === 'national') {
+      setIsDbSizeAutoCalculated(false);
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -267,13 +277,38 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
               )}
             </div>
             <div>
-              <Label htmlFor="db_size_allowance">
-                DB Allowance {formData.shop_category === 'national' ? '*' : '(Auto-calculated, editable)'}
-              </Label>
+              <div className="flex items-center gap-2 mb-2">
+                <Label htmlFor="db_size_allowance">
+                  DB Allowance {formData.shop_category === 'national' ? '*' : ''}
+                </Label>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center">
+                        {isDbSizeAutoCalculated ? (
+                          <Sparkles className="h-4 w-4 text-primary" />
+                        ) : (
+                          <PencilLine className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">
+                        {isDbSizeAutoCalculated 
+                          ? "Auto-calculated from sizing rules - you can still edit" 
+                          : "Manual entry required"}
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
               <Input
                 id="db_size_allowance"
                 value={formData.db_size_allowance}
-                onChange={(e) => setFormData({ ...formData, db_size_allowance: e.target.value })}
+                onChange={(e) => {
+                  setFormData({ ...formData, db_size_allowance: e.target.value });
+                  setIsDbSizeAutoCalculated(false);
+                }}
                 placeholder="e.g., 60A TP"
                 required={formData.shop_category === 'national'}
               />
