@@ -14,6 +14,7 @@ import { TenantVersionBadge } from "@/components/tenant/TenantVersionBadge";
 import { TenantDocumentsTab } from "@/components/tenant/TenantDocumentsTab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 const TenantTracker = () => {
   const projectId = localStorage.getItem("selectedProjectId");
@@ -134,7 +135,7 @@ const TenantTracker = () => {
             </div>
           </div>
           
-          <div className="h-[calc(100vh-280px)] overflow-y-auto border rounded-lg">
+          <ScrollArea className="h-[calc(100vh-280px)] border rounded-lg">
             {isLoading ? (
               <div className="flex items-center justify-center py-8">
                 <p className="text-muted-foreground">Loading tenants...</p>
@@ -146,7 +147,7 @@ const TenantTracker = () => {
                 onUpdate={handleUpdate}
               />
             )}
-          </div>
+          </ScrollArea>
         </TabsContent>
         
         <TabsContent value="documents" className="mt-4">
