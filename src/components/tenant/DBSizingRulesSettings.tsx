@@ -58,6 +58,13 @@ export const DBSizingRulesSettings = ({ projectId }: DBSizingRulesSettingsProps)
         .order("min_area", { ascending: true });
 
       if (error) throw error;
+      
+      // If no rules exist, automatically load defaults for standard category
+      if (!data || data.length === 0) {
+        await loadDefaultRulesForAllCategories();
+        return;
+      }
+      
       setRules(data || []);
     } catch (error: any) {
       toast.error("Failed to load DB sizing rules");
@@ -288,6 +295,36 @@ export const DBSizingRulesSettings = ({ projectId }: DBSizingRulesSettingsProps)
       loadRules();
     } catch (error: any) {
       toast.error("Failed to delete rule");
+    }
+  };
+
+  const loadDefaultRulesForAllCategories = async () => {
+    const defaultStandardRules = [
+      { min_area: 0, max_area: 80, db_size_allowance: "60A TP", category: "standard" },
+      { min_area: 81, max_area: 200, db_size_allowance: "80A TP", category: "standard" },
+      { min_area: 201, max_area: 300, db_size_allowance: "100A TP", category: "standard" },
+      { min_area: 301, max_area: 450, db_size_allowance: "125A TP", category: "standard" },
+      { min_area: 451, max_area: 600, db_size_allowance: "160A TP", category: "standard" },
+      { min_area: 601, max_area: 1200, db_size_allowance: "200A TP", category: "standard" },
+      { min_area: 0, max_area: 999998, db_size_allowance: "60A TP", category: "fast_food" },
+      { min_area: 1000000, max_area: 1999999, db_size_allowance: "60A TP", category: "restaurant" },
+    ];
+
+    try {
+      const { error } = await supabase
+        .from("db_sizing_rules")
+        .insert(
+          defaultStandardRules.map(rule => ({
+            project_id: projectId,
+            ...rule,
+          }))
+        );
+
+      if (error) throw error;
+      await loadRules();
+    } catch (error: any) {
+      toast.error(error.message || "Failed to load default rules");
+      setLoading(false);
     }
   };
 
