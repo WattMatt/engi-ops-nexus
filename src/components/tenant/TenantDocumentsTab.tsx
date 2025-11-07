@@ -5,8 +5,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TenantDocumentManager } from "./TenantDocumentManager";
-import { FileText, FolderOpen } from "lucide-react";
+import { TenantDocumentStatusReport } from "./TenantDocumentStatusReport";
+import { FileText, FolderOpen, BarChart3 } from "lucide-react";
 
 interface Tenant {
   id: string;
@@ -93,91 +95,110 @@ export const TenantDocumentsTab = ({ projectId, tenants }: TenantDocumentsTabPro
 
   return (
     <div className="space-y-4">
-      {/* Summary Card */}
-      <Card className="p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-lg font-semibold mb-2">Document Repository Overview</h3>
-            <p className="text-sm text-muted-foreground">
-              Track critical tenant documents for progress monitoring and handover
-            </p>
-          </div>
-          <div className="text-right">
-            <div className="text-3xl font-bold">{overallCompletion}%</div>
-            <div className="text-sm text-muted-foreground">
-              {totalDocuments} of {totalExpected} documents
+      <Tabs defaultValue="by-tenant" className="w-full">
+        <TabsList>
+          <TabsTrigger value="by-tenant">
+            <FolderOpen className="h-4 w-4 mr-2" />
+            By Tenant
+          </TabsTrigger>
+          <TabsTrigger value="status-report">
+            <BarChart3 className="h-4 w-4 mr-2" />
+            Status Report
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="by-tenant" className="mt-4 space-y-4">
+          {/* Summary Card */}
+          <Card className="p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Document Repository Overview</h3>
+                <p className="text-sm text-muted-foreground">
+                  Track critical tenant documents for progress monitoring and handover
+                </p>
+              </div>
+              <div className="text-right">
+                <div className="text-3xl font-bold">{overallCompletion}%</div>
+                <div className="text-sm text-muted-foreground">
+                  {totalDocuments} of {totalExpected} documents
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      </Card>
+          </Card>
 
-      {/* Document Types Legend */}
-      <Card className="p-4">
-        <h4 className="font-semibold mb-2 text-sm">Required Documents per Tenant:</h4>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm text-muted-foreground">
-          <div>• Lighting Quotation (Received)</div>
-          <div>• Lighting Quotation Instruction</div>
-          <div>• DB Order Quote (Received)</div>
-          <div>• DB Order Instruction</div>
-          <div>• DB Shop Drawing (Received)</div>
-          <div>• DB Shop Drawing (Approved)</div>
-        </div>
-      </Card>
+          {/* Document Types Legend */}
+          <Card className="p-4">
+            <h4 className="font-semibold mb-2 text-sm">Required Documents per Tenant:</h4>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm text-muted-foreground">
+              <div>• Lighting Quotation (Received)</div>
+              <div>• Lighting Quotation Instruction</div>
+              <div>• DB Order Quote (Received)</div>
+              <div>• DB Order Instruction</div>
+              <div>• DB Shop Drawing (Received)</div>
+              <div>• DB Shop Drawing (Approved)</div>
+            </div>
+          </Card>
 
-      {/* Tenants Table */}
-      <Card>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Shop Number</TableHead>
-              <TableHead>Shop Name</TableHead>
-              <TableHead>Documents</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                  Loading document status...
-                </TableCell>
-              </TableRow>
-            ) : tenants.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                  No tenants found. Add tenants to start tracking documents.
-                </TableCell>
-              </TableRow>
-            ) : (
-              tenants.map((tenant) => {
-                const status = getDocumentStatus(tenant.id);
-                return (
-                  <TableRow key={tenant.id}>
-                    <TableCell className="font-medium">{tenant.shop_number}</TableCell>
-                    <TableCell>{tenant.shop_name}</TableCell>
-                    <TableCell>
-                      <Badge variant={status.variant} className={status.color}>
-                        <FileText className="h-3 w-3 mr-1" />
-                        {status.label}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleOpenManager(tenant)}
-                      >
-                        <FolderOpen className="h-4 w-4 mr-2" />
-                        Manage Documents
-                      </Button>
+          {/* Tenants Table */}
+          <Card>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Shop Number</TableHead>
+                  <TableHead>Shop Name</TableHead>
+                  <TableHead>Documents</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                      Loading document status...
                     </TableCell>
                   </TableRow>
-                );
-              })
-            )}
-          </TableBody>
-        </Table>
-      </Card>
+                ) : tenants.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                      No tenants found. Add tenants to start tracking documents.
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  tenants.map((tenant) => {
+                    const status = getDocumentStatus(tenant.id);
+                    return (
+                      <TableRow key={tenant.id}>
+                        <TableCell className="font-medium">{tenant.shop_number}</TableCell>
+                        <TableCell>{tenant.shop_name}</TableCell>
+                        <TableCell>
+                          <Badge variant={status.variant} className={status.color}>
+                            <FileText className="h-3 w-3 mr-1" />
+                            {status.label}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleOpenManager(tenant)}
+                          >
+                            <FolderOpen className="h-4 w-4 mr-2" />
+                            Manage Documents
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="status-report" className="mt-4">
+          <TenantDocumentStatusReport projectId={projectId} tenants={tenants} />
+        </TabsContent>
+      </Tabs>
 
       {/* Document Manager Dialog */}
       {selectedTenant && (
