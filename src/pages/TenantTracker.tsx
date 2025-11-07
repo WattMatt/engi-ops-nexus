@@ -75,8 +75,8 @@ const TenantTracker = () => {
   };
 
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <div className="flex justify-between items-center">
+    <div className="flex flex-col h-screen overflow-hidden p-4 md:p-8 pt-6">
+      <div className="flex justify-between items-center mb-4">
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-3xl font-bold">Tenant Tracker</h1>
@@ -94,7 +94,7 @@ const TenantTracker = () => {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="tenants">Tenant Schedule</TabsTrigger>
@@ -106,18 +106,20 @@ const TenantTracker = () => {
           <TabsTrigger value="reports">Saved Reports</TabsTrigger>
         </TabsList>
         
-        <TabsContent value="overview" className="mt-4">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <p className="text-muted-foreground">Loading data...</p>
-            </div>
-          ) : (
-            <TenantOverview tenants={tenants} />
-          )}
+        <TabsContent value="overview" className="flex-1 overflow-hidden">
+          <ScrollArea className="h-full">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8">
+                <p className="text-muted-foreground">Loading data...</p>
+              </div>
+            ) : (
+              <TenantOverview tenants={tenants} />
+            )}
+          </ScrollArea>
         </TabsContent>
         
-        <TabsContent value="tenants" className="mt-4 space-y-4">
-          <div className="bg-background border rounded-lg p-4 shadow-sm">
+        <TabsContent value="tenants" className="flex-1 flex flex-col overflow-hidden space-y-4">
+          <div className="bg-background border rounded-lg p-4 shadow-sm flex-shrink-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-sm font-semibold">Legend:</span>
               <Badge variant="outline" className="bg-blue-500 text-white border-blue-600">
@@ -135,7 +137,7 @@ const TenantTracker = () => {
             </div>
           </div>
           
-          <ScrollArea className="h-[calc(100vh-280px)] border rounded-lg">
+          <ScrollArea className="flex-1 border rounded-lg">
             {isLoading ? (
               <div className="flex items-center justify-center py-8">
                 <p className="text-muted-foreground">Loading tenants...</p>
@@ -150,34 +152,44 @@ const TenantTracker = () => {
           </ScrollArea>
         </TabsContent>
         
-        <TabsContent value="documents" className="mt-4">
-          <TenantDocumentsTab projectId={projectId || ""} tenants={tenants} />
+        <TabsContent value="documents" className="flex-1 overflow-hidden">
+          <ScrollArea className="h-full">
+            <TenantDocumentsTab projectId={projectId || ""} tenants={tenants} />
+          </ScrollArea>
         </TabsContent>
         
-        <TabsContent value="report-status" className="mt-4">
-          {projectId && <OutdatedReportsIndicator projectId={projectId} />}
+        <TabsContent value="report-status" className="flex-1 overflow-hidden">
+          <ScrollArea className="h-full">
+            {projectId && <OutdatedReportsIndicator projectId={projectId} />}
+          </ScrollArea>
         </TabsContent>
         
-        <TabsContent value="change-history" className="mt-4">
-          {projectId && <TenantChangeAuditLog projectId={projectId} />}
+        <TabsContent value="change-history" className="flex-1 overflow-hidden">
+          <ScrollArea className="h-full">
+            {projectId && <TenantChangeAuditLog projectId={projectId} />}
+          </ScrollArea>
         </TabsContent>
         
-        <TabsContent value="reports" className="mt-4">
-          <SavedReportsList 
-            projectId={projectId || ""} 
-            projectName={projectName || undefined}
-          />
+        <TabsContent value="reports" className="flex-1 overflow-hidden">
+          <ScrollArea className="h-full">
+            <SavedReportsList 
+              projectId={projectId || ""} 
+              projectName={projectName || undefined}
+            />
+          </ScrollArea>
         </TabsContent>
         
-        <TabsContent value="floor-plan" className="mt-4">
+        <TabsContent value="floor-plan" className="flex-1 overflow-hidden">
           <FloorPlanMasking 
             key={`floor-plan-${activeTab === 'floor-plan' ? Date.now() : 'cached'}`}
             projectId={projectId || ""} 
           />
         </TabsContent>
         
-        <TabsContent value="settings" className="mt-4">
-          <DBSizingRulesSettings projectId={projectId || ""} />
+        <TabsContent value="settings" className="flex-1 overflow-hidden">
+          <ScrollArea className="h-full">
+            <DBSizingRulesSettings projectId={projectId || ""} />
+          </ScrollArea>
         </TabsContent>
       </Tabs>
     </div>
