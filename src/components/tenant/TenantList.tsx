@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ScrollArea } from "@/components/ui/scroll-area";
 interface Tenant {
   id: string;
   shop_name: string;
@@ -163,105 +164,107 @@ export const TenantList = ({
     };
     return labels[category as keyof typeof labels] || category;
   };
-  return <div className="space-y-4">
-      <div className="flex justify-end">
+  return <div className="h-full flex flex-col gap-4">
+      <div className="flex justify-end flex-shrink-0">
         <Button onClick={handleBulkAutoCalc} disabled={isCalculating} variant="outline">
           <Calculator className="h-4 w-4 mr-2" />
           {isCalculating ? "Calculating..." : "Bulk Auto-Calculate DB Sizes"}
         </Button>
       </div>
-      <div className="border rounded-lg">
-        <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>Shop #</TableHead>
-            <TableHead>Shop Name</TableHead>
-            <TableHead>Category</TableHead>
-            <TableHead>Area (sqm)</TableHead>
-            <TableHead>DB Allowance</TableHead>
-            <TableHead>DB Scope of Work</TableHead>
-            <TableHead className="text-center">SOW</TableHead>
-            <TableHead className="text-center">Layout</TableHead>
-            <TableHead className="text-center">DB Ordered</TableHead>
-            <TableHead className="text-right">DB Cost</TableHead>
-            <TableHead className="text-center">Lighting Ordered</TableHead>
-            <TableHead className="text-right">Light Cost</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {tenants.length === 0 ? <TableRow>
-              <TableCell colSpan={13} className="text-center text-muted-foreground">
-                No tenants added yet
-              </TableCell>
-            </TableRow> : tenants.map(tenant => <TableRow key={tenant.id} className={getRowClassName(tenant)}>
-                <TableCell className="font-medium">{tenant.shop_number}</TableCell>
-                <TableCell>{tenant.shop_name}</TableCell>
-                <TableCell>
-                  <Select value={tenant.shop_category} onValueChange={value => handleCategoryChange(tenant.id, value)}>
-                    <SelectTrigger className="w-[140px] h-8">
-                      <SelectValue>
-                        <Badge variant="outline" className={getCategoryVariant(tenant.shop_category)}>
-                          {getCategoryLabel(tenant.shop_category)}
-                        </Badge>
-                      </SelectValue>
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="standard">
-                        <Badge variant="outline" className={getCategoryVariant("standard")}>
-                          Standard
-                        </Badge>
-                      </SelectItem>
-                      <SelectItem value="fast_food">
-                        <Badge variant="outline" className={getCategoryVariant("fast_food")}>
-                          Fast Food
-                        </Badge>
-                      </SelectItem>
-                      <SelectItem value="restaurant">
-                        <Badge variant="outline" className={getCategoryVariant("restaurant")}>
-                          Restaurant
-                        </Badge>
-                      </SelectItem>
-                      <SelectItem value="national">
-                        <Badge variant="outline" className={getCategoryVariant("national")}>
-                          National
-                        </Badge>
-                      </SelectItem>
-                    </SelectContent>
-                  </Select>
-                </TableCell>
-                <TableCell>{tenant.area?.toFixed(2) || "-"}</TableCell>
-                <TableCell>{tenant.db_size_allowance || "-"}</TableCell>
-                <TableCell>{tenant.db_size_scope_of_work || "-"}</TableCell>
-                <TableCell className="text-center">
-                  <StatusIcon checked={tenant.sow_received} />
-                </TableCell>
-                <TableCell className="text-center">
-                  <StatusIcon checked={tenant.layout_received} />
-                </TableCell>
-                <TableCell className="text-center">
-                  <StatusIcon checked={tenant.db_ordered} />
-                </TableCell>
-                <TableCell className="text-right">
-                  {tenant.db_cost ? `R${tenant.db_cost.toFixed(2)}` : "-"}
-                </TableCell>
-                <TableCell className="text-center">
-                  <StatusIcon checked={tenant.lighting_ordered} />
-                </TableCell>
-                <TableCell className="text-right">
-                  {tenant.lighting_cost ? `R${tenant.lighting_cost.toFixed(2)}` : "-"}
-                </TableCell>
-                <TableCell className="text-right">
-                  <div className="flex justify-end gap-1">
-                    <TenantDialog projectId={projectId} tenant={tenant} onSuccess={onUpdate} />
-                    <Button variant="ghost" size="sm" onClick={() => handleDelete(tenant.id)}>
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    </Button>
-                  </div>
-                </TableCell>
-              </TableRow>)}
-        </TableBody>
-      </Table>
+      <div className="flex-1 min-h-0 border rounded-lg overflow-hidden">
+        <ScrollArea className="h-full">
+          <Table>
+            <TableHeader className="sticky top-0 bg-background z-10">
+              <TableRow>
+                <TableHead>Shop #</TableHead>
+                <TableHead>Shop Name</TableHead>
+                <TableHead>Category</TableHead>
+                <TableHead>Area (sqm)</TableHead>
+                <TableHead>DB Allowance</TableHead>
+                <TableHead>DB Scope of Work</TableHead>
+                <TableHead className="text-center">SOW</TableHead>
+                <TableHead className="text-center">Layout</TableHead>
+                <TableHead className="text-center">DB Ordered</TableHead>
+                <TableHead className="text-right">DB Cost</TableHead>
+                <TableHead className="text-center">Lighting Ordered</TableHead>
+                <TableHead className="text-right">Light Cost</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {tenants.length === 0 ? <TableRow>
+                  <TableCell colSpan={13} className="text-center text-muted-foreground">
+                    No tenants added yet
+                  </TableCell>
+                </TableRow> : tenants.map(tenant => <TableRow key={tenant.id} className={getRowClassName(tenant)}>
+                    <TableCell className="font-medium">{tenant.shop_number}</TableCell>
+                    <TableCell>{tenant.shop_name}</TableCell>
+                    <TableCell>
+                      <Select value={tenant.shop_category} onValueChange={value => handleCategoryChange(tenant.id, value)}>
+                        <SelectTrigger className="w-[140px] h-8">
+                          <SelectValue>
+                            <Badge variant="outline" className={getCategoryVariant(tenant.shop_category)}>
+                              {getCategoryLabel(tenant.shop_category)}
+                            </Badge>
+                          </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="standard">
+                            <Badge variant="outline" className={getCategoryVariant("standard")}>
+                              Standard
+                            </Badge>
+                          </SelectItem>
+                          <SelectItem value="fast_food">
+                            <Badge variant="outline" className={getCategoryVariant("fast_food")}>
+                              Fast Food
+                            </Badge>
+                          </SelectItem>
+                          <SelectItem value="restaurant">
+                            <Badge variant="outline" className={getCategoryVariant("restaurant")}>
+                              Restaurant
+                            </Badge>
+                          </SelectItem>
+                          <SelectItem value="national">
+                            <Badge variant="outline" className={getCategoryVariant("national")}>
+                              National
+                            </Badge>
+                          </SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </TableCell>
+                    <TableCell>{tenant.area?.toFixed(2) || "-"}</TableCell>
+                    <TableCell>{tenant.db_size_allowance || "-"}</TableCell>
+                    <TableCell>{tenant.db_size_scope_of_work || "-"}</TableCell>
+                    <TableCell className="text-center">
+                      <StatusIcon checked={tenant.sow_received} />
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <StatusIcon checked={tenant.layout_received} />
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <StatusIcon checked={tenant.db_ordered} />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {tenant.db_cost ? `R${tenant.db_cost.toFixed(2)}` : "-"}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <StatusIcon checked={tenant.lighting_ordered} />
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {tenant.lighting_cost ? `R${tenant.lighting_cost.toFixed(2)}` : "-"}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <TenantDialog projectId={projectId} tenant={tenant} onSuccess={onUpdate} />
+                        <Button variant="ghost" size="sm" onClick={() => handleDelete(tenant.id)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>)}
+            </TableBody>
+          </Table>
+        </ScrollArea>
       </div>
     </div>;
 };
