@@ -75,8 +75,8 @@ const TenantTracker = () => {
   };
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden p-4 md:p-8 pt-6">
-      <div className="flex justify-between items-center flex-shrink-0 mb-4">
+    <div className="h-screen flex flex-col p-4 md:p-8 pt-6">
+      <div className="flex justify-between items-center mb-4">
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-3xl font-bold">Tenant Tracker</h1>
@@ -94,7 +94,7 @@ const TenantTracker = () => {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden">
         <TabsList className="flex-shrink-0">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="tenants">Tenant Schedule</TabsTrigger>
