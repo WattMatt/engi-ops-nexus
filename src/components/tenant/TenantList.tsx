@@ -38,22 +38,13 @@ export const TenantList = ({
   const handleDelete = async (id: string) => {
     if (!confirm("Are you sure you want to delete this tenant? This will also delete all associated change history.")) return;
     try {
-      // First delete related audit log entries
-      const { error: auditError } = await supabase
-        .from("tenant_change_audit_log")
-        .delete()
-        .eq("tenant_id", id);
-      
-      if (auditError) throw auditError;
-
-      // Then delete the tenant
       const { error } = await supabase
         .from("tenants")
         .delete()
         .eq("id", id);
       
       if (error) throw error;
-      toast.success("Tenant deleted");
+      toast.success("Tenant deleted successfully");
       onUpdate();
     } catch (error: any) {
       console.error("Delete error:", error);
