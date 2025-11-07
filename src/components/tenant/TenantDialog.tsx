@@ -122,8 +122,6 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
   };
 
   const handleCategoryChange = (value: string) => {
-    setFormData({ ...formData, shop_category: value });
-    
     let calculatedDbSize = null;
     
     // For standard shops, calculate from area
@@ -135,12 +133,12 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
       calculatedDbSize = getFixedDbSize(value);
     }
     
-    if (calculatedDbSize) {
-      setFormData(prev => ({ ...prev, shop_category: value, db_size_allowance: calculatedDbSize }));
-    } else if (value === 'national') {
-      // Clear DB size when switching to national (requires manual entry)
-      setFormData(prev => ({ ...prev, shop_category: value, db_size_allowance: '' }));
-    }
+    // Update form data with category and calculated DB size
+    setFormData(prev => ({ 
+      ...prev, 
+      shop_category: value, 
+      db_size_allowance: calculatedDbSize || (value === 'national' ? '' : prev.db_size_allowance)
+    }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
