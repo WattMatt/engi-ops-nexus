@@ -59,9 +59,15 @@ export const DBSizingRulesSettings = ({ projectId }: DBSizingRulesSettingsProps)
 
       if (error) throw error;
       
-      // If no rules exist, automatically load defaults for standard category
-      if (!data || data.length === 0) {
-        await loadDefaultRulesForAllCategories();
+      // Check if we need to populate missing defaults
+      const hasStandardRules = data?.some(r => r.category === 'standard') ?? false;
+      const standardRulesCount = data?.filter(r => r.category === 'standard').length ?? 0;
+      const hasFastFoodRule = data?.some(r => r.category === 'fast_food') ?? false;
+      const hasRestaurantRule = data?.some(r => r.category === 'restaurant') ?? false;
+      
+      // If no rules at all OR missing any category defaults, populate them
+      if (!data || data.length === 0 || standardRulesCount < 6 || !hasFastFoodRule || !hasRestaurantRule) {
+        await loadDefaultRulesForAllCategories(data || []);
         return;
       }
       
@@ -298,7 +304,7 @@ export const DBSizingRulesSettings = ({ projectId }: DBSizingRulesSettingsProps)
     }
   };
 
-  const loadDefaultRulesForAllCategories = async () => {
+  const loadDefaultRulesForAllCategories = async (existingRules: DBSizingRule[] = []) => {
     const defaultStandardRules = [
       { min_area: 0, max_area: 80, db_size_allowance: "60A TP", category: "standard" },
       { min_area: 81, max_area: 200, db_size_allowance: "80A TP", category: "standard" },
@@ -310,20 +316,51 @@ export const DBSizingRulesSettings = ({ projectId }: DBSizingRulesSettingsProps)
       { min_area: 1000000, max_area: 1999999, db_size_allowance: "60A TP", category: "restaurant" },
     ];
 
+    // Filter out rules that already exist
+    const existingCategories = new Set(existingRules.map(r => r.category));
+    const existingStandardRanges = existingRules
+      .filter(r => r.category === 'standard')
+      .map(r => `${r.min_area}-${r.max_area}`);
+    
+    const rulesToAdd = defaultStandardRules.filter(rule => {
+      if (rule.category === 'fast_food' || rule.category === 'restaurant') {
+        return !existingCategories.has(rule.category);
+      }
+      // For standard rules, check the specific range doesn't exist
+      return !existingStandardRanges.includes(`${rule.min_area}-${rule.max_area}`);
+    });
+
+    if (rulesToAdd.length === 0) {
+      setRules(existingRules);
+      setLoading(false);
+      return;
+    }
+
     try {
       const { error } = await supabase
         .from("db_sizing_rules")
         .insert(
-          defaultStandardRules.map(rule => ({
+          rulesToAdd.map(rule => ({
             project_id: projectId,
             ...rule,
           }))
         );
 
       if (error) throw error;
-      await loadRules();
+      
+      // Reload to get all rules
+      const { data: allRules } = await supabase
+        .from("db_sizing_rules")
+        .select("*")
+        .eq("project_id", projectId)
+        .order("category", { ascending: true })
+        .order("min_area", { ascending: true });
+      
+      setRules(allRules || []);
     } catch (error: any) {
       toast.error(error.message || "Failed to load default rules");
+      setRules(existingRules);
+    } finally {
       setLoading(false);
     }
   };
