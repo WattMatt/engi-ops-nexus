@@ -109,7 +109,7 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
     
     // For fixed sizes, just get the first rule for this category
     const rule = sizingRules.find(r => r.category === category);
-    return rule?.db_size_scope_of_work || rule?.db_size_allowance || null;
+    return rule?.db_size_allowance || null;
   };
 
   const handleAreaChange = (value: string) => {
