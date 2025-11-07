@@ -5010,6 +5010,7 @@ export type Database = {
           id: string
           ip_address: string | null
           metadata: Json | null
+          project_id: string | null
           user_agent: string | null
           user_id: string
         }
@@ -5020,6 +5021,7 @@ export type Database = {
           id?: string
           ip_address?: string | null
           metadata?: Json | null
+          project_id?: string | null
           user_agent?: string | null
           user_id: string
         }
@@ -5030,10 +5032,19 @@ export type Database = {
           id?: string
           ip_address?: string | null
           metadata?: Json | null
+          project_id?: string | null
           user_agent?: string | null
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "user_activity_logs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_invitations: {
         Row: {
@@ -5297,15 +5308,26 @@ export type Database = {
         Args: { _project_id: string; _user_id: string }
         Returns: boolean
       }
-      log_user_activity: {
-        Args: {
-          p_action_description: string
-          p_action_type: string
-          p_metadata?: Json
-          p_user_id: string
-        }
-        Returns: string
-      }
+      log_user_activity:
+        | {
+            Args: {
+              p_action_description: string
+              p_action_type: string
+              p_metadata?: Json
+              p_user_id: string
+            }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_action_description: string
+              p_action_type: string
+              p_metadata?: Json
+              p_project_id?: string
+              p_user_id: string
+            }
+            Returns: string
+          }
     }
     Enums: {
       app_role: "admin" | "user" | "moderator" | "client"

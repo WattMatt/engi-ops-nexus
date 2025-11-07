@@ -23,9 +23,15 @@ export const saveDesign = async (designName: string, designData: DesignDataForSa
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("User not authenticated.");
 
-    // 1. Upload PDF to Storage first
+    // Require project_id for new floor plans
+    if (!projectId) {
+        throw new Error("Project assignment is required for new floor plans");
+    }
+
+    // 1. Upload PDF to Storage with project-based path: floor-plans/[project_id]/[timestamp]_[name].pdf
     const timestamp = Date.now();
-    const pdfPath = `${user.id}/${timestamp}_${pdfFile.name}`;
+    const sanitizedName = pdfFile.name.replace(/[^a-z0-9.]/gi, '_').toLowerCase();
+    const pdfPath = `${projectId}/${timestamp}_${sanitizedName}`;
     const { error: storageError } = await supabase.storage.from(BUCKET_NAME).upload(pdfPath, pdfFile);
     if (storageError) throw storageError;
 
@@ -498,6 +504,17 @@ export const saveMarkedUpPdf = async (
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("User not authenticated.");
 
+    // Get project_id from the design
+    const { data: designRecord } = await supabase
+        .from('floor_plan_projects')
+        .select('project_id')
+        .eq('id', designId)
+        .single();
+
+    if (!designRecord?.project_id) {
+        throw new Error("Design must be assigned to a project");
+    }
+
     // Generate PDF with markups using the existing pdfGenerator
     const pdfBlob = await generatePdf({
         canvases,
@@ -518,9 +535,9 @@ export const saveMarkedUpPdf = async (
         throw new Error('Failed to generate PDF with markups');
     }
 
-    // Upload the marked-up PDF
+    // Upload with standardized path: floor-plans/[project_id]/marked_[timestamp].pdf
     const timestamp = Date.now();
-    const markedUpPath = `${user.id}/${designId}/marked_up_${timestamp}.pdf`;
+    const markedUpPath = `${designRecord.project_id}/marked_${timestamp}.pdf`;
     
     const { error: uploadError } = await supabase.storage
         .from(BUCKET_NAME)
