@@ -302,6 +302,25 @@ export const TenantReportPreview = ({ projectId, projectName }: TenantReportPrev
             </ul>
           </div>
 
+          {/* Category Legend */}
+          <div className="bg-gray-50 border rounded-lg p-4">
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-xs font-semibold text-gray-700">Category Legend:</span>
+              <Badge variant="outline" className="bg-blue-500 text-white border-blue-600">
+                Standard
+              </Badge>
+              <Badge variant="outline" className="bg-red-500 text-white border-red-600">
+                Fast Food
+              </Badge>
+              <Badge variant="outline" className="bg-emerald-500 text-white border-emerald-600">
+                Restaurant
+              </Badge>
+              <Badge variant="outline" className="bg-purple-600 text-white border-purple-700">
+                National
+              </Badge>
+            </div>
+          </div>
+
           {/* Search Input */}
           <div className="mt-4 relative">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
