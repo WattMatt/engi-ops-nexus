@@ -106,7 +106,7 @@ const TenantTracker = () => {
           <TabsTrigger value="reports">Saved Reports</TabsTrigger>
         </TabsList>
         
-        <TabsContent value="overview" className="flex-1 overflow-hidden mt-4">
+        <TabsContent value="overview" className="flex-1 overflow-hidden mt-0">
           <ScrollArea className="h-full">
             <div className="pr-4">
               {isLoading ? (
@@ -120,7 +120,7 @@ const TenantTracker = () => {
           </ScrollArea>
         </TabsContent>
         
-        <TabsContent value="tenants" className="flex-1 overflow-hidden mt-4 flex flex-col gap-4">
+        <TabsContent value="tenants" className="flex-1 overflow-hidden mt-0 flex flex-col gap-4">
           <div className="bg-background border rounded-lg p-4 shadow-sm flex-shrink-0">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-sm font-semibold">Legend:</span>
@@ -156,7 +156,7 @@ const TenantTracker = () => {
           </ScrollArea>
         </TabsContent>
         
-        <TabsContent value="documents" className="flex-1 overflow-hidden mt-4">
+        <TabsContent value="documents" className="flex-1 overflow-hidden mt-0">
           <ScrollArea className="h-full">
             <div className="pr-4">
               <TenantDocumentsTab projectId={projectId || ""} tenants={tenants} />
@@ -164,7 +164,7 @@ const TenantTracker = () => {
           </ScrollArea>
         </TabsContent>
         
-        <TabsContent value="report-status" className="flex-1 overflow-hidden mt-4">
+        <TabsContent value="report-status" className="flex-1 overflow-hidden mt-0">
           <ScrollArea className="h-full">
             <div className="pr-4">
               {projectId && <OutdatedReportsIndicator projectId={projectId} />}
@@ -172,7 +172,7 @@ const TenantTracker = () => {
           </ScrollArea>
         </TabsContent>
         
-        <TabsContent value="change-history" className="flex-1 overflow-hidden mt-4">
+        <TabsContent value="change-history" className="flex-1 overflow-hidden mt-0">
           <ScrollArea className="h-full">
             <div className="pr-4">
               {projectId && <TenantChangeAuditLog projectId={projectId} />}
@@ -180,7 +180,7 @@ const TenantTracker = () => {
           </ScrollArea>
         </TabsContent>
         
-        <TabsContent value="reports" className="flex-1 overflow-hidden mt-4">
+        <TabsContent value="reports" className="flex-1 overflow-hidden mt-0">
           <ScrollArea className="h-full">
             <div className="pr-4">
               <SavedReportsList 
@@ -191,14 +191,14 @@ const TenantTracker = () => {
           </ScrollArea>
         </TabsContent>
         
-        <TabsContent value="floor-plan" className="flex-1 overflow-hidden mt-4">
+        <TabsContent value="floor-plan" className="flex-1 overflow-hidden mt-0">
           <FloorPlanMasking 
             key={`floor-plan-${activeTab === 'floor-plan' ? Date.now() : 'cached'}`}
             projectId={projectId || ""} 
           />
         </TabsContent>
         
-        <TabsContent value="settings" className="flex-1 overflow-hidden mt-4">
+        <TabsContent value="settings" className="flex-1 overflow-hidden mt-0">
           <ScrollArea className="h-full">
             <div className="pr-4">
               <DBSizingRulesSettings projectId={projectId || ""} />
