@@ -328,6 +328,7 @@ export const TenantList = ({
                 <TableHead>Days Until</TableHead>
                 <TableHead>Area</TableHead>
                 <TableHead>DB Allow</TableHead>
+                <TableHead>DB SOW</TableHead>
                 <TableHead className="text-center">SOW</TableHead>
                 <TableHead className="text-center">Layout</TableHead>
                 <TableHead className="text-center">DB Ord</TableHead>
@@ -450,6 +451,14 @@ export const TenantList = ({
                         onChange={(e) => handleFieldUpdate(tenant.id, 'db_size_allowance', e.target.value || null)}
                         className="h-8 w-24"
                         placeholder="e.g. 100A"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        value={tenant.db_size_scope_of_work || ""}
+                        onChange={(e) => handleFieldUpdate(tenant.id, 'db_size_scope_of_work', e.target.value || null)}
+                        className="h-8 w-24"
+                        placeholder="e.g. 80A TP"
                       />
                     </TableCell>
                     <TableCell className="text-center">
