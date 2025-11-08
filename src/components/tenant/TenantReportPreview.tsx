@@ -5,6 +5,7 @@ import { Loader2, Search, ArrowUpDown } from "lucide-react";
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Tenant {
@@ -104,6 +105,16 @@ export const TenantReportPreview = ({ projectId, projectName }: TenantReportPrev
       national: "National"
     };
     return labels[category as keyof typeof labels] || category;
+  };
+
+  const getCategoryBadgeClass = (category: string) => {
+    const classes = {
+      standard: "bg-blue-500 text-white border-blue-600",
+      fast_food: "bg-red-500 text-white border-red-600",
+      restaurant: "bg-emerald-500 text-white border-emerald-600",
+      national: "bg-purple-600 text-white border-purple-700"
+    };
+    return classes[category as keyof typeof classes] || "bg-gray-500 text-white border-gray-600";
   };
 
   const totalTenants = tenants.length;
@@ -381,7 +392,11 @@ export const TenantReportPreview = ({ projectId, projectName }: TenantReportPrev
                   <div key={tenant.id} className="grid grid-cols-5 gap-4 p-3 text-xs hover:bg-gray-50">
                     <div className="font-medium">{tenant.shop_number}</div>
                     <div className="truncate">{tenant.shop_name}</div>
-                    <div>{getCategoryLabel(tenant.shop_category)}</div>
+                    <div>
+                      <Badge variant="outline" className={getCategoryBadgeClass(tenant.shop_category)}>
+                        {getCategoryLabel(tenant.shop_category)}
+                      </Badge>
+                    </div>
                     <div>
                       {isComplete ? (
                         <span className="text-green-600 font-medium">✓ Complete</span>
