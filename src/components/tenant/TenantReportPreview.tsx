@@ -33,6 +33,7 @@ interface TenantReportPreviewProps {
 export const TenantReportPreview = ({ projectId, projectName }: TenantReportPreviewProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "complete" | "in-progress">("all");
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState<"shop-number" | "name" | "completion">("shop-number");
   
   const { data: tenants, isLoading } = useQuery({
@@ -175,6 +176,9 @@ export const TenantReportPreview = ({ projectId, projectName }: TenantReportPrev
       if (statusFilter === "complete" && !isTenantComplete(tenant)) return false;
       if (statusFilter === "in-progress" && isTenantComplete(tenant)) return false;
       
+      // Category filter
+      if (categoryFilter && tenant.shop_category !== categoryFilter) return false;
+      
       // Search filter
       if (!searchQuery.trim()) return true;
       const query = searchQuery.toLowerCase();
@@ -311,19 +315,61 @@ export const TenantReportPreview = ({ projectId, projectName }: TenantReportPrev
           {/* Category Legend */}
           <div className="bg-gray-50 border rounded-lg p-4">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-xs font-semibold text-gray-700">Category Legend:</span>
-              <Badge variant="outline" className="bg-blue-500 text-white border-blue-600">
+              <span className="text-xs font-semibold text-gray-700">Category Filter:</span>
+              <Badge 
+                variant="outline" 
+                className={`cursor-pointer transition-all ${
+                  categoryFilter === 'standard' 
+                    ? 'bg-blue-500 text-white border-blue-600 shadow-md' 
+                    : 'bg-blue-100 text-blue-700 border-blue-300 hover:bg-blue-200'
+                }`}
+                onClick={() => setCategoryFilter(categoryFilter === 'standard' ? null : 'standard')}
+              >
                 Standard ({standardCount})
               </Badge>
-              <Badge variant="outline" className="bg-red-500 text-white border-red-600">
+              <Badge 
+                variant="outline" 
+                className={`cursor-pointer transition-all ${
+                  categoryFilter === 'fast_food' 
+                    ? 'bg-red-500 text-white border-red-600 shadow-md' 
+                    : 'bg-red-100 text-red-700 border-red-300 hover:bg-red-200'
+                }`}
+                onClick={() => setCategoryFilter(categoryFilter === 'fast_food' ? null : 'fast_food')}
+              >
                 Fast Food ({fastFoodCount})
               </Badge>
-              <Badge variant="outline" className="bg-emerald-500 text-white border-emerald-600">
+              <Badge 
+                variant="outline" 
+                className={`cursor-pointer transition-all ${
+                  categoryFilter === 'restaurant' 
+                    ? 'bg-emerald-500 text-white border-emerald-600 shadow-md' 
+                    : 'bg-emerald-100 text-emerald-700 border-emerald-300 hover:bg-emerald-200'
+                }`}
+                onClick={() => setCategoryFilter(categoryFilter === 'restaurant' ? null : 'restaurant')}
+              >
                 Restaurant ({restaurantCount})
               </Badge>
-              <Badge variant="outline" className="bg-purple-600 text-white border-purple-700">
+              <Badge 
+                variant="outline" 
+                className={`cursor-pointer transition-all ${
+                  categoryFilter === 'national' 
+                    ? 'bg-purple-600 text-white border-purple-700 shadow-md' 
+                    : 'bg-purple-100 text-purple-700 border-purple-300 hover:bg-purple-200'
+                }`}
+                onClick={() => setCategoryFilter(categoryFilter === 'national' ? null : 'national')}
+              >
                 National ({nationalCount})
               </Badge>
+              {categoryFilter && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setCategoryFilter(null)}
+                  className="text-xs h-6"
+                >
+                  Clear Filter
+                </Button>
+              )}
             </div>
           </div>
 
@@ -384,9 +430,10 @@ export const TenantReportPreview = ({ projectId, projectName }: TenantReportPrev
           </div>
 
           {/* Results count */}
-          {(searchQuery || statusFilter !== "all") && (
+          {(searchQuery || statusFilter !== "all" || categoryFilter) && (
             <p className="text-xs text-gray-500">
               Showing {filteredTenants.length} of {tenants.length} tenants
+              {categoryFilter && ` • Filtered by: ${getCategoryLabel(categoryFilter)}`}
             </p>
           )}
 
