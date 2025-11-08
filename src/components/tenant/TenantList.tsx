@@ -480,14 +480,18 @@ export const TenantList = ({
                       />
                     </TableCell>
                     <TableCell className="text-right">
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={tenant.db_cost || ""}
-                        onChange={(e) => handleFieldUpdate(tenant.id, 'db_cost', e.target.value ? parseFloat(e.target.value) : null)}
-                        className="h-8 w-28 text-right"
-                        placeholder="0.00"
-                      />
+                      {tenant.db_ordered && !tenant.db_cost ? (
+                        <span className="text-muted-foreground italic">By Tenant</span>
+                      ) : (
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={tenant.db_cost || ""}
+                          onChange={(e) => handleFieldUpdate(tenant.id, 'db_cost', e.target.value ? parseFloat(e.target.value) : null)}
+                          className="h-8 w-28 text-right"
+                          placeholder="0.00"
+                        />
+                      )}
                     </TableCell>
                     <TableCell className="text-center">
                       <StatusIcon 
@@ -496,14 +500,18 @@ export const TenantList = ({
                       />
                     </TableCell>
                     <TableCell className="text-right">
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={tenant.lighting_cost || ""}
-                        onChange={(e) => handleFieldUpdate(tenant.id, 'lighting_cost', e.target.value ? parseFloat(e.target.value) : null)}
-                        className="h-8 w-28 text-right"
-                        placeholder="0.00"
-                      />
+                      {tenant.lighting_ordered && !tenant.lighting_cost ? (
+                        <span className="text-muted-foreground italic">By Tenant</span>
+                      ) : (
+                        <Input
+                          type="number"
+                          step="0.01"
+                          value={tenant.lighting_cost || ""}
+                          onChange={(e) => handleFieldUpdate(tenant.id, 'lighting_cost', e.target.value ? parseFloat(e.target.value) : null)}
+                          className="h-8 w-28 text-right"
+                          placeholder="0.00"
+                        />
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
