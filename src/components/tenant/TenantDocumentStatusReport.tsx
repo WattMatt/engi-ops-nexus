@@ -1,10 +1,12 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { CheckCircle2, AlertCircle, UserCheck, Download, FileBarChart } from "lucide-react";
+import { CheckCircle2, AlertCircle, UserCheck, Download, FileBarChart, Search } from "lucide-react";
 
 const DOCUMENT_TYPES = [
   { key: "lighting_quote_received", label: "Lighting Quote (Rec.)" },
@@ -30,6 +32,8 @@ interface TenantDocumentStatusReportProps {
 type DocumentStatus = 'uploaded' | 'by_tenant' | 'missing';
 
 export const TenantDocumentStatusReport = ({ projectId, tenants }: TenantDocumentStatusReportProps) => {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "complete" | "incomplete">("all");
   const { data: documents = [], isLoading: docsLoading } = useQuery({
     queryKey: ["tenant-documents-all", projectId],
     queryFn: async () => {
@@ -156,6 +160,25 @@ export const TenantDocumentStatusReport = ({ projectId, tenants }: TenantDocumen
     URL.revokeObjectURL(url);
   };
 
+  // Filter tenants based on search and status
+  const filteredTenants = tenants.filter(tenant => {
+    // Search filter
+    const matchesSearch = !searchQuery.trim() || 
+      tenant.shop_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      tenant.shop_name.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    if (!matchesSearch) return false;
+    
+    // Status filter
+    if (statusFilter === "all") return true;
+    
+    const rowStats = getRowStats(tenant.id);
+    if (statusFilter === "complete") return rowStats.complete;
+    if (statusFilter === "incomplete") return !rowStats.complete;
+    
+    return true;
+  });
+
   const isLoading = docsLoading || exclusionsLoading;
 
   return (
@@ -200,27 +223,80 @@ export const TenantDocumentStatusReport = ({ projectId, tenants }: TenantDocumen
         </Card>
       </div>
 
-      {/* Legend */}
+      {/* Legend and Filters */}
       <Card className="p-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2">
-              <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-              <span className="text-sm">Document Uploaded</span>
+        <div className="space-y-4">
+          {/* Legend */}
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-6">
+              <div className="flex items-center gap-2">
+                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
+                <span className="text-sm">Document Uploaded</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <UserCheck className="h-4 w-4 text-blue-500" />
+                <span className="text-sm">By Tenant</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <AlertCircle className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm">Missing</span>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
-              <UserCheck className="h-4 w-4 text-blue-500" />
-              <span className="text-sm">By Tenant</span>
+            <Button onClick={handleExport} variant="outline" size="sm">
+              <Download className="h-4 w-4 mr-2" />
+              Export CSV
+            </Button>
+          </div>
+
+          {/* Filters */}
+          <div className="flex gap-3 items-center flex-wrap">
+            {/* Search */}
+            <div className="relative flex-1 min-w-[250px]">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Input
+                type="text"
+                placeholder="Search by shop number or name..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
             </div>
-            <div className="flex items-center gap-2">
-              <AlertCircle className="h-4 w-4 text-muted-foreground" />
-              <span className="text-sm">Missing</span>
+
+            {/* Status Filters */}
+            <div className="flex gap-2 items-center">
+              <span className="text-xs font-medium text-gray-600">Filter:</span>
+              <Button
+                variant={statusFilter === "all" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setStatusFilter("all")}
+              >
+                All ({tenants.length})
+              </Button>
+              <Button
+                variant={statusFilter === "complete" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setStatusFilter("complete")}
+                className={statusFilter === "complete" ? "" : "border-green-200 text-green-700 hover:bg-green-50"}
+              >
+                ✓ Complete ({tenants.filter(t => getRowStats(t.id).complete).length})
+              </Button>
+              <Button
+                variant={statusFilter === "incomplete" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setStatusFilter("incomplete")}
+                className={statusFilter === "incomplete" ? "" : "border-yellow-200 text-yellow-700 hover:bg-yellow-50"}
+              >
+                ⚠ Incomplete ({tenants.filter(t => !getRowStats(t.id).complete).length})
+              </Button>
             </div>
           </div>
-          <Button onClick={handleExport} variant="outline" size="sm">
-            <Download className="h-4 w-4 mr-2" />
-            Export CSV
-          </Button>
+
+          {/* Results count */}
+          {(searchQuery || statusFilter !== "all") && (
+            <p className="text-xs text-gray-500">
+              Showing {filteredTenants.length} of {tenants.length} tenants
+            </p>
+          )}
         </div>
       </Card>
 
@@ -265,14 +341,14 @@ export const TenantDocumentStatusReport = ({ projectId, tenants }: TenantDocumen
                     Loading document status...
                   </TableCell>
                 </TableRow>
-              ) : tenants.length === 0 ? (
+              ) : filteredTenants.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={DOCUMENT_TYPES.length + 3} className="text-center py-8 text-muted-foreground">
-                    No tenants found
+                    {searchQuery ? `No tenants found matching "${searchQuery}"` : "No tenants found"}
                   </TableCell>
                 </TableRow>
               ) : (
-                tenants.map(tenant => {
+                filteredTenants.map(tenant => {
                   const rowStats = getRowStats(tenant.id);
                   return (
                     <TableRow key={tenant.id} className={rowStats.complete ? "bg-emerald-50/50" : ""}>
