@@ -75,8 +75,8 @@ const TenantTracker = () => {
   };
 
   return (
-    <div className="h-screen flex flex-col p-4 md:p-8 pt-6">
-      <div className="flex justify-between items-center mb-4">
+    <div className="h-screen flex flex-col p-4 md:p-8 pt-6 overflow-hidden">
+      <div className="flex justify-between items-center mb-4 flex-shrink-0">
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-3xl font-bold">Tenant Tracker</h1>
