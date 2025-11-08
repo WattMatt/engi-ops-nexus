@@ -97,7 +97,7 @@ const TenantTracker = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
-        <TabsList className="flex-shrink-0">
+        <TabsList className="flex-shrink-0 mb-4">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="tenants">Tenant Schedule</TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger>
@@ -128,20 +128,18 @@ const TenantTracker = () => {
           </div>
         )}
         
-        <TabsContent value="overview" className="flex-1 overflow-auto">
-          <div className="pr-4">
-            {isLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <p className="text-muted-foreground">Loading data...</p>
-              </div>
-            ) : (
-              <TenantOverview tenants={tenants} />
-            )}
-          </div>
+        <TabsContent value="overview" className="flex-1 overflow-auto pr-4">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-8">
+              <p className="text-muted-foreground">Loading data...</p>
+            </div>
+          ) : (
+            <TenantOverview tenants={tenants} />
+          )}
         </TabsContent>
         
-        <TabsContent value="tenants" className="flex-1 overflow-auto">
-          <div className="bg-background border rounded-lg p-4 shadow-sm mb-4">
+        <TabsContent value="tenants" className="flex-1 overflow-auto pr-4 space-y-4">
+          <div className="bg-background border rounded-lg p-4 shadow-sm">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-sm font-semibold">Legend:</span>
               <Badge variant="outline" className="bg-blue-500 text-white border-blue-600">
@@ -159,7 +157,7 @@ const TenantTracker = () => {
             </div>
           </div>
           
-          <div className="border rounded-lg pr-4">
+          <div className="border rounded-lg">
             {isLoading ? (
               <div className="flex items-center justify-center py-8">
                 <p className="text-muted-foreground">Loading tenants...</p>
@@ -182,38 +180,30 @@ const TenantTracker = () => {
           />
         </TabsContent>
         
-        <TabsContent value="report-status" className="flex-1 overflow-auto">
-          <div className="pr-4">
-            {projectId && <OutdatedReportsIndicator projectId={projectId} />}
-          </div>
+        <TabsContent value="report-status" className="flex-1 overflow-auto pr-4">
+          {projectId && <OutdatedReportsIndicator projectId={projectId} />}
         </TabsContent>
         
-        <TabsContent value="change-history" className="flex-1 overflow-auto">
-          <div className="pr-4">
-            {projectId && <TenantChangeAuditLog projectId={projectId} />}
-          </div>
+        <TabsContent value="change-history" className="flex-1 overflow-auto pr-4">
+          {projectId && <TenantChangeAuditLog projectId={projectId} />}
         </TabsContent>
         
-        <TabsContent value="reports" className="flex-1 overflow-auto">
-          <div className="pr-4">
-            <SavedReportsList 
-              projectId={projectId || ""} 
-              projectName={projectName || undefined}
-            />
-          </div>
+        <TabsContent value="reports" className="flex-1 overflow-auto pr-4">
+          <SavedReportsList 
+            projectId={projectId || ""} 
+            projectName={projectName || undefined}
+          />
         </TabsContent>
         
-        <TabsContent value="floor-plan" className="flex-1 overflow-hidden flex flex-col">
+        <TabsContent value="floor-plan" className="flex-1 overflow-hidden pr-4">
           <FloorPlanMasking 
             key={`floor-plan-${activeTab === 'floor-plan' ? Date.now() : 'cached'}`}
             projectId={projectId || ""} 
           />
         </TabsContent>
         
-        <TabsContent value="settings" className="flex-1 overflow-auto">
-          <div className="pr-4">
-            <DBSizingRulesSettings projectId={projectId || ""} />
-          </div>
+        <TabsContent value="settings" className="flex-1 overflow-auto pr-4">
+          <DBSizingRulesSettings projectId={projectId || ""} />
         </TabsContent>
       </Tabs>
     </div>
