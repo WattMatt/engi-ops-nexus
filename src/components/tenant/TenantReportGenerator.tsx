@@ -65,6 +65,12 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     
+    // Add document organization note at top
+    doc.setFontSize(8);
+    doc.setTextColor(100, 116, 139);
+    doc.setFont("helvetica", "italic");
+    doc.text("Note: Documents are organized by tenant in the appendix section", pageWidth / 2, 8, { align: 'center' });
+    
     // Layout configuration based on mode
     const isCompact = options.kpiLayout === 'compact';
     const fontSize = {

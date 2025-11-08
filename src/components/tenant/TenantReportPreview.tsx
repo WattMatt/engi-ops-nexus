@@ -185,6 +185,11 @@ export const TenantReportPreview = ({ projectId, projectName }: TenantReportPrev
 
       {/* KPI Page */}
       <div className="min-h-[900px] space-y-8">
+        {/* Document Organization Note */}
+        <div className="text-center py-2">
+          <p className="text-xs text-gray-500 italic">Note: Documents are organized by tenant in the appendix section</p>
+        </div>
+        
         <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 rounded-lg">
           <h2 className="text-3xl font-bold">Project Overview & KPIs</h2>
         </div>
