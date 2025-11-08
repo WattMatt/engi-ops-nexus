@@ -1,7 +1,9 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2 } from "lucide-react";
+import { Loader2, Search } from "lucide-react";
 import { format } from "date-fns";
+import { Input } from "@/components/ui/input";
 
 interface Tenant {
   id: string;
@@ -26,6 +28,8 @@ interface TenantReportPreviewProps {
 }
 
 export const TenantReportPreview = ({ projectId, projectName }: TenantReportPreviewProps) => {
+  const [searchQuery, setSearchQuery] = useState("");
+  
   const { data: tenants, isLoading } = useQuery({
     queryKey: ["tenants-preview", projectId],
     queryFn: async () => {
@@ -113,6 +117,17 @@ export const TenantReportPreview = ({ projectId, projectName }: TenantReportPrev
   const sowReceived = tenants.filter(t => t.sow_received).length;
   const layoutReceived = tenants.filter(t => t.layout_received).length;
   const costReported = tenants.filter(t => t.cost_reported).length;
+
+  // Filter tenants based on search query
+  const filteredTenants = tenants.filter(tenant => {
+    if (!searchQuery.trim()) return true;
+    const query = searchQuery.toLowerCase();
+    return (
+      tenant.shop_number.toLowerCase().includes(query) ||
+      tenant.shop_name.toLowerCase().includes(query) ||
+      getCategoryLabel(tenant.shop_category).toLowerCase().includes(query)
+    );
+  });
 
   return (
     <div className="h-full overflow-auto bg-white p-8 space-y-8">
@@ -216,6 +231,25 @@ export const TenantReportPreview = ({ projectId, projectName }: TenantReportPrev
             </ul>
           </div>
 
+          {/* Search Input */}
+          <div className="mt-4 relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              type="text"
+              placeholder="Search by shop number, name, or category..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+
+          {/* Results count */}
+          {searchQuery && (
+            <p className="text-xs text-gray-500">
+              Showing {filteredTenants.length} of {tenants.length} tenants
+            </p>
+          )}
+
           {/* Tenant List Table */}
           <div className="mt-6 border rounded-lg overflow-hidden">
             <div className="bg-gray-100 grid grid-cols-4 gap-4 p-3 font-bold text-xs">
@@ -225,7 +259,12 @@ export const TenantReportPreview = ({ projectId, projectName }: TenantReportPrev
               <div>Status</div>
             </div>
             <div className="divide-y">
-              {tenants.map((tenant) => {
+              {filteredTenants.length === 0 ? (
+                <div className="p-8 text-center text-gray-500 text-sm">
+                  No tenants found matching &quot;{searchQuery}&quot;
+                </div>
+              ) : (
+                filteredTenants.map((tenant) => {
                 const isComplete = tenant.sow_received &&
                   tenant.layout_received &&
                   tenant.db_ordered &&
@@ -249,7 +288,7 @@ export const TenantReportPreview = ({ projectId, projectName }: TenantReportPrev
                     </div>
                   </div>
                 );
-              })}
+              }))}
             </div>
           </div>
         </div>
