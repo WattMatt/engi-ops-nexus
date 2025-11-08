@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { UploadTenantDocumentDialog } from "./UploadTenantDocumentDialog";
 import { toast } from "sonner";
-import { Download, Trash2, Upload, FileText, CheckCircle2, AlertCircle, UserCheck } from "lucide-react";
+import { Download, Trash2, Upload, FileText, CheckCircle2, AlertCircle, UserCheck, RefreshCw } from "lucide-react";
 import { format } from "date-fns";
 import { Progress } from "@/components/ui/progress";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
@@ -40,6 +40,7 @@ export const TenantDocumentManager = ({
 }: TenantDocumentManagerProps) => {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [selectedDocType, setSelectedDocType] = useState<typeof DOCUMENT_TYPES[number]["key"] | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const queryClient = useQueryClient();
   const { logActivity } = useActivityLogger();
 
@@ -218,6 +219,14 @@ export const TenantDocumentManager = ({
           </DialogHeader>
 
           <div className="space-y-4">
+            {/* Refresh Indicator */}
+            {isRefreshing && (
+              <div className="flex items-center justify-center gap-2 text-sm text-primary bg-primary/10 p-3 rounded-lg animate-fade-in">
+                <RefreshCw className="h-4 w-4 animate-spin" />
+                <span>Updating documents...</span>
+              </div>
+            )}
+
             {/* Progress Overview */}
             <Card className="p-4">
               <div className="space-y-2">
@@ -377,12 +386,18 @@ export const TenantDocumentManager = ({
           shopNumber={shopNumber}
           documentType={selectedDocType}
           onSuccess={async () => {
+            setIsRefreshing(true);
             await queryClient.invalidateQueries({ queryKey: ["tenant-documents", tenantId] });
             await queryClient.invalidateQueries({ queryKey: ["tenant-documents-summary"] });
             await queryClient.invalidateQueries({ queryKey: ["tenant-document-exclusions", tenantId] });
             await queryClient.refetchQueries({ queryKey: ["tenant-documents", tenantId] });
             await queryClient.refetchQueries({ queryKey: ["tenant-document-exclusions", tenantId] });
-            setUploadDialogOpen(false);
+            
+            // Show refresh indicator briefly
+            setTimeout(() => {
+              setIsRefreshing(false);
+              setUploadDialogOpen(false);
+            }, 800);
           }}
         />
       )}
