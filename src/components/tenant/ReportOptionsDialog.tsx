@@ -1,4 +1,7 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import {
   Dialog,
   DialogContent,
@@ -10,10 +13,28 @@ import {
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { FileText, Loader2, LayoutDashboard, Users, Square, DollarSign, Lightbulb } from "lucide-react";
+import { FileText, Loader2, LayoutDashboard, Users, Square, DollarSign, Lightbulb, Save, FolderOpen, Trash2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export interface ReportOptions {
   includeCoverPage: boolean;
@@ -54,6 +75,7 @@ interface ReportOptionsDialogProps {
   onOpenChange: (open: boolean) => void;
   onGenerate: (options: ReportOptions) => void;
   isGenerating: boolean;
+  projectId: string;
 }
 
 export const ReportOptionsDialog = ({
@@ -61,7 +83,13 @@ export const ReportOptionsDialog = ({
   onOpenChange,
   onGenerate,
   isGenerating,
+  projectId,
 }: ReportOptionsDialogProps) => {
+  const queryClient = useQueryClient();
+  const [templateName, setTemplateName] = useState("");
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+  const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [deleteTemplateId, setDeleteTemplateId] = useState<string | null>(null);
   const [options, setOptions] = useState<ReportOptions>({
     includeCoverPage: true,
     includeTableOfContents: true,
@@ -159,6 +187,80 @@ export const ReportOptionsDialog = ({
 
   const themeColors = getThemeColors();
 
+  // Fetch saved templates
+  const { data: templates = [] } = useQuery({
+    queryKey: ['tenant-report-templates', projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('tenant_report_templates')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!projectId,
+  });
+
+  // Save template mutation
+  const saveTemplateMutation = useMutation({
+    mutationFn: async (name: string) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const { error } = await supabase
+        .from('tenant_report_templates')
+        .insert({
+          project_id: projectId,
+          template_name: name,
+          settings: options as any,
+          created_by: user?.id,
+        });
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tenant-report-templates', projectId] });
+      toast.success("Template saved successfully");
+      setTemplateName("");
+      setShowSaveDialog(false);
+    },
+    onError: () => {
+      toast.error("Failed to save template");
+    },
+  });
+
+  // Delete template mutation
+  const deleteTemplateMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('tenant_report_templates')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tenant-report-templates', projectId] });
+      toast.success("Template deleted successfully");
+      setDeleteTemplateId(null);
+      setSelectedTemplateId("");
+    },
+    onError: () => {
+      toast.error("Failed to delete template");
+    },
+  });
+
+  // Load template
+  const loadTemplate = (templateId: string) => {
+    const template = templates.find(t => t.id === templateId);
+    if (template && template.settings) {
+      setOptions(template.settings as unknown as ReportOptions);
+      setSelectedTemplateId(templateId);
+      toast.success(`Loaded template: ${template.template_name}`);
+    }
+  };
+
   const handleDeselectAll = () => {
     setOptions({
       includeCoverPage: false,
@@ -209,6 +311,51 @@ export const ReportOptionsDialog = ({
         </DialogHeader>
 
         <div className="space-y-6 py-4">
+          {/* Template Management */}
+          <div className="space-y-3 p-4 bg-muted/30 rounded-lg border">
+            <h4 className="font-semibold text-sm flex items-center gap-2">
+              <FolderOpen className="h-4 w-4" />
+              Report Templates
+            </h4>
+            <div className="flex gap-2">
+              <Select value={selectedTemplateId} onValueChange={loadTemplate}>
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder="Load a saved template..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {templates.map((template) => (
+                    <SelectItem key={template.id} value={template.id}>
+                      {template.template_name}
+                    </SelectItem>
+                  ))}
+                  {templates.length === 0 && (
+                    <div className="p-2 text-sm text-muted-foreground text-center">
+                      No saved templates
+                    </div>
+                  )}
+                </SelectContent>
+              </Select>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setShowSaveDialog(true)}
+                title="Save current settings as template"
+              >
+                <Save className="h-4 w-4" />
+              </Button>
+              {selectedTemplateId && (
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => setDeleteTemplateId(selectedTemplateId)}
+                  title="Delete selected template"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          </div>
+
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={handleSelectAll}>
               Select All
@@ -750,6 +897,67 @@ export const ReportOptionsDialog = ({
           </Button>
         </DialogFooter>
       </DialogContent>
+
+      {/* Save Template Dialog */}
+      <AlertDialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Save Report Template</AlertDialogTitle>
+            <AlertDialogDescription>
+              Enter a name for this template to save your current report settings.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Input
+            placeholder="Template name (e.g., Executive Summary)"
+            value={templateName}
+            onChange={(e) => setTemplateName(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && templateName.trim()) {
+                saveTemplateMutation.mutate(templateName.trim());
+              }
+            }}
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (templateName.trim()) {
+                  saveTemplateMutation.mutate(templateName.trim());
+                }
+              }}
+              disabled={!templateName.trim() || saveTemplateMutation.isPending}
+            >
+              {saveTemplateMutation.isPending ? "Saving..." : "Save Template"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete Template Dialog */}
+      <AlertDialog open={!!deleteTemplateId} onOpenChange={(open) => !open && setDeleteTemplateId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Template</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this template? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (deleteTemplateId) {
+                  deleteTemplateMutation.mutate(deleteTemplateId);
+                }
+              }}
+              disabled={deleteTemplateMutation.isPending}
+              className="bg-destructive hover:bg-destructive/90"
+            >
+              {deleteTemplateMutation.isPending ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 };

@@ -4917,6 +4917,44 @@ export type Database = {
           },
         ]
       }
+      tenant_report_templates: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          project_id: string
+          settings: Json
+          template_name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          project_id: string
+          settings: Json
+          template_name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          project_id?: string
+          settings?: Json
+          template_name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_report_templates_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_schedule_versions: {
         Row: {
           change_summary: string | null

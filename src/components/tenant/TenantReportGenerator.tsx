@@ -845,6 +845,7 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
         onOpenChange={setOptionsDialogOpen}
         onGenerate={handleGenerateReport}
         isGenerating={isGenerating}
+        projectId={projectId}
       />
     </>
   );
