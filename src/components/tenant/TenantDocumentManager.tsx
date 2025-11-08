@@ -52,9 +52,10 @@ export const TenantDocumentManager = ({
   const queryClient = useQueryClient();
   const { logActivity } = useActivityLogger();
 
-  const { data: documents = [], isLoading } = useQuery({
+  const { data: documents = [], isLoading, error: documentsError } = useQuery({
     queryKey: ["tenant-documents", tenantId],
     queryFn: async () => {
+      console.log("Fetching documents for tenant:", tenantId);
       const { data, error } = await supabase
         .from("tenant_documents")
         .select(`
@@ -64,24 +65,37 @@ export const TenantDocumentManager = ({
         .eq("tenant_id", tenantId)
         .order("uploaded_at", { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching documents:", error);
+        throw error;
+      }
+      console.log("Fetched documents:", data);
       return data;
     },
     enabled: open,
+    refetchOnMount: true,
+    refetchOnWindowFocus: false,
   });
 
-  const { data: exclusions = [] } = useQuery({
+  const { data: exclusions = [], error: exclusionsError } = useQuery({
     queryKey: ["tenant-document-exclusions", tenantId],
     queryFn: async () => {
+      console.log("Fetching exclusions for tenant:", tenantId);
       const { data, error } = await supabase
         .from("tenant_document_exclusions")
         .select("*")
         .eq("tenant_id", tenantId);
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching exclusions:", error);
+        throw error;
+      }
+      console.log("Fetched exclusions:", data);
       return data;
     },
     enabled: open,
+    refetchOnMount: true,
+    refetchOnWindowFocus: false,
   });
 
   const markByTenantMutation = useMutation({
@@ -401,6 +415,16 @@ export const TenantDocumentManager = ({
 
             {/* Document List */}
             <div className="grid gap-3">
+              {documentsError && (
+                <div className="text-center py-4 text-destructive">
+                  Error loading documents: {documentsError.message}
+                </div>
+              )}
+              {exclusionsError && (
+                <div className="text-center py-4 text-destructive">
+                  Error loading exclusions: {exclusionsError.message}
+                </div>
+              )}
               {isLoading ? (
                 <div className="text-center py-8 text-muted-foreground">
                   Loading documents...
