@@ -15,6 +15,7 @@ import Settings from "./pages/Settings";
 import ProjectSettings from "./pages/ProjectSettings";
 import UserManagement from "./pages/UserManagement";
 import FeedbackManagement from "./pages/FeedbackManagement";
+import FeedbackAnalytics from "./pages/FeedbackAnalytics";
 import CostReports from "./pages/CostReports";
 import CostReportDetail from "./pages/CostReportDetail";
 import ElectricalBudgets from "./pages/ElectricalBudgets";
@@ -59,6 +60,7 @@ const App = () => (
             <Route path="users" element={<UserManagement />} />
             <Route path="backup" element={<BackupManagement />} />
             <Route path="feedback" element={<FeedbackManagement />} />
+            <Route path="feedback-analytics" element={<FeedbackAnalytics />} />
             <Route path="settings" element={<Settings />} />
           </Route>
 
