@@ -127,6 +127,12 @@ export const TenantReportPreview = ({ projectId, projectName }: TenantReportPrev
     return acc;
   }, {} as Record<string, number>);
 
+  // Individual category counts
+  const standardCount = categoryCounts['standard'] || 0;
+  const fastFoodCount = categoryCounts['fast_food'] || 0;
+  const restaurantCount = categoryCounts['restaurant'] || 0;
+  const nationalCount = categoryCounts['national'] || 0;
+
   const dbOrdered = tenants.filter(t => t.db_ordered).length;
   const lightingOrdered = tenants.filter(t => t.lighting_ordered).length;
   const sowReceived = tenants.filter(t => t.sow_received).length;
@@ -307,16 +313,16 @@ export const TenantReportPreview = ({ projectId, projectName }: TenantReportPrev
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-xs font-semibold text-gray-700">Category Legend:</span>
               <Badge variant="outline" className="bg-blue-500 text-white border-blue-600">
-                Standard
+                Standard ({standardCount})
               </Badge>
               <Badge variant="outline" className="bg-red-500 text-white border-red-600">
-                Fast Food
+                Fast Food ({fastFoodCount})
               </Badge>
               <Badge variant="outline" className="bg-emerald-500 text-white border-emerald-600">
-                Restaurant
+                Restaurant ({restaurantCount})
               </Badge>
               <Badge variant="outline" className="bg-purple-600 text-white border-purple-700">
-                National
+                National ({nationalCount})
               </Badge>
             </div>
           </div>
