@@ -376,10 +376,12 @@ export const TenantDocumentManager = ({
           projectId={projectId}
           shopNumber={shopNumber}
           documentType={selectedDocType}
-          onSuccess={() => {
-            queryClient.invalidateQueries({ queryKey: ["tenant-documents", tenantId] });
-            queryClient.invalidateQueries({ queryKey: ["tenant-documents-summary"] });
-            queryClient.invalidateQueries({ queryKey: ["tenant-document-exclusions", tenantId] });
+          onSuccess={async () => {
+            await queryClient.invalidateQueries({ queryKey: ["tenant-documents", tenantId] });
+            await queryClient.invalidateQueries({ queryKey: ["tenant-documents-summary"] });
+            await queryClient.invalidateQueries({ queryKey: ["tenant-document-exclusions", tenantId] });
+            await queryClient.refetchQueries({ queryKey: ["tenant-documents", tenantId] });
+            await queryClient.refetchQueries({ queryKey: ["tenant-document-exclusions", tenantId] });
             setUploadDialogOpen(false);
           }}
         />
