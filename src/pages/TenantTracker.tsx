@@ -195,7 +195,7 @@ const TenantTracker = () => {
           />
         </TabsContent>
         
-        <TabsContent value="floor-plan" className="flex-1 overflow-hidden pr-4">
+        <TabsContent value="floor-plan" className="flex-1 overflow-hidden flex flex-col">
           <FloorPlanMasking 
             key={`floor-plan-${activeTab === 'floor-plan' ? Date.now() : 'cached'}`}
             projectId={projectId || ""} 
