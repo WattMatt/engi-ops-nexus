@@ -94,7 +94,7 @@ export const TenantDocumentsTab = ({ projectId, tenants, activeView }: TenantDoc
   const overallCompletion = totalExpected > 0 ? Math.round((totalDocuments / totalExpected) * 100) : 0;
 
   return (
-    <div className="flex-1 overflow-hidden flex flex-col">
+    <>
       <div className="flex-1 overflow-y-auto min-h-0">
         <div className="space-y-4 pr-4">
           {activeView === "by-tenant" ? (
@@ -202,6 +202,6 @@ export const TenantDocumentsTab = ({ projectId, tenants, activeView }: TenantDoc
           shopName={selectedTenant.shop_name}
         />
       )}
-    </div>
+    </>
   );
 };
