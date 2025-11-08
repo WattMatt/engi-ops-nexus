@@ -14,12 +14,14 @@ import { TenantVersionBadge } from "@/components/tenant/TenantVersionBadge";
 import { TenantDocumentsTab } from "@/components/tenant/TenantDocumentsTab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 const TenantTracker = () => {
   const projectId = localStorage.getItem("selectedProjectId");
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [activeTab, setActiveTab] = useState("overview");
+  const [documentsView, setDocumentsView] = useState<"by-tenant" | "status-report">("by-tenant");
 
   // Fetch project name from database
   const { data: projectData } = useQuery({
@@ -105,6 +107,26 @@ const TenantTracker = () => {
           <TabsTrigger value="settings">DB Sizing Rules</TabsTrigger>
           <TabsTrigger value="reports">Saved Reports</TabsTrigger>
         </TabsList>
+
+        {/* Documents View Toggle - only shown when on documents tab */}
+        {activeTab === "documents" && (
+          <div className="flex gap-2 mt-4 flex-shrink-0">
+            <Button
+              variant={documentsView === "by-tenant" ? "default" : "outline"}
+              onClick={() => setDocumentsView("by-tenant")}
+              size="sm"
+            >
+              By Tenant
+            </Button>
+            <Button
+              variant={documentsView === "status-report" ? "default" : "outline"}
+              onClick={() => setDocumentsView("status-report")}
+              size="sm"
+            >
+              Status Report
+            </Button>
+          </div>
+        )}
         
         <TabsContent value="overview" className="flex-1 overflow-hidden flex flex-col">
           <ScrollArea className="flex-1 min-h-0">
@@ -157,7 +179,11 @@ const TenantTracker = () => {
         </TabsContent>
         
         <TabsContent value="documents" className="flex-1 overflow-hidden flex flex-col">
-          <TenantDocumentsTab projectId={projectId || ""} tenants={tenants} />
+          <TenantDocumentsTab 
+            projectId={projectId || ""} 
+            tenants={tenants}
+            activeView={documentsView}
+          />
         </TabsContent>
         
         <TabsContent value="report-status" className="flex-1 overflow-hidden flex flex-col">

@@ -19,14 +19,14 @@ interface Tenant {
 interface TenantDocumentsTabProps {
   projectId: string;
   tenants: Tenant[];
+  activeView: "by-tenant" | "status-report";
 }
 
 const TOTAL_DOCUMENT_TYPES = 6;
 
-export const TenantDocumentsTab = ({ projectId, tenants }: TenantDocumentsTabProps) => {
+export const TenantDocumentsTab = ({ projectId, tenants, activeView }: TenantDocumentsTabProps) => {
   const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
   const [managerOpen, setManagerOpen] = useState(false);
-  const [activeView, setActiveView] = useState<"by-tenant" | "status-report">("by-tenant");
 
   const { data: documentsSummary = {}, isLoading } = useQuery({
     queryKey: ["tenant-documents-summary", projectId],
@@ -95,25 +95,6 @@ export const TenantDocumentsTab = ({ projectId, tenants }: TenantDocumentsTabPro
 
   return (
     <div className="flex-1 overflow-hidden flex flex-col">
-      {/* View Toggle */}
-      <div className="flex gap-2 mb-4 flex-shrink-0">
-        <Button
-          variant={activeView === "by-tenant" ? "default" : "outline"}
-          onClick={() => setActiveView("by-tenant")}
-          size="sm"
-        >
-          <FolderOpen className="h-4 w-4 mr-2" />
-          By Tenant
-        </Button>
-        <Button
-          variant={activeView === "status-report" ? "default" : "outline"}
-          onClick={() => setActiveView("status-report")}
-          size="sm"
-        >
-          Status Report
-        </Button>
-      </div>
-
       <div className="flex-1 overflow-y-auto min-h-0">
         <div className="space-y-4 pr-4">
           {activeView === "by-tenant" ? (
