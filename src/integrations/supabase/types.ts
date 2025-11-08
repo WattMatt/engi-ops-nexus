@@ -5416,26 +5416,16 @@ export type Database = {
         Args: { _project_id: string; _user_id: string }
         Returns: boolean
       }
-      log_user_activity:
-        | {
-            Args: {
-              p_action_description: string
-              p_action_type: string
-              p_metadata?: Json
-              p_user_id: string
-            }
-            Returns: string
-          }
-        | {
-            Args: {
-              p_action_description: string
-              p_action_type: string
-              p_metadata?: Json
-              p_project_id?: string
-              p_user_id: string
-            }
-            Returns: string
-          }
+      log_user_activity: {
+        Args: {
+          p_action_description: string
+          p_action_type: string
+          p_metadata?: Json
+          p_project_id?: string
+          p_user_id: string
+        }
+        Returns: string
+      }
     }
     Enums: {
       app_role: "admin" | "user" | "moderator" | "client"
