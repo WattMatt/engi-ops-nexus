@@ -157,11 +157,7 @@ const TenantTracker = () => {
         </TabsContent>
         
         <TabsContent value="documents" className="flex-1 overflow-hidden flex flex-col">
-          <ScrollArea className="flex-1 min-h-0">
-            <div className="pr-4">
-              <TenantDocumentsTab projectId={projectId || ""} tenants={tenants} />
-            </div>
-          </ScrollArea>
+          <TenantDocumentsTab projectId={projectId || ""} tenants={tenants} />
         </TabsContent>
         
         <TabsContent value="report-status" className="flex-1 overflow-hidden flex flex-col">
