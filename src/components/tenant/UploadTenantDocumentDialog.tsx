@@ -3,10 +3,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Upload } from "lucide-react";
+import { Loader2, Upload, FileUp } from "lucide-react";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
 
 const DOCUMENT_TYPE_LABELS = {
@@ -38,9 +37,27 @@ export const UploadTenantDocumentDialog = ({
   onSuccess,
 }: UploadTenantDocumentDialogProps) => {
   const [file, setFile] = useState<File | null>(null);
-  const [notes, setNotes] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
   const { logActivity } = useActivityLogger();
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const droppedFile = e.dataTransfer.files[0];
+    if (droppedFile) {
+      setFile(droppedFile);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -111,7 +128,7 @@ export const UploadTenantDocumentDialog = ({
           document_name: file.name,
           file_url: publicUrl,
           file_size: file.size,
-          notes: notes || null,
+          notes: null,
           uploaded_by: user.id,
         });
 
@@ -133,7 +150,6 @@ export const UploadTenantDocumentDialog = ({
       onSuccess?.();
       onOpenChange(false);
       setFile(null);
-      setNotes("");
     } catch (error: any) {
       console.error("Error uploading document:", error);
       toast.error(error.message || "Failed to upload document");
@@ -149,35 +165,44 @@ export const UploadTenantDocumentDialog = ({
           <DialogTitle>Upload {DOCUMENT_TYPE_LABELS[documentType]}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label>Shop</Label>
-            <Input value={shopNumber} disabled />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="file">File *</Label>
-            <Input
+          <div
+            className={`relative border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+              isDragging
+                ? "border-primary bg-primary/5"
+                : "border-muted-foreground/25 hover:border-primary/50"
+            }`}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
+            <input
               id="file"
               type="file"
               accept=".pdf,.png,.jpg,.jpeg,.xlsx,.docx"
               onChange={(e) => setFile(e.target.files?.[0] || null)}
               disabled={loading}
+              className="hidden"
             />
-            <p className="text-xs text-muted-foreground">
-              Allowed: PDF, PNG, JPG, XLSX, DOCX (Max 10MB)
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="notes">Notes</Label>
-            <Textarea
-              id="notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="Add any additional notes about this document..."
-              disabled={loading}
-              rows={3}
-            />
+            <Label htmlFor="file" className="cursor-pointer">
+              <div className="flex flex-col items-center gap-2">
+                <FileUp className={`h-12 w-12 ${file ? "text-primary" : "text-muted-foreground"}`} />
+                {file ? (
+                  <>
+                    <p className="font-medium text-primary">{file.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {(file.size / 1024 / 1024).toFixed(2)} MB
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="font-medium">Click to browse or drag and drop</p>
+                    <p className="text-xs text-muted-foreground">
+                      PDF, PNG, JPG, XLSX, DOCX (Max 10MB)
+                    </p>
+                  </>
+                )}
+              </div>
+            </Label>
           </div>
 
           <div className="flex justify-end gap-2">
