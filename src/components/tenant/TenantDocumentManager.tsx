@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import confetti from "canvas-confetti";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -43,6 +44,7 @@ export const TenantDocumentManager = ({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showProgressPulse, setShowProgressPulse] = useState(false);
   const prevCompletedCountRef = useRef<number>(0);
+  const hasTriggeredConfettiRef = useRef<boolean>(false);
   const queryClient = useQueryClient();
   const { logActivity } = useActivityLogger();
 
@@ -209,6 +211,49 @@ export const TenantDocumentManager = ({
   }).length;
   const completionPercentage = (completedCount / DOCUMENT_TYPES.length) * 100;
 
+  // Trigger confetti when 100% complete
+  useEffect(() => {
+    if (completionPercentage === 100 && !hasTriggeredConfettiRef.current && completedCount > 0) {
+      hasTriggeredConfettiRef.current = true;
+      
+      // Fire confetti burst
+      const duration = 3000;
+      const end = Date.now() + duration;
+
+      const colors = ['hsl(var(--primary))', '#10b981', '#3b82f6', '#f59e0b'];
+
+      (function frame() {
+        confetti({
+          particleCount: 3,
+          angle: 60,
+          spread: 55,
+          origin: { x: 0 },
+          colors: colors
+        });
+        confetti({
+          particleCount: 3,
+          angle: 120,
+          spread: 55,
+          origin: { x: 1 },
+          colors: colors
+        });
+
+        if (Date.now() < end) {
+          requestAnimationFrame(frame);
+        }
+      })();
+
+      toast.success("🎉 All documents completed!", {
+        description: `${shopNumber} ${shopName} - All required documents have been uploaded or marked.`
+      });
+    }
+    
+    // Reset the flag if completion drops below 100%
+    if (completionPercentage < 100) {
+      hasTriggeredConfettiRef.current = false;
+    }
+  }, [completionPercentage, completedCount, shopNumber, shopName]);
+
   // Detect progress changes and trigger animation
   useEffect(() => {
     if (prevCompletedCountRef.current !== 0 && prevCompletedCountRef.current !== completedCount) {
@@ -241,12 +286,21 @@ export const TenantDocumentManager = ({
             {/* Progress Overview */}
             <Card className={`p-4 transition-all duration-300 ${
               showProgressPulse ? 'ring-2 ring-primary shadow-lg scale-[1.02]' : ''
+            } ${
+              completionPercentage === 100 ? 'bg-gradient-to-r from-emerald-50 to-blue-50 dark:from-emerald-950/20 dark:to-blue-950/20' : ''
             }`}>
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
-                  <span className="font-medium">Document Progress</span>
+                  <span className="font-medium flex items-center gap-2">
+                    Document Progress
+                    {completionPercentage === 100 && (
+                      <CheckCircle2 className="h-4 w-4 text-emerald-500 animate-scale-in" />
+                    )}
+                  </span>
                   <span className={`text-muted-foreground transition-all duration-300 ${
                     showProgressPulse ? 'text-primary font-semibold scale-110' : ''
+                  } ${
+                    completionPercentage === 100 ? 'text-emerald-600 dark:text-emerald-400 font-bold' : ''
                   }`}>
                     {completedCount} of {DOCUMENT_TYPES.length} completed
                   </span>
