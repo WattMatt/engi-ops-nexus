@@ -94,6 +94,13 @@ export const UploadTenantDocumentDialog = ({
         .from('tenant-documents')
         .getPublicUrl(filePath);
 
+      // Remove any existing exclusion for this document type
+      await supabase
+        .from('tenant_document_exclusions')
+        .delete()
+        .eq('tenant_id', tenantId)
+        .eq('document_type', documentType);
+
       // Insert record into database
       const { error: dbError } = await supabase
         .from('tenant_documents')
