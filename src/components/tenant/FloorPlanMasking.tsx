@@ -82,16 +82,9 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
     enabled: !!projectId
   });
 
-  // Load PDF when in edit mode OR when zones exist (for regenerating preview)
+  // Load PDF when in edit mode
   useEffect(() => {
-    if (!projectId) {
-      setPdfDoc(null);
-      return;
-    }
-
-    // Only load if in edit mode or if we have zones and need to regenerate preview
-    const shouldLoadPdf = isEditMode || zones.length > 0;
-    if (!shouldLoadPdf) {
+    if (!projectId || !isEditMode) {
       setPdfDoc(null);
       return;
     }
@@ -129,15 +122,13 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
             });
           }
           
-          if (isEditMode) {
-            toast.success(`Loaded saved scale: ${floorPlanRecord.scale_pixels_per_meter.toFixed(2)} px/m`);
-          }
+          toast.success(`Loaded saved scale: ${floorPlanRecord.scale_pixels_per_meter.toFixed(2)} px/m`);
         }
       }
     };
 
     loadPdf();
-  }, [isEditMode, projectId, floorPlanRecord?.scale_pixels_per_meter, zones.length]);
+  }, [isEditMode, projectId, floorPlanRecord?.scale_pixels_per_meter]);
 
   // Helper to check if tenant is complete
   const isTenantComplete = (tenantId: string | null): boolean => {
