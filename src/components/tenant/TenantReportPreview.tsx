@@ -183,6 +183,78 @@ export const TenantReportPreview = ({ projectId, projectName }: TenantReportPrev
         </div>
       </div>
 
+      {/* Table of Contents */}
+      <div className="min-h-[900px] bg-white p-8 space-y-6">
+        <div className="bg-gradient-to-r from-blue-600 to-blue-700 text-white p-6 rounded-lg mb-6">
+          <h2 className="text-3xl font-bold">Table of Contents</h2>
+        </div>
+
+        {/* Report Sections */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-bold text-gray-900">Report Sections</h3>
+          <div className="space-y-2 ml-4">
+            {[
+              "Project Overview & KPIs",
+              "Floor Plan with Tenant Zones",
+              "Tenant Schedule",
+              "Tenant Documents (By Tenant)"
+            ].map((section, idx) => (
+              <p key={idx} className="text-sm text-gray-700">{idx + 2}. {section}</p>
+            ))}
+          </div>
+        </div>
+
+        {/* Tenant Documents Index */}
+        <div className="space-y-4 mt-8">
+          <h3 className="text-lg font-bold text-gray-900">Tenant Documents Index</h3>
+          <div className="text-xs text-gray-600 italic space-y-1 ml-2">
+            <p>Documents are organized by tenant in the appendix. Each tenant&apos;s section includes:</p>
+            <ul className="list-disc ml-6 space-y-1">
+              <li>Scope of Work (SOW) documents</li>
+              <li>Layout plans and drawings</li>
+              <li>Cost breakdowns and quotations</li>
+            </ul>
+          </div>
+
+          {/* Tenant List Table */}
+          <div className="mt-6 border rounded-lg overflow-hidden">
+            <div className="bg-gray-100 grid grid-cols-4 gap-4 p-3 font-bold text-xs">
+              <div>Shop Number</div>
+              <div>Shop Name</div>
+              <div>Category</div>
+              <div>Status</div>
+            </div>
+            <div className="divide-y">
+              {tenants.map((tenant) => {
+                const isComplete = tenant.sow_received &&
+                  tenant.layout_received &&
+                  tenant.db_ordered &&
+                  tenant.lighting_ordered &&
+                  tenant.cost_reported &&
+                  tenant.area !== null &&
+                  tenant.db_cost !== null &&
+                  tenant.lighting_cost !== null;
+
+                return (
+                  <div key={tenant.id} className="grid grid-cols-4 gap-4 p-3 text-xs hover:bg-gray-50">
+                    <div className="font-medium">{tenant.shop_number}</div>
+                    <div className="truncate">{tenant.shop_name}</div>
+                    <div>{getCategoryLabel(tenant.shop_category)}</div>
+                    <div>
+                      {isComplete ? (
+                        <span className="text-green-600 font-medium">✓ Complete</span>
+                      ) : (
+                        <span className="text-yellow-600 font-medium">⚠ In Progress</span>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* KPI Page */}
       <div className="min-h-[900px] space-y-8">
         {/* Document Organization Note */}

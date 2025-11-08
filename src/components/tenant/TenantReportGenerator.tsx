@@ -584,6 +584,128 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
     }
   };
 
+  const generateTableOfContents = (doc: jsPDF, tenants: Tenant[]) => {
+    doc.addPage();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    
+    // Header
+    doc.setFillColor(41, 128, 185);
+    doc.rect(0, 0, pageWidth, 40, 'F');
+    
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(24);
+    doc.setFont("helvetica", "bold");
+    doc.text("Table of Contents", 20, 25);
+    
+    let yPos = 55;
+    
+    // Section headers
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Report Sections", 20, yPos);
+    yPos += 10;
+    
+    // List main sections
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+    const sections = [
+      "Project Overview & KPIs",
+      "Floor Plan with Tenant Zones",
+      "Tenant Schedule",
+      "Tenant Documents (By Tenant)"
+    ];
+    
+    sections.forEach((section, idx) => {
+      doc.text(`${idx + 2}. ${section}`, 25, yPos);
+      yPos += 7;
+    });
+    
+    yPos += 10;
+    
+    // Tenant Documents section
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Tenant Documents Index", 20, yPos);
+    yPos += 8;
+    
+    doc.setFontSize(9);
+    doc.setTextColor(100, 116, 139);
+    doc.setFont("helvetica", "italic");
+    doc.text("Documents are organized by tenant in the appendix. Each tenant's section includes:", 20, yPos);
+    yPos += 5;
+    doc.text("• Scope of Work (SOW) documents", 25, yPos);
+    yPos += 5;
+    doc.text("• Layout plans and drawings", 25, yPos);
+    yPos += 5;
+    doc.text("• Cost breakdowns and quotations", 25, yPos);
+    yPos += 10;
+    
+    // Table header
+    doc.setTextColor(0, 0, 0);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("Shop Number", 20, yPos);
+    doc.text("Shop Name", 65, yPos);
+    doc.text("Category", 130, yPos);
+    doc.text("Status", 165, yPos);
+    
+    // Draw line under header
+    doc.setDrawColor(200, 200, 200);
+    doc.setLineWidth(0.5);
+    doc.line(20, yPos + 2, pageWidth - 20, yPos + 2);
+    yPos += 8;
+    
+    // List all tenants with their status
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    
+    tenants.forEach((tenant, idx) => {
+      if (yPos > pageHeight - 30) {
+        doc.addPage();
+        yPos = 20;
+        
+        // Repeat header on new page
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(10);
+        doc.text("Shop Number", 20, yPos);
+        doc.text("Shop Name", 65, yPos);
+        doc.text("Category", 130, yPos);
+        doc.text("Status", 165, yPos);
+        doc.line(20, yPos + 2, pageWidth - 20, yPos + 2);
+        yPos += 8;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+      }
+      
+      const isComplete = isTenantComplete(tenant);
+      
+      doc.setTextColor(0, 0, 0);
+      doc.text(tenant.shop_number, 20, yPos);
+      doc.text(tenant.shop_name.substring(0, 25), 65, yPos);
+      doc.text(getCategoryLabel(tenant.shop_category), 130, yPos);
+      
+      // Status indicator
+      if (isComplete) {
+        doc.setTextColor(22, 163, 74); // Green
+        doc.text("✓ Complete", 165, yPos);
+      } else {
+        doc.setTextColor(234, 179, 8); // Yellow
+        doc.text("⚠ In Progress", 165, yPos);
+      }
+      
+      yPos += 6;
+    });
+    
+    // Page footer
+    doc.setFontSize(9);
+    doc.setTextColor(148, 163, 184);
+    doc.setFont("helvetica", "italic");
+    const currentPage = (doc as any).internal.getCurrentPageInfo().pageNumber;
+    doc.text(`Page ${currentPage}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+  };
+
   const handleGenerateReport = async (options: ReportOptions) => {
     if (tenants.length === 0) {
       toast.error("No tenants to generate report");
@@ -625,6 +747,10 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
         }, companyDetails);
         console.log('[TENANT REPORT] Standardized cover page generated successfully');
       }
+      
+      // Always add table of contents after cover page
+      generateTableOfContents(doc, tenants);
+      
       if (options.includeKPIPage) {
         generateKPIPage(doc, options);
       }
