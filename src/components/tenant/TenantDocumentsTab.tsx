@@ -95,10 +95,9 @@ export const TenantDocumentsTab = ({ projectId, tenants, activeView }: TenantDoc
 
   return (
     <>
-      <div className="flex-1 overflow-y-auto min-h-0">
-        <div className="space-y-4 pr-4">
-          {activeView === "by-tenant" ? (
-            <>
+      <div className="space-y-4">
+        {activeView === "by-tenant" ? (
+          <>
               {/* Summary Card */}
               <Card className="p-6">
                 <div className="flex items-center justify-between">
@@ -187,8 +186,7 @@ export const TenantDocumentsTab = ({ projectId, tenants, activeView }: TenantDoc
             </>
           ) : (
             <TenantDocumentStatusReport projectId={projectId} tenants={tenants} />
-          )}
-        </div>
+        )}
       </div>
 
       {/* Document Manager Dialog */}
