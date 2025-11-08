@@ -94,10 +94,6 @@ export const TenantList = ({
         prev.map(t => t.id === tenantId ? { ...t, [field]: value } : t)
       );
     },
-    onSuccess: () => {
-      // Invalidate parent cache to ensure fresh data on next visit
-      onUpdate();
-    },
     onError: (error, variables) => {
       // Rollback on error by refetching from parent
       toast.error("Failed to update");
