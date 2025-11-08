@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import confetti from "canvas-confetti";
+import JSZip from "jszip";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -8,7 +9,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { UploadTenantDocumentDialog } from "./UploadTenantDocumentDialog";
 import { toast } from "sonner";
-import { Download, Trash2, Upload, FileText, CheckCircle2, AlertCircle, UserCheck, RefreshCw } from "lucide-react";
+import { Download, Trash2, Upload, FileText, CheckCircle2, AlertCircle, UserCheck, RefreshCw, Package } from "lucide-react";
 import { format } from "date-fns";
 import { Progress } from "@/components/ui/progress";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
@@ -43,6 +44,7 @@ export const TenantDocumentManager = ({
   const [selectedDocType, setSelectedDocType] = useState<typeof DOCUMENT_TYPES[number]["key"] | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showProgressPulse, setShowProgressPulse] = useState(false);
+  const [isDownloadingAll, setIsDownloadingAll] = useState(false);
   const prevCompletedCountRef = useRef<number>(0);
   const hasTriggeredConfettiRef = useRef<boolean>(false);
   const queryClient = useQueryClient();
@@ -196,6 +198,66 @@ export const TenantDocumentManager = ({
     link.click();
   };
 
+  const handleDownloadAll = async () => {
+    const uploadedDocs = documents.filter(doc => doc.file_url);
+    
+    if (uploadedDocs.length === 0) {
+      toast.error("No documents to download");
+      return;
+    }
+
+    setIsDownloadingAll(true);
+    
+    try {
+      const zip = new JSZip();
+      
+      // Fetch all documents and add to ZIP
+      for (const doc of uploadedDocs) {
+        try {
+          const response = await fetch(doc.file_url);
+          const blob = await response.blob();
+          
+          // Create a safe filename
+          const docTypeLabel = DOCUMENT_TYPES.find(t => t.key === doc.document_type)?.label || doc.document_type;
+          const sanitizedLabel = docTypeLabel.replace(/[^a-z0-9]/gi, '_');
+          const extension = doc.document_name.split('.').pop();
+          const fileName = `${sanitizedLabel}.${extension}`;
+          
+          zip.file(fileName, blob);
+        } catch (error) {
+          console.error(`Failed to download ${doc.document_name}:`, error);
+          toast.error(`Failed to include ${doc.document_name} in ZIP`);
+        }
+      }
+      
+      // Generate ZIP file
+      const zipBlob = await zip.generateAsync({ type: 'blob' });
+      
+      // Download ZIP
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(zipBlob);
+      link.download = `${shopNumber}_${shopName.replace(/[^a-z0-9]/gi, '_')}_Documents.zip`;
+      link.click();
+      
+      // Clean up
+      URL.revokeObjectURL(link.href);
+      
+      toast.success(`Downloaded ${uploadedDocs.length} documents as ZIP`);
+      
+      await logActivity(
+        'tenant_documents_bulk_download',
+        `Downloaded all documents for ${shopNumber} as ZIP`,
+        { tenant_id: tenantId, document_count: uploadedDocs.length },
+        projectId
+      );
+    } catch (error: any) {
+      console.error("Error creating ZIP:", error);
+      toast.error(error.message || "Failed to create ZIP file");
+    } finally {
+      setIsDownloadingAll(false);
+    }
+  };
+
   const getDocumentForType = (type: string) => {
     return documents.find(doc => doc.document_type === type);
   };
@@ -268,10 +330,31 @@ export const TenantDocumentManager = ({
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <FileText className="h-5 w-5" />
-              Documents - {shopNumber} {shopName}
-            </DialogTitle>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Documents - {shopNumber} {shopName}
+              </DialogTitle>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleDownloadAll}
+                disabled={isDownloadingAll || documents.length === 0}
+                className="ml-4"
+              >
+                {isDownloadingAll ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                    Creating ZIP...
+                  </>
+                ) : (
+                  <>
+                    <Package className="h-4 w-4 mr-2" />
+                    Download All ({documents.filter(d => d.file_url).length})
+                  </>
+                )}
+              </Button>
+            </div>
           </DialogHeader>
 
           <div className="space-y-4">
