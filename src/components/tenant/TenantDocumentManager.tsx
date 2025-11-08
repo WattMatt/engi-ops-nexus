@@ -58,10 +58,7 @@ export const TenantDocumentManager = ({
       console.log("Fetching documents for tenant:", tenantId);
       const { data, error } = await supabase
         .from("tenant_documents")
-        .select(`
-          *,
-          profiles:uploaded_by (full_name)
-        `)
+        .select("*")
         .eq("tenant_id", tenantId)
         .order("uploaded_at", { ascending: false });
 
@@ -464,8 +461,7 @@ export const TenantDocumentManager = ({
                             <div className="text-sm text-muted-foreground space-y-1">
                               <p className="truncate">📎 {doc.document_name}</p>
                               <p>
-                                Uploaded {format(new Date(doc.uploaded_at), "PPp")} by{" "}
-                                {(doc.profiles as any)?.full_name || "Unknown"}
+                                Uploaded {format(new Date(doc.uploaded_at), "PPp")}
                               </p>
                               {doc.notes && (
                                 <p className="italic">Note: {doc.notes}</p>
