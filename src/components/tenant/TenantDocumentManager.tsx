@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -41,6 +41,8 @@ export const TenantDocumentManager = ({
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [selectedDocType, setSelectedDocType] = useState<typeof DOCUMENT_TYPES[number]["key"] | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showProgressPulse, setShowProgressPulse] = useState(false);
+  const prevCompletedCountRef = useRef<number>(0);
   const queryClient = useQueryClient();
   const { logActivity } = useActivityLogger();
 
@@ -207,6 +209,15 @@ export const TenantDocumentManager = ({
   }).length;
   const completionPercentage = (completedCount / DOCUMENT_TYPES.length) * 100;
 
+  // Detect progress changes and trigger animation
+  useEffect(() => {
+    if (prevCompletedCountRef.current !== 0 && prevCompletedCountRef.current !== completedCount) {
+      setShowProgressPulse(true);
+      setTimeout(() => setShowProgressPulse(false), 1000);
+    }
+    prevCompletedCountRef.current = completedCount;
+  }, [completedCount]);
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -228,15 +239,24 @@ export const TenantDocumentManager = ({
             )}
 
             {/* Progress Overview */}
-            <Card className="p-4">
+            <Card className={`p-4 transition-all duration-300 ${
+              showProgressPulse ? 'ring-2 ring-primary shadow-lg scale-[1.02]' : ''
+            }`}>
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="font-medium">Document Progress</span>
-                  <span className="text-muted-foreground">
+                  <span className={`text-muted-foreground transition-all duration-300 ${
+                    showProgressPulse ? 'text-primary font-semibold scale-110' : ''
+                  }`}>
                     {completedCount} of {DOCUMENT_TYPES.length} completed
                   </span>
                 </div>
-                <Progress value={completionPercentage} className="h-2" />
+                <Progress 
+                  value={completionPercentage} 
+                  className={`h-2 transition-all duration-500 ${
+                    showProgressPulse ? 'h-3' : ''
+                  }`} 
+                />
               </div>
             </Card>
 
