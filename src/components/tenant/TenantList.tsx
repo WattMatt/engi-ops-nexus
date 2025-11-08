@@ -6,7 +6,7 @@ import { TenantDialog } from "./TenantDialog";
 import { DeleteTenantDialog } from "./DeleteTenantDialog";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { differenceInDays, addDays } from "date-fns";
@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useMutation } from "@tanstack/react-query";
 interface Tenant {
   id: string;
   shop_name: string;
@@ -42,11 +43,17 @@ export const TenantList = ({
   projectId,
   onUpdate
 }: TenantListProps) => {
+  const [localTenants, setLocalTenants] = useState(tenants);
   const [isCalculating, setIsCalculating] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [tenantToDelete, setTenantToDelete] = useState<Tenant | null>(null);
   const [bulkOpeningDateDialog, setBulkOpeningDateDialog] = useState(false);
   const [bulkOpeningDate, setBulkOpeningDate] = useState("");
+
+  // Sync local state when tenants prop changes
+  useEffect(() => {
+    setLocalTenants(tenants);
+  }, [tenants]);
   
   const handleDeleteClick = (tenant: Tenant) => {
     setTenantToDelete(tenant);
@@ -72,22 +79,34 @@ export const TenantList = ({
       toast.error(error.message || "Failed to delete tenant");
     }
   };
-  const handleFieldUpdate = async (tenantId: string, field: string, value: any) => {
-    try {
+  // Mutation for optimistic updates
+  const updateMutation = useMutation({
+    mutationFn: async ({ tenantId, field, value }: { tenantId: string; field: string; value: any }) => {
       const { error } = await supabase
         .from("tenants")
         .update({ [field]: value })
         .eq("id", tenantId);
-      
       if (error) throw error;
-      onUpdate();
-    } catch (error: any) {
+    },
+    onMutate: async ({ tenantId, field, value }) => {
+      // Optimistically update local state
+      setLocalTenants(prev => 
+        prev.map(t => t.id === tenantId ? { ...t, [field]: value } : t)
+      );
+    },
+    onError: (error, variables) => {
+      // Rollback on error by refetching from parent
       toast.error("Failed to update");
+      onUpdate();
     }
+  });
+
+  const handleFieldUpdate = (tenantId: string, field: string, value: any) => {
+    updateMutation.mutate({ tenantId, field, value });
   };
 
-  const handleBooleanToggle = async (tenantId: string, field: string, currentValue: boolean) => {
-    await handleFieldUpdate(tenantId, field, !currentValue);
+  const handleBooleanToggle = (tenantId: string, field: string, currentValue: boolean) => {
+    handleFieldUpdate(tenantId, field, !currentValue);
   };
   const handleBulkAutoCalc = async () => {
     if (!confirm("This will recalculate DB sizes for all standard category tenants with areas. Continue?")) return;
@@ -319,11 +338,11 @@ export const TenantList = ({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {tenants.length === 0 ? <TableRow>
+              {localTenants.length === 0 ? <TableRow>
                   <TableCell colSpan={16} className="text-center text-muted-foreground">
                     No tenants added yet
                   </TableCell>
-                </TableRow> : tenants.map(tenant => {
+                </TableRow> : localTenants.map(tenant => {
                   const deadlineStatus = getDeadlineStatus(tenant);
                   const beneficialDate = tenant.opening_date 
                     ? addDays(new Date(tenant.opening_date), -(tenant.beneficial_occupation_days || 90))
