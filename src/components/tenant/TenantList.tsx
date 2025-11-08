@@ -292,6 +292,7 @@ export const TenantList = ({
                 <TableHead>Shop Name</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead>Opening</TableHead>
+                <TableHead>BO Period</TableHead>
                 <TableHead>Beneficial Occ</TableHead>
                 <TableHead>Days Until</TableHead>
                 <TableHead>Area</TableHead>
@@ -307,7 +308,7 @@ export const TenantList = ({
             </TableHeader>
             <TableBody>
               {tenants.length === 0 ? <TableRow>
-                  <TableCell colSpan={15} className="text-center text-muted-foreground">
+                  <TableCell colSpan={16} className="text-center text-muted-foreground">
                     No tenants added yet
                   </TableCell>
                 </TableRow> : tenants.map(tenant => {
@@ -355,6 +356,11 @@ export const TenantList = ({
                     </TableCell>
                     <TableCell>
                       {tenant.opening_date ? new Date(tenant.opening_date).toLocaleDateString() : "-"}
+                    </TableCell>
+                    <TableCell>
+                      {tenant.beneficial_occupation_days ? (
+                        <Badge variant="outline">{tenant.beneficial_occupation_days} days</Badge>
+                      ) : "-"}
                     </TableCell>
                     <TableCell>
                       {beneficialDate ? beneficialDate.toLocaleDateString() : "-"}
