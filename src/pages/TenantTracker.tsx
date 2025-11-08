@@ -97,7 +97,7 @@ const TenantTracker = () => {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
-        <TabsList className="flex-shrink-0 mb-4">
+        <TabsList className="flex-shrink-0">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="tenants">Tenant Schedule</TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger>
@@ -110,7 +110,7 @@ const TenantTracker = () => {
 
         {/* Documents View Toggle - only shown when on documents tab */}
         {activeTab === "documents" && (
-          <div className="flex gap-2 mt-4 flex-shrink-0">
+          <div className="flex gap-2 mt-2 mb-4 flex-shrink-0">
             <Button
               variant={documentsView === "by-tenant" ? "default" : "outline"}
               onClick={() => setDocumentsView("by-tenant")}
@@ -127,6 +127,8 @@ const TenantTracker = () => {
             </Button>
           </div>
         )}
+        
+        <div className={activeTab !== "documents" ? "mt-4" : ""}></div>
         
         <TabsContent value="overview" className="flex-1 overflow-auto pr-4">
           {isLoading ? (
