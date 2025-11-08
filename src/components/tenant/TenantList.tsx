@@ -1,7 +1,7 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Trash2, CheckCircle2, Circle, Calculator, AlertTriangle, Clock } from "lucide-react";
+import { Trash2, CheckCircle2, Circle, Calculator, AlertTriangle, Clock, CalendarDays } from "lucide-react";
 import { TenantDialog } from "./TenantDialog";
 import { DeleteTenantDialog } from "./DeleteTenantDialog";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,6 +10,9 @@ import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { differenceInDays, addDays } from "date-fns";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
 interface Tenant {
   id: string;
   shop_name: string;
@@ -41,6 +44,8 @@ export const TenantList = ({
   const [isCalculating, setIsCalculating] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [tenantToDelete, setTenantToDelete] = useState<Tenant | null>(null);
+  const [bulkOpeningDateDialog, setBulkOpeningDateDialog] = useState(false);
+  const [bulkOpeningDate, setBulkOpeningDate] = useState("");
   
   const handleDeleteClick = (tenant: Tenant) => {
     setTenantToDelete(tenant);
@@ -141,6 +146,29 @@ export const TenantList = ({
       setIsCalculating(false);
     }
   };
+
+  const handleBulkSetOpeningDate = async () => {
+    if (!bulkOpeningDate) {
+      toast.error("Please select an opening date");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("tenants")
+        .update({ opening_date: bulkOpeningDate })
+        .eq("project_id", projectId);
+
+      if (error) throw error;
+      
+      toast.success(`Opening date set to ${new Date(bulkOpeningDate).toLocaleDateString()} for all tenants`);
+      setBulkOpeningDateDialog(false);
+      setBulkOpeningDate("");
+      onUpdate();
+    } catch (error: any) {
+      toast.error("Failed to set opening date: " + error.message);
+    }
+  };
   const StatusIcon = ({
     checked
   }: {
@@ -216,7 +244,40 @@ export const TenantList = ({
     return labels[category as keyof typeof labels] || category;
   };
   return <div className="h-full flex flex-col gap-4">
-      <div className="flex justify-end flex-shrink-0">
+      <div className="flex justify-end gap-2 flex-shrink-0">
+        <Dialog open={bulkOpeningDateDialog} onOpenChange={setBulkOpeningDateDialog}>
+          <DialogTrigger asChild>
+            <Button variant="outline">
+              <CalendarDays className="h-4 w-4 mr-2" />
+              Set Opening Date for All
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Set Opening Date for All Tenants</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 pt-4">
+              <div className="space-y-2">
+                <Label htmlFor="bulk-opening-date">Opening Date</Label>
+                <Input
+                  id="bulk-opening-date"
+                  type="date"
+                  value={bulkOpeningDate}
+                  onChange={(e) => setBulkOpeningDate(e.target.value)}
+                />
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setBulkOpeningDateDialog(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleBulkSetOpeningDate}>
+                  Apply to All Tenants
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+        
         <Button onClick={handleBulkAutoCalc} disabled={isCalculating} variant="outline">
           <Calculator className="h-4 w-4 mr-2" />
           {isCalculating ? "Calculating..." : "Bulk Auto-Calculate DB Sizes"}
