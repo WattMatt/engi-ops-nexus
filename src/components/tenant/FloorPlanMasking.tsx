@@ -518,7 +518,7 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
           <div className="flex items-center justify-between p-4 border-b">
             <h3 className="text-lg font-semibold">Floor Plan Masking</h3>
             <div className="flex gap-2">
-              {!isEditMode ? (
+              {!isEditMode && floorPlanRecord ? (
                 <>
                   <Button onClick={() => setIsEditMode(true)} variant="outline">
                     <Edit className="w-4 h-4 mr-2" />
@@ -551,14 +551,12 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
                     </Button>
                   )}
                 </>
-              ) : (
-                floorPlanRecord?.composite_image_url && (
-                  <Button onClick={() => setIsEditMode(false)} variant="outline" size="sm">
-                    <Eye className="w-4 h-4 mr-2" />
-                    Preview
-                  </Button>
-                )
-              )}
+              ) : isEditMode && floorPlanRecord?.composite_image_url ? (
+                <Button onClick={() => setIsEditMode(false)} variant="outline" size="sm">
+                  <Eye className="w-4 h-4 mr-2" />
+                  Preview
+                </Button>
+              ) : null}
             </div>
           </div>
           
