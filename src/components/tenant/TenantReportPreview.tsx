@@ -1,10 +1,11 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Loader2, Search } from "lucide-react";
+import { Loader2, Search, ArrowUpDown } from "lucide-react";
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface Tenant {
   id: string;
@@ -31,6 +32,7 @@ interface TenantReportPreviewProps {
 export const TenantReportPreview = ({ projectId, projectName }: TenantReportPreviewProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "complete" | "in-progress">("all");
+  const [sortBy, setSortBy] = useState<"shop-number" | "name" | "completion">("shop-number");
   
   const { data: tenants, isLoading } = useQuery({
     queryKey: ["tenants-preview", projectId],
@@ -132,21 +134,60 @@ export const TenantReportPreview = ({ projectId, projectName }: TenantReportPrev
       tenant.lighting_cost !== null;
   };
 
-  // Filter tenants based on search query and status
-  const filteredTenants = tenants.filter(tenant => {
-    // Status filter
-    if (statusFilter === "complete" && !isTenantComplete(tenant)) return false;
-    if (statusFilter === "in-progress" && isTenantComplete(tenant)) return false;
+  // Calculate completion percentage for sorting
+  const getCompletionPercentage = (tenant: Tenant) => {
+    let completed = 0;
+    let total = 8;
     
-    // Search filter
-    if (!searchQuery.trim()) return true;
-    const query = searchQuery.toLowerCase();
-    return (
-      tenant.shop_number.toLowerCase().includes(query) ||
-      tenant.shop_name.toLowerCase().includes(query) ||
-      getCategoryLabel(tenant.shop_category).toLowerCase().includes(query)
-    );
-  });
+    if (tenant.sow_received) completed++;
+    if (tenant.layout_received) completed++;
+    if (tenant.db_ordered) completed++;
+    if (tenant.lighting_ordered) completed++;
+    if (tenant.cost_reported) completed++;
+    if (tenant.area !== null) completed++;
+    if (tenant.db_cost !== null) completed++;
+    if (tenant.lighting_cost !== null) completed++;
+    
+    return (completed / total) * 100;
+  };
+
+  // Filter and sort tenants
+  const filteredTenants = tenants
+    .filter(tenant => {
+      // Status filter
+      if (statusFilter === "complete" && !isTenantComplete(tenant)) return false;
+      if (statusFilter === "in-progress" && isTenantComplete(tenant)) return false;
+      
+      // Search filter
+      if (!searchQuery.trim()) return true;
+      const query = searchQuery.toLowerCase();
+      return (
+        tenant.shop_number.toLowerCase().includes(query) ||
+        tenant.shop_name.toLowerCase().includes(query) ||
+        getCategoryLabel(tenant.shop_category).toLowerCase().includes(query)
+      );
+    })
+    .sort((a, b) => {
+      switch (sortBy) {
+        case "shop-number":
+          // Extract first number from strings like "Shop 77", "Shop 27/28" or "Shop 66A"
+          const matchA = a.shop_number.match(/\d+/);
+          const matchB = b.shop_number.match(/\d+/);
+          const numA = matchA ? parseInt(matchA[0]) : 0;
+          const numB = matchB ? parseInt(matchB[0]) : 0;
+          if (numA !== numB) return numA - numB;
+          return a.shop_number.localeCompare(b.shop_number, undefined, { numeric: true });
+        
+        case "name":
+          return a.shop_name.localeCompare(b.shop_name);
+        
+        case "completion":
+          return getCompletionPercentage(b) - getCompletionPercentage(a); // Descending order
+        
+        default:
+          return 0;
+      }
+    });
 
   return (
     <div className="h-full overflow-auto bg-white p-8 space-y-8">
@@ -263,7 +304,7 @@ export const TenantReportPreview = ({ projectId, projectName }: TenantReportPrev
           </div>
 
           {/* Status Filter Buttons */}
-          <div className="flex gap-2 items-center">
+          <div className="flex gap-2 items-center flex-wrap">
             <span className="text-xs font-medium text-gray-600">Filter by status:</span>
             <Button
               variant={statusFilter === "all" ? "default" : "outline"}
@@ -290,6 +331,22 @@ export const TenantReportPreview = ({ projectId, projectName }: TenantReportPrev
             </Button>
           </div>
 
+          {/* Sort Options */}
+          <div className="flex gap-2 items-center">
+            <ArrowUpDown className="h-4 w-4 text-gray-500" />
+            <span className="text-xs font-medium text-gray-600">Sort by:</span>
+            <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
+              <SelectTrigger className="w-[200px] h-8 text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="shop-number">Shop Number</SelectItem>
+                <SelectItem value="name">Shop Name</SelectItem>
+                <SelectItem value="completion">Completion %</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Results count */}
           {(searchQuery || statusFilter !== "all") && (
             <p className="text-xs text-gray-500">
@@ -299,11 +356,12 @@ export const TenantReportPreview = ({ projectId, projectName }: TenantReportPrev
 
           {/* Tenant List Table */}
           <div className="mt-6 border rounded-lg overflow-hidden">
-            <div className="bg-gray-100 grid grid-cols-4 gap-4 p-3 font-bold text-xs">
+            <div className="bg-gray-100 grid grid-cols-5 gap-4 p-3 font-bold text-xs">
               <div>Shop Number</div>
               <div>Shop Name</div>
               <div>Category</div>
               <div>Status</div>
+              <div>Completion</div>
             </div>
             <div className="divide-y">
               {filteredTenants.length === 0 ? (
@@ -317,9 +375,10 @@ export const TenantReportPreview = ({ projectId, projectName }: TenantReportPrev
               ) : (
                 filteredTenants.map((tenant) => {
                   const isComplete = isTenantComplete(tenant);
+                  const completionPercentage = getCompletionPercentage(tenant);
 
                 return (
-                  <div key={tenant.id} className="grid grid-cols-4 gap-4 p-3 text-xs hover:bg-gray-50">
+                  <div key={tenant.id} className="grid grid-cols-5 gap-4 p-3 text-xs hover:bg-gray-50">
                     <div className="font-medium">{tenant.shop_number}</div>
                     <div className="truncate">{tenant.shop_name}</div>
                     <div>{getCategoryLabel(tenant.shop_category)}</div>
@@ -329,6 +388,19 @@ export const TenantReportPreview = ({ projectId, projectName }: TenantReportPrev
                       ) : (
                         <span className="text-yellow-600 font-medium">⚠ In Progress</span>
                       )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 bg-gray-200 rounded-full h-2 max-w-[80px]">
+                        <div 
+                          className={`h-2 rounded-full transition-all ${
+                            completionPercentage === 100 ? 'bg-green-500' : 
+                            completionPercentage >= 75 ? 'bg-blue-500' : 
+                            completionPercentage >= 50 ? 'bg-yellow-500' : 'bg-red-500'
+                          }`}
+                          style={{ width: `${completionPercentage}%` }}
+                        ></div>
+                      </div>
+                      <span className="text-gray-600 font-medium min-w-[35px]">{completionPercentage.toFixed(0)}%</span>
                     </div>
                   </div>
                 );
