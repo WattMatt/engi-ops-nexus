@@ -748,8 +748,10 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
         console.log('[TENANT REPORT] Standardized cover page generated successfully');
       }
       
-      // Always add table of contents after cover page
-      generateTableOfContents(doc, tenants);
+      // Add table of contents after cover page if enabled
+      if (options.includeTableOfContents) {
+        generateTableOfContents(doc, tenants);
+      }
       
       if (options.includeKPIPage) {
         generateKPIPage(doc, options);

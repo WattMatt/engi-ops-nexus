@@ -17,6 +17,7 @@ import { Card, CardContent } from "@/components/ui/card";
 
 export interface ReportOptions {
   includeCoverPage: boolean;
+  includeTableOfContents: boolean;
   includeKPIPage: boolean;
   includeTenantSchedule: boolean;
   includeFloorPlan: boolean;
@@ -63,6 +64,7 @@ export const ReportOptionsDialog = ({
 }: ReportOptionsDialogProps) => {
   const [options, setOptions] = useState<ReportOptions>({
     includeCoverPage: true,
+    includeTableOfContents: true,
     includeKPIPage: true,
     includeTenantSchedule: true,
     includeFloorPlan: true,
@@ -97,6 +99,7 @@ export const ReportOptionsDialog = ({
   const handleSelectAll = () => {
     setOptions({
       includeCoverPage: true,
+      includeTableOfContents: true,
       includeKPIPage: true,
       includeTenantSchedule: true,
       includeFloorPlan: true,
@@ -159,6 +162,7 @@ export const ReportOptionsDialog = ({
   const handleDeselectAll = () => {
     setOptions({
       includeCoverPage: false,
+      includeTableOfContents: false,
       includeKPIPage: false,
       includeTenantSchedule: false,
       includeFloorPlan: false,
@@ -230,6 +234,19 @@ export const ReportOptionsDialog = ({
                 />
                 <Label htmlFor="coverPage" className="cursor-pointer">
                   Cover Page
+                </Label>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="tableOfContents"
+                  checked={options.includeTableOfContents}
+                  onCheckedChange={(checked) =>
+                    setOptions({ ...options, includeTableOfContents: checked as boolean })
+                  }
+                />
+                <Label htmlFor="tableOfContents" className="cursor-pointer">
+                  Table of Contents (Tenant Document Index)
                 </Label>
               </div>
 
