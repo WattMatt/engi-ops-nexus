@@ -13,6 +13,7 @@ import { differenceInDays, addDays } from "date-fns";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 interface Tenant {
   id: string;
   shop_name: string;
@@ -71,19 +72,22 @@ export const TenantList = ({
       toast.error(error.message || "Failed to delete tenant");
     }
   };
-  const handleCategoryChange = async (tenantId: string, newCategory: string) => {
+  const handleFieldUpdate = async (tenantId: string, field: string, value: any) => {
     try {
-      const {
-        error
-      } = await supabase.from("tenants").update({
-        shop_category: newCategory
-      }).eq("id", tenantId);
+      const { error } = await supabase
+        .from("tenants")
+        .update({ [field]: value })
+        .eq("id", tenantId);
+      
       if (error) throw error;
-      toast.success("Category updated");
       onUpdate();
     } catch (error: any) {
-      toast.error("Failed to update category");
+      toast.error("Failed to update");
     }
+  };
+
+  const handleBooleanToggle = async (tenantId: string, field: string, currentValue: boolean) => {
+    await handleFieldUpdate(tenantId, field, !currentValue);
   };
   const handleBulkAutoCalc = async () => {
     if (!confirm("This will recalculate DB sizes for all standard category tenants with areas. Continue?")) return;
@@ -169,11 +173,19 @@ export const TenantList = ({
       toast.error("Failed to set opening date: " + error.message);
     }
   };
-  const StatusIcon = ({
-    checked
-  }: {
-    checked: boolean;
-  }) => checked ? <CheckCircle2 className="h-4 w-4 text-green-600" /> : <Circle className="h-4 w-4 text-muted-foreground" />;
+  const StatusIcon = ({ checked, onClick }: { checked: boolean; onClick?: () => void }) => (
+    <button
+      onClick={onClick}
+      className="hover:opacity-70 transition-opacity cursor-pointer"
+      type="button"
+    >
+      {checked ? (
+        <CheckCircle2 className="h-4 w-4 text-green-600" />
+      ) : (
+        <Circle className="h-4 w-4 text-muted-foreground" />
+      )}
+    </button>
+  );
   
   const isTenantComplete = (tenant: Tenant) => {
     return tenant.sow_received &&
@@ -319,10 +331,22 @@ export const TenantList = ({
                   const daysUntil = beneficialDate ? differenceInDays(beneficialDate, new Date()) : null;
                   
                   return <TableRow key={tenant.id} className={getRowClassName(tenant)}>
-                    <TableCell className="font-medium">{tenant.shop_number}</TableCell>
-                    <TableCell>{tenant.shop_name}</TableCell>
+                    <TableCell className="font-medium">
+                      <Input
+                        value={tenant.shop_number}
+                        onChange={(e) => handleFieldUpdate(tenant.id, 'shop_number', e.target.value)}
+                        className="h-8 w-24"
+                      />
+                    </TableCell>
                     <TableCell>
-                      <Select value={tenant.shop_category} onValueChange={value => handleCategoryChange(tenant.id, value)}>
+                      <Input
+                        value={tenant.shop_name}
+                        onChange={(e) => handleFieldUpdate(tenant.id, 'shop_name', e.target.value)}
+                        className="h-8 min-w-[150px]"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Select value={tenant.shop_category} onValueChange={value => handleFieldUpdate(tenant.id, 'shop_category', value)}>
                         <SelectTrigger className="w-[140px] h-8">
                           <SelectValue>
                             <Badge variant="outline" className={getCategoryVariant(tenant.shop_category)}>
@@ -355,12 +379,28 @@ export const TenantList = ({
                       </Select>
                     </TableCell>
                     <TableCell>
-                      {tenant.opening_date ? new Date(tenant.opening_date).toLocaleDateString() : "-"}
+                      <Input
+                        type="date"
+                        value={tenant.opening_date || ""}
+                        onChange={(e) => handleFieldUpdate(tenant.id, 'opening_date', e.target.value || null)}
+                        className="h-8 w-[140px]"
+                      />
                     </TableCell>
                     <TableCell>
-                      {tenant.beneficial_occupation_days ? (
-                        <Badge variant="outline">{tenant.beneficial_occupation_days} days</Badge>
-                      ) : "-"}
+                      <Select 
+                        value={tenant.beneficial_occupation_days?.toString() || "90"} 
+                        onValueChange={value => handleFieldUpdate(tenant.id, 'beneficial_occupation_days', parseInt(value))}
+                      >
+                        <SelectTrigger className="w-[100px] h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="30">30 days</SelectItem>
+                          <SelectItem value="45">45 days</SelectItem>
+                          <SelectItem value="60">60 days</SelectItem>
+                          <SelectItem value="90">90 days</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </TableCell>
                     <TableCell>
                       {beneficialDate ? beneficialDate.toLocaleDateString() : "-"}
@@ -376,25 +416,66 @@ export const TenantList = ({
                         </div>
                       ) : "-"}
                     </TableCell>
-                    <TableCell>{tenant.area?.toFixed(2) || "-"}</TableCell>
-                    <TableCell>{tenant.db_size_allowance || "-"}</TableCell>
-                    <TableCell className="text-center">
-                      <StatusIcon checked={tenant.sow_received} />
+                    <TableCell>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={tenant.area || ""}
+                        onChange={(e) => handleFieldUpdate(tenant.id, 'area', e.target.value ? parseFloat(e.target.value) : null)}
+                        className="h-8 w-24"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      <Input
+                        value={tenant.db_size_allowance || ""}
+                        onChange={(e) => handleFieldUpdate(tenant.id, 'db_size_allowance', e.target.value || null)}
+                        className="h-8 w-24"
+                        placeholder="e.g. 100A"
+                      />
                     </TableCell>
                     <TableCell className="text-center">
-                      <StatusIcon checked={tenant.layout_received} />
+                      <StatusIcon 
+                        checked={tenant.sow_received} 
+                        onClick={() => handleBooleanToggle(tenant.id, 'sow_received', tenant.sow_received)}
+                      />
                     </TableCell>
                     <TableCell className="text-center">
-                      <StatusIcon checked={tenant.db_ordered} />
+                      <StatusIcon 
+                        checked={tenant.layout_received}
+                        onClick={() => handleBooleanToggle(tenant.id, 'layout_received', tenant.layout_received)}
+                      />
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <StatusIcon 
+                        checked={tenant.db_ordered}
+                        onClick={() => handleBooleanToggle(tenant.id, 'db_ordered', tenant.db_ordered)}
+                      />
                     </TableCell>
                     <TableCell className="text-right">
-                      {tenant.db_cost ? `R${tenant.db_cost.toFixed(2)}` : "-"}
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={tenant.db_cost || ""}
+                        onChange={(e) => handleFieldUpdate(tenant.id, 'db_cost', e.target.value ? parseFloat(e.target.value) : null)}
+                        className="h-8 w-28 text-right"
+                        placeholder="0.00"
+                      />
                     </TableCell>
                     <TableCell className="text-center">
-                      <StatusIcon checked={tenant.lighting_ordered} />
+                      <StatusIcon 
+                        checked={tenant.lighting_ordered}
+                        onClick={() => handleBooleanToggle(tenant.id, 'lighting_ordered', tenant.lighting_ordered)}
+                      />
                     </TableCell>
                     <TableCell className="text-right">
-                      {tenant.lighting_cost ? `R${tenant.lighting_cost.toFixed(2)}` : "-"}
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={tenant.lighting_cost || ""}
+                        onChange={(e) => handleFieldUpdate(tenant.id, 'lighting_cost', e.target.value ? parseFloat(e.target.value) : null)}
+                        className="h-8 w-28 text-right"
+                        placeholder="0.00"
+                      />
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
