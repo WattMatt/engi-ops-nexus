@@ -24,6 +24,8 @@ interface Tenant {
   lighting_cost: number | null;
   shop_category: string;
   cost_reported: boolean;
+  opening_date: string | null;
+  beneficial_occupation_days: number | null;
 }
 
 interface TenantDialogProps {
@@ -51,6 +53,8 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
     lighting_ordered: tenant?.lighting_ordered || false,
     lighting_cost: tenant?.lighting_cost?.toString() || "",
     cost_reported: tenant?.cost_reported || false,
+    opening_date: tenant?.opening_date || "",
+    beneficial_occupation_days: tenant?.beneficial_occupation_days?.toString() || "90",
   });
 
   // Load DB sizing rules from database
@@ -171,6 +175,8 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
         lighting_ordered: formData.lighting_ordered,
         lighting_cost: formData.lighting_cost ? parseFloat(formData.lighting_cost) : null,
         cost_reported: formData.cost_reported,
+        opening_date: formData.opening_date || null,
+        beneficial_occupation_days: formData.beneficial_occupation_days ? parseInt(formData.beneficial_occupation_days) : 90,
       };
 
       if (tenant) {
@@ -360,7 +366,50 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
                 onChange={(e) => setFormData({ ...formData, lighting_cost: e.target.value })}
               />
             </div>
+            <div>
+              <Label htmlFor="opening_date">Opening Date</Label>
+              <Input
+                id="opening_date"
+                type="date"
+                value={formData.opening_date}
+                onChange={(e) => setFormData({ ...formData, opening_date: e.target.value })}
+              />
+            </div>
+            <div>
+              <Label htmlFor="beneficial_occupation_days">Beneficial Occupation Period</Label>
+              <select
+                id="beneficial_occupation_days"
+                value={formData.beneficial_occupation_days}
+                onChange={(e) => setFormData({ ...formData, beneficial_occupation_days: e.target.value })}
+                className="w-full px-3 py-2 border border-input bg-background rounded-md"
+              >
+                <option value="30">30 days</option>
+                <option value="45">45 days</option>
+                <option value="60">60 days</option>
+                <option value="90">90 days</option>
+              </select>
+            </div>
           </div>
+          
+          {formData.opening_date && (
+            <div className="p-4 bg-muted rounded-lg space-y-2">
+              <p className="text-sm font-medium">Calculated Dates:</p>
+              <div className="grid grid-cols-2 gap-2 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Beneficial Occupation:</span>
+                  <span className="ml-2 font-medium">
+                    {new Date(new Date(formData.opening_date).getTime() - parseInt(formData.beneficial_occupation_days) * 24 * 60 * 60 * 1000).toLocaleDateString()}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground">Equipment Order Deadline:</span>
+                  <span className="ml-2 font-medium">
+                    {new Date(new Date(formData.opening_date).getTime() - (parseInt(formData.beneficial_occupation_days) + 56) * 24 * 60 * 60 * 1000).toLocaleDateString()}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="space-y-2">
             <Label>Status Checkboxes</Label>

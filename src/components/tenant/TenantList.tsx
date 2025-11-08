@@ -1,7 +1,7 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Trash2, CheckCircle2, Circle, Calculator } from "lucide-react";
+import { Trash2, CheckCircle2, Circle, Calculator, AlertTriangle, Clock } from "lucide-react";
 import { TenantDialog } from "./TenantDialog";
 import { DeleteTenantDialog } from "./DeleteTenantDialog";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { useState } from "react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { differenceInDays, addDays } from "date-fns";
 interface Tenant {
   id: string;
   shop_name: string;
@@ -24,6 +25,8 @@ interface Tenant {
   lighting_ordered: boolean;
   lighting_cost: number | null;
   cost_reported: boolean;
+  opening_date: string | null;
+  beneficial_occupation_days: number | null;
 }
 interface TenantListProps {
   tenants: Tenant[];
@@ -155,10 +158,43 @@ export const TenantList = ({
            tenant.lighting_cost !== null;
   };
 
+  const getDeadlineStatus = (tenant: Tenant) => {
+    if (!tenant.opening_date) return { status: 'none', className: '' };
+    
+    const today = new Date();
+    const openingDate = new Date(tenant.opening_date);
+    const beneficialDays = tenant.beneficial_occupation_days || 90;
+    const beneficialDate = addDays(openingDate, -beneficialDays);
+    const equipmentDeadline = addDays(beneficialDate, -56);
+    
+    const daysUntilBeneficial = differenceInDays(beneficialDate, today);
+    const daysUntilEquipmentDeadline = differenceInDays(equipmentDeadline, today);
+    
+    // Critical: Beneficial occupation date passed but work incomplete
+    if (daysUntilBeneficial < 0 && !isTenantComplete(tenant)) {
+      return { status: 'overdue', className: 'bg-red-100 hover:bg-red-200' };
+    }
+    
+    // Warning: Equipment deadline passed but not ordered
+    if (daysUntilEquipmentDeadline < 0 && (!tenant.db_ordered || !tenant.lighting_ordered)) {
+      return { status: 'equipment-overdue', className: 'bg-orange-100 hover:bg-orange-200' };
+    }
+    
+    // Amber: Within 2 weeks of beneficial occupation
+    if (daysUntilBeneficial >= 0 && daysUntilBeneficial <= 14) {
+      return { status: 'approaching', className: 'bg-amber-100 hover:bg-amber-200' };
+    }
+    
+    // Green: All on track
+    if (isTenantComplete(tenant)) {
+      return { status: 'complete', className: 'bg-green-50 hover:bg-green-100' };
+    }
+    
+    return { status: 'normal', className: 'bg-background hover:bg-muted/50' };
+  };
+
   const getRowClassName = (tenant: Tenant) => {
-    return isTenantComplete(tenant) 
-      ? "bg-green-50 hover:bg-green-100" 
-      : "bg-red-50 hover:bg-red-100";
+    return getDeadlineStatus(tenant).className;
   };
 
   const getCategoryVariant = (category: string) => {
@@ -194,24 +230,33 @@ export const TenantList = ({
                 <TableHead>Shop #</TableHead>
                 <TableHead>Shop Name</TableHead>
                 <TableHead>Category</TableHead>
-                <TableHead>Area (sqm)</TableHead>
-                <TableHead>DB Allowance</TableHead>
-                <TableHead>DB Scope of Work</TableHead>
+                <TableHead>Opening</TableHead>
+                <TableHead>Beneficial Occ</TableHead>
+                <TableHead>Days Until</TableHead>
+                <TableHead>Area</TableHead>
+                <TableHead>DB Allow</TableHead>
                 <TableHead className="text-center">SOW</TableHead>
                 <TableHead className="text-center">Layout</TableHead>
-                <TableHead className="text-center">DB Ordered</TableHead>
+                <TableHead className="text-center">DB Ord</TableHead>
                 <TableHead className="text-right">DB Cost</TableHead>
-                <TableHead className="text-center">Lighting Ordered</TableHead>
+                <TableHead className="text-center">Light Ord</TableHead>
                 <TableHead className="text-right">Light Cost</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {tenants.length === 0 ? <TableRow>
-                  <TableCell colSpan={13} className="text-center text-muted-foreground">
+                  <TableCell colSpan={15} className="text-center text-muted-foreground">
                     No tenants added yet
                   </TableCell>
-                </TableRow> : tenants.map(tenant => <TableRow key={tenant.id} className={getRowClassName(tenant)}>
+                </TableRow> : tenants.map(tenant => {
+                  const deadlineStatus = getDeadlineStatus(tenant);
+                  const beneficialDate = tenant.opening_date 
+                    ? addDays(new Date(tenant.opening_date), -(tenant.beneficial_occupation_days || 90))
+                    : null;
+                  const daysUntil = beneficialDate ? differenceInDays(beneficialDate, new Date()) : null;
+                  
+                  return <TableRow key={tenant.id} className={getRowClassName(tenant)}>
                     <TableCell className="font-medium">{tenant.shop_number}</TableCell>
                     <TableCell>{tenant.shop_name}</TableCell>
                     <TableCell>
@@ -247,9 +292,25 @@ export const TenantList = ({
                         </SelectContent>
                       </Select>
                     </TableCell>
+                    <TableCell>
+                      {tenant.opening_date ? new Date(tenant.opening_date).toLocaleDateString() : "-"}
+                    </TableCell>
+                    <TableCell>
+                      {beneficialDate ? beneficialDate.toLocaleDateString() : "-"}
+                    </TableCell>
+                    <TableCell>
+                      {daysUntil !== null ? (
+                        <div className="flex items-center gap-1">
+                          {daysUntil < 0 && <AlertTriangle className="h-4 w-4 text-destructive" />}
+                          {daysUntil >= 0 && daysUntil <= 14 && <Clock className="h-4 w-4 text-amber-600" />}
+                          <span className={daysUntil < 0 ? "text-destructive font-semibold" : ""}>
+                            {daysUntil} days
+                          </span>
+                        </div>
+                      ) : "-"}
+                    </TableCell>
                     <TableCell>{tenant.area?.toFixed(2) || "-"}</TableCell>
                     <TableCell>{tenant.db_size_allowance || "-"}</TableCell>
-                    <TableCell>{tenant.db_size_scope_of_work || "-"}</TableCell>
                     <TableCell className="text-center">
                       <StatusIcon checked={tenant.sow_received} />
                     </TableCell>
@@ -276,7 +337,8 @@ export const TenantList = ({
                         </Button>
                       </div>
                     </TableCell>
-                  </TableRow>)}
+                  </TableRow>
+                })}
             </TableBody>
           </Table>
         </ScrollArea>

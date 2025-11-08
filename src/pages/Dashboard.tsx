@@ -16,6 +16,7 @@ import { useNavigate } from "react-router-dom";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { TenantChangesWidget } from "@/components/dashboard/TenantChangesWidget";
+import { BeneficialOccupationWidget } from "@/components/dashboard/BeneficialOccupationWidget";
 
 const Dashboard = () => {
   const projectId = localStorage.getItem("selectedProjectId");
@@ -124,13 +125,20 @@ const Dashboard = () => {
 
       {/* Main Content Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {/* Tenant Changes Widget - Full height on left */}
+        {/* Left column - Tenant Changes */}
         <div className="lg:col-span-1">
           <TenantChangesWidget />
         </div>
 
+        {/* Middle column - Beneficial Occupation Deadlines */}
+        {projectId && (
+          <div className="lg:col-span-1">
+            <BeneficialOccupationWidget projectId={projectId} />
+          </div>
+        )}
+
         {/* Right column with stacked cards */}
-        <div className="lg:col-span-2 space-y-4">
+        <div className="lg:col-span-1 space-y-4">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">

@@ -4984,6 +4984,7 @@ export type Database = {
       tenants: {
         Row: {
           area: number | null
+          beneficial_occupation_days: number | null
           cost_reported: boolean | null
           created_at: string | null
           custom_fields: Json | null
@@ -5000,6 +5001,7 @@ export type Database = {
           layout_received: boolean | null
           lighting_cost: number | null
           lighting_ordered: boolean | null
+          opening_date: string | null
           own_generator_provided: boolean | null
           project_id: string
           shop_category: string
@@ -5012,6 +5014,7 @@ export type Database = {
         }
         Insert: {
           area?: number | null
+          beneficial_occupation_days?: number | null
           cost_reported?: boolean | null
           created_at?: string | null
           custom_fields?: Json | null
@@ -5028,6 +5031,7 @@ export type Database = {
           layout_received?: boolean | null
           lighting_cost?: number | null
           lighting_ordered?: boolean | null
+          opening_date?: string | null
           own_generator_provided?: boolean | null
           project_id: string
           shop_category?: string
@@ -5040,6 +5044,7 @@ export type Database = {
         }
         Update: {
           area?: number | null
+          beneficial_occupation_days?: number | null
           cost_reported?: boolean | null
           created_at?: string | null
           custom_fields?: Json | null
@@ -5056,6 +5061,7 @@ export type Database = {
           layout_received?: boolean | null
           lighting_cost?: number | null
           lighting_ordered?: boolean | null
+          opening_date?: string | null
           own_generator_provided?: boolean | null
           project_id?: string
           shop_category?: string
