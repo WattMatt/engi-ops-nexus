@@ -54,7 +54,7 @@ export const TenantList = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<"all" | "complete" | "incomplete">("all");
-  const [groupBy, setGroupBy] = useState<"none" | "category" | "opening-date">("none");
+  const [groupBy, setGroupBy] = useState<"none" | "category" | "bo-period">("none");
 
   // Sync local state when tenants prop changes
   useEffect(() => {
@@ -319,22 +319,25 @@ export const TenantList = ({
       }));
     }
     
-    if (groupBy === "opening-date") {
+    if (groupBy === "bo-period") {
       const groups: Record<string, Tenant[]> = {
-        'with-date': [],
-        'without-date': []
+        '30': [],
+        '45': [],
+        '60': [],
+        '90': []
       };
       filteredTenants.forEach(tenant => {
-        if (tenant.opening_date) {
-          groups['with-date'].push(tenant);
-        } else {
-          groups['without-date'].push(tenant);
-        }
+        const period = tenant.beneficial_occupation_days?.toString() || '90';
+        if (!groups[period]) groups[period] = [];
+        groups[period].push(tenant);
       });
-      return [
-        { key: 'with-date', label: 'Opening Date Set', tenants: groups['with-date'] },
-        { key: 'without-date', label: 'Opening Date Not Set', tenants: groups['without-date'] }
-      ].filter(g => g.tenants.length > 0);
+      return Object.entries(groups)
+        .filter(([_, tenants]) => tenants.length > 0)
+        .map(([key, tenants]) => ({
+          key,
+          label: `${key} Days BO Period`,
+          tenants
+        }));
     }
     
     return [{ key: "all", label: "", tenants: filteredTenants }];
@@ -452,7 +455,7 @@ export const TenantList = ({
             <SelectContent>
               <SelectItem value="none">No Grouping</SelectItem>
               <SelectItem value="category">Group by Category</SelectItem>
-              <SelectItem value="opening-date">Group by Opening Date</SelectItem>
+              <SelectItem value="bo-period">Group by BO Period</SelectItem>
             </SelectContent>
           </Select>
 
