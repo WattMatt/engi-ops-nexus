@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Loader2, Search } from "lucide-react";
 import { format } from "date-fns";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 
 interface Tenant {
   id: string;
@@ -29,6 +30,7 @@ interface TenantReportPreviewProps {
 
 export const TenantReportPreview = ({ projectId, projectName }: TenantReportPreviewProps) => {
   const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "complete" | "in-progress">("all");
   
   const { data: tenants, isLoading } = useQuery({
     queryKey: ["tenants-preview", projectId],
@@ -118,8 +120,25 @@ export const TenantReportPreview = ({ projectId, projectName }: TenantReportPrev
   const layoutReceived = tenants.filter(t => t.layout_received).length;
   const costReported = tenants.filter(t => t.cost_reported).length;
 
-  // Filter tenants based on search query
+  // Helper function to check if tenant is complete
+  const isTenantComplete = (tenant: Tenant) => {
+    return tenant.sow_received &&
+      tenant.layout_received &&
+      tenant.db_ordered &&
+      tenant.lighting_ordered &&
+      tenant.cost_reported &&
+      tenant.area !== null &&
+      tenant.db_cost !== null &&
+      tenant.lighting_cost !== null;
+  };
+
+  // Filter tenants based on search query and status
   const filteredTenants = tenants.filter(tenant => {
+    // Status filter
+    if (statusFilter === "complete" && !isTenantComplete(tenant)) return false;
+    if (statusFilter === "in-progress" && isTenantComplete(tenant)) return false;
+    
+    // Search filter
     if (!searchQuery.trim()) return true;
     const query = searchQuery.toLowerCase();
     return (
@@ -243,8 +262,36 @@ export const TenantReportPreview = ({ projectId, projectName }: TenantReportPrev
             />
           </div>
 
+          {/* Status Filter Buttons */}
+          <div className="flex gap-2 items-center">
+            <span className="text-xs font-medium text-gray-600">Filter by status:</span>
+            <Button
+              variant={statusFilter === "all" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStatusFilter("all")}
+            >
+              All ({tenants.length})
+            </Button>
+            <Button
+              variant={statusFilter === "complete" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStatusFilter("complete")}
+              className={statusFilter === "complete" ? "" : "border-green-200 text-green-700 hover:bg-green-50"}
+            >
+              ✓ Complete ({tenants.filter(t => isTenantComplete(t)).length})
+            </Button>
+            <Button
+              variant={statusFilter === "in-progress" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStatusFilter("in-progress")}
+              className={statusFilter === "in-progress" ? "" : "border-yellow-200 text-yellow-700 hover:bg-yellow-50"}
+            >
+              ⚠ In Progress ({tenants.filter(t => !isTenantComplete(t)).length})
+            </Button>
+          </div>
+
           {/* Results count */}
-          {searchQuery && (
+          {(searchQuery || statusFilter !== "all") && (
             <p className="text-xs text-gray-500">
               Showing {filteredTenants.length} of {tenants.length} tenants
             </p>
@@ -261,18 +308,15 @@ export const TenantReportPreview = ({ projectId, projectName }: TenantReportPrev
             <div className="divide-y">
               {filteredTenants.length === 0 ? (
                 <div className="p-8 text-center text-gray-500 text-sm">
-                  No tenants found matching &quot;{searchQuery}&quot;
+                  {searchQuery ? (
+                    <>No tenants found matching &quot;{searchQuery}&quot;</>
+                  ) : (
+                    <>No {statusFilter === "complete" ? "complete" : "in-progress"} tenants found</>
+                  )}
                 </div>
               ) : (
                 filteredTenants.map((tenant) => {
-                const isComplete = tenant.sow_received &&
-                  tenant.layout_received &&
-                  tenant.db_ordered &&
-                  tenant.lighting_ordered &&
-                  tenant.cost_reported &&
-                  tenant.area !== null &&
-                  tenant.db_cost !== null &&
-                  tenant.lighting_cost !== null;
+                  const isComplete = isTenantComplete(tenant);
 
                 return (
                   <div key={tenant.id} className="grid grid-cols-4 gap-4 p-3 text-xs hover:bg-gray-50">
