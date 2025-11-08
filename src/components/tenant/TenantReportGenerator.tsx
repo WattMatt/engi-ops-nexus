@@ -392,6 +392,12 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
     doc.setFont("helvetica", "bold");
     doc.text("Tenant Schedule", 20, 25);
 
+    // Add legend for symbols
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100, 100, 100);
+    doc.text("Legend: ✓ = Completed/Received  |  ✗ = Pending/Not Received", 20, 32);
+
     // Build headers and data based on selected fields
     const headers: string[] = [];
     const fieldKeys: string[] = [];
@@ -431,7 +437,7 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
     });
 
     autoTable(doc, {
-      startY: 35,
+      startY: 38,
       head: [headers],
       body: tableData,
       theme: 'grid',

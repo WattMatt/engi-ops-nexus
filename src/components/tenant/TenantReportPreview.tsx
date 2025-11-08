@@ -599,6 +599,14 @@ export const TenantReportPreview = ({ projectId, projectName }: TenantReportPrev
       {/* Tenant Schedule */}
       <div className="min-h-[900px] space-y-6">
         <h2 className="text-3xl font-bold">Tenant Schedule</h2>
+        
+        {/* Legend */}
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 inline-block">
+          <p className="text-xs text-blue-900">
+            <span className="font-semibold">Legend:</span> ✓ = Completed/Received  |  ✗ = Pending/Not Received
+          </p>
+        </div>
+        
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-xs">
             <thead>
