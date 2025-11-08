@@ -379,6 +379,8 @@ export const TenantDocumentManager = ({
           onSuccess={() => {
             queryClient.invalidateQueries({ queryKey: ["tenant-documents", tenantId] });
             queryClient.invalidateQueries({ queryKey: ["tenant-documents-summary"] });
+            queryClient.invalidateQueries({ queryKey: ["tenant-document-exclusions", tenantId] });
+            setUploadDialogOpen(false);
           }}
         />
       )}
