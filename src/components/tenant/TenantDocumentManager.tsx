@@ -8,8 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { UploadTenantDocumentDialog } from "./UploadTenantDocumentDialog";
+import { DocumentPreviewDialog } from "./DocumentPreviewDialog";
 import { toast } from "sonner";
-import { Download, Trash2, Upload, FileText, CheckCircle2, AlertCircle, UserCheck, RefreshCw, Package } from "lucide-react";
+import { Download, Trash2, Upload, FileText, CheckCircle2, AlertCircle, UserCheck, RefreshCw, Package, Eye } from "lucide-react";
 import { format } from "date-fns";
 import { Progress } from "@/components/ui/progress";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
@@ -45,6 +46,7 @@ export const TenantDocumentManager = ({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showProgressPulse, setShowProgressPulse] = useState(false);
   const [isDownloadingAll, setIsDownloadingAll] = useState(false);
+  const [previewDocument, setPreviewDocument] = useState<any>(null);
   const prevCompletedCountRef = useRef<number>(0);
   const hasTriggeredConfettiRef = useRef<boolean>(false);
   const queryClient = useQueryClient();
@@ -459,9 +461,16 @@ export const TenantDocumentManager = ({
                           )}
                         </div>
 
-                        <div className="flex gap-2 flex-wrap">
+                          <div className="flex gap-2 flex-wrap">
                           {hasDocument && doc ? (
                             <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => setPreviewDocument(doc)}
+                              >
+                                <Eye className="h-4 w-4" />
+                              </Button>
                               <Button
                                 size="sm"
                                 variant="outline"
@@ -556,6 +565,14 @@ export const TenantDocumentManager = ({
               setUploadDialogOpen(false);
             }, 800);
           }}
+        />
+      )}
+
+      {previewDocument && (
+        <DocumentPreviewDialog
+          document={previewDocument}
+          open={!!previewDocument}
+          onOpenChange={(open) => !open && setPreviewDocument(null)}
         />
       )}
     </>
