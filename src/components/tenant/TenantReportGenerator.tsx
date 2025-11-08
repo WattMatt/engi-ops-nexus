@@ -406,6 +406,29 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
     const dbOrdered = tenants.filter(t => t.db_ordered).length;
     const lightingOrdered = tenants.filter(t => t.lighting_ordered).length;
 
+    // Calculate overall completion percentage
+    let totalCompleted = 0;
+    let totalPossible = 0;
+    
+    if (options.tenantFields.sowReceived) {
+      totalCompleted += sowReceived;
+      totalPossible += totalTenants;
+    }
+    if (options.tenantFields.layoutReceived) {
+      totalCompleted += layoutReceived;
+      totalPossible += totalTenants;
+    }
+    if (options.tenantFields.dbOrdered) {
+      totalCompleted += dbOrdered;
+      totalPossible += totalTenants;
+    }
+    if (options.tenantFields.lightingOrdered) {
+      totalCompleted += lightingOrdered;
+      totalPossible += totalTenants;
+    }
+    
+    const overallCompletion = totalPossible > 0 ? ((totalCompleted / totalPossible) * 100).toFixed(1) : '0';
+
     // Draw summary box if any status fields are selected
     const hasStatusFields = options.tenantFields.sowReceived || 
                            options.tenantFields.layoutReceived || 
@@ -415,12 +438,24 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
     let tableStartY = 38;
     
     if (hasStatusFields) {
-      // Summary box
+      // Summary box - increased height for overall completion
       doc.setFillColor(248, 250, 252);
-      doc.roundedRect(20, 36, pageWidth - 40, 22, 2, 2, 'F');
+      doc.roundedRect(20, 36, pageWidth - 40, 30, 2, 2, 'F');
       doc.setDrawColor(226, 232, 240);
       doc.setLineWidth(0.3);
-      doc.roundedRect(20, 36, pageWidth - 40, 22, 2, 2, 'S');
+      doc.roundedRect(20, 36, pageWidth - 40, 30, 2, 2, 'S');
+      
+      // Overall completion badge
+      doc.setFillColor(59, 130, 246);
+      doc.roundedRect(pageWidth - 55, 39, 30, 10, 2, 2, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text(`${overallCompletion}%`, pageWidth - 40, 46, { align: 'center' });
+      
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "normal");
+      doc.text("Overall", pageWidth - 40, 52, { align: 'center' });
       
       doc.setFontSize(9);
       doc.setFont("helvetica", "bold");
@@ -476,7 +511,7 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
         doc.text(`(${pct}%)`, xPos, yPos2);
       }
       
-      tableStartY = 62;
+      tableStartY = 70;
     }
 
     // Build headers and data based on selected fields

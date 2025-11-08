@@ -140,6 +140,13 @@ export const TenantReportPreview = ({ projectId, projectName }: TenantReportPrev
   const layoutReceived = tenants.filter(t => t.layout_received).length;
   const costReported = tenants.filter(t => t.cost_reported).length;
 
+  // Calculate overall completion percentage for tenant schedule
+  const totalStatusChecks = sowReceived + layoutReceived + dbOrdered + lightingOrdered;
+  const totalPossibleChecks = totalTenants * 4; // 4 status fields
+  const overallCompletion = totalPossibleChecks > 0 
+    ? ((totalStatusChecks / totalPossibleChecks) * 100).toFixed(1) 
+    : '0';
+
   // Helper function to check if tenant is complete
   const isTenantComplete = (tenant: Tenant) => {
     return tenant.sow_received &&
@@ -609,7 +616,15 @@ export const TenantReportPreview = ({ projectId, projectName }: TenantReportPrev
 
         {/* Completion Summary */}
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
-          <h3 className="text-sm font-bold mb-3 text-gray-900">Completion Summary</h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-bold text-gray-900">Completion Summary</h3>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-600">Overall Completion:</span>
+              <div className="bg-blue-500 text-white px-3 py-1 rounded-full font-bold text-sm">
+                {overallCompletion}%
+              </div>
+            </div>
+          </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="space-y-1">
               <p className="text-xs text-gray-600">SOW Received</p>
