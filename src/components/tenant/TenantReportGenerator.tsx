@@ -385,6 +385,7 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
 
   const generateTenantSchedule = (doc: jsPDF, options: ReportOptions) => {
     doc.addPage();
+    const pageWidth = doc.internal.pageSize.getWidth();
     
     // Page header
     doc.setTextColor(0, 0, 0);
@@ -397,6 +398,86 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100, 100, 100);
     doc.text("Legend: ✓ = Completed/Received  |  ✗ = Pending/Not Received", 20, 32);
+
+    // Calculate completion statistics
+    const totalTenants = tenants.length;
+    const sowReceived = tenants.filter(t => t.sow_received).length;
+    const layoutReceived = tenants.filter(t => t.layout_received).length;
+    const dbOrdered = tenants.filter(t => t.db_ordered).length;
+    const lightingOrdered = tenants.filter(t => t.lighting_ordered).length;
+
+    // Draw summary box if any status fields are selected
+    const hasStatusFields = options.tenantFields.sowReceived || 
+                           options.tenantFields.layoutReceived || 
+                           options.tenantFields.dbOrdered || 
+                           options.tenantFields.lightingOrdered;
+    
+    let tableStartY = 38;
+    
+    if (hasStatusFields) {
+      // Summary box
+      doc.setFillColor(248, 250, 252);
+      doc.roundedRect(20, 36, pageWidth - 40, 22, 2, 2, 'F');
+      doc.setDrawColor(226, 232, 240);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(20, 36, pageWidth - 40, 22, 2, 2, 'S');
+      
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(0, 0, 0);
+      doc.text("Completion Summary:", 24, 42);
+      
+      let xPos = 24;
+      const yPos = 50;
+      
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      
+      if (options.tenantFields.sowReceived) {
+        doc.text(`SOW: ${sowReceived}/${totalTenants}`, xPos, yPos);
+        xPos += 30;
+      }
+      if (options.tenantFields.layoutReceived) {
+        doc.text(`Layout: ${layoutReceived}/${totalTenants}`, xPos, yPos);
+        xPos += 35;
+      }
+      if (options.tenantFields.dbOrdered) {
+        doc.text(`DB Ordered: ${dbOrdered}/${totalTenants}`, xPos, yPos);
+        xPos += 40;
+      }
+      if (options.tenantFields.lightingOrdered) {
+        doc.text(`Lighting: ${lightingOrdered}/${totalTenants}`, xPos, yPos);
+        xPos += 35;
+      }
+      
+      // Add percentage
+      doc.setTextColor(100, 116, 139);
+      doc.setFontSize(7);
+      xPos = 24;
+      const yPos2 = 54;
+      
+      if (options.tenantFields.sowReceived) {
+        const pct = ((sowReceived / totalTenants) * 100).toFixed(0);
+        doc.text(`(${pct}%)`, xPos, yPos2);
+        xPos += 30;
+      }
+      if (options.tenantFields.layoutReceived) {
+        const pct = ((layoutReceived / totalTenants) * 100).toFixed(0);
+        doc.text(`(${pct}%)`, xPos, yPos2);
+        xPos += 35;
+      }
+      if (options.tenantFields.dbOrdered) {
+        const pct = ((dbOrdered / totalTenants) * 100).toFixed(0);
+        doc.text(`(${pct}%)`, xPos, yPos2);
+        xPos += 40;
+      }
+      if (options.tenantFields.lightingOrdered) {
+        const pct = ((lightingOrdered / totalTenants) * 100).toFixed(0);
+        doc.text(`(${pct}%)`, xPos, yPos2);
+      }
+      
+      tableStartY = 62;
+    }
 
     // Build headers and data based on selected fields
     const headers: string[] = [];
@@ -437,7 +518,7 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
     });
 
     autoTable(doc, {
-      startY: 38,
+      startY: tableStartY,
       head: [headers],
       body: tableData,
       theme: 'grid',

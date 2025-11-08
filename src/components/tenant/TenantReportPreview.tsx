@@ -606,6 +606,33 @@ export const TenantReportPreview = ({ projectId, projectName }: TenantReportPrev
             <span className="font-semibold">Legend:</span> ✓ = Completed/Received  |  ✗ = Pending/Not Received
           </p>
         </div>
+
+        {/* Completion Summary */}
+        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
+          <h3 className="text-sm font-bold mb-3 text-gray-900">Completion Summary</h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="space-y-1">
+              <p className="text-xs text-gray-600">SOW Received</p>
+              <p className="text-lg font-bold text-gray-900">{sowReceived}/{totalTenants}</p>
+              <p className="text-xs text-gray-500">({((sowReceived/totalTenants)*100).toFixed(0)}%)</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-gray-600">Layout Received</p>
+              <p className="text-lg font-bold text-gray-900">{layoutReceived}/{totalTenants}</p>
+              <p className="text-xs text-gray-500">({((layoutReceived/totalTenants)*100).toFixed(0)}%)</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-gray-600">DB Ordered</p>
+              <p className="text-lg font-bold text-gray-900">{dbOrdered}/{totalTenants}</p>
+              <p className="text-xs text-gray-500">({((dbOrdered/totalTenants)*100).toFixed(0)}%)</p>
+            </div>
+            <div className="space-y-1">
+              <p className="text-xs text-gray-600">Lighting Ordered</p>
+              <p className="text-lg font-bold text-gray-900">{lightingOrdered}/{totalTenants}</p>
+              <p className="text-xs text-gray-500">({((lightingOrdered/totalTenants)*100).toFixed(0)}%)</p>
+            </div>
+          </div>
+        </div>
         
         <div className="overflow-x-auto">
           <table className="w-full border-collapse text-xs">
