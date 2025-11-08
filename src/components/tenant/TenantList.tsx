@@ -1,7 +1,7 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Trash2, CheckCircle2, Circle, Calculator, AlertTriangle, Clock, CalendarDays } from "lucide-react";
+import { Trash2, CheckCircle2, Circle, Calculator, AlertTriangle, Clock, CalendarDays, Search, Filter } from "lucide-react";
 import { TenantDialog } from "./TenantDialog";
 import { DeleteTenantDialog } from "./DeleteTenantDialog";
 import { supabase } from "@/integrations/supabase/client";
@@ -49,6 +49,12 @@ export const TenantList = ({
   const [tenantToDelete, setTenantToDelete] = useState<Tenant | null>(null);
   const [bulkOpeningDateDialog, setBulkOpeningDateDialog] = useState(false);
   const [bulkOpeningDate, setBulkOpeningDate] = useState("");
+  
+  // Filter and grouping state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
+  const [statusFilter, setStatusFilter] = useState<"all" | "complete" | "incomplete">("all");
+  const [groupBy, setGroupBy] = useState<"none" | "category" | "opening-date">("none");
 
   // Sync local state when tenants prop changes
   useEffect(() => {
@@ -274,8 +280,193 @@ export const TenantList = ({
     };
     return labels[category as keyof typeof labels] || category;
   };
-  return <div className="h-full flex flex-col gap-4">
-      <div className="flex justify-end gap-2 flex-shrink-0">
+
+  // Filter tenants
+  const filteredTenants = localTenants.filter(tenant => {
+    // Search filter
+    const matchesSearch = !searchQuery.trim() || 
+      tenant.shop_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      tenant.shop_name.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    if (!matchesSearch) return false;
+    
+    // Category filter
+    if (categoryFilter && tenant.shop_category !== categoryFilter) return false;
+    
+    // Status filter
+    if (statusFilter === "complete" && !isTenantComplete(tenant)) return false;
+    if (statusFilter === "incomplete" && isTenantComplete(tenant)) return false;
+    
+    return true;
+  });
+
+  // Group tenants
+  const groupedTenants = () => {
+    if (groupBy === "none") {
+      return [{ key: "all", label: "", tenants: filteredTenants }];
+    }
+    
+    if (groupBy === "category") {
+      const groups: Record<string, Tenant[]> = {};
+      filteredTenants.forEach(tenant => {
+        const category = tenant.shop_category;
+        if (!groups[category]) groups[category] = [];
+        groups[category].push(tenant);
+      });
+      return Object.entries(groups).map(([key, tenants]) => ({
+        key,
+        label: getCategoryLabel(key),
+        tenants
+      }));
+    }
+    
+    if (groupBy === "opening-date") {
+      const groups: Record<string, Tenant[]> = {
+        'with-date': [],
+        'without-date': []
+      };
+      filteredTenants.forEach(tenant => {
+        if (tenant.opening_date) {
+          groups['with-date'].push(tenant);
+        } else {
+          groups['without-date'].push(tenant);
+        }
+      });
+      return [
+        { key: 'with-date', label: 'Opening Date Set', tenants: groups['with-date'] },
+        { key: 'without-date', label: 'Opening Date Not Set', tenants: groups['without-date'] }
+      ].filter(g => g.tenants.length > 0);
+    }
+    
+    return [{ key: "all", label: "", tenants: filteredTenants }];
+  };
+
+  // Category counts
+  const categoryCounts = {
+    standard: localTenants.filter(t => t.shop_category === 'standard').length,
+    fast_food: localTenants.filter(t => t.shop_category === 'fast_food').length,
+    restaurant: localTenants.filter(t => t.shop_category === 'restaurant').length,
+    national: localTenants.filter(t => t.shop_category === 'national').length,
+  };
+
+  return (
+    <div className="h-full flex flex-col gap-4">
+      {/* Filters and Actions */}
+      <div className="flex flex-col gap-3 flex-shrink-0">
+        {/* Search and Filters */}
+        <div className="flex gap-2 items-center flex-wrap bg-muted/30 p-3 rounded-lg border">
+          {/* Search */}
+          <div className="relative flex-1 min-w-[200px]">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Input
+              type="text"
+              placeholder="Search by shop number or name..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 h-9"
+            />
+          </div>
+
+          {/* Category Filter */}
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="h-9">
+                <Filter className="h-4 w-4 mr-2" />
+                Category {categoryFilter && `(${getCategoryLabel(categoryFilter)})`}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-80">
+              <div className="space-y-2">
+                <h4 className="font-medium text-sm">Filter by Category</h4>
+                <div className="flex flex-wrap gap-2">
+                  <Badge 
+                    variant="outline" 
+                    className={`cursor-pointer ${categoryFilter === 'standard' ? 'bg-blue-500 text-white' : 'bg-blue-100 text-blue-700 hover:bg-blue-200'}`}
+                    onClick={() => setCategoryFilter(categoryFilter === 'standard' ? null : 'standard')}
+                  >
+                    Standard ({categoryCounts.standard})
+                  </Badge>
+                  <Badge 
+                    variant="outline" 
+                    className={`cursor-pointer ${categoryFilter === 'fast_food' ? 'bg-red-500 text-white' : 'bg-red-100 text-red-700 hover:bg-red-200'}`}
+                    onClick={() => setCategoryFilter(categoryFilter === 'fast_food' ? null : 'fast_food')}
+                  >
+                    Fast Food ({categoryCounts.fast_food})
+                  </Badge>
+                  <Badge 
+                    variant="outline" 
+                    className={`cursor-pointer ${categoryFilter === 'restaurant' ? 'bg-emerald-500 text-white' : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200'}`}
+                    onClick={() => setCategoryFilter(categoryFilter === 'restaurant' ? null : 'restaurant')}
+                  >
+                    Restaurant ({categoryCounts.restaurant})
+                  </Badge>
+                  <Badge 
+                    variant="outline" 
+                    className={`cursor-pointer ${categoryFilter === 'national' ? 'bg-purple-600 text-white' : 'bg-purple-100 text-purple-700 hover:bg-purple-200'}`}
+                    onClick={() => setCategoryFilter(categoryFilter === 'national' ? null : 'national')}
+                  >
+                    National ({categoryCounts.national})
+                  </Badge>
+                </div>
+                {categoryFilter && (
+                  <Button variant="ghost" size="sm" onClick={() => setCategoryFilter(null)} className="w-full">
+                    Clear Filter
+                  </Button>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          {/* Status Filter */}
+          <div className="flex gap-1">
+            <Button
+              variant={statusFilter === "all" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStatusFilter("all")}
+              className="h-9"
+            >
+              All
+            </Button>
+            <Button
+              variant={statusFilter === "complete" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStatusFilter("complete")}
+              className={`h-9 ${statusFilter === "complete" ? "" : "border-green-200 text-green-700 hover:bg-green-50"}`}
+            >
+              Complete
+            </Button>
+            <Button
+              variant={statusFilter === "incomplete" ? "default" : "outline"}
+              size="sm"
+              onClick={() => setStatusFilter("incomplete")}
+              className={`h-9 ${statusFilter === "incomplete" ? "" : "border-yellow-200 text-yellow-700 hover:bg-yellow-50"}`}
+            >
+              Incomplete
+            </Button>
+          </div>
+
+          {/* Group By */}
+          <Select value={groupBy} onValueChange={(value: any) => setGroupBy(value)}>
+            <SelectTrigger className="w-[180px] h-9">
+              <SelectValue placeholder="Group by..." />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">No Grouping</SelectItem>
+              <SelectItem value="category">Group by Category</SelectItem>
+              <SelectItem value="opening-date">Group by Opening Date</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Results count */}
+          {(searchQuery || categoryFilter || statusFilter !== "all") && (
+            <span className="text-xs text-muted-foreground whitespace-nowrap">
+              {filteredTenants.length} of {localTenants.length} tenants
+            </span>
+          )}
+        </div>
+
+        {/* Bulk Actions */}
+        <div className="flex justify-end gap-2">
         <Dialog open={bulkOpeningDateDialog} onOpenChange={setBulkOpeningDateDialog}>
           <DialogTrigger asChild>
             <Button variant="outline">
@@ -313,10 +504,18 @@ export const TenantList = ({
           <Calculator className="h-4 w-4 mr-2" />
           {isCalculating ? "Calculating..." : "Bulk Auto-Calculate DB Sizes"}
         </Button>
+        </div>
       </div>
       <div className="flex-1 min-h-0 border rounded-lg overflow-hidden">
         <ScrollArea className="h-full">
-          <Table>
+          {groupedTenants().map((group) => (
+            <div key={group.key}>
+              {group.label && (
+                <div className="sticky top-0 bg-muted px-4 py-2 font-semibold text-sm border-b z-20">
+                  {group.label} ({group.tenants.length})
+                </div>
+              )}
+              <Table>
             <TableHeader className="sticky top-0 bg-background z-10">
               <TableRow>
                 <TableHead>Shop #</TableHead>
@@ -339,18 +538,24 @@ export const TenantList = ({
               </TableRow>
             </TableHeader>
             <TableBody>
-              {localTenants.length === 0 ? <TableRow>
-                  <TableCell colSpan={16} className="text-center text-muted-foreground">
-                    No tenants added yet
+              {group.tenants.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={16} className="text-center py-8 text-muted-foreground">
+                    {searchQuery || categoryFilter || statusFilter !== "all" 
+                      ? "No tenants match the current filters" 
+                      : "No tenants found"}
                   </TableCell>
-                </TableRow> : localTenants.map(tenant => {
+                </TableRow>
+              ) : (
+                group.tenants.map((tenant) => {
                   const deadlineStatus = getDeadlineStatus(tenant);
                   const beneficialDate = tenant.opening_date 
                     ? addDays(new Date(tenant.opening_date), -(tenant.beneficial_occupation_days || 90))
                     : null;
                   const daysUntil = beneficialDate ? differenceInDays(beneficialDate, new Date()) : null;
                   
-                  return <TableRow key={tenant.id} className={getRowClassName(tenant)}>
+                  return (
+                    <TableRow key={tenant.id} className={getRowClassName(tenant)}>
                     <TableCell className="font-medium">
                       <Input
                         value={tenant.shop_number}
@@ -522,11 +727,15 @@ export const TenantList = ({
                       </div>
                     </TableCell>
                   </TableRow>
-                })}
+                  );
+                })
+              )}
             </TableBody>
           </Table>
-        </ScrollArea>
-      </div>
+          </div>
+        ))}
+      </ScrollArea>
+    </div>
 
       {tenantToDelete && (
         <DeleteTenantDialog
@@ -536,5 +745,6 @@ export const TenantList = ({
           onConfirm={handleDeleteConfirm}
         />
       )}
-    </div>;
+    </div>
+  );
 };
