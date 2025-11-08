@@ -51,6 +51,11 @@ interface Issue {
   admin_notes: string | null;
   admin_response: string | null;
   responded_at: string | null;
+  user_verified: boolean;
+  user_verification_response: string | null;
+  user_verified_at: string | null;
+  needs_user_attention: boolean;
+  verification_requested_at: string | null;
 }
 
 interface Suggestion {
@@ -73,6 +78,11 @@ interface Suggestion {
   admin_notes: string | null;
   admin_response: string | null;
   responded_at: string | null;
+  user_verified: boolean;
+  user_verification_response: string | null;
+  user_verified_at: string | null;
+  needs_user_attention: boolean;
+  verification_requested_at: string | null;
 }
 
 const FeedbackManagement = () => {
@@ -254,13 +264,26 @@ const FeedbackManagement = () => {
     id: string,
     status: string
   ) => {
+    const updates: any = { 
+      status,
+      resolved_at: status === "resolved" ? new Date().toISOString() : null,
+      resolved_by: status === "resolved" ? (await supabase.auth.getUser()).data.user?.id : null
+    };
+
+    // If changing to pending_verification, set needs_user_attention
+    if (status === "pending_verification") {
+      updates.needs_user_attention = true;
+      updates.verification_requested_at = new Date().toISOString();
+    }
+
+    // If changing to in_progress or reopened, clear user attention flag
+    if (["in_progress", "reopened"].includes(status)) {
+      updates.needs_user_attention = false;
+    }
+
     const { error } = await supabase
       .from(table)
-      .update({ 
-        status,
-        resolved_at: status === "resolved" ? new Date().toISOString() : null,
-        resolved_by: status === "resolved" ? (await supabase.auth.getUser()).data.user?.id : null
-      })
+      .update(updates)
       .eq("id", id);
 
     if (error) {
@@ -300,7 +323,14 @@ const FeedbackManagement = () => {
   ) => {
     const { error } = await supabase
       .from(table)
-      .update({ admin_response: response })
+      .update({
+        admin_response: response,
+        responded_at: new Date().toISOString(),
+        responded_by: (await supabase.auth.getUser()).data.user?.id,
+        status: "pending_verification",
+        needs_user_attention: true,
+        verification_requested_at: new Date().toISOString(),
+      })
       .eq("id", id);
 
     if (error) {
@@ -341,18 +371,42 @@ const FeedbackManagement = () => {
 
   const getStatusBadge = (status: string) => {
     const config = {
+      new: { variant: "secondary" as const, icon: Clock },
       pending: { variant: "secondary" as const, icon: Clock },
+      in_progress: { variant: "default" as const, icon: MessageSquare },
       "in-progress": { variant: "default" as const, icon: MessageSquare },
+      pending_verification: { variant: "destructive" as const, icon: AlertCircle },
       resolved: { variant: "outline" as const, icon: CheckCircle2 },
+      reopened: { variant: "destructive" as const, icon: AlertCircle },
     };
     const item = config[status as keyof typeof config] || config.pending;
     const Icon = item.icon;
     return (
       <Badge variant={item.variant} className="gap-1">
         <Icon className="h-3 w-3" />
-        {status.replace("-", " ")}
+        {status.replace(/[-_]/g, " ")}
       </Badge>
     );
+  };
+
+  const getVerificationBadge = (item: Issue | Suggestion) => {
+    if (item.user_verified) {
+      return (
+        <Badge variant="default">
+          <CheckCircle2 className="h-3 w-3 mr-1" />
+          User Verified
+        </Badge>
+      );
+    }
+    if (item.needs_user_attention) {
+      return (
+        <Badge variant="destructive">
+          <Clock className="h-3 w-3 mr-1" />
+          Awaiting User
+        </Badge>
+      );
+    }
+    return null;
   };
 
   if (loading) {
@@ -402,6 +456,7 @@ const FeedbackManagement = () => {
                         {getSeverityBadge(issue.severity)}
                         <Badge variant="outline">{issue.category}</Badge>
                         {getStatusBadge(issue.status)}
+                        {getVerificationBadge(issue)}
                       </div>
                       <CardDescription>
                         Reported by {issue.user_name} ({issue.user_email}) •{" "}
@@ -425,8 +480,10 @@ const FeedbackManagement = () => {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="pending">Pending</SelectItem>
-                          <SelectItem value="in-progress">In Progress</SelectItem>
+                          <SelectItem value="new">New</SelectItem>
+                          <SelectItem value="in_progress">In Progress</SelectItem>
+                          <SelectItem value="pending_verification">Pending Verification</SelectItem>
+                          <SelectItem value="reopened">Reopened</SelectItem>
                           <SelectItem value="resolved">Resolved</SelectItem>
                         </SelectContent>
                       </Select>
@@ -600,6 +657,7 @@ const FeedbackManagement = () => {
                         <Badge variant="outline">{suggestion.category}</Badge>
                         <Badge variant="secondary">{suggestion.priority} priority</Badge>
                         {getStatusBadge(suggestion.status)}
+                        {getVerificationBadge(suggestion)}
                       </div>
                       <CardDescription>
                         Suggested by {suggestion.user_name} ({suggestion.user_email}) •{" "}
@@ -623,8 +681,10 @@ const FeedbackManagement = () => {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="pending">Pending</SelectItem>
-                          <SelectItem value="in-progress">In Progress</SelectItem>
+                          <SelectItem value="new">New</SelectItem>
+                          <SelectItem value="in_progress">In Progress</SelectItem>
+                          <SelectItem value="pending_verification">Pending Verification</SelectItem>
+                          <SelectItem value="reopened">Reopened</SelectItem>
                           <SelectItem value="resolved">Resolved</SelectItem>
                         </SelectContent>
                       </Select>

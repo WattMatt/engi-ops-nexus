@@ -2410,6 +2410,7 @@ export type Database = {
           created_at: string
           description: string
           id: string
+          needs_user_attention: boolean | null
           page_url: string
           reported_by: string
           resolved_at: string | null
@@ -2422,6 +2423,10 @@ export type Database = {
           updated_at: string
           user_email: string
           user_name: string | null
+          user_verification_response: string | null
+          user_verified: boolean | null
+          user_verified_at: string | null
+          verification_requested_at: string | null
         }
         Insert: {
           additional_context?: string | null
@@ -2434,6 +2439,7 @@ export type Database = {
           created_at?: string
           description: string
           id?: string
+          needs_user_attention?: boolean | null
           page_url: string
           reported_by: string
           resolved_at?: string | null
@@ -2446,6 +2452,10 @@ export type Database = {
           updated_at?: string
           user_email: string
           user_name?: string | null
+          user_verification_response?: string | null
+          user_verified?: boolean | null
+          user_verified_at?: string | null
+          verification_requested_at?: string | null
         }
         Update: {
           additional_context?: string | null
@@ -2458,6 +2468,7 @@ export type Database = {
           created_at?: string
           description?: string
           id?: string
+          needs_user_attention?: boolean | null
           page_url?: string
           reported_by?: string
           resolved_at?: string | null
@@ -2470,6 +2481,10 @@ export type Database = {
           updated_at?: string
           user_email?: string
           user_name?: string | null
+          user_verification_response?: string | null
+          user_verified?: boolean | null
+          user_verified_at?: string | null
+          verification_requested_at?: string | null
         }
         Relationships: []
       }
@@ -4093,6 +4108,7 @@ export type Database = {
           created_at: string
           description: string
           id: string
+          needs_user_attention: boolean | null
           page_url: string
           priority: string
           reported_by: string
@@ -4106,6 +4122,10 @@ export type Database = {
           updated_at: string
           user_email: string
           user_name: string | null
+          user_verification_response: string | null
+          user_verified: boolean | null
+          user_verified_at: string | null
+          verification_requested_at: string | null
         }
         Insert: {
           additional_context?: string | null
@@ -4118,6 +4138,7 @@ export type Database = {
           created_at?: string
           description: string
           id?: string
+          needs_user_attention?: boolean | null
           page_url: string
           priority?: string
           reported_by: string
@@ -4131,6 +4152,10 @@ export type Database = {
           updated_at?: string
           user_email: string
           user_name?: string | null
+          user_verification_response?: string | null
+          user_verified?: boolean | null
+          user_verified_at?: string | null
+          verification_requested_at?: string | null
         }
         Update: {
           additional_context?: string | null
@@ -4143,6 +4168,7 @@ export type Database = {
           created_at?: string
           description?: string
           id?: string
+          needs_user_attention?: boolean | null
           page_url?: string
           priority?: string
           reported_by?: string
@@ -4156,6 +4182,10 @@ export type Database = {
           updated_at?: string
           user_email?: string
           user_name?: string | null
+          user_verification_response?: string | null
+          user_verified?: boolean | null
+          user_verified_at?: string | null
+          verification_requested_at?: string | null
         }
         Relationships: []
       }
