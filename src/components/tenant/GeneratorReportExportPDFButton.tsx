@@ -536,27 +536,22 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
         styles: { fontSize: 6 },
         columnStyles,
         margin: { left: centerMargin, right: centerMargin },
-        willDrawCell: (data) => {
-          // Apply color coding to zone column headers - make them more prominent
+        didParseCell: (data) => {
+          // Apply color coding to zone column headers - MUST use didParseCell instead of willDrawCell
           if (data.section === 'head' && data.column.index >= 5 && data.column.index < 5 + zones.length) {
             const zoneIndex = data.column.index - 5;
             const zone = zones[zoneIndex];
-            console.log('[PDF DEBUG] Zone header coloring:', {
-              columnIndex: data.column.index,
-              zoneIndex,
-              zoneName: zone?.zone_name,
-              zoneColor: zone?.zone_color,
-              totalZones: zones.length
-            });
             const zoneColor = zone?.zone_color || "#3b82f6";
             const rgb = hexToRgb(zoneColor);
             
-            // Use full zone color for maximum prominence
+            // Set styles during cell parsing, before rendering
             data.cell.styles.fillColor = rgb as any;
             data.cell.styles.textColor = [255, 255, 255];
             data.cell.styles.fontStyle = 'bold';
-            data.cell.styles.fontSize = 7; // Slightly larger than other headers
+            data.cell.styles.fontSize = 7;
           }
+        },
+        willDrawCell: (data) => {
           
           // Apply color coding to tenant rows (not totals/average)
           if (data.section === 'body' && data.row.index < tenantRowsData.length) {
