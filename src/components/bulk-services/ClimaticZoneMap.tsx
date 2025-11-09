@@ -7,8 +7,9 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { Map, Satellite, Mountain } from "lucide-react";
+import { Map, Satellite, Mountain, MapPin } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { SA_CITIES_ZONES, findClosestCity } from "@/data/saCitiesZones";
 
 interface ClimaticZoneMapProps {
   selectedZone: string;
@@ -63,138 +64,20 @@ const ZONE_INFO = {
   },
 };
 
-// Accurate GeoJSON polygons for South African climatic zones (SANS 10400-XA)
-// Carefully digitized from official SANS map to match exact boundaries
-const ZONE_GEOJSON = {
-  type: "FeatureCollection",
-  features: [
-    {
-      type: "Feature",
-      properties: { zone: "1", name: "Cold Interior" },
-      geometry: {
-        type: "Polygon",
-        coordinates: [[
-          [27.5, -26.2], [28.0, -26.0], [28.5, -26.5], [28.8, -27.2], 
-          [29.0, -27.8], [28.8, -28.3], [28.5, -28.8], [28.0, -29.2],
-          [27.5, -29.3], [27.0, -29.2], [26.5, -28.8], [26.2, -28.3],
-          [26.0, -27.5], [26.3, -27.0], [26.8, -26.5], [27.5, -26.2]
-        ]]
-      }
-    },
-    {
-      type: "Feature",
-      properties: { zone: "2", name: "Temperate Interior" },
-      geometry: {
-        type: "Polygon",
-        coordinates: [[
-          [24.5, -25.5], [27.0, -25.0], [28.5, -25.0], [29.5, -24.8],
-          [30.0, -25.0], [30.5, -25.5], [31.0, -26.2], [30.8, -27.0],
-          [30.5, -27.8], [30.0, -28.5], [29.5, -29.0], [29.0, -29.5],
-          [28.0, -30.0], [27.0, -30.2], [26.0, -30.0], [25.0, -29.5],
-          [24.0, -28.8], [23.5, -28.0], [23.2, -27.0], [23.5, -26.0], [24.5, -25.5]
-        ]]
-      }
-    },
-    {
-      type: "Feature",
-      properties: { zone: "3", name: "Hot Interior" },
-      geometry: {
-        type: "Polygon",
-        coordinates: [[
-          [29.5, -22.2], [30.5, -22.0], [31.5, -22.2], [32.0, -22.8],
-          [32.2, -23.5], [32.0, -24.2], [31.5, -25.0], [31.0, -25.5],
-          [30.5, -25.8], [30.0, -25.5], [29.5, -25.2], [29.0, -24.5],
-          [28.8, -23.5], [29.0, -22.8], [29.5, -22.2]
-        ]]
-      }
-    },
-    {
-      type: "Feature",
-      properties: { zone: "4", name: "Temperate Coastal" },
-      geometry: {
-        type: "Polygon",
-        coordinates: [[
-          [18.3, -34.8], [18.4, -34.5], [18.6, -34.0], [19.0, -33.8],
-          [20.0, -33.5], [21.0, -33.8], [22.0, -34.0], [23.0, -34.0],
-          [24.0, -33.9], [25.0, -33.8], [25.8, -33.8], [26.3, -34.0],
-          [26.0, -34.3], [25.5, -34.5], [24.5, -34.7], [23.0, -34.8],
-          [21.5, -34.7], [20.0, -34.5], [19.0, -34.6], [18.3, -34.8]
-        ]]
-      }
-    },
-    {
-      type: "Feature",
-      properties: { zone: "5", name: "Sub-tropical Coastal" },
-      geometry: {
-        type: "Polygon",
-        coordinates: [[
-          [28.0, -32.8], [28.8, -32.2], [29.5, -31.5], [30.2, -30.8],
-          [30.8, -30.2], [31.5, -29.5], [32.0, -28.8], [32.5, -28.0],
-          [32.8, -27.2], [32.5, -27.8], [32.0, -28.5], [31.5, -29.2],
-          [31.0, -29.8], [30.5, -30.5], [30.0, -31.0], [29.5, -31.5],
-          [29.0, -32.0], [28.5, -32.5], [28.0, -32.8]
-        ]]
-      }
-    },
-    {
-      type: "Feature",
-      properties: { zone: "6", name: "Arid Interior" },
-      geometry: {
-        type: "Polygon",
-        coordinates: [[
-          [16.5, -28.8], [17.5, -28.5], [18.5, -28.2], [19.5, -28.5],
-          [20.5, -28.8], [21.5, -29.0], [22.5, -29.3], [23.5, -29.5],
-          [24.0, -29.8], [24.5, -30.2], [24.0, -30.8], [23.5, -31.2],
-          [22.5, -31.8], [21.5, -32.2], [20.5, -32.0], [19.5, -31.5],
-          [18.5, -30.8], [17.5, -30.0], [17.0, -29.5], [16.5, -28.8]
-        ]]
-      }
-    },
-  ]
-};
-
 export const ClimaticZoneMap = ({ selectedZone, onZoneSelect }: ClimaticZoneMapProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const geocoder = useRef<MapboxGeocoder | null>(null);
+  const cityMarkers = useRef<mapboxgl.Marker[]>([]);
   const [mapboxToken, setMapboxToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [mapStyle, setMapStyle] = useState<'streets' | 'satellite' | 'terrain'>('streets');
+  const [showCityMarkers, setShowCityMarkers] = useState(true);
 
   const MAP_STYLES = {
     streets: 'mapbox://styles/mapbox/light-v11',
     satellite: 'mapbox://styles/mapbox/satellite-streets-v12',
     terrain: 'mapbox://styles/mapbox/outdoors-v12',
-  };
-
-  // Helper function to check if a point is inside a polygon
-  const pointInPolygon = (point: [number, number], polygon: number[][][]): boolean => {
-    const x = point[0];
-    const y = point[1];
-    const poly = polygon[0]; // Get the outer ring of the polygon
-    
-    let inside = false;
-    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
-      const xi = poly[i][0];
-      const yi = poly[i][1];
-      const xj = poly[j][0];
-      const yj = poly[j][1];
-      
-      const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-      if (intersect) inside = !inside;
-    }
-    
-    return inside;
-  };
-
-  // Function to find which zone a coordinate belongs to
-  const findZoneForCoordinate = (lng: number, lat: number): string | null => {
-    for (const feature of ZONE_GEOJSON.features) {
-      if (pointInPolygon([lng, lat], feature.geometry.coordinates as number[][][])) {
-        return feature.properties.zone;
-      }
-    }
-    return null;
   };
 
   useEffect(() => {
@@ -235,76 +118,40 @@ export const ClimaticZoneMap = ({ selectedZone, onZoneSelect }: ClimaticZoneMapP
     map.current.on("load", () => {
       if (!map.current) return;
 
-      // Add zone polygons source
-      map.current.addSource("zones", {
-        type: "geojson",
-        data: ZONE_GEOJSON as any,
-      });
+      // Add city markers for each zone
+      SA_CITIES_ZONES.forEach((city) => {
+        const el = document.createElement('div');
+        el.className = 'city-marker';
+        el.style.backgroundColor = ZONE_COLORS[city.zone as keyof typeof ZONE_COLORS];
+        el.style.width = '12px';
+        el.style.height = '12px';
+        el.style.borderRadius = '50%';
+        el.style.border = '2px solid white';
+        el.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
+        el.style.cursor = 'pointer';
 
-      // Add zone fill layers
-      Object.entries(ZONE_COLORS).forEach(([zone, color]) => {
-        map.current!.addLayer({
-          id: `zone-${zone}-fill`,
-          type: "fill",
-          source: "zones",
-          filter: ["==", ["get", "zone"], zone],
-          paint: {
-            "fill-color": color,
-            "fill-opacity": selectedZone === zone ? 0.5 : 0.3,
-          },
-        });
+        const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(`
+          <div style="padding: 4px 8px;">
+            <strong>${city.city}</strong><br/>
+            <span style="color: #666;">Zone ${city.zone}: ${ZONE_INFO[city.zone as keyof typeof ZONE_INFO].name}</span><br/>
+            <span style="color: #888; font-size: 12px;">${city.province}</span>
+          </div>
+        `);
 
-        map.current!.addLayer({
-          id: `zone-${zone}-outline`,
-          type: "line",
-          source: "zones",
-          filter: ["==", ["get", "zone"], zone],
-          paint: {
-            "line-color": color,
-            "line-width": selectedZone === zone ? 3 : 1.5,
-          },
-        });
-      });
+        const marker = new mapboxgl.Marker(el)
+          .setLngLat(city.coordinates)
+          .setPopup(popup)
+          .addTo(map.current!);
 
-      // Add labels for zones
-      map.current.addLayer({
-        id: "zone-labels",
-        type: "symbol",
-        source: "zones",
-        layout: {
-          "text-field": ["concat", "Zone ", ["get", "zone"]],
-          "text-size": 14,
-          "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
-        },
-        paint: {
-          "text-color": "#000000",
-          "text-halo-color": "#ffffff",
-          "text-halo-width": 2,
-        },
-      });
+        cityMarkers.current.push(marker);
 
-      // Add click handlers for all zone layers
-      Object.keys(ZONE_COLORS).forEach((zone) => {
-        map.current!.on("click", `zone-${zone}-fill`, (e) => {
-          if (e.features && e.features[0]) {
-            const clickedZone = e.features[0].properties?.zone;
-            if (clickedZone) {
-              onZoneSelect(clickedZone);
-            }
-          }
-        });
-
-        // Change cursor on hover
-        map.current!.on("mouseenter", `zone-${zone}-fill`, () => {
-          if (map.current) {
-            map.current.getCanvas().style.cursor = "pointer";
-          }
-        });
-
-        map.current!.on("mouseleave", `zone-${zone}-fill`, () => {
-          if (map.current) {
-            map.current.getCanvas().style.cursor = "";
-          }
+        // Click handler to select zone
+        el.addEventListener('click', () => {
+          onZoneSelect(city.zone);
+          toast({
+            title: "City Selected",
+            description: `${city.city} is in ${ZONE_INFO[city.zone as keyof typeof ZONE_INFO].name} (Zone ${city.zone})`,
+          });
         });
       });
     });
@@ -332,14 +179,14 @@ export const ClimaticZoneMap = ({ selectedZone, onZoneSelect }: ClimaticZoneMapP
       const coordinates = e.result.geometry.coordinates;
       const [lng, lat] = coordinates;
       
-      // Find which zone this coordinate belongs to
-      const zone = findZoneForCoordinate(lng, lat);
+      // Find closest city to this coordinate
+      const closestCity = findClosestCity(lng, lat);
       
-      if (zone) {
-        onZoneSelect(zone);
+      if (closestCity) {
+        onZoneSelect(closestCity.zone);
         toast({
-          title: "Zone Detected",
-          description: `${e.result.place_name} is in ${ZONE_INFO[zone as keyof typeof ZONE_INFO].name} (Zone ${zone})`,
+          title: "Zone Suggested",
+          description: `${e.result.place_name} is near ${closestCity.city} in ${ZONE_INFO[closestCity.zone as keyof typeof ZONE_INFO].name} (Zone ${closestCity.zone})`,
         });
         
         // Add a temporary marker at the searched location
@@ -349,16 +196,26 @@ export const ClimaticZoneMap = ({ selectedZone, onZoneSelect }: ClimaticZoneMapP
         
         // Remove marker after 5 seconds
         setTimeout(() => marker.remove(), 5000);
+        
+        // Fly to the location
+        map.current!.flyTo({
+          center: coordinates,
+          zoom: 8,
+          duration: 2000,
+        });
       } else {
         toast({
-          title: "Location Outside Zones",
-          description: `${e.result.place_name} is outside the defined climatic zones or not in South Africa.`,
+          title: "Location Not Found",
+          description: `Could not determine climatic zone for ${e.result.place_name}. Please select manually.`,
           variant: "destructive",
         });
       }
     });
 
     return () => {
+      // Cleanup markers
+      cityMarkers.current.forEach(marker => marker.remove());
+      cityMarkers.current = [];
       geocoder.current?.onRemove();
       map.current?.remove();
     };
@@ -371,23 +228,17 @@ export const ClimaticZoneMap = ({ selectedZone, onZoneSelect }: ClimaticZoneMapP
     map.current.setStyle(MAP_STYLES[mapStyle]);
   }, [mapStyle]);
 
-  // Update opacity when selected zone changes
+  // Toggle city markers visibility
   useEffect(() => {
-    if (!map.current || !map.current.isStyleLoaded()) return;
-
-    Object.keys(ZONE_COLORS).forEach((zone) => {
-      map.current!.setPaintProperty(
-        `zone-${zone}-fill`,
-        "fill-opacity",
-        selectedZone === zone ? 0.5 : 0.3
-      );
-      map.current!.setPaintProperty(
-        `zone-${zone}-outline`,
-        "line-width",
-        selectedZone === zone ? 3 : 1.5
-      );
+    cityMarkers.current.forEach(marker => {
+      const element = marker.getElement();
+      if (showCityMarkers) {
+        element.style.display = 'block';
+      } else {
+        element.style.display = 'none';
+      }
     });
-  }, [selectedZone]);
+  }, [showCityMarkers]);
 
   if (loading) {
     return (
@@ -413,33 +264,45 @@ export const ClimaticZoneMap = ({ selectedZone, onZoneSelect }: ClimaticZoneMapP
         <div ref={mapContainer} className="absolute inset-0" />
         
         {/* Map Style Switcher */}
-        <div className="absolute top-4 left-4 flex gap-2 z-10">
+        <div className="absolute top-4 left-4 flex flex-col gap-2 z-10">
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant={mapStyle === 'streets' ? 'default' : 'secondary'}
+              onClick={() => setMapStyle('streets')}
+              className="shadow-lg"
+            >
+              <Map className="h-4 w-4 mr-2" />
+              Streets
+            </Button>
+            <Button
+              size="sm"
+              variant={mapStyle === 'satellite' ? 'default' : 'secondary'}
+              onClick={() => setMapStyle('satellite')}
+              className="shadow-lg"
+            >
+              <Satellite className="h-4 w-4 mr-2" />
+              Satellite
+            </Button>
+            <Button
+              size="sm"
+              variant={mapStyle === 'terrain' ? 'default' : 'secondary'}
+              onClick={() => setMapStyle('terrain')}
+              className="shadow-lg"
+            >
+              <Mountain className="h-4 w-4 mr-2" />
+              Terrain
+            </Button>
+          </div>
+          
           <Button
             size="sm"
-            variant={mapStyle === 'streets' ? 'default' : 'secondary'}
-            onClick={() => setMapStyle('streets')}
+            variant={showCityMarkers ? 'default' : 'outline'}
+            onClick={() => setShowCityMarkers(!showCityMarkers)}
             className="shadow-lg"
           >
-            <Map className="h-4 w-4 mr-2" />
-            Streets
-          </Button>
-          <Button
-            size="sm"
-            variant={mapStyle === 'satellite' ? 'default' : 'secondary'}
-            onClick={() => setMapStyle('satellite')}
-            className="shadow-lg"
-          >
-            <Satellite className="h-4 w-4 mr-2" />
-            Satellite
-          </Button>
-          <Button
-            size="sm"
-            variant={mapStyle === 'terrain' ? 'default' : 'secondary'}
-            onClick={() => setMapStyle('terrain')}
-            className="shadow-lg"
-          >
-            <Mountain className="h-4 w-4 mr-2" />
-            Terrain
+            <MapPin className="h-4 w-4 mr-2" />
+            {showCityMarkers ? 'Hide' : 'Show'} Cities
           </Button>
         </div>
       </div>
@@ -475,13 +338,33 @@ export const ClimaticZoneMap = ({ selectedZone, onZoneSelect }: ClimaticZoneMapP
         ))}
       </div>
 
-      <div className="bg-muted/50 rounded-lg p-3 border border-border">
-        <p className="text-xs text-center text-muted-foreground mb-2">
-          <strong>SANS 204:</strong> Energy Efficiency in Buildings - Climatic Zones of South Africa
-        </p>
-        <p className="text-xs text-center text-muted-foreground">
-          Click on a zone on the map or select from the cards above to view detailed climate characteristics
-        </p>
+      <div className="bg-muted/50 rounded-lg p-4 border border-border space-y-3">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-semibold">
+            Official SANS 10400-XA Climatic Zones Reference
+          </p>
+          <Badge variant="outline">Regulatory Standard</Badge>
+        </div>
+        
+        <div className="relative rounded-lg overflow-hidden border-2 border-border">
+          <img 
+            src="/images/sans-10400-xa-official-map.png" 
+            alt="Official SANS 10400-XA Climatic Zones Map" 
+            className="w-full h-auto"
+          />
+        </div>
+        
+        <div className="text-xs text-muted-foreground space-y-1">
+          <p>
+            <strong>How to use:</strong> Search for your city in the map above, or click on city markers to identify your zone.
+          </p>
+          <p>
+            The interactive map includes {SA_CITIES_ZONES.length} major South African cities color-coded by climatic zone.
+          </p>
+          <p className="text-center pt-2">
+            Cross-reference with the official map above to verify your selection.
+          </p>
+        </div>
       </div>
     </div>
   );

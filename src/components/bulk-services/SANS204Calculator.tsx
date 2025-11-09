@@ -54,10 +54,11 @@ const SANS_204_TABLE = {
 
 const CLIMATIC_ZONES = [
   { value: "1", name: "Cold Interior", cities: "Johannesburg, Bloemfontein" },
-  { value: "2", name: "Hot Interior", cities: "Makhado, Nelspruit" },
-  { value: "3", name: "Temperate Coastal", cities: "Cape Town, Port Elizabeth" },
-  { value: "4", name: "Sub-tropical Coastal", cities: "East London, Durban" },
-  { value: "5", name: "Arid Interior", cities: "Upington, Kimberley" },
+  { value: "2", name: "Temperate Interior", cities: "Pretoria, Polokwane" },
+  { value: "3", name: "Hot Interior", cities: "Makhado, Nelspruit" },
+  { value: "4", name: "Temperate Coastal", cities: "Cape Town, Port Elizabeth" },
+  { value: "5", name: "Sub-tropical Coastal", cities: "Durban, East London" },
+  { value: "6", name: "Arid Interior", cities: "Kimberley, Upington" },
 ];
 
 export const SANS204Calculator = ({
