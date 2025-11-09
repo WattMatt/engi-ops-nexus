@@ -324,10 +324,11 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
             const zone = zones[data.row.index];
             const zoneColor = zone.zone_color || "#3b82f6";
             const rgb = hexToRgb(zoneColor);
-            const lightRgb = lightenColor(rgb);
+            const lightRgb = lightenColor(rgb, 0.7); // More visible color (was 0.85)
             
             data.cell.styles.fillColor = lightRgb as any;
             data.cell.styles.textColor = rgb as any;
+            data.cell.styles.fontStyle = 'bold';
           }
         },
       });
@@ -573,7 +574,7 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
                 if (tenant?.generator_zone_id === zone?.id && data.cell.text[0] !== "-") {
                   const zoneColor = zone.zone_color || "#3b82f6";
                   const rgb = hexToRgb(zoneColor);
-                  const lightRgb = lightenColor(rgb, 0.9);
+                  const lightRgb = lightenColor(rgb, 0.75); // More visible (was 0.9)
                   
                   data.cell.styles.fillColor = lightRgb as any;
                   data.cell.styles.textColor = rgb as any;
@@ -593,10 +594,11 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
                 const zone = zones[zoneIndex];
                 const zoneColor = zone?.zone_color || "#3b82f6";
                 const rgb = hexToRgb(zoneColor);
-                const lightRgb = lightenColor(rgb, 0.8);
+                const lightRgb = lightenColor(rgb, 0.65); // More visible (was 0.8)
                 
                 data.cell.styles.fillColor = lightRgb as any;
                 data.cell.styles.textColor = rgb as any;
+                data.cell.styles.fontStyle = 'bold';
               } else {
                 data.cell.styles.fillColor = [240, 240, 255];
               }
@@ -976,10 +978,11 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
               const zone = zones.find(z => z.id === gen?.zoneId);
               const zoneColor = zone?.zone_color || "#3b82f6";
               const rgb = hexToRgb(zoneColor);
-              const lightRgb = lightenColor(rgb, 0.9);
+              const lightRgb = lightenColor(rgb, 0.75); // More visible (was 0.9)
               
               data.cell.styles.fillColor = lightRgb as any;
               data.cell.styles.textColor = rgb as any;
+              data.cell.styles.fontStyle = 'bold';
             } else {
               data.cell.styles.fillColor = [248, 248, 248];
               data.cell.styles.fontStyle = 'bold';
@@ -997,10 +1000,11 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
               const zone = zones.find(z => z.id === gen?.zoneId);
               const zoneColor = zone?.zone_color || "#3b82f6";
               const rgb = hexToRgb(zoneColor);
-              const lightRgb = lightenColor(rgb, 0.85);
+              const lightRgb = lightenColor(rgb, 0.65); // More visible (was 0.85)
               
               data.cell.styles.fillColor = lightRgb as any;
               data.cell.styles.textColor = rgb as any;
+              data.cell.styles.fontStyle = 'bold';
             } else {
               data.cell.styles.fillColor = [255, 250, 240];
             }
