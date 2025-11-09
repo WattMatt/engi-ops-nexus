@@ -398,30 +398,40 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100, 100, 100);
     
-    // Draw legend with colored circles
+    // Draw legend with checkbox examples
     const legendY = 32;
     const legendX = 20;
     
-    // Completed circle
-    doc.setFillColor(34, 197, 94); // Green
-    doc.circle(legendX + 3, legendY - 2, 3, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "bold");
-    doc.text("✓", legendX + 3, legendY + 0.5, { align: 'center' });
+    // Completed checkbox - filled green square with white check
+    doc.setFillColor(34, 197, 94); // Green fill
+    doc.rect(legendX, legendY - 4, 7, 7, 'F');
+    doc.setDrawColor(34, 197, 94);
+    doc.setLineWidth(0.5);
+    doc.rect(legendX, legendY - 4, 7, 7, 'S');
+    
+    // Draw white checkmark
+    doc.setDrawColor(255, 255, 255);
+    doc.setLineWidth(1.2);
+    doc.line(legendX + 1.5, legendY, legendX + 2.8, legendY + 2);
+    doc.line(legendX + 2.8, legendY + 2, legendX + 5.5, legendY - 2);
     
     doc.setTextColor(100, 100, 100);
     doc.setFont("helvetica", "normal");
     doc.text("= Completed/Received", legendX + 10, legendY);
     
-    // Pending circle
+    // Pending checkbox - empty square with red X
     const pendingX = legendX + 80;
-    doc.setFillColor(239, 68, 68); // Red
-    doc.circle(pendingX + 3, legendY - 2, 3, 'F');
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "bold");
-    doc.text("✗", pendingX + 3, legendY + 0.5, { align: 'center' });
+    doc.setFillColor(255, 255, 255); // White fill
+    doc.rect(pendingX, legendY - 4, 7, 7, 'F');
+    doc.setDrawColor(239, 68, 68); // Red border
+    doc.setLineWidth(0.5);
+    doc.rect(pendingX, legendY - 4, 7, 7, 'S');
+    
+    // Draw red X
+    doc.setDrawColor(239, 68, 68);
+    doc.setLineWidth(1.2);
+    doc.line(pendingX + 1.5, legendY - 3, pendingX + 5.5, legendY + 1);
+    doc.line(pendingX + 5.5, legendY - 3, pendingX + 1.5, legendY + 1);
     
     doc.setTextColor(100, 100, 100);
     doc.setFont("helvetica", "normal");
@@ -615,31 +625,46 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
         }
       },
       didDrawCell: (data) => {
-        // Custom rendering for checkbox cells with colored backgrounds
+        // Custom rendering for checkbox cells
         const key = fieldKeys[data.column.index];
         if (['sowReceived', 'layoutReceived', 'dbOrdered', 'lightingOrdered'].includes(key) && data.section === 'body') {
           const cellValue = data.cell.raw as string;
           if (cellValue === '✓' || cellValue === '✗') {
             const isChecked = cellValue === '✓';
             
-            // Calculate center position for the circle
+            // Calculate center position for the checkbox
             const centerX = data.cell.x + data.cell.width / 2;
             const centerY = data.cell.y + data.cell.height / 2;
-            const radius = 3.5;
+            const boxSize = 6;
+            const halfBox = boxSize / 2;
             
-            // Draw colored circle background
             if (isChecked) {
+              // Draw filled green square
               doc.setFillColor(34, 197, 94); // Green
+              doc.rect(centerX - halfBox, centerY - halfBox, boxSize, boxSize, 'F');
+              doc.setDrawColor(34, 197, 94);
+              doc.setLineWidth(0.4);
+              doc.rect(centerX - halfBox, centerY - halfBox, boxSize, boxSize, 'S');
+              
+              // Draw white checkmark
+              doc.setDrawColor(255, 255, 255);
+              doc.setLineWidth(1);
+              doc.line(centerX - 2, centerY, centerX - 0.5, centerY + 1.5);
+              doc.line(centerX - 0.5, centerY + 1.5, centerX + 2, centerY - 1.5);
             } else {
-              doc.setFillColor(239, 68, 68); // Red
+              // Draw white square with red border
+              doc.setFillColor(255, 255, 255);
+              doc.rect(centerX - halfBox, centerY - halfBox, boxSize, boxSize, 'F');
+              doc.setDrawColor(239, 68, 68); // Red
+              doc.setLineWidth(0.4);
+              doc.rect(centerX - halfBox, centerY - halfBox, boxSize, boxSize, 'S');
+              
+              // Draw red X
+              doc.setDrawColor(239, 68, 68);
+              doc.setLineWidth(1);
+              doc.line(centerX - 2, centerY - 2, centerX + 2, centerY + 2);
+              doc.line(centerX + 2, centerY - 2, centerX - 2, centerY + 2);
             }
-            doc.circle(centerX, centerY, radius, 'F');
-            
-            // Draw white symbol on top
-            doc.setTextColor(255, 255, 255);
-            doc.setFontSize(10);
-            doc.setFont("helvetica", "bold");
-            doc.text(cellValue, centerX, centerY + 2.8, { align: 'center' });
           }
         }
       },
