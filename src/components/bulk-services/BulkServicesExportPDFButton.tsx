@@ -71,7 +71,7 @@ export function BulkServicesExportPDFButton({ documentId, onReportSaved }: BulkS
         .eq("document_id", documentId)
         .order("generated_at", { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       let nextRevision = "Rev.0";
       if (latestReport?.revision) {
