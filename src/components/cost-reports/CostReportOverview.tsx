@@ -3,6 +3,7 @@ import { format } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { DollarSign, TrendingDown, TrendingUp } from "lucide-react";
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 
 interface CostReportOverviewProps {
   report: any;
@@ -81,6 +82,21 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
   const totalAnticipatedFinal = categoriesAnticipatedTotal + totalVariations;
   const totalVariance = totalAnticipatedFinal - totalOriginalBudget;
 
+  // Prepare chart data
+  const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D', '#FFC658', '#FF6B9D'];
+  
+  const distributionChartData = categoryTotals.map((cat, index) => ({
+    name: `${cat.code} - ${cat.description}`,
+    value: cat.anticipatedFinal,
+    color: COLORS[index % COLORS.length]
+  }));
+
+  const varianceChartData = categoryTotals.map((cat) => ({
+    name: cat.code,
+    saving: cat.originalVariance < 0 ? Math.abs(cat.originalVariance) : 0,
+    extra: cat.originalVariance >= 0 ? cat.originalVariance : 0,
+  }));
+
   return (
     <div className="space-y-4">
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -133,6 +149,64 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Visual Charts */}
+      {categoryTotals.length > 0 && (
+        <div className="grid gap-4 md:grid-cols-2">
+          {/* Category Distribution Chart */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Category Distribution (Anticipated Final)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <PieChart>
+                  <Pie
+                    data={distributionChartData}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name.split(' - ')[0]}: ${(percent * 100).toFixed(0)}%`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {distributionChartData.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={entry.color} />
+                    ))}
+                  </Pie>
+                  <Tooltip 
+                    formatter={(value: number) => `R${value.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`}
+                  />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
+          {/* Variance Trends Chart */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Variance by Category</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={varianceChartData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis />
+                  <Tooltip 
+                    formatter={(value: number) => `R${value.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`}
+                  />
+                  <Legend />
+                  <Bar dataKey="saving" fill="#22c55e" name="Savings" />
+                  <Bar dataKey="extra" fill="#ef4444" name="Extras" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+        </div>
+      )}
 
       {/* Category Breakdown */}
       {categoryTotals.length > 0 && (
