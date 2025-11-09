@@ -190,6 +190,10 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["running-recovery-settings-all"] });
+      queryClient.invalidateQueries({ queryKey: ["running-recovery-settings", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["running-recovery-settings-overview", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["generator-zones-overview", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["tenants-overview", projectId] });
       toast.success("Settings saved successfully");
       setIsEditing(false);
     },
