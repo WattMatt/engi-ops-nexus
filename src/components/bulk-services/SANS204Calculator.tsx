@@ -1,4 +1,6 @@
 import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
   DialogContent,
@@ -16,8 +18,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calculator, CheckCircle2 } from "lucide-react";
+import { Calculator, CheckCircle2, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { toast } from "sonner";
 
 interface SANS204CalculatorProps {
   open: boolean;
@@ -61,6 +64,8 @@ export const SANS204Calculator = ({
   onApplyValues,
   initialValues,
 }: SANS204CalculatorProps) => {
+  const projectId = localStorage.getItem("selectedProjectId");
+  
   const [projectArea, setProjectArea] = useState(initialValues?.project_area?.toString() || "");
   const [buildingClass, setBuildingClass] = useState<keyof typeof SANS_204_TABLE>("F1");
   const [climaticZone, setClimaticZone] = useState(initialValues?.climatic_zone || "1");
@@ -72,6 +77,37 @@ export const SANS204Calculator = ({
     totalConnectedLoad: 0,
     maximumDemand: 0,
   });
+
+  // Fetch total area from tenant tracker
+  const { data: tenantData, refetch: refetchTenants } = useQuery({
+    queryKey: ["tenant-total-area", projectId],
+    queryFn: async () => {
+      if (!projectId) return null;
+
+      const { data, error } = await supabase
+        .from("tenants")
+        .select("area")
+        .eq("project_id", projectId);
+
+      if (error) throw error;
+
+      const totalArea = data?.reduce((sum, tenant) => sum + (tenant.area || 0), 0) || 0;
+      return {
+        totalArea: Math.round(totalArea * 100) / 100,
+        tenantCount: data?.length || 0,
+      };
+    },
+    enabled: !!projectId && open,
+  });
+
+  const loadTenantArea = () => {
+    if (tenantData?.totalArea) {
+      setProjectArea(tenantData.totalArea.toString());
+      toast.success(`Loaded ${tenantData.totalArea} m² from ${tenantData.tenantCount} tenants`);
+    } else {
+      toast.error("No tenant area data found");
+    }
+  };
 
   useEffect(() => {
     calculateLoads();
@@ -131,7 +167,21 @@ export const SANS204Calculator = ({
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Project Area (m²)</Label>
+                  <div className="flex items-center justify-between">
+                    <Label>Project Area (m²)</Label>
+                    {tenantData && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={loadTenantArea}
+                        className="h-6 text-xs"
+                      >
+                        <RefreshCw className="h-3 w-3 mr-1" />
+                        Load from Tenants
+                      </Button>
+                    )}
+                  </div>
                   <Input
                     type="number"
                     step="0.01"
@@ -139,6 +189,11 @@ export const SANS204Calculator = ({
                     onChange={(e) => setProjectArea(e.target.value)}
                     placeholder="23814"
                   />
+                  {tenantData && (
+                    <p className="text-xs text-muted-foreground">
+                      Tenant tracker total: {tenantData.totalArea.toLocaleString()} m² ({tenantData.tenantCount} tenants)
+                    </p>
+                  )}
                 </div>
 
                 <div className="space-y-2">
