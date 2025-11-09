@@ -76,6 +76,7 @@ export const SANS204Calculator = ({
     initialValues?.diversity_factor?.toString() || "0.75"
   );
   const [showHeatMap, setShowHeatMap] = useState(true);
+  const [showPercentages, setShowPercentages] = useState(false);
   const [calculatedValues, setCalculatedValues] = useState({
     vaPerSqm: 90,
     totalConnectedLoad: 0,
@@ -100,6 +101,15 @@ export const SANS204Calculator = ({
     } else {
       return "bg-red-100 dark:bg-red-950/30";
     }
+  };
+
+  // Calculate percentage difference from minimum value for each building type
+  const getPercentageDiff = (buildingType: keyof typeof SANS_204_TABLE, zoneIdx: number) => {
+    const zones = SANS_204_TABLE[buildingType].zones;
+    const minValue = Math.min(...zones);
+    const currentValue = zones[zoneIdx];
+    const diff = ((currentValue - minValue) / minValue) * 100;
+    return diff;
   };
 
   // Fetch total area from tenant tracker
@@ -297,15 +307,27 @@ export const SANS204Calculator = ({
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
               <CardTitle className="text-base">SANS 204 Table 1 - Complete Zone Comparison (VA/m²)</CardTitle>
-              <div className="flex items-center gap-2">
-                <Label htmlFor="heatmap-toggle" className="text-xs cursor-pointer">Heat Map</Label>
-                <input
-                  id="heatmap-toggle"
-                  type="checkbox"
-                  checked={showHeatMap}
-                  onChange={(e) => setShowHeatMap(e.target.checked)}
-                  className="h-4 w-4 cursor-pointer"
-                />
+              <div className="flex items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="percentage-toggle" className="text-xs cursor-pointer">% Difference</Label>
+                  <input
+                    id="percentage-toggle"
+                    type="checkbox"
+                    checked={showPercentages}
+                    onChange={(e) => setShowPercentages(e.target.checked)}
+                    className="h-4 w-4 cursor-pointer"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="heatmap-toggle" className="text-xs cursor-pointer">Heat Map</Label>
+                  <input
+                    id="heatmap-toggle"
+                    type="checkbox"
+                    checked={showHeatMap}
+                    onChange={(e) => setShowHeatMap(e.target.checked)}
+                    className="h-4 w-4 cursor-pointer"
+                  />
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -336,6 +358,8 @@ export const SANS204Calculator = ({
                         {value.zones.map((va, zoneIdx) => {
                           const isSelected = parseInt(climaticZone) === zoneIdx + 1 && buildingClass === key;
                           const heatMapClass = isSelected ? "" : getHeatMapColor(va);
+                          const percentDiff = getPercentageDiff(key as keyof typeof SANS_204_TABLE, zoneIdx);
+                          const isMinValue = percentDiff === 0;
                           
                           return (
                             <td 
@@ -346,7 +370,20 @@ export const SANS204Calculator = ({
                                   : heatMapClass
                               }`}
                             >
-                              {va}
+                              <div className="flex flex-col items-center gap-0.5">
+                                <span>{va}</span>
+                                {showPercentages && (
+                                  <span className={`text-[10px] ${
+                                    isSelected 
+                                      ? "text-primary-foreground/80" 
+                                      : isMinValue 
+                                        ? "text-green-600 dark:text-green-400 font-semibold" 
+                                        : "text-muted-foreground"
+                                  }`}>
+                                    {isMinValue ? "BASE" : `+${percentDiff.toFixed(1)}%`}
+                                  </span>
+                                )}
+                              </div>
                             </td>
                           );
                         })}
@@ -356,23 +393,34 @@ export const SANS204Calculator = ({
                 </table>
               </div>
               
-              {/* Heat Map Legend */}
-              {showHeatMap && (
-                <div className="mt-4 flex items-center justify-center gap-6 text-xs">
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded bg-green-100 dark:bg-green-950/30 border"></div>
-                    <span className="text-muted-foreground">Low ({minVa}-{minVa + Math.floor((maxVa - minVa) / 3)} VA/m²)</span>
+              {/* Legends */}
+              <div className="mt-4 space-y-2">
+                {showHeatMap && (
+                  <div className="flex items-center justify-center gap-6 text-xs">
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 rounded bg-green-100 dark:bg-green-950/30 border"></div>
+                      <span className="text-muted-foreground">Low ({minVa}-{minVa + Math.floor((maxVa - minVa) / 3)} VA/m²)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 rounded bg-yellow-100 dark:bg-yellow-950/30 border"></div>
+                      <span className="text-muted-foreground">Medium ({minVa + Math.floor((maxVa - minVa) / 3) + 1}-{minVa + Math.floor((maxVa - minVa) * 2 / 3)} VA/m²)</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 rounded bg-red-100 dark:bg-red-950/30 border"></div>
+                      <span className="text-muted-foreground">High ({minVa + Math.floor((maxVa - minVa) * 2 / 3) + 1}-{maxVa} VA/m²)</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded bg-yellow-100 dark:bg-yellow-950/30 border"></div>
-                    <span className="text-muted-foreground">Medium ({minVa + Math.floor((maxVa - minVa) / 3) + 1}-{minVa + Math.floor((maxVa - minVa) * 2 / 3)} VA/m²)</span>
+                )}
+                
+                {showPercentages && (
+                  <div className="flex items-center justify-center text-xs text-muted-foreground">
+                    <p>
+                      <span className="text-green-600 dark:text-green-400 font-semibold">BASE</span> = Lowest VA/m² for each building type | 
+                      <span className="ml-2">Percentages show increase from base value</span>
+                    </p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded bg-red-100 dark:bg-red-950/30 border"></div>
-                    <span className="text-muted-foreground">High ({minVa + Math.floor((maxVa - minVa) * 2 / 3) + 1}-{maxVa} VA/m²)</span>
-                  </div>
-                </div>
-              )}
+                )}
+              </div>
               
               <div className="mt-3 text-xs text-muted-foreground">
                 <p>Your selection: <span className="font-medium">{buildingClass} - {SANS_204_TABLE[buildingClass].name}</span> in <span className="font-medium">Zone {climaticZone}</span> = <span className="font-medium text-primary">{calculatedValues.vaPerSqm} VA/m²</span></p>
