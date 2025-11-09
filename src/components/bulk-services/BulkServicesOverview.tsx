@@ -9,6 +9,7 @@ import { BulkServicesExportPDFButton } from "./BulkServicesExportPDFButton";
 import { BulkServicesSavedReportsList } from "./BulkServicesSavedReportsList";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState } from "react";
+import { BulkServicesSettingsOverview } from "./BulkServicesSettingsOverview";
 
 interface BulkServicesOverviewProps {
   documentId: string;
@@ -75,12 +76,20 @@ export const BulkServicesOverview = ({ documentId, onBack }: BulkServicesOvervie
         />
       </div>
 
-      <Tabs defaultValue="details" className="w-full">
-        <TabsList className="grid w-full grid-cols-3">
+      <Tabs defaultValue="overview" className="w-full">
+        <TabsList className="grid w-full grid-cols-4">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="details">Details</TabsTrigger>
           <TabsTrigger value="sections">Sections</TabsTrigger>
           <TabsTrigger value="saved-reports">Saved Reports</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="overview" className="space-y-4">
+          <BulkServicesSettingsOverview
+            documentId={documentId}
+            currentCalculationType={document?.building_calculation_type}
+          />
+        </TabsContent>
 
         <TabsContent value="details" className="space-y-4">
           <Card>
