@@ -215,36 +215,55 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
             <CardTitle>Category Breakdown</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {categoryTotals.map((cat) => (
-                <div key={cat.id} className="flex items-center justify-between py-2 border-b last:border-0">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">{cat.code}</span>
-                      <span className="text-sm text-muted-foreground">{cat.description}</span>
-                    </div>
-                  </div>
-                  <div className="flex gap-6 items-center">
-                    <div className="text-right min-w-[120px]">
-                      <div className="text-xs text-muted-foreground">Budget</div>
-                      <div className="font-mono text-sm">
-                        R{cat.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {categoryTotals.map((cat, index) => (
+                <Card key={cat.id} className="border-l-4" style={{ borderLeftColor: COLORS[index % COLORS.length] }}>
+                  <CardContent className="p-4">
+                    <div className="space-y-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="flex items-center justify-center w-8 h-8 rounded-md text-white font-bold text-sm"
+                            style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                          >
+                            {cat.code}
+                          </div>
+                          <div>
+                            <h4 className="font-medium text-sm leading-tight">{cat.description}</h4>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="flex justify-between items-baseline">
+                          <span className="text-xs text-muted-foreground">Original Budget</span>
+                          <span className="font-mono text-sm font-medium">
+                            R{cat.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                        
+                        <div className="flex justify-between items-baseline">
+                          <span className="text-xs text-muted-foreground">Anticipated Final</span>
+                          <span className="font-mono text-sm font-medium">
+                            R{cat.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                          </span>
+                        </div>
+                        
+                        <div className="pt-2 border-t">
+                          <div className="flex justify-between items-baseline">
+                            <span className="text-xs font-medium">Variance</span>
+                            <span className={`font-mono text-sm font-bold ${cat.originalVariance < 0 ? 'text-green-600' : 'text-red-600'}`}>
+                              {cat.originalVariance < 0 ? '-' : '+'}R{Math.abs(cat.originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                            </span>
+                          </div>
+                          <div className="text-xs text-muted-foreground text-right mt-1">
+                            {cat.originalVariance < 0 ? 'Saving' : 'Extra'}
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    <div className="text-right min-w-[120px]">
-                      <div className="text-xs text-muted-foreground">Anticipated</div>
-                      <div className="font-mono text-sm">
-                        R{cat.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
-                      </div>
-                    </div>
-                    <div className="text-right min-w-[120px]">
-                      <div className="text-xs text-muted-foreground">Variance</div>
-                      <div className={`font-mono text-sm font-semibold ${cat.originalVariance < 0 ? 'text-green-600' : 'text-red-600'}`}>
-                        {cat.originalVariance < 0 ? '-' : '+'}R{Math.abs(cat.originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+                  </CardContent>
+                </Card>
               ))}
             </div>
           </CardContent>
