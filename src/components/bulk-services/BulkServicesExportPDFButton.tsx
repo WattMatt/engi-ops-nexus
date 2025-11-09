@@ -224,67 +224,212 @@ export function BulkServicesExportPDFButton({ documentId, onReportSaved }: BulkS
 
       yPos = (doc as any).lastAutoTable.finalY + 10;
 
-      // Statistics section
+      // Helper function to draw a statistic card
+      const drawStatCard = (
+        x: number,
+        y: number,
+        width: number,
+        height: number,
+        label: string,
+        value: string,
+        unit: string,
+        fillColor: [number, number, number],
+        borderColor: [number, number, number],
+        textColor: [number, number, number]
+      ) => {
+        // Draw background with rounded corners
+        doc.setFillColor(...fillColor);
+        doc.roundedRect(x, y, width, height, 2, 2, 'F');
+        
+        // Draw border
+        doc.setDrawColor(...borderColor);
+        doc.setLineWidth(0.5);
+        doc.roundedRect(x, y, width, height, 2, 2, 'S');
+        
+        // Draw label (top)
+        doc.setTextColor(100, 100, 100);
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "normal");
+        doc.text(label, x + width/2, y + 8, { align: 'center' });
+        
+        // Draw value (center, large)
+        doc.setTextColor(...textColor);
+        doc.setFontSize(20);
+        doc.setFont("helvetica", "bold");
+        doc.text(value, x + width/2, y + height/2 + 3, { align: 'center' });
+        
+        // Draw unit (bottom)
+        doc.setTextColor(100, 100, 100);
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "normal");
+        doc.text(unit, x + width/2, y + height - 6, { align: 'center' });
+        
+        // Reset colors
+        doc.setTextColor(0, 0, 0);
+        doc.setDrawColor(0, 0, 0);
+      };
+
+      // Helper function to draw a zone card
+      const drawZoneCard = (
+        x: number,
+        y: number,
+        width: number,
+        height: number,
+        zoneNum: string,
+        zoneName: string,
+        avg: string,
+        min: string,
+        max: string,
+        isSelected: boolean = false
+      ) => {
+        // Draw background
+        if (isSelected) {
+          doc.setFillColor(224, 242, 254);
+          doc.setDrawColor(59, 130, 246);
+          doc.setLineWidth(1);
+        } else {
+          doc.setFillColor(249, 250, 251);
+          doc.setDrawColor(229, 231, 235);
+          doc.setLineWidth(0.5);
+        }
+        doc.roundedRect(x, y, width, height, 2, 2, 'FD');
+        
+        // Zone header
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.text(`${zoneNum}`, x + 3, y + 6);
+        
+        doc.setFontSize(7);
+        doc.setFont("helvetica", "normal");
+        doc.text(zoneName, x + 3, y + 10);
+        
+        // Statistics (stacked)
+        doc.setFontSize(8);
+        const statsStartY = y + 16;
+        const lineHeight = 4;
+        
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(100, 100, 100);
+        doc.text("Avg:", x + 3, statsStartY);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0, 0, 0);
+        doc.text(avg, x + width - 3, statsStartY, { align: 'right' });
+        
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(100, 100, 100);
+        doc.text("Min:", x + 3, statsStartY + lineHeight);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(22, 163, 74);
+        doc.text(min, x + width - 3, statsStartY + lineHeight, { align: 'right' });
+        
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(100, 100, 100);
+        doc.text("Max:", x + 3, statsStartY + lineHeight * 2);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(220, 38, 38);
+        doc.text(max, x + width - 3, statsStartY + lineHeight * 2, { align: 'right' });
+        
+        // Reset
+        doc.setTextColor(0, 0, 0);
+        doc.setDrawColor(0, 0, 0);
+      };
+
+      // ========== OVERALL STATISTICS CARDS ==========
       doc.setFontSize(12);
       doc.setFont("helvetica", "bold");
-      doc.text("SANS 204 Summary Statistics", 14, yPos);
+      doc.text("Overall Statistics", 14, yPos);
       yPos += 8;
 
-      const statsData = [
-        ['Metric', 'Value'],
-        ['Overall Average', '82.6 VA/m²'],
-        ['Minimum Value', '75 VA/m²'],
-        ['Maximum Value', '95 VA/m²'],
-        ['Range', '20 VA/m² (27% variation)'],
+      const cardWidth = 60;
+      const cardHeight = 35;
+      const cardGap = 5;
+      const cardsStartX = 14;
+
+      // Average Card (Blue)
+      drawStatCard(
+        cardsStartX,
+        yPos,
+        cardWidth,
+        cardHeight,
+        "Average",
+        "82.6",
+        "VA/m²",
+        [224, 242, 254], // Light blue fill
+        [147, 197, 253], // Blue border
+        [37, 99, 235]    // Blue text
+      );
+
+      // Minimum Card (Green)
+      drawStatCard(
+        cardsStartX + cardWidth + cardGap,
+        yPos,
+        cardWidth,
+        cardHeight,
+        "Minimum",
+        "75",
+        "VA/m²",
+        [220, 252, 231], // Light green fill
+        [134, 239, 172], // Green border
+        [22, 163, 74]    // Green text
+      );
+
+      // Maximum Card (Red)
+      drawStatCard(
+        cardsStartX + (cardWidth + cardGap) * 2,
+        yPos,
+        cardWidth,
+        cardHeight,
+        "Maximum",
+        "95",
+        "VA/m²",
+        [254, 226, 226], // Light red fill
+        [252, 165, 165], // Red border
+        [220, 38, 38]    // Red text
+      );
+
+      yPos += cardHeight + 15;
+
+      // ========== ZONE STATISTICS GRID ==========
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("Zone Statistics", 14, yPos);
+      yPos += 8;
+
+      const zoneCardWidth = 60;
+      const zoneCardHeight = 30;
+      const zoneCardGap = 5;
+      const zonesStartX = 14;
+      const zonesPerRow = 3;
+
+      const zoneData = [
+        { num: "Zone 1", name: "Cold Interior", avg: "84.3", min: "80", max: "90" },
+        { num: "Zone 2", name: "Temp Interior", avg: "79.3", min: "75", max: "85" },
+        { num: "Zone 3", name: "Hot Interior", avg: "89.3", min: "85", max: "95" },
+        { num: "Zone 4", name: "Temp Coastal", avg: "79.3", min: "75", max: "85" },
+        { num: "Zone 5", name: "Sub-tropical", avg: "79.3", min: "75", max: "85" },
+        { num: "Zone 6", name: "Arid Interior", avg: "84.3", min: "80", max: "90" },
       ];
 
-      autoTable(doc, {
-        startY: yPos,
-        head: [statsData[0]],
-        body: statsData.slice(1),
-        theme: "striped",
-        headStyles: { fillColor: [41, 128, 185], fontSize: 9 },
-        styles: { fontSize: 9 },
-        columnStyles: {
-          0: { cellWidth: 80, fontStyle: 'bold' },
-          1: { cellWidth: 67, halign: 'right' },
-        },
-        margin: { left: 14, right: 14 },
+      // Determine selected zone based on document.climatic_zone
+      const selectedZoneNum = document.climatic_zone ? 
+        parseInt(document.climatic_zone.replace(/\D/g, '')) : null;
+
+      zoneData.forEach((zone, index) => {
+        const row = Math.floor(index / zonesPerRow);
+        const col = index % zonesPerRow;
+        const x = zonesStartX + col * (zoneCardWidth + zoneCardGap);
+        const y = yPos + row * (zoneCardHeight + zoneCardGap);
+        const zoneNum = parseInt(zone.num.replace(/\D/g, ''));
+        const isSelected = zoneNum === selectedZoneNum;
+
+        drawZoneCard(x, y, zoneCardWidth, zoneCardHeight, zone.num, zone.name, 
+          zone.avg, zone.min, zone.max, isSelected);
       });
 
-      yPos = (doc as any).lastAutoTable.finalY + 10;
+      yPos += Math.ceil(zoneData.length / zonesPerRow) * (zoneCardHeight + zoneCardGap) + 10;
 
-      // Zone-specific statistics
-      const zoneStatsData = [
-        ['Zone', 'Description', 'Average', 'Min', 'Max'],
-        ['Zone 1', 'Cold Interior', '84.3', '80', '90'],
-        ['Zone 2', 'Temp Interior', '79.3', '75', '85'],
-        ['Zone 3', 'Hot Interior', '89.3', '85', '95'],
-        ['Zone 4', 'Temp Coastal', '79.3', '75', '85'],
-        ['Zone 5', 'Sub-tropical', '79.3', '75', '85'],
-        ['Zone 6', 'Arid Interior', '84.3', '80', '90'],
-      ];
-
-      autoTable(doc, {
-        startY: yPos,
-        head: [zoneStatsData[0]],
-        body: zoneStatsData.slice(1),
-        theme: "grid",
-        headStyles: { fillColor: [41, 128, 185], fontSize: 8 },
-        styles: { fontSize: 8 },
-        columnStyles: {
-          0: { cellWidth: 20, halign: 'center', fontStyle: 'bold' },
-          1: { cellWidth: 50 },
-          2: { cellWidth: 25, halign: 'center' },
-          3: { cellWidth: 20, halign: 'center' },
-          4: { cellWidth: 20, halign: 'center' },
-        },
-        margin: { left: 14, right: 14 },
-      });
-
-      yPos = (doc as any).lastAutoTable.finalY + 10;
-
-      // Key Insights
+      // ========== KEY INSIGHTS ==========
       if (yPos > 240) {
         doc.addPage();
         yPos = 20;
@@ -295,8 +440,6 @@ export function BulkServicesExportPDFButton({ documentId, onReportSaved }: BulkS
       doc.text("Key Insights", 14, yPos);
       yPos += 8;
 
-      doc.setFontSize(9);
-      doc.setFont("helvetica", "normal");
       const insights = [
         '• The range across all zones and building types is 20 VA/m² (27% variation)',
         '• Hot interior zones (Zone 3) require the highest loads due to cooling requirements',
@@ -304,11 +447,36 @@ export function BulkServicesExportPDFButton({ documentId, onReportSaved }: BulkS
         `• Your selected configuration requires ${document.va_per_sqm || '90'} VA/m² in ${document.climatic_zone || 'Zone 1'}`,
       ];
 
+      // Calculate box height based on content
+      const insightsBoxPadding = 6;
+      const insightLineHeight = 5;
+      let totalInsightHeight = insightsBoxPadding;
       insights.forEach(insight => {
-        const splitText = doc.splitTextToSize(insight, 180);
-        doc.text(splitText, 14, yPos);
-        yPos += splitText.length * 5 + 2;
+        const splitText = doc.splitTextToSize(insight, 180 - insightsBoxPadding * 2);
+        totalInsightHeight += splitText.length * insightLineHeight + 2;
       });
+      totalInsightHeight += insightsBoxPadding;
+
+      // Draw background box for insights
+      doc.setFillColor(245, 247, 250);
+      doc.setDrawColor(229, 231, 235);
+      doc.setLineWidth(0.5);
+      doc.roundedRect(14, yPos, 180, totalInsightHeight, 2, 2, 'FD');
+
+      yPos += insightsBoxPadding + 4;
+
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(30, 41, 59);
+
+      insights.forEach(insight => {
+        const splitText = doc.splitTextToSize(insight, 180 - insightsBoxPadding * 2);
+        doc.text(splitText, 14 + insightsBoxPadding, yPos);
+        yPos += splitText.length * insightLineHeight + 2;
+      });
+
+      doc.setTextColor(0, 0, 0);
+      yPos += insightsBoxPadding;
 
       // Calculation breakdown if data available
       if (document.project_area && document.va_per_sqm) {
