@@ -85,12 +85,12 @@ export const SANS204Calculator = ({
     maximumDemand: 0,
   });
 
-  // Residential calculator state
-  const [numUnits, setNumUnits] = useState("1");
-  const [areaPerUnit, setAreaPerUnit] = useState("");
+  // Residential calculator state - Default values from standard form
+  const [numUnits, setNumUnits] = useState("6");
+  const [areaPerUnit, setAreaPerUnit] = useState("28");
   const [fittingLoads, setFittingLoads] = useState({
-    lamps: { qty: 9, load: 15, diversity: 0.5 },
-    plugs: { qty: 1, load: 5000, diversity: 0.5 },
+    lamps: { qty: 5, load: 15, diversity: 0.5 },
+    plugs: { qty: 1, load: 3000, diversity: 0.5 },
     geyser: { qty: 1, load: 2000, diversity: 1.0 },
     stove: { qty: 1, load: 2000, diversity: 0.5 },
     poolPump: { qty: 0, load: 1500, diversity: 1.0 },
