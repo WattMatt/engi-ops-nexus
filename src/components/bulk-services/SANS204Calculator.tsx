@@ -472,7 +472,7 @@ export const SANS204Calculator = ({
     const unitArea = parseFloat(areaPerUnit) || 0;
     const genDiv = parseFloat(generalDiversity) || 0.70;
 
-    // Calculate per-unit load
+    // Calculate per-unit load using fitting-based method
     const lampsLoad = fittingLoads.lamps.qty * fittingLoads.lamps.load * fittingLoads.lamps.diversity;
     const plugsLoad = fittingLoads.plugs.qty * fittingLoads.plugs.load * fittingLoads.plugs.diversity;
     const geyserLoad = fittingLoads.geyser.qty * fittingLoads.geyser.load * fittingLoads.geyser.diversity;
@@ -498,6 +498,34 @@ export const SANS204Calculator = ({
 
     // Update project area to match calculation
     setProjectArea((totalArea).toString());
+  };
+
+  // Calculate SANS 10142 socket load for comparison
+  const calculateSANS10142SocketLoad = () => {
+    const units = parseFloat(numUnits) || 1;
+    const unitArea = parseFloat(areaPerUnit) || 0;
+    const genDiv = parseFloat(generalDiversity) || 0.70;
+
+    // SANS 10142 socket load calculation: varies by area
+    let socketLoadPerUnit = 0;
+    if (unitArea <= 30) {
+      socketLoadPerUnit = 3; // 3kW for units ≤30m²
+    } else if (unitArea <= 60) {
+      socketLoadPerUnit = 5; // 5kW for units 31-60m²
+    } else if (unitArea <= 100) {
+      socketLoadPerUnit = 7; // 7kW for units 61-100m²
+    } else {
+      socketLoadPerUnit = 7 + Math.ceil((unitArea - 100) / 50) * 2; // +2kW per 50m² above 100m²
+    }
+
+    const totalSocketLoad = socketLoadPerUnit * units;
+    const socketLoadAfterDiversity = totalSocketLoad * genDiv;
+
+    return {
+      perUnit: socketLoadPerUnit,
+      total: totalSocketLoad,
+      afterDiversity: Math.round(socketLoadAfterDiversity * 100) / 100,
+    };
   };
 
   const handleApply = () => {
@@ -823,6 +851,108 @@ export const SANS204Calculator = ({
                           </tr>
                         </tbody>
                       </table>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* SANS 10142 Socket Load Comparison */}
+              <Card className="border-blue-200 dark:border-blue-900">
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <CheckCircle2 className="h-5 w-5 text-blue-600" />
+                    SANS 10142 Socket Load Reference
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-4">
+                    <p className="text-sm text-muted-foreground">
+                      Comparison with SANS 10142 socket load method (for reference only)
+                    </p>
+                    
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-900">
+                        <p className="text-xs text-muted-foreground mb-1">Socket Load per Unit</p>
+                        <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                          {calculateSANS10142SocketLoad().perUnit} kW
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Based on {areaPerUnit || 0} m² unit
+                        </p>
+                      </div>
+                      
+                      <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-900">
+                        <p className="text-xs text-muted-foreground mb-1">Total Socket Load</p>
+                        <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                          {calculateSANS10142SocketLoad().total} kW
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {numUnits} units × {calculateSANS10142SocketLoad().perUnit}kW
+                        </p>
+                      </div>
+                      
+                      <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-900">
+                        <p className="text-xs text-muted-foreground mb-1">After Diversity ({generalDiversity})</p>
+                        <p className="text-xl font-bold text-blue-600 dark:text-blue-400">
+                          {calculateSANS10142SocketLoad().afterDiversity} kW
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Socket load method
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Comparison Table */}
+                    <div className="rounded-md border mt-4">
+                      <table className="w-full text-sm">
+                        <thead className="bg-muted">
+                          <tr>
+                            <th className="p-2 text-left">Method</th>
+                            <th className="p-2 text-center">Total Load</th>
+                            <th className="p-2 text-center">After Diversity</th>
+                            <th className="p-2 text-center">Difference</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr className="border-t bg-primary/5">
+                            <td className="p-2 font-medium">Fitting-Based (Used)</td>
+                            <td className="p-2 text-center">{calculatedValues.totalConnectedLoad} kVA</td>
+                            <td className="p-2 text-center font-bold text-primary">
+                              {calculatedValues.maximumDemand} kVA
+                            </td>
+                            <td className="p-2 text-center">-</td>
+                          </tr>
+                          <tr className="border-t">
+                            <td className="p-2 font-medium">SANS 10142 Socket Load (Reference)</td>
+                            <td className="p-2 text-center">{calculateSANS10142SocketLoad().total} kW</td>
+                            <td className="p-2 text-center font-bold text-blue-600 dark:text-blue-400">
+                              {calculateSANS10142SocketLoad().afterDiversity} kW
+                            </td>
+                            <td className="p-2 text-center">
+                              {calculatedValues.maximumDemand > 0 ? (
+                                <span className={
+                                  calculatedValues.maximumDemand > calculateSANS10142SocketLoad().afterDiversity
+                                    ? "text-red-600 dark:text-red-400"
+                                    : "text-green-600 dark:text-green-400"
+                                }>
+                                  {calculatedValues.maximumDemand > calculateSANS10142SocketLoad().afterDiversity ? "+" : ""}
+                                  {Math.round((calculatedValues.maximumDemand - calculateSANS10142SocketLoad().afterDiversity) * 100) / 100} kW
+                                </span>
+                              ) : "-"}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+
+                    <div className="p-3 bg-muted/50 rounded-lg text-xs">
+                      <p className="font-semibold mb-1">SANS 10142 Socket Load Calculation:</p>
+                      <ul className="space-y-1 text-muted-foreground">
+                        <li>• Units ≤30m²: 3kW socket load</li>
+                        <li>• Units 31-60m²: 5kW socket load</li>
+                        <li>• Units 61-100m²: 7kW socket load</li>
+                        <li>• Units &gt;100m²: 7kW + 2kW per additional 50m²</li>
+                      </ul>
                     </div>
                   </div>
                 </CardContent>
