@@ -1742,6 +1742,299 @@ export const SANS204Calculator = ({
                             </div>
                           </div>
 
+                          {/* Single-Line Diagram */}
+                          <div>
+                            <h4 className="text-sm font-semibold mb-3">Single-Line Diagram (SLD) - Protection Scheme</h4>
+                            <div className="p-6 bg-background rounded-lg border-2 border-border">
+                              <svg width="100%" height="700" viewBox="0 0 800 700" className="mx-auto">
+                                <defs>
+                                  {/* Breaker symbol definition */}
+                                  <g id="breaker">
+                                    <rect x="-15" y="-25" width="30" height="50" fill="none" stroke="currentColor" strokeWidth="2" />
+                                    <line x1="-15" y1="-10" x2="15" y2="10" stroke="currentColor" strokeWidth="2" />
+                                    <line x1="-15" y1="10" x2="15" y2="-10" stroke="currentColor" strokeWidth="2" />
+                                  </g>
+                                  
+                                  {/* Cable symbol */}
+                                  <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                                    <polygon points="0 0, 10 3, 0 6" fill="currentColor" />
+                                  </marker>
+                                </defs>
+
+                                {/* Title */}
+                                <text x="400" y="30" textAnchor="middle" className="fill-foreground font-bold text-lg">
+                                  Residential Distribution Protection Scheme
+                                </text>
+                                <text x="400" y="50" textAnchor="middle" className="fill-muted-foreground text-sm">
+                                  {units} Units ({unitsPerPhase} per phase) - 400V 3Ø + N System
+                                </text>
+
+                                {/* Utility Supply */}
+                                <g>
+                                  <circle cx="400" cy="90" r="20" fill="none" stroke="currentColor" strokeWidth="2" className="stroke-primary" />
+                                  <text x="400" y="95" textAnchor="middle" className="fill-primary font-bold">U</text>
+                                  <text x="400" y="130" textAnchor="middle" className="fill-foreground text-sm font-semibold">
+                                    Utility Supply
+                                  </text>
+                                  <text x="400" y="145" textAnchor="middle" className="fill-muted-foreground text-xs">
+                                    400V 3Ø 50Hz
+                                  </text>
+                                </g>
+
+                                {/* Line to Main Incomer */}
+                                <line x1="400" y1="110" x2="400" y2="180" stroke="currentColor" strokeWidth="3" className="stroke-foreground" />
+                                <text x="420" y="150" className="fill-muted-foreground text-xs">
+                                  L1, L2, L3, N
+                                </text>
+
+                                {/* Main Incomer Breaker */}
+                                <g transform="translate(400, 205)">
+                                  <use href="#breaker" className="stroke-primary" />
+                                  <rect x="-80" y="-45" width="160" height="90" fill="hsl(var(--primary) / 0.1)" stroke="hsl(var(--primary))" strokeWidth="2" rx="4" />
+                                  <text x="0" y="-55" textAnchor="middle" className="fill-primary font-bold text-sm">
+                                    MAIN INCOMER
+                                  </text>
+                                  <text x="0" y="50" textAnchor="middle" className="fill-foreground font-bold">
+                                    {mainBreaker.rating}A {mainBreaker.type}
+                                  </text>
+                                  <text x="0" y="65" textAnchor="middle" className="fill-muted-foreground text-xs">
+                                    {mainBreaker.tripCurve} | 3P+N | {mainIncomerCurrent.toFixed(0)}A design
+                                  </text>
+                                  <text x="0" y="78" textAnchor="middle" className="fill-muted-foreground text-xs">
+                                    Total: {total3PhaseKva.toFixed(1)} kVA
+                                  </text>
+                                </g>
+
+                                {/* Cables from Main to Sub-Dist */}
+                                <line x1="400" y1="280" x2="400" y2="320" stroke="currentColor" strokeWidth="3" className="stroke-foreground" />
+                                <rect x="350" y="295" width="100" height="30" fill="hsl(var(--background))" stroke="hsl(var(--border))" strokeWidth="1" rx="2" />
+                                <text x="400" y="310" textAnchor="middle" className="fill-foreground text-xs font-semibold">
+                                  {getCableSize(currentPerPhase)}
+                                </text>
+                                <text x="400" y="322" textAnchor="middle" className="fill-muted-foreground text-[10px]">
+                                  Cu, PVC, 4C
+                                </text>
+
+                                {/* Sub-Distribution Boards (3 phases) */}
+                                <g transform="translate(150, 390)">
+                                  <rect x="-70" y="-40" width="140" height="110" fill="hsl(var(--orange) / 0.1)" stroke="hsl(var(--orange))" strokeWidth="2" rx="4" className="fill-orange-50 dark:fill-orange-950/30 stroke-orange-600" />
+                                  <use href="#breaker" className="stroke-orange-600" />
+                                  <text x="0" y="-50" textAnchor="middle" className="fill-orange-600 dark:fill-orange-400 font-bold text-sm">
+                                    SUB-DIST L1
+                                  </text>
+                                  <text x="0" y="45" textAnchor="middle" className="fill-foreground font-bold text-sm">
+                                    {subDistBreaker.rating}A {subDistBreaker.type}
+                                  </text>
+                                  <text x="0" y="58" textAnchor="middle" className="fill-muted-foreground text-xs">
+                                    {subDistBreaker.tripCurve} | 3P
+                                  </text>
+                                  <text x="0" y="70" textAnchor="middle" className="fill-muted-foreground text-[10px]">
+                                    {currentPerPhase.toFixed(0)}A | {admdPerPhase.toFixed(1)} kVA
+                                  </text>
+                                </g>
+
+                                <g transform="translate(400, 390)">
+                                  <rect x="-70" y="-40" width="140" height="110" fill="hsl(var(--orange) / 0.1)" stroke="hsl(var(--orange))" strokeWidth="2" rx="4" className="fill-orange-50 dark:fill-orange-950/30 stroke-orange-600" />
+                                  <use href="#breaker" className="stroke-orange-600" />
+                                  <text x="0" y="-50" textAnchor="middle" className="fill-orange-600 dark:fill-orange-400 font-bold text-sm">
+                                    SUB-DIST L2
+                                  </text>
+                                  <text x="0" y="45" textAnchor="middle" className="fill-foreground font-bold text-sm">
+                                    {subDistBreaker.rating}A {subDistBreaker.type}
+                                  </text>
+                                  <text x="0" y="58" textAnchor="middle" className="fill-muted-foreground text-xs">
+                                    {subDistBreaker.tripCurve} | 3P
+                                  </text>
+                                  <text x="0" y="70" textAnchor="middle" className="fill-muted-foreground text-[10px]">
+                                    {currentPerPhase.toFixed(0)}A | {admdPerPhase.toFixed(1)} kVA
+                                  </text>
+                                </g>
+
+                                <g transform="translate(650, 390)">
+                                  <rect x="-70" y="-40" width="140" height="110" fill="hsl(var(--orange) / 0.1)" stroke="hsl(var(--orange))" strokeWidth="2" rx="4" className="fill-orange-50 dark:fill-orange-950/30 stroke-orange-600" />
+                                  <use href="#breaker" className="stroke-orange-600" />
+                                  <text x="0" y="-50" textAnchor="middle" className="fill-orange-600 dark:fill-orange-400 font-bold text-sm">
+                                    SUB-DIST L3
+                                  </text>
+                                  <text x="0" y="45" textAnchor="middle" className="fill-foreground font-bold text-sm">
+                                    {subDistBreaker.rating}A {subDistBreaker.type}
+                                  </text>
+                                  <text x="0" y="58" textAnchor="middle" className="fill-muted-foreground text-xs">
+                                    {subDistBreaker.tripCurve} | 3P
+                                  </text>
+                                  <text x="0" y="70" textAnchor="middle" className="fill-muted-foreground text-[10px]">
+                                    {currentPerPhase.toFixed(0)}A | {admdPerPhase.toFixed(1)} kVA
+                                  </text>
+                                </g>
+
+                                {/* Lines from Main to Sub-Dist */}
+                                <line x1="400" y1="320" x2="150" y2="350" stroke="currentColor" strokeWidth="2.5" className="stroke-foreground" />
+                                <line x1="400" y1="320" x2="400" y2="350" stroke="currentColor" strokeWidth="2.5" className="stroke-foreground" />
+                                <line x1="400" y1="320" x2="650" y2="350" stroke="currentColor" strokeWidth="2.5" className="stroke-foreground" />
+                                
+                                <text x="250" y="340" className="fill-red-600 dark:fill-red-400 text-xs font-semibold">L1</text>
+                                <text x="400" y="340" className="fill-yellow-600 dark:fill-yellow-400 text-xs font-semibold">L2</text>
+                                <text x="550" y="340" className="fill-blue-600 dark:fill-blue-400 text-xs font-semibold">L3</text>
+
+                                {/* Unit Breakers Level */}
+                                {/* L1 Units */}
+                                <g transform="translate(70, 540)">
+                                  <use href="#breaker" className="stroke-purple-600" />
+                                  <rect x="-25" y="-35" width="50" height="70" fill="hsl(var(--purple) / 0.1)" stroke="hsl(var(--purple))" strokeWidth="1.5" rx="2" className="fill-purple-50 dark:fill-purple-950/30 stroke-purple-600" />
+                                  <text x="0" y="50" textAnchor="middle" className="fill-purple-600 dark:fill-purple-400 font-bold text-xs">
+                                    {unitBreaker.rating}A
+                                  </text>
+                                  <text x="0" y="62" textAnchor="middle" className="fill-muted-foreground text-[9px]">
+                                    Unit 1
+                                  </text>
+                                </g>
+                                <g transform="translate(150, 540)">
+                                  <use href="#breaker" className="stroke-purple-600" />
+                                  <rect x="-25" y="-35" width="50" height="70" fill="hsl(var(--purple) / 0.1)" stroke="hsl(var(--purple))" strokeWidth="1.5" rx="2" className="fill-purple-50 dark:fill-purple-950/30 stroke-purple-600" />
+                                  <text x="0" y="50" textAnchor="middle" className="fill-purple-600 dark:fill-purple-400 font-bold text-xs">
+                                    {unitBreaker.rating}A
+                                  </text>
+                                  <text x="0" y="62" textAnchor="middle" className="fill-muted-foreground text-[9px]">
+                                    Unit 2
+                                  </text>
+                                </g>
+                                <g transform="translate(230, 540)">
+                                  <use href="#breaker" className="stroke-purple-600" />
+                                  <rect x="-25" y="-35" width="50" height="70" fill="hsl(var(--purple) / 0.1)" stroke="hsl(var(--purple))" strokeWidth="1.5" rx="2" className="fill-purple-50 dark:fill-purple-950/30 stroke-purple-600" />
+                                  <text x="0" y="50" textAnchor="middle" className="fill-purple-600 dark:fill-purple-400 font-bold text-xs">
+                                    {unitBreaker.rating}A
+                                  </text>
+                                  <text x="0" y="62" textAnchor="middle" className="fill-muted-foreground text-[9px]">
+                                    Unit ...
+                                  </text>
+                                </g>
+
+                                {/* L2 Units */}
+                                <g transform="translate(320, 540)">
+                                  <use href="#breaker" className="stroke-purple-600" />
+                                  <rect x="-25" y="-35" width="50" height="70" fill="hsl(var(--purple) / 0.1)" stroke="hsl(var(--purple))" strokeWidth="1.5" rx="2" className="fill-purple-50 dark:fill-purple-950/30 stroke-purple-600" />
+                                  <text x="0" y="50" textAnchor="middle" className="fill-purple-600 dark:fill-purple-400 font-bold text-xs">
+                                    {unitBreaker.rating}A
+                                  </text>
+                                  <text x="0" y="62" textAnchor="middle" className="fill-muted-foreground text-[9px]">
+                                    Unit ...
+                                  </text>
+                                </g>
+                                <g transform="translate(400, 540)">
+                                  <use href="#breaker" className="stroke-purple-600" />
+                                  <rect x="-25" y="-35" width="50" height="70" fill="hsl(var(--purple) / 0.1)" stroke="hsl(var(--purple))" strokeWidth="1.5" rx="2" className="fill-purple-50 dark:fill-purple-950/30 stroke-purple-600" />
+                                  <text x="0" y="50" textAnchor="middle" className="fill-purple-600 dark:fill-purple-400 font-bold text-xs">
+                                    {unitBreaker.rating}A
+                                  </text>
+                                  <text x="0" y="62" textAnchor="middle" className="fill-muted-foreground text-[9px]">
+                                    Unit ...
+                                  </text>
+                                </g>
+                                <g transform="translate(480, 540)">
+                                  <use href="#breaker" className="stroke-purple-600" />
+                                  <rect x="-25" y="-35" width="50" height="70" fill="hsl(var(--purple) / 0.1)" stroke="hsl(var(--purple))" strokeWidth="1.5" rx="2" className="fill-purple-50 dark:fill-purple-950/30 stroke-purple-600" />
+                                  <text x="0" y="50" textAnchor="middle" className="fill-purple-600 dark:fill-purple-400 font-bold text-xs">
+                                    {unitBreaker.rating}A
+                                  </text>
+                                  <text x="0" y="62" textAnchor="middle" className="fill-muted-foreground text-[9px]">
+                                    Unit ...
+                                  </text>
+                                </g>
+
+                                {/* L3 Units */}
+                                <g transform="translate(570, 540)">
+                                  <use href="#breaker" className="stroke-purple-600" />
+                                  <rect x="-25" y="-35" width="50" height="70" fill="hsl(var(--purple) / 0.1)" stroke="hsl(var(--purple))" strokeWidth="1.5" rx="2" className="fill-purple-50 dark:fill-purple-950/30 stroke-purple-600" />
+                                  <text x="0" y="50" textAnchor="middle" className="fill-purple-600 dark:fill-purple-400 font-bold text-xs">
+                                    {unitBreaker.rating}A
+                                  </text>
+                                  <text x="0" y="62" textAnchor="middle" className="fill-muted-foreground text-[9px]">
+                                    Unit ...
+                                  </text>
+                                </g>
+                                <g transform="translate(650, 540)">
+                                  <use href="#breaker" className="stroke-purple-600" />
+                                  <rect x="-25" y="-35" width="50" height="70" fill="hsl(var(--purple) / 0.1)" stroke="hsl(var(--purple))" strokeWidth="1.5" rx="2" className="fill-purple-50 dark:fill-purple-950/30 stroke-purple-600" />
+                                  <text x="0" y="50" textAnchor="middle" className="fill-purple-600 dark:fill-purple-400 font-bold text-xs">
+                                    {unitBreaker.rating}A
+                                  </text>
+                                  <text x="0" y="62" textAnchor="middle" className="fill-muted-foreground text-[9px]">
+                                    Unit ...
+                                  </text>
+                                </g>
+                                <g transform="translate(730, 540)">
+                                  <use href="#breaker" className="stroke-purple-600" />
+                                  <rect x="-25" y="-35" width="50" height="70" fill="hsl(var(--purple) / 0.1)" stroke="hsl(var(--purple))" strokeWidth="1.5" rx="2" className="fill-purple-50 dark:fill-purple-950/30 stroke-purple-600" />
+                                  <text x="0" y="50" textAnchor="middle" className="fill-purple-600 dark:fill-purple-400 font-bold text-xs">
+                                    {unitBreaker.rating}A
+                                  </text>
+                                  <text x="0" y="62" textAnchor="middle" className="fill-muted-foreground text-[9px]">
+                                    Unit {units}
+                                  </text>
+                                </g>
+
+                                {/* Lines from Sub-Dist to Units */}
+                                <line x1="150" y1="460" x2="70" y2="505" stroke="currentColor" strokeWidth="2" className="stroke-foreground" />
+                                <line x1="150" y1="460" x2="150" y2="505" stroke="currentColor" strokeWidth="2" className="stroke-foreground" />
+                                <line x1="150" y1="460" x2="230" y2="505" stroke="currentColor" strokeWidth="2" className="stroke-foreground" />
+
+                                <line x1="400" y1="460" x2="320" y2="505" stroke="currentColor" strokeWidth="2" className="stroke-foreground" />
+                                <line x1="400" y1="460" x2="400" y2="505" stroke="currentColor" strokeWidth="2" className="stroke-foreground" />
+                                <line x1="400" y1="460" x2="480" y2="505" stroke="currentColor" strokeWidth="2" className="stroke-foreground" />
+
+                                <line x1="650" y1="460" x2="570" y2="505" stroke="currentColor" strokeWidth="2" className="stroke-foreground" />
+                                <line x1="650" y1="460" x2="650" y2="505" stroke="currentColor" strokeWidth="2" className="stroke-foreground" />
+                                <line x1="650" y1="460" x2="730" y2="505" stroke="currentColor" strokeWidth="2" className="stroke-foreground" />
+
+                                {/* Cable labels to units */}
+                                <text x="150" y="485" textAnchor="middle" className="fill-muted-foreground text-[9px]">
+                                  {getCableSize(unitCurrent)}
+                                </text>
+                                <text x="400" y="485" textAnchor="middle" className="fill-muted-foreground text-[9px]">
+                                  {getCableSize(unitCurrent)}
+                                </text>
+                                <text x="650" y="485" textAnchor="middle" className="fill-muted-foreground text-[9px]">
+                                  {getCableSize(unitCurrent)}
+                                </text>
+
+                                {/* Load endpoints */}
+                                {[70, 150, 230, 320, 400, 480, 570, 650, 730].map((x) => (
+                                  <g key={x}>
+                                    <line x1={x} y1="605" x2={x} y2="640" stroke="currentColor" strokeWidth="2" className="stroke-foreground" />
+                                    <circle cx={x} cy="650" r="8" fill="none" stroke="currentColor" strokeWidth="2" className="stroke-foreground" />
+                                    <line x1={x-6} y1="650" x2={x+6} y2="650" stroke="currentColor" strokeWidth="2" className="stroke-foreground" />
+                                    <line x1={x-4} y1="656" x2={x+4} y2="656" stroke="currentColor" strokeWidth="2" className="stroke-foreground" />
+                                    <line x1={x-2} y1="662" x2={x+2} y2="662" stroke="currentColor" strokeWidth="2" className="stroke-foreground" />
+                                  </g>
+                                ))}
+
+                                <text x="400" y="685" textAnchor="middle" className="fill-muted-foreground text-sm font-semibold">
+                                  Dwelling Unit Loads ({totalPerUnitKva.toFixed(2)} kVA each)
+                                </text>
+
+                                {/* Legend */}
+                                <g transform="translate(50, 30)">
+                                  <rect x="0" y="0" width="200" height="90" fill="hsl(var(--muted))" stroke="hsl(var(--border))" strokeWidth="1" rx="4" />
+                                  <text x="10" y="20" className="fill-foreground font-semibold text-xs">Legend:</text>
+                                  <line x1="10" y1="35" x2="30" y2="35" stroke="currentColor" strokeWidth="3" className="stroke-foreground" />
+                                  <text x="40" y="39" className="fill-muted-foreground text-[10px]">Power Cable</text>
+                                  
+                                  <rect x="10" y="45" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" className="stroke-primary" />
+                                  <line x1="10" y1="50" x2="30" y2="60" stroke="currentColor" strokeWidth="2" className="stroke-primary" />
+                                  <text x="40" y="59" className="fill-muted-foreground text-[10px]">Circuit Breaker</text>
+                                  
+                                  <circle cx="20" cy="80" r="5" fill="none" stroke="currentColor" strokeWidth="2" className="stroke-foreground" />
+                                  <text x="40" y="84" className="fill-muted-foreground text-[10px]">Load Connection</text>
+                                </g>
+                              </svg>
+                            </div>
+                            <div className="mt-3 text-xs text-muted-foreground space-y-1">
+                              <p>• <strong>Configuration:</strong> 3-phase balanced distribution with {unitsPerPhase} units per phase</p>
+                              <p>• <strong>Discrimination ratios:</strong> Unit→Sub: {unitToSubDiscrimination.ratio.toFixed(2)}:1, Sub→Main: {subToMainDiscrimination.ratio.toFixed(2)}:1</p>
+                              <p>• <strong>Cable sizing:</strong> Based on {currentPerPhase.toFixed(0)}A per phase with SANS 10142-1 derating</p>
+                            </div>
+                          </div>
+
                           {/* Protection Coordination Notes */}
                           <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-900 text-xs">
                             <p className="font-semibold mb-2 text-blue-800 dark:text-blue-400">🛡️ Protection Coordination Requirements:</p>
