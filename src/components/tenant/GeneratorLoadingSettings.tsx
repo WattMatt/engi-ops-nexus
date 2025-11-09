@@ -4,11 +4,12 @@ import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
-import { Trash2, Plus, ChevronDown, ChevronRight, Pencil, Check, X } from "lucide-react";
+import { Trash2, Plus, ChevronDown, ChevronRight, Pencil, Check, X, Palette } from "lucide-react";
 import { GENERATOR_SIZING_TABLE } from "@/utils/generatorSizing";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
@@ -38,6 +39,20 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
   const [expandedZones, setExpandedZones] = useState<Set<string>>(new Set());
   const [editingZoneId, setEditingZoneId] = useState<string | null>(null);
   const [editingZoneName, setEditingZoneName] = useState("");
+
+  // Predefined color palette for zones
+  const zoneColors = [
+    { name: "Blue", value: "#3b82f6" },
+    { name: "Green", value: "#10b981" },
+    { name: "Purple", value: "#8b5cf6" },
+    { name: "Orange", value: "#f59e0b" },
+    { name: "Red", value: "#ef4444" },
+    { name: "Pink", value: "#ec4899" },
+    { name: "Teal", value: "#14b8a6" },
+    { name: "Indigo", value: "#6366f1" },
+    { name: "Cyan", value: "#06b6d4" },
+    { name: "Amber", value: "#f59e0b" },
+  ];
 
   const { data: existingSettings, isLoading } = useQuery({
     queryKey: ["generator-settings", projectId],
@@ -376,6 +391,22 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
     }
   };
 
+  const handleUpdateZoneColor = async (zoneId: string, color: string) => {
+    try {
+      const { error } = await supabase
+        .from("generator_zones")
+        .update({ zone_color: color })
+        .eq("id", zoneId);
+
+      if (error) throw error;
+      toast.success("Zone color updated");
+      refetchZones();
+    } catch (error) {
+      console.error("Error updating zone color:", error);
+      toast.error("Failed to update zone color");
+    }
+  };
+
   if (isLoading) {
     return <div>Loading settings...</div>;
   }
@@ -485,12 +516,55 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
               const generators = getZoneGenerators(zone.id);
               const isExpanded = expandedZones.has(zone.id);
               const totalCost = getZoneTotalCost(zone.id);
+              const zoneColor = zone.zone_color || "#3b82f6";
 
               return (
-                <Card key={zone.id}>
-                  <CardHeader className="pb-3">
+                <Card key={zone.id} className="relative overflow-hidden">
+                  {/* Color indicator bar */}
+                  <div 
+                    className="absolute top-0 left-0 w-1.5 h-full" 
+                    style={{ backgroundColor: zoneColor }}
+                  />
+                  <CardHeader className="pb-3 pl-6">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4 flex-1">
+                        <div className="flex items-center gap-2">
+                          {/* Color picker */}
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 w-8 p-0 border-2"
+                                style={{ borderColor: zoneColor }}
+                              >
+                                <div 
+                                  className="h-4 w-4 rounded-sm" 
+                                  style={{ backgroundColor: zoneColor }}
+                                />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-3" align="start">
+                              <div className="space-y-2">
+                                <p className="text-sm font-medium">Select Zone Color</p>
+                                <div className="grid grid-cols-5 gap-2">
+                                  {zoneColors.map((color) => (
+                                    <button
+                                      key={color.value}
+                                      className="h-8 w-8 rounded border-2 hover:scale-110 transition-transform"
+                                      style={{ 
+                                        backgroundColor: color.value,
+                                        borderColor: zoneColor === color.value ? "#000" : "transparent"
+                                      }}
+                                      onClick={() => handleUpdateZoneColor(zone.id, color.value)}
+                                      title={color.name}
+                                    />
+                                  ))}
+                                </div>
+                              </div>
+                            </PopoverContent>
+                          </Popover>
+                        </div>
                         <div className="min-w-0 flex-1">
                           <CardTitle className="text-lg">Zone {zone.zone_number}</CardTitle>
                           {editingZoneId === zone.id ? (
@@ -537,13 +611,13 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
                         <div className="flex items-center gap-6">
                           <div>
                             <p className="text-sm text-muted-foreground">Calculated Load</p>
-                            <p className="font-mono text-lg font-semibold text-primary">
+                            <p className="font-mono text-lg font-semibold" style={{ color: zoneColor }}>
                               {zoneLoading.toFixed(2)} kW
                             </p>
                           </div>
                           <div>
                             <p className="text-sm text-muted-foreground">Total Cost</p>
-                            <p className="font-mono text-lg font-semibold text-primary">
+                            <p className="font-mono text-lg font-semibold" style={{ color: zoneColor }}>
                               R {totalCost.toLocaleString()}
                             </p>
                           </div>

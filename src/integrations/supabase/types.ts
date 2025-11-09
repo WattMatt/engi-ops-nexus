@@ -2161,6 +2161,7 @@ export type Database = {
           num_generators: number | null
           project_id: string
           updated_at: string
+          zone_color: string | null
           zone_name: string
           zone_number: number
         }
@@ -2174,6 +2175,7 @@ export type Database = {
           num_generators?: number | null
           project_id: string
           updated_at?: string
+          zone_color?: string | null
           zone_name: string
           zone_number: number
         }
@@ -2187,6 +2189,7 @@ export type Database = {
           num_generators?: number | null
           project_id?: string
           updated_at?: string
+          zone_color?: string | null
           zone_name?: string
           zone_number?: number
         }
