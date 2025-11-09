@@ -213,11 +213,37 @@ export const ClimaticZoneMap = ({ selectedZone, onZoneSelect }: ClimaticZoneMapP
     });
 
     return () => {
-      // Cleanup markers
-      cityMarkers.current.forEach(marker => marker.remove());
+      // Cleanup markers first
+      cityMarkers.current.forEach(marker => {
+        try {
+          marker.remove();
+        } catch (e) {
+          // Silently ignore if marker already removed
+        }
+      });
       cityMarkers.current = [];
-      geocoder.current?.onRemove();
-      map.current?.remove();
+      
+      // Remove geocoder control from map before destroying map
+      if (map.current && geocoder.current) {
+        try {
+          map.current.removeControl(geocoder.current as any);
+        } catch (e) {
+          // Silently ignore if control already removed
+        }
+      }
+      
+      // Finally, remove the map
+      if (map.current) {
+        try {
+          map.current.remove();
+        } catch (e) {
+          // Silently ignore if map already removed
+        }
+      }
+      
+      // Clear references
+      map.current = null;
+      geocoder.current = null;
     };
   }, [mapboxToken, selectedZone, onZoneSelect, mapStyle]);
 
