@@ -6,6 +6,13 @@ import { Pencil, Save, X, Calculator } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { SANS204Calculator } from "./SANS204Calculator";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface BulkServicesHeaderProps {
   document: any;
@@ -31,6 +38,7 @@ export const BulkServicesHeader = ({ document }: BulkServicesHeaderProps) => {
     prepared_by_contact: document.prepared_by_contact || "",
     client_name: document.client_name || "",
     architect: document.architect || "",
+    building_calculation_type: document.building_calculation_type || "sans_204",
   });
 
   const handleSave = async () => {
@@ -54,6 +62,7 @@ export const BulkServicesHeader = ({ document }: BulkServicesHeaderProps) => {
           prepared_by_contact: formData.prepared_by_contact || null,
           client_name: formData.client_name || null,
           architect: formData.architect || null,
+          building_calculation_type: formData.building_calculation_type,
         })
         .eq("id", document.id);
 
@@ -108,6 +117,15 @@ export const BulkServicesHeader = ({ document }: BulkServicesHeaderProps) => {
           <div>
             <p className="text-sm text-muted-foreground">Date</p>
             <p className="font-medium">{new Date(document.document_date).toLocaleDateString()}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Calculation Method</p>
+            <p className="font-medium">
+              {document.building_calculation_type === 'sans_204' && 'SANS 204 - Commercial/Retail'}
+              {document.building_calculation_type === 'sans_10142' && 'SANS 10142-1 - General Buildings'}
+              {document.building_calculation_type === 'residential' && 'Residential ADMD Method'}
+              {!document.building_calculation_type && 'Not set'}
+            </p>
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Client</p>
@@ -330,6 +348,22 @@ export const BulkServicesHeader = ({ document }: BulkServicesHeaderProps) => {
             onChange={(e) => setFormData({ ...formData, future_expansion_factor: e.target.value })}
             placeholder="1.20"
           />
+        </div>
+        <div className="space-y-2">
+          <Label>Calculation Method</Label>
+          <Select
+            value={formData.building_calculation_type}
+            onValueChange={(value) => setFormData({ ...formData, building_calculation_type: value })}
+          >
+            <SelectTrigger className="bg-background">
+              <SelectValue placeholder="Select calculation method" />
+            </SelectTrigger>
+            <SelectContent className="bg-background z-50">
+              <SelectItem value="sans_204">SANS 204 - Commercial/Retail</SelectItem>
+              <SelectItem value="sans_10142">SANS 10142-1 - General Buildings</SelectItem>
+              <SelectItem value="residential">Residential ADMD Method</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
