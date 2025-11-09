@@ -1,12 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { TrendingUp, Loader2, DollarSign, PieChart, BarChart3, TrendingDown } from "lucide-react";
+import { TrendingUp, Loader2, DollarSign, PieChart, BarChart3, TrendingDown, Download } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import ReactMarkdown from "react-markdown";
+import { exportPredictionToPDF } from "@/utils/exportPredictionPDF";
 import {
   PieChart as RechartsePie,
   Pie,
@@ -53,12 +54,34 @@ export function CostPredictor() {
   const [predictionData, setPredictionData] = useState<PredictionData | null>(null);
   const [isPredicting, setIsPredicting] = useState(false);
   const [dataPoints, setDataPoints] = useState(0);
+  const [projectName, setProjectName] = useState("");
+  const [projectNumber, setProjectNumber] = useState("");
   const [parameters, setParameters] = useState({
     projectSize: "",
     complexity: "medium",
     timeline: "",
     location: "",
   });
+
+  useEffect(() => {
+    loadProjectInfo();
+  }, []);
+
+  const loadProjectInfo = async () => {
+    const projectId = localStorage.getItem("selectedProjectId");
+    if (!projectId) return;
+
+    const { data: project } = await supabase
+      .from("projects")
+      .select("name, project_number")
+      .eq("id", projectId)
+      .single();
+
+    if (project) {
+      setProjectName(project.name || "");
+      setProjectNumber(project.project_number || "");
+    }
+  };
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat("en-ZA", {
@@ -96,6 +119,27 @@ export function CostPredictor() {
       toast.error("Failed to generate prediction. Please try again.");
     } finally {
       setIsPredicting(false);
+    }
+  };
+
+
+  const handleExportPDF = async () => {
+    if (!predictionData) {
+      toast.error("No prediction data to export");
+      return;
+    }
+
+    try {
+      await exportPredictionToPDF({
+        predictionData,
+        projectName,
+        projectNumber,
+        parameters,
+      });
+      toast.success("PDF exported successfully!");
+    } catch (error) {
+      console.error("Error exporting PDF:", error);
+      toast.error("Failed to export PDF. Please try again.");
     }
   };
 
@@ -192,7 +236,16 @@ export function CostPredictor() {
           )}
 
           {predictionData && (
-            <div className="space-y-6">
+            <div className="flex justify-end mb-4">
+              <Button onClick={handleExportPDF} variant="outline">
+                <Download className="mr-2 h-4 w-4" />
+                Export to PDF
+              </Button>
+            </div>
+          )}
+
+          {predictionData && (
+            <div id="prediction-charts" className="space-y-6">
               {/* Summary Cards */}
               <div className="grid gap-4 md:grid-cols-3">
                 <Card>
