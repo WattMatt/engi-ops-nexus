@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { ProjectDropdown } from "@/components/ProjectDropdown";
+import { MessageNotificationBell } from "@/components/messaging/MessageNotificationBell";
 import { LogOut } from "lucide-react";
 import { FirstLoginModal } from "@/components/auth/FirstLoginModal";
 import { useQuery } from "@tanstack/react-query";
@@ -100,6 +101,7 @@ const DashboardLayout = () => {
             </div>
             
             <div className="flex items-center gap-3">
+              <MessageNotificationBell />
               <ProjectDropdown />
               <Button variant="outline" size="sm" onClick={handleLogout}>
                 <LogOut className="h-4 w-4 mr-2" />

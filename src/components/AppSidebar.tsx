@@ -122,11 +122,6 @@ const operationalModules = [
     url: "/dashboard/final-accounts",
     icon: FileCheck,
   },
-  {
-    title: "Messages",
-    url: "/dashboard/messages",
-    icon: UsersRound,
-  },
 ];
 
 const settingsModule = {

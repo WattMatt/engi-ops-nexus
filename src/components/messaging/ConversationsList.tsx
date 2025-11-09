@@ -4,6 +4,8 @@ import { MessageSquare, Users, FolderKanban } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { useUnreadMessages } from "@/hooks/useUnreadMessages";
 
 interface ConversationsListProps {
   conversations: Conversation[];
@@ -18,6 +20,8 @@ export function ConversationsList({
   onSelect,
   isLoading,
 }: ConversationsListProps) {
+  const { unreadByConversation } = useUnreadMessages();
+
   const getIcon = (type: Conversation["type"]) => {
     switch (type) {
       case "direct":
@@ -66,9 +70,16 @@ export function ConversationsList({
               <div className="mt-1">{getIcon(conversation.type)}</div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-center justify-between gap-2 mb-1">
-                  <h4 className="font-medium truncate">
-                    {conversation.title || `Conversation ${conversation.id.slice(0, 8)}`}
-                  </h4>
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <h4 className="font-medium truncate">
+                      {conversation.title || `Conversation ${conversation.id.slice(0, 8)}`}
+                    </h4>
+                    {unreadByConversation[conversation.id] > 0 && (
+                      <Badge variant="destructive" className="shrink-0">
+                        {unreadByConversation[conversation.id]}
+                      </Badge>
+                    )}
+                  </div>
                   {conversation.last_message_at && (
                     <span className="text-xs text-muted-foreground whitespace-nowrap">
                       {formatDistanceToNow(new Date(conversation.last_message_at), {
