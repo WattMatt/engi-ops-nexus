@@ -52,8 +52,11 @@ export const CreateProjectOutlineDialog = ({
         .from("projects")
         .select("*")
         .eq("id", currentProjectId)
-        .single();
-      if (error) throw error;
+        .maybeSingle();
+      if (error) {
+        console.error("Error fetching project:", error);
+        return null;
+      }
       return data;
     },
     enabled: !!currentProjectId && open,
@@ -67,8 +70,11 @@ export const CreateProjectOutlineDialog = ({
         .from("company_settings")
         .select("*")
         .limit(1)
-        .single();
-      if (error) throw error;
+        .maybeSingle();
+      if (error) {
+        console.error("Error fetching company settings:", error);
+        return null;
+      }
       return data;
     },
     enabled: open,
@@ -85,8 +91,12 @@ export const CreateProjectOutlineDialog = ({
         .from("employees")
         .select("*")
         .eq("user_id", user.id)
-        .single();
-      if (error) return null;
+        .maybeSingle();
+      
+      if (error) {
+        console.error("Error fetching employee:", error);
+        return null;
+      }
       return data;
     },
     enabled: open,
@@ -119,9 +129,12 @@ export const CreateProjectOutlineDialog = ({
         .from("project_outline_templates")
         .select("*")
         .eq("id", selectedTemplateId)
-        .single();
+        .maybeSingle();
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching template:", error);
+        return null;
+      }
       return data;
     },
     enabled: !!selectedTemplateId && open,
@@ -147,6 +160,9 @@ export const CreateProjectOutlineDialog = ({
       }
 
       const { data: user } = await supabase.auth.getUser();
+      if (!user?.user) {
+        throw new Error("No user logged in");
+      }
 
       const { data: outline, error } = await supabase
         .from("project_outlines")
@@ -206,7 +222,10 @@ export const CreateProjectOutlineDialog = ({
         .from("project_outline_sections")
         .insert(sectionsToInsert);
 
-      if (sectionsError) throw sectionsError;
+      if (sectionsError) {
+        console.error("Error creating sections:", sectionsError);
+        throw sectionsError;
+      }
 
       toast({
         title: "Success",
@@ -215,11 +234,11 @@ export const CreateProjectOutlineDialog = ({
 
       reset();
       onOutlineCreated(outline.id);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating outline:", error);
       toast({
         title: "Error",
-        description: "Failed to create project outline",
+        description: error?.message || "Failed to create project outline",
         variant: "destructive",
       });
     } finally {
