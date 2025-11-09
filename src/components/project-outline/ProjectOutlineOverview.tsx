@@ -93,8 +93,7 @@ export const ProjectOutlineOverview = ({ outlineId, onBack }: ProjectOutlineOver
         <CardContent>
           <ProjectOutlineSections 
             outlineId={outlineId} 
-            sections={sections || []} 
-            projectName={outline.project_name}
+            sections={sections || []}
           />
         </CardContent>
       </Card>
