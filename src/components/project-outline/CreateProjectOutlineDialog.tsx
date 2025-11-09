@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
+import { useQuery } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,11 +33,79 @@ export const CreateProjectOutlineDialog = ({
 }: CreateProjectOutlineDialogProps) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const { register, handleSubmit, reset } = useForm<FormData>({
+  const currentProjectId = localStorage.getItem("currentProjectId");
+  
+  const { register, handleSubmit, reset, setValue } = useForm<FormData>({
     defaultValues: {
       revision: "Rev 0",
     },
   });
+
+  // Fetch project details
+  const { data: project } = useQuery({
+    queryKey: ["project", currentProjectId],
+    queryFn: async () => {
+      if (!currentProjectId) return null;
+      const { data, error } = await supabase
+        .from("projects")
+        .select("*")
+        .eq("id", currentProjectId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!currentProjectId && open,
+  });
+
+  // Fetch company settings
+  const { data: companySettings } = useQuery({
+    queryKey: ["company-settings"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("company_settings")
+        .select("*")
+        .limit(1)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: open,
+  });
+
+  // Fetch current user's employee details
+  const { data: employee } = useQuery({
+    queryKey: ["current-employee"],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+      
+      const { data, error } = await supabase
+        .from("employees")
+        .select("*")
+        .eq("user_id", user.id)
+        .single();
+      if (error) return null;
+      return data;
+    },
+    enabled: open,
+  });
+
+  // Auto-populate form when data is loaded
+  useEffect(() => {
+    if (project && open) {
+      setValue("project_name", project.name || "");
+    }
+    if (companySettings && open) {
+      setValue("prepared_by", companySettings.company_name || "");
+    }
+    if (employee && open) {
+      const fullName = `${employee.first_name} ${employee.last_name}`;
+      setValue("contact_person", fullName);
+      if (employee.phone) {
+        setValue("telephone", employee.phone);
+      }
+    }
+  }, [project, companySettings, employee, open, setValue]);
 
   const onSubmit = async (data: FormData) => {
     setLoading(true);
