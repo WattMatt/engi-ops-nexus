@@ -21,14 +21,39 @@ const ZONE_COLORS = {
 };
 
 const ZONE_INFO = {
-  "1": { name: "Cold Interior", cities: "Johannesburg, Bloemfontein" },
-  "2": { name: "Hot Interior", cities: "Makhado, Nelspruit" },
-  "3": { name: "Temperate Coastal", cities: "Cape Town, Port Elizabeth" },
-  "4": { name: "Sub-tropical Coastal", cities: "East London, Durban" },
-  "5": { name: "Arid Interior", cities: "Upington, Kimberley" },
+  "1": { 
+    name: "Cold Interior", 
+    cities: "Johannesburg, Bloemfontein, Maseru",
+    temp: "14-16°C mean annual",
+    characteristics: "High altitude, cold winters, moderate summers"
+  },
+  "2": { 
+    name: "Hot Interior", 
+    cities: "Makhado, Nelspruit, Polokwane",
+    temp: "18-20°C mean annual",
+    characteristics: "Warm summers, mild winters, summer rainfall"
+  },
+  "3": { 
+    name: "Temperate Coastal", 
+    cities: "Cape Town, Port Elizabeth, George",
+    temp: "16-18°C mean annual",
+    characteristics: "Moderate climate, winter rainfall, cool breezes"
+  },
+  "4": { 
+    name: "Sub-tropical Coastal", 
+    cities: "Durban, East London, Richards Bay",
+    temp: "20-22°C mean annual",
+    characteristics: "Humid, warm year-round, summer rainfall"
+  },
+  "5": { 
+    name: "Arid Interior", 
+    cities: "Upington, Kimberley, De Aar",
+    temp: "16-18°C mean annual",
+    characteristics: "Hot dry summers, cold nights, low rainfall"
+  },
 };
 
-// Approximate GeoJSON polygons for South African climatic zones
+// Enhanced GeoJSON polygons for South African climatic zones (SANS 204)
 const ZONE_GEOJSON = {
   type: "FeatureCollection",
   features: [
@@ -38,7 +63,8 @@ const ZONE_GEOJSON = {
       geometry: {
         type: "Polygon",
         coordinates: [[
-          [26.0, -27.0], [28.5, -27.0], [28.5, -29.5], [26.0, -29.5], [26.0, -27.0]
+          [25.5, -26.0], [28.0, -25.5], [29.5, -26.5], [30.0, -28.0], 
+          [29.0, -29.5], [27.5, -30.0], [26.0, -29.5], [25.0, -28.0], [25.5, -26.0]
         ]]
       }
     },
@@ -48,7 +74,8 @@ const ZONE_GEOJSON = {
       geometry: {
         type: "Polygon",
         coordinates: [[
-          [29.0, -23.5], [31.5, -23.5], [31.5, -26.0], [29.0, -26.0], [29.0, -23.5]
+          [28.5, -22.5], [31.5, -22.5], [32.0, -24.0], [31.5, -25.5],
+          [30.5, -26.0], [29.0, -25.5], [28.0, -24.0], [28.5, -22.5]
         ]]
       }
     },
@@ -58,7 +85,8 @@ const ZONE_GEOJSON = {
       geometry: {
         type: "Polygon",
         coordinates: [[
-          [18.0, -34.5], [26.0, -34.5], [26.0, -32.0], [18.0, -32.0], [18.0, -34.5]
+          [17.8, -34.8], [18.5, -33.8], [22.0, -33.5], [25.5, -33.8],
+          [26.5, -34.0], [25.0, -34.5], [22.0, -34.8], [18.5, -34.5], [17.8, -34.8]
         ]]
       }
     },
@@ -68,7 +96,8 @@ const ZONE_GEOJSON = {
       geometry: {
         type: "Polygon",
         coordinates: [[
-          [27.5, -30.5], [32.0, -30.5], [32.0, -27.5], [27.5, -27.5], [27.5, -30.5]
+          [28.5, -32.5], [30.5, -31.0], [32.0, -29.5], [32.8, -28.0],
+          [32.0, -27.0], [30.5, -28.5], [29.0, -30.0], [27.5, -31.5], [28.5, -32.5]
         ]]
       }
     },
@@ -78,7 +107,8 @@ const ZONE_GEOJSON = {
       geometry: {
         type: "Polygon",
         coordinates: [[
-          [20.0, -29.5], [24.0, -29.5], [24.0, -27.0], [20.0, -27.0], [20.0, -29.5]
+          [18.0, -30.0], [22.0, -29.0], [24.0, -28.5], [25.0, -29.0],
+          [24.5, -30.5], [22.5, -32.0], [20.0, -31.5], [18.5, -30.5], [18.0, -30.0]
         ]]
       }
     },
@@ -299,35 +329,44 @@ export const ClimaticZoneMap = ({ selectedZone, onZoneSelect }: ClimaticZoneMapP
       </div>
 
       {/* Zone Legend */}
-      <div className="grid grid-cols-5 gap-2">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
         {Object.entries(ZONE_INFO).map(([zone, info]) => (
           <button
             key={zone}
             onClick={() => onZoneSelect(zone)}
-            className={`p-2 rounded-lg border-2 transition-all text-left ${
+            className={`p-3 rounded-lg border-2 transition-all text-left hover:shadow-md ${
               selectedZone === zone
-                ? "border-primary bg-primary/10"
-                : "border-transparent bg-muted hover:bg-muted/80"
+                ? "border-primary bg-primary/10 shadow-lg"
+                : "border-border bg-card hover:border-primary/50"
             }`}
           >
-            <div className="flex items-center gap-2 mb-1">
+            <div className="flex items-center gap-2 mb-2">
               <div
-                className="w-4 h-4 rounded"
+                className="w-5 h-5 rounded shadow-sm border border-border/50"
                 style={{ backgroundColor: ZONE_COLORS[zone as keyof typeof ZONE_COLORS] }}
               />
-              <Badge variant={selectedZone === zone ? "default" : "outline"} className="text-xs">
+              <Badge variant={selectedZone === zone ? "default" : "outline"} className="text-xs font-semibold">
                 Zone {zone}
               </Badge>
             </div>
-            <p className="text-xs font-medium">{info.name}</p>
-            <p className="text-xs text-muted-foreground mt-1">{info.cities}</p>
+            <p className="text-sm font-semibold mb-1">{info.name}</p>
+            <p className="text-xs text-primary font-medium mb-1">{info.temp}</p>
+            <p className="text-xs text-muted-foreground mb-2">{info.characteristics}</p>
+            <p className="text-xs text-muted-foreground italic">
+              e.g. {info.cities}
+            </p>
           </button>
         ))}
       </div>
 
-      <p className="text-xs text-muted-foreground text-center">
-        Click on a zone on the map or select from the legend below
-      </p>
+      <div className="bg-muted/50 rounded-lg p-3 border border-border">
+        <p className="text-xs text-center text-muted-foreground mb-2">
+          <strong>SANS 204:</strong> Energy Efficiency in Buildings - Climatic Zones of South Africa
+        </p>
+        <p className="text-xs text-center text-muted-foreground">
+          Click on a zone on the map or select from the cards above to view detailed climate characteristics
+        </p>
+      </div>
     </div>
   );
 };
