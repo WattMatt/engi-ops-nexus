@@ -43,6 +43,49 @@ interface SANS204CalculatorProps {
   };
 }
 
+// ADMD Diversity Table - Based on units per phase for three-phase distribution
+const ADMD_DIVERSITY_TABLE = [
+  { unitsPerPhase: 1, diversityFactor: 1.00 },
+  { unitsPerPhase: 2, diversityFactor: 0.72 },
+  { unitsPerPhase: 3, diversityFactor: 0.62 },
+  { unitsPerPhase: 4, diversityFactor: 0.57 },
+  { unitsPerPhase: 5, diversityFactor: 0.53 },
+  { unitsPerPhase: 6, diversityFactor: 0.50 },
+  { unitsPerPhase: 7, diversityFactor: 0.48 },
+  { unitsPerPhase: 8, diversityFactor: 0.47 },
+  { unitsPerPhase: 9, diversityFactor: 0.46 },
+  { unitsPerPhase: 10, diversityFactor: 0.45 },
+  { unitsPerPhase: 14, diversityFactor: 0.45 },
+  { unitsPerPhase: 15, diversityFactor: 0.42 },
+  { unitsPerPhase: 19, diversityFactor: 0.42 },
+  { unitsPerPhase: 20, diversityFactor: 0.40 },
+  { unitsPerPhase: 29, diversityFactor: 0.40 },
+  { unitsPerPhase: 30, diversityFactor: 0.38 },
+  { unitsPerPhase: 39, diversityFactor: 0.38 },
+  { unitsPerPhase: 40, diversityFactor: 0.37 },
+  { unitsPerPhase: 49, diversityFactor: 0.37 },
+  { unitsPerPhase: 50, diversityFactor: 0.36 },
+  { unitsPerPhase: 99, diversityFactor: 0.36 },
+  { unitsPerPhase: 100, diversityFactor: 0.34 },
+  { unitsPerPhase: 350, diversityFactor: 0.34 }, // Maximum in table
+];
+
+// Function to get diversity factor based on units per phase
+const getADMDDiversityFactor = (unitsPerPhase: number): number => {
+  if (unitsPerPhase <= 0) return 1.00;
+  
+  // Find the appropriate diversity factor
+  for (let i = 0; i < ADMD_DIVERSITY_TABLE.length - 1; i++) {
+    if (unitsPerPhase >= ADMD_DIVERSITY_TABLE[i].unitsPerPhase && 
+        unitsPerPhase < ADMD_DIVERSITY_TABLE[i + 1].unitsPerPhase) {
+      return ADMD_DIVERSITY_TABLE[i].diversityFactor;
+    }
+  }
+  
+  // If beyond table, use last value
+  return ADMD_DIVERSITY_TABLE[ADMD_DIVERSITY_TABLE.length - 1].diversityFactor;
+};
+
 // SANS 204 Table 1 - Maximum energy demand (VA/m²)
 const SANS_204_TABLE = {
   A1: { name: "Entertainment & Public Assembly", zones: [85, 80, 90, 80, 80, 85] },
@@ -96,6 +139,7 @@ export const SANS204Calculator = ({
     poolPump: { qty: 0, load: 1500, diversity: 1.0 },
   });
   const [generalDiversity, setGeneralDiversity] = useState("0.70");
+  const [useADMD, setUseADMD] = useState(true); // Toggle between ADMD and simple diversity
 
   // Fetch project settings
   const { data: projectSettings } = useQuery({
@@ -482,9 +526,26 @@ export const SANS204Calculator = ({
     const totalPerUnitWatts = lampsLoad + plugsLoad + geyserLoad + stoveLoad + poolPumpLoad;
     const totalPerUnitKva = totalPerUnitWatts / 1000 / 0.95; // Convert to kVA with PF=0.95
 
-    // Calculate total for all units
+    // Calculate total connected load
     const totalConnectedLoad = totalPerUnitKva * units;
-    const maximumDemand = totalConnectedLoad * genDiv;
+
+    // Calculate maximum demand using ADMD table or simple diversity
+    let maximumDemand: number;
+    let appliedDiversityFactor: number;
+    
+    if (useADMD) {
+      // ADMD Method: Calculate units per phase (assuming balanced 3-phase distribution)
+      const unitsPerPhase = Math.ceil(units / 3);
+      appliedDiversityFactor = getADMDDiversityFactor(unitsPerPhase);
+      
+      // Calculate ADMD per phase, then multiply by 3 for total
+      const admdPerPhase = totalPerUnitKva * unitsPerPhase * appliedDiversityFactor;
+      maximumDemand = admdPerPhase * 3;
+    } else {
+      // Simple diversity method
+      appliedDiversityFactor = genDiv;
+      maximumDemand = totalConnectedLoad * genDiv;
+    }
 
     // Calculate average VA/m² for display consistency
     const totalArea = unitArea * units;
@@ -495,6 +556,9 @@ export const SANS204Calculator = ({
       totalConnectedLoad: Math.round(totalConnectedLoad * 100) / 100,
       maximumDemand: Math.round(maximumDemand * 100) / 100,
     });
+
+    // Store the applied diversity factor for display
+    setGeneralDiversity(appliedDiversityFactor.toFixed(2));
 
     // Update project area to match calculation
     setProjectArea((totalArea).toString());
@@ -588,6 +652,11 @@ export const SANS204Calculator = ({
                         onChange={(e) => setNumUnits(e.target.value)}
                         placeholder="6"
                       />
+                      {useADMD && (
+                        <p className="text-xs text-muted-foreground">
+                          {Math.ceil(parseFloat(numUnits || "0") / 3)} units per phase (3Ø balanced)
+                        </p>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <Label>Area per Unit (m²)</Label>
@@ -600,17 +669,36 @@ export const SANS204Calculator = ({
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>General Load Diversity</Label>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        max="1"
-                        value={generalDiversity}
-                        onChange={(e) => setGeneralDiversity(e.target.value)}
-                        placeholder="0.70"
-                      />
-                      <p className="text-xs text-muted-foreground">Typical: 70% for residential</p>
+                      <Label>Diversity Method</Label>
+                      <Select
+                        value={useADMD ? "admd" : "simple"}
+                        onValueChange={(value) => setUseADMD(value === "admd")}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="admd">ADMD Table (Recommended)</SelectItem>
+                          <SelectItem value="simple">Simple Diversity</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {!useADMD && (
+                        <Input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="1"
+                          value={generalDiversity}
+                          onChange={(e) => setGeneralDiversity(e.target.value)}
+                          placeholder="0.70"
+                          className="mt-2"
+                        />
+                      )}
+                      {useADMD && (
+                        <p className="text-xs text-muted-foreground">
+                          Applied: {generalDiversity} (from ADMD table)
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -1321,10 +1409,15 @@ export const SANS204Calculator = ({
                   </div>
                   <div className="p-4 bg-green-100 rounded-lg">
                     <p className="text-sm text-muted-foreground">
-                      Maximum Demand (After Diversity: {isResidential ? generalDiversity : diversityFactor})
+                      Maximum Demand (After Diversity)
                     </p>
                     <p className="text-2xl font-bold text-green-700">
                       {calculatedValues.maximumDemand.toLocaleString()} kVA
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {useADMD 
+                        ? `ADMD: ${generalDiversity} (${Math.ceil(parseFloat(numUnits || "0") / 3)} units/phase)`
+                        : `Simple diversity: ${generalDiversity}`}
                     </p>
                   </div>
                 </div>
@@ -1350,7 +1443,11 @@ export const SANS204Calculator = ({
                         3. Total Connected Load: <span className="font-medium">Per-unit load × {numUnits} units ÷ 1000 ÷ 0.95 PF = {calculatedValues.totalConnectedLoad} kVA</span>
                       </p>
                       <p>
-                        4. Apply Diversity Factor: <span className="font-medium">{calculatedValues.totalConnectedLoad} kVA × {generalDiversity} = {calculatedValues.maximumDemand} kVA</span>
+                        4. Apply Diversity Factor: <span className="font-medium">
+                          {useADMD 
+                            ? `ADMD method: ${Math.ceil(parseFloat(numUnits || "0") / 3)} units/phase × ${generalDiversity} factor = ${calculatedValues.maximumDemand} kVA total (3Ø)`
+                            : `${calculatedValues.totalConnectedLoad} kVA × ${generalDiversity} = ${calculatedValues.maximumDemand} kVA`}
+                        </span>
                       </p>
                     </>
                   ) : (
