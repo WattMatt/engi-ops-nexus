@@ -25,6 +25,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClimaticZoneMap } from "./ClimaticZoneMap";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Area, AreaChart } from "recharts";
 
 interface SANS204CalculatorProps {
   open: boolean;
@@ -1045,6 +1046,142 @@ export const SANS204Calculator = ({
                   </div>
                 </CardContent>
               </Card>
+
+              {/* ADMD Curve Visualization */}
+              {useADMD && (
+                <Card className="border-purple-200 dark:border-purple-900">
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <CheckCircle2 className="h-5 w-5 text-purple-600" />
+                      ADMD Diversity Curve
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <p className="text-sm text-muted-foreground">
+                        After Diversity Maximum Demand (ADMD) factor decreases with more units per phase
+                      </p>
+
+                      {/* Chart */}
+                      <div className="h-[300px] w-full">
+                        <ResponsiveContainer width="100%" height="100%">
+                          <AreaChart
+                            data={ADMD_DIVERSITY_TABLE.map(item => ({
+                              units: item.unitsPerPhase,
+                              diversity: item.diversityFactor * 100,
+                            }))}
+                            margin={{ top: 10, right: 30, left: 0, bottom: 0 }}
+                          >
+                            <defs>
+                              <linearGradient id="diversityGradient" x1="0" y1="0" x2="0" y2="1">
+                                <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3}/>
+                                <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
+                              </linearGradient>
+                            </defs>
+                            <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                            <XAxis 
+                              dataKey="units" 
+                              label={{ value: 'Units per Phase', position: 'insideBottom', offset: -5 }}
+                              className="text-xs"
+                            />
+                            <YAxis 
+                              label={{ value: 'Diversity Factor (%)', angle: -90, position: 'insideLeft' }}
+                              className="text-xs"
+                              domain={[30, 105]}
+                            />
+                            <Tooltip 
+                              content={({ active, payload }) => {
+                                if (active && payload && payload.length) {
+                                  return (
+                                    <div className="bg-background border rounded-lg p-2 shadow-lg">
+                                      <p className="text-xs font-semibold">
+                                        {payload[0].payload.units} units/phase
+                                      </p>
+                                      <p className="text-xs text-primary">
+                                        Diversity: {payload[0].value}%
+                                      </p>
+                                    </div>
+                                  );
+                                }
+                                return null;
+                              }}
+                            />
+                            <Area 
+                              type="monotone" 
+                              dataKey="diversity" 
+                              stroke="hsl(var(--primary))" 
+                              strokeWidth={2}
+                              fill="url(#diversityGradient)"
+                            />
+                            {/* Current project marker */}
+                            {parseFloat(numUnits || "0") > 0 && (
+                              <ReferenceLine
+                                x={Math.ceil(parseFloat(numUnits || "0") / 3)}
+                                stroke="hsl(var(--destructive))"
+                                strokeWidth={2}
+                                strokeDasharray="3 3"
+                                label={{
+                                  value: 'Your Project',
+                                  position: 'top',
+                                  className: 'text-xs font-semibold fill-destructive',
+                                }}
+                              />
+                            )}
+                          </AreaChart>
+                        </ResponsiveContainer>
+                      </div>
+
+                      {/* Key Points Table */}
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-4">
+                        <div className="p-2 bg-muted rounded text-center">
+                          <p className="text-xs text-muted-foreground">1-2 units/phase</p>
+                          <p className="font-bold text-sm">72-100%</p>
+                        </div>
+                        <div className="p-2 bg-muted rounded text-center">
+                          <p className="text-xs text-muted-foreground">3-14 units/phase</p>
+                          <p className="font-bold text-sm">45-62%</p>
+                        </div>
+                        <div className="p-2 bg-muted rounded text-center">
+                          <p className="text-xs text-muted-foreground">15-49 units/phase</p>
+                          <p className="font-bold text-sm">37-42%</p>
+                        </div>
+                        <div className="p-2 bg-muted rounded text-center">
+                          <p className="text-xs text-muted-foreground">50+ units/phase</p>
+                          <p className="font-bold text-sm">34-36%</p>
+                        </div>
+                      </div>
+
+                      {/* Current Project Indicator */}
+                      {parseFloat(numUnits || "0") > 0 && (
+                        <div className="p-3 bg-primary/10 rounded-lg border border-primary/20">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-semibold">Your Project</p>
+                              <p className="text-xs text-muted-foreground">
+                                {numUnits} total units = {Math.ceil(parseFloat(numUnits || "0") / 3)} units per phase
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-2xl font-bold text-primary">{(parseFloat(generalDiversity) * 100).toFixed(0)}%</p>
+                              <p className="text-xs text-muted-foreground">ADMD Factor</p>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="p-3 bg-muted/50 rounded-lg text-xs">
+                        <p className="font-semibold mb-1">Why ADMD Varies:</p>
+                        <ul className="space-y-1 text-muted-foreground">
+                          <li>• Small developments (1-5 units): High diversity needed, units more likely to peak together</li>
+                          <li>• Medium developments (6-30 units): Diversity improves as usage patterns vary</li>
+                          <li>• Large developments (30+ units): Statistical diversity means only ~34-38% peak simultaneously</li>
+                          <li>• Your {generalDiversity} factor accounts for {numUnits} units balanced across 3 phases</li>
+                        </ul>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
             </>
           ) : (
             // Commercial Calculator Interface (existing SANS 204)
