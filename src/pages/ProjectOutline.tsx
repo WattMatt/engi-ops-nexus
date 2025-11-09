@@ -13,7 +13,7 @@ const ProjectOutline = () => {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [selectedOutlineId, setSelectedOutlineId] = useState<string | null>(null);
 
-  const currentProjectId = localStorage.getItem("currentProjectId");
+  const currentProjectId = localStorage.getItem("selectedProjectId");
 
   const { data: outlines, isLoading } = useQuery({
     queryKey: ["project-outlines", currentProjectId],

@@ -35,7 +35,7 @@ export const CreateProjectOutlineDialog = ({
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
-  const currentProjectId = localStorage.getItem("currentProjectId");
+  const currentProjectId = localStorage.getItem("selectedProjectId");
   
   const { register, handleSubmit, reset, setValue } = useForm<FormData>({
     defaultValues: {
@@ -154,7 +154,7 @@ export const CreateProjectOutlineDialog = ({
   const onSubmit = async (data: FormData) => {
     setLoading(true);
     try {
-      const currentProjectId = localStorage.getItem("currentProjectId");
+      const currentProjectId = localStorage.getItem("selectedProjectId");
       if (!currentProjectId) {
         throw new Error("No project selected");
       }
