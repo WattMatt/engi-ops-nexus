@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Pencil, Save, X, Trash2, GripVertical, Plus, ChevronUp, ChevronDown } from "lucide-react";
+import { Pencil, Save, X, Trash2, GripVertical, Plus, ChevronUp, ChevronDown, Sparkles, RefreshCw } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   AlertDialog,
@@ -20,14 +20,16 @@ import { AddSectionDialog } from "./AddSectionDialog";
 interface ProjectOutlineSectionsProps {
   outlineId: string;
   sections: any[];
+  projectName?: string;
 }
 
-export const ProjectOutlineSections = ({ outlineId, sections }: ProjectOutlineSectionsProps) => {
+export const ProjectOutlineSections = ({ outlineId, sections, projectName }: ProjectOutlineSectionsProps) => {
   const { toast } = useToast();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
   const [deleteSectionId, setDeleteSectionId] = useState<string | null>(null);
   const [addSectionOpen, setAddSectionOpen] = useState(false);
+  const [generatingId, setGeneratingId] = useState<string | null>(null);
 
   const handleEdit = (section: any) => {
     setEditingId(section.id);
@@ -139,6 +141,59 @@ export const ProjectOutlineSections = ({ outlineId, sections }: ProjectOutlineSe
     ? Math.max(...sections.map(s => s.sort_order)) + 1 
     : 1;
 
+  const handleGenerateContent = async (section: any) => {
+    setGeneratingId(section.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("generate-outline-content", {
+        body: {
+          sectionTitle: section.section_title,
+          sectionNumber: section.section_number,
+          projectName: projectName || "the project",
+          existingContent: section.content || "",
+        },
+      });
+
+      if (error) throw error;
+
+      if (data?.error) {
+        if (data.error.includes("Rate limit")) {
+          toast({
+            title: "Rate Limit",
+            description: "Too many requests. Please wait a moment and try again.",
+            variant: "destructive",
+          });
+        } else if (data.error.includes("credits")) {
+          toast({
+            title: "Credits Exhausted",
+            description: "Please add AI credits to continue generating content.",
+            variant: "destructive",
+          });
+        } else {
+          throw new Error(data.error);
+        }
+        return;
+      }
+
+      // Set the generated content in edit mode
+      setEditingId(section.id);
+      setEditContent(data.content);
+
+      toast({
+        title: "Content Generated",
+        description: "AI has generated content. Review and save when ready.",
+      });
+    } catch (error) {
+      console.error("Error generating content:", error);
+      toast({
+        title: "Error",
+        description: "Failed to generate content. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setGeneratingId(null);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
@@ -188,6 +243,25 @@ export const ProjectOutlineSections = ({ outlineId, sections }: ProjectOutlineSe
                   </>
                 ) : (
                   <>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => handleGenerateContent(section)}
+                      disabled={generatingId === section.id}
+                      title={section.content ? "Improve with AI" : "Generate with AI"}
+                    >
+                      {generatingId === section.id ? (
+                        <>
+                          <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="mr-2 h-4 w-4" />
+                          {section.content ? "Improve" : "Generate"}
+                        </>
+                      )}
+                    </Button>
                     <Button variant="ghost" size="sm" onClick={() => handleEdit(section)}>
                       <Pencil className="mr-2 h-4 w-4" />
                       Edit
