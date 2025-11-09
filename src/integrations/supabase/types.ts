@@ -588,6 +588,47 @@ export type Database = {
         }
         Relationships: []
       }
+      bulk_services_tutorial_progress: {
+        Row: {
+          calculation_type: string
+          created_at: string | null
+          current_step: number
+          document_id: string
+          form_data: Json
+          id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          calculation_type: string
+          created_at?: string | null
+          current_step?: number
+          document_id: string
+          form_data?: Json
+          id?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          calculation_type?: string
+          created_at?: string | null
+          current_step?: number
+          document_id?: string
+          form_data?: Json
+          id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bulk_services_tutorial_progress_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "bulk_services_documents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cable_entries: {
         Row: {
           cable_number: number | null

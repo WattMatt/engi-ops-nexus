@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -17,14 +17,18 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
-import { ArrowRight, ArrowLeft, CheckCircle2, BookOpen } from "lucide-react";
+import { ArrowRight, ArrowLeft, CheckCircle2, BookOpen, Save, Trash2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
 interface CalculationTutorialProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   calculationType: string;
   onApplyValues?: (values: any) => void;
+  documentId: string;
 }
 
 const SANS_204_TABLE = {
@@ -51,7 +55,9 @@ export const CalculationTutorial = ({
   onOpenChange,
   calculationType,
   onApplyValues,
+  documentId,
 }: CalculationTutorialProps) => {
+  const queryClient = useQueryClient();
   const [currentStep, setCurrentStep] = useState(0);
   
   // SANS 204 state
@@ -72,8 +78,144 @@ export const CalculationTutorial = ({
   const [unitsPerPhase, setUnitsPerPhase] = useState("6");
   const [admdFactor, setAdmdFactor] = useState("0.50");
 
+  // Fetch saved progress
+  const { data: savedProgress } = useQuery({
+    queryKey: ["tutorial-progress", documentId, calculationType],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+
+      const { data, error } = await supabase
+        .from("bulk_services_tutorial_progress")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("document_id", documentId)
+        .eq("calculation_type", calculationType)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: open && !!documentId,
+  });
+
+  // Load saved progress when available
+  useEffect(() => {
+    if (savedProgress && savedProgress.form_data) {
+      const formData = savedProgress.form_data as any;
+      setCurrentStep(savedProgress.current_step || 0);
+
+      if (calculationType === "sans_204") {
+        setBuildingClass(formData.buildingClass || "F1");
+        setClimaticZone(formData.climaticZone || "1");
+        setProjectArea(formData.projectArea || "");
+        setDiversityFactor(formData.diversityFactor || "0.75");
+      } else if (calculationType === "sans_10142") {
+        setBuildingType(formData.buildingType || "office");
+        setSocketLoad(formData.socketLoad || "30");
+        setLightingLoad(formData.lightingLoad || "25");
+        setFixedAppliances(formData.fixedAppliances || "0");
+        setProjectArea(formData.projectArea || "");
+        setDiversityFactor(formData.diversityFactor || "0.75");
+      } else if (calculationType === "residential") {
+        setNumUnits(formData.numUnits || "18");
+        setLoadPerUnit(formData.loadPerUnit || "4.54");
+        setUnitsPerPhase(formData.unitsPerPhase || "6");
+        setAdmdFactor(formData.admdFactor || "0.50");
+      }
+    }
+  }, [savedProgress, calculationType]);
+
+  // Save progress mutation
+  const saveProgressMutation = useMutation({
+    mutationFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+
+      const formData: any = {};
+      if (calculationType === "sans_204") {
+        formData.buildingClass = buildingClass;
+        formData.climaticZone = climaticZone;
+        formData.projectArea = projectArea;
+        formData.diversityFactor = diversityFactor;
+      } else if (calculationType === "sans_10142") {
+        formData.buildingType = buildingType;
+        formData.socketLoad = socketLoad;
+        formData.lightingLoad = lightingLoad;
+        formData.fixedAppliances = fixedAppliances;
+        formData.projectArea = projectArea;
+        formData.diversityFactor = diversityFactor;
+      } else if (calculationType === "residential") {
+        formData.numUnits = numUnits;
+        formData.loadPerUnit = loadPerUnit;
+        formData.unitsPerPhase = unitsPerPhase;
+        formData.admdFactor = admdFactor;
+      }
+
+      const { error } = await supabase
+        .from("bulk_services_tutorial_progress")
+        .upsert({
+          user_id: user.id,
+          document_id: documentId,
+          calculation_type: calculationType,
+          current_step: currentStep,
+          form_data: formData,
+        }, {
+          onConflict: "user_id,document_id,calculation_type"
+        });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Progress saved");
+      queryClient.invalidateQueries({ queryKey: ["tutorial-progress"] });
+    },
+    onError: (error: any) => {
+      console.error("Error saving progress:", error);
+      toast.error("Failed to save progress");
+    },
+  });
+
+  // Delete progress mutation
+  const deleteProgressMutation = useMutation({
+    mutationFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+
+      const { error } = await supabase
+        .from("bulk_services_tutorial_progress")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("document_id", documentId)
+        .eq("calculation_type", calculationType);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Progress cleared");
+      queryClient.invalidateQueries({ queryKey: ["tutorial-progress"] });
+      resetTutorial();
+    },
+    onError: (error: any) => {
+      console.error("Error deleting progress:", error);
+      toast.error("Failed to clear progress");
+    },
+  });
+
   const resetTutorial = () => {
     setCurrentStep(0);
+    setBuildingClass("F1");
+    setClimaticZone("1");
+    setProjectArea("");
+    setDiversityFactor("0.75");
+    setBuildingType("office");
+    setSocketLoad("30");
+    setLightingLoad("25");
+    setFixedAppliances("0");
+    setNumUnits("18");
+    setLoadPerUnit("4.54");
+    setUnitsPerPhase("6");
+    setAdmdFactor("0.50");
   };
 
   const getTotalSteps = () => {
@@ -112,8 +254,8 @@ export const CalculationTutorial = ({
         diversity_factor: diversity,
       });
     }
+    deleteProgressMutation.mutate();
     onOpenChange(false);
-    resetTutorial();
   };
 
   const renderSANS204Step = () => {
@@ -991,6 +1133,11 @@ export const CalculationTutorial = ({
           <DialogTitle className="flex items-center gap-2">
             <BookOpen className="h-5 w-5" />
             Interactive Calculation Tutorial
+            {savedProgress && (
+              <Badge variant="secondary" className="ml-2">
+                Progress Saved
+              </Badge>
+            )}
           </DialogTitle>
           <DialogDescription>
             {calculationType === "sans_204" && "SANS 204 - Commercial/Retail Buildings"}
@@ -1022,16 +1169,38 @@ export const CalculationTutorial = ({
 
         {/* Navigation buttons */}
         <div className="flex justify-between pt-4 border-t">
-          <Button
-            variant="outline"
-            onClick={handleBack}
-            disabled={currentStep === 0}
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={handleBack}
+              disabled={currentStep === 0}
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" />
+              Back
+            </Button>
+
+            {savedProgress && (
+              <Button
+                variant="outline"
+                onClick={() => deleteProgressMutation.mutate()}
+                disabled={deleteProgressMutation.isPending}
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Clear Progress
+              </Button>
+            )}
+          </div>
 
           <div className="flex gap-2">
+            <Button
+              variant="outline"
+              onClick={() => saveProgressMutation.mutate()}
+              disabled={saveProgressMutation.isPending}
+            >
+              <Save className="mr-2 h-4 w-4" />
+              {saveProgressMutation.isPending ? "Saving..." : "Save Progress"}
+            </Button>
+
             {!isLastStep ? (
               <Button onClick={handleNext}>
                 Next

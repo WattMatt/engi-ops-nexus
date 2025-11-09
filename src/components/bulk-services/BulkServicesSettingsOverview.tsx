@@ -1223,6 +1223,7 @@ export const BulkServicesSettingsOverview = ({
         open={tutorialOpen}
         onOpenChange={setTutorialOpen}
         calculationType={calculationType}
+        documentId={documentId}
       />
     </div>
   );
