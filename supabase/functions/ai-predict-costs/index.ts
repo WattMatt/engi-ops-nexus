@@ -74,28 +74,33 @@ Project Details: ${JSON.stringify(currentProject, null, 2)}
 Cable Schedules: ${JSON.stringify(cableSchedules, null, 2)}
 Additional Parameters: ${JSON.stringify(projectParameters, null, 2)}
 
-Provide a comprehensive cost prediction including:
+You must respond with a JSON object containing both structured data for visualizations AND a detailed markdown analysis.
 
-1. **Total Estimated Cost** (with confidence level)
-2. **Cost Breakdown by Category**:
-   - Materials & Equipment
-   - Labor
-   - Cable & Wiring
-   - Installation
-   - Testing & Commissioning
-   - Contingency
+REQUIRED JSON FORMAT:
+{
+  "summary": {
+    "totalEstimate": number,
+    "confidenceLevel": number (0-100),
+    "currency": "ZAR"
+  },
+  "costBreakdown": [
+    { "category": "Materials & Equipment", "amount": number, "percentage": number },
+    { "category": "Labor", "amount": number, "percentage": number },
+    { "category": "Cable & Wiring", "amount": number, "percentage": number },
+    { "category": "Installation", "amount": number, "percentage": number },
+    { "category": "Testing & Commissioning", "amount": number, "percentage": number },
+    { "category": "Contingency", "amount": number, "percentage": number }
+  ],
+  "historicalTrend": [
+    { "project": "Project Name", "budgeted": number, "actual": number }
+  ],
+  "riskFactors": [
+    { "risk": "Risk Name", "probability": number (0-100), "impact": number (in currency) }
+  ],
+  "analysis": "Detailed markdown analysis with all sections as requested"
+}
 
-3. **Cost Drivers Analysis**: Key factors affecting the cost
-
-4. **Comparison with Historical Projects**: How this compares to similar projects
-
-5. **Risk Factors**: Potential cost overruns and their likelihood
-
-6. **Recommendations**: Ways to optimize costs
-
-7. **Timeline Impact**: How timeline affects costs
-
-Format your response in clear sections with specific numbers and percentages. Be realistic and data-driven.`;
+Make sure all numbers are realistic and based on the historical data provided.`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -108,13 +113,14 @@ Format your response in clear sections with specific numbers and percentages. Be
         messages: [
           {
             role: "system",
-            content: "You are an expert electrical engineering cost estimator with deep knowledge of construction costs, labor rates, material pricing, and project management.",
+            content: "You are an expert electrical engineering cost estimator. You must respond with valid JSON containing both structured data for charts and a detailed markdown analysis.",
           },
           {
             role: "user",
             content: prompt,
           },
         ],
+        response_format: { type: "json_object" },
       }),
     });
 
@@ -135,10 +141,28 @@ Format your response in clear sections with specific numbers and percentages. Be
     }
 
     const data = await response.json();
-    const prediction = data.choices[0].message.content;
+    const predictionText = data.choices[0].message.content;
+    
+    // Parse the JSON response
+    let predictionData;
+    try {
+      predictionData = JSON.parse(predictionText);
+    } catch (e) {
+      console.error("Failed to parse JSON, returning raw text:", e);
+      predictionData = {
+        analysis: predictionText,
+        summary: { totalEstimate: 0, confidenceLevel: 0, currency: "ZAR" },
+        costBreakdown: [],
+        historicalTrend: [],
+        riskFactors: []
+      };
+    }
 
     return new Response(
-      JSON.stringify({ prediction, historicalDataPoints: historicalCosts?.length || 0 }),
+      JSON.stringify({ 
+        ...predictionData,
+        historicalDataPoints: historicalCosts?.length || 0 
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {

@@ -3,13 +3,54 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { TrendingUp, Loader2, DollarSign } from "lucide-react";
+import { TrendingUp, Loader2, DollarSign, PieChart, BarChart3, TrendingDown } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import ReactMarkdown from "react-markdown";
+import {
+  PieChart as RechartsePie,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Legend,
+  Tooltip,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  LineChart,
+  Line,
+} from "recharts";
+
+interface PredictionData {
+  summary: {
+    totalEstimate: number;
+    confidenceLevel: number;
+    currency: string;
+  };
+  costBreakdown: Array<{
+    category: string;
+    amount: number;
+    percentage: number;
+  }>;
+  historicalTrend: Array<{
+    project: string;
+    budgeted: number;
+    actual: number;
+  }>;
+  riskFactors: Array<{
+    risk: string;
+    probability: number;
+    impact: number;
+  }>;
+  analysis: string;
+}
+
+const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884D8", "#82CA9D"];
 
 export function CostPredictor() {
-  const [prediction, setPrediction] = useState("");
+  const [predictionData, setPredictionData] = useState<PredictionData | null>(null);
   const [isPredicting, setIsPredicting] = useState(false);
   const [dataPoints, setDataPoints] = useState(0);
   const [parameters, setParameters] = useState({
@@ -18,6 +59,15 @@ export function CostPredictor() {
     timeline: "",
     location: "",
   });
+
+  const formatCurrency = (value: number) => {
+    return new Intl.NumberFormat("en-ZA", {
+      style: "currency",
+      currency: "ZAR",
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(value);
+  };
 
   const predictCosts = async () => {
     setIsPredicting(true);
@@ -38,7 +88,7 @@ export function CostPredictor() {
 
       if (error) throw error;
 
-      setPrediction(data.prediction);
+      setPredictionData(data);
       setDataPoints(data.historicalDataPoints);
       toast.success("Cost prediction generated successfully!");
     } catch (error) {
@@ -141,16 +191,180 @@ export function CostPredictor() {
             </div>
           )}
 
-          {prediction && (
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <h3 className="font-semibold">Cost Prediction Analysis</h3>
+          {predictionData && (
+            <div className="space-y-6">
+              {/* Summary Cards */}
+              <div className="grid gap-4 md:grid-cols-3">
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                      Total Estimated Cost
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      {formatCurrency(predictionData.summary.totalEstimate)}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                      Confidence Level
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">
+                      {predictionData.summary.confidenceLevel}%
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                      Data Points Used
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{dataPoints}</div>
+                  </CardContent>
+                </Card>
               </div>
-              <div className="border rounded-lg p-4 bg-muted/50 max-h-[500px] overflow-y-auto">
-                <div className="prose prose-sm dark:prose-invert max-w-none">
-                  <ReactMarkdown>{prediction}</ReactMarkdown>
-                </div>
+
+              {/* Charts Grid */}
+              <div className="grid gap-4 md:grid-cols-2">
+                {/* Cost Breakdown Pie Chart */}
+                {predictionData.costBreakdown.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-base">
+                        <PieChart className="h-4 w-4" />
+                        Cost Breakdown
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <ResponsiveContainer width="100%" height={300}>
+                        <RechartsePie>
+                          <Pie
+                            data={predictionData.costBreakdown}
+                            cx="50%"
+                            cy="50%"
+                            labelLine={false}
+                            label={({ category, percentage }) =>
+                              `${category}: ${percentage}%`
+                            }
+                            outerRadius={80}
+                            fill="#8884d8"
+                            dataKey="amount"
+                          >
+                            {predictionData.costBreakdown.map((entry, index) => (
+                              <Cell
+                                key={`cell-${index}`}
+                                fill={COLORS[index % COLORS.length]}
+                              />
+                            ))}
+                          </Pie>
+                          <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                          <Legend />
+                        </RechartsePie>
+                      </ResponsiveContainer>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Risk Factors Bar Chart */}
+                {predictionData.riskFactors.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center gap-2 text-base">
+                        <TrendingDown className="h-4 w-4" />
+                        Risk Distribution
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <ResponsiveContainer width="100%" height={300}>
+                        <BarChart data={predictionData.riskFactors}>
+                          <CartesianGrid strokeDasharray="3 3" />
+                          <XAxis
+                            dataKey="risk"
+                            angle={-45}
+                            textAnchor="end"
+                            height={100}
+                            interval={0}
+                          />
+                          <YAxis yAxisId="left" orientation="left" stroke="#8884d8" />
+                          <YAxis yAxisId="right" orientation="right" stroke="#82ca9d" />
+                          <Tooltip />
+                          <Legend />
+                          <Bar
+                            yAxisId="left"
+                            dataKey="probability"
+                            fill="#8884d8"
+                            name="Probability (%)"
+                          />
+                          <Bar
+                            yAxisId="right"
+                            dataKey="impact"
+                            fill="#82ca9d"
+                            name="Impact (ZAR)"
+                          />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
+
+              {/* Historical Trend Line Chart */}
+              {predictionData.historicalTrend.length > 0 && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <BarChart3 className="h-4 w-4" />
+                      Historical Cost Trends
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <ResponsiveContainer width="100%" height={300}>
+                      <LineChart data={predictionData.historicalTrend}>
+                        <CartesianGrid strokeDasharray="3 3" />
+                        <XAxis dataKey="project" angle={-45} textAnchor="end" height={100} />
+                        <YAxis />
+                        <Tooltip formatter={(value: number) => formatCurrency(value)} />
+                        <Legend />
+                        <Line
+                          type="monotone"
+                          dataKey="budgeted"
+                          stroke="#8884d8"
+                          name="Budgeted"
+                          strokeWidth={2}
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="actual"
+                          stroke="#82ca9d"
+                          name="Actual"
+                          strokeWidth={2}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Detailed Analysis */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Detailed Analysis</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="prose prose-sm dark:prose-invert max-w-none">
+                    <ReactMarkdown>{predictionData.analysis}</ReactMarkdown>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           )}
         </div>
