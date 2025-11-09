@@ -17,6 +17,7 @@ import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { TenantChangesWidget } from "@/components/dashboard/TenantChangesWidget";
 import { BeneficialOccupationWidget } from "@/components/dashboard/BeneficialOccupationWidget";
+import { BulkServicesWidget } from "@/components/dashboard/BulkServicesWidget";
 
 const Dashboard = () => {
   const projectId = localStorage.getItem("selectedProjectId");
@@ -137,6 +138,16 @@ const Dashboard = () => {
           </div>
         )}
 
+        {/* Bulk Services Status Widget */}
+        {projectId && (
+          <div className="lg:col-span-1">
+            <BulkServicesWidget projectId={projectId} />
+          </div>
+        )}
+      </div>
+
+      {/* Secondary Row */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {/* Right column with stacked cards */}
         <div className="lg:col-span-1 space-y-4">
           <Card>
@@ -193,6 +204,9 @@ const Dashboard = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Empty space columns for layout */}
+        <div className="lg:col-span-2"></div>
       </div>
     </div>
   );
