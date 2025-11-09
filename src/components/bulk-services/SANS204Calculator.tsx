@@ -272,52 +272,55 @@ export const SANS204Calculator = ({
             </CardContent>
           </Card>
 
-          {/* SANS 204 Reference Table */}
+          {/* SANS 204 Complete Comparison Table */}
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">SANS 204 Table 1 - Selected Values</CardTitle>
+              <CardTitle className="text-base">SANS 204 Table 1 - Complete Zone Comparison (VA/m²)</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="rounded-md border">
+              <div className="rounded-md border overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-muted">
                     <tr>
-                      <th className="p-2 text-left">Classification</th>
-                      <th className="p-2 text-left">Description</th>
-                      <th className="p-2 text-center">Zone {climaticZone}</th>
+                      <th className="p-2 text-left sticky left-0 bg-muted">Class</th>
+                      <th className="p-2 text-left min-w-[200px]">Building Type</th>
+                      <th className="p-2 text-center">Zone 1<br/><span className="text-xs font-normal">Cold Interior</span></th>
+                      <th className="p-2 text-center">Zone 2<br/><span className="text-xs font-normal">Temp Interior</span></th>
+                      <th className="p-2 text-center">Zone 3<br/><span className="text-xs font-normal">Hot Interior</span></th>
+                      <th className="p-2 text-center">Zone 4<br/><span className="text-xs font-normal">Temp Coastal</span></th>
+                      <th className="p-2 text-center">Zone 5<br/><span className="text-xs font-normal">Sub-tropical</span></th>
+                      <th className="p-2 text-center">Zone 6<br/><span className="text-xs font-normal">Arid Interior</span></th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr className={buildingClass === "F1" ? "bg-primary/10" : ""}>
-                      <td className="p-2 font-medium">F1</td>
-                      <td className="p-2">{SANS_204_TABLE.F1.name}</td>
-                      <td className="p-2 text-center font-medium">
-                        {SANS_204_TABLE.F1.zones[parseInt(climaticZone) - 1]} VA/m²
-                      </td>
-                    </tr>
-                    <tr className={buildingClass === "G1" ? "bg-primary/10" : ""}>
-                      <td className="p-2 font-medium">G1</td>
-                      <td className="p-2">{SANS_204_TABLE.G1.name}</td>
-                      <td className="p-2 text-center font-medium">
-                        {SANS_204_TABLE.G1.zones[parseInt(climaticZone) - 1]} VA/m²
-                      </td>
-                    </tr>
-                    <tr className={buildingClass === "A1" ? "bg-primary/10" : ""}>
-                      <td className="p-2 font-medium">A1</td>
-                      <td className="p-2">{SANS_204_TABLE.A1.name}</td>
-                      <td className="p-2 text-center font-medium">
-                        {SANS_204_TABLE.A1.zones[parseInt(climaticZone) - 1]} VA/m²
-                      </td>
-                    </tr>
-                    <tr className={buildingClass === "H1" ? "bg-primary/10" : ""}>
-                      <td className="p-2 font-medium">H1</td>
-                      <td className="p-2">{SANS_204_TABLE.H1.name}</td>
-                      <td className="p-2 text-center font-medium">
-                        {SANS_204_TABLE.H1.zones[parseInt(climaticZone) - 1]} VA/m²
-                      </td>
-                    </tr>
+                    {Object.entries(SANS_204_TABLE).map(([key, value]) => (
+                      <tr 
+                        key={key}
+                        className={buildingClass === key ? "bg-primary/10" : "hover:bg-muted/50"}
+                      >
+                        <td className="p-2 font-medium sticky left-0 bg-background border-r">
+                          {key}
+                        </td>
+                        <td className="p-2">{value.name}</td>
+                        {value.zones.map((va, zoneIdx) => (
+                          <td 
+                            key={zoneIdx}
+                            className={`p-2 text-center font-medium ${
+                              parseInt(climaticZone) === zoneIdx + 1 && buildingClass === key
+                                ? "bg-primary text-primary-foreground"
+                                : ""
+                            }`}
+                          >
+                            {va}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
+              </div>
+              <div className="mt-3 text-xs text-muted-foreground">
+                <p>Your selection: <span className="font-medium">{buildingClass} - {SANS_204_TABLE[buildingClass].name}</span> in <span className="font-medium">Zone {climaticZone}</span> = <span className="font-medium text-primary">{calculatedValues.vaPerSqm} VA/m²</span></p>
               </div>
             </CardContent>
           </Card>
