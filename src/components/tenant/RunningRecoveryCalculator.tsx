@@ -30,6 +30,7 @@ interface ZoneSettings {
 export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculatorProps) {
   const queryClient = useQueryClient();
   const [zoneSettings, setZoneSettings] = useState<Map<string, ZoneSettings>>(new Map());
+  const [localInputs, setLocalInputs] = useState<Map<string, Partial<ZoneSettings>>>(new Map());
   const [pendingSaves, setPendingSaves] = useState<Set<string>>(new Set());
   const saveTimeoutRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
@@ -142,21 +143,54 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
     });
   }, [zones, allSettings, getFuelConsumption]);
 
-  // Update individual zone setting with debounced auto-save
-  const updateZoneSetting = (zoneId: string, field: keyof ZoneSettings, value: number | string) => {
+  // Get display value (local input or saved setting)
+  const getDisplayValue = (zoneId: string, field: keyof ZoneSettings): number | string => {
+    const localValue = localInputs.get(zoneId)?.[field];
+    if (localValue !== undefined) return localValue;
+    return zoneSettings.get(zoneId)?.[field] ?? '';
+  };
+
+  // Update local input only (no calculations yet)
+  const updateLocalInput = (zoneId: string, field: keyof ZoneSettings, value: number | string) => {
+    setLocalInputs(prev => {
+      const updated = new Map(prev);
+      const current = updated.get(zoneId) || {};
+      updated.set(zoneId, { ...current, [field]: value });
+      return updated;
+    });
+
+    // Clear existing timeout for this zone
+    const existingTimeout = saveTimeoutRef.current.get(zoneId);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+    }
+
+    // Set timeout to commit changes after user stops typing
+    const newTimeout = setTimeout(() => {
+      commitChanges(zoneId);
+    }, 1000);
+
+    saveTimeoutRef.current.set(zoneId, newTimeout);
+  };
+
+  // Commit local changes to actual settings and save
+  const commitChanges = (zoneId: string) => {
+    const localChanges = localInputs.get(zoneId);
+    if (!localChanges) return;
+
     let updatedSettings: ZoneSettings | undefined;
     
     setZoneSettings(prev => {
       const updated = new Map(prev);
       const current = updated.get(zoneId);
       if (current) {
-        const newSettings = { ...current, [field]: value };
+        const newSettings = { ...current, ...localChanges };
         
-        // Auto-update fuel consumption when running load changes
-        if (field === 'running_load') {
+        // Auto-update fuel consumption if running load changed
+        if (localChanges.running_load !== undefined) {
           const zone = zones.find(z => z.id === zoneId);
           if (zone?.generator_size) {
-            const fuelRate = getFuelConsumption(zone.generator_size, value as number);
+            const fuelRate = getFuelConsumption(zone.generator_size, newSettings.running_load);
             newSettings.fuel_consumption_rate = fuelRate;
           }
         }
@@ -167,20 +201,16 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
       return updated;
     });
 
-    // Clear existing timeout for this zone
-    const existingTimeout = saveTimeoutRef.current.get(zoneId);
-    if (existingTimeout) {
-      clearTimeout(existingTimeout);
-    }
+    // Clear local inputs for this zone
+    setLocalInputs(prev => {
+      const updated = new Map(prev);
+      updated.delete(zoneId);
+      return updated;
+    });
 
-    // Set new timeout to save after user stops typing (1 second delay)
+    // Save to database
     if (updatedSettings) {
-      const settingsToSave = updatedSettings;
-      const newTimeout = setTimeout(() => {
-        saveSingleZone(zoneId, settingsToSave);
-      }, 1000);
-
-      saveTimeoutRef.current.set(zoneId, newTimeout);
+      saveSingleZone(zoneId, updatedSettings);
     }
   };
 
@@ -355,8 +385,8 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
                         step="1"
                         min="0"
                         max="100"
-                        value={settings?.running_load ?? ''}
-                        onChange={(e) => updateZoneSetting(zone.id, 'running_load', e.target.value === '' ? 0 : Number(e.target.value))}
+                        value={getDisplayValue(zone.id, 'running_load')}
+                        onChange={(e) => updateLocalInput(zone.id, 'running_load', e.target.value === '' ? 0 : Number(e.target.value))}
                         className="text-center"
                         placeholder="0"
                       />
@@ -377,8 +407,8 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
                         type="number"
                         step="1"
                         min="0"
-                        value={settings?.net_energy_kva ?? ''}
-                        onChange={(e) => updateZoneSetting(zone.id, 'net_energy_kva', e.target.value === '' ? 0 : Number(e.target.value))}
+                        value={getDisplayValue(zone.id, 'net_energy_kva')}
+                        onChange={(e) => updateLocalInput(zone.id, 'net_energy_kva', e.target.value === '' ? 0 : Number(e.target.value))}
                         className="text-center"
                         placeholder="0"
                       />
@@ -400,8 +430,8 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
                         step="0.01"
                         min="0"
                         max="1"
-                        value={settings?.kva_to_kwh_conversion ?? ''}
-                        onChange={(e) => updateZoneSetting(zone.id, 'kva_to_kwh_conversion', e.target.value === '' ? 0 : Number(e.target.value))}
+                        value={getDisplayValue(zone.id, 'kva_to_kwh_conversion')}
+                        onChange={(e) => updateLocalInput(zone.id, 'kva_to_kwh_conversion', e.target.value === '' ? 0 : Number(e.target.value))}
                         className="text-center"
                         placeholder="0.95"
                       />
@@ -442,8 +472,8 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
                         type="number"
                         step="0.01"
                         min="0"
-                        value={settings?.diesel_price_per_litre ?? ''}
-                        onChange={(e) => updateZoneSetting(zone.id, 'diesel_price_per_litre', e.target.value === '' ? 0 : Number(e.target.value))}
+                        value={getDisplayValue(zone.id, 'diesel_price_per_litre')}
+                        onChange={(e) => updateLocalInput(zone.id, 'diesel_price_per_litre', e.target.value === '' ? 0 : Number(e.target.value))}
                         className="text-center"
                         placeholder="23.00"
                       />
@@ -464,8 +494,8 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
                         type="number"
                         step="0.01"
                         min="0"
-                        value={settings?.servicing_cost_per_year ?? ''}
-                        onChange={(e) => updateZoneSetting(zone.id, 'servicing_cost_per_year', e.target.value === '' ? 0 : Number(e.target.value))}
+                        value={getDisplayValue(zone.id, 'servicing_cost_per_year')}
+                        onChange={(e) => updateLocalInput(zone.id, 'servicing_cost_per_year', e.target.value === '' ? 0 : Number(e.target.value))}
                         className="text-center"
                         placeholder="18800.00"
                       />
@@ -486,8 +516,8 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
                         type="number"
                         step="0.01"
                         min="0"
-                        value={settings?.servicing_cost_per_250_hours ?? ''}
-                        onChange={(e) => updateZoneSetting(zone.id, 'servicing_cost_per_250_hours', e.target.value === '' ? 0 : Number(e.target.value))}
+                        value={getDisplayValue(zone.id, 'servicing_cost_per_250_hours')}
+                        onChange={(e) => updateLocalInput(zone.id, 'servicing_cost_per_250_hours', e.target.value === '' ? 0 : Number(e.target.value))}
                         className="text-center"
                         placeholder="18800.00"
                       />
@@ -508,8 +538,8 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
                         type="number"
                         step="1"
                         min="0"
-                        value={settings?.expected_hours_per_month ?? ''}
-                        onChange={(e) => updateZoneSetting(zone.id, 'expected_hours_per_month', e.target.value === '' ? 0 : Number(e.target.value))}
+                        value={getDisplayValue(zone.id, 'expected_hours_per_month')}
+                        onChange={(e) => updateLocalInput(zone.id, 'expected_hours_per_month', e.target.value === '' ? 0 : Number(e.target.value))}
                         className="text-center"
                         placeholder="100"
                       />
