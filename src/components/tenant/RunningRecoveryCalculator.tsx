@@ -3,7 +3,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { GENERATOR_SIZING_TABLE } from "@/utils/generatorSizing";
@@ -31,6 +31,7 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
   const queryClient = useQueryClient();
   const [zoneSettings, setZoneSettings] = useState<Map<string, ZoneSettings>>(new Map());
   const [pendingSaves, setPendingSaves] = useState<Set<string>>(new Set());
+  const saveTimeoutRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
   // Function to get fuel consumption from sizing table
   const getFuelConsumption = (generatorSize: string, loadPercentage: number): number => {
@@ -141,7 +142,7 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
     });
   }, [zones, allSettings, getFuelConsumption]);
 
-  // Update individual zone setting with auto-save
+  // Update individual zone setting with debounced auto-save
   const updateZoneSetting = (zoneId: string, field: keyof ZoneSettings, value: number | string) => {
     setZoneSettings(prev => {
       const updated = new Map(prev);
@@ -157,13 +158,33 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
             updated.set(zoneId, { ...updated.get(zoneId)!, fuel_consumption_rate: fuelRate });
           }
         }
-        
-        // Trigger auto-save for this zone
-        saveSingleZone(zoneId, updated.get(zoneId)!);
       }
       return updated;
     });
+
+    // Clear existing timeout for this zone
+    const existingTimeout = saveTimeoutRef.current.get(zoneId);
+    if (existingTimeout) {
+      clearTimeout(existingTimeout);
+    }
+
+    // Set new timeout to save after user stops typing (1 second delay)
+    const newTimeout = setTimeout(() => {
+      const settingsToSave = zoneSettings.get(zoneId);
+      if (settingsToSave) {
+        saveSingleZone(zoneId, settingsToSave);
+      }
+    }, 1000);
+
+    saveTimeoutRef.current.set(zoneId, newTimeout);
   };
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      saveTimeoutRef.current.forEach(timeout => clearTimeout(timeout));
+    };
+  }, []);
 
   // Save a single zone's settings
   const saveSingleZone = async (zoneId: string, settings: ZoneSettings) => {
@@ -261,7 +282,7 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>Running Recovery Calculator</CardTitle>
-              <CardDescription>Compare operational costs across all generators - changes save automatically</CardDescription>
+              <CardDescription>Enter values and they'll save automatically after you stop typing</CardDescription>
             </div>
             {pendingSaves.size > 0 && (
               <Badge variant="secondary" className="animate-pulse">
@@ -326,9 +347,13 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
                     <TableCell key={zone.id} colSpan={numGenerators} className="text-center">
                       <Input
                         type="number"
-                        value={settings?.running_load || 0}
-                        onChange={(e) => updateZoneSetting(zone.id, 'running_load', Number(e.target.value))}
+                        step="1"
+                        min="0"
+                        max="100"
+                        value={settings?.running_load ?? ''}
+                        onChange={(e) => updateZoneSetting(zone.id, 'running_load', e.target.value === '' ? 0 : Number(e.target.value))}
                         className="text-center"
+                        placeholder="0"
                       />
                     </TableCell>
                   );
@@ -345,9 +370,12 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
                     <TableCell key={zone.id} colSpan={numGenerators} className="text-center">
                       <Input
                         type="number"
-                        value={settings?.net_energy_kva || 0}
-                        onChange={(e) => updateZoneSetting(zone.id, 'net_energy_kva', Number(e.target.value))}
+                        step="1"
+                        min="0"
+                        value={settings?.net_energy_kva ?? ''}
+                        onChange={(e) => updateZoneSetting(zone.id, 'net_energy_kva', e.target.value === '' ? 0 : Number(e.target.value))}
                         className="text-center"
+                        placeholder="0"
                       />
                     </TableCell>
                   );
@@ -365,9 +393,12 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
                       <Input
                         type="number"
                         step="0.01"
-                        value={settings?.kva_to_kwh_conversion || 0}
-                        onChange={(e) => updateZoneSetting(zone.id, 'kva_to_kwh_conversion', Number(e.target.value))}
+                        min="0"
+                        max="1"
+                        value={settings?.kva_to_kwh_conversion ?? ''}
+                        onChange={(e) => updateZoneSetting(zone.id, 'kva_to_kwh_conversion', e.target.value === '' ? 0 : Number(e.target.value))}
                         className="text-center"
+                        placeholder="0.95"
                       />
                     </TableCell>
                   );
@@ -405,9 +436,11 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
                       <Input
                         type="number"
                         step="0.01"
-                        value={settings?.diesel_price_per_litre || 0}
-                        onChange={(e) => updateZoneSetting(zone.id, 'diesel_price_per_litre', Number(e.target.value))}
+                        min="0"
+                        value={settings?.diesel_price_per_litre ?? ''}
+                        onChange={(e) => updateZoneSetting(zone.id, 'diesel_price_per_litre', e.target.value === '' ? 0 : Number(e.target.value))}
                         className="text-center"
+                        placeholder="23.00"
                       />
                     </TableCell>
                   );
@@ -425,9 +458,11 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
                       <Input
                         type="number"
                         step="0.01"
-                        value={settings?.servicing_cost_per_year || 0}
-                        onChange={(e) => updateZoneSetting(zone.id, 'servicing_cost_per_year', Number(e.target.value))}
+                        min="0"
+                        value={settings?.servicing_cost_per_year ?? ''}
+                        onChange={(e) => updateZoneSetting(zone.id, 'servicing_cost_per_year', e.target.value === '' ? 0 : Number(e.target.value))}
                         className="text-center"
+                        placeholder="18800.00"
                       />
                     </TableCell>
                   );
@@ -445,9 +480,11 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
                       <Input
                         type="number"
                         step="0.01"
-                        value={settings?.servicing_cost_per_250_hours || 0}
-                        onChange={(e) => updateZoneSetting(zone.id, 'servicing_cost_per_250_hours', Number(e.target.value))}
+                        min="0"
+                        value={settings?.servicing_cost_per_250_hours ?? ''}
+                        onChange={(e) => updateZoneSetting(zone.id, 'servicing_cost_per_250_hours', e.target.value === '' ? 0 : Number(e.target.value))}
                         className="text-center"
+                        placeholder="18800.00"
                       />
                     </TableCell>
                   );
@@ -464,9 +501,12 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
                     <TableCell key={zone.id} colSpan={numGenerators} className="text-center">
                       <Input
                         type="number"
-                        value={settings?.expected_hours_per_month || 0}
-                        onChange={(e) => updateZoneSetting(zone.id, 'expected_hours_per_month', Number(e.target.value))}
+                        step="1"
+                        min="0"
+                        value={settings?.expected_hours_per_month ?? ''}
+                        onChange={(e) => updateZoneSetting(zone.id, 'expected_hours_per_month', e.target.value === '' ? 0 : Number(e.target.value))}
                         className="text-center"
+                        placeholder="100"
                       />
                     </TableCell>
                   );
