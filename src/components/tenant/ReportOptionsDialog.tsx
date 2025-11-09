@@ -42,7 +42,6 @@ export interface ReportOptions {
   includeTenantDocumentIndex: boolean;
   includeKPIPage: boolean;
   includeTenantSchedule: boolean;
-  tenantScheduleLayout: 'table' | 'by-tenant';
   includeFloorPlan: boolean;
   kpiLayout: 'compact' | 'detailed';
   kpiAppearance: {
@@ -98,7 +97,6 @@ export const ReportOptionsDialog = ({
     includeTenantDocumentIndex: true,
     includeKPIPage: true,
     includeTenantSchedule: true,
-    tenantScheduleLayout: 'table',
     includeFloorPlan: true,
     kpiLayout: 'compact',
     kpiAppearance: {
@@ -135,7 +133,6 @@ export const ReportOptionsDialog = ({
       includeTenantDocumentIndex: true,
       includeKPIPage: true,
       includeTenantSchedule: true,
-      tenantScheduleLayout: 'table',
       includeFloorPlan: true,
       kpiLayout: 'compact',
       kpiAppearance: {
@@ -274,7 +271,6 @@ export const ReportOptionsDialog = ({
       includeTenantDocumentIndex: false,
       includeKPIPage: false,
       includeTenantSchedule: false,
-      tenantScheduleLayout: 'table',
       includeFloorPlan: false,
       kpiLayout: 'compact',
       kpiAppearance: {
@@ -673,45 +669,17 @@ export const ReportOptionsDialog = ({
                 </div>
               )}
 
-              <div className="space-y-3">
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="tenantSchedule"
-                    checked={options.includeTenantSchedule}
-                    onCheckedChange={(checked) =>
-                      setOptions({ ...options, includeTenantSchedule: checked as boolean })
-                    }
-                  />
-                  <Label htmlFor="tenantSchedule" className="cursor-pointer">
-                    Tenant Schedule
-                  </Label>
-                </div>
-
-                {options.includeTenantSchedule && (
-                  <div className="ml-6 space-y-2">
-                    <Label className="text-xs text-muted-foreground">Schedule Layout</Label>
-                    <RadioGroup
-                      value={options.tenantScheduleLayout}
-                      onValueChange={(value: 'table' | 'by-tenant') =>
-                        setOptions({ ...options, tenantScheduleLayout: value })
-                      }
-                      className="flex gap-4"
-                    >
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="table" id="table-layout" />
-                        <Label htmlFor="table-layout" className="cursor-pointer font-normal">
-                          Table View
-                        </Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="by-tenant" id="by-tenant-layout" />
-                        <Label htmlFor="by-tenant-layout" className="cursor-pointer font-normal">
-                          By Tenant (Individual Sections)
-                        </Label>
-                      </div>
-                    </RadioGroup>
-                  </div>
-                )}
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="tenantSchedule"
+                  checked={options.includeTenantSchedule}
+                  onCheckedChange={(checked) =>
+                    setOptions({ ...options, includeTenantSchedule: checked as boolean })
+                  }
+                />
+                <Label htmlFor="tenantSchedule" className="cursor-pointer">
+                  Tenant Schedule
+                </Label>
               </div>
 
               <div className="flex items-center space-x-2">
