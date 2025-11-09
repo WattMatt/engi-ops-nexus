@@ -9,12 +9,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Save, Download } from "lucide-react";
+import { Save, Download, BookOpen } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import { CalculationTutorial } from "./CalculationTutorial";
 
 // SANS 10142-1 Socket outlet loads (VA/m²) by building type
 const SANS_10142_SOCKET_LOADS = {
@@ -138,6 +139,7 @@ export const BulkServicesSettingsOverview = ({
   );
   const [saving, setSaving] = useState(false);
   const [showHeatMap, setShowHeatMap] = useState(true);
+  const [tutorialOpen, setTutorialOpen] = useState(false);
 
   // Calculate statistics
   const allVaValues = Object.values(SANS_204_TABLE).flatMap(bt => bt.zones);
@@ -825,22 +827,27 @@ export const BulkServicesSettingsOverview = ({
             {saving ? "Saving..." : "Save Calculation Method"}
           </Button>
 
+          <Button variant="outline" onClick={() => setTutorialOpen(true)}>
+            <BookOpen className="mr-2 h-4 w-4" />
+            Start Tutorial
+          </Button>
+
           {calculationType === "sans_204" && (
             <Button variant="outline" onClick={generateSANS204Guide}>
               <Download className="mr-2 h-4 w-4" />
-              Download SANS 204 Guide
+              Download Guide
             </Button>
           )}
           {calculationType === "sans_10142" && (
             <Button variant="outline" onClick={generateSANS10142Guide}>
               <Download className="mr-2 h-4 w-4" />
-              Download SANS 10142 Guide
+              Download Guide
             </Button>
           )}
           {calculationType === "residential" && (
             <Button variant="outline" onClick={generateResidentialADMDGuide}>
               <Download className="mr-2 h-4 w-4" />
-              Download ADMD Guide
+              Download Guide
             </Button>
           )}
         </div>
@@ -1211,6 +1218,12 @@ export const BulkServicesSettingsOverview = ({
           </div>
         </>
       )}
+      
+      <CalculationTutorial
+        open={tutorialOpen}
+        onOpenChange={setTutorialOpen}
+        calculationType={calculationType}
+      />
     </div>
   );
 };
