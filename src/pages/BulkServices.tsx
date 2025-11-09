@@ -1,17 +1,31 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, FileText } from "lucide-react";
+import { Plus, FileText, Trash2 } from "lucide-react";
 import { CreateBulkServicesDialog } from "@/components/bulk-services/CreateBulkServicesDialog";
 import { BulkServicesOverview } from "@/components/bulk-services/BulkServicesOverview";
+import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const BulkServices = () => {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [documentToDelete, setDocumentToDelete] = useState<string | null>(null);
 
   const selectedProjectId = localStorage.getItem("selectedProjectId");
+  const queryClient = useQueryClient();
 
   const { data: documents, refetch } = useQuery({
     queryKey: ["bulk-services-documents", selectedProjectId],
@@ -29,6 +43,47 @@ const BulkServices = () => {
     },
     enabled: !!selectedProjectId,
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (documentId: string) => {
+      // First delete sections
+      const { error: sectionsError } = await supabase
+        .from("bulk_services_sections")
+        .delete()
+        .eq("document_id", documentId);
+
+      if (sectionsError) throw sectionsError;
+
+      // Then delete document
+      const { error: docError } = await supabase
+        .from("bulk_services_documents")
+        .delete()
+        .eq("id", documentId);
+
+      if (docError) throw docError;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["bulk-services-documents"] });
+      toast.success("Document deleted successfully");
+      setDeleteDialogOpen(false);
+      setDocumentToDelete(null);
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to delete document");
+    },
+  });
+
+  const handleDeleteClick = (e: React.MouseEvent, documentId: string) => {
+    e.stopPropagation();
+    setDocumentToDelete(documentId);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleConfirmDelete = () => {
+    if (documentToDelete) {
+      deleteMutation.mutate(documentToDelete);
+    }
+  };
 
   if (selectedDocumentId) {
     return (
@@ -58,13 +113,23 @@ const BulkServices = () => {
         {documents?.map((doc) => (
           <Card
             key={doc.id}
-            className="cursor-pointer hover:border-primary transition-colors"
+            className="cursor-pointer hover:border-primary transition-colors group"
             onClick={() => setSelectedDocumentId(doc.id)}
           >
             <CardHeader>
               <div className="flex items-start justify-between">
                 <FileText className="h-8 w-8 text-primary" />
-                <span className="text-xs text-muted-foreground">{doc.revision}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-muted-foreground">{doc.revision}</span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={(e) => handleDeleteClick(e, doc.id)}
+                  >
+                    <Trash2 className="h-4 w-4 text-destructive" />
+                  </Button>
+                </div>
               </div>
               <CardTitle className="text-lg">{doc.document_number}</CardTitle>
               <CardDescription>
@@ -117,6 +182,27 @@ const BulkServices = () => {
           setCreateDialogOpen(false);
         }}
       />
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Document</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this bulk services document? This action cannot be undone.
+              All sections and content will be permanently deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

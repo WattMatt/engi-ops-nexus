@@ -72,6 +72,7 @@ export const CreateBulkServicesDialog = ({
           diversity_factor: projectData?.diversity_factor,
           load_category: projectData?.load_category,
           tariff_structure: projectData?.tariff_structure,
+          building_calculation_type: projectData?.building_calculation_type || 'commercial',
         })
         .select()
         .single();

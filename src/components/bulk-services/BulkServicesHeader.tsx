@@ -337,6 +337,7 @@ export const BulkServicesHeader = ({ document }: BulkServicesHeaderProps) => {
         open={calculatorOpen}
         onOpenChange={setCalculatorOpen}
         onApplyValues={handleApplyCalculation}
+        documentId={document.id}
         initialValues={{
           project_area: parseFloat(formData.project_area) || undefined,
           climatic_zone: formData.climatic_zone?.split(" ")[0] || undefined,

@@ -423,6 +423,7 @@ export type Database = {
       bulk_services_documents: {
         Row: {
           architect: string | null
+          building_calculation_type: string | null
           client_name: string | null
           climatic_zone: string | null
           connection_size: string | null
@@ -451,6 +452,7 @@ export type Database = {
         }
         Insert: {
           architect?: string | null
+          building_calculation_type?: string | null
           client_name?: string | null
           climatic_zone?: string | null
           connection_size?: string | null
@@ -479,6 +481,7 @@ export type Database = {
         }
         Update: {
           architect?: string | null
+          building_calculation_type?: string | null
           client_name?: string | null
           climatic_zone?: string | null
           connection_size?: string | null

@@ -42,6 +42,7 @@ interface SANS204CalculatorProps {
     climatic_zone?: string;
     diversity_factor?: number;
   };
+  documentId?: string; // Optional document ID to fetch calculation type
 }
 
 // ADMD Diversity Table - Based on units per phase for three-phase distribution
@@ -254,6 +255,7 @@ export const SANS204Calculator = ({
   onOpenChange,
   onApplyValues,
   initialValues,
+  documentId,
 }: SANS204CalculatorProps) => {
   const projectId = localStorage.getItem("selectedProjectId");
   
@@ -292,7 +294,23 @@ export const SANS204Calculator = ({
   const [sans10142FixedAppliances, setSans10142FixedAppliances] = useState("0");
   const [sans10142Diversity, setSans10142Diversity] = useState("0.75");
 
-  // Fetch project settings
+  // Fetch document settings if documentId is provided (overrides project settings)
+  const { data: documentSettings } = useQuery({
+    queryKey: ["bulk-services-document-settings", documentId],
+    queryFn: async () => {
+      if (!documentId) return null;
+      const { data, error } = await supabase
+        .from("bulk_services_documents")
+        .select("building_calculation_type")
+        .eq("id", documentId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!documentId && open,
+  });
+
+  // Fetch project settings as fallback
   const { data: projectSettings } = useQuery({
     queryKey: ["project-settings", projectId],
     queryFn: async () => {
@@ -308,7 +326,7 @@ export const SANS204Calculator = ({
     enabled: !!projectId && open,
   });
 
-  const calculationType = projectSettings?.building_calculation_type || "commercial";
+  const calculationType = documentSettings?.building_calculation_type || projectSettings?.building_calculation_type || "commercial";
   const isResidential = calculationType === "residential";
   const isSans10142 = calculationType === "sans10142" || calculationType === "electrical_standard";
 
