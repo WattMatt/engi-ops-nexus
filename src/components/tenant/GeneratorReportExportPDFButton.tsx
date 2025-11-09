@@ -551,31 +551,34 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
           if (data.section === 'body' && data.row.index < tenantRowsData.length) {
             const tenantData = tenantRowsData[data.row.index];
             
-            // Red background for tenants with own generator
-            if (tenantData.hasOwnGenerator) {
-              data.cell.styles.fillColor = [255, 200, 200]; // Light red
-              data.cell.styles.textColor = [139, 0, 0]; // Dark red text
-            }
-            // Green background for fast food and restaurants
-            else if (tenantData.isFastFood || tenantData.isRestaurant) {
-              data.cell.styles.fillColor = [200, 255, 200]; // Light green
-              data.cell.styles.textColor = [0, 100, 0]; // Dark green text
-            }
-            // Apply zone color to zone-specific load columns
-            else if (data.column.index >= 5 && data.column.index < 5 + zones.length) {
-              const zoneIndex = data.column.index - 5;
-              const zone = zones[zoneIndex];
-              const tenant = tenants[data.row.index];
-              
-              // If this tenant belongs to this zone and has a value
-              if (tenant?.generator_zone_id === zone?.id && data.cell.text[0] !== "-") {
-                const zoneColor = zone.zone_color || "#3b82f6";
-                const rgb = hexToRgb(zoneColor);
-                const lightRgb = lightenColor(rgb, 0.9);
+            // Only apply styling if tenantData exists
+            if (tenantData) {
+              // Red background for tenants with own generator
+              if (tenantData.hasOwnGenerator) {
+                data.cell.styles.fillColor = [255, 200, 200]; // Light red
+                data.cell.styles.textColor = [139, 0, 0]; // Dark red text
+              }
+              // Green background for fast food and restaurants
+              else if (tenantData.isFastFood || tenantData.isRestaurant) {
+                data.cell.styles.fillColor = [200, 255, 200]; // Light green
+                data.cell.styles.textColor = [0, 100, 0]; // Dark green text
+              }
+              // Apply zone color to zone-specific load columns
+              else if (data.column.index >= 5 && data.column.index < 5 + zones.length) {
+                const zoneIndex = data.column.index - 5;
+                const zone = zones[zoneIndex];
+                const tenant = tenants[data.row.index];
                 
-                data.cell.styles.fillColor = lightRgb as any;
-                data.cell.styles.textColor = rgb as any;
-                data.cell.styles.fontStyle = 'bold';
+                // If this tenant belongs to this zone and has a value
+                if (tenant?.generator_zone_id === zone?.id && data.cell.text[0] !== "-") {
+                  const zoneColor = zone.zone_color || "#3b82f6";
+                  const rgb = hexToRgb(zoneColor);
+                  const lightRgb = lightenColor(rgb, 0.9);
+                  
+                  data.cell.styles.fillColor = lightRgb as any;
+                  data.cell.styles.textColor = rgb as any;
+                  data.cell.styles.fontStyle = 'bold';
+                }
               }
             }
           }
