@@ -1,6 +1,6 @@
 import { Conversation } from "@/hooks/useConversations";
 import { cn } from "@/lib/utils";
-import { MessageSquare, Users, FolderKanban } from "lucide-react";
+import { MessageSquare, Users, FolderKanban, Paperclip } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -88,10 +88,21 @@ export function ConversationsList({
                     </span>
                   )}
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  {conversation.participants.length} participant
-                  {conversation.participants.length !== 1 ? "s" : ""}
-                </p>
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <span>
+                    {conversation.participants.length} participant
+                    {conversation.participants.length !== 1 ? "s" : ""}
+                  </span>
+                  {conversation.has_attachments && (
+                    <>
+                      <span>•</span>
+                      <div className="flex items-center gap-1">
+                        <Paperclip className="h-3 w-3" />
+                        <span>{conversation.attachment_count}</span>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
           </button>

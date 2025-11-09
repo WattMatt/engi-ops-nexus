@@ -12,6 +12,8 @@ export interface Conversation {
   created_by: string;
   created_at: string;
   updated_at: string;
+  has_attachments?: boolean;
+  attachment_count?: number;
 }
 
 export const useConversations = () => {
@@ -31,7 +33,35 @@ export const useConversations = () => {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      return data as Conversation[];
+      
+      const conversations = data as Conversation[];
+
+      // Fetch attachment info for each conversation
+      const conversationsWithAttachments = await Promise.all(
+        conversations.map(async (conv) => {
+          const { data: messagesWithAttachments } = await supabase
+            .from("messages")
+            .select("id, attachments")
+            .eq("conversation_id", conv.id)
+            .not("attachments", "is", null);
+
+          const totalAttachments = messagesWithAttachments?.reduce(
+            (sum, msg) => {
+              const attachments = msg.attachments as any[];
+              return sum + (Array.isArray(attachments) ? attachments.length : 0);
+            },
+            0
+          ) || 0;
+
+          return {
+            ...conv,
+            has_attachments: totalAttachments > 0,
+            attachment_count: totalAttachments,
+          };
+        })
+      );
+
+      return conversationsWithAttachments;
     },
   });
 
