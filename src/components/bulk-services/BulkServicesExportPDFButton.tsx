@@ -478,6 +478,63 @@ export function BulkServicesExportPDFButton({ documentId, onReportSaved }: BulkS
       doc.setTextColor(0, 0, 0);
       yPos += insightsBoxPadding;
 
+      // ========== ZONE STATISTICS CHART ==========
+      if (yPos > 180) {
+        doc.addPage();
+        yPos = 20;
+      }
+
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("Zone Load Comparison Chart", 14, yPos);
+      yPos += 8;
+
+      try {
+        // Try to capture the chart from the UI
+        const chartElement = window.document.getElementById('zone-statistics-chart');
+        if (chartElement) {
+          const canvas = await html2canvas(chartElement, {
+            scale: 2,
+            backgroundColor: '#ffffff',
+            logging: false,
+          });
+          
+          const imgData = canvas.toDataURL('image/png');
+          const imgWidth = 180;
+          const imgHeight = (canvas.height * imgWidth) / canvas.width;
+          
+          // Check if we need a new page
+          if (yPos + imgHeight > 270) {
+            doc.addPage();
+            yPos = 20;
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "bold");
+            doc.text("Zone Load Comparison Chart", 14, yPos);
+            yPos += 8;
+          }
+          
+          doc.addImage(imgData, 'PNG', 14, yPos, imgWidth, imgHeight);
+          yPos += imgHeight + 10;
+        } else {
+          // Fallback: Add a note if chart not available
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "italic");
+          doc.setTextColor(100, 100, 100);
+          doc.text("(Zone comparison chart not available - open calculator to include chart)", 14, yPos);
+          doc.setTextColor(0, 0, 0);
+          yPos += 10;
+        }
+      } catch (error) {
+        console.error("Error capturing chart:", error);
+        // Continue without chart
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "italic");
+        doc.setTextColor(100, 100, 100);
+        doc.text("(Zone comparison chart could not be generated)", 14, yPos);
+        doc.setTextColor(0, 0, 0);
+        yPos += 10;
+      }
+
       // Calculation breakdown if data available
       if (document.project_area && document.va_per_sqm) {
         yPos += 6;

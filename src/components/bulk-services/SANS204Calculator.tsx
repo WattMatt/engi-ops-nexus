@@ -23,6 +23,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClimaticZoneMap } from "./ClimaticZoneMap";
+import { ZoneStatisticsChart } from "./ZoneStatisticsChart";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Area, AreaChart } from "recharts";
@@ -2888,6 +2889,13 @@ export const SANS204Calculator = ({
               </div>
             </CardContent>
           </Card>
+
+          {/* Zone Statistics Chart */}
+          <ZoneStatisticsChart 
+            zoneStats={stats.zones}
+            climaticZone={climaticZone}
+            className="border-primary/20"
+          />
             </>
           )}
 
