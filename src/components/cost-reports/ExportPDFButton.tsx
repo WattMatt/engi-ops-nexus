@@ -197,82 +197,183 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       }
 
       // ========== COST CATEGORIES SUMMARY ==========
+      if (yPos > pageHeight - 60) {
+        doc.addPage();
+        yPos = 20;
+      }
+      
       tocSections.push({ title: "Cost Summary", page: doc.getCurrentPageInfo().pageNumber });
       
       doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
-      doc.text("COST SUMMARY", 14, yPos);
-      yPos += 10;
+      doc.text("EXECUTIVE SUMMARY", 14, yPos);
+      yPos += 12;
 
-      // Summary table data
-      const summaryData = categories.map((cat: any) => {
+      // Calculate totals for KPIs
+      const categoryTotals = categories.map((cat: any) => {
         const lineItems = cat.cost_line_items || [];
         const originalBudget = lineItems.reduce((sum: number, item: any) => 
-          sum + Number(item.original_budget || 0), Number(cat.original_budget || 0));
-        const previousReport = lineItems.reduce((sum: number, item: any) => 
-          sum + Number(item.previous_report || 0), Number(cat.previous_report || 0));
+          sum + Number(item.original_budget || 0), 0);
         const anticipatedFinal = lineItems.reduce((sum: number, item: any) => 
-          sum + Number(item.anticipated_final || 0), Number(cat.anticipated_final || 0));
-        const variance = anticipatedFinal - originalBudget;
-
-        return [
-          cat.code,
-          cat.description,
-          `R${originalBudget.toFixed(2)}`,
-          `R${previousReport.toFixed(2)}`,
-          `R${anticipatedFinal.toFixed(2)}`,
-          `R${variance.toFixed(2)}`,
-        ];
+          sum + Number(item.anticipated_final || 0), 0);
+        
+        return {
+          code: cat.code,
+          description: cat.description,
+          originalBudget,
+          anticipatedFinal,
+          variance: anticipatedFinal - originalBudget
+        };
       });
 
-      // Calculate totals
-      const totals = categories.reduce((acc: any, cat: any) => {
-        const lineItems = cat.cost_line_items || [];
-        acc.originalBudget += lineItems.reduce((sum: number, item: any) => 
-          sum + Number(item.original_budget || 0), Number(cat.original_budget || 0));
-        acc.previousReport += lineItems.reduce((sum: number, item: any) => 
-          sum + Number(item.previous_report || 0), Number(cat.previous_report || 0));
-        acc.anticipatedFinal += lineItems.reduce((sum: number, item: any) => 
-          sum + Number(item.anticipated_final || 0), Number(cat.anticipated_final || 0));
-        return acc;
-      }, { originalBudget: 0, previousReport: 0, anticipatedFinal: 0 });
+      const totalOriginalBudget = categoryTotals.reduce((sum: number, cat: any) => sum + cat.originalBudget, 0);
+      const totalAnticipatedFinal = categoryTotals.reduce((sum: number, cat: any) => sum + cat.anticipatedFinal, 0);
+      const totalVariance = totalAnticipatedFinal - totalOriginalBudget;
 
-      const totalVariance = totals.anticipatedFinal - totals.originalBudget;
-
-      summaryData.push([
-        '',
-        'TOTAL',
-        `R${totals.originalBudget.toFixed(2)}`,
-        `R${totals.previousReport.toFixed(2)}`,
-        `R${totals.anticipatedFinal.toFixed(2)}`,
-        `R${totalVariance.toFixed(2)}`,
-      ]);
+      // KPI Cards in a table format
+      const kpiData = [
+        ['Metric', 'Value'],
+        ['Original Budget', `R ${totalOriginalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`],
+        ['Anticipated Final', `R ${totalAnticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`],
+        [
+          totalVariance < 0 ? 'Total Saving' : 'Total Extra', 
+          `R ${Math.abs(totalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })} (${((Math.abs(totalVariance) / totalOriginalBudget) * 100).toFixed(2)}%)`
+        ],
+      ];
 
       autoTable(doc, {
         startY: yPos,
-        head: [[
-          "Code",
-          "Description",
-          "Original Budget",
-          "Previous Report",
-          "Anticipated Final",
-          "Variance",
-        ]],
-        body: summaryData,
-        theme: "grid",
-        headStyles: { fillColor: [59, 130, 246], fontSize: 9 },
-        bodyStyles: { fontSize: 8 },
-        footStyles: { fillColor: [220, 230, 240], fontStyle: 'bold', fontSize: 9 },
+        head: [kpiData[0]],
+        body: kpiData.slice(1),
+        theme: "plain",
+        headStyles: { 
+          fillColor: [41, 128, 185],
+          fontSize: 10,
+          fontStyle: 'bold',
+          textColor: [255, 255, 255]
+        },
+        styles: { 
+          fontSize: 10,
+          cellPadding: 4,
+        },
         columnStyles: {
-          0: { cellWidth: 20 },
-          1: { cellWidth: 60 },
-          2: { cellWidth: 25, halign: 'right' },
-          3: { cellWidth: 25, halign: 'right' },
-          4: { cellWidth: 25, halign: 'right' },
-          5: { cellWidth: 25, halign: 'right' },
+          0: { cellWidth: 80, fontStyle: 'bold' },
+          1: { cellWidth: 107, halign: 'right', fontStyle: 'bold', fontSize: 11 },
+        },
+        margin: { left: 14, right: 14 },
+        willDrawCell: (data) => {
+          // Highlight the variance row
+          if (data.section === 'body' && data.row.index === 2) {
+            if (totalVariance < 0) {
+              data.cell.styles.textColor = [34, 197, 94]; // Green for savings
+            } else {
+              data.cell.styles.textColor = [239, 68, 68]; // Red for extras
+            }
+          }
         },
       });
 
+      yPos = (doc as any).lastAutoTable.finalY + 15;
+
+      // ========== CATEGORY BREAKDOWN WITH VISUAL INDICATORS ==========
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("CATEGORY BREAKDOWN", 14, yPos);
+      yPos += 10;
+
+      // Color palette for categories
+      const COLORS = [
+        [0, 136, 254],    // Blue
+        [0, 196, 159],    // Teal
+        [255, 187, 40],   // Yellow
+        [255, 128, 66],   // Orange
+        [136, 132, 216],  // Purple
+        [130, 202, 157],  // Green
+        [255, 198, 88],   // Gold
+        [255, 107, 157],  // Pink
+      ];
+
+      // Create detailed category breakdown table
+      const categoryBreakdownData = categoryTotals.map((cat: any, index: number) => {
+        const varianceSign = cat.variance < 0 ? '-' : '+';
+        const varianceLabel = cat.variance < 0 ? 'Saving' : 'Extra';
+        
+        return [
+          cat.code,
+          cat.description,
+          `R ${cat.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+          `R ${cat.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+          `${varianceSign}R ${Math.abs(cat.variance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+          varianceLabel,
+        ];
+      });
+
+      autoTable(doc, {
+        startY: yPos,
+        head: [['Code', 'Category', 'Original Budget', 'Anticipated Final', 'Variance', 'Status']],
+        body: categoryBreakdownData,
+        theme: "grid",
+        headStyles: { 
+          fillColor: [41, 128, 185],
+          fontSize: 9,
+          fontStyle: 'bold',
+          halign: 'center',
+        },
+        styles: { 
+          fontSize: 8,
+          cellPadding: 3,
+        },
+        columnStyles: {
+          0: { cellWidth: 15, halign: 'center', fontStyle: 'bold' },
+          1: { cellWidth: 60 },
+          2: { cellWidth: 30, halign: 'right' },
+          3: { cellWidth: 30, halign: 'right' },
+          4: { cellWidth: 30, halign: 'right', fontStyle: 'bold' },
+          5: { cellWidth: 22, halign: 'center', fontStyle: 'bold' },
+        },
+        margin: { left: 14, right: 14 },
+        willDrawCell: (data) => {
+          const rowIndex = data.row.index;
+          
+          if (data.section === 'body') {
+            // Color the code column with category colors
+            if (data.column.index === 0) {
+              const color = COLORS[rowIndex % COLORS.length] as [number, number, number];
+              data.cell.styles.fillColor = color;
+              data.cell.styles.textColor = [255, 255, 255];
+            }
+            
+            // Color the variance and status columns based on savings/extras
+            if (data.column.index === 4 || data.column.index === 5) {
+              const cat = categoryTotals[rowIndex];
+              if (cat && cat.variance < 0) {
+                data.cell.styles.textColor = [34, 197, 94]; // Green for savings
+                if (data.column.index === 5) {
+                  data.cell.styles.fillColor = [220, 252, 231]; // Light green background
+                }
+              } else {
+                data.cell.styles.textColor = [239, 68, 68]; // Red for extras
+                if (data.column.index === 5) {
+                  data.cell.styles.fillColor = [254, 226, 226]; // Light red background
+                }
+              }
+            }
+          }
+        },
+      });
+
+      yPos = (doc as any).lastAutoTable.finalY + 15;
+
+      // ========== DETAILED COST BREAKDOWN ==========
+      if (yPos > pageHeight - 40) {
+        doc.addPage();
+        yPos = 20;
+      }
+
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("DETAILED COST BREAKDOWN", 14, yPos);
+      yPos += 10;
       // ========== DETAILED LINE ITEMS ==========
       if (categories.length > 0) {
         doc.addPage();
