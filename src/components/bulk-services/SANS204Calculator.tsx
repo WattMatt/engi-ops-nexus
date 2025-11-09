@@ -18,9 +18,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calculator, CheckCircle2, RefreshCw } from "lucide-react";
+import { Calculator, CheckCircle2, RefreshCw, Map } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { ClimaticZoneMap } from "./ClimaticZoneMap";
 
 interface SANS204CalculatorProps {
   open: boolean;
@@ -214,21 +216,40 @@ export const SANS204Calculator = ({
 
                 <div className="space-y-2">
                   <Label>Climatic Zone</Label>
-                  <Select value={climaticZone} onValueChange={setClimaticZone}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {CLIMATIC_ZONES.map((zone) => (
-                        <SelectItem key={zone.value} value={zone.value}>
-                          Zone {zone.value} - {zone.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  <p className="text-xs text-muted-foreground">
-                    {CLIMATIC_ZONES.find((z) => z.value === climaticZone)?.cities}
-                  </p>
+                  <Tabs defaultValue="dropdown" className="w-full">
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="dropdown">Dropdown</TabsTrigger>
+                      <TabsTrigger value="map">
+                        <Map className="h-4 w-4 mr-2" />
+                        Map
+                      </TabsTrigger>
+                    </TabsList>
+                    
+                    <TabsContent value="dropdown" className="mt-2">
+                      <Select value={climaticZone} onValueChange={setClimaticZone}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {CLIMATIC_ZONES.map((zone) => (
+                            <SelectItem key={zone.value} value={zone.value}>
+                              Zone {zone.value} - {zone.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {CLIMATIC_ZONES.find((z) => z.value === climaticZone)?.cities}
+                      </p>
+                    </TabsContent>
+                    
+                    <TabsContent value="map" className="mt-2">
+                      <ClimaticZoneMap
+                        selectedZone={climaticZone}
+                        onZoneSelect={setClimaticZone}
+                      />
+                    </TabsContent>
+                  </Tabs>
                 </div>
 
                 <div className="space-y-2">
