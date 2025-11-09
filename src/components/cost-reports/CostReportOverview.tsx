@@ -22,6 +22,18 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
     },
   });
 
+  const { data: lineItems = [] } = useQuery({
+    queryKey: ["all-line-items-overview", report.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("cost_line_items")
+        .select("*, cost_categories!inner(cost_report_id)")
+        .eq("cost_categories.cost_report_id", report.id);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   const { data: variations = [] } = useQuery({
     queryKey: ["cost-variations-overview", report.id],
     queryFn: async () => {
@@ -34,13 +46,30 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
     },
   });
 
-  const totalOriginalBudget = categories.reduce(
-    (sum, cat) => sum + Number(cat.original_budget),
+  // Calculate category totals
+  const categoryTotals = categories.map(category => {
+    const items = lineItems.filter(item => item.category_id === category.id);
+    const originalBudget = items.reduce((sum, item) => sum + Number(item.original_budget || 0), 0);
+    const previousReport = items.reduce((sum, item) => sum + Number(item.previous_report || 0), 0);
+    const anticipatedFinal = items.reduce((sum, item) => sum + Number(item.anticipated_final || 0), 0);
+    
+    return {
+      ...category,
+      originalBudget,
+      previousReport,
+      anticipatedFinal,
+      currentVariance: anticipatedFinal - previousReport,
+      originalVariance: anticipatedFinal - originalBudget
+    };
+  });
+
+  const totalOriginalBudget = categoryTotals.reduce(
+    (sum, cat) => sum + cat.originalBudget,
     0
   );
   
-  const categoriesAnticipatedTotal = categories.reduce(
-    (sum, cat) => sum + Number(cat.anticipated_final),
+  const categoriesAnticipatedTotal = categoryTotals.reduce(
+    (sum, cat) => sum + cat.anticipatedFinal,
     0
   );
   
@@ -104,6 +133,49 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Category Breakdown */}
+      {categoryTotals.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Category Breakdown</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-3">
+              {categoryTotals.map((cat) => (
+                <div key={cat.id} className="flex items-center justify-between py-2 border-b last:border-0">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{cat.code}</span>
+                      <span className="text-sm text-muted-foreground">{cat.description}</span>
+                    </div>
+                  </div>
+                  <div className="flex gap-6 items-center">
+                    <div className="text-right min-w-[120px]">
+                      <div className="text-xs text-muted-foreground">Budget</div>
+                      <div className="font-mono text-sm">
+                        R{cat.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                      </div>
+                    </div>
+                    <div className="text-right min-w-[120px]">
+                      <div className="text-xs text-muted-foreground">Anticipated</div>
+                      <div className="font-mono text-sm">
+                        R{cat.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                      </div>
+                    </div>
+                    <div className="text-right min-w-[120px]">
+                      <div className="text-xs text-muted-foreground">Variance</div>
+                      <div className={`font-mono text-sm font-semibold ${cat.originalVariance < 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        {cat.originalVariance < 0 ? '-' : '+'}R{Math.abs(cat.originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <Card>
         <CardHeader>
