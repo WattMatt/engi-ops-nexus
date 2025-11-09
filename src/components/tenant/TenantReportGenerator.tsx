@@ -384,6 +384,150 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
   };
 
   const generateTenantSchedule = (doc: jsPDF, options: ReportOptions) => {
+    if (options.tenantScheduleLayout === 'by-tenant') {
+      generateTenantScheduleByTenant(doc, options);
+    } else {
+      generateTenantScheduleTable(doc, options);
+    }
+  };
+
+  const generateTenantScheduleByTenant = (doc: jsPDF, options: ReportOptions) => {
+    tenants.forEach((tenant, index) => {
+      doc.addPage();
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      
+      // Header with tenant name
+      doc.setFillColor(41, 128, 185);
+      doc.rect(0, 0, pageWidth, 35, 'F');
+      
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(20);
+      doc.setFont("helvetica", "bold");
+      doc.text(`${tenant.shop_number} - ${tenant.shop_name}`, 20, 20);
+      
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text(getCategoryLabel(tenant.shop_category), 20, 28);
+      
+      let yPos = 50;
+      doc.setTextColor(0, 0, 0);
+      
+      // Tenant details in a clean layout
+      const details: { label: string; value: string; key: keyof typeof options.tenantFields }[] = [];
+      
+      if (options.tenantFields.area) {
+        details.push({ label: 'Area', value: tenant.area ? `${tenant.area.toFixed(2)} m²` : '-', key: 'area' });
+      }
+      if (options.tenantFields.dbAllowance) {
+        details.push({ label: 'DB Allowance', value: tenant.db_size_allowance || '-', key: 'dbAllowance' });
+      }
+      if (options.tenantFields.dbScopeOfWork) {
+        details.push({ label: 'DB Scope of Work', value: tenant.db_size_scope_of_work || '-', key: 'dbScopeOfWork' });
+      }
+      if (options.tenantFields.dbCost) {
+        details.push({ label: 'DB Cost', value: tenant.db_cost ? `R${tenant.db_cost.toFixed(2)}` : '-', key: 'dbCost' });
+      }
+      if (options.tenantFields.lightingCost) {
+        details.push({ label: 'Lighting Cost', value: tenant.lighting_cost ? `R${tenant.lighting_cost.toFixed(2)}` : '-', key: 'lightingCost' });
+      }
+      
+      // Draw details in two columns
+      details.forEach((detail, idx) => {
+        const col = idx % 2;
+        const xPos = col === 0 ? 20 : pageWidth / 2 + 10;
+        
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.setTextColor(100, 116, 139);
+        doc.text(detail.label + ':', xPos, yPos);
+        
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.setTextColor(0, 0, 0);
+        doc.text(detail.value, xPos + 45, yPos);
+        
+        if (col === 1 || idx === details.length - 1) {
+          yPos += 8;
+        }
+      });
+      
+      yPos += 10;
+      
+      // Status checkboxes section
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(0, 0, 0);
+      doc.text('Project Status', 20, yPos);
+      yPos += 12;
+      
+      const statusItems: { label: string; value: boolean; key: keyof typeof options.tenantFields }[] = [];
+      
+      if (options.tenantFields.sowReceived) {
+        statusItems.push({ label: 'Scope of Work Received', value: tenant.sow_received, key: 'sowReceived' });
+      }
+      if (options.tenantFields.layoutReceived) {
+        statusItems.push({ label: 'Layout Received', value: tenant.layout_received, key: 'layoutReceived' });
+      }
+      if (options.tenantFields.dbOrdered) {
+        statusItems.push({ label: 'DB Ordered', value: tenant.db_ordered, key: 'dbOrdered' });
+      }
+      if (options.tenantFields.lightingOrdered) {
+        statusItems.push({ label: 'Lighting Ordered', value: tenant.lighting_ordered, key: 'lightingOrdered' });
+      }
+      
+      statusItems.forEach((item) => {
+        const boxSize = 7;
+        const boxX = 25;
+        
+        // Draw checkbox
+        if (item.value) {
+          // Filled green square
+          doc.setFillColor(34, 197, 94);
+          doc.rect(boxX, yPos - 5, boxSize, boxSize, 'F');
+          doc.setDrawColor(34, 197, 94);
+          doc.setLineWidth(0.4);
+          doc.rect(boxX, yPos - 5, boxSize, boxSize, 'S');
+          
+          // White checkmark
+          doc.setDrawColor(255, 255, 255);
+          doc.setLineWidth(1);
+          doc.line(boxX + 1.5, yPos - 1, boxX + 2.8, yPos + 1);
+          doc.line(boxX + 2.8, yPos + 1, boxX + 5.5, yPos - 3);
+        } else {
+          // White square with red border
+          doc.setFillColor(255, 255, 255);
+          doc.rect(boxX, yPos - 5, boxSize, boxSize, 'F');
+          doc.setDrawColor(239, 68, 68);
+          doc.setLineWidth(0.4);
+          doc.rect(boxX, yPos - 5, boxSize, boxSize, 'S');
+          
+          // Red X
+          doc.setDrawColor(239, 68, 68);
+          doc.setLineWidth(1);
+          doc.line(boxX + 1.5, yPos - 4, boxX + 5.5, yPos);
+          doc.line(boxX + 5.5, yPos - 4, boxX + 1.5, yPos);
+        }
+        
+        // Label
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(10);
+        doc.setTextColor(0, 0, 0);
+        doc.text(item.label, boxX + boxSize + 5, yPos);
+        
+        yPos += 12;
+      });
+      
+      // Page footer
+      doc.setFontSize(9);
+      doc.setTextColor(148, 163, 184);
+      doc.setFont("helvetica", "italic");
+      const currentPage = (doc as any).internal.getCurrentPageInfo().pageNumber;
+      doc.text(`Page ${currentPage} | Tenant ${index + 1} of ${tenants.length}`, pageWidth / 2, pageHeight - 10, { align: 'center' });
+    });
+  };
+
+  const generateTenantScheduleTable = (doc: jsPDF, options: ReportOptions) => {
     doc.addPage();
     const pageWidth = doc.internal.pageSize.getWidth();
     
