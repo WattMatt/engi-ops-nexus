@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,7 +12,7 @@ interface GeneratorOverviewProps {
 
 export function GeneratorOverview({ projectId }: GeneratorOverviewProps) {
   // Fetch generator zones
-  const { data: zones = [] } = useQuery({
+  const { data: zones = [], refetch: refetchZones } = useQuery({
     queryKey: ["generator-zones-overview", projectId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -27,11 +28,26 @@ export function GeneratorOverview({ projectId }: GeneratorOverviewProps) {
   });
 
   // Fetch all saved settings
-  const { data: allSettings = [] } = useQuery({
+  const { data: allSettings = [], refetch: refetchSettings } = useQuery({
     queryKey: ["running-recovery-settings-overview", projectId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("running_recovery_settings")
+        .select("*")
+        .eq("project_id", projectId);
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!projectId,
+  });
+
+  // Fetch tenants to track kW overrides
+  const { data: tenants = [], refetch: refetchTenants } = useQuery({
+    queryKey: ["tenants-overview", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("tenants")
         .select("*")
         .eq("project_id", projectId);
 
@@ -140,6 +156,55 @@ export function GeneratorOverview({ projectId }: GeneratorOverviewProps) {
   };
 
   const metrics = calculateMetrics();
+
+  // Set up real-time subscription for updates
+  useEffect(() => {
+    if (!projectId) return;
+
+    const channel = supabase
+      .channel('generator-overview-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tenants',
+          filter: `project_id=eq.${projectId}`,
+        },
+        () => {
+          refetchTenants();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'generator_zones',
+          filter: `project_id=eq.${projectId}`,
+        },
+        () => {
+          refetchZones();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'running_recovery_settings',
+          filter: `project_id=eq.${projectId}`,
+        },
+        () => {
+          refetchSettings();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [projectId, refetchTenants, refetchZones, refetchSettings]);
 
   if (!metrics) {
     return (
