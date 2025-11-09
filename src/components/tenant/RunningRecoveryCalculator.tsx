@@ -144,20 +144,25 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
 
   // Update individual zone setting with debounced auto-save
   const updateZoneSetting = (zoneId: string, field: keyof ZoneSettings, value: number | string) => {
+    let updatedSettings: ZoneSettings | undefined;
+    
     setZoneSettings(prev => {
       const updated = new Map(prev);
       const current = updated.get(zoneId);
       if (current) {
-        updated.set(zoneId, { ...current, [field]: value });
+        const newSettings = { ...current, [field]: value };
         
         // Auto-update fuel consumption when running load changes
         if (field === 'running_load') {
           const zone = zones.find(z => z.id === zoneId);
           if (zone?.generator_size) {
             const fuelRate = getFuelConsumption(zone.generator_size, value as number);
-            updated.set(zoneId, { ...updated.get(zoneId)!, fuel_consumption_rate: fuelRate });
+            newSettings.fuel_consumption_rate = fuelRate;
           }
         }
+        
+        updated.set(zoneId, newSettings);
+        updatedSettings = newSettings;
       }
       return updated;
     });
@@ -169,14 +174,14 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
     }
 
     // Set new timeout to save after user stops typing (1 second delay)
-    const newTimeout = setTimeout(() => {
-      const settingsToSave = zoneSettings.get(zoneId);
-      if (settingsToSave) {
+    if (updatedSettings) {
+      const settingsToSave = updatedSettings;
+      const newTimeout = setTimeout(() => {
         saveSingleZone(zoneId, settingsToSave);
-      }
-    }, 1000);
+      }, 1000);
 
-    saveTimeoutRef.current.set(zoneId, newTimeout);
+      saveTimeoutRef.current.set(zoneId, newTimeout);
+    }
   };
 
   // Cleanup timeouts on unmount
