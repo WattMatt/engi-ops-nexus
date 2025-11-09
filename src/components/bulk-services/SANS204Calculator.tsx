@@ -112,6 +112,32 @@ export const SANS204Calculator = ({
     return diff;
   };
 
+  // Calculate statistics
+  const calculateStatistics = () => {
+    // Overall statistics
+    const avgVa = allVaValues.reduce((sum, val) => sum + val, 0) / allVaValues.length;
+    
+    // Per-zone statistics
+    const zoneStats = Array.from({ length: 6 }, (_, zoneIdx) => {
+      const zoneValues = Object.values(SANS_204_TABLE).map(bt => bt.zones[zoneIdx]);
+      const avg = zoneValues.reduce((sum, val) => sum + val, 0) / zoneValues.length;
+      const min = Math.min(...zoneValues);
+      const max = Math.max(...zoneValues);
+      return { avg, min, max };
+    });
+
+    return {
+      overall: {
+        avg: Math.round(avgVa * 10) / 10,
+        min: minVa,
+        max: maxVa,
+      },
+      zones: zoneStats,
+    };
+  };
+
+  const stats = calculateStatistics();
+
   // Fetch total area from tenant tracker
   const { data: tenantData, refetch: refetchTenants } = useQuery({
     queryKey: ["tenant-total-area", projectId],
@@ -424,6 +450,96 @@ export const SANS204Calculator = ({
               
               <div className="mt-3 text-xs text-muted-foreground">
                 <p>Your selection: <span className="font-medium">{buildingClass} - {SANS_204_TABLE[buildingClass].name}</span> in <span className="font-medium">Zone {climaticZone}</span> = <span className="font-medium text-primary">{calculatedValues.vaPerSqm} VA/m²</span></p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Summary Statistics Panel */}
+          <Card className="border-blue-200 dark:border-blue-900">
+            <CardHeader>
+              <CardTitle className="text-base flex items-center gap-2">
+                <CheckCircle2 className="h-5 w-5 text-blue-600" />
+                SANS 204 Summary Statistics (VA/m²)
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-6">
+                {/* Overall Statistics */}
+                <div>
+                  <h4 className="text-sm font-semibold mb-3 text-muted-foreground">Overall Statistics (All Zones & Building Types)</h4>
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-900">
+                      <p className="text-xs text-muted-foreground mb-1">Average</p>
+                      <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">{stats.overall.avg}</p>
+                      <p className="text-xs text-muted-foreground mt-1">VA/m²</p>
+                    </div>
+                    <div className="p-4 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-900">
+                      <p className="text-xs text-muted-foreground mb-1">Minimum</p>
+                      <p className="text-2xl font-bold text-green-600 dark:text-green-400">{stats.overall.min}</p>
+                      <p className="text-xs text-muted-foreground mt-1">VA/m²</p>
+                    </div>
+                    <div className="p-4 bg-red-50 dark:bg-red-950/30 rounded-lg border border-red-200 dark:border-red-900">
+                      <p className="text-xs text-muted-foreground mb-1">Maximum</p>
+                      <p className="text-2xl font-bold text-red-600 dark:text-red-400">{stats.overall.max}</p>
+                      <p className="text-xs text-muted-foreground mt-1">VA/m²</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Per-Zone Statistics */}
+                <div>
+                  <h4 className="text-sm font-semibold mb-3 text-muted-foreground">Statistics by Climatic Zone</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {CLIMATIC_ZONES.map((zone, idx) => {
+                      const zoneData = stats.zones[idx];
+                      const isSelected = climaticZone === zone.value;
+                      
+                      return (
+                        <div 
+                          key={zone.value}
+                          className={`p-3 rounded-lg border transition-all ${
+                            isSelected 
+                              ? "bg-primary/10 border-primary ring-2 ring-primary/20" 
+                              : "bg-muted/50 border-border"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs font-semibold">Zone {zone.value}</span>
+                            {isSelected && (
+                              <CheckCircle2 className="h-3 w-3 text-primary" />
+                            )}
+                          </div>
+                          <div className="space-y-1 text-xs">
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Avg:</span>
+                              <span className="font-medium">{Math.round(zoneData.avg * 10) / 10}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Min:</span>
+                              <span className="font-medium text-green-600 dark:text-green-400">{zoneData.min}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-muted-foreground">Max:</span>
+                              <span className="font-medium text-red-600 dark:text-red-400">{zoneData.max}</span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Key Insights */}
+                <div className="p-4 bg-muted/50 rounded-lg border">
+                  <h4 className="text-sm font-semibold mb-2">Key Insights</h4>
+                  <ul className="text-xs text-muted-foreground space-y-1">
+                    <li>• The range across all zones and building types is {stats.overall.max - stats.overall.min} VA/m² ({Math.round(((stats.overall.max - stats.overall.min) / stats.overall.min) * 100)}% variation)</li>
+                    <li>• Zone {climaticZone} average: {Math.round(stats.zones[parseInt(climaticZone) - 1].avg * 10) / 10} VA/m² 
+                      ({stats.zones[parseInt(climaticZone) - 1].avg > stats.overall.avg ? "above" : "below"} overall average)
+                    </li>
+                    <li>• Your selected configuration ({buildingClass}) requires {calculatedValues.vaPerSqm} VA/m² in Zone {climaticZone}</li>
+                  </ul>
+                </div>
               </div>
             </CardContent>
           </Card>
