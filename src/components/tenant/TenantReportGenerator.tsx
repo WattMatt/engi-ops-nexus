@@ -620,6 +620,12 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
             data.cell.styles.fillColor = [254, 252, 232]; // amber-50
             data.cell.styles.textColor = [0, 0, 0];
           }
+          
+          // Clear text for checkbox columns - we'll draw them manually
+          const key = fieldKeys[data.column.index];
+          if (['sowReceived', 'layoutReceived', 'dbOrdered', 'lightingOrdered'].includes(key)) {
+            data.cell.text = [''];
+          }
         }
       },
       didDrawCell: (data) => {
@@ -633,7 +639,7 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
             // Calculate center position for the circle
             const centerX = data.cell.x + data.cell.width / 2;
             const centerY = data.cell.y + data.cell.height / 2;
-            const radius = 3;
+            const radius = 3.5;
             
             // Draw colored circle background
             if (isChecked) {
@@ -645,9 +651,9 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
             
             // Draw white symbol on top
             doc.setTextColor(255, 255, 255);
-            doc.setFontSize(9);
+            doc.setFontSize(10);
             doc.setFont("helvetica", "bold");
-            doc.text(cellValue, centerX, centerY + 2.5, { align: 'center' });
+            doc.text(cellValue, centerX, centerY + 2.8, { align: 'center' });
           }
         }
       },
