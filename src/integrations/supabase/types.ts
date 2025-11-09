@@ -5006,6 +5006,53 @@ export type Database = {
           },
         ]
       }
+      tenant_kw_override_audit: {
+        Row: {
+          change_type: string
+          changed_at: string
+          changed_by: string
+          created_at: string
+          id: string
+          new_value: number | null
+          notes: string | null
+          old_value: number | null
+          project_id: string
+          tenant_id: string
+        }
+        Insert: {
+          change_type: string
+          changed_at?: string
+          changed_by: string
+          created_at?: string
+          id?: string
+          new_value?: number | null
+          notes?: string | null
+          old_value?: number | null
+          project_id: string
+          tenant_id: string
+        }
+        Update: {
+          change_type?: string
+          changed_at?: string
+          changed_by?: string
+          created_at?: string
+          id?: string
+          new_value?: number | null
+          notes?: string | null
+          old_value?: number | null
+          project_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_kw_override_audit_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_report_templates: {
         Row: {
           created_at: string

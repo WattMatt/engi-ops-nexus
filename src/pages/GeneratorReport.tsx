@@ -16,6 +16,7 @@ import { GeneratorReportExportPDFButton } from "@/components/tenant/GeneratorRep
 import { GeneratorSavedReportsList } from "@/components/tenant/GeneratorSavedReportsList";
 import { OutdatedReportsIndicator } from "@/components/tenant/OutdatedReportsIndicator";
 import { TenantVersionBadge } from "@/components/tenant/TenantVersionBadge";
+import { KwOverrideAuditLog } from "@/components/tenant/KwOverrideAuditLog";
 import { LoadDistributionChart } from "@/components/tenant/charts/LoadDistributionChart";
 import { CostBreakdownChart } from "@/components/tenant/charts/CostBreakdownChart";
 import { RecoveryProjectionChart } from "@/components/tenant/charts/RecoveryProjectionChart";
@@ -220,13 +221,14 @@ const GeneratorReport = () => {
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-7">
+        <TabsList className="grid w-full grid-cols-8">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="settings">Settings</TabsTrigger>
           <TabsTrigger value="tenant-schedule">Tenant Schedule</TabsTrigger>
           <TabsTrigger value="sizing">Generator Sizing & Consumption</TabsTrigger>
           <TabsTrigger value="costs">Costs</TabsTrigger>
           <TabsTrigger value="charts">Charts & Analysis</TabsTrigger>
+          <TabsTrigger value="audit-log">Audit Log</TabsTrigger>
           <TabsTrigger value="saved-reports">Saved Reports</TabsTrigger>
         </TabsList>
 
@@ -320,6 +322,10 @@ const GeneratorReport = () => {
             monthlyCapitalRecovery={monthlyCapitalRepayment}
             monthlyRunningRecovery={monthlyRunningRecovery}
           />
+        </TabsContent>
+
+        <TabsContent value="audit-log" className="space-y-4">
+          {projectId && <KwOverrideAuditLog projectId={projectId} />}
         </TabsContent>
 
         <TabsContent value="saved-reports" className="space-y-4">
