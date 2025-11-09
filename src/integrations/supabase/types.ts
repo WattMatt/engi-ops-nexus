@@ -3721,6 +3721,7 @@ export type Database = {
       }
       projects: {
         Row: {
+          building_calculation_type: string | null
           cctv_contractor: string | null
           client_logo_url: string | null
           client_name: string | null
@@ -3750,6 +3751,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          building_calculation_type?: string | null
           cctv_contractor?: string | null
           client_logo_url?: string | null
           client_name?: string | null
@@ -3779,6 +3781,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          building_calculation_type?: string | null
           cctv_contractor?: string | null
           client_logo_url?: string | null
           client_name?: string | null

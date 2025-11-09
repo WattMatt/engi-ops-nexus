@@ -43,6 +43,7 @@ export default function ProjectSettings() {
     electrical_standard: "SANS 10142-1",
     diversity_factor: "",
     load_category: "",
+    building_calculation_type: "commercial",
     tariff_structure: "",
     metering_requirements: "",
     protection_philosophy: "",
@@ -94,6 +95,7 @@ export default function ProjectSettings() {
         electrical_standard: data.electrical_standard || "SANS 10142-1",
         diversity_factor: data.diversity_factor?.toString() || "",
         load_category: data.load_category || "",
+        building_calculation_type: data.building_calculation_type || "commercial",
         tariff_structure: data.tariff_structure || "",
         metering_requirements: data.metering_requirements || "",
         protection_philosophy: data.protection_philosophy || "",
@@ -130,6 +132,7 @@ export default function ProjectSettings() {
           electrical_standard: formData.electrical_standard || null,
           diversity_factor: formData.diversity_factor ? parseFloat(formData.diversity_factor) : null,
           load_category: formData.load_category || null,
+          building_calculation_type: formData.building_calculation_type || null,
           tariff_structure: formData.tariff_structure || null,
           metering_requirements: formData.metering_requirements || null,
           protection_philosophy: formData.protection_philosophy || null,
@@ -367,6 +370,27 @@ export default function ProjectSettings() {
                         <SelectItem value="Mixed-Use">Mixed-Use</SelectItem>
                       </SelectContent>
                     </Select>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="building_calculation_type">Building Calculation Method</Label>
+                    <Select
+                      value={formData.building_calculation_type}
+                      onValueChange={(value) => updateField("building_calculation_type", value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="commercial">Commercial/Retail (SANS 204)</SelectItem>
+                        <SelectItem value="residential">Residential (SANS 10142)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground">
+                      {formData.building_calculation_type === "commercial" 
+                        ? "Uses SANS 204 energy demand standards for commercial and retail buildings"
+                        : "Uses SANS 10142 fitting-based calculations for residential developments"}
+                    </p>
                   </div>
                 </div>
 

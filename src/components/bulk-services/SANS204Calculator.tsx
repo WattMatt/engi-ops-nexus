@@ -85,6 +85,37 @@ export const SANS204Calculator = ({
     maximumDemand: 0,
   });
 
+  // Residential calculator state
+  const [numUnits, setNumUnits] = useState("1");
+  const [areaPerUnit, setAreaPerUnit] = useState("");
+  const [fittingLoads, setFittingLoads] = useState({
+    lamps: { qty: 9, load: 15, diversity: 0.5 },
+    plugs: { qty: 1, load: 5000, diversity: 0.5 },
+    geyser: { qty: 1, load: 2000, diversity: 1.0 },
+    stove: { qty: 1, load: 2000, diversity: 0.5 },
+    poolPump: { qty: 0, load: 1500, diversity: 1.0 },
+  });
+  const [generalDiversity, setGeneralDiversity] = useState("0.70");
+
+  // Fetch project settings
+  const { data: projectSettings } = useQuery({
+    queryKey: ["project-settings", projectId],
+    queryFn: async () => {
+      if (!projectId) return null;
+      const { data, error } = await supabase
+        .from("projects")
+        .select("building_calculation_type")
+        .eq("id", projectId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!projectId && open,
+  });
+
+  const calculationType = projectSettings?.building_calculation_type || "commercial";
+  const isResidential = calculationType === "residential";
+
   // Calculate min and max VA values for heat map
   const allVaValues = Object.values(SANS_204_TABLE).flatMap(bt => bt.zones);
   const minVa = Math.min(...allVaValues);
@@ -408,8 +439,12 @@ export const SANS204Calculator = ({
   };
 
   useEffect(() => {
-    calculateLoads();
-  }, [projectArea, buildingClass, climaticZone, diversityFactor]);
+    if (isResidential) {
+      calculateResidentialLoads();
+    } else {
+      calculateLoads();
+    }
+  }, [projectArea, buildingClass, climaticZone, diversityFactor, numUnits, areaPerUnit, fittingLoads, generalDiversity, isResidential]);
 
   const calculateLoads = () => {
     const area = parseFloat(projectArea) || 0;
@@ -432,6 +467,39 @@ export const SANS204Calculator = ({
     });
   };
 
+  const calculateResidentialLoads = () => {
+    const units = parseFloat(numUnits) || 1;
+    const unitArea = parseFloat(areaPerUnit) || 0;
+    const genDiv = parseFloat(generalDiversity) || 0.70;
+
+    // Calculate per-unit load
+    const lampsLoad = fittingLoads.lamps.qty * fittingLoads.lamps.load * fittingLoads.lamps.diversity;
+    const plugsLoad = fittingLoads.plugs.qty * fittingLoads.plugs.load * fittingLoads.plugs.diversity;
+    const geyserLoad = fittingLoads.geyser.qty * fittingLoads.geyser.load * fittingLoads.geyser.diversity;
+    const stoveLoad = fittingLoads.stove.qty * fittingLoads.stove.load * fittingLoads.stove.diversity;
+    const poolPumpLoad = fittingLoads.poolPump.qty * fittingLoads.poolPump.load * fittingLoads.poolPump.diversity;
+
+    const totalPerUnitWatts = lampsLoad + plugsLoad + geyserLoad + stoveLoad + poolPumpLoad;
+    const totalPerUnitKva = totalPerUnitWatts / 1000 / 0.95; // Convert to kVA with PF=0.95
+
+    // Calculate total for all units
+    const totalConnectedLoad = totalPerUnitKva * units;
+    const maximumDemand = totalConnectedLoad * genDiv;
+
+    // Calculate average VA/m² for display consistency
+    const totalArea = unitArea * units;
+    const vaPerSqm = totalArea > 0 ? (totalConnectedLoad * 1000) / totalArea : 0;
+
+    setCalculatedValues({
+      vaPerSqm: Math.round(vaPerSqm * 10) / 10,
+      totalConnectedLoad: Math.round(totalConnectedLoad * 100) / 100,
+      maximumDemand: Math.round(maximumDemand * 100) / 100,
+    });
+
+    // Update project area to match calculation
+    setProjectArea((totalArea).toString());
+  };
+
   const handleApply = () => {
     onApplyValues({
       project_area: parseFloat(projectArea),
@@ -451,10 +519,12 @@ export const SANS204Calculator = ({
             <div>
               <DialogTitle className="flex items-center gap-2">
                 <Calculator className="h-5 w-5" />
-                SANS 204 Load Calculator
+                {isResidential ? "SANS 10142 Residential Load Calculator" : "SANS 204 Load Calculator"}
               </DialogTitle>
               <DialogDescription>
-                Calculate maximum electrical demand based on SANS 204 energy efficiency standards
+                {isResidential 
+                  ? "Calculate residential electrical demand using SANS 10142 fitting-based methodology"
+                  : "Calculate maximum electrical demand based on SANS 204 energy efficiency standards"}
               </DialogDescription>
             </div>
             <Button
@@ -471,7 +541,297 @@ export const SANS204Calculator = ({
         </DialogHeader>
 
         <div className="space-y-6">
-          {/* Input Parameters */}
+          {isResidential ? (
+            // Residential Calculator Interface
+            <>
+              {/* Residential Input Parameters */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">Residential Unit Configuration</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-3 gap-4">
+                    <div className="space-y-2">
+                      <Label>Number of Units</Label>
+                      <Input
+                        type="number"
+                        min="1"
+                        value={numUnits}
+                        onChange={(e) => setNumUnits(e.target.value)}
+                        placeholder="6"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Area per Unit (m²)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={areaPerUnit}
+                        onChange={(e) => setAreaPerUnit(e.target.value)}
+                        placeholder="52"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>General Load Diversity</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="1"
+                        value={generalDiversity}
+                        onChange={(e) => setGeneralDiversity(e.target.value)}
+                        placeholder="0.70"
+                      />
+                      <p className="text-xs text-muted-foreground">Typical: 70% for residential</p>
+                    </div>
+                  </div>
+
+                  {/* Fitting Loads Table */}
+                  <div className="mt-4">
+                    <h4 className="text-sm font-semibold mb-2">Fitting Loads per Unit</h4>
+                    <div className="rounded-md border">
+                      <table className="w-full text-sm">
+                        <thead className="bg-muted">
+                          <tr>
+                            <th className="p-2 text-left">Fitting Type</th>
+                            <th className="p-2 text-center">Quantity</th>
+                            <th className="p-2 text-center">Load (W)</th>
+                            <th className="p-2 text-center">Diversity</th>
+                            <th className="p-2 text-center">Total (W)</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr className="border-t">
+                            <td className="p-2">Normal Lamps</td>
+                            <td className="p-2">
+                              <Input
+                                type="number"
+                                min="0"
+                                value={fittingLoads.lamps.qty}
+                                onChange={(e) => setFittingLoads(prev => ({
+                                  ...prev,
+                                  lamps: { ...prev.lamps, qty: parseInt(e.target.value) || 0 }
+                                }))}
+                                className="w-20 mx-auto"
+                              />
+                            </td>
+                            <td className="p-2">
+                              <Input
+                                type="number"
+                                min="0"
+                                value={fittingLoads.lamps.load}
+                                onChange={(e) => setFittingLoads(prev => ({
+                                  ...prev,
+                                  lamps: { ...prev.lamps, load: parseInt(e.target.value) || 0 }
+                                }))}
+                                className="w-24 mx-auto"
+                              />
+                            </td>
+                            <td className="p-2">
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                max="1"
+                                value={fittingLoads.lamps.diversity}
+                                onChange={(e) => setFittingLoads(prev => ({
+                                  ...prev,
+                                  lamps: { ...prev.lamps, diversity: parseFloat(e.target.value) || 0 }
+                                }))}
+                                className="w-20 mx-auto"
+                              />
+                            </td>
+                            <td className="p-2 text-center font-medium">
+                              {(fittingLoads.lamps.qty * fittingLoads.lamps.load * fittingLoads.lamps.diversity).toFixed(2)}
+                            </td>
+                          </tr>
+                          <tr className="border-t">
+                            <td className="p-2">Plugs</td>
+                            <td className="p-2">
+                              <Input
+                                type="number"
+                                min="0"
+                                value={fittingLoads.plugs.qty}
+                                onChange={(e) => setFittingLoads(prev => ({
+                                  ...prev,
+                                  plugs: { ...prev.plugs, qty: parseInt(e.target.value) || 0 }
+                                }))}
+                                className="w-20 mx-auto"
+                              />
+                            </td>
+                            <td className="p-2">
+                              <Input
+                                type="number"
+                                min="0"
+                                value={fittingLoads.plugs.load}
+                                onChange={(e) => setFittingLoads(prev => ({
+                                  ...prev,
+                                  plugs: { ...prev.plugs, load: parseInt(e.target.value) || 0 }
+                                }))}
+                                className="w-24 mx-auto"
+                              />
+                            </td>
+                            <td className="p-2">
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                max="1"
+                                value={fittingLoads.plugs.diversity}
+                                onChange={(e) => setFittingLoads(prev => ({
+                                  ...prev,
+                                  plugs: { ...prev.plugs, diversity: parseFloat(e.target.value) || 0 }
+                                }))}
+                                className="w-20 mx-auto"
+                              />
+                            </td>
+                            <td className="p-2 text-center font-medium">
+                              {(fittingLoads.plugs.qty * fittingLoads.plugs.load * fittingLoads.plugs.diversity).toFixed(2)}
+                            </td>
+                          </tr>
+                          <tr className="border-t">
+                            <td className="p-2">Geyser</td>
+                            <td className="p-2">
+                              <Input
+                                type="number"
+                                min="0"
+                                value={fittingLoads.geyser.qty}
+                                onChange={(e) => setFittingLoads(prev => ({
+                                  ...prev,
+                                  geyser: { ...prev.geyser, qty: parseInt(e.target.value) || 0 }
+                                }))}
+                                className="w-20 mx-auto"
+                              />
+                            </td>
+                            <td className="p-2">
+                              <Input
+                                type="number"
+                                min="0"
+                                value={fittingLoads.geyser.load}
+                                onChange={(e) => setFittingLoads(prev => ({
+                                  ...prev,
+                                  geyser: { ...prev.geyser, load: parseInt(e.target.value) || 0 }
+                                }))}
+                                className="w-24 mx-auto"
+                              />
+                            </td>
+                            <td className="p-2">
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                max="1"
+                                value={fittingLoads.geyser.diversity}
+                                onChange={(e) => setFittingLoads(prev => ({
+                                  ...prev,
+                                  geyser: { ...prev.geyser, diversity: parseFloat(e.target.value) || 0 }
+                                }))}
+                                className="w-20 mx-auto"
+                              />
+                            </td>
+                            <td className="p-2 text-center font-medium">
+                              {(fittingLoads.geyser.qty * fittingLoads.geyser.load * fittingLoads.geyser.diversity).toFixed(2)}
+                            </td>
+                          </tr>
+                          <tr className="border-t">
+                            <td className="p-2">Stove</td>
+                            <td className="p-2">
+                              <Input
+                                type="number"
+                                min="0"
+                                value={fittingLoads.stove.qty}
+                                onChange={(e) => setFittingLoads(prev => ({
+                                  ...prev,
+                                  stove: { ...prev.stove, qty: parseInt(e.target.value) || 0 }
+                                }))}
+                                className="w-20 mx-auto"
+                              />
+                            </td>
+                            <td className="p-2">
+                              <Input
+                                type="number"
+                                min="0"
+                                value={fittingLoads.stove.load}
+                                onChange={(e) => setFittingLoads(prev => ({
+                                  ...prev,
+                                  stove: { ...prev.stove, load: parseInt(e.target.value) || 0 }
+                                }))}
+                                className="w-24 mx-auto"
+                              />
+                            </td>
+                            <td className="p-2">
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                max="1"
+                                value={fittingLoads.stove.diversity}
+                                onChange={(e) => setFittingLoads(prev => ({
+                                  ...prev,
+                                  stove: { ...prev.stove, diversity: parseFloat(e.target.value) || 0 }
+                                }))}
+                                className="w-20 mx-auto"
+                              />
+                            </td>
+                            <td className="p-2 text-center font-medium">
+                              {(fittingLoads.stove.qty * fittingLoads.stove.load * fittingLoads.stove.diversity).toFixed(2)}
+                            </td>
+                          </tr>
+                          <tr className="border-t">
+                            <td className="p-2">Pool Pump</td>
+                            <td className="p-2">
+                              <Input
+                                type="number"
+                                min="0"
+                                value={fittingLoads.poolPump.qty}
+                                onChange={(e) => setFittingLoads(prev => ({
+                                  ...prev,
+                                  poolPump: { ...prev.poolPump, qty: parseInt(e.target.value) || 0 }
+                                }))}
+                                className="w-20 mx-auto"
+                              />
+                            </td>
+                            <td className="p-2">
+                              <Input
+                                type="number"
+                                min="0"
+                                value={fittingLoads.poolPump.load}
+                                onChange={(e) => setFittingLoads(prev => ({
+                                  ...prev,
+                                  poolPump: { ...prev.poolPump, load: parseInt(e.target.value) || 0 }
+                                }))}
+                                className="w-24 mx-auto"
+                              />
+                            </td>
+                            <td className="p-2">
+                              <Input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                max="1"
+                                value={fittingLoads.poolPump.diversity}
+                                onChange={(e) => setFittingLoads(prev => ({
+                                  ...prev,
+                                  poolPump: { ...prev.poolPump, diversity: parseFloat(e.target.value) || 0 }
+                                }))}
+                                className="w-20 mx-auto"
+                              />
+                            </td>
+                            <td className="p-2 text-center font-medium">
+                              {(fittingLoads.poolPump.qty * fittingLoads.poolPump.load * fittingLoads.poolPump.diversity).toFixed(2)}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </>
+          ) : (
+            // Commercial Calculator Interface (existing SANS 204)
+            <>
+              {/* Input Parameters */}
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Input Parameters</CardTitle>
@@ -795,8 +1155,10 @@ export const SANS204Calculator = ({
               </div>
             </CardContent>
           </Card>
+            </>
+          )}
 
-          {/* Calculated Results */}
+          {/* Calculated Results - Shows for both modes */}
           <Card className="border-primary">
             <CardHeader>
               <CardTitle className="text-base flex items-center gap-2">
@@ -808,11 +1170,15 @@ export const SANS204Calculator = ({
               <div className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="p-4 bg-muted rounded-lg">
-                    <p className="text-sm text-muted-foreground">Applied Load (SANS 204)</p>
+                    <p className="text-sm text-muted-foreground">
+                      {isResidential ? "Average Load per m²" : "Applied Load (SANS 204)"}
+                    </p>
                     <p className="text-2xl font-bold">{calculatedValues.vaPerSqm} VA/m²</p>
                   </div>
                   <div className="p-4 bg-muted rounded-lg">
-                    <p className="text-sm text-muted-foreground">Project Area</p>
+                    <p className="text-sm text-muted-foreground">
+                      {isResidential ? "Total Area (All Units)" : "Project Area"}
+                    </p>
                     <p className="text-2xl font-bold">
                       {parseFloat(projectArea).toLocaleString()} m²
                     </p>
@@ -824,7 +1190,9 @@ export const SANS204Calculator = ({
                     </p>
                   </div>
                   <div className="p-4 bg-green-100 rounded-lg">
-                    <p className="text-sm text-muted-foreground">Maximum Demand (After Diversity)</p>
+                    <p className="text-sm text-muted-foreground">
+                      Maximum Demand (After Diversity: {isResidential ? generalDiversity : diversityFactor})
+                    </p>
                     <p className="text-2xl font-bold text-green-700">
                       {calculatedValues.maximumDemand.toLocaleString()} kVA
                     </p>
@@ -834,18 +1202,43 @@ export const SANS204Calculator = ({
                 {/* Calculation Breakdown */}
                 <div className="p-4 bg-muted/50 rounded-lg space-y-2 text-sm">
                   <p className="font-semibold">Calculation Breakdown:</p>
-                  <p>
-                    1. SANS 204 Applied Load: <span className="font-medium">{calculatedValues.vaPerSqm} VA/m²</span> ({buildingClass} - Zone {climaticZone})
-                  </p>
-                  <p>
-                    2. Total Connected Load: <span className="font-medium">{projectArea} m² × {calculatedValues.vaPerSqm} VA/m² = {(parseFloat(projectArea) * calculatedValues.vaPerSqm).toLocaleString()} VA</span>
-                  </p>
-                  <p>
-                    3. Convert to kVA: <span className="font-medium">{(parseFloat(projectArea) * calculatedValues.vaPerSqm).toLocaleString()} VA ÷ 1000 = {calculatedValues.totalConnectedLoad} kVA</span>
-                  </p>
-                  <p>
-                    4. Apply Diversity Factor: <span className="font-medium">{calculatedValues.totalConnectedLoad} kVA × {diversityFactor} = {calculatedValues.maximumDemand} kVA</span>
-                  </p>
+                  {isResidential ? (
+                    <>
+                      <p>
+                        1. Number of Units: <span className="font-medium">{numUnits} units × {areaPerUnit} m² = {projectArea} m² total</span>
+                      </p>
+                      <p>
+                        2. Per-Unit Load: <span className="font-medium">
+                          Lamps ({fittingLoads.lamps.qty * fittingLoads.lamps.load * fittingLoads.lamps.diversity}W) + 
+                          Plugs ({fittingLoads.plugs.qty * fittingLoads.plugs.load * fittingLoads.plugs.diversity}W) + 
+                          Geyser ({fittingLoads.geyser.qty * fittingLoads.geyser.load * fittingLoads.geyser.diversity}W) + 
+                          Stove ({fittingLoads.stove.qty * fittingLoads.stove.load * fittingLoads.stove.diversity}W) + 
+                          Pool ({fittingLoads.poolPump.qty * fittingLoads.poolPump.load * fittingLoads.poolPump.diversity}W)
+                        </span>
+                      </p>
+                      <p>
+                        3. Total Connected Load: <span className="font-medium">Per-unit load × {numUnits} units ÷ 1000 ÷ 0.95 PF = {calculatedValues.totalConnectedLoad} kVA</span>
+                      </p>
+                      <p>
+                        4. Apply Diversity Factor: <span className="font-medium">{calculatedValues.totalConnectedLoad} kVA × {generalDiversity} = {calculatedValues.maximumDemand} kVA</span>
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p>
+                        1. SANS 204 Applied Load: <span className="font-medium">{calculatedValues.vaPerSqm} VA/m²</span> ({buildingClass} - Zone {climaticZone})
+                      </p>
+                      <p>
+                        2. Total Connected Load: <span className="font-medium">{projectArea} m² × {calculatedValues.vaPerSqm} VA/m² = {(parseFloat(projectArea) * calculatedValues.vaPerSqm).toLocaleString()} VA</span>
+                      </p>
+                      <p>
+                        3. Convert to kVA: <span className="font-medium">{(parseFloat(projectArea) * calculatedValues.vaPerSqm).toLocaleString()} VA ÷ 1000 = {calculatedValues.totalConnectedLoad} kVA</span>
+                      </p>
+                      <p>
+                        4. Apply Diversity Factor: <span className="font-medium">{calculatedValues.totalConnectedLoad} kVA × {diversityFactor} = {calculatedValues.maximumDemand} kVA</span>
+                      </p>
+                    </>
+                  )}
                 </div>
               </div>
             </CardContent>
