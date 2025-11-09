@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
@@ -25,6 +26,59 @@ export const BulkServicesSections = ({ documentId, sections }: BulkServicesSecti
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
   const [deleteSectionId, setDeleteSectionId] = useState<string | null>(null);
+
+  const { data: document } = useQuery({
+    queryKey: ["bulk-services-document", documentId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("bulk_services_documents")
+        .select("*")
+        .eq("id", documentId)
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const populatePlaceholders = (content: string): string => {
+    if (!document) return content;
+
+    const vaPerSqm = document.building_calculation_type === 'sans_204' 
+      ? (document.va_per_sqm || 0) 
+      : document.building_calculation_type === 'sans_10142'
+      ? 40
+      : 25;
+
+    const totalSize = document.project_area ? 
+      (document.project_area * vaPerSqm / 1000).toFixed(2) : 
+      '0';
+
+    const climaticZoneNames: Record<string, string> = {
+      '1': 'Cold Interior (Zone 1)',
+      '2': 'Hot Interior (Zone 2)',
+      '3': 'Temperate Coastal (Zone 3)',
+      '4': 'Sub-tropical Coastal (Zone 4)',
+      '5': 'Arid Interior (Zone 5)',
+    };
+
+    let result = content
+      .replace(/\[AREA\]/g, document.project_area?.toLocaleString() || '0')
+      .replace(/\[VA\/m²\]/g, vaPerSqm.toString())
+      .replace(/\[SIZE\]/g, `${totalSize} kVA`)
+      .replace(/\[SUPPLY AUTHORITY\]/g, document.supply_authority || 'the local supply authority')
+      .replace(/\[CLIENT NAME\]/g, document.client_name || 'the client')
+      .replace(/\[DOCUMENT NUMBER\]/g, document.document_number || 'N/A')
+      .replace(/\[CLIMATIC ZONE\]/g, climaticZoneNames[document.climatic_zone || '3'] || 'Temperate Coastal (Zone 3)')
+      .replace(/\[CALCULATION TYPE\]/g, (document.building_calculation_type || 'sans_204').toUpperCase().replace('_', ' '))
+      .replace(/\[ARCHITECT\]/g, document.architect || 'the appointed architect')
+      .replace(/\[PRIMARY VOLTAGE\]/g, document.primary_voltage || '11kV')
+      .replace(/\[CONNECTION SIZE\]/g, document.connection_size || 'to be determined')
+      .replace(/\[DIVERSITY FACTOR\]/g, document.diversity_factor?.toString() || '1.0')
+      .replace(/\[ELECTRICAL STANDARD\]/g, document.electrical_standard || 'SANS 10142-1');
+
+    return result;
+  };
 
   const handleEdit = (section: any) => {
     setEditingId(section.id);
@@ -130,24 +184,24 @@ export const BulkServicesSections = ({ documentId, sections }: BulkServicesSecti
               <div className="prose prose-sm max-w-none">
                 {section.content ? (
                   <div className="whitespace-pre-wrap">
-                    {section.content.split('\n').map((line: string, idx: number) => {
+                    {populatePlaceholders(section.content).split('\n').map((line: string, idx: number) => {
                       // Handle markdown tables
                       if (line.trim().startsWith('|')) {
-                        return <div key={idx} className="font-mono text-xs bg-muted p-2 rounded my-1">{line}</div>;
+                        return <div key={idx} className="font-mono text-xs bg-muted/50 p-2 rounded my-1 border border-border">{line}</div>;
                       }
                       // Handle markdown headers
                       if (line.trim().startsWith('## ')) {
-                        return <h3 key={idx} className="text-lg font-semibold mt-4 mb-2">{line.replace('## ', '')}</h3>;
+                        return <h3 key={idx} className="text-lg font-semibold mt-4 mb-2 text-foreground">{line.replace('## ', '')}</h3>;
                       }
                       if (line.trim().startsWith('# ')) {
-                        return <h2 key={idx} className="text-xl font-bold mt-4 mb-2">{line.replace('# ', '')}</h2>;
+                        return <h2 key={idx} className="text-xl font-bold mt-4 mb-2 text-foreground">{line.replace('# ', '')}</h2>;
                       }
                       // Handle bullet points
                       if (line.trim().startsWith('- ')) {
-                        return <li key={idx} className="ml-4">{line.replace('- ', '')}</li>;
+                        return <li key={idx} className="ml-4 text-foreground">{line.replace('- ', '')}</li>;
                       }
                       // Regular text
-                      return line.trim() ? <p key={idx} className="mb-2">{line}</p> : <br key={idx} />;
+                      return line.trim() ? <p key={idx} className="mb-2 text-foreground leading-relaxed">{line}</p> : <br key={idx} />;
                     })}
                   </div>
                 ) : (
