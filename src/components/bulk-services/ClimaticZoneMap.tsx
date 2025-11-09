@@ -16,47 +16,55 @@ interface ClimaticZoneMapProps {
 }
 
 const ZONE_COLORS = {
-  "1": "#3B82F6", // Blue - Cold Interior
-  "2": "#EF4444", // Red - Hot Interior
-  "3": "#10B981", // Green - Temperate Coastal
-  "4": "#F59E0B", // Amber - Sub-tropical Coastal
-  "5": "#8B5CF6", // Purple - Arid Interior
+  "1": "#7EC8E3", // Light Blue - Cold Interior
+  "2": "#F5E6D3", // Cream/Beige - Temperate Interior
+  "3": "#E67E50", // Orange - Hot Interior
+  "4": "#6B9AC4", // Dark Blue - Temperate Coastal
+  "5": "#70B77E", // Green - Sub-tropical Coastal
+  "6": "#F4D03F", // Yellow - Arid Interior
 };
 
 const ZONE_INFO = {
   "1": { 
     name: "Cold Interior", 
-    cities: "Johannesburg, Bloemfontein, Maseru",
+    cities: "Johannesburg, Bloemfontein",
     temp: "14-16°C mean annual",
     characteristics: "High altitude, cold winters, moderate summers"
   },
   "2": { 
-    name: "Hot Interior", 
-    cities: "Makhado, Nelspruit, Polokwane",
-    temp: "18-20°C mean annual",
-    characteristics: "Warm summers, mild winters, summer rainfall"
+    name: "Temperate Interior", 
+    cities: "Pretoria, Polokwane",
+    temp: "16-18°C mean annual",
+    characteristics: "Moderate climate, warm summers, mild winters"
   },
   "3": { 
-    name: "Temperate Coastal", 
-    cities: "Cape Town, Port Elizabeth, George",
-    temp: "16-18°C mean annual",
-    characteristics: "Moderate climate, winter rainfall, cool breezes"
+    name: "Hot Interior", 
+    cities: "Makhado, Nelspruit",
+    temp: "18-22°C mean annual",
+    characteristics: "Hot summers, warm winters, summer rainfall"
   },
   "4": { 
-    name: "Sub-tropical Coastal", 
-    cities: "Durban, East London, Richards Bay",
-    temp: "20-22°C mean annual",
-    characteristics: "Humid, warm year-round, summer rainfall"
+    name: "Temperate Coastal", 
+    cities: "Cape Town, Port Elizabeth",
+    temp: "14-18°C mean annual",
+    characteristics: "Moderate climate, winter rainfall, ocean influence"
   },
   "5": { 
+    name: "Sub-tropical Coastal", 
+    cities: "Durban, Richards Bay, East London",
+    temp: "18-22°C mean annual",
+    characteristics: "Humid, warm year-round, high rainfall"
+  },
+  "6": { 
     name: "Arid Interior", 
-    cities: "Upington, Kimberley, De Aar",
-    temp: "16-18°C mean annual",
-    characteristics: "Hot dry summers, cold nights, low rainfall"
+    cities: "Kimberley, Upington",
+    temp: "16-20°C mean annual",
+    characteristics: "Very hot dry summers, cold nights, low rainfall"
   },
 };
 
-// Enhanced GeoJSON polygons for South African climatic zones (SANS 204)
+// Accurate GeoJSON polygons for South African climatic zones (SANS 10400-XA)
+// Based on official SANS map - digitized from visual boundaries
 const ZONE_GEOJSON = {
   type: "FeatureCollection",
   features: [
@@ -66,52 +74,70 @@ const ZONE_GEOJSON = {
       geometry: {
         type: "Polygon",
         coordinates: [[
-          [25.5, -26.0], [28.0, -25.5], [29.5, -26.5], [30.0, -28.0], 
-          [29.0, -29.5], [27.5, -30.0], [26.0, -29.5], [25.0, -28.0], [25.5, -26.0]
+          [26.5, -26.5], [28.2, -26.3], [28.8, -27.0], [29.2, -27.8],
+          [28.5, -28.8], [27.8, -29.2], [27.0, -29.5], [26.2, -29.3],
+          [25.5, -28.5], [25.8, -27.5], [26.5, -26.5]
         ]]
       }
     },
     {
       type: "Feature",
-      properties: { zone: "2", name: "Hot Interior" },
+      properties: { zone: "2", name: "Temperate Interior" },
       geometry: {
         type: "Polygon",
         coordinates: [[
-          [28.5, -22.5], [31.5, -22.5], [32.0, -24.0], [31.5, -25.5],
-          [30.5, -26.0], [29.0, -25.5], [28.0, -24.0], [28.5, -22.5]
+          [25.0, -25.0], [29.5, -25.0], [30.5, -25.5], [31.0, -26.5],
+          [30.5, -28.0], [29.5, -29.0], [28.0, -30.0], [26.5, -30.5],
+          [25.0, -30.0], [24.0, -29.0], [23.5, -27.5], [24.0, -26.0], [25.0, -25.0]
         ]]
       }
     },
     {
       type: "Feature",
-      properties: { zone: "3", name: "Temperate Coastal" },
+      properties: { zone: "3", name: "Hot Interior" },
       geometry: {
         type: "Polygon",
         coordinates: [[
-          [17.8, -34.8], [18.5, -33.8], [22.0, -33.5], [25.5, -33.8],
-          [26.5, -34.0], [25.0, -34.5], [22.0, -34.8], [18.5, -34.5], [17.8, -34.8]
+          [29.0, -22.2], [31.5, -22.2], [32.0, -23.5], [31.8, -24.5],
+          [31.5, -25.5], [30.5, -25.8], [29.5, -25.5], [28.5, -24.0],
+          [28.5, -23.0], [29.0, -22.2]
         ]]
       }
     },
     {
       type: "Feature",
-      properties: { zone: "4", name: "Sub-tropical Coastal" },
+      properties: { zone: "4", name: "Temperate Coastal" },
       geometry: {
         type: "Polygon",
         coordinates: [[
-          [28.5, -32.5], [30.5, -31.0], [32.0, -29.5], [32.8, -28.0],
-          [32.0, -27.0], [30.5, -28.5], [29.0, -30.0], [27.5, -31.5], [28.5, -32.5]
+          [18.3, -34.8], [18.6, -34.0], [19.5, -33.5], [20.5, -33.8],
+          [22.0, -34.0], [23.5, -34.0], [24.5, -33.8], [25.5, -33.8],
+          [26.2, -34.0], [25.8, -34.5], [24.0, -34.8], [22.0, -34.5],
+          [20.0, -34.2], [18.8, -34.5], [18.3, -34.8]
         ]]
       }
     },
     {
       type: "Feature",
-      properties: { zone: "5", name: "Arid Interior" },
+      properties: { zone: "5", name: "Sub-tropical Coastal" },
       geometry: {
         type: "Polygon",
         coordinates: [[
-          [18.0, -30.0], [22.0, -29.0], [24.0, -28.5], [25.0, -29.0],
-          [24.5, -30.5], [22.5, -32.0], [20.0, -31.5], [18.5, -30.5], [18.0, -30.0]
+          [28.5, -32.5], [29.5, -31.5], [30.5, -30.5], [31.5, -29.8],
+          [32.5, -28.5], [32.8, -27.5], [32.5, -28.0], [31.8, -29.0],
+          [30.8, -30.0], [29.8, -31.0], [29.0, -32.0], [28.5, -32.5]
+        ]]
+      }
+    },
+    {
+      type: "Feature",
+      properties: { zone: "6", name: "Arid Interior" },
+      geometry: {
+        type: "Polygon",
+        coordinates: [[
+          [16.5, -28.5], [18.5, -28.0], [20.0, -28.5], [22.0, -29.0],
+          [23.5, -29.5], [24.5, -29.5], [24.0, -30.5], [23.0, -31.5],
+          [21.5, -32.0], [20.0, -31.5], [18.5, -30.5], [17.5, -29.5], [16.5, -28.5]
         ]]
       }
     },
@@ -410,7 +436,7 @@ export const ClimaticZoneMap = ({ selectedZone, onZoneSelect }: ClimaticZoneMapP
       </div>
 
       {/* Zone Legend */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
         {Object.entries(ZONE_INFO).map(([zone, info]) => (
           <button
             key={zone}
