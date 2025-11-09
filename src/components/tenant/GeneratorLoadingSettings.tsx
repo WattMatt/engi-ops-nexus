@@ -8,7 +8,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
-import { Trash2, Plus, ChevronDown, ChevronRight } from "lucide-react";
+import { Trash2, Plus, ChevronDown, ChevronRight, Pencil, Check, X } from "lucide-react";
 import { GENERATOR_SIZING_TABLE } from "@/utils/generatorSizing";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
@@ -36,6 +36,8 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
 
   const [newZoneName, setNewZoneName] = useState("");
   const [expandedZones, setExpandedZones] = useState<Set<string>>(new Set());
+  const [editingZoneId, setEditingZoneId] = useState<string | null>(null);
+  const [editingZoneName, setEditingZoneName] = useState("");
 
   const { data: existingSettings, isLoading } = useQuery({
     queryKey: ["generator-settings", projectId],
@@ -341,6 +343,39 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
     return getZoneGenerators(zoneId).reduce((sum, gen) => sum + (Number(gen.generator_cost) || 0), 0);
   };
 
+  const handleStartEditZoneName = (zoneId: string, currentName: string) => {
+    setEditingZoneId(zoneId);
+    setEditingZoneName(currentName);
+  };
+
+  const handleCancelEditZoneName = () => {
+    setEditingZoneId(null);
+    setEditingZoneName("");
+  };
+
+  const handleSaveZoneName = async (zoneId: string) => {
+    if (!editingZoneName.trim()) {
+      toast.error("Zone name cannot be empty");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("generator_zones")
+        .update({ zone_name: editingZoneName.trim() })
+        .eq("id", zoneId);
+
+      if (error) throw error;
+      toast.success("Zone name updated");
+      setEditingZoneId(null);
+      setEditingZoneName("");
+      refetchZones();
+    } catch (error) {
+      console.error("Error updating zone name:", error);
+      toast.error("Failed to update zone name");
+    }
+  };
+
   if (isLoading) {
     return <div>Loading settings...</div>;
   }
@@ -456,9 +491,48 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4 flex-1">
-                        <div>
+                        <div className="min-w-0 flex-1">
                           <CardTitle className="text-lg">Zone {zone.zone_number}</CardTitle>
-                          <CardDescription>{zone.zone_name}</CardDescription>
+                          {editingZoneId === zone.id ? (
+                            <div className="flex items-center gap-2 mt-1">
+                              <Input
+                                value={editingZoneName}
+                                onChange={(e) => setEditingZoneName(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") handleSaveZoneName(zone.id);
+                                  if (e.key === "Escape") handleCancelEditZoneName();
+                                }}
+                                className="h-8 max-w-xs"
+                                autoFocus
+                              />
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleSaveZoneName(zone.id)}
+                              >
+                                <Check className="h-4 w-4 text-green-600" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={handleCancelEditZoneName}
+                              >
+                                <X className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <CardDescription>{zone.zone_name}</CardDescription>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleStartEditZoneName(zone.id, zone.zone_name)}
+                                className="h-6 w-6 p-0"
+                              >
+                                <Pencil className="h-3 w-3 text-muted-foreground" />
+                              </Button>
+                            </div>
+                          )}
                         </div>
                         <div className="flex items-center gap-6">
                           <div>
