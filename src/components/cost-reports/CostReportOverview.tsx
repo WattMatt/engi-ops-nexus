@@ -156,31 +156,63 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
           {/* Category Distribution Chart */}
           <Card>
             <CardHeader>
-              <CardTitle>Category Distribution (Anticipated Final)</CardTitle>
+              <CardTitle>Category Distribution</CardTitle>
+              <p className="text-sm text-muted-foreground">Anticipated Final Cost Breakdown</p>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={distributionChartData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name.split(' - ')[0]}: ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {distributionChartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <Tooltip 
-                    formatter={(value: number) => `R${value.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`}
-                  />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
+              <div className="space-y-4">
+                {/* Pie Chart */}
+                <ResponsiveContainer width="100%" height={250}>
+                  <PieChart>
+                    <Pie
+                      data={distributionChartData}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, percent }) => percent > 0.05 ? `${(percent * 100).toFixed(0)}%` : ''}
+                      outerRadius={90}
+                      innerRadius={50}
+                      fill="#8884d8"
+                      dataKey="value"
+                      paddingAngle={2}
+                    >
+                      {distributionChartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      formatter={(value: number) => `R${value.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`}
+                      contentStyle={{ 
+                        backgroundColor: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '6px'
+                      }}
+                    />
+                  </PieChart>
+                </ResponsiveContainer>
+
+                {/* Custom Legend */}
+                <div className="grid grid-cols-2 gap-2 text-sm">
+                  {distributionChartData.map((entry, index) => {
+                    const total = distributionChartData.reduce((sum, item) => sum + item.value, 0);
+                    const percentage = ((entry.value / total) * 100).toFixed(1);
+                    return (
+                      <div key={index} className="flex items-center gap-2 p-2 rounded hover:bg-muted/50 transition-colors">
+                        <div 
+                          className="w-3 h-3 rounded-sm flex-shrink-0" 
+                          style={{ backgroundColor: entry.color }}
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium truncate">{entry.name.split(' - ')[0]}</div>
+                          <div className="text-xs text-muted-foreground">
+                            {percentage}% • R{entry.value.toLocaleString('en-ZA', { minimumFractionDigits: 0 })}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </CardContent>
           </Card>
 
