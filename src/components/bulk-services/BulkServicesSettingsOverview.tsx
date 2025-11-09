@@ -14,6 +14,94 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 
+// SANS 10142-1 Socket outlet loads (VA/m²) by building type
+const SANS_10142_SOCKET_LOADS = {
+  residential: {
+    name: "Residential (Dwellings, Flats, Hotels)",
+    ranges: [
+      { range: "0-20 m²", load: 70 },
+      { range: "20-40 m²", load: 55 },
+      { range: "40-60 m²", load: 45 },
+      { range: "60-80 m²", load: 40 },
+      { range: "80-120 m²", load: 35 },
+      { range: "120-200 m²", load: 30 },
+      { range: ">200 m²", load: 25 },
+    ],
+  },
+  office: {
+    name: "Offices & Banks",
+    ranges: [
+      { range: "0-100 m²", load: 45 },
+      { range: "100-300 m²", load: 40 },
+      { range: "300-500 m²", load: 35 },
+      { range: "500-1000 m²", load: 30 },
+      { range: ">1000 m²", load: 25 },
+    ],
+  },
+  retail: {
+    name: "Shops & Showrooms",
+    ranges: [
+      { range: "0-100 m²", load: 35 },
+      { range: "100-400 m²", load: 30 },
+      { range: "400-1000 m²", load: 25 },
+      { range: ">1000 m²", load: 20 },
+    ],
+  },
+  industrial: {
+    name: "Industrial & Workshop",
+    ranges: [
+      { range: "0-500 m²", load: 25 },
+      { range: "500-2000 m²", load: 20 },
+      { range: ">2000 m²", load: 15 },
+    ],
+  },
+  education: {
+    name: "Schools & Educational",
+    ranges: [
+      { range: "0-200 m²", load: 30 },
+      { range: "200-1000 m²", load: 25 },
+      { range: ">1000 m²", load: 20 },
+    ],
+  },
+};
+
+// SANS 10142-1 Lighting loads (VA/m²)
+const SANS_10142_LIGHTING_LOADS = {
+  residential: { min: 15, typical: 20, max: 25, name: "Residential" },
+  office: { min: 20, typical: 25, max: 30, name: "Offices" },
+  retail: { min: 25, typical: 35, max: 50, name: "Retail/Shops" },
+  industrial: { min: 10, typical: 15, max: 20, name: "Industrial" },
+  education: { min: 15, typical: 20, max: 25, name: "Schools" },
+  hospitality: { min: 20, typical: 30, max: 40, name: "Hotels/Restaurants" },
+};
+
+// ADMD Diversity Table - Based on units per phase
+const ADMD_DIVERSITY_TABLE = [
+  { unitsPerPhase: 1, diversityFactor: 1.00 },
+  { unitsPerPhase: 2, diversityFactor: 0.72 },
+  { unitsPerPhase: 3, diversityFactor: 0.62 },
+  { unitsPerPhase: 4, diversityFactor: 0.57 },
+  { unitsPerPhase: 5, diversityFactor: 0.53 },
+  { unitsPerPhase: 6, diversityFactor: 0.50 },
+  { unitsPerPhase: 7, diversityFactor: 0.48 },
+  { unitsPerPhase: 8, diversityFactor: 0.47 },
+  { unitsPerPhase: 9, diversityFactor: 0.46 },
+  { unitsPerPhase: 10, diversityFactor: 0.45 },
+  { unitsPerPhase: 14, diversityFactor: 0.45 },
+  { unitsPerPhase: 15, diversityFactor: 0.42 },
+  { unitsPerPhase: 19, diversityFactor: 0.42 },
+  { unitsPerPhase: 20, diversityFactor: 0.40 },
+  { unitsPerPhase: 29, diversityFactor: 0.40 },
+  { unitsPerPhase: 30, diversityFactor: 0.38 },
+  { unitsPerPhase: 39, diversityFactor: 0.38 },
+  { unitsPerPhase: 40, diversityFactor: 0.37 },
+  { unitsPerPhase: 49, diversityFactor: 0.37 },
+  { unitsPerPhase: 50, diversityFactor: 0.36 },
+  { unitsPerPhase: 99, diversityFactor: 0.36 },
+  { unitsPerPhase: 100, diversityFactor: 0.34 },
+  { unitsPerPhase: 350, diversityFactor: 0.34 },
+];
+
 // SANS 204 Table 1 - Maximum energy demand (VA/m²)
 const SANS_204_TABLE = {
   A1: { name: "Entertainment & Public Assembly", zones: [85, 80, 90, 80, 80, 85] },
@@ -137,17 +225,20 @@ export const BulkServicesSettingsOverview = ({
         </div>
       </div>
 
-      <div className="space-y-4 border rounded-lg p-6 bg-card">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold">SANS 204 Summary Statistics</h3>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowHeatMap(!showHeatMap)}
-          >
-            {showHeatMap ? "Hide" : "Show"} Heat Map
-          </Button>
-        </div>
+      {/* Conditional rendering based on calculation type */}
+      {calculationType === "sans_204" && (
+        <>
+          <div className="space-y-4 border rounded-lg p-6 bg-card">
+            <div className="flex items-center justify-between">
+              <h3 className="text-lg font-semibold">SANS 204 Summary Statistics</h3>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowHeatMap(!showHeatMap)}
+              >
+                {showHeatMap ? "Hide" : "Show"} Heat Map
+              </Button>
+            </div>
 
         {/* Overall Statistics Cards */}
         <div className="grid grid-cols-3 gap-4">
@@ -273,6 +364,220 @@ export const BulkServicesSettingsOverview = ({
           </div>
         </div>
       </div>
+        </>
+      )}
+
+      {calculationType === "sans_10142" && (
+        <>
+          <div className="space-y-4 border rounded-lg p-6 bg-card">
+            <h3 className="text-lg font-semibold">SANS 10142-1 Socket Outlet Loads</h3>
+            <p className="text-sm text-muted-foreground">
+              Socket outlet loads (VA/m²) by building type and floor area
+            </p>
+
+            <div className="space-y-6 mt-4">
+              {Object.entries(SANS_10142_SOCKET_LOADS).map(([key, data]) => (
+                <div key={key} className="border rounded-lg p-4 bg-muted/20">
+                  <h4 className="font-semibold mb-3">{data.name}</h4>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    {data.ranges.map((item, idx) => (
+                      <div key={idx} className="p-3 border rounded bg-card">
+                        <p className="text-xs text-muted-foreground mb-1">{item.range}</p>
+                        <p className="text-lg font-bold">{item.load}</p>
+                        <p className="text-xs text-muted-foreground">VA/m²</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-4 border rounded-lg p-6 bg-card">
+            <h3 className="text-lg font-semibold">SANS 10142-1 Lighting Loads</h3>
+            <p className="text-sm text-muted-foreground">
+              Lighting load values (VA/m²) by building type
+            </p>
+
+            <div className="overflow-x-auto mt-4">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="border-b-2">
+                    <th className="text-left p-3 text-sm font-semibold bg-muted/50">Building Type</th>
+                    <th className="text-center p-3 text-sm font-semibold bg-muted/50">Minimum</th>
+                    <th className="text-center p-3 text-sm font-semibold bg-muted/50">Typical</th>
+                    <th className="text-center p-3 text-sm font-semibold bg-muted/50">Maximum</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(SANS_10142_LIGHTING_LOADS).map(([key, data]) => (
+                    <tr key={key} className="border-b hover:bg-muted/30 transition-colors">
+                      <td className="p-3 text-sm font-medium">{data.name}</td>
+                      <td className="text-center p-3 text-sm font-bold bg-green-50 dark:bg-green-950/20">{data.min}</td>
+                      <td className="text-center p-3 text-sm font-bold bg-blue-50 dark:bg-blue-950/20">{data.typical}</td>
+                      <td className="text-center p-3 text-sm font-bold bg-orange-50 dark:bg-orange-950/20">{data.max}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="mt-4 p-4 bg-muted/30 rounded-lg">
+              <p className="text-sm">
+                <strong>Note:</strong> Total load = Socket outlet load + Lighting load + Fixed appliances load. 
+                Apply appropriate diversity factor based on building usage.
+              </p>
+            </div>
+          </div>
+        </>
+      )}
+
+      {calculationType === "residential" && (
+        <>
+          <div className="space-y-4 border rounded-lg p-6 bg-card">
+            <h3 className="text-lg font-semibold">Residential ADMD Diversity Factors</h3>
+            <p className="text-sm text-muted-foreground">
+              After Diversity Maximum Demand factors based on units per phase (three-phase distribution)
+            </p>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-4">
+              {[
+                { label: "1 Unit/Phase", value: "1.00" },
+                { label: "2-3 Units/Phase", value: "0.62-0.72" },
+                { label: "4-9 Units/Phase", value: "0.45-0.57" },
+                { label: "10-19 Units/Phase", value: "0.42-0.45" },
+                { label: "20-39 Units/Phase", value: "0.37-0.40" },
+                { label: "40-99 Units/Phase", value: "0.36-0.37" },
+                { label: "100+ Units/Phase", value: "0.34-0.36" },
+                { label: "Maximum (350)", value: "0.34" },
+              ].map((item, idx) => (
+                <div key={idx} className="p-4 border rounded-lg bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/20 dark:to-blue-900/20">
+                  <p className="text-xs text-muted-foreground mb-1">{item.label}</p>
+                  <p className="text-2xl font-bold">{item.value}</p>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-6 overflow-x-auto">
+              <h4 className="font-semibold mb-3">Complete ADMD Table</h4>
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="border-b-2">
+                    <th className="text-left p-3 text-sm font-semibold bg-muted/50">Units per Phase</th>
+                    <th className="text-center p-3 text-sm font-semibold bg-muted/50">Diversity Factor</th>
+                    <th className="text-left p-3 text-sm font-semibold bg-muted/50">Equivalent Total Units (3-phase)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ADMD_DIVERSITY_TABLE.map((row, idx) => (
+                    <tr key={idx} className="border-b hover:bg-muted/30 transition-colors">
+                      <td className="p-3 text-sm">{row.unitsPerPhase}</td>
+                      <td className="text-center p-3 text-sm font-bold">{row.diversityFactor.toFixed(2)}</td>
+                      <td className="p-3 text-sm text-muted-foreground">{row.unitsPerPhase * 3} units</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div className="space-y-4 border rounded-lg p-6 bg-card">
+            <h3 className="text-lg font-semibold">Typical Residential Load Components</h3>
+            <p className="text-sm text-muted-foreground">
+              Standard load values for residential unit calculations
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div className="p-4 border rounded-lg bg-muted/30">
+                <h4 className="font-semibold mb-3 flex items-center gap-2">
+                  <Badge variant="secondary">Lighting</Badge>
+                </h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span>Per lamp</span>
+                    <span className="font-bold">15 W</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Typical units</span>
+                    <span className="font-bold">5-8 lamps</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Diversity</span>
+                    <span className="font-bold">0.5 (50%)</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 border rounded-lg bg-muted/30">
+                <h4 className="font-semibold mb-3 flex items-center gap-2">
+                  <Badge variant="secondary">Socket Outlets</Badge>
+                </h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span>Per outlet</span>
+                    <span className="font-bold">3000 W</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Typical units</span>
+                    <span className="font-bold">1-2 outlets</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Diversity</span>
+                    <span className="font-bold">0.5 (50%)</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 border rounded-lg bg-muted/30">
+                <h4 className="font-semibold mb-3 flex items-center gap-2">
+                  <Badge variant="secondary">Geyser</Badge>
+                </h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span>Load</span>
+                    <span className="font-bold">2000 W</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Per unit</span>
+                    <span className="font-bold">1 geyser</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Diversity</span>
+                    <span className="font-bold">1.0 (100%)</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 border rounded-lg bg-muted/30">
+                <h4 className="font-semibold mb-3 flex items-center gap-2">
+                  <Badge variant="secondary">Stove</Badge>
+                </h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span>Load</span>
+                    <span className="font-bold">2000 W</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Per unit</span>
+                    <span className="font-bold">1 stove</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Diversity</span>
+                    <span className="font-bold">0.5 (50%)</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-4 p-4 bg-blue-50 dark:bg-blue-950/20 rounded-lg">
+              <p className="text-sm">
+                <strong>Calculation Method:</strong> Sum all loads per unit × diversity factors, then multiply by the 
+                ADMD diversity factor based on total units per phase to get maximum demand.
+              </p>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   );
 };
