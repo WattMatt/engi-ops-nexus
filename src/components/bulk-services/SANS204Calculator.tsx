@@ -18,11 +18,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Calculator, CheckCircle2, RefreshCw, Map } from "lucide-react";
+import { Calculator, CheckCircle2, RefreshCw, Map, Download } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClimaticZoneMap } from "./ClimaticZoneMap";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 interface SANS204CalculatorProps {
   open: boolean;
@@ -138,6 +140,242 @@ export const SANS204Calculator = ({
 
   const stats = calculateStatistics();
 
+  // Export to PDF
+  const exportToPDF = () => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    let yPos = 20;
+
+    // Title
+    doc.setFontSize(20);
+    doc.setFont("helvetica", "bold");
+    doc.text("SANS 204 Load Calculator Analysis", pageWidth / 2, yPos, { align: "center" });
+    yPos += 10;
+
+    // Subtitle
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100);
+    doc.text("Maximum Energy Demand Based on SANS 204 Standards", pageWidth / 2, yPos, { align: "center" });
+    yPos += 15;
+
+    // Project Information Section
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(0);
+    doc.text("Project Information", 14, yPos);
+    yPos += 8;
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Project Area: ${parseFloat(projectArea).toLocaleString()} m²`, 14, yPos);
+    yPos += 6;
+    doc.text(`Building Classification: ${buildingClass} - ${SANS_204_TABLE[buildingClass].name}`, 14, yPos);
+    yPos += 6;
+    doc.text(`Climatic Zone: Zone ${climaticZone} (${CLIMATIC_ZONES.find((z) => z.value === climaticZone)?.name})`, 14, yPos);
+    yPos += 6;
+    doc.text(`Diversity Factor: ${diversityFactor}`, 14, yPos);
+    yPos += 12;
+
+    // Calculated Results Section
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Calculated Results", 14, yPos);
+    yPos += 8;
+
+    const resultsData = [
+      ["Applied Load (SANS 204)", `${calculatedValues.vaPerSqm} VA/m²`],
+      ["Project Area", `${parseFloat(projectArea).toLocaleString()} m²`],
+      ["Total Connected Load", `${calculatedValues.totalConnectedLoad.toLocaleString()} kVA`],
+      ["Maximum Demand (After Diversity)", `${calculatedValues.maximumDemand.toLocaleString()} kVA`],
+    ];
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [["Parameter", "Value"]],
+      body: resultsData,
+      theme: "grid",
+      headStyles: { fillColor: [59, 130, 246], textColor: 255, fontStyle: "bold" },
+      styles: { fontSize: 10 },
+      margin: { left: 14, right: 14 },
+    });
+
+    yPos = (doc as any).lastAutoTable.finalY + 12;
+
+    // Summary Statistics
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Summary Statistics (VA/m²)", 14, yPos);
+    yPos += 8;
+
+    const statsData = [
+      ["Overall Average", `${stats.overall.avg} VA/m²`],
+      ["Overall Minimum", `${stats.overall.min} VA/m²`],
+      ["Overall Maximum", `${stats.overall.max} VA/m²`],
+      ["Range", `${stats.overall.max - stats.overall.min} VA/m² (${Math.round(((stats.overall.max - stats.overall.min) / stats.overall.min) * 100)}% variation)`],
+    ];
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [["Statistic", "Value"]],
+      body: statsData,
+      theme: "grid",
+      headStyles: { fillColor: [34, 197, 94], textColor: 255, fontStyle: "bold" },
+      styles: { fontSize: 10 },
+      margin: { left: 14, right: 14 },
+    });
+
+    yPos = (doc as any).lastAutoTable.finalY + 12;
+
+    // Check if we need a new page
+    if (yPos > 240) {
+      doc.addPage();
+      yPos = 20;
+    }
+
+    // Zone Comparison Table
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("SANS 204 Table 1 - Zone Comparison", 14, yPos);
+    yPos += 8;
+
+    const comparisonTableHeaders = [
+      "Class",
+      "Building Type",
+      "Zone 1",
+      "Zone 2",
+      "Zone 3",
+      "Zone 4",
+      "Zone 5",
+      "Zone 6",
+    ];
+
+    const comparisonTableBody = Object.entries(SANS_204_TABLE).map(([key, value]) => {
+      return [
+        key,
+        value.name,
+        `${value.zones[0]} VA/m²`,
+        `${value.zones[1]} VA/m²`,
+        `${value.zones[2]} VA/m²`,
+        `${value.zones[3]} VA/m²`,
+        `${value.zones[4]} VA/m²`,
+        `${value.zones[5]} VA/m²`,
+      ];
+    });
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [comparisonTableHeaders],
+      body: comparisonTableBody,
+      theme: "grid",
+      headStyles: { fillColor: [100, 100, 100], textColor: 255, fontStyle: "bold", fontSize: 8 },
+      styles: { fontSize: 8, cellPadding: 2 },
+      columnStyles: {
+        0: { cellWidth: 15 },
+        1: { cellWidth: 50 },
+        2: { cellWidth: 18, halign: "center" },
+        3: { cellWidth: 18, halign: "center" },
+        4: { cellWidth: 18, halign: "center" },
+        5: { cellWidth: 18, halign: "center" },
+        6: { cellWidth: 18, halign: "center" },
+        7: { cellWidth: 18, halign: "center" },
+      },
+      margin: { left: 14, right: 14 },
+      didParseCell: (data) => {
+        // Highlight selected building and zone
+        const rowIndex = data.row.index;
+        const colIndex = data.column.index;
+        const buildingKeys = Object.keys(SANS_204_TABLE);
+        
+        if (rowIndex < buildingKeys.length) {
+          const currentBuildingKey = buildingKeys[rowIndex];
+          const selectedZoneCol = parseInt(climaticZone) + 1; // +1 because columns 0,1 are class and name
+          
+          if (currentBuildingKey === buildingClass && colIndex === selectedZoneCol) {
+            data.cell.styles.fillColor = [59, 130, 246];
+            data.cell.styles.textColor = [255, 255, 255];
+            data.cell.styles.fontStyle = "bold";
+          }
+        }
+      },
+    });
+
+    yPos = (doc as any).lastAutoTable.finalY + 12;
+
+    // Per-Zone Statistics
+    if (yPos > 240) {
+      doc.addPage();
+      yPos = 20;
+    }
+
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Per-Zone Statistics", 14, yPos);
+    yPos += 8;
+
+    const zoneStatsBody = CLIMATIC_ZONES.map((zone, idx) => {
+      const zoneData = stats.zones[idx];
+      return [
+        `Zone ${zone.value}`,
+        zone.name,
+        `${Math.round(zoneData.avg * 10) / 10} VA/m²`,
+        `${zoneData.min} VA/m²`,
+        `${zoneData.max} VA/m²`,
+      ];
+    });
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [["Zone", "Climate Type", "Average", "Minimum", "Maximum"]],
+      body: zoneStatsBody,
+      theme: "striped",
+      headStyles: { fillColor: [99, 102, 241], textColor: 255, fontStyle: "bold" },
+      styles: { fontSize: 10 },
+      margin: { left: 14, right: 14 },
+    });
+
+    yPos = (doc as any).lastAutoTable.finalY + 12;
+
+    // Calculation Breakdown
+    if (yPos > 220) {
+      doc.addPage();
+      yPos = 20;
+    }
+
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("Calculation Breakdown", 14, yPos);
+    yPos += 8;
+
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text(`1. SANS 204 Applied Load: ${calculatedValues.vaPerSqm} VA/m² (${buildingClass} - Zone ${climaticZone})`, 14, yPos);
+    yPos += 6;
+    doc.text(`2. Total Connected Load: ${projectArea} m² × ${calculatedValues.vaPerSqm} VA/m² = ${(parseFloat(projectArea) * calculatedValues.vaPerSqm).toLocaleString()} VA`, 14, yPos);
+    yPos += 6;
+    doc.text(`3. Convert to kVA: ${(parseFloat(projectArea) * calculatedValues.vaPerSqm).toLocaleString()} VA ÷ 1000 = ${calculatedValues.totalConnectedLoad} kVA`, 14, yPos);
+    yPos += 6;
+    doc.text(`4. Apply Diversity Factor: ${calculatedValues.totalConnectedLoad} kVA × ${diversityFactor} = ${calculatedValues.maximumDemand} kVA`, 14, yPos);
+
+    // Footer
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(8);
+      doc.setTextColor(150);
+      doc.text(
+        `Generated: ${new Date().toLocaleDateString()} | Page ${i} of ${pageCount}`,
+        pageWidth / 2,
+        doc.internal.pageSize.getHeight() - 10,
+        { align: "center" }
+      );
+    }
+
+    // Save the PDF
+    doc.save(`SANS204_Analysis_${buildingClass}_Zone${climaticZone}_${new Date().toISOString().split("T")[0]}.pdf`);
+    toast.success("PDF report exported successfully");
+  };
+
   // Fetch total area from tenant tracker
   const { data: tenantData, refetch: refetchTenants } = useQuery({
     queryKey: ["tenant-total-area", projectId],
@@ -209,13 +447,27 @@ export const SANS204Calculator = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Calculator className="h-5 w-5" />
-            SANS 204 Load Calculator
-          </DialogTitle>
-          <DialogDescription>
-            Calculate maximum electrical demand based on SANS 204 energy efficiency standards
-          </DialogDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle className="flex items-center gap-2">
+                <Calculator className="h-5 w-5" />
+                SANS 204 Load Calculator
+              </DialogTitle>
+              <DialogDescription>
+                Calculate maximum electrical demand based on SANS 204 energy efficiency standards
+              </DialogDescription>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={exportToPDF}
+              disabled={!projectArea || parseFloat(projectArea) <= 0}
+              className="shrink-0"
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Export PDF
+            </Button>
+          </div>
         </DialogHeader>
 
         <div className="space-y-6">
