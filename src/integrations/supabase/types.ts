@@ -3347,6 +3347,109 @@ export type Database = {
           },
         ]
       }
+      project_outline_sections: {
+        Row: {
+          content: string | null
+          created_at: string
+          id: string
+          outline_id: string
+          section_number: number
+          section_title: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          outline_id: string
+          section_number: number
+          section_title: string
+          sort_order: number
+          updated_at?: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          id?: string
+          outline_id?: string
+          section_number?: number
+          section_title?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_outline_sections_outline_id_fkey"
+            columns: ["outline_id"]
+            isOneToOne: false
+            referencedRelation: "project_outlines"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_outlines: {
+        Row: {
+          address_line1: string | null
+          address_line2: string | null
+          address_line3: string | null
+          contact_person: string | null
+          created_at: string
+          created_by: string | null
+          date: string | null
+          document_title: string
+          id: string
+          prepared_by: string | null
+          project_id: string
+          project_name: string
+          revision: string | null
+          telephone: string | null
+          updated_at: string
+        }
+        Insert: {
+          address_line1?: string | null
+          address_line2?: string | null
+          address_line3?: string | null
+          contact_person?: string | null
+          created_at?: string
+          created_by?: string | null
+          date?: string | null
+          document_title?: string
+          id?: string
+          prepared_by?: string | null
+          project_id: string
+          project_name: string
+          revision?: string | null
+          telephone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address_line1?: string | null
+          address_line2?: string | null
+          address_line3?: string | null
+          contact_person?: string | null
+          created_at?: string
+          created_by?: string | null
+          date?: string | null
+          document_title?: string
+          id?: string
+          prepared_by?: string | null
+          project_id?: string
+          project_name?: string
+          revision?: string | null
+          telephone?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_outlines_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_specifications: {
         Row: {
           client_logo_url: string | null
