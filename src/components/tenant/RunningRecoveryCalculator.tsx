@@ -279,7 +279,7 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
 
     const servicingCostPerMonth = settings.servicing_cost_per_year / 12;
     const servicingCostPerMonthByHours = (settings.servicing_cost_per_250_hours / 250) * settings.expected_hours_per_month;
-    const additionalServicingCost = Math.max(0, servicingCostPerMonthByHours - servicingCostPerMonth);
+    const additionalServicingCost = Math.max(0, servicingCostPerMonthByHours - servicingCostPerMonth) * numGenerators;
     const totalServicesCostPerKWh = monthlyEnergyKWh > 0 ? additionalServicingCost / monthlyEnergyKWh : 0;
 
     const totalTariffBeforeContingency = monthlyDieselCostPerKWh + totalServicesCostPerKWh;
