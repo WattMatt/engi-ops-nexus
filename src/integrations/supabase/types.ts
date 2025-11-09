@@ -420,6 +420,105 @@ export type Database = {
         }
         Relationships: []
       }
+      bulk_services_documents: {
+        Row: {
+          connection_size: string | null
+          created_at: string
+          created_by: string
+          diversity_factor: number | null
+          document_date: string
+          document_number: string
+          electrical_standard: string | null
+          future_expansion_factor: number | null
+          id: string
+          load_category: string | null
+          maximum_demand: number | null
+          notes: string | null
+          primary_voltage: string | null
+          project_id: string
+          revision: string
+          supply_authority: string | null
+          tariff_structure: string | null
+          total_connected_load: number | null
+          updated_at: string
+        }
+        Insert: {
+          connection_size?: string | null
+          created_at?: string
+          created_by: string
+          diversity_factor?: number | null
+          document_date?: string
+          document_number: string
+          electrical_standard?: string | null
+          future_expansion_factor?: number | null
+          id?: string
+          load_category?: string | null
+          maximum_demand?: number | null
+          notes?: string | null
+          primary_voltage?: string | null
+          project_id: string
+          revision?: string
+          supply_authority?: string | null
+          tariff_structure?: string | null
+          total_connected_load?: number | null
+          updated_at?: string
+        }
+        Update: {
+          connection_size?: string | null
+          created_at?: string
+          created_by?: string
+          diversity_factor?: number | null
+          document_date?: string
+          document_number?: string
+          electrical_standard?: string | null
+          future_expansion_factor?: number | null
+          id?: string
+          load_category?: string | null
+          maximum_demand?: number | null
+          notes?: string | null
+          primary_voltage?: string | null
+          project_id?: string
+          revision?: string
+          supply_authority?: string | null
+          tariff_structure?: string | null
+          total_connected_load?: number | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      bulk_services_sections: {
+        Row: {
+          content: string | null
+          created_at: string
+          document_id: string
+          id: string
+          section_number: string
+          section_title: string
+          sort_order: number
+          updated_at: string
+        }
+        Insert: {
+          content?: string | null
+          created_at?: string
+          document_id: string
+          id?: string
+          section_number: string
+          section_title: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Update: {
+          content?: string | null
+          created_at?: string
+          document_id?: string
+          id?: string
+          section_number?: string
+          section_title?: string
+          sort_order?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
       cable_entries: {
         Row: {
           cable_number: number | null

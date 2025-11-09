@@ -1,0 +1,94 @@
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft, FileDown } from "lucide-react";
+import { BulkServicesHeader } from "./BulkServicesHeader";
+import { BulkServicesSections } from "./BulkServicesSections";
+
+interface BulkServicesOverviewProps {
+  documentId: string;
+  onBack: () => void;
+}
+
+export const BulkServicesOverview = ({ documentId, onBack }: BulkServicesOverviewProps) => {
+  const { data: document, isLoading } = useQuery({
+    queryKey: ["bulk-services-document", documentId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("bulk_services_documents")
+        .select("*")
+        .eq("id", documentId)
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: sections } = useQuery({
+    queryKey: ["bulk-services-sections", documentId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("bulk_services_sections")
+        .select("*")
+        .eq("document_id", documentId)
+        .order("sort_order");
+
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  if (isLoading) {
+    return (
+      <div className="container mx-auto py-6">
+        <p className="text-center text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
+
+  if (!document) {
+    return (
+      <div className="container mx-auto py-6">
+        <p className="text-center text-muted-foreground">Document not found</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="container mx-auto py-6 space-y-6">
+      <div className="flex items-center justify-between">
+        <Button variant="ghost" onClick={onBack}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Documents
+        </Button>
+        <Button variant="outline">
+          <FileDown className="mr-2 h-4 w-4" />
+          Export PDF
+        </Button>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Document Details</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <BulkServicesHeader document={document} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Document Sections</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <BulkServicesSections
+            documentId={documentId}
+            sections={sections || []}
+          />
+        </CardContent>
+      </Card>
+    </div>
+  );
+};

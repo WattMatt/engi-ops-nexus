@@ -20,6 +20,7 @@ import {
   CheckSquare,
   BarChart3,
   MessageSquare,
+  Layers,
 } from "lucide-react";
 import {
   Sidebar,
@@ -57,6 +58,14 @@ const reportsModule = {
   ],
 };
 
+const bulkServicesModule = {
+  title: "Bulk Services",
+  icon: Layers,
+  items: [
+    { title: "All Documents", url: "/dashboard/bulk-services" },
+  ],
+};
+
 const singleModules = [
   {
     title: "AI Tools",
@@ -69,7 +78,6 @@ const projectsReportModule = {
   title: "Projects Report",
   icon: BarChart3,
   items: [
-    { title: "Bulk Services", url: "/dashboard/projects-report/bulk-services" },
     { title: "Generator Report", url: "/dashboard/projects-report/generator" },
     { title: "Lighting", url: "/dashboard/projects-report/lighting" },
     { title: "Project Outline", url: "/dashboard/projects-report/outline" },
@@ -209,6 +217,32 @@ export function AppSidebar() {
                   <CollapsibleContent>
                     <SidebarMenuSub>
                       {reportsModule.items.map((item) => (
+                        <SidebarMenuSubItem key={item.title}>
+                          <SidebarMenuSubButton asChild>
+                            <NavLink to={item.url} className={getNavCls(item.url)}>
+                              <span>{item.title}</span>
+                            </NavLink>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
+
+              {/* Bulk Services - Collapsible */}
+              <Collapsible defaultOpen={isGroupActive(bulkServicesModule.items)}>
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton className="hover:bg-muted/50">
+                      <bulkServicesModule.icon className="h-4 w-4" />
+                      {!collapsed && <span>{bulkServicesModule.title}</span>}
+                      {!collapsed && <ChevronDown className="ml-auto h-4 w-4" />}
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      {bulkServicesModule.items.map((item) => (
                         <SidebarMenuSubItem key={item.title}>
                           <SidebarMenuSubButton asChild>
                             <NavLink to={item.url} className={getNavCls(item.url)}>

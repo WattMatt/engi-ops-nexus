@@ -35,6 +35,7 @@ import FinalAccountDetail from "./pages/FinalAccountDetail";
 import GeneratorReport from "./pages/GeneratorReport";
 import ProjectOutline from "./pages/ProjectOutline";
 import AITools from "./pages/AITools";
+import BulkServices from "./pages/BulkServices";
 import NotFound from "./pages/NotFound";
 import { HelpButton } from "./components/feedback/HelpButton";
 
@@ -88,6 +89,7 @@ const App = () => (
             <Route path="messages" element={<Messages />} />
             <Route path="projects-report/generator" element={<GeneratorReport />} />
             <Route path="projects-report/outline" element={<ProjectOutline />} />
+            <Route path="bulk-services" element={<BulkServices />} />
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
