@@ -609,8 +609,8 @@ export const SANS204Calculator = ({
               </div>
             </CardHeader>
             <CardContent>
-              <div className="rounded-md border overflow-x-auto">
-                <table className="w-full text-sm">
+              <div className="rounded-md border overflow-x-auto select-text">
+                <table className="w-full text-sm select-text">
                   <thead className="bg-muted">
                     <tr>
                       <th className="p-2 text-left sticky left-0 bg-muted z-10">Class</th>
