@@ -541,6 +541,13 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
           if (data.section === 'head' && data.column.index >= 5 && data.column.index < 5 + zones.length) {
             const zoneIndex = data.column.index - 5;
             const zone = zones[zoneIndex];
+            console.log('[PDF DEBUG] Zone header coloring:', {
+              columnIndex: data.column.index,
+              zoneIndex,
+              zoneName: zone?.zone_name,
+              zoneColor: zone?.zone_color,
+              totalZones: zones.length
+            });
             const zoneColor = zone?.zone_color || "#3b82f6";
             const rgb = hexToRgb(zoneColor);
             
