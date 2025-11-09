@@ -32,8 +32,8 @@ export const SavedReportsList = ({ projectId, projectName }: SavedReportsListPro
         .from('tenant_tracker_reports')
         .select('*')
         .eq('project_id', projectId)
-        .order('revision_number', { ascending: false })
-        .order('generated_at', { ascending: false });
+        .order('revision_number', { ascending: true })
+        .order('generated_at', { ascending: true });
 
       if (error) throw error;
       return data || [];
