@@ -85,10 +85,17 @@ export const BulkServicesOverview = ({ documentId, onBack }: BulkServicesOvervie
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
-          <BulkServicesSettingsOverview
-            documentId={documentId}
-            currentCalculationType={document?.building_calculation_type}
-          />
+          <Card>
+            <CardHeader>
+              <CardTitle>Settings & Configuration</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <BulkServicesSettingsOverview
+                documentId={documentId}
+                currentCalculationType={document?.building_calculation_type}
+              />
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="details" className="space-y-4">

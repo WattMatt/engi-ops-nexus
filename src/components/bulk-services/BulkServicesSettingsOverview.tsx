@@ -69,12 +69,9 @@ export const BulkServicesSettingsOverview = ({
   };
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <CardTitle>Calculation Method</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
+    <div className="space-y-4">
+      <div className="space-y-4 border rounded-lg p-6 bg-card">
+        <h3 className="text-lg font-semibold">Calculation Method</h3>
           <div className="space-y-2">
             <Label>Select Calculation Standard</Label>
             <Select value={calculationType} onValueChange={setCalculationType}>
@@ -96,31 +93,27 @@ export const BulkServicesSettingsOverview = ({
             </Button>
           </div>
 
-          <div className="pt-4 border-t">
-            <p className="text-sm text-muted-foreground">
-              <strong>SANS 204:</strong> Used for commercial and retail buildings. Provides maximum energy demand based on building classification and climatic zone.
-            </p>
-            <p className="text-sm text-muted-foreground mt-2">
-              <strong>SANS 10142-1:</strong> General electrical installation standard for various building types including offices, industrial, and educational facilities.
-            </p>
-            <p className="text-sm text-muted-foreground mt-2">
-              <strong>Residential ADMD:</strong> After Diversity Maximum Demand method specifically designed for residential developments and multi-unit dwellings.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+        <div className="pt-4 border-t">
+          <p className="text-sm text-muted-foreground">
+            <strong>SANS 204:</strong> Used for commercial and retail buildings. Provides maximum energy demand based on building classification and climatic zone.
+          </p>
+          <p className="text-sm text-muted-foreground mt-2">
+            <strong>SANS 10142-1:</strong> General electrical installation standard for various building types including offices, industrial, and educational facilities.
+          </p>
+          <p className="text-sm text-muted-foreground mt-2">
+            <strong>Residential ADMD:</strong> After Diversity Maximum Demand method specifically designed for residential developments and multi-unit dwellings.
+          </p>
+        </div>
+      </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>SANS 204 Theta Values (VA/m²)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="space-y-6">
-            <p className="text-sm text-muted-foreground">
-              Maximum energy demand values per building class across all climatic zones
-            </p>
+      <div className="space-y-4 border rounded-lg p-6 bg-card">
+        <h3 className="text-lg font-semibold">SANS 204 Theta Values (VA/m²)</h3>
+        <div className="space-y-6">
+          <p className="text-sm text-muted-foreground">
+            Maximum energy demand values per building class across all climatic zones
+          </p>
 
-            <div className="overflow-x-auto">
+          <div className="overflow-x-auto">
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="border-b">
@@ -148,26 +141,25 @@ export const BulkServicesSettingsOverview = ({
                     </tr>
                   ))}
                 </tbody>
-              </table>
-            </div>
+            </table>
+          </div>
 
-            <div className="mt-6 pt-6 border-t">
-              <h4 className="text-sm font-semibold mb-3">Climatic Zones Reference</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {CLIMATIC_ZONES.map((zone) => (
-                  <div key={zone.value} className="p-3 bg-muted/50 rounded-md">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="secondary">Zone {zone.value}</Badge>
-                      <span className="text-sm font-medium">{zone.name}</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground mt-1">{zone.cities}</p>
+          <div className="mt-6 pt-6 border-t">
+            <h4 className="text-sm font-semibold mb-3">Climatic Zones Reference</h4>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {CLIMATIC_ZONES.map((zone) => (
+                <div key={zone.value} className="p-3 bg-muted/50 rounded-md">
+                  <div className="flex items-center gap-2">
+                    <Badge variant="secondary">Zone {zone.value}</Badge>
+                    <span className="text-sm font-medium">{zone.name}</span>
                   </div>
-                ))}
-              </div>
+                  <p className="text-xs text-muted-foreground mt-1">{zone.cities}</p>
+                </div>
+              ))}
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   );
 };
