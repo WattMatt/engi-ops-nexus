@@ -3,7 +3,9 @@ import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
+import { Map, Satellite, Mountain } from "lucide-react";
 
 interface ClimaticZoneMapProps {
   selectedZone: string;
@@ -88,6 +90,13 @@ export const ClimaticZoneMap = ({ selectedZone, onZoneSelect }: ClimaticZoneMapP
   const map = useRef<mapboxgl.Map | null>(null);
   const [mapboxToken, setMapboxToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [mapStyle, setMapStyle] = useState<'streets' | 'satellite' | 'terrain'>('streets');
+
+  const MAP_STYLES = {
+    streets: 'mapbox://styles/mapbox/light-v11',
+    satellite: 'mapbox://styles/mapbox/satellite-streets-v12',
+    terrain: 'mapbox://styles/mapbox/outdoors-v12',
+  };
 
   useEffect(() => {
     const fetchToken = async () => {
@@ -118,7 +127,7 @@ export const ClimaticZoneMap = ({ selectedZone, onZoneSelect }: ClimaticZoneMapP
 
     map.current = new mapboxgl.Map({
       container: mapContainer.current,
-      style: "mapbox://styles/mapbox/light-v11",
+      style: MAP_STYLES[mapStyle],
       center: [24.5, -28.5], // Center of South Africa
       zoom: 4.5,
       pitch: 0,
@@ -207,7 +216,14 @@ export const ClimaticZoneMap = ({ selectedZone, onZoneSelect }: ClimaticZoneMapP
     return () => {
       map.current?.remove();
     };
-  }, [mapboxToken, selectedZone, onZoneSelect]);
+  }, [mapboxToken, selectedZone, onZoneSelect, mapStyle]);
+
+  // Handle map style changes
+  useEffect(() => {
+    if (!map.current || !map.current.isStyleLoaded()) return;
+    
+    map.current.setStyle(MAP_STYLES[mapStyle]);
+  }, [mapStyle]);
 
   // Update opacity when selected zone changes
   useEffect(() => {
@@ -249,6 +265,37 @@ export const ClimaticZoneMap = ({ selectedZone, onZoneSelect }: ClimaticZoneMapP
     <div className="space-y-3">
       <div className="relative h-[400px] rounded-lg overflow-hidden border">
         <div ref={mapContainer} className="absolute inset-0" />
+        
+        {/* Map Style Switcher */}
+        <div className="absolute top-4 left-4 flex gap-2 z-10">
+          <Button
+            size="sm"
+            variant={mapStyle === 'streets' ? 'default' : 'secondary'}
+            onClick={() => setMapStyle('streets')}
+            className="shadow-lg"
+          >
+            <Map className="h-4 w-4 mr-2" />
+            Streets
+          </Button>
+          <Button
+            size="sm"
+            variant={mapStyle === 'satellite' ? 'default' : 'secondary'}
+            onClick={() => setMapStyle('satellite')}
+            className="shadow-lg"
+          >
+            <Satellite className="h-4 w-4 mr-2" />
+            Satellite
+          </Button>
+          <Button
+            size="sm"
+            variant={mapStyle === 'terrain' ? 'default' : 'secondary'}
+            onClick={() => setMapStyle('terrain')}
+            className="shadow-lg"
+          >
+            <Mountain className="h-4 w-4 mr-2" />
+            Terrain
+          </Button>
+        </div>
       </div>
 
       {/* Zone Legend */}
