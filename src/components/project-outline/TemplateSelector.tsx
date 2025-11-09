@@ -47,14 +47,14 @@ export const TemplateSelector = ({ selectedTemplateId, onTemplateSelect }: Templ
       </div>
       
       <Select
-        value={selectedTemplateId || ""}
-        onValueChange={(value) => onTemplateSelect(value || null)}
+        value={selectedTemplateId || "none"}
+        onValueChange={(value) => onTemplateSelect(value === "none" ? null : value)}
       >
         <SelectTrigger>
           <SelectValue placeholder="Start from scratch or select a template" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="">
+          <SelectItem value="none">
             <div className="flex items-center">
               <FileText className="h-4 w-4 mr-2" />
               Start from scratch
