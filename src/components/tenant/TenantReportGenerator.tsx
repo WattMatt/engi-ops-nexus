@@ -605,6 +605,23 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
           }).filter(([_, style]) => Object.keys(style).length > 0)
         )
       },
+      didParseCell: (data) => {
+        // Color code entire row based on completion status
+        if (data.section === 'body') {
+          const tenant = tenants[data.row.index];
+          const isComplete = isTenantComplete(tenant);
+          
+          if (isComplete) {
+            // Light green background for complete rows
+            data.cell.styles.fillColor = [240, 253, 244]; // green-50
+            data.cell.styles.textColor = [0, 0, 0];
+          } else {
+            // Light amber background for incomplete rows
+            data.cell.styles.fillColor = [254, 252, 232]; // amber-50
+            data.cell.styles.textColor = [0, 0, 0];
+          }
+        }
+      },
       didDrawCell: (data) => {
         // Custom rendering for checkbox cells with colored backgrounds
         const key = fieldKeys[data.column.index];
