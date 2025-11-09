@@ -183,6 +183,72 @@ const CLIMATIC_ZONES = [
   { value: "6", name: "Arid Interior", cities: "Kimberley, Upington" },
 ];
 
+// SANS 10142-1 Table 11 - Socket outlet loads (VA/m²) by building type
+const SANS_10142_SOCKET_LOADS = {
+  residential: {
+    name: "Residential (Dwellings, Flats, Hotels)",
+    loads: {
+      "0-20": 70,
+      "20-40": 55,
+      "40-60": 45,
+      "60-80": 40,
+      "80-120": 35,
+      "120-200": 30,
+      ">200": 25,
+    },
+    description: "Socket outlet load per m² floor area"
+  },
+  office: {
+    name: "Offices & Banks",
+    loads: {
+      "0-100": 45,
+      "100-300": 40,
+      "300-500": 35,
+      "500-1000": 30,
+      ">1000": 25,
+    },
+    description: "General office spaces with typical equipment"
+  },
+  retail: {
+    name: "Shops & Showrooms",
+    loads: {
+      "0-100": 35,
+      "100-400": 30,
+      "400-1000": 25,
+      ">1000": 20,
+    },
+    description: "Retail spaces excluding heavy equipment"
+  },
+  industrial: {
+    name: "Industrial & Workshop",
+    loads: {
+      "0-500": 25,
+      "500-2000": 20,
+      ">2000": 15,
+    },
+    description: "Light industrial and workshop areas"
+  },
+  education: {
+    name: "Schools & Educational",
+    loads: {
+      "0-200": 30,
+      "200-1000": 25,
+      ">1000": 20,
+    },
+    description: "Classrooms and educational facilities"
+  },
+};
+
+// SANS 10142-1 Lighting loads (VA/m²)
+const SANS_10142_LIGHTING_LOADS = {
+  residential: { min: 15, typical: 20, max: 25, name: "Residential" },
+  office: { min: 20, typical: 25, max: 30, name: "Offices" },
+  retail: { min: 25, typical: 35, max: 50, name: "Retail/Shops" },
+  industrial: { min: 10, typical: 15, max: 20, name: "Industrial" },
+  education: { min: 15, typical: 20, max: 25, name: "Schools" },
+  hospitality: { min: 20, typical: 30, max: 40, name: "Hotels/Restaurants" },
+};
+
 export const SANS204Calculator = ({
   open,
   onOpenChange,
@@ -218,6 +284,14 @@ export const SANS204Calculator = ({
   const [generalDiversity, setGeneralDiversity] = useState("0.70");
   const [useADMD, setUseADMD] = useState(true); // Toggle between ADMD and simple diversity
 
+  // SANS 10142 calculator state
+  const [sans10142BuildingType, setSans10142BuildingType] = useState<keyof typeof SANS_10142_SOCKET_LOADS>("residential");
+  const [sans10142Area, setSans10142Area] = useState("");
+  const [sans10142LightingType, setSans10142LightingType] = useState<keyof typeof SANS_10142_LIGHTING_LOADS>("residential");
+  const [sans10142LightingLoad, setSans10142LightingLoad] = useState(SANS_10142_LIGHTING_LOADS.residential.typical.toString());
+  const [sans10142FixedAppliances, setSans10142FixedAppliances] = useState("0");
+  const [sans10142Diversity, setSans10142Diversity] = useState("0.75");
+
   // Fetch project settings
   const { data: projectSettings } = useQuery({
     queryKey: ["project-settings", projectId],
@@ -236,6 +310,26 @@ export const SANS204Calculator = ({
 
   const calculationType = projectSettings?.building_calculation_type || "commercial";
   const isResidential = calculationType === "residential";
+  const isSans10142 = calculationType === "sans10142" || calculationType === "electrical_standard";
+
+  // Helper function to get SANS 10142 socket load based on area
+  const getSans10142SocketLoad = (buildingType: keyof typeof SANS_10142_SOCKET_LOADS, area: number): number => {
+    const loads = SANS_10142_SOCKET_LOADS[buildingType].loads;
+    const ranges = Object.keys(loads);
+    
+    for (const range of ranges) {
+      if (range.startsWith(">")) {
+        const minArea = parseInt(range.substring(1));
+        if (area > minArea) return loads[range];
+      } else {
+        const [min, max] = range.split("-").map(Number);
+        if (area >= min && area <= max) return loads[range];
+      }
+    }
+    
+    // Default to the last (highest area) value
+    return loads[ranges[ranges.length - 1]];
+  };
 
   // Calculate min and max VA values for heat map
   const allVaValues = Object.values(SANS_204_TABLE).flatMap(bt => bt.zones);
@@ -688,12 +782,18 @@ export const SANS204Calculator = ({
             <div>
               <DialogTitle className="flex items-center gap-2">
                 <Calculator className="h-5 w-5" />
-                {isResidential ? "SANS 10142 Residential Load Calculator" : "SANS 204 Load Calculator"}
+                {isSans10142 
+                  ? "SANS 10142-1 Load Calculator"
+                  : isResidential 
+                    ? "SANS 10142 Residential Load Calculator" 
+                    : "SANS 204 Load Calculator"}
               </DialogTitle>
               <DialogDescription>
-                {isResidential 
-                  ? "Calculate residential electrical demand using SANS 10142 fitting-based methodology"
-                  : "Calculate maximum electrical demand based on SANS 204 energy efficiency standards"}
+                {isSans10142
+                  ? "Calculate electrical loads using SANS 10142-1 socket outlet and lighting load tables"
+                  : isResidential 
+                    ? "Calculate residential electrical demand using SANS 10142 fitting-based methodology"
+                    : "Calculate maximum electrical demand based on SANS 204 energy efficiency standards"}
               </DialogDescription>
             </div>
             <Button
@@ -710,7 +810,359 @@ export const SANS204Calculator = ({
         </DialogHeader>
 
         <div className="space-y-6">
-          {isResidential ? (
+          {isSans10142 ? (
+            // SANS 10142 Calculator Interface
+            <>
+              {/* SANS 10142 Input Parameters */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-base">SANS 10142-1 Load Calculation Parameters</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Building Floor Area (m²)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={sans10142Area}
+                        onChange={(e) => setSans10142Area(e.target.value)}
+                        placeholder="1000"
+                      />
+                    </div>
+                    
+                    <div className="space-y-2">
+                      <Label>Building Type</Label>
+                      <Select 
+                        value={sans10142BuildingType} 
+                        onValueChange={(value) => setSans10142BuildingType(value as keyof typeof SANS_10142_SOCKET_LOADS)}
+                      >
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {Object.entries(SANS_10142_SOCKET_LOADS).map(([key, value]) => (
+                            <SelectItem key={key} value={key}>
+                              {value.name}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        {SANS_10142_SOCKET_LOADS[sans10142BuildingType].description}
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Lighting Load (VA/m²)</Label>
+                      <Input
+                        type="number"
+                        step="1"
+                        min="0"
+                        value={sans10142LightingLoad}
+                        onChange={(e) => setSans10142LightingLoad(e.target.value)}
+                        placeholder="20"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Typical: {SANS_10142_LIGHTING_LOADS[sans10142LightingType].typical} VA/m²
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Fixed Appliances (kVA)</Label>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        value={sans10142FixedAppliances}
+                        onChange={(e) => setSans10142FixedAppliances(e.target.value)}
+                        placeholder="0"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        HVAC, lifts, pumps, etc.
+                      </p>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label>Diversity Factor</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        max="1"
+                        value={sans10142Diversity}
+                        onChange={(e) => setSans10142Diversity(e.target.value)}
+                        placeholder="0.75"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Typical: 0.65-0.85
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* SANS 10142 Socket Load Table */}
+              <Card className="border-blue-200 dark:border-blue-900">
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <CheckCircle2 className="h-5 w-5 text-blue-600" />
+                    SANS 10142-1 Table 11 - Socket Outlet Loads by Building Type
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="rounded-md border overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted">
+                        <tr>
+                          <th className="p-2 text-left">Building Type</th>
+                          {Object.keys(SANS_10142_SOCKET_LOADS.residential.loads).map((range) => (
+                            <th key={range} className="p-2 text-center">{range} m²</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {Object.entries(SANS_10142_SOCKET_LOADS).map(([key, value]) => {
+                          const isSelected = key === sans10142BuildingType;
+                          return (
+                            <tr 
+                              key={key} 
+                              className={`border-t hover:bg-muted/50 ${isSelected ? "bg-primary/5" : ""}`}
+                            >
+                              <td className="p-2 font-medium">{value.name}</td>
+                              {Object.entries(value.loads).map(([range, load]) => {
+                                const areaValue = parseFloat(sans10142Area);
+                                const rangeMatch = range.startsWith(">") 
+                                  ? areaValue > parseInt(range.substring(1))
+                                  : (() => {
+                                      const [min, max] = range.split("-").map(Number);
+                                      return areaValue >= min && areaValue <= max;
+                                    })();
+                                const isCurrentRange = isSelected && rangeMatch;
+                                
+                                return (
+                                  <td 
+                                    key={range} 
+                                    className={`p-2 text-center font-medium ${
+                                      isCurrentRange 
+                                        ? "bg-primary text-primary-foreground ring-2 ring-primary ring-inset" 
+                                        : ""
+                                    }`}
+                                  >
+                                    {load}
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  
+                  <div className="mt-3 text-xs text-muted-foreground">
+                    <p>
+                      <span className="font-semibold">Selected: </span>
+                      {SANS_10142_SOCKET_LOADS[sans10142BuildingType].name} - 
+                      {parseFloat(sans10142Area) > 0 
+                        ? ` ${getSans10142SocketLoad(sans10142BuildingType, parseFloat(sans10142Area))} VA/m²`
+                        : " Enter area to see socket load"}
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* SANS 10142 Lighting Load Reference */}
+              <Card className="border-green-200 dark:border-green-900">
+                <CardHeader>
+                  <CardTitle className="text-base flex items-center gap-2">
+                    <CheckCircle2 className="h-5 w-5 text-green-600" />
+                    Lighting Load Reference (VA/m²)
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="rounded-md border">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted">
+                        <tr>
+                          <th className="p-2 text-left">Building Type</th>
+                          <th className="p-2 text-center">Minimum</th>
+                          <th className="p-2 text-center">Typical</th>
+                          <th className="p-2 text-center">Maximum</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {Object.entries(SANS_10142_LIGHTING_LOADS).map(([key, value]) => (
+                          <tr key={key} className="border-t hover:bg-muted/50">
+                            <td className="p-2">{value.name}</td>
+                            <td className="p-2 text-center">{value.min}</td>
+                            <td className="p-2 text-center font-semibold text-green-600 dark:text-green-400">
+                              {value.typical}
+                            </td>
+                            <td className="p-2 text-center">{value.max}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                  
+                  <div className="mt-3 p-3 bg-muted/50 rounded-lg text-xs">
+                    <p className="font-semibold mb-1">Notes:</p>
+                    <ul className="space-y-1 text-muted-foreground">
+                      <li>• Use typical values for general design</li>
+                      <li>• Minimum values for energy-efficient LED installations</li>
+                      <li>• Maximum values for high-illumination requirements</li>
+                      <li>• Consider task lighting separately from general lighting</li>
+                    </ul>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* SANS 10142 Calculated Results */}
+              {parseFloat(sans10142Area) > 0 && (
+                <Card className="border-primary">
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <CheckCircle2 className="h-5 w-5 text-green-600" />
+                      Calculated Results - SANS 10142-1 Method
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {(() => {
+                      const area = parseFloat(sans10142Area);
+                      const socketLoadPerSqm = getSans10142SocketLoad(sans10142BuildingType, area);
+                      const lightingLoadPerSqm = parseFloat(sans10142LightingLoad);
+                      const fixedAppliances = parseFloat(sans10142FixedAppliances);
+                      const diversity = parseFloat(sans10142Diversity);
+                      
+                      const socketLoad = (area * socketLoadPerSqm) / 1000; // kVA
+                      const lightingLoad = (area * lightingLoadPerSqm) / 1000; // kVA
+                      const totalConnected = socketLoad + lightingLoad + fixedAppliances;
+                      const maximumDemand = totalConnected * diversity;
+                      
+                      return (
+                        <>
+                          <div className="space-y-4">
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                              <div className="p-4 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-900">
+                                <p className="text-sm text-muted-foreground">Socket Loads</p>
+                                <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                                  {socketLoad.toFixed(2)}
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  kVA ({socketLoadPerSqm} VA/m²)
+                                </p>
+                              </div>
+                              
+                              <div className="p-4 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-900">
+                                <p className="text-sm text-muted-foreground">Lighting Loads</p>
+                                <p className="text-2xl font-bold text-green-600 dark:text-green-400">
+                                  {lightingLoad.toFixed(2)}
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  kVA ({lightingLoadPerSqm} VA/m²)
+                                </p>
+                              </div>
+                              
+                              <div className="p-4 bg-orange-50 dark:bg-orange-950/30 rounded-lg border border-orange-200 dark:border-orange-900">
+                                <p className="text-sm text-muted-foreground">Fixed Appliances</p>
+                                <p className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                                  {fixedAppliances.toFixed(2)}
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  kVA
+                                </p>
+                              </div>
+                              
+                              <div className="p-4 bg-muted rounded-lg border">
+                                <p className="text-sm text-muted-foreground">Total Connected</p>
+                                <p className="text-2xl font-bold text-foreground">
+                                  {totalConnected.toFixed(2)}
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  kVA
+                                </p>
+                              </div>
+                            </div>
+                            
+                            <div className="p-6 bg-primary/10 rounded-lg border-2 border-primary">
+                              <div className="text-center">
+                                <p className="text-sm text-muted-foreground mb-2">Maximum Demand (After Diversity)</p>
+                                <p className="text-4xl font-bold text-primary mb-2">
+                                  {maximumDemand.toFixed(2)} kVA
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  Diversity Factor: {diversity} | Design Current: {(maximumDemand * 1000 / (Math.sqrt(3) * 400)).toFixed(1)}A @ 400V 3Ø
+                                </p>
+                              </div>
+                            </div>
+                            
+                            {/* Calculation Breakdown */}
+                            <div className="p-4 bg-muted/50 rounded-lg space-y-2 text-sm">
+                              <p className="font-semibold">Calculation Breakdown:</p>
+                              <p>
+                                1. Socket Loads: <span className="font-medium">{area} m² × {socketLoadPerSqm} VA/m² = {(area * socketLoadPerSqm).toFixed(0)} VA = {socketLoad.toFixed(2)} kVA</span>
+                              </p>
+                              <p>
+                                2. Lighting Loads: <span className="font-medium">{area} m² × {lightingLoadPerSqm} VA/m² = {(area * lightingLoadPerSqm).toFixed(0)} VA = {lightingLoad.toFixed(2)} kVA</span>
+                              </p>
+                              <p>
+                                3. Fixed Appliances: <span className="font-medium">{fixedAppliances.toFixed(2)} kVA</span>
+                              </p>
+                              <p>
+                                4. Total Connected Load: <span className="font-medium">{socketLoad.toFixed(2)} + {lightingLoad.toFixed(2)} + {fixedAppliances.toFixed(2)} = {totalConnected.toFixed(2)} kVA</span>
+                              </p>
+                              <p>
+                                5. Apply Diversity: <span className="font-medium">{totalConnected.toFixed(2)} kVA × {diversity} = {maximumDemand.toFixed(2)} kVA</span>
+                              </p>
+                            </div>
+                            
+                            {/* Apply Button */}
+                            <Button 
+                              onClick={() => {
+                                onApplyValues({
+                                  project_area: area,
+                                  va_per_sqm: (socketLoadPerSqm + lightingLoadPerSqm),
+                                  total_connected_load: totalConnected,
+                                  maximum_demand: maximumDemand,
+                                  climatic_zone: "N/A",
+                                });
+                                onOpenChange(false);
+                                toast.success("SANS 10142 values applied successfully");
+                              }}
+                              className="w-full"
+                              size="lg"
+                            >
+                              Apply SANS 10142 Values to Document
+                            </Button>
+                          </div>
+                        </>
+                      );
+                    })()}
+                  </CardContent>
+                </Card>
+              )}
+              
+              {/* Important Notes */}
+              <Card className="border-yellow-200 dark:border-yellow-900">
+                <CardHeader>
+                  <CardTitle className="text-base text-yellow-800 dark:text-yellow-400">
+                    ⚠️ Important SANS 10142-1 Notes
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="text-sm space-y-2">
+                  <ul className="space-y-2 text-muted-foreground">
+                    <li>• <strong>Socket loads vary with floor area:</strong> Larger buildings have lower VA/m² due to diversity</li>
+                    <li>• <strong>Lighting loads:</strong> Based on typical illumination requirements per building type</li>
+                    <li>• <strong>Fixed appliances:</strong> Include HVAC, lifts, pumps, kitchen equipment at nameplate ratings</li>
+                    <li>• <strong>Diversity factor:</strong> Accounts for non-simultaneous use (0.65-0.85 typical)</li>
+                    <li>• <strong>Special loads:</strong> Large motors, welding equipment require separate consideration</li>
+                    <li>• <strong>Future expansion:</strong> Consider 20-30% spare capacity for growth</li>
+                  </ul>
+                </CardContent>
+              </Card>
+            </>
+          ) : isResidential ? (
             // Residential Calculator Interface
             <>
               {/* Residential Input Parameters */}
