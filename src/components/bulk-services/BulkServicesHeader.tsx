@@ -2,9 +2,10 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Pencil, Save, X } from "lucide-react";
+import { Pencil, Save, X, Calculator } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { SANS204Calculator } from "./SANS204Calculator";
 
 interface BulkServicesHeaderProps {
   document: any;
@@ -12,6 +13,7 @@ interface BulkServicesHeaderProps {
 
 export const BulkServicesHeader = ({ document }: BulkServicesHeaderProps) => {
   const [editing, setEditing] = useState(false);
+  const [calculatorOpen, setCalculatorOpen] = useState(false);
   const [formData, setFormData] = useState({
     document_number: document.document_number || "",
     primary_voltage: document.primary_voltage || "",
@@ -66,10 +68,32 @@ export const BulkServicesHeader = ({ document }: BulkServicesHeaderProps) => {
     }
   };
 
+  const handleApplyCalculation = (values: {
+    project_area: number;
+    va_per_sqm: number;
+    total_connected_load: number;
+    maximum_demand: number;
+    climatic_zone: string;
+  }) => {
+    setFormData({
+      ...formData,
+      project_area: values.project_area.toString(),
+      va_per_sqm: values.va_per_sqm.toString(),
+      total_connected_load: values.total_connected_load.toString(),
+      maximum_demand: values.maximum_demand.toString(),
+      climatic_zone: values.climatic_zone,
+    });
+    toast.success("Calculated values applied to document");
+  };
+
   if (!editing) {
     return (
       <div className="space-y-4">
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
+          <Button variant="outline" size="sm" onClick={() => setCalculatorOpen(true)}>
+            <Calculator className="mr-2 h-4 w-4" />
+            SANS 204 Calculator
+          </Button>
           <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
             <Pencil className="mr-2 h-4 w-4" />
             Edit Details
@@ -153,6 +177,10 @@ export const BulkServicesHeader = ({ document }: BulkServicesHeaderProps) => {
   return (
     <div className="space-y-4">
       <div className="flex justify-end gap-2">
+        <Button variant="outline" size="sm" onClick={() => setCalculatorOpen(true)}>
+          <Calculator className="mr-2 h-4 w-4" />
+          SANS 204 Calculator
+        </Button>
         <Button variant="outline" size="sm" onClick={() => setEditing(false)}>
           <X className="mr-2 h-4 w-4" />
           Cancel
@@ -304,6 +332,17 @@ export const BulkServicesHeader = ({ document }: BulkServicesHeaderProps) => {
           />
         </div>
       </div>
+
+      <SANS204Calculator
+        open={calculatorOpen}
+        onOpenChange={setCalculatorOpen}
+        onApplyValues={handleApplyCalculation}
+        initialValues={{
+          project_area: parseFloat(formData.project_area) || undefined,
+          climatic_zone: formData.climatic_zone?.split(" ")[0] || undefined,
+          diversity_factor: parseFloat(formData.diversity_factor) || undefined,
+        }}
+      />
     </div>
   );
 };
