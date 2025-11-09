@@ -35,6 +35,7 @@ interface SANS204CalculatorProps {
     va_per_sqm: number;
     total_connected_load: number;
     maximum_demand: number;
+    connection_size: string;
     climatic_zone: string;
   }) => void;
   initialValues?: {
@@ -787,6 +788,7 @@ export const SANS204Calculator = ({
       va_per_sqm: calculatedValues.vaPerSqm,
       total_connected_load: calculatedValues.totalConnectedLoad,
       maximum_demand: calculatedValues.maximumDemand,
+      connection_size: `${calculatedValues.maximumDemand} kVA`,
       climatic_zone: `${climaticZone} (${CLIMATIC_ZONES.find((z) => z.value === climaticZone)?.name})`,
     });
     onOpenChange(false);
@@ -1143,6 +1145,7 @@ export const SANS204Calculator = ({
                                   va_per_sqm: (socketLoadPerSqm + lightingLoadPerSqm),
                                   total_connected_load: totalConnected,
                                   maximum_demand: maximumDemand,
+                                  connection_size: `${maximumDemand} kVA`,
                                   climatic_zone: "N/A",
                                 });
                                 onOpenChange(false);

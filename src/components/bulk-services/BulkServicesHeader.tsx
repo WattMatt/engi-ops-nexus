@@ -82,6 +82,7 @@ export const BulkServicesHeader = ({ document }: BulkServicesHeaderProps) => {
     va_per_sqm: number;
     total_connected_load: number;
     maximum_demand: number;
+    connection_size: string;
     climatic_zone: string;
   }) => {
     setFormData({
@@ -90,6 +91,7 @@ export const BulkServicesHeader = ({ document }: BulkServicesHeaderProps) => {
       va_per_sqm: values.va_per_sqm.toString(),
       total_connected_load: values.total_connected_load.toString(),
       maximum_demand: values.maximum_demand.toString(),
+      connection_size: values.connection_size,
       climatic_zone: values.climatic_zone,
     });
     toast.success("Calculated values applied to document");
