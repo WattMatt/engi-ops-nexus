@@ -426,10 +426,16 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
         details.push({ label: 'DB Scope of Work', value: tenant.db_size_scope_of_work || '-', key: 'dbScopeOfWork' });
       }
       if (options.tenantFields.dbCost) {
-        details.push({ label: 'DB Cost', value: tenant.db_cost ? `R${tenant.db_cost.toFixed(2)}` : '-', key: 'dbCost' });
+        const dbCostValue = tenant.db_ordered && !tenant.db_cost 
+          ? 'By Tenant' 
+          : tenant.db_cost ? `R${tenant.db_cost.toFixed(2)}` : '-';
+        details.push({ label: 'DB Cost', value: dbCostValue, key: 'dbCost' });
       }
       if (options.tenantFields.lightingCost) {
-        details.push({ label: 'Lighting Cost', value: tenant.lighting_cost ? `R${tenant.lighting_cost.toFixed(2)}` : '-', key: 'lightingCost' });
+        const lightingCostValue = tenant.lighting_ordered && !tenant.lighting_cost 
+          ? 'By Tenant' 
+          : tenant.lighting_cost ? `R${tenant.lighting_cost.toFixed(2)}` : '-';
+        details.push({ label: 'Lighting Cost', value: lightingCostValue, key: 'lightingCost' });
       }
       
       // Draw details in two columns
@@ -726,9 +732,21 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
           case 'sowReceived': row.push(tenant.sow_received ? '✓' : '✗'); break;
           case 'layoutReceived': row.push(tenant.layout_received ? '✓' : '✗'); break;
           case 'dbOrdered': row.push(tenant.db_ordered ? '✓' : '✗'); break;
-          case 'dbCost': row.push(tenant.db_cost ? `R${tenant.db_cost.toFixed(2)}` : '-'); break;
+          case 'dbCost': 
+            if (tenant.db_ordered && !tenant.db_cost) {
+              row.push('By Tenant');
+            } else {
+              row.push(tenant.db_cost ? `R${tenant.db_cost.toFixed(2)}` : '-');
+            }
+            break;
           case 'lightingOrdered': row.push(tenant.lighting_ordered ? '✓' : '✗'); break;
-          case 'lightingCost': row.push(tenant.lighting_cost ? `R${tenant.lighting_cost.toFixed(2)}` : '-'); break;
+          case 'lightingCost': 
+            if (tenant.lighting_ordered && !tenant.lighting_cost) {
+              row.push('By Tenant');
+            } else {
+              row.push(tenant.lighting_cost ? `R${tenant.lighting_cost.toFixed(2)}` : '-');
+            }
+            break;
         }
       });
       return row;
