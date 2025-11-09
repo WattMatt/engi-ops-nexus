@@ -206,6 +206,60 @@ export function GeneratorOverview({ projectId }: GeneratorOverviewProps) {
     };
   }, [projectId, refetchTenants, refetchZones, refetchSettings]);
 
+  // Check if we have zones but no settings
+  const hasZonesWithoutSettings = zones.length > 0 && allSettings.length === 0;
+  const hasZonesWithPartialSettings = zones.length > 0 && allSettings.length > 0 && allSettings.length < zones.length;
+
+  if (hasZonesWithoutSettings) {
+    return (
+      <Card className="border-yellow-500">
+        <CardHeader>
+          <CardTitle>Generator System Overview</CardTitle>
+          <CardDescription>Configuration Required</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-start gap-3 p-4 bg-yellow-50 dark:bg-yellow-950 rounded-lg border border-yellow-200 dark:border-yellow-800">
+            <TrendingUp className="h-5 w-5 text-yellow-600 mt-0.5" />
+            <div>
+              <p className="font-semibold text-yellow-900 dark:text-yellow-100">Running Recovery Settings Required</p>
+              <p className="text-sm text-yellow-800 dark:text-yellow-200 mt-1">
+                You have {zones.length} generator zone{zones.length !== 1 ? 's' : ''} configured, but no running recovery settings have been set up yet.
+              </p>
+              <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-2">
+                Please go to the <strong>Costs → Running Recovery</strong> tab to configure diesel prices, fuel consumption rates, and servicing costs for each zone.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  if (hasZonesWithPartialSettings) {
+    return (
+      <Card className="border-yellow-500">
+        <CardHeader>
+          <CardTitle>Generator System Overview</CardTitle>
+          <CardDescription>Incomplete Configuration</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-start gap-3 p-4 bg-yellow-50 dark:bg-yellow-950 rounded-lg border border-yellow-200 dark:border-yellow-800">
+            <TrendingUp className="h-5 w-5 text-yellow-600 mt-0.5" />
+            <div>
+              <p className="font-semibold text-yellow-900 dark:text-yellow-100">Some Zones Missing Settings</p>
+              <p className="text-sm text-yellow-800 dark:text-yellow-200 mt-1">
+                You have {zones.length} generator zone{zones.length !== 1 ? 's' : ''} but only {allSettings.length} {allSettings.length === 1 ? 'has' : 'have'} running recovery settings configured.
+              </p>
+              <p className="text-sm text-yellow-700 dark:text-yellow-300 mt-2">
+                Please configure running recovery settings for all zones in the <strong>Costs → Running Recovery</strong> tab for accurate calculations.
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   if (!metrics) {
     return (
       <Card>
