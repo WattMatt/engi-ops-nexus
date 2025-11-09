@@ -1,6 +1,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CompanySettings } from "@/components/settings/CompanySettings";
 import { InvoiceSettings } from "@/components/settings/InvoiceSettings";
+import { CoverPageTemplates } from "@/components/settings/CoverPageTemplates";
 import { ComponentGenerator } from "@/components/ComponentGenerator";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -17,12 +18,17 @@ const Settings = () => {
       <Tabs defaultValue="company" className="space-y-4">
         <TabsList>
           <TabsTrigger value="company">Company</TabsTrigger>
+          <TabsTrigger value="templates">Cover Page Templates</TabsTrigger>
           <TabsTrigger value="invoice">Invoice Settings</TabsTrigger>
           <TabsTrigger value="tools">Developer Tools</TabsTrigger>
         </TabsList>
 
         <TabsContent value="company">
           <CompanySettings />
+        </TabsContent>
+
+        <TabsContent value="templates">
+          <CoverPageTemplates />
         </TabsContent>
 
         <TabsContent value="invoice">
