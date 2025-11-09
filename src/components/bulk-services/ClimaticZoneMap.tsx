@@ -1,11 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import mapboxgl from "mapbox-gl";
+import MapboxGeocoder from "@mapbox/mapbox-gl-geocoder";
 import "mapbox-gl/dist/mapbox-gl.css";
+import "@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { Map, Satellite, Mountain } from "lucide-react";
+import { toast } from "@/hooks/use-toast";
 
 interface ClimaticZoneMapProps {
   selectedZone: string;
@@ -118,6 +121,7 @@ const ZONE_GEOJSON = {
 export const ClimaticZoneMap = ({ selectedZone, onZoneSelect }: ClimaticZoneMapProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
+  const geocoder = useRef<MapboxGeocoder | null>(null);
   const [mapboxToken, setMapboxToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [mapStyle, setMapStyle] = useState<'streets' | 'satellite' | 'terrain'>('streets');
@@ -126,6 +130,36 @@ export const ClimaticZoneMap = ({ selectedZone, onZoneSelect }: ClimaticZoneMapP
     streets: 'mapbox://styles/mapbox/light-v11',
     satellite: 'mapbox://styles/mapbox/satellite-streets-v12',
     terrain: 'mapbox://styles/mapbox/outdoors-v12',
+  };
+
+  // Helper function to check if a point is inside a polygon
+  const pointInPolygon = (point: [number, number], polygon: number[][][]): boolean => {
+    const x = point[0];
+    const y = point[1];
+    const poly = polygon[0]; // Get the outer ring of the polygon
+    
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      const xi = poly[i][0];
+      const yi = poly[i][1];
+      const xj = poly[j][0];
+      const yj = poly[j][1];
+      
+      const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+      if (intersect) inside = !inside;
+    }
+    
+    return inside;
+  };
+
+  // Function to find which zone a coordinate belongs to
+  const findZoneForCoordinate = (lng: number, lat: number): string | null => {
+    for (const feature of ZONE_GEOJSON.features) {
+      if (pointInPolygon([lng, lat], feature.geometry.coordinates as number[][][])) {
+        return feature.properties.zone;
+      }
+    }
+    return null;
   };
 
   useEffect(() => {
@@ -243,7 +277,54 @@ export const ClimaticZoneMap = ({ selectedZone, onZoneSelect }: ClimaticZoneMapP
     // Add navigation controls
     map.current.addControl(new mapboxgl.NavigationControl(), "top-right");
 
+    // Add geocoder (search box)
+    geocoder.current = new MapboxGeocoder({
+      accessToken: mapboxToken,
+      mapboxgl: mapboxgl as any,
+      marker: false, // We'll handle the marker ourselves
+      placeholder: "Search for a city or address...",
+      countries: "ZA", // Restrict to South Africa
+      proximity: {
+        longitude: 24.5,
+        latitude: -28.5,
+      } as any,
+    });
+
+    map.current.addControl(geocoder.current as any, "top-left");
+
+    // Handle geocoder result selection
+    geocoder.current.on("result", (e: any) => {
+      const coordinates = e.result.geometry.coordinates;
+      const [lng, lat] = coordinates;
+      
+      // Find which zone this coordinate belongs to
+      const zone = findZoneForCoordinate(lng, lat);
+      
+      if (zone) {
+        onZoneSelect(zone);
+        toast({
+          title: "Zone Detected",
+          description: `${e.result.place_name} is in ${ZONE_INFO[zone as keyof typeof ZONE_INFO].name} (Zone ${zone})`,
+        });
+        
+        // Add a temporary marker at the searched location
+        const marker = new mapboxgl.Marker({ color: "#ef4444" })
+          .setLngLat(coordinates)
+          .addTo(map.current!);
+        
+        // Remove marker after 5 seconds
+        setTimeout(() => marker.remove(), 5000);
+      } else {
+        toast({
+          title: "Location Outside Zones",
+          description: `${e.result.place_name} is outside the defined climatic zones or not in South Africa.`,
+          variant: "destructive",
+        });
+      }
+    });
+
     return () => {
+      geocoder.current?.onRemove();
       map.current?.remove();
     };
   }, [mapboxToken, selectedZone, onZoneSelect, mapStyle]);
