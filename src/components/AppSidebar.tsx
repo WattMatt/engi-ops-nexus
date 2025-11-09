@@ -19,6 +19,7 @@ import {
   Map,
   CheckSquare,
   BarChart3,
+  MessageSquare,
 } from "lucide-react";
 import {
   Sidebar,
@@ -121,6 +122,11 @@ const operationalModules = [
     title: "Final Accounts",
     url: "/dashboard/final-accounts",
     icon: FileCheck,
+  },
+  {
+    title: "Messages",
+    url: "/dashboard/messages",
+    icon: MessageSquare,
   },
 ];
 
