@@ -3604,60 +3604,87 @@ export type Database = {
           cctv_contractor: string | null
           client_logo_url: string | null
           client_name: string | null
+          connection_size: string | null
           consultant_logo_url: string | null
           created_at: string
           created_by: string
           description: string | null
+          diversity_factor: number | null
           earthing_contractor: string | null
           electrical_contractor: string | null
+          electrical_standard: string | null
           id: string
+          load_category: string | null
+          metering_requirements: string | null
           name: string
           practical_completion_date: string | null
+          primary_voltage: string | null
           project_logo_url: string | null
           project_number: string
+          protection_philosophy: string | null
           site_handover_date: string | null
           standby_plants_contractor: string | null
           status: string | null
+          supply_authority: string | null
+          tariff_structure: string | null
           updated_at: string
         }
         Insert: {
           cctv_contractor?: string | null
           client_logo_url?: string | null
           client_name?: string | null
+          connection_size?: string | null
           consultant_logo_url?: string | null
           created_at?: string
           created_by: string
           description?: string | null
+          diversity_factor?: number | null
           earthing_contractor?: string | null
           electrical_contractor?: string | null
+          electrical_standard?: string | null
           id?: string
+          load_category?: string | null
+          metering_requirements?: string | null
           name: string
           practical_completion_date?: string | null
+          primary_voltage?: string | null
           project_logo_url?: string | null
           project_number: string
+          protection_philosophy?: string | null
           site_handover_date?: string | null
           standby_plants_contractor?: string | null
           status?: string | null
+          supply_authority?: string | null
+          tariff_structure?: string | null
           updated_at?: string
         }
         Update: {
           cctv_contractor?: string | null
           client_logo_url?: string | null
           client_name?: string | null
+          connection_size?: string | null
           consultant_logo_url?: string | null
           created_at?: string
           created_by?: string
           description?: string | null
+          diversity_factor?: number | null
           earthing_contractor?: string | null
           electrical_contractor?: string | null
+          electrical_standard?: string | null
           id?: string
+          load_category?: string | null
+          metering_requirements?: string | null
           name?: string
           practical_completion_date?: string | null
+          primary_voltage?: string | null
           project_logo_url?: string | null
           project_number?: string
+          protection_philosophy?: string | null
           site_handover_date?: string | null
           standby_plants_contractor?: string | null
           status?: string | null
+          supply_authority?: string | null
+          tariff_structure?: string | null
           updated_at?: string
         }
         Relationships: [

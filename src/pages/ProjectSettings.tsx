@@ -37,6 +37,15 @@ export default function ProjectSettings() {
     cctv_contractor: "",
     project_logo_url: "",
     client_logo_url: "",
+    primary_voltage: "",
+    connection_size: "",
+    supply_authority: "",
+    electrical_standard: "SANS 10142-1",
+    diversity_factor: "",
+    load_category: "",
+    tariff_structure: "",
+    metering_requirements: "",
+    protection_philosophy: "",
   });
 
   useEffect(() => {
@@ -79,6 +88,15 @@ export default function ProjectSettings() {
         cctv_contractor: data.cctv_contractor || "",
         project_logo_url: data.project_logo_url || "",
         client_logo_url: data.client_logo_url || "",
+        primary_voltage: data.primary_voltage || "",
+        connection_size: data.connection_size || "",
+        supply_authority: data.supply_authority || "",
+        electrical_standard: data.electrical_standard || "SANS 10142-1",
+        diversity_factor: data.diversity_factor?.toString() || "",
+        load_category: data.load_category || "",
+        tariff_structure: data.tariff_structure || "",
+        metering_requirements: data.metering_requirements || "",
+        protection_philosophy: data.protection_philosophy || "",
       });
     }
   };
@@ -106,6 +124,15 @@ export default function ProjectSettings() {
           cctv_contractor: formData.cctv_contractor || null,
           project_logo_url: formData.project_logo_url || null,
           client_logo_url: formData.client_logo_url || null,
+          primary_voltage: formData.primary_voltage || null,
+          connection_size: formData.connection_size || null,
+          supply_authority: formData.supply_authority || null,
+          electrical_standard: formData.electrical_standard || null,
+          diversity_factor: formData.diversity_factor ? parseFloat(formData.diversity_factor) : null,
+          load_category: formData.load_category || null,
+          tariff_structure: formData.tariff_structure || null,
+          metering_requirements: formData.metering_requirements || null,
+          protection_philosophy: formData.protection_philosophy || null,
           updated_at: new Date().toISOString(),
         })
         .eq("id", projectId);
@@ -241,6 +268,147 @@ export default function ProjectSettings() {
                       onChange={(e) => updateField("practical_completion_date", e.target.value)}
                     />
                   </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Electrical Baseline */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Electrical Baseline</CardTitle>
+                <CardDescription>Foundational electrical information for project documents</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="primary_voltage">Primary Voltage</Label>
+                    <Input
+                      id="primary_voltage"
+                      value={formData.primary_voltage}
+                      onChange={(e) => updateField("primary_voltage", e.target.value)}
+                      placeholder="11kV, 22kV, 33kV"
+                    />
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="connection_size">Connection Size</Label>
+                    <Input
+                      id="connection_size"
+                      value={formData.connection_size}
+                      onChange={(e) => updateField("connection_size", e.target.value)}
+                      placeholder="2500kVA, 5MVA"
+                    />
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="supply_authority">Supply Authority</Label>
+                    <Select
+                      value={formData.supply_authority}
+                      onValueChange={(value) => updateField("supply_authority", value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select authority" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Eskom">Eskom</SelectItem>
+                        <SelectItem value="City Power">City Power</SelectItem>
+                        <SelectItem value="City of Johannesburg">City of Johannesburg</SelectItem>
+                        <SelectItem value="City of Tshwane">City of Tshwane</SelectItem>
+                        <SelectItem value="City of Ekurhuleni">City of Ekurhuleni</SelectItem>
+                        <SelectItem value="Other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="electrical_standard">Electrical Standard</Label>
+                    <Select
+                      value={formData.electrical_standard}
+                      onValueChange={(value) => updateField("electrical_standard", value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="SANS 10142-1">SANS 10142-1</SelectItem>
+                        <SelectItem value="SANS 10400-XA">SANS 10400-XA</SelectItem>
+                        <SelectItem value="IEC 60364">IEC 60364</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="diversity_factor">Diversity Factor</Label>
+                    <Input
+                      id="diversity_factor"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="1"
+                      value={formData.diversity_factor}
+                      onChange={(e) => updateField("diversity_factor", e.target.value)}
+                      placeholder="0.75"
+                    />
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="load_category">Load Category</Label>
+                    <Select
+                      value={formData.load_category}
+                      onValueChange={(value) => updateField("load_category", value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select category" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Commercial">Commercial</SelectItem>
+                        <SelectItem value="Industrial">Industrial</SelectItem>
+                        <SelectItem value="Residential">Residential</SelectItem>
+                        <SelectItem value="Mixed-Use">Mixed-Use</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="tariff_structure">Tariff Structure</Label>
+                  <Select
+                    value={formData.tariff_structure}
+                    onValueChange={(value) => updateField("tariff_structure", value)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select tariff" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Megaflex">Megaflex</SelectItem>
+                      <SelectItem value="Nightsave">Nightsave</SelectItem>
+                      <SelectItem value="TOU">Time of Use (TOU)</SelectItem>
+                      <SelectItem value="Ruraflex">Ruraflex</SelectItem>
+                      <SelectItem value="Miniflex">Miniflex</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="metering_requirements">Metering Requirements</Label>
+                  <Textarea
+                    id="metering_requirements"
+                    value={formData.metering_requirements}
+                    onChange={(e) => updateField("metering_requirements", e.target.value)}
+                    placeholder="Specify metering and sub-metering requirements"
+                    rows={3}
+                  />
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="protection_philosophy">Protection Philosophy</Label>
+                  <Textarea
+                    id="protection_philosophy"
+                    value={formData.protection_philosophy}
+                    onChange={(e) => updateField("protection_philosophy", e.target.value)}
+                    placeholder="Describe protection coordination and selectivity approach"
+                    rows={3}
+                  />
                 </div>
               </CardContent>
             </Card>
