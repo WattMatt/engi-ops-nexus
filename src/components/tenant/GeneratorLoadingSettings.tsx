@@ -8,8 +8,9 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useEffect, useState } from "react";
-import { Trash2, Plus } from "lucide-react";
+import { Trash2, Plus, ChevronDown, ChevronRight } from "lucide-react";
 import { GENERATOR_SIZING_TABLE } from "@/utils/generatorSizing";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 
 interface GeneratorSettings {
   id: string;
@@ -34,6 +35,7 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
   });
 
   const [newZoneName, setNewZoneName] = useState("");
+  const [expandedZones, setExpandedZones] = useState<Set<string>>(new Set());
 
   const { data: existingSettings, isLoading } = useQuery({
     queryKey: ["generator-settings", projectId],
@@ -64,6 +66,25 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
       return data || [];
     },
     enabled: !!projectId,
+  });
+
+  // Fetch individual generators for all zones
+  const { data: zoneGenerators = [], refetch: refetchZoneGenerators } = useQuery({
+    queryKey: ["zone-generators", projectId],
+    queryFn: async () => {
+      if (!zones.length) return [];
+      
+      const zoneIds = zones.map(z => z.id);
+      const { data, error } = await supabase
+        .from("zone_generators")
+        .select("*")
+        .in("zone_id", zoneIds)
+        .order("generator_number");
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!projectId && zones.length > 0,
   });
 
   // Fetch tenants for zone loading calculations
@@ -226,12 +247,98 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
         .eq("id", zoneId);
 
       if (error) throw error;
+
+      // Create or remove generators to match the new count
+      const existingGenerators = zoneGenerators.filter(g => g.zone_id === zoneId);
+      const currentCount = existingGenerators.length;
+
+      if (numGenerators > currentCount) {
+        // Add new generators
+        const newGenerators = Array.from({ length: numGenerators - currentCount }, (_, i) => ({
+          zone_id: zoneId,
+          generator_number: currentCount + i + 1,
+          generator_size: null,
+          generator_cost: 0,
+        }));
+
+        const { error: insertError } = await supabase
+          .from("zone_generators")
+          .insert(newGenerators);
+
+        if (insertError) throw insertError;
+      } else if (numGenerators < currentCount) {
+        // Remove excess generators
+        const generatorsToRemove = existingGenerators
+          .filter(g => g.generator_number > numGenerators)
+          .map(g => g.id);
+
+        const { error: deleteError } = await supabase
+          .from("zone_generators")
+          .delete()
+          .in("id", generatorsToRemove);
+
+        if (deleteError) throw deleteError;
+      }
+
       toast.success("Number of generators updated");
       refetchZones();
+      refetchZoneGenerators();
     } catch (error) {
       console.error("Error updating number of generators:", error);
       toast.error("Failed to update number of generators");
     }
+  };
+
+  const handleUpdateGeneratorSize = async (generatorId: string, size: string | null) => {
+    try {
+      const { error } = await supabase
+        .from("zone_generators")
+        .update({ generator_size: size })
+        .eq("id", generatorId);
+
+      if (error) throw error;
+      toast.success("Generator size updated");
+      refetchZoneGenerators();
+    } catch (error) {
+      console.error("Error updating generator size:", error);
+      toast.error("Failed to update generator size");
+    }
+  };
+
+  const handleUpdateGeneratorCost = async (generatorId: string, cost: number) => {
+    try {
+      const { error } = await supabase
+        .from("zone_generators")
+        .update({ generator_cost: cost })
+        .eq("id", generatorId);
+
+      if (error) throw error;
+      toast.success("Generator cost updated");
+      refetchZoneGenerators();
+    } catch (error) {
+      console.error("Error updating generator cost:", error);
+      toast.error("Failed to update generator cost");
+    }
+  };
+
+  const toggleZoneExpanded = (zoneId: string) => {
+    setExpandedZones(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(zoneId)) {
+        newSet.delete(zoneId);
+      } else {
+        newSet.add(zoneId);
+      }
+      return newSet;
+    });
+  };
+
+  const getZoneGenerators = (zoneId: string) => {
+    return zoneGenerators.filter(g => g.zone_id === zoneId).sort((a, b) => a.generator_number - b.generator_number);
+  };
+
+  const getZoneTotalCost = (zoneId: string) => {
+    return getZoneGenerators(zoneId).reduce((sum, gen) => sum + (Number(gen.generator_cost) || 0), 0);
   };
 
   if (isLoading) {
@@ -337,84 +444,130 @@ export function GeneratorLoadingSettings({ projectId }: GeneratorLoadingSettings
         </div>
 
         {zones.length > 0 ? (
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Zone Number</TableHead>
-                <TableHead>Zone Name</TableHead>
-                <TableHead>Calculated Load (kW)</TableHead>
-                <TableHead>No. of Generators</TableHead>
-                <TableHead>Generator Size</TableHead>
-                <TableHead>Generator Cost (R)</TableHead>
-                <TableHead className="w-[100px]">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {zones.map((zone) => {
-                const zoneLoading = getZoneLoading(zone.id);
-                return (
-                  <TableRow key={zone.id}>
-                    <TableCell className="font-medium">Zone {zone.zone_number}</TableCell>
-                    <TableCell>{zone.zone_name}</TableCell>
-                    <TableCell className="font-mono text-lg font-semibold text-primary">
-                      {zoneLoading.toFixed(2)} kW
-                    </TableCell>
-                    <TableCell>
-                      <Select
-                        value={(zone.num_generators || 1).toString()}
-                        onValueChange={(value) => handleUpdateNumGenerators(zone.id, parseInt(value))}
-                      >
-                        <SelectTrigger className="w-[100px]">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="1">1 Generator</SelectItem>
-                          <SelectItem value="2">2 Synchronized</SelectItem>
-                          <SelectItem value="3">3 Synchronized</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell>
-                      <Select
-                        value={zone.generator_size || "none"}
-                        onValueChange={(value) => handleUpdateZoneSize(zone.id, value === "none" ? null : value)}
-                      >
-                        <SelectTrigger className="w-[140px]">
-                          <SelectValue placeholder="Select size" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="none">No size</SelectItem>
-                          {GENERATOR_SIZING_TABLE.map((gen) => (
-                            <SelectItem key={gen.rating} value={gen.rating}>
-                              {gen.rating}
-                            </SelectItem>
+          <div className="space-y-4">
+            {zones.map((zone) => {
+              const zoneLoading = getZoneLoading(zone.id);
+              const generators = getZoneGenerators(zone.id);
+              const isExpanded = expandedZones.has(zone.id);
+              const totalCost = getZoneTotalCost(zone.id);
+
+              return (
+                <Card key={zone.id}>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4 flex-1">
+                        <div>
+                          <CardTitle className="text-lg">Zone {zone.zone_number}</CardTitle>
+                          <CardDescription>{zone.zone_name}</CardDescription>
+                        </div>
+                        <div className="flex items-center gap-6">
+                          <div>
+                            <p className="text-sm text-muted-foreground">Calculated Load</p>
+                            <p className="font-mono text-lg font-semibold text-primary">
+                              {zoneLoading.toFixed(2)} kW
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-sm text-muted-foreground">Total Cost</p>
+                            <p className="font-mono text-lg font-semibold text-primary">
+                              R {totalCost.toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Select
+                          value={(zone.num_generators || 1).toString()}
+                          onValueChange={(value) => handleUpdateNumGenerators(zone.id, parseInt(value))}
+                        >
+                          <SelectTrigger className="w-[150px]">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="1">1 Generator</SelectItem>
+                            <SelectItem value="2">2 Synchronized</SelectItem>
+                            <SelectItem value="3">3 Synchronized</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleZoneExpanded(zone.id)}
+                        >
+                          {isExpanded ? (
+                            <ChevronDown className="h-4 w-4" />
+                          ) : (
+                            <ChevronRight className="h-4 w-4" />
+                          )}
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteZone(zone.id)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  
+                  {isExpanded && generators.length > 0 && (
+                    <CardContent>
+                      <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Generator #</TableHead>
+                            <TableHead>Size</TableHead>
+                            <TableHead>Cost (R)</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {generators.map((generator) => (
+                            <TableRow key={generator.id}>
+                              <TableCell className="font-medium">
+                                Generator {generator.generator_number}
+                              </TableCell>
+                              <TableCell>
+                                <Select
+                                  value={generator.generator_size || "none"}
+                                  onValueChange={(value) => 
+                                    handleUpdateGeneratorSize(generator.id, value === "none" ? null : value)
+                                  }
+                                >
+                                  <SelectTrigger className="w-[180px]">
+                                    <SelectValue placeholder="Select size" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="none">No size selected</SelectItem>
+                                    {GENERATOR_SIZING_TABLE.map((gen) => (
+                                      <SelectItem key={gen.rating} value={gen.rating}>
+                                        {gen.rating}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </TableCell>
+                              <TableCell>
+                                <Input
+                                  type="number"
+                                  defaultValue={generator.generator_cost || 0}
+                                  onBlur={(e) => 
+                                    handleUpdateGeneratorCost(generator.id, parseFloat(e.target.value) || 0)
+                                  }
+                                  className="w-[180px]"
+                                  placeholder="Enter cost"
+                                />
+                              </TableCell>
+                            </TableRow>
                           ))}
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        defaultValue={zone.generator_cost || 0}
-                        onBlur={(e) => handleUpdateZoneCost(zone.id, parseFloat(e.target.value) || 0)}
-                        className="w-[140px]"
-                        placeholder="Cost"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeleteZone(zone.id)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
-            </TableBody>
-          </Table>
+                        </TableBody>
+                      </Table>
+                    </CardContent>
+                  )}
+                </Card>
+              );
+            })}
+          </div>
         ) : (
           <p className="text-muted-foreground text-sm text-center py-4">
             No zones configured yet. Add zones to enable zone-based load calculations.

@@ -37,6 +37,23 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
     enabled: !!projectId,
   });
 
+  const { data: zoneGenerators = [] } = useQuery({
+    queryKey: ["zone-generators-costing", projectId],
+    queryFn: async () => {
+      if (!zones.length) return [];
+      
+      const zoneIds = zones.map(z => z.id);
+      const { data, error } = await supabase
+        .from("zone_generators")
+        .select("*")
+        .in("zone_id", zoneIds);
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!projectId && zones.length > 0,
+  });
+
   const { data: tenants = [] } = useQuery({
     queryKey: ["tenants-costing", projectId],
     queryFn: async () => {
@@ -148,11 +165,9 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
   const tenantCount = tenants.length;
   const tenantRate = settings?.tenant_rate || 0;
   
-  // Calculate generator cost accounting for quantity per zone
-  const generatorCost = zones.reduce((sum, zone) => {
-    const numGens = zone.num_generators || 1;
-    const costPerGen = zone.generator_cost || 0;
-    return sum + (costPerGen * numGens);
+  // Calculate generator cost from zone_generators table
+  const generatorCost = zoneGenerators.reduce((sum, gen) => {
+    return sum + (Number(gen.generator_cost) || 0);
   }, 0);
   
   const tenantCost = tenantCount * tenantRate;
@@ -169,6 +184,14 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
   const controlWiringCost = isEditing ? editValues.controlWiringCost : (settings?.control_wiring_cost || 0);
   
   const totalCost = generatorCost + tenantDBsCost + mainBoardsCost + additionalCablingCost + controlWiringCost;
+
+  const getZoneGenerators = (zoneId: string) => {
+    return zoneGenerators.filter(g => g.zone_id === zoneId);
+  };
+
+  const getZoneTotalCost = (zoneId: string) => {
+    return getZoneGenerators(zoneId).reduce((sum, gen) => sum + (Number(gen.generator_cost) || 0), 0);
+  };
 
   return (
     <Card>
@@ -220,23 +243,27 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
             ) : (
               <>
                 {zones.map((zone, index) => {
-                  const numGens = zone.num_generators || 1;
-                  const costPerGen = zone.generator_cost || 0;
-                  const totalCost = costPerGen * numGens;
+                  const generators = getZoneGenerators(zone.id);
+                  const zoneTotalCost = getZoneTotalCost(zone.id);
                   
                   return (
                     <TableRow key={zone.id}>
                       <TableCell className="font-medium">{index + 1}</TableCell>
                       <TableCell>
-                        {zone.zone_name} - {zone.generator_size || "-"}
-                        {zone.num_generators > 1 && ` (${zone.num_generators} Synchronized)`}
+                        {zone.zone_name}
+                        {zone.num_generators > 1 && ` (${zone.num_generators} Generators)`}
+                        <div className="text-xs text-muted-foreground mt-1">
+                          {generators.map((gen, i) => (
+                            <div key={gen.id}>
+                              Gen {gen.generator_number}: {gen.generator_size || "Not set"} - {formatCurrency(Number(gen.generator_cost) || 0)}
+                            </div>
+                          ))}
+                        </div>
                       </TableCell>
-                      <TableCell className="font-mono">{numGens}</TableCell>
-                      <TableCell className="font-mono">
-                        {formatCurrency(costPerGen)}
-                      </TableCell>
+                      <TableCell className="font-mono">{generators.length}</TableCell>
+                      <TableCell className="font-mono">-</TableCell>
                       <TableCell className="text-right font-mono">
-                        {formatCurrency(totalCost)}
+                        {formatCurrency(zoneTotalCost)}
                       </TableCell>
                     </TableRow>
                   );

@@ -5512,6 +5512,44 @@ export type Database = {
           },
         ]
       }
+      zone_generators: {
+        Row: {
+          created_at: string | null
+          generator_cost: number | null
+          generator_number: number
+          generator_size: string | null
+          id: string
+          updated_at: string | null
+          zone_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          generator_cost?: number | null
+          generator_number: number
+          generator_size?: string | null
+          id?: string
+          updated_at?: string | null
+          zone_id: string
+        }
+        Update: {
+          created_at?: string | null
+          generator_cost?: number | null
+          generator_number?: number
+          generator_size?: string | null
+          id?: string
+          updated_at?: string | null
+          zone_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "zone_generators_zone_id_fkey"
+            columns: ["zone_id"]
+            isOneToOne: false
+            referencedRelation: "generator_zones"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       zones: {
         Row: {
           area_sqm: number | null
