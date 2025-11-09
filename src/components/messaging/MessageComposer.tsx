@@ -1,9 +1,10 @@
-import { useState, useRef, KeyboardEvent } from "react";
+import { useState, useRef, KeyboardEvent, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Send, Paperclip } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { useTypingIndicator } from "@/hooks/useTypingIndicator";
 
 interface MessageComposerProps {
   conversationId: string;
@@ -15,9 +16,45 @@ export function MessageComposer({ conversationId, onSend }: MessageComposerProps
   const [isUploading, setIsUploading] = useState(false);
   const [attachments, setAttachments] = useState<any[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const { setTyping } = useTypingIndicator(conversationId);
+
+  // Handle typing indicator
+  const handleTypingChange = (newContent: string) => {
+    setContent(newContent);
+
+    // Clear existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    // Set typing to true
+    setTyping(true);
+
+    // Set timeout to clear typing status after 3 seconds of inactivity
+    typingTimeoutRef.current = setTimeout(() => {
+      setTyping(false);
+    }, 3000);
+  };
+
+  // Clear typing status on unmount
+  useEffect(() => {
+    return () => {
+      setTyping(false);
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, [setTyping]);
 
   const handleSend = () => {
     if (!content.trim() && attachments.length === 0) return;
+
+    // Clear typing indicator
+    setTyping(false);
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
 
     // Extract mentions from content (@username)
     const mentionRegex = /@(\w+)/g;
@@ -120,7 +157,7 @@ export function MessageComposer({ conversationId, onSend }: MessageComposerProps
 
         <Textarea
           value={content}
-          onChange={(e) => setContent(e.target.value)}
+          onChange={(e) => handleTypingChange(e.target.value)}
           onKeyDown={handleKeyDown}
           placeholder="Type a message... (use @username to mention)"
           className="flex-1 min-h-[60px] max-h-[200px]"

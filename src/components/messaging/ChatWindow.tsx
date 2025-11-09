@@ -8,6 +8,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { useUnreadMessages } from "@/hooks/useUnreadMessages";
+import { useTypingIndicator } from "@/hooks/useTypingIndicator";
+import { TypingIndicator } from "./TypingIndicator";
 
 interface ChatWindowProps {
   conversationId: string;
@@ -18,6 +20,7 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const { refetch: refetchUnread } = useUnreadMessages();
   const previousMessageCountRef = useRef<number>(0);
+  const { typingUsers } = useTypingIndicator(conversationId);
 
   const { data: currentUser } = useQuery({
     queryKey: ["currentUser"],
@@ -93,6 +96,8 @@ export function ChatWindow({ conversationId }: ChatWindowProps) {
           ))}
         </div>
       </ScrollArea>
+
+      <TypingIndicator typingUsers={typingUsers} />
 
       <div className="border-t p-4">
         <MessageComposer

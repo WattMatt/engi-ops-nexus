@@ -69,6 +69,18 @@ All colors MUST be HSL.
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   }
 
+  .delay-0 {
+    animation-delay: 0ms;
+  }
+
+  .delay-100 {
+    animation-delay: 100ms;
+  }
+
+  .delay-200 {
+    animation-delay: 200ms;
+  }
+
   .dark {
     --background: 215 30% 8%;
     --foreground: 215 20% 95%;
