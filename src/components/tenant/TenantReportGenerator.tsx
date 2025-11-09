@@ -566,12 +566,37 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
       bodyStyles: {
         fontSize: 7,
       },
+      columnStyles: {
+        // Make checkbox columns narrower and centered
+        ...Object.fromEntries(
+          fieldKeys.map((key, index) => {
+            if (['sowReceived', 'layoutReceived', 'dbOrdered', 'lightingOrdered'].includes(key)) {
+              return [index, { halign: 'center', cellWidth: 15 }];
+            }
+            return [index, {}];
+          }).filter(([_, style]) => Object.keys(style).length > 0)
+        )
+      },
+      didDrawCell: (data) => {
+        // Custom rendering for checkbox cells to ensure visibility
+        const key = fieldKeys[data.column.index];
+        if (['sowReceived', 'layoutReceived', 'dbOrdered', 'lightingOrdered'].includes(key) && data.section === 'body') {
+          const cellValue = data.cell.raw as string;
+          if (cellValue === '✓' || cellValue === '✗') {
+            // Ensure checkmarks are visible by setting color explicitly
+            doc.setTextColor(cellValue === '✓' ? 22 : 220, cellValue === '✓' ? 163 : 38, cellValue === '✓' ? 74 : 38);
+            doc.setFontSize(10);
+            doc.text(cellValue, data.cell.x + data.cell.width / 2, data.cell.y + data.cell.height / 2 + 2, { align: 'center' });
+          }
+        }
+      },
       didDrawPage: (data) => {
         // Add page number
         const pageHeight = doc.internal.pageSize.getHeight();
         const currentPage = (doc as any).internal.getCurrentPageInfo().pageNumber;
         doc.setFontSize(10);
         doc.setFont("helvetica", "normal");
+        doc.setTextColor(0, 0, 0);
         doc.text(`Page ${currentPage}`, doc.internal.pageSize.getWidth() / 2, pageHeight - 10, { align: 'center' });
       }
     });
