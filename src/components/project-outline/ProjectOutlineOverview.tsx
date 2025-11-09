@@ -1,11 +1,13 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Save } from "lucide-react";
 import { ProjectOutlineHeader } from "./ProjectOutlineHeader";
 import { ProjectOutlineSections } from "./ProjectOutlineSections";
 import { ProjectOutlineExportPDFButton } from "./ProjectOutlineExportPDFButton";
+import { SaveAsTemplateDialog } from "./SaveAsTemplateDialog";
 
 interface ProjectOutlineOverviewProps {
   outlineId: string;
@@ -13,6 +15,8 @@ interface ProjectOutlineOverviewProps {
 }
 
 export const ProjectOutlineOverview = ({ outlineId, onBack }: ProjectOutlineOverviewProps) => {
+  const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
+  
   const { data: outline, isLoading } = useQuery({
     queryKey: ["project-outline", outlineId],
     queryFn: async () => {
@@ -64,7 +68,13 @@ export const ProjectOutlineOverview = ({ outlineId, onBack }: ProjectOutlineOver
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Outlines
         </Button>
-        <ProjectOutlineExportPDFButton outline={outline} sections={sections || []} />
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setSaveTemplateOpen(true)}>
+            <Save className="mr-2 h-4 w-4" />
+            Save as Template
+          </Button>
+          <ProjectOutlineExportPDFButton outline={outline} sections={sections || []} />
+        </div>
       </div>
 
       <Card>
@@ -84,6 +94,13 @@ export const ProjectOutlineOverview = ({ outlineId, onBack }: ProjectOutlineOver
           <ProjectOutlineSections outlineId={outlineId} sections={sections || []} />
         </CardContent>
       </Card>
+
+      <SaveAsTemplateDialog
+        open={saveTemplateOpen}
+        onOpenChange={setSaveTemplateOpen}
+        outline={outline}
+        sections={sections || []}
+      />
     </div>
   );
 };

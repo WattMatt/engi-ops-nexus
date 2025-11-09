@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
+import { TemplateSelector } from "./TemplateSelector";
 
 interface CreateProjectOutlineDialogProps {
   open: boolean;
@@ -33,6 +34,7 @@ export const CreateProjectOutlineDialog = ({
 }: CreateProjectOutlineDialogProps) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const currentProjectId = localStorage.getItem("currentProjectId");
   
   const { register, handleSubmit, reset, setValue } = useForm<FormData>({
@@ -107,6 +109,35 @@ export const CreateProjectOutlineDialog = ({
     }
   }, [project, companySettings, employee, open, setValue]);
 
+  // Fetch selected template
+  const { data: template } = useQuery({
+    queryKey: ["project-outline-template", selectedTemplateId],
+    queryFn: async () => {
+      if (!selectedTemplateId) return null;
+      
+      const { data, error } = await supabase
+        .from("project_outline_templates")
+        .select("*")
+        .eq("id", selectedTemplateId)
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedTemplateId && open,
+  });
+
+  // Auto-populate from template
+  useEffect(() => {
+    if (template && open) {
+      if (template.prepared_by) setValue("prepared_by", template.prepared_by);
+      if (template.address_line1) setValue("address_line1", template.address_line1);
+      if (template.address_line2) setValue("address_line2", template.address_line2);
+      if (template.address_line3) setValue("address_line3", template.address_line3);
+      if (template.telephone) setValue("telephone", template.telephone);
+    }
+  }, [template, open, setValue]);
+
   const onSubmit = async (data: FormData) => {
     setLoading(true);
     try {
@@ -129,25 +160,47 @@ export const CreateProjectOutlineDialog = ({
 
       if (error) throw error;
 
-      // Create default sections based on baseline document
-      const defaultSections = [
-        { title: "Bulk Electrical Supply", number: 1 },
-        { title: "Site Connection Point", number: 2 },
-        { title: "Internal Medium Voltage Distribution", number: 3 },
-        { title: "Low Voltage Distribution", number: 4 },
-        { title: "Standby Systems", number: 5 },
-        { title: "Metering", number: 6 },
-        { title: "Electronic Services", number: 7 },
-        { title: "Earthing and Lightning Protection", number: 8 },
-      ];
+      // Create sections - either from template or default
+      let sectionsToInsert;
+      
+      if (selectedTemplateId) {
+        // Fetch template sections
+        const { data: templateSections, error: sectionsError } = await supabase
+          .from("project_outline_template_sections")
+          .select("*")
+          .eq("template_id", selectedTemplateId)
+          .order("sort_order");
 
-      const sectionsToInsert = defaultSections.map((section, index) => ({
-        outline_id: outline.id,
-        section_number: section.number,
-        section_title: section.title,
-        content: "",
-        sort_order: index + 1,
-      }));
+        if (sectionsError) throw sectionsError;
+
+        sectionsToInsert = templateSections.map((section) => ({
+          outline_id: outline.id,
+          section_number: section.section_number,
+          section_title: section.section_title,
+          content: section.default_content || "",
+          sort_order: section.sort_order,
+        }));
+      } else {
+        // Use default sections
+        const defaultSections = [
+          { title: "Bulk Electrical Supply", number: 1 },
+          { title: "Site Connection Point", number: 2 },
+          { title: "Internal Medium Voltage Distribution", number: 3 },
+          { title: "Low Voltage Distribution", number: 4 },
+          { title: "Standby Systems", number: 5 },
+          { title: "Metering", number: 6 },
+          { title: "Electronic Services", number: 7 },
+          { title: "Earthing and Lightning Protection", number: 8 },
+        ];
+
+        sectionsToInsert = defaultSections.map((section, index) => ({
+          outline_id: outline.id,
+          section_number: section.number,
+          section_title: section.title,
+          content: "",
+          sort_order: index + 1,
+        }));
+      }
 
       const { error: sectionsError } = await supabase
         .from("project_outline_sections")
@@ -181,6 +234,11 @@ export const CreateProjectOutlineDialog = ({
           <DialogTitle>Create Project Outline</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+          <TemplateSelector
+            selectedTemplateId={selectedTemplateId}
+            onTemplateSelect={setSelectedTemplateId}
+          />
+          
           <div>
             <Label htmlFor="project_name">Project Name *</Label>
             <Input

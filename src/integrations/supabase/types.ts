@@ -3388,6 +3388,92 @@ export type Database = {
           },
         ]
       }
+      project_outline_template_sections: {
+        Row: {
+          created_at: string
+          default_content: string | null
+          id: string
+          section_number: number
+          section_title: string
+          sort_order: number
+          template_id: string
+        }
+        Insert: {
+          created_at?: string
+          default_content?: string | null
+          id?: string
+          section_number: number
+          section_title: string
+          sort_order: number
+          template_id: string
+        }
+        Update: {
+          created_at?: string
+          default_content?: string | null
+          id?: string
+          section_number?: number
+          section_title?: string
+          sort_order?: number
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_outline_template_sections_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "project_outline_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      project_outline_templates: {
+        Row: {
+          address_line1: string | null
+          address_line2: string | null
+          address_line3: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          document_title: string
+          id: string
+          is_default: boolean | null
+          prepared_by: string | null
+          telephone: string | null
+          template_name: string
+          updated_at: string
+        }
+        Insert: {
+          address_line1?: string | null
+          address_line2?: string | null
+          address_line3?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          document_title?: string
+          id?: string
+          is_default?: boolean | null
+          prepared_by?: string | null
+          telephone?: string | null
+          template_name: string
+          updated_at?: string
+        }
+        Update: {
+          address_line1?: string | null
+          address_line2?: string | null
+          address_line3?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          document_title?: string
+          id?: string
+          is_default?: boolean | null
+          prepared_by?: string | null
+          telephone?: string | null
+          template_name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       project_outlines: {
         Row: {
           address_line1: string | null
