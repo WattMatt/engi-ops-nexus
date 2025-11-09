@@ -75,11 +75,32 @@ export const SANS204Calculator = ({
   const [diversityFactor, setDiversityFactor] = useState(
     initialValues?.diversity_factor?.toString() || "0.75"
   );
+  const [showHeatMap, setShowHeatMap] = useState(true);
   const [calculatedValues, setCalculatedValues] = useState({
     vaPerSqm: 90,
     totalConnectedLoad: 0,
     maximumDemand: 0,
   });
+
+  // Calculate min and max VA values for heat map
+  const allVaValues = Object.values(SANS_204_TABLE).flatMap(bt => bt.zones);
+  const minVa = Math.min(...allVaValues);
+  const maxVa = Math.max(...allVaValues);
+
+  // Generate heat map color based on VA value
+  const getHeatMapColor = (va: number) => {
+    if (!showHeatMap) return "";
+    const normalized = (va - minVa) / (maxVa - minVa);
+    
+    // Color scale: green (low) -> yellow (mid) -> red (high)
+    if (normalized < 0.33) {
+      return "bg-green-100 dark:bg-green-950/30";
+    } else if (normalized < 0.67) {
+      return "bg-yellow-100 dark:bg-yellow-950/30";
+    } else {
+      return "bg-red-100 dark:bg-red-950/30";
+    }
+  };
 
   // Fetch total area from tenant tracker
   const { data: tenantData, refetch: refetchTenants } = useQuery({
@@ -274,15 +295,25 @@ export const SANS204Calculator = ({
 
           {/* SANS 204 Complete Comparison Table */}
           <Card>
-            <CardHeader>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
               <CardTitle className="text-base">SANS 204 Table 1 - Complete Zone Comparison (VA/m²)</CardTitle>
+              <div className="flex items-center gap-2">
+                <Label htmlFor="heatmap-toggle" className="text-xs cursor-pointer">Heat Map</Label>
+                <input
+                  id="heatmap-toggle"
+                  type="checkbox"
+                  checked={showHeatMap}
+                  onChange={(e) => setShowHeatMap(e.target.checked)}
+                  className="h-4 w-4 cursor-pointer"
+                />
+              </div>
             </CardHeader>
             <CardContent>
               <div className="rounded-md border overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead className="bg-muted">
                     <tr>
-                      <th className="p-2 text-left sticky left-0 bg-muted">Class</th>
+                      <th className="p-2 text-left sticky left-0 bg-muted z-10">Class</th>
                       <th className="p-2 text-left min-w-[200px]">Building Type</th>
                       <th className="p-2 text-center">Zone 1<br/><span className="text-xs font-normal">Cold Interior</span></th>
                       <th className="p-2 text-center">Zone 2<br/><span className="text-xs font-normal">Temp Interior</span></th>
@@ -296,29 +327,53 @@ export const SANS204Calculator = ({
                     {Object.entries(SANS_204_TABLE).map(([key, value]) => (
                       <tr 
                         key={key}
-                        className={buildingClass === key ? "bg-primary/10" : "hover:bg-muted/50"}
+                        className="hover:bg-muted/50"
                       >
-                        <td className="p-2 font-medium sticky left-0 bg-background border-r">
+                        <td className="p-2 font-medium sticky left-0 bg-background border-r z-10">
                           {key}
                         </td>
                         <td className="p-2">{value.name}</td>
-                        {value.zones.map((va, zoneIdx) => (
-                          <td 
-                            key={zoneIdx}
-                            className={`p-2 text-center font-medium ${
-                              parseInt(climaticZone) === zoneIdx + 1 && buildingClass === key
-                                ? "bg-primary text-primary-foreground"
-                                : ""
-                            }`}
-                          >
-                            {va}
-                          </td>
-                        ))}
+                        {value.zones.map((va, zoneIdx) => {
+                          const isSelected = parseInt(climaticZone) === zoneIdx + 1 && buildingClass === key;
+                          const heatMapClass = isSelected ? "" : getHeatMapColor(va);
+                          
+                          return (
+                            <td 
+                              key={zoneIdx}
+                              className={`p-2 text-center font-medium transition-colors ${
+                                isSelected
+                                  ? "bg-primary text-primary-foreground ring-2 ring-primary ring-inset"
+                                  : heatMapClass
+                              }`}
+                            >
+                              {va}
+                            </td>
+                          );
+                        })}
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
+              
+              {/* Heat Map Legend */}
+              {showHeatMap && (
+                <div className="mt-4 flex items-center justify-center gap-6 text-xs">
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded bg-green-100 dark:bg-green-950/30 border"></div>
+                    <span className="text-muted-foreground">Low ({minVa}-{minVa + Math.floor((maxVa - minVa) / 3)} VA/m²)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded bg-yellow-100 dark:bg-yellow-950/30 border"></div>
+                    <span className="text-muted-foreground">Medium ({minVa + Math.floor((maxVa - minVa) / 3) + 1}-{minVa + Math.floor((maxVa - minVa) * 2 / 3)} VA/m²)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded bg-red-100 dark:bg-red-950/30 border"></div>
+                    <span className="text-muted-foreground">High ({minVa + Math.floor((maxVa - minVa) * 2 / 3) + 1}-{maxVa} VA/m²)</span>
+                  </div>
+                </div>
+              )}
+              
               <div className="mt-3 text-xs text-muted-foreground">
                 <p>Your selection: <span className="font-medium">{buildingClass} - {SANS_204_TABLE[buildingClass].name}</span> in <span className="font-medium">Zone {climaticZone}</span> = <span className="font-medium text-primary">{calculatedValues.vaPerSqm} VA/m²</span></p>
               </div>
