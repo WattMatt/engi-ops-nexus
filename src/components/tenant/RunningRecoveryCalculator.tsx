@@ -2,14 +2,13 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { GENERATOR_SIZING_TABLE } from "@/utils/generatorSizing";
 import { toast } from "sonner";
-import { Pencil, Save, X, HelpCircle } from "lucide-react";
+import { HelpCircle } from "lucide-react";
 
 interface RunningRecoveryCalculatorProps {
   projectId: string;
@@ -30,8 +29,8 @@ interface ZoneSettings {
 
 export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculatorProps) {
   const queryClient = useQueryClient();
-  const [isEditing, setIsEditing] = useState(false);
   const [zoneSettings, setZoneSettings] = useState<Map<string, ZoneSettings>>(new Map());
+  const [pendingSaves, setPendingSaves] = useState<Set<string>>(new Set());
 
   // Function to get fuel consumption from sizing table
   const getFuelConsumption = (generatorSize: string, loadPercentage: number): number => {
@@ -142,7 +141,7 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
     });
   }, [zones, allSettings, getFuelConsumption]);
 
-  // Update individual zone setting
+  // Update individual zone setting with auto-save
   const updateZoneSetting = (zoneId: string, field: keyof ZoneSettings, value: number | string) => {
     setZoneSettings(prev => {
       const updated = new Map(prev);
@@ -151,84 +150,64 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
         updated.set(zoneId, { ...current, [field]: value });
         
         // Auto-update fuel consumption when running load changes
-        if (field === 'running_load' && isEditing) {
+        if (field === 'running_load') {
           const zone = zones.find(z => z.id === zoneId);
           if (zone?.generator_size) {
             const fuelRate = getFuelConsumption(zone.generator_size, value as number);
             updated.set(zoneId, { ...updated.get(zoneId)!, fuel_consumption_rate: fuelRate });
           }
         }
+        
+        // Trigger auto-save for this zone
+        saveSingleZone(zoneId, updated.get(zoneId)!);
       }
       return updated;
     });
   };
 
-  // Save mutation
-  const saveMutation = useMutation({
-    mutationFn: async () => {
-      const settingsArray = Array.from(zoneSettings.values()).map(settings => ({
-        project_id: projectId,
-        generator_zone_id: settings.generator_zone_id,
-        plant_name: settings.plant_name,
-        running_load: settings.running_load,
-        net_energy_kva: settings.net_energy_kva,
-        kva_to_kwh_conversion: settings.kva_to_kwh_conversion,
-        fuel_consumption_rate: settings.fuel_consumption_rate,
-        diesel_price_per_litre: settings.diesel_price_per_litre,
-        servicing_cost_per_year: settings.servicing_cost_per_year,
-        servicing_cost_per_250_hours: settings.servicing_cost_per_250_hours,
-        expected_hours_per_month: settings.expected_hours_per_month,
-      }));
-
+  // Save a single zone's settings
+  const saveSingleZone = async (zoneId: string, settings: ZoneSettings) => {
+    setPendingSaves(prev => new Set(prev).add(zoneId));
+    
+    try {
       const { error } = await supabase
         .from("running_recovery_settings")
-        .upsert(settingsArray, {
+        .upsert({
+          project_id: projectId,
+          generator_zone_id: settings.generator_zone_id,
+          plant_name: settings.plant_name,
+          running_load: settings.running_load,
+          net_energy_kva: settings.net_energy_kva,
+          kva_to_kwh_conversion: settings.kva_to_kwh_conversion,
+          fuel_consumption_rate: settings.fuel_consumption_rate,
+          diesel_price_per_litre: settings.diesel_price_per_litre,
+          servicing_cost_per_year: settings.servicing_cost_per_year,
+          servicing_cost_per_250_hours: settings.servicing_cost_per_250_hours,
+          expected_hours_per_month: settings.expected_hours_per_month,
+        }, {
           onConflict: "project_id,generator_zone_id"
         });
 
       if (error) throw error;
-    },
-    onSuccess: () => {
+
+      // Invalidate queries to refresh all dependent data
       queryClient.invalidateQueries({ queryKey: ["running-recovery-settings-all"] });
       queryClient.invalidateQueries({ queryKey: ["running-recovery-settings", projectId] });
       queryClient.invalidateQueries({ queryKey: ["running-recovery-settings-overview", projectId] });
       queryClient.invalidateQueries({ queryKey: ["generator-zones-overview", projectId] });
       queryClient.invalidateQueries({ queryKey: ["tenants-overview", projectId] });
-      toast.success("Settings saved successfully");
-      setIsEditing(false);
-    },
-    onError: (error: Error) => {
-      toast.error(error.message || "Failed to save settings");
-    },
-  });
-
-  const handleSave = () => {
-    saveMutation.mutate();
+    } catch (error) {
+      console.error("Failed to save settings:", error);
+      toast.error("Failed to save changes");
+    } finally {
+      setPendingSaves(prev => {
+        const updated = new Set(prev);
+        updated.delete(zoneId);
+        return updated;
+      });
+    }
   };
 
-  const handleCancel = () => {
-    setIsEditing(false);
-    // Reload settings from saved data
-    const initialSettings = new Map<string, ZoneSettings>();
-    zones.forEach((zone) => {
-      const savedSetting = allSettings.find(s => s.generator_zone_id === zone.id);
-      if (savedSetting) {
-        initialSettings.set(zone.id, {
-          generator_zone_id: zone.id,
-          plant_name: savedSetting.plant_name,
-          running_load: Number(savedSetting.running_load),
-          net_energy_kva: Number(savedSetting.net_energy_kva),
-          kva_to_kwh_conversion: Number(savedSetting.kva_to_kwh_conversion),
-          fuel_consumption_rate: Number(savedSetting.fuel_consumption_rate),
-          diesel_price_per_litre: Number(savedSetting.diesel_price_per_litre),
-          servicing_cost_per_year: Number(savedSetting.servicing_cost_per_year),
-          servicing_cost_per_250_hours: Number(savedSetting.servicing_cost_per_250_hours),
-          expected_hours_per_month: Number(savedSetting.expected_hours_per_month),
-        });
-      }
-    });
-    setZoneSettings(initialSettings);
-  };
 
   // Calculate tariff for a specific zone
   const calculateZoneTariff = (zoneId: string): number => {
@@ -282,27 +261,13 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>Running Recovery Calculator</CardTitle>
-              <CardDescription>Compare operational costs across all generators</CardDescription>
+              <CardDescription>Compare operational costs across all generators - changes save automatically</CardDescription>
             </div>
-            <div className="flex items-center gap-2">
-              {!isEditing ? (
-                <Button onClick={() => setIsEditing(true)} size="sm" variant="outline">
-                  <Pencil className="h-4 w-4 mr-2" />
-                  Edit
-                </Button>
-              ) : (
-                <div className="flex gap-2">
-                  <Button onClick={handleSave} size="sm" disabled={saveMutation.isPending}>
-                    <Save className="h-4 w-4 mr-2" />
-                    Save
-                  </Button>
-                  <Button onClick={handleCancel} size="sm" variant="outline">
-                    <X className="h-4 w-4 mr-2" />
-                    Cancel
-                  </Button>
-                </div>
-              )}
-            </div>
+            {pendingSaves.size > 0 && (
+              <Badge variant="secondary" className="animate-pulse">
+                Saving...
+              </Badge>
+            )}
           </div>
         </CardHeader>
         <CardContent className="overflow-x-auto">
@@ -363,7 +328,6 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
                         type="number"
                         value={settings?.running_load || 0}
                         onChange={(e) => updateZoneSetting(zone.id, 'running_load', Number(e.target.value))}
-                        disabled={!isEditing}
                         className="text-center"
                       />
                     </TableCell>
@@ -383,7 +347,6 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
                         type="number"
                         value={settings?.net_energy_kva || 0}
                         onChange={(e) => updateZoneSetting(zone.id, 'net_energy_kva', Number(e.target.value))}
-                        disabled={!isEditing}
                         className="text-center"
                       />
                     </TableCell>
@@ -404,7 +367,6 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
                         step="0.01"
                         value={settings?.kva_to_kwh_conversion || 0}
                         onChange={(e) => updateZoneSetting(zone.id, 'kva_to_kwh_conversion', Number(e.target.value))}
-                        disabled={!isEditing}
                         className="text-center"
                       />
                     </TableCell>
@@ -445,7 +407,6 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
                         step="0.01"
                         value={settings?.diesel_price_per_litre || 0}
                         onChange={(e) => updateZoneSetting(zone.id, 'diesel_price_per_litre', Number(e.target.value))}
-                        disabled={!isEditing}
                         className="text-center"
                       />
                     </TableCell>
@@ -466,7 +427,6 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
                         step="0.01"
                         value={settings?.servicing_cost_per_year || 0}
                         onChange={(e) => updateZoneSetting(zone.id, 'servicing_cost_per_year', Number(e.target.value))}
-                        disabled={!isEditing}
                         className="text-center"
                       />
                     </TableCell>
@@ -487,7 +447,6 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
                         step="0.01"
                         value={settings?.servicing_cost_per_250_hours || 0}
                         onChange={(e) => updateZoneSetting(zone.id, 'servicing_cost_per_250_hours', Number(e.target.value))}
-                        disabled={!isEditing}
                         className="text-center"
                       />
                     </TableCell>
@@ -507,7 +466,6 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
                         type="number"
                         value={settings?.expected_hours_per_month || 0}
                         onChange={(e) => updateZoneSetting(zone.id, 'expected_hours_per_month', Number(e.target.value))}
-                        disabled={!isEditing}
                         className="text-center"
                       />
                     </TableCell>
