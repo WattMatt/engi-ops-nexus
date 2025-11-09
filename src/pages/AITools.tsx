@@ -2,7 +2,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EngineeringChatbot } from "@/components/ai-tools/EngineeringChatbot";
 import { DocumentGenerator } from "@/components/ai-tools/DocumentGenerator";
 import { DataAnalyzer } from "@/components/ai-tools/DataAnalyzer";
-import { Bot, FileText, BarChart3, Sparkles } from "lucide-react";
+import { CostPredictor } from "@/components/ai-tools/CostPredictor";
+import { Bot, FileText, BarChart3, Sparkles, TrendingUp } from "lucide-react";
 
 const AITools = () => {
   return (
@@ -22,21 +23,22 @@ const AITools = () => {
       </div>
 
       <Tabs defaultValue="chatbot" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3">
+        <TabsList className="grid w-full grid-cols-4">
           <TabsTrigger value="chatbot" className="flex items-center gap-2">
             <Bot className="h-4 w-4" />
-            <span className="hidden sm:inline">Engineering Assistant</span>
-            <span className="sm:hidden">Chat</span>
+            <span className="hidden sm:inline">Assistant</span>
           </TabsTrigger>
           <TabsTrigger value="documents" className="flex items-center gap-2">
             <FileText className="h-4 w-4" />
-            <span className="hidden sm:inline">Document Generator</span>
-            <span className="sm:hidden">Docs</span>
+            <span className="hidden sm:inline">Documents</span>
           </TabsTrigger>
           <TabsTrigger value="analyzer" className="flex items-center gap-2">
             <BarChart3 className="h-4 w-4" />
-            <span className="hidden sm:inline">Data Analyzer</span>
-            <span className="sm:hidden">Analyze</span>
+            <span className="hidden sm:inline">Analyzer</span>
+          </TabsTrigger>
+          <TabsTrigger value="prediction" className="flex items-center gap-2">
+            <TrendingUp className="h-4 w-4" />
+            <span className="hidden sm:inline">Predict</span>
           </TabsTrigger>
         </TabsList>
 
@@ -50,6 +52,10 @@ const AITools = () => {
 
         <TabsContent value="analyzer" className="space-y-4">
           <DataAnalyzer />
+        </TabsContent>
+
+        <TabsContent value="prediction" className="space-y-4">
+          <CostPredictor />
         </TabsContent>
       </Tabs>
     </div>
