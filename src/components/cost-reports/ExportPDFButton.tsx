@@ -22,7 +22,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
     setLoading(true);
     try {
       // Fetch all related data
-      const [categoriesResult, variationsResult] = await Promise.all([
+      const [categoriesResult, variationsResult, detailsResult] = await Promise.all([
         supabase
           .from("cost_categories")
           .select(`
@@ -35,14 +35,21 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           .from("cost_variations")
           .select("*")
           .eq("cost_report_id", report.id)
+          .order("display_order"),
+        supabase
+          .from("cost_report_details")
+          .select("*")
+          .eq("cost_report_id", report.id)
           .order("display_order")
       ]);
 
       if (categoriesResult.error) throw categoriesResult.error;
       if (variationsResult.error) throw variationsResult.error;
+      if (detailsResult.error) throw detailsResult.error;
 
       const categories = categoriesResult.data || [];
       const variations = variationsResult.data || [];
+      const details = detailsResult.data || [];
 
       // Create PDF
       const doc = new jsPDF("portrait");
@@ -98,6 +105,90 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       }
 
       yPos += 10;
+
+      // ========== REPORT DETAILS SECTIONS ==========
+      if (details.length > 0) {
+        doc.setFontSize(14);
+        doc.setFont("helvetica", "bold");
+        doc.text("REPORT DETAILS", 14, yPos);
+        yPos += 10;
+
+        // General section header
+        doc.setFontSize(12);
+        doc.text("1. GENERAL", 14, yPos);
+        yPos += 8;
+
+        for (const section of details) {
+          // Check if we need a new page
+          if (yPos > pageHeight - 40) {
+            doc.addPage();
+            yPos = 20;
+          }
+
+          doc.setFontSize(11);
+          doc.setFont("helvetica", "bold");
+          doc.text(`${section.section_number}. ${section.section_title}`, 14, yPos);
+          yPos += 6;
+
+          doc.setFontSize(10);
+          doc.setFont("helvetica", "normal");
+
+          // Special formatting for certain sections
+          let content = section.section_content || "";
+          
+          if (section.section_number === 1) {
+            content = `${content} ${new Date(report.report_date).toLocaleDateString('en-ZA', { day: '2-digit', month: 'long', year: 'numeric' })}`;
+          } else if (section.section_number === 5) {
+            // Construction period
+            const constructionContent = [];
+            if (report.site_handover_date) {
+              constructionContent.push(`Site handover: ${new Date(report.site_handover_date).toLocaleDateString('en-ZA', { day: '2-digit', month: 'long', year: 'numeric' })}`);
+            }
+            if (report.practical_completion_date) {
+              constructionContent.push(`Practical completion: ${new Date(report.practical_completion_date).toLocaleDateString('en-ZA', { day: '2-digit', month: 'long', year: 'numeric' })}`);
+            }
+            if (content) {
+              constructionContent.push(content);
+            }
+            content = constructionContent.join('\n');
+          } else if (section.section_number === 8) {
+            // Contract information
+            const contractContent = [];
+            if (report.electrical_contractor) {
+              contractContent.push(`Electrical: ${report.electrical_contractor}`);
+            }
+            if (report.earthing_contractor) {
+              contractContent.push(`Earthing and lightning protection: ${report.earthing_contractor}`);
+            }
+            if (report.standby_plants_contractor) {
+              contractContent.push(`Standby Plants: ${report.standby_plants_contractor}`);
+            }
+            if (report.cctv_contractor) {
+              contractContent.push(`CCTV and access control: ${report.cctv_contractor}`);
+            }
+            if (content) {
+              contractContent.push(content);
+            }
+            content = contractContent.join('\n');
+          }
+
+          if (content) {
+            const lines = doc.splitTextToSize(content, pageWidth - 28);
+            for (const line of lines) {
+              if (yPos > pageHeight - 20) {
+                doc.addPage();
+                yPos = 20;
+              }
+              doc.text(line, 14, yPos);
+              yPos += 5;
+            }
+          }
+
+          yPos += 6;
+        }
+
+        yPos += 10;
+      }
 
       // ========== COST CATEGORIES SUMMARY ==========
       doc.setFontSize(14);
