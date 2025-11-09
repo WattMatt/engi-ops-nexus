@@ -393,11 +393,39 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
     doc.setFont("helvetica", "bold");
     doc.text("Tenant Schedule", 20, 25);
 
-    // Add legend for symbols
+    // Add legend for symbols with visual examples
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100, 100, 100);
-    doc.text("Legend: ✓ = Completed/Received  |  ✗ = Pending/Not Received", 20, 32);
+    
+    // Draw legend with colored circles
+    const legendY = 32;
+    const legendX = 20;
+    
+    // Completed circle
+    doc.setFillColor(34, 197, 94); // Green
+    doc.circle(legendX + 3, legendY - 2, 3, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.text("✓", legendX + 3, legendY + 0.5, { align: 'center' });
+    
+    doc.setTextColor(100, 100, 100);
+    doc.setFont("helvetica", "normal");
+    doc.text("= Completed/Received", legendX + 10, legendY);
+    
+    // Pending circle
+    const pendingX = legendX + 80;
+    doc.setFillColor(239, 68, 68); // Red
+    doc.circle(pendingX + 3, legendY - 2, 3, 'F');
+    doc.setTextColor(255, 255, 255);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "bold");
+    doc.text("✗", pendingX + 3, legendY + 0.5, { align: 'center' });
+    
+    doc.setTextColor(100, 100, 100);
+    doc.setFont("helvetica", "normal");
+    doc.text("= Pending/Not Received", pendingX + 10, legendY);
 
     // Calculate completion statistics
     const totalTenants = tenants.length;
@@ -578,15 +606,31 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
         )
       },
       didDrawCell: (data) => {
-        // Custom rendering for checkbox cells to ensure visibility
+        // Custom rendering for checkbox cells with colored backgrounds
         const key = fieldKeys[data.column.index];
         if (['sowReceived', 'layoutReceived', 'dbOrdered', 'lightingOrdered'].includes(key) && data.section === 'body') {
           const cellValue = data.cell.raw as string;
           if (cellValue === '✓' || cellValue === '✗') {
-            // Ensure checkmarks are visible by setting color explicitly
-            doc.setTextColor(cellValue === '✓' ? 22 : 220, cellValue === '✓' ? 163 : 38, cellValue === '✓' ? 74 : 38);
-            doc.setFontSize(10);
-            doc.text(cellValue, data.cell.x + data.cell.width / 2, data.cell.y + data.cell.height / 2 + 2, { align: 'center' });
+            const isChecked = cellValue === '✓';
+            
+            // Calculate center position for the circle
+            const centerX = data.cell.x + data.cell.width / 2;
+            const centerY = data.cell.y + data.cell.height / 2;
+            const radius = 3;
+            
+            // Draw colored circle background
+            if (isChecked) {
+              doc.setFillColor(34, 197, 94); // Green
+            } else {
+              doc.setFillColor(239, 68, 68); // Red
+            }
+            doc.circle(centerX, centerY, radius, 'F');
+            
+            // Draw white symbol on top
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(9);
+            doc.setFont("helvetica", "bold");
+            doc.text(cellValue, centerX, centerY + 2.5, { align: 'center' });
           }
         }
       },
