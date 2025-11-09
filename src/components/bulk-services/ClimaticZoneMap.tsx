@@ -7,8 +7,9 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
-import { Map, Satellite, Mountain } from "lucide-react";
+import { Map, Satellite, Mountain, Image as ImageIcon } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { Slider } from "@/components/ui/slider";
 
 interface ClimaticZoneMapProps {
   selectedZone: string;
@@ -151,6 +152,8 @@ export const ClimaticZoneMap = ({ selectedZone, onZoneSelect }: ClimaticZoneMapP
   const [mapboxToken, setMapboxToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [mapStyle, setMapStyle] = useState<'streets' | 'satellite' | 'terrain'>('streets');
+  const [showOfficialOverlay, setShowOfficialOverlay] = useState(false);
+  const [overlayOpacity, setOverlayOpacity] = useState(0.6);
 
   const MAP_STYLES = {
     streets: 'mapbox://styles/mapbox/light-v11',
@@ -303,6 +306,34 @@ export const ClimaticZoneMap = ({ selectedZone, onZoneSelect }: ClimaticZoneMapP
     // Add navigation controls
     map.current.addControl(new mapboxgl.NavigationControl(), "top-right");
 
+    // Add official SANS map overlay source (covering South Africa bounds)
+    map.current.on("load", () => {
+      if (!map.current) return;
+
+      // Add the official SANS map as an image source
+      map.current.addSource("sans-overlay", {
+        type: "image",
+        url: "/images/sans-10400-xa-official-map.png",
+        coordinates: [
+          [16.0, -22.0], // top-left [lng, lat]
+          [33.0, -22.0], // top-right
+          [33.0, -35.0], // bottom-right
+          [16.0, -35.0], // bottom-left
+        ],
+      });
+
+      // Add the overlay layer (initially hidden)
+      map.current.addLayer({
+        id: "sans-overlay-layer",
+        type: "raster",
+        source: "sans-overlay",
+        paint: {
+          "raster-opacity": 0,
+          "raster-fade-duration": 300,
+        },
+      });
+    });
+
     // Add geocoder (search box)
     geocoder.current = new MapboxGeocoder({
       accessToken: mapboxToken,
@@ -380,6 +411,20 @@ export const ClimaticZoneMap = ({ selectedZone, onZoneSelect }: ClimaticZoneMapP
     });
   }, [selectedZone]);
 
+  // Update overlay visibility and opacity
+  useEffect(() => {
+    if (!map.current || !map.current.isStyleLoaded()) return;
+
+    const layer = map.current.getLayer("sans-overlay-layer");
+    if (layer) {
+      map.current.setPaintProperty(
+        "sans-overlay-layer",
+        "raster-opacity",
+        showOfficialOverlay ? overlayOpacity : 0
+      );
+    }
+  }, [showOfficialOverlay, overlayOpacity]);
+
   if (loading) {
     return (
       <Card className="p-4">
@@ -404,34 +449,67 @@ export const ClimaticZoneMap = ({ selectedZone, onZoneSelect }: ClimaticZoneMapP
         <div ref={mapContainer} className="absolute inset-0" />
         
         {/* Map Style Switcher */}
-        <div className="absolute top-4 left-4 flex gap-2 z-10">
-          <Button
-            size="sm"
-            variant={mapStyle === 'streets' ? 'default' : 'secondary'}
-            onClick={() => setMapStyle('streets')}
-            className="shadow-lg"
-          >
-            <Map className="h-4 w-4 mr-2" />
-            Streets
-          </Button>
-          <Button
-            size="sm"
-            variant={mapStyle === 'satellite' ? 'default' : 'secondary'}
-            onClick={() => setMapStyle('satellite')}
-            className="shadow-lg"
-          >
-            <Satellite className="h-4 w-4 mr-2" />
-            Satellite
-          </Button>
-          <Button
-            size="sm"
-            variant={mapStyle === 'terrain' ? 'default' : 'secondary'}
-            onClick={() => setMapStyle('terrain')}
-            className="shadow-lg"
-          >
-            <Mountain className="h-4 w-4 mr-2" />
-            Terrain
-          </Button>
+        <div className="absolute top-4 left-4 flex flex-col gap-2 z-10">
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant={mapStyle === 'streets' ? 'default' : 'secondary'}
+              onClick={() => setMapStyle('streets')}
+              className="shadow-lg"
+            >
+              <Map className="h-4 w-4 mr-2" />
+              Streets
+            </Button>
+            <Button
+              size="sm"
+              variant={mapStyle === 'satellite' ? 'default' : 'secondary'}
+              onClick={() => setMapStyle('satellite')}
+              className="shadow-lg"
+            >
+              <Satellite className="h-4 w-4 mr-2" />
+              Satellite
+            </Button>
+            <Button
+              size="sm"
+              variant={mapStyle === 'terrain' ? 'default' : 'secondary'}
+              onClick={() => setMapStyle('terrain')}
+              className="shadow-lg"
+            >
+              <Mountain className="h-4 w-4 mr-2" />
+              Terrain
+            </Button>
+          </div>
+          
+          {/* Official Map Overlay Toggle */}
+          <div className="bg-background/95 backdrop-blur-sm border rounded-lg p-3 shadow-lg">
+            <div className="flex items-center justify-between mb-2">
+              <Button
+                size="sm"
+                variant={showOfficialOverlay ? 'default' : 'outline'}
+                onClick={() => setShowOfficialOverlay(!showOfficialOverlay)}
+                className="w-full"
+              >
+                <ImageIcon className="h-4 w-4 mr-2" />
+                Official SANS Map
+              </Button>
+            </div>
+            
+            {showOfficialOverlay && (
+              <div className="space-y-2">
+                <label className="text-xs text-muted-foreground">
+                  Overlay Opacity: {Math.round(overlayOpacity * 100)}%
+                </label>
+                <Slider
+                  value={[overlayOpacity]}
+                  onValueChange={(value) => setOverlayOpacity(value[0])}
+                  min={0.1}
+                  max={1}
+                  step={0.1}
+                  className="w-full"
+                />
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
