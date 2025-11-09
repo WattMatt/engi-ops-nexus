@@ -2,10 +2,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
+import { Pencil, Check, X, RotateCcw } from "lucide-react";
 
 interface Tenant {
   id: string;
@@ -15,6 +18,7 @@ interface Tenant {
   shop_category: string;
   own_generator_provided: boolean | null;
   generator_zone_id: string | null;
+  manual_kw_override: number | null;
 }
 
 interface Zone {
@@ -31,6 +35,9 @@ interface GeneratorTenantListProps {
 }
 
 export const GeneratorTenantList = ({ tenants, capitalCostRecovery = 53009.71, onUpdate, projectId }: GeneratorTenantListProps) => {
+  const [editingTenantId, setEditingTenantId] = useState<string | null>(null);
+  const [editingKwValue, setEditingKwValue] = useState<string>("");
+  
   // Fetch generator settings
   const { data: settings } = useQuery({
     queryKey: ["generator-settings", projectId],
@@ -68,9 +75,17 @@ export const GeneratorTenantList = ({ tenants, capitalCostRecovery = 53009.71, o
     enabled: !!projectId,
   });
 
-  // Calculate loading based on category and area
+  // Calculate loading based on manual override or category and area
   const calculateLoading = (tenant: Tenant): number => {
-    if (!tenant.area || tenant.own_generator_provided) return 0;
+    if (tenant.own_generator_provided) return 0;
+    
+    // Use manual override if set
+    if (tenant.manual_kw_override !== null && tenant.manual_kw_override !== undefined) {
+      return Number(tenant.manual_kw_override);
+    }
+    
+    // Otherwise calculate based on area and category
+    if (!tenant.area) return 0;
     
     const kwPerSqm = {
       standard: settings?.standard_kw_per_sqm || 0.03,
@@ -135,6 +150,66 @@ export const GeneratorTenantList = ({ tenants, capitalCostRecovery = 53009.71, o
     } catch (error) {
       console.error("Error updating tenant:", error);
       toast.error("Failed to update tenant");
+    }
+  };
+
+  const handleStartEditKw = (tenant: Tenant) => {
+    setEditingTenantId(tenant.id);
+    const currentValue = tenant.manual_kw_override !== null 
+      ? tenant.manual_kw_override.toString() 
+      : calculateLoading(tenant).toFixed(2);
+    setEditingKwValue(currentValue);
+  };
+
+  const handleCancelEditKw = () => {
+    setEditingTenantId(null);
+    setEditingKwValue("");
+  };
+
+  const handleSaveKw = async (tenantId: string) => {
+    const numericValue = parseFloat(editingKwValue);
+    
+    if (isNaN(numericValue) || numericValue < 0) {
+      toast.error("Please enter a valid kW value");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("tenants")
+        .update({ manual_kw_override: numericValue })
+        .eq("id", tenantId);
+
+      if (error) throw error;
+      toast.success("Manual kW override saved");
+      setEditingTenantId(null);
+      setEditingKwValue("");
+      
+      if (onUpdate) {
+        onUpdate();
+      }
+    } catch (error) {
+      console.error("Error saving manual kW:", error);
+      toast.error("Failed to save kW value");
+    }
+  };
+
+  const handleResetKw = async (tenantId: string) => {
+    try {
+      const { error } = await supabase
+        .from("tenants")
+        .update({ manual_kw_override: null })
+        .eq("id", tenantId);
+
+      if (error) throw error;
+      toast.success("Reset to automatic calculation");
+      
+      if (onUpdate) {
+        onUpdate();
+      }
+    } catch (error) {
+      console.error("Error resetting kW:", error);
+      toast.error("Failed to reset kW value");
     }
   };
 
@@ -236,10 +311,68 @@ export const GeneratorTenantList = ({ tenants, capitalCostRecovery = 53009.71, o
                       </Select>
                     </TableCell>
                     {zones.map((zone) => (
-                      <TableCell key={zone.id} className="text-right font-mono">
-                        {!isOwnGenerator && tenant.generator_zone_id === zone.id
-                          ? loading.toFixed(2)
-                          : "-"}
+                      <TableCell key={zone.id} className="text-right">
+                        {!isOwnGenerator && tenant.generator_zone_id === zone.id ? (
+                          <div className="flex items-center justify-end gap-2">
+                            {editingTenantId === tenant.id ? (
+                              <>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  value={editingKwValue}
+                                  onChange={(e) => setEditingKwValue(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === "Enter") handleSaveKw(tenant.id);
+                                    if (e.key === "Escape") handleCancelEditKw();
+                                  }}
+                                  className="w-24 h-8 text-right font-mono"
+                                  autoFocus
+                                />
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleSaveKw(tenant.id)}
+                                  className="h-8 w-8 p-0"
+                                >
+                                  <Check className="h-4 w-4 text-green-600" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={handleCancelEditKw}
+                                  className="h-8 w-8 p-0"
+                                >
+                                  <X className="h-4 w-4 text-destructive" />
+                                </Button>
+                              </>
+                            ) : (
+                              <>
+                                <span className={`font-mono ${tenant.manual_kw_override !== null ? 'font-bold text-primary' : ''}`}>
+                                  {loading.toFixed(2)}
+                                </span>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleStartEditKw(tenant)}
+                                  className="h-6 w-6 p-0"
+                                >
+                                  <Pencil className="h-3 w-3" />
+                                </Button>
+                                {tenant.manual_kw_override !== null && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => handleResetKw(tenant.id)}
+                                    className="h-6 w-6 p-0"
+                                    title="Reset to automatic calculation"
+                                  >
+                                    <RotateCcw className="h-3 w-3 text-muted-foreground" />
+                                  </Button>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        ) : "-"}
                       </TableCell>
                     ))}
                     <TableCell className="text-right">

@@ -5158,6 +5158,7 @@ export type Database = {
           layout_received: boolean | null
           lighting_cost: number | null
           lighting_ordered: boolean | null
+          manual_kw_override: number | null
           opening_date: string | null
           own_generator_provided: boolean | null
           project_id: string
@@ -5188,6 +5189,7 @@ export type Database = {
           layout_received?: boolean | null
           lighting_cost?: number | null
           lighting_ordered?: boolean | null
+          manual_kw_override?: number | null
           opening_date?: string | null
           own_generator_provided?: boolean | null
           project_id: string
@@ -5218,6 +5220,7 @@ export type Database = {
           layout_received?: boolean | null
           lighting_cost?: number | null
           lighting_ordered?: boolean | null
+          manual_kw_override?: number | null
           opening_date?: string | null
           own_generator_provided?: boolean | null
           project_id?: string
