@@ -87,6 +87,27 @@ const getADMDDiversityFactor = (unitsPerPhase: number): number => {
   return ADMD_DIVERSITY_TABLE[ADMD_DIVERSITY_TABLE.length - 1].diversityFactor;
 };
 
+// Cable sizing table based on current capacity (SANS 10142-1)
+// Assuming: Copper conductors, 75°C thermoplastic insulation, ambient temp 30°C, underground/conduit
+const getCableSize = (current: number): string => {
+  if (current <= 20) return "2.5 mm²";
+  if (current <= 26) return "4 mm²";
+  if (current <= 34) return "6 mm²";
+  if (current <= 46) return "10 mm²";
+  if (current <= 63) return "16 mm²";
+  if (current <= 85) return "25 mm²";
+  if (current <= 112) return "35 mm²";
+  if (current <= 138) return "50 mm²";
+  if (current <= 168) return "70 mm²";
+  if (current <= 207) return "95 mm²";
+  if (current <= 239) return "120 mm²";
+  if (current <= 275) return "150 mm²";
+  if (current <= 312) return "185 mm²";
+  if (current <= 358) return "240 mm²";
+  if (current <= 412) return "300 mm²";
+  return ">300 mm² (consult engineer)";
+};
+
 // SANS 204 Table 1 - Maximum energy demand (VA/m²)
 const SANS_204_TABLE = {
   A1: { name: "Entertainment & Public Assembly", zones: [85, 80, 90, 80, 80, 85] },
@@ -1178,6 +1199,191 @@ export const SANS204Calculator = ({
                           <li>• Your {generalDiversity} factor accounts for {numUnits} units balanced across 3 phases</li>
                         </ul>
                       </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Per-Phase Load Analysis */}
+              {useADMD && parseFloat(numUnits || "0") > 0 && (
+                <Card className="border-orange-200 dark:border-orange-900">
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <CheckCircle2 className="h-5 w-5 text-orange-600" />
+                      Per-Phase Load Analysis
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <p className="text-sm text-muted-foreground">
+                        Individual phase calculations for balanced 3-phase distribution
+                      </p>
+
+                      {/* Calculation Parameters */}
+                      <div className="grid grid-cols-3 gap-3 p-3 bg-muted/50 rounded-lg text-sm">
+                        <div>
+                          <p className="text-xs text-muted-foreground">System Voltage</p>
+                          <p className="font-semibold">400V 3Ø</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Units per Phase</p>
+                          <p className="font-semibold">{Math.ceil(parseFloat(numUnits || "0") / 3)} units</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Power Factor</p>
+                          <p className="font-semibold">0.95</p>
+                        </div>
+                      </div>
+
+                      {/* Per-Phase Results */}
+                      {(() => {
+                        const units = parseFloat(numUnits) || 0;
+                        const totalPerUnitWatts = 
+                          fittingLoads.lamps.qty * fittingLoads.lamps.load * fittingLoads.lamps.diversity +
+                          fittingLoads.plugs.qty * fittingLoads.plugs.load * fittingLoads.plugs.diversity +
+                          fittingLoads.geyser.qty * fittingLoads.geyser.load * fittingLoads.geyser.diversity +
+                          fittingLoads.stove.qty * fittingLoads.stove.load * fittingLoads.stove.diversity +
+                          fittingLoads.poolPump.qty * fittingLoads.poolPump.load * fittingLoads.poolPump.diversity;
+                        
+                        const totalPerUnitKva = totalPerUnitWatts / 1000 / 0.95;
+                        const unitsPerPhase = Math.ceil(units / 3);
+                        const diversityFactor = parseFloat(generalDiversity);
+                        
+                        // ADMD per phase
+                        const admdPerPhase = totalPerUnitKva * unitsPerPhase * diversityFactor;
+                        
+                        // Current per phase (I = S / V for single phase to neutral)
+                        // For 3-phase 400V system, phase voltage is 230V
+                        const currentPerPhase = (admdPerPhase * 1000) / 230;
+                        
+                        // Total 3-phase current (same as per-phase for balanced load)
+                        const total3PhCurrent = currentPerPhase;
+                        
+                        // Recommended cable size
+                        const recommendedCable = getCableSize(currentPerPhase);
+
+                        return (
+                          <>
+                            <div className="rounded-md border">
+                              <table className="w-full text-sm">
+                                <thead className="bg-muted">
+                                  <tr>
+                                    <th className="p-2 text-left">Phase</th>
+                                    <th className="p-2 text-center">Units</th>
+                                    <th className="p-2 text-center">Load (kVA)</th>
+                                    <th className="p-2 text-center">Current (A)</th>
+                                    <th className="p-2 text-center">Cable Size</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  <tr className="border-t">
+                                    <td className="p-2 font-medium">L1 (Red)</td>
+                                    <td className="p-2 text-center">{unitsPerPhase}</td>
+                                    <td className="p-2 text-center">{admdPerPhase.toFixed(2)}</td>
+                                    <td className="p-2 text-center font-semibold text-orange-600 dark:text-orange-400">
+                                      {currentPerPhase.toFixed(1)}
+                                    </td>
+                                    <td className="p-2 text-center">{recommendedCable}</td>
+                                  </tr>
+                                  <tr className="border-t">
+                                    <td className="p-2 font-medium">L2 (White/Yellow)</td>
+                                    <td className="p-2 text-center">{unitsPerPhase}</td>
+                                    <td className="p-2 text-center">{admdPerPhase.toFixed(2)}</td>
+                                    <td className="p-2 text-center font-semibold text-orange-600 dark:text-orange-400">
+                                      {currentPerPhase.toFixed(1)}
+                                    </td>
+                                    <td className="p-2 text-center">{recommendedCable}</td>
+                                  </tr>
+                                  <tr className="border-t">
+                                    <td className="p-2 font-medium">L3 (Blue)</td>
+                                    <td className="p-2 text-center">{unitsPerPhase}</td>
+                                    <td className="p-2 text-center">{admdPerPhase.toFixed(2)}</td>
+                                    <td className="p-2 text-center font-semibold text-orange-600 dark:text-orange-400">
+                                      {currentPerPhase.toFixed(1)}
+                                    </td>
+                                    <td className="p-2 text-center">{recommendedCable}</td>
+                                  </tr>
+                                  <tr className="border-t bg-primary/5 font-semibold">
+                                    <td className="p-2">Total (3Ø Balanced)</td>
+                                    <td className="p-2 text-center">{units}</td>
+                                    <td className="p-2 text-center">{(admdPerPhase * 3).toFixed(2)}</td>
+                                    <td className="p-2 text-center text-primary">
+                                      {total3PhCurrent.toFixed(1)}
+                                    </td>
+                                    <td className="p-2 text-center">-</td>
+                                  </tr>
+                                </tbody>
+                              </table>
+                            </div>
+
+                            {/* Summary Boxes */}
+                            <div className="grid grid-cols-3 gap-3">
+                              <div className="p-3 bg-orange-50 dark:bg-orange-950/30 rounded-lg border border-orange-200 dark:border-orange-900">
+                                <p className="text-xs text-muted-foreground mb-1">Per-Phase Load</p>
+                                <p className="text-xl font-bold text-orange-600 dark:text-orange-400">
+                                  {admdPerPhase.toFixed(2)} kVA
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  {unitsPerPhase} units × {diversityFactor}
+                                </p>
+                              </div>
+
+                              <div className="p-3 bg-orange-50 dark:bg-orange-950/30 rounded-lg border border-orange-200 dark:border-orange-900">
+                                <p className="text-xs text-muted-foreground mb-1">Phase Current</p>
+                                <p className="text-xl font-bold text-orange-600 dark:text-orange-400">
+                                  {currentPerPhase.toFixed(1)} A
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  At 230V phase voltage
+                                </p>
+                              </div>
+
+                              <div className="p-3 bg-orange-50 dark:bg-orange-950/30 rounded-lg border border-orange-200 dark:border-orange-900">
+                                <p className="text-xs text-muted-foreground mb-1">Recommended Cable</p>
+                                <p className="text-xl font-bold text-orange-600 dark:text-orange-400">
+                                  {recommendedCable}
+                                </p>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Cu, PVC, 75°C
+                                </p>
+                              </div>
+                            </div>
+
+                            {/* Calculation Breakdown */}
+                            <div className="p-3 bg-muted/50 rounded-lg text-xs space-y-1">
+                              <p className="font-semibold">Per-Phase Calculation:</p>
+                              <p>
+                                1. Per-unit load: <span className="font-medium">{totalPerUnitKva.toFixed(2)} kVA</span>
+                              </p>
+                              <p>
+                                2. Units per phase: <span className="font-medium">{units} units ÷ 3 phases = {unitsPerPhase} units/phase</span>
+                              </p>
+                              <p>
+                                3. ADMD per phase: <span className="font-medium">{totalPerUnitKva.toFixed(2)} kVA × {unitsPerPhase} units × {diversityFactor} = {admdPerPhase.toFixed(2)} kVA</span>
+                              </p>
+                              <p>
+                                4. Current per phase: <span className="font-medium">{admdPerPhase.toFixed(2)} kVA × 1000 ÷ 230V = {currentPerPhase.toFixed(1)} A</span>
+                              </p>
+                              <p>
+                                5. Cable sizing: <span className="font-medium">Based on {currentPerPhase.toFixed(1)}A with derating factors</span>
+                              </p>
+                            </div>
+
+                            {/* Important Notes */}
+                            <div className="p-3 bg-yellow-50 dark:bg-yellow-950/30 rounded-lg border border-yellow-200 dark:border-yellow-900 text-xs">
+                              <p className="font-semibold mb-1 text-yellow-800 dark:text-yellow-400">⚠️ Important Notes:</p>
+                              <ul className="space-y-1 text-muted-foreground">
+                                <li>• Cable sizes based on SANS 10142-1 for copper conductors in conduit</li>
+                                <li>• Apply derating factors for: grouping, ambient temperature, installation method</li>
+                                <li>• Neutral conductor: Same size as phase for balanced loads</li>
+                                <li>• Earth conductor: Per SANS 10142-1 Table 7.1 (typically 16-50% of phase)</li>
+                                <li>• Verify voltage drop over cable length (&lt;5% for final circuits, &lt;2.5% for distribution)</li>
+                                <li>• Consider fault level protection and discrimination</li>
+                              </ul>
+                            </div>
+                          </>
+                        );
+                      })()}
                     </div>
                   </CardContent>
                 </Card>
