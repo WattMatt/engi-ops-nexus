@@ -51,6 +51,24 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
     enabled: !!projectId,
   });
 
+  // Fetch zone generators
+  const { data: zoneGenerators = [] } = useQuery({
+    queryKey: ["zone-generators-pdf", projectId],
+    queryFn: async () => {
+      if (!zones.length) return [];
+      
+      const zoneIds = zones.map(z => z.id);
+      const { data, error } = await supabase
+        .from("zone_generators")
+        .select("*")
+        .in("zone_id", zoneIds);
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!projectId && zones.length > 0,
+  });
+
   // Fetch running recovery settings
   const { data: allSettings = [] } = useQuery({
     queryKey: ["running-recovery-settings-pdf", projectId],
@@ -113,6 +131,23 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
     return `R ${value.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
 
+  // Helper function to convert hex color to RGB array for jsPDF
+  const hexToRgb = (hex: string): [number, number, number] => {
+    const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return result 
+      ? [parseInt(result[1], 16), parseInt(result[2], 16), parseInt(result[3], 16)]
+      : [59, 130, 246]; // Default blue
+  };
+
+  // Helper function to get lighter version of color for backgrounds
+  const lightenColor = (rgb: [number, number, number], amount: number = 0.85): [number, number, number] => {
+    return [
+      Math.min(255, rgb[0] + (255 - rgb[0]) * amount),
+      Math.min(255, rgb[1] + (255 - rgb[1]) * amount),
+      Math.min(255, rgb[2] + (255 - rgb[2]) * amount),
+    ];
+  };
+
   const generatePDF = async () => {
     if (!project || zones.length === 0) {
       toast.error("No data available to generate report");
@@ -128,18 +163,23 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       let yPos = 20;
 
       // Calculate total costs for executive summary
-      const totalGeneratorCost = zones.reduce((sum, zone) => {
-        const numGens = zone.num_generators || 1;
-        const costPerGen = zone.generator_cost || 0;
-        return sum + (costPerGen * numGens);
+      const totalGeneratorCost = zoneGenerators.reduce((sum, gen) => {
+        return sum + (Number(gen.generator_cost) || 0);
       }, 0);
       
-      // Build generator description
-      const generatorDescription = zones.map(zone => {
-        const units = zone.num_generators || 1;
-        const unitCost = (zone.generator_cost || 0) / units;
-        return `${units}x ${zone.generator_size} @ ${formatCurrency(unitCost)} each`;
-      }).join(", ");
+      // Build generator description with zone colors
+      const generatorDescriptionParts = zones.map(zone => {
+        const generators = zoneGenerators.filter(g => g.zone_id === zone.id);
+        if (generators.length === 0) return null;
+        
+        const descriptions = generators.map(gen => 
+          `${gen.generator_size || "Unknown"} @ ${formatCurrency(Number(gen.generator_cost) || 0)}`
+        ).join(", ");
+        
+        return `${zone.zone_name}: ${descriptions}`;
+      }).filter(Boolean);
+      
+      const generatorDescription = generatorDescriptionParts.join(" | ");
       
       // Get number of tenants without own generators and calculate all costs
       const numTenantDBs = tenants.filter(t => !t.own_generator_provided).length;
@@ -219,21 +259,23 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       doc.text(`${project.name?.toUpperCase() || "PROJECT"} - ${format(new Date(), "yyyy.MM.dd")}`, 14, yPos);
       yPos += 8;
 
-      // Generator Equipment Costing table (without Rate column)
+      // Generator Equipment Costing table with zone colors
       const equipmentCostingData = [
         ["Item", "Description", "Quantity", "Cost (excl. VAT)"],
         ...zones.map((zone, index) => {
-          const numGens = zone.num_generators || 1;
-          const costPerGen = zone.generator_cost || 0;
-          const totalCost = costPerGen * numGens;
-          const description = zone.num_generators > 1 
-            ? `${zone.zone_name} - ${zone.generator_size} (${zone.num_generators} Synchronized)`
-            : `${zone.zone_name} - ${zone.generator_size}`;
+          const generators = zoneGenerators.filter(g => g.zone_id === zone.id);
+          const zoneTotalCost = generators.reduce((sum, gen) => sum + (Number(gen.generator_cost) || 0), 0);
+          
+          let description = zone.zone_name;
+          if (generators.length > 1) {
+            description += ` (${generators.length} Generators)`;
+          }
+          
           return [
             (index + 1).toString(),
             description,
-            numGens.toString(),
-            formatCurrency(totalCost)
+            generators.length.toString(),
+            formatCurrency(zoneTotalCost)
           ];
         }),
         [
@@ -276,6 +318,18 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
           3: { halign: "right", cellWidth: 38 },
         },
         margin: { left: 14, right: 14 },
+        willDrawCell: (data) => {
+          // Apply zone colors to zone rows
+          if (data.section === 'body' && data.row.index < zones.length) {
+            const zone = zones[data.row.index];
+            const zoneColor = zone.zone_color || "#3b82f6";
+            const rgb = hexToRgb(zoneColor);
+            const lightRgb = lightenColor(rgb);
+            
+            data.cell.styles.fillColor = lightRgb as any;
+            data.cell.styles.textColor = rgb as any;
+          }
+        },
       });
       
       // Add total row
@@ -428,7 +482,7 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       ];
       tenantRows.push(averageRow);
 
-      // Build header with zone columns
+      // Build header with zone columns (with color indicators)
       const tableHeader = [
         "Shop No.",
         "Tenant",
@@ -482,6 +536,17 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
         columnStyles,
         margin: { left: centerMargin, right: centerMargin },
         willDrawCell: (data) => {
+          // Apply color coding to zone column headers
+          if (data.section === 'head' && data.column.index >= 5 && data.column.index < 5 + zones.length) {
+            const zoneIndex = data.column.index - 5;
+            const zone = zones[zoneIndex];
+            const zoneColor = zone?.zone_color || "#3b82f6";
+            const rgb = hexToRgb(zoneColor);
+            
+            data.cell.styles.fillColor = rgb as any;
+            data.cell.styles.textColor = [255, 255, 255];
+          }
+          
           // Apply color coding to tenant rows (not totals/average)
           if (data.section === 'body' && data.row.index < tenantRowsData.length) {
             const tenantData = tenantRowsData[data.row.index];
@@ -496,14 +561,42 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
               data.cell.styles.fillColor = [200, 255, 200]; // Light green
               data.cell.styles.textColor = [0, 100, 0]; // Dark green text
             }
+            // Apply zone color to zone-specific load columns
+            else if (data.column.index >= 5 && data.column.index < 5 + zones.length) {
+              const zoneIndex = data.column.index - 5;
+              const zone = zones[zoneIndex];
+              const tenant = tenants[data.row.index];
+              
+              // If this tenant belongs to this zone and has a value
+              if (tenant?.generator_zone_id === zone?.id && data.cell.text[0] !== "-") {
+                const zoneColor = zone.zone_color || "#3b82f6";
+                const rgb = hexToRgb(zoneColor);
+                const lightRgb = lightenColor(rgb, 0.9);
+                
+                data.cell.styles.fillColor = lightRgb as any;
+                data.cell.styles.textColor = rgb as any;
+                data.cell.styles.fontStyle = 'bold';
+              }
+            }
           }
           
           // Bold styling for totals and average rows
           if (data.section === 'body' && data.row.index >= tenantRowsData.length) {
             data.cell.styles.fontStyle = 'bold';
             if (data.row.index === tenantRowsData.length) {
-              // OVERALL TOTALS row
-              data.cell.styles.fillColor = [240, 240, 255];
+              // OVERALL TOTALS row - apply zone colors to zone total cells
+              if (data.column.index >= 5 && data.column.index < 5 + zones.length) {
+                const zoneIndex = data.column.index - 5;
+                const zone = zones[zoneIndex];
+                const zoneColor = zone?.zone_color || "#3b82f6";
+                const rgb = hexToRgb(zoneColor);
+                const lightRgb = lightenColor(rgb, 0.8);
+                
+                data.cell.styles.fillColor = lightRgb as any;
+                data.cell.styles.textColor = rgb as any;
+              } else {
+                data.cell.styles.fillColor = [240, 240, 255];
+              }
             } else {
               // AVERAGE row
               data.cell.styles.fillColor = [245, 245, 245];
@@ -669,10 +762,13 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       // Build table body with color-coded sections
       const runningTableBody: any[] = [];
 
-      // ZONE INFORMATION SECTION (Gray background)
+      // ZONE INFORMATION SECTION (with zone colors)
       runningTableBody.push([
         "Zone Name",
-        ...expandedGenerators.map(gen => `${gen.zoneName} (Unit ${gen.generatorIndex})`)
+        ...expandedGenerators.map(gen => {
+          const zone = zones.find(z => z.id === gen.zoneId);
+          return `${gen.zoneName} (Unit ${gen.generatorIndex})`;
+        })
       ]);
       runningTableBody.push([
         "Generator Size",
@@ -869,10 +965,20 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
         columnStyles: runningColumnStyles,
         margin: { left: 14, right: 14 },
         willDrawCell: (data) => {
-          // Zone Information rows (gray background)
+          // Zone Information rows - apply zone colors
           if (data.section === 'body' && data.row.index >= 0 && data.row.index <= 2) {
-            data.cell.styles.fillColor = [248, 248, 248];
-            if (data.column.index === 0) {
+            if (data.column.index > 0) {
+              const genIndex = data.column.index - 1;
+              const gen = expandedGenerators[genIndex];
+              const zone = zones.find(z => z.id === gen?.zoneId);
+              const zoneColor = zone?.zone_color || "#3b82f6";
+              const rgb = hexToRgb(zoneColor);
+              const lightRgb = lightenColor(rgb, 0.9);
+              
+              data.cell.styles.fillColor = lightRgb as any;
+              data.cell.styles.textColor = rgb as any;
+            } else {
+              data.cell.styles.fillColor = [248, 248, 248];
               data.cell.styles.fontStyle = 'bold';
             }
           }
@@ -880,10 +986,21 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
           if (data.section === 'body' && data.column.index === 0 && data.row.index > 3 && data.row.index !== 4 && data.row.index !== 13) {
             data.cell.styles.fontStyle = 'bold';
           }
-          // Tariff row (accent background and larger font)
+          // Tariff row (with zone colors)
           if (data.section === 'body' && data.row.index === runningTableBody.length - 1) {
-            data.cell.styles.fillColor = [255, 250, 240];
-            data.cell.styles.textColor = [41, 128, 185];
+            if (data.column.index > 0) {
+              const genIndex = data.column.index - 1;
+              const gen = expandedGenerators[genIndex];
+              const zone = zones.find(z => z.id === gen?.zoneId);
+              const zoneColor = zone?.zone_color || "#3b82f6";
+              const rgb = hexToRgb(zoneColor);
+              const lightRgb = lightenColor(rgb, 0.85);
+              
+              data.cell.styles.fillColor = lightRgb as any;
+              data.cell.styles.textColor = rgb as any;
+            } else {
+              data.cell.styles.fillColor = [255, 250, 240];
+            }
             data.cell.styles.fontStyle = 'bold';
             data.cell.styles.fontSize = 10;
           }
