@@ -510,6 +510,51 @@ export type Database = {
         }
         Relationships: []
       }
+      bulk_services_reports: {
+        Row: {
+          comments: string | null
+          document_id: string
+          file_path: string
+          generated_at: string
+          id: string
+          project_id: string
+          revision: string
+        }
+        Insert: {
+          comments?: string | null
+          document_id: string
+          file_path: string
+          generated_at?: string
+          id?: string
+          project_id: string
+          revision: string
+        }
+        Update: {
+          comments?: string | null
+          document_id?: string
+          file_path?: string
+          generated_at?: string
+          id?: string
+          project_id?: string
+          revision?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "bulk_services_reports_document_id_fkey"
+            columns: ["document_id"]
+            isOneToOne: false
+            referencedRelation: "bulk_services_documents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bulk_services_reports_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bulk_services_sections: {
         Row: {
           content: string | null

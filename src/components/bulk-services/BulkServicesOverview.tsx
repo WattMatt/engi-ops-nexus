@@ -2,9 +2,13 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, FileDown } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { BulkServicesHeader } from "./BulkServicesHeader";
 import { BulkServicesSections } from "./BulkServicesSections";
+import { BulkServicesExportPDFButton } from "./BulkServicesExportPDFButton";
+import { BulkServicesSavedReportsList } from "./BulkServicesSavedReportsList";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useState } from "react";
 
 interface BulkServicesOverviewProps {
   documentId: string;
@@ -12,6 +16,8 @@ interface BulkServicesOverviewProps {
 }
 
 export const BulkServicesOverview = ({ documentId, onBack }: BulkServicesOverviewProps) => {
+  const [reportsRefreshTrigger, setReportsRefreshTrigger] = useState(0);
+  
   const { data: document, isLoading } = useQuery({
     queryKey: ["bulk-services-document", documentId],
     queryFn: async () => {
@@ -63,32 +69,51 @@ export const BulkServicesOverview = ({ documentId, onBack }: BulkServicesOvervie
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Documents
         </Button>
-        <Button variant="outline">
-          <FileDown className="mr-2 h-4 w-4" />
-          Export PDF
-        </Button>
+        <BulkServicesExportPDFButton
+          documentId={documentId}
+          onReportSaved={() => setReportsRefreshTrigger(prev => prev + 1)}
+        />
       </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Document Details</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <BulkServicesHeader document={document} />
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="details" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="details">Details</TabsTrigger>
+          <TabsTrigger value="sections">Sections</TabsTrigger>
+          <TabsTrigger value="saved-reports">Saved Reports</TabsTrigger>
+        </TabsList>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Document Sections</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <BulkServicesSections
-            documentId={documentId}
-            sections={sections || []}
+        <TabsContent value="details" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Document Details</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <BulkServicesHeader document={document} />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="sections" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Document Sections</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <BulkServicesSections
+                documentId={documentId}
+                sections={sections || []}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="saved-reports" className="space-y-4">
+          <BulkServicesSavedReportsList 
+            key={reportsRefreshTrigger}
+            documentId={documentId} 
           />
-        </CardContent>
-      </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };
