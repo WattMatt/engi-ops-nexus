@@ -88,7 +88,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       yPos += 6;
       doc.text(`Project Number: ${report.project_number}`, 14, yPos);
       yPos += 6;
-      doc.text(`Report Date: ${new Date(report.report_date).toLocaleDateString()}`, 14, yPos);
+      doc.text(`Report Date: ${new Date().toLocaleDateString('en-ZA', { day: '2-digit', month: 'long', year: 'numeric' })}`, 14, yPos);
       yPos += 6;
 
       if (report.electrical_contractor) {
@@ -143,7 +143,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           let content = section.section_content || "";
           
           if (section.section_number === 1) {
-            content = `${content} ${new Date(report.report_date).toLocaleDateString('en-ZA', { day: '2-digit', month: 'long', year: 'numeric' })}`;
+            content = `${content} ${new Date().toLocaleDateString('en-ZA', { day: '2-digit', month: 'long', year: 'numeric' })}`;
           } else if (section.section_number === 5) {
             // Construction period
             const constructionContent = [];

@@ -62,8 +62,14 @@ export const CoverPageManager = ({ report }: CoverPageManagerProps) => {
 
               <div className="space-y-2">
                 <label className="text-sm font-medium">Report Date</label>
-                <div className="p-3 bg-muted rounded-md">
-                  <p>{format(new Date(report.report_date), "dd MMMM yyyy")}</p>
+                <div className="p-3 bg-muted rounded-md border-l-4 border-primary">
+                  <p className="font-medium">{format(new Date(report.report_date), "dd MMMM yyyy")}</p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    <span className="inline-flex items-center gap-1">
+                      <FileText className="h-3 w-3" />
+                      PDF will use generation date
+                    </span>
+                  </p>
                 </div>
               </div>
 
@@ -86,9 +92,19 @@ export const CoverPageManager = ({ report }: CoverPageManagerProps) => {
               )}
             </div>
 
-            <div className="pt-4 border-t">
+            <div className="pt-4 border-t space-y-3">
+              <div className="flex items-start gap-2 p-3 bg-blue-50 dark:bg-blue-950/20 rounded-md border border-blue-200 dark:border-blue-800">
+                <FileText className="h-5 w-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                <div className="text-sm">
+                  <p className="font-medium text-blue-900 dark:text-blue-100">Dynamic PDF Generation</p>
+                  <p className="text-blue-700 dark:text-blue-300 mt-1">
+                    When you generate a PDF, the report date will automatically update to the current date and time. 
+                    This ensures your reports always show when they were actually generated.
+                  </p>
+                </div>
+              </div>
               <p className="text-sm text-muted-foreground">
-                These fields are automatically populated from the project and cost report settings.
+                Other fields are automatically populated from the project and cost report settings.
                 To modify them, update the project settings or cost report details.
               </p>
             </div>
@@ -141,7 +157,12 @@ export const CoverPageManager = ({ report }: CoverPageManagerProps) => {
                 </div>
 
                 <div className="pt-12">
-                  <p className="text-xl">{format(new Date(report.report_date), "dd MMMM yyyy")}</p>
+                  <div className="inline-block">
+                    <p className="text-xl">{format(new Date(), "dd MMMM yyyy")}</p>
+                    <p className="text-xs text-gray-500 mt-2 italic">
+                      (Auto-updates to generation date in PDF)
+                    </p>
+                  </div>
                 </div>
 
                 {(report.electrical_contractor || report.earthing_contractor) && (
