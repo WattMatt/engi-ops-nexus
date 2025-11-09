@@ -9,10 +9,12 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Save } from "lucide-react";
+import { Save, Download } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 // SANS 10142-1 Socket outlet loads (VA/m²) by building type
 const SANS_10142_SOCKET_LOADS = {
@@ -186,6 +188,618 @@ export const BulkServicesSettingsOverview = ({
     }
   };
 
+  const generateSANS204Guide = () => {
+    const doc = new jsPDF();
+    let yPos = 20;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+
+    // Title
+    doc.setFontSize(22);
+    doc.setFont("helvetica", "bold");
+    doc.text("SANS 204 Calculation Guide", pageWidth / 2, yPos, { align: "center" });
+    yPos += 10;
+
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100);
+    doc.text("Energy Efficiency in Buildings - Maximum Electrical Demand", pageWidth / 2, yPos, { align: "center" });
+    yPos += 15;
+
+    // Section 1: Overview
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(0);
+    doc.text("1. Overview", 14, yPos);
+    yPos += 8;
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    const overviewText = [
+      "SANS 204 provides maximum energy demand values (VA/m²) for different building types",
+      "across South Africa's six climatic zones. This standard is primarily used for commercial",
+      "and retail buildings to ensure energy-efficient electrical installations."
+    ];
+    overviewText.forEach(line => {
+      doc.text(line, 14, yPos);
+      yPos += 5;
+    });
+    yPos += 5;
+
+    // Section 2: Building Classifications
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("2. Building Classifications", 14, yPos);
+    yPos += 8;
+
+    const buildingData = Object.entries(SANS_204_TABLE).map(([code, data]) => [
+      code,
+      data.name,
+      `${Math.min(...data.zones)} - ${Math.max(...data.zones)} VA/m²`
+    ]);
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [["Code", "Building Type", "Range"]],
+      body: buildingData,
+      theme: "grid",
+      headStyles: { fillColor: [59, 130, 246], textColor: 255 },
+      styles: { fontSize: 9 },
+      margin: { left: 14, right: 14 },
+    });
+
+    yPos = (doc as any).lastAutoTable.finalY + 10;
+
+    // Section 3: Climatic Zones
+    if (yPos > pageHeight - 60) {
+      doc.addPage();
+      yPos = 20;
+    }
+
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("3. Climatic Zones", 14, yPos);
+    yPos += 8;
+
+    const zoneData = CLIMATIC_ZONES.map(zone => [
+      `Zone ${zone.value}`,
+      zone.name,
+      zone.cities
+    ]);
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [["Zone", "Climate Type", "Major Cities"]],
+      body: zoneData,
+      theme: "grid",
+      headStyles: { fillColor: [59, 130, 246], textColor: 255 },
+      styles: { fontSize: 9 },
+      margin: { left: 14, right: 14 },
+    });
+
+    yPos = (doc as any).lastAutoTable.finalY + 10;
+
+    // Section 4: Worked Example
+    doc.addPage();
+    yPos = 20;
+
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("4. Worked Example", 14, yPos);
+    yPos += 10;
+
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("Project: Shopping Centre in Johannesburg", 14, yPos);
+    yPos += 8;
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    const exampleSteps = [
+      "Given Information:",
+      "  • Building Type: Large Shop (Retail) - Code F1",
+      "  • Location: Johannesburg (Zone 1 - Cold Interior)",
+      "  • Total Floor Area: 5,000 m²",
+      "  • Diversity Factor: 0.75 (typical for retail)",
+      "",
+      "Step 1: Identify the VA/m² value from SANS 204 Table",
+      "  F1 in Zone 1 = 90 VA/m²",
+      "",
+      "Step 2: Calculate Total Connected Load",
+      "  Total Connected Load = Floor Area × VA/m²",
+      "  = 5,000 m² × 90 VA/m²",
+      "  = 450,000 VA = 450 kVA",
+      "",
+      "Step 3: Apply Diversity Factor",
+      "  Maximum Demand = Total Connected Load × Diversity Factor",
+      "  = 450 kVA × 0.75",
+      "  = 337.5 kVA",
+      "",
+      "Step 4: Account for Future Expansion (typical 20%)",
+      "  Design Load = Maximum Demand × 1.20",
+      "  = 337.5 kVA × 1.20",
+      "  = 405 kVA",
+      "",
+      "Conclusion: Specify a 500 kVA transformer for this installation"
+    ];
+
+    exampleSteps.forEach(line => {
+      if (yPos > pageHeight - 20) {
+        doc.addPage();
+        yPos = 20;
+      }
+      doc.text(line, 14, yPos);
+      yPos += 5;
+    });
+
+    // Section 5: Best Practices
+    doc.addPage();
+    yPos = 20;
+
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("5. Best Practices", 14, yPos);
+    yPos += 10;
+
+    const bestPractices = [
+      "✓ Always verify the building classification code with SANS 204 Table 1",
+      "✓ Confirm the correct climatic zone for the project location",
+      "✓ Use typical diversity factors: 0.65-0.75 for retail, 0.70-0.80 for offices",
+      "✓ Include 15-20% future expansion factor for growing facilities",
+      "✓ Consider seasonal variations in climatic zones 3 and 5",
+      "✓ Document all assumptions and calculations in your report",
+      "✓ Verify final design with municipal electrical inspector",
+      "",
+      "Common Pitfalls to Avoid:",
+      "✗ Using incorrect zone (e.g., using coastal values for inland locations)",
+      "✗ Applying residential diversity factors to commercial buildings",
+      "✗ Ignoring future expansion requirements",
+      "✗ Not accounting for special equipment or high-load areas",
+      "✗ Mixing SANS 204 values with other calculation methods"
+    ];
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    bestPractices.forEach(line => {
+      if (yPos > pageHeight - 20) {
+        doc.addPage();
+        yPos = 20;
+      }
+      doc.text(line, 14, yPos);
+      yPos += 6;
+    });
+
+    // Footer
+    doc.setFontSize(8);
+    doc.setTextColor(100);
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.text(
+        `SANS 204 Guide - Page ${i} of ${pageCount}`,
+        pageWidth / 2,
+        pageHeight - 10,
+        { align: "center" }
+      );
+    }
+
+    doc.save("SANS_204_Calculation_Guide.pdf");
+    toast.success("SANS 204 guide downloaded successfully");
+  };
+
+  const generateSANS10142Guide = () => {
+    const doc = new jsPDF();
+    let yPos = 20;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+
+    // Title
+    doc.setFontSize(22);
+    doc.setFont("helvetica", "bold");
+    doc.text("SANS 10142-1 Calculation Guide", pageWidth / 2, yPos, { align: "center" });
+    yPos += 10;
+
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100);
+    doc.text("Wiring of Premises - Socket Outlet and Lighting Loads", pageWidth / 2, yPos, { align: "center" });
+    yPos += 15;
+
+    // Section 1: Overview
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(0);
+    doc.text("1. Overview", 14, yPos);
+    yPos += 8;
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    const overviewText = [
+      "SANS 10142-1 provides comprehensive guidelines for calculating electrical loads in various",
+      "building types. It covers socket outlet loads, lighting requirements, and fixed appliances",
+      "for residential, commercial, industrial, and institutional buildings."
+    ];
+    overviewText.forEach(line => {
+      doc.text(line, 14, yPos);
+      yPos += 5;
+    });
+    yPos += 10;
+
+    // Section 2: Socket Outlet Loads
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("2. Socket Outlet Loads by Building Type", 14, yPos);
+    yPos += 10;
+
+    Object.entries(SANS_10142_SOCKET_LOADS).forEach(([key, data]) => {
+      if (yPos > pageHeight - 60) {
+        doc.addPage();
+        yPos = 20;
+      }
+
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text(data.name, 14, yPos);
+      yPos += 6;
+
+      const tableData = data.ranges.map(item => [item.range, `${item.load} VA/m²`]);
+
+      autoTable(doc, {
+        startY: yPos,
+        head: [["Floor Area Range", "Socket Load"]],
+        body: tableData,
+        theme: "grid",
+        headStyles: { fillColor: [59, 130, 246], textColor: 255 },
+        styles: { fontSize: 9 },
+        margin: { left: 14, right: 14 },
+      });
+
+      yPos = (doc as any).lastAutoTable.finalY + 8;
+    });
+
+    // Section 3: Lighting Loads
+    doc.addPage();
+    yPos = 20;
+
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("3. Lighting Loads", 14, yPos);
+    yPos += 8;
+
+    const lightingData = Object.entries(SANS_10142_LIGHTING_LOADS).map(([key, data]) => [
+      data.name,
+      `${data.min} VA/m²`,
+      `${data.typical} VA/m²`,
+      `${data.max} VA/m²`
+    ]);
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [["Building Type", "Minimum", "Typical", "Maximum"]],
+      body: lightingData,
+      theme: "grid",
+      headStyles: { fillColor: [59, 130, 246], textColor: 255 },
+      styles: { fontSize: 9 },
+      margin: { left: 14, right: 14 },
+    });
+
+    yPos = (doc as any).lastAutoTable.finalY + 10;
+
+    // Section 4: Worked Example
+    doc.addPage();
+    yPos = 20;
+
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("4. Worked Example", 14, yPos);
+    yPos += 10;
+
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("Project: Office Building", 14, yPos);
+    yPos += 8;
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    const exampleSteps = [
+      "Given Information:",
+      "  • Building Type: Office",
+      "  • Total Floor Area: 800 m²",
+      "  • Fixed Appliances: 50 kW (air conditioning, lifts, etc.)",
+      "  • Diversity Factor: 0.75",
+      "",
+      "Step 1: Determine Socket Outlet Load",
+      "  For 800 m² office: 30 VA/m² (from table)",
+      "  Socket Load = 800 m² × 30 VA/m² = 24,000 VA = 24 kVA",
+      "",
+      "Step 2: Determine Lighting Load",
+      "  Use typical value: 25 VA/m²",
+      "  Lighting Load = 800 m² × 25 VA/m² = 20,000 VA = 20 kVA",
+      "",
+      "Step 3: Add Fixed Appliances",
+      "  Fixed Appliances = 50 kW",
+      "",
+      "Step 4: Calculate Total Connected Load",
+      "  Total = Socket + Lighting + Fixed Appliances",
+      "  = 24 kVA + 20 kVA + 50 kVA",
+      "  = 94 kVA",
+      "",
+      "Step 5: Apply Diversity Factor",
+      "  Maximum Demand = 94 kVA × 0.75 = 70.5 kVA",
+      "",
+      "Step 6: Add Safety Margin (15%)",
+      "  Design Load = 70.5 kVA × 1.15 = 81 kVA",
+      "",
+      "Conclusion: Specify a 100 kVA supply for this office building"
+    ];
+
+    exampleSteps.forEach(line => {
+      if (yPos > pageHeight - 20) {
+        doc.addPage();
+        yPos = 20;
+      }
+      doc.text(line, 14, yPos);
+      yPos += 5;
+    });
+
+    // Section 5: Best Practices
+    doc.addPage();
+    yPos = 20;
+
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("5. Best Practices", 14, yPos);
+    yPos += 10;
+
+    const bestPractices = [
+      "✓ Use the appropriate table for the specific building type",
+      "✓ Select socket loads based on actual floor area ranges",
+      "✓ Choose lighting values appropriate to the space usage",
+      "✓ Account for all fixed appliances separately",
+      "✓ Apply realistic diversity factors (0.70-0.85 typical)",
+      "✓ Include future expansion allowance (10-20%)",
+      "✓ Document all load calculations clearly",
+      "",
+      "Common Pitfalls to Avoid:",
+      "✗ Using the wrong building type classification",
+      "✗ Overlooking fixed appliances in the calculation",
+      "✗ Applying unrealistic diversity factors",
+      "✗ Mixing area ranges from different tables",
+      "✗ Not accounting for emergency and standby loads"
+    ];
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    bestPractices.forEach(line => {
+      if (yPos > pageHeight - 20) {
+        doc.addPage();
+        yPos = 20;
+      }
+      doc.text(line, 14, yPos);
+      yPos += 6;
+    });
+
+    // Footer
+    doc.setFontSize(8);
+    doc.setTextColor(100);
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.text(
+        `SANS 10142-1 Guide - Page ${i} of ${pageCount}`,
+        pageWidth / 2,
+        pageHeight - 10,
+        { align: "center" }
+      );
+    }
+
+    doc.save("SANS_10142-1_Calculation_Guide.pdf");
+    toast.success("SANS 10142-1 guide downloaded successfully");
+  };
+
+  const generateResidentialADMDGuide = () => {
+    const doc = new jsPDF();
+    let yPos = 20;
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+
+    // Title
+    doc.setFontSize(22);
+    doc.setFont("helvetica", "bold");
+    doc.text("Residential ADMD Calculation Guide", pageWidth / 2, yPos, { align: "center" });
+    yPos += 10;
+
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100);
+    doc.text("After Diversity Maximum Demand for Multi-Unit Residential", pageWidth / 2, yPos, { align: "center" });
+    yPos += 15;
+
+    // Section 1: Overview
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(0);
+    doc.text("1. Overview", 14, yPos);
+    yPos += 8;
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    const overviewText = [
+      "The ADMD method is specifically designed for residential developments with multiple units.",
+      "It accounts for the statistical reality that not all units will use maximum power simultaneously.",
+      "This method is based on units per phase for three-phase distribution systems."
+    ];
+    overviewText.forEach(line => {
+      doc.text(line, 14, yPos);
+      yPos += 5;
+    });
+    yPos += 10;
+
+    // Section 2: ADMD Table
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("2. ADMD Diversity Factors", 14, yPos);
+    yPos += 8;
+
+    const admdData = ADMD_DIVERSITY_TABLE.slice(0, 15).map(row => [
+      row.unitsPerPhase.toString(),
+      row.diversityFactor.toFixed(2),
+      `${row.unitsPerPhase * 3} units`
+    ]);
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [["Units/Phase", "Diversity Factor", "Total Units (3-phase)"]],
+      body: admdData,
+      theme: "grid",
+      headStyles: { fillColor: [59, 130, 246], textColor: 255 },
+      styles: { fontSize: 9 },
+      margin: { left: 14, right: 14 },
+    });
+
+    yPos = (doc as any).lastAutoTable.finalY + 10;
+
+    // Section 3: Typical Unit Loads
+    if (yPos > pageHeight - 80) {
+      doc.addPage();
+      yPos = 20;
+    }
+
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("3. Typical Residential Unit Loads", 14, yPos);
+    yPos += 8;
+
+    const unitLoadsData = [
+      ["Lighting", "5-8 × 15W", "75-120 W", "0.50"],
+      ["Socket Outlets", "1-2 × 3000W", "3000-6000 W", "0.50"],
+      ["Geyser", "1 × 2000W", "2000 W", "1.00"],
+      ["Stove", "1 × 2000W", "2000 W", "0.50"],
+      ["Pool Pump", "0-1 × 1500W", "0-1500 W", "1.00"]
+    ];
+
+    autoTable(doc, {
+      startY: yPos,
+      head: [["Load Type", "Quantity × Rating", "Total Load", "Diversity"]],
+      body: unitLoadsData,
+      theme: "grid",
+      headStyles: { fillColor: [59, 130, 246], textColor: 255 },
+      styles: { fontSize: 9 },
+      margin: { left: 14, right: 14 },
+    });
+
+    yPos = (doc as any).lastAutoTable.finalY + 10;
+
+    // Section 4: Worked Example
+    doc.addPage();
+    yPos = 20;
+
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("4. Worked Example", 14, yPos);
+    yPos += 10;
+
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("Project: 18-Unit Apartment Complex (3-phase supply)", 14, yPos);
+    yPos += 8;
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    const exampleSteps = [
+      "Step 1: Calculate Load per Unit",
+      "  Lighting: 5 × 15W × 0.5 = 37.5 W",
+      "  Sockets: 1 × 3000W × 0.5 = 1500 W",
+      "  Geyser: 1 × 2000W × 1.0 = 2000 W",
+      "  Stove: 1 × 2000W × 0.5 = 1000 W",
+      "  Total per unit after diversity = 4537.5 W ≈ 4.54 kW",
+      "",
+      "Step 2: Calculate Total Units per Phase",
+      "  18 units ÷ 3 phases = 6 units per phase",
+      "",
+      "Step 3: Determine ADMD Factor",
+      "  From table: 6 units/phase = 0.50 diversity factor",
+      "",
+      "Step 4: Calculate Maximum Demand per Phase",
+      "  Per phase: 6 units × 4.54 kW × 0.50 = 13.62 kW",
+      "",
+      "Step 5: Calculate Total Maximum Demand",
+      "  Total: 13.62 kW × 3 phases = 40.86 kW",
+      "",
+      "Step 6: Account for Unbalanced Loading (add 15%)",
+      "  Design load: 40.86 kW × 1.15 = 47 kW",
+      "",
+      "Step 7: Convert to kVA (assuming 0.95 power factor)",
+      "  Design capacity: 47 kW ÷ 0.95 = 49.5 kVA",
+      "",
+      "Conclusion: Specify a 63 kVA or 80 kVA three-phase supply"
+    ];
+
+    exampleSteps.forEach(line => {
+      if (yPos > pageHeight - 20) {
+        doc.addPage();
+        yPos = 20;
+      }
+      doc.text(line, 14, yPos);
+      yPos += 5;
+    });
+
+    // Section 5: Best Practices
+    doc.addPage();
+    yPos = 20;
+
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("5. Best Practices", 14, yPos);
+    yPos += 10;
+
+    const bestPractices = [
+      "✓ Always calculate based on units per phase, not total units",
+      "✓ Use realistic diversity factors for individual loads",
+      "✓ Account for future electric vehicle charging (add 20-30%)",
+      "✓ Consider unbalanced loading (add 10-15% safety margin)",
+      "✓ Verify power factor assumptions (typical 0.90-0.95)",
+      "✓ Document all load assumptions clearly",
+      "✓ Consider seasonal variations (heating/cooling)",
+      "",
+      "Common Pitfalls to Avoid:",
+      "✗ Using total units instead of units per phase",
+      "✗ Applying commercial diversity factors to residential",
+      "✗ Ignoring three-phase distribution",
+      "✗ Not accounting for future EV charging loads",
+      "✗ Using incorrect ADMD factor from table",
+      "✗ Forgetting to convert kW to kVA for final sizing"
+    ];
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    bestPractices.forEach(line => {
+      if (yPos > pageHeight - 20) {
+        doc.addPage();
+        yPos = 20;
+      }
+      doc.text(line, 14, yPos);
+      yPos += 6;
+    });
+
+    // Footer
+    doc.setFontSize(8);
+    doc.setTextColor(100);
+    const pageCount = doc.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
+      doc.setPage(i);
+      doc.text(
+        `Residential ADMD Guide - Page ${i} of ${pageCount}`,
+        pageWidth / 2,
+        pageHeight - 10,
+        { align: "center" }
+      );
+    }
+
+    doc.save("Residential_ADMD_Calculation_Guide.pdf");
+    toast.success("Residential ADMD guide downloaded successfully");
+  };
+
   return (
     <div className="space-y-4">
       <div className="space-y-4 border rounded-lg p-6 bg-card">
@@ -205,11 +819,30 @@ export const BulkServicesSettingsOverview = ({
           </Select>
         </div>
 
-        <div className="pt-2">
+        <div className="flex gap-2 pt-2">
           <Button onClick={handleSaveCalculationType} disabled={saving}>
             <Save className="mr-2 h-4 w-4" />
             {saving ? "Saving..." : "Save Calculation Method"}
           </Button>
+
+          {calculationType === "sans_204" && (
+            <Button variant="outline" onClick={generateSANS204Guide}>
+              <Download className="mr-2 h-4 w-4" />
+              Download SANS 204 Guide
+            </Button>
+          )}
+          {calculationType === "sans_10142" && (
+            <Button variant="outline" onClick={generateSANS10142Guide}>
+              <Download className="mr-2 h-4 w-4" />
+              Download SANS 10142 Guide
+            </Button>
+          )}
+          {calculationType === "residential" && (
+            <Button variant="outline" onClick={generateResidentialADMDGuide}>
+              <Download className="mr-2 h-4 w-4" />
+              Download ADMD Guide
+            </Button>
+          )}
         </div>
 
         <div className="pt-4 border-t">
