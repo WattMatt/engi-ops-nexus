@@ -195,9 +195,9 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       
       const totalCapitalCost = totalGeneratorCost + tenantDBsCost + mainBoardsCost + additionalCablingCost + controlWiringCost;
       
-      // Capital recovery calculation (10 years at 12%) - matching on-screen calculation
-      const years = 10;
-      const rate = 0.12;
+      // Capital recovery calculation - use saved settings or defaults
+      const years = generatorSettings?.capital_recovery_period_years || 10;
+      const rate = (generatorSettings?.capital_recovery_rate_percent || 12) / 100;
       
       // Calculate annual repayment using annuity formula (same as CapitalRecoveryCalculator)
       const numerator = rate * Math.pow(1 + rate, years);

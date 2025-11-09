@@ -2052,6 +2052,8 @@ export type Database = {
       generator_settings: {
         Row: {
           additional_cabling_cost: number | null
+          capital_recovery_period_years: number | null
+          capital_recovery_rate_percent: number | null
           control_wiring_cost: number | null
           created_at: string | null
           fast_food_kw_per_sqm: number | null
@@ -2069,6 +2071,8 @@ export type Database = {
         }
         Insert: {
           additional_cabling_cost?: number | null
+          capital_recovery_period_years?: number | null
+          capital_recovery_rate_percent?: number | null
           control_wiring_cost?: number | null
           created_at?: string | null
           fast_food_kw_per_sqm?: number | null
@@ -2086,6 +2090,8 @@ export type Database = {
         }
         Update: {
           additional_cabling_cost?: number | null
+          capital_recovery_period_years?: number | null
+          capital_recovery_rate_percent?: number | null
           control_wiring_cost?: number | null
           created_at?: string | null
           fast_food_kw_per_sqm?: number | null

@@ -23,6 +23,7 @@ export function CapitalRecoveryCalculator({ projectId }: CapitalRecoveryCalculat
   const [capitalCost, setCapitalCost] = useState(0);
   const [periodYears, setPeriodYears] = useState(10);
   const [rate, setRate] = useState(12.00);
+  const [isSavingSettings, setIsSavingSettings] = useState(false);
 
   // Fetch generator zones and settings to calculate total equipment cost
   const { data: zones = [] } = useQuery({
@@ -67,6 +68,18 @@ export function CapitalRecoveryCalculator({ projectId }: CapitalRecoveryCalculat
     },
     enabled: !!projectId,
   });
+
+  // Load saved period and rate from settings
+  useEffect(() => {
+    if (settings) {
+      if (settings.capital_recovery_period_years) {
+        setPeriodYears(settings.capital_recovery_period_years);
+      }
+      if (settings.capital_recovery_rate_percent) {
+        setRate(Number(settings.capital_recovery_rate_percent));
+      }
+    }
+  }, [settings]);
 
   // Update capital cost when data changes - use same calculation as GeneratorCostingSection
   useEffect(() => {
@@ -148,6 +161,39 @@ export function CapitalRecoveryCalculator({ projectId }: CapitalRecoveryCalculat
   const formatCurrency = (value: number): string => {
     return `R ${value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   };
+
+  // Save period and rate to database when they change
+  const saveSettings = async (period: number, rateValue: number) => {
+    if (!projectId) return;
+    
+    setIsSavingSettings(true);
+    try {
+      const { error } = await supabase
+        .from("generator_settings")
+        .upsert({
+          project_id: projectId,
+          capital_recovery_period_years: period,
+          capital_recovery_rate_percent: rateValue,
+        }, {
+          onConflict: "project_id"
+        });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error("Failed to save recovery settings:", error);
+    } finally {
+      setIsSavingSettings(false);
+    }
+  };
+
+  // Debounced save when period or rate changes
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      saveSettings(periodYears, rate);
+    }, 1000);
+
+    return () => clearTimeout(timeout);
+  }, [periodYears, rate, projectId]);
 
   return (
     <Card>

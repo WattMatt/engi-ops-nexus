@@ -142,9 +142,9 @@ const GeneratorReport = () => {
   
   const totalCapitalCost = totalGeneratorCost + tenantDBsCost + mainBoardsCost + additionalCablingCost + controlWiringCost;
   
-  // Calculate capital recovery (10 years at 12%)
-  const years = 10;
-  const rate = 0.12;
+  // Calculate capital recovery - use saved settings or defaults
+  const years = generatorSettings?.capital_recovery_period_years || 10;
+  const rate = (generatorSettings?.capital_recovery_rate_percent || 12) / 100;
   const numerator = rate * Math.pow(1 + rate, years);
   const denominator = Math.pow(1 + rate, years) - 1;
   const annualRepayment = totalCapitalCost * (numerator / denominator);
