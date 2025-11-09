@@ -33,6 +33,7 @@ import TenantTracker from "./pages/TenantTracker";
 import FinalAccounts from "./pages/FinalAccounts";
 import FinalAccountDetail from "./pages/FinalAccountDetail";
 import GeneratorReport from "./pages/GeneratorReport";
+import AITools from "./pages/AITools";
 import NotFound from "./pages/NotFound";
 import { HelpButton } from "./components/feedback/HelpButton";
 
@@ -71,6 +72,7 @@ const App = () => (
             <Route path="project-settings" element={<ProjectSettings />} />
             <Route path="site-diary" element={<SiteDiary />} />
             <Route path="tasks" element={<SiteDiary />} />
+            <Route path="ai-tools" element={<AITools />} />
             <Route path="cost-reports" element={<CostReports />} />
             <Route path="cost-reports/:reportId" element={<CostReportDetail />} />
             <Route path="budgets/electrical" element={<ElectricalBudgets />} />
