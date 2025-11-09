@@ -12,11 +12,14 @@ import { ReportDetailsManager } from "@/components/cost-reports/ReportDetailsMan
 import { ExportPDFButton } from "@/components/cost-reports/ExportPDFButton";
 import { CompareReportsDialog } from "@/components/cost-reports/CompareReportsDialog";
 import { ImportExcelDialog } from "@/components/cost-reports/ImportExcelDialog";
+import { CostReportHistory } from "@/components/cost-reports/CostReportHistory";
 import { Card, CardContent } from "@/components/ui/card";
+import { useState } from "react";
 
 const CostReportDetail = () => {
   const { reportId } = useParams();
   const navigate = useNavigate();
+  const [historyKey, setHistoryKey] = useState(0);
 
   const { data: report, isLoading, refetch } = useQuery({
     queryKey: ["cost-report", reportId],
@@ -87,7 +90,10 @@ const CostReportDetail = () => {
             currentReportId={report.id}
             projectId={report.project_id}
           />
-          <ExportPDFButton report={report} />
+          <ExportPDFButton 
+            report={report} 
+            onReportGenerated={() => setHistoryKey(prev => prev + 1)}
+          />
         </div>
       </div>
 
@@ -98,6 +104,7 @@ const CostReportDetail = () => {
           <TabsTrigger value="details">Report Details</TabsTrigger>
           <TabsTrigger value="categories">Categories & Line Items</TabsTrigger>
           <TabsTrigger value="variations">Variations</TabsTrigger>
+          <TabsTrigger value="history">Report History</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview">
@@ -118,6 +125,10 @@ const CostReportDetail = () => {
 
         <TabsContent value="variations">
           <CostVariationsManager reportId={report.id} projectId={report.project_id} />
+        </TabsContent>
+
+        <TabsContent value="history">
+          <CostReportHistory key={historyKey} reportId={report.id} />
         </TabsContent>
       </Tabs>
     </div>

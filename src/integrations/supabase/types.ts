@@ -920,6 +920,53 @@ export type Database = {
           },
         ]
       }
+      cost_report_pdfs: {
+        Row: {
+          cost_report_id: string
+          file_name: string
+          file_path: string
+          file_size: number | null
+          generated_at: string
+          generated_by: string | null
+          id: string
+          notes: string | null
+          project_id: string
+          revision: string | null
+        }
+        Insert: {
+          cost_report_id: string
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          notes?: string | null
+          project_id: string
+          revision?: string | null
+        }
+        Update: {
+          cost_report_id?: string
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          generated_at?: string
+          generated_by?: string | null
+          id?: string
+          notes?: string | null
+          project_id?: string
+          revision?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cost_report_pdfs_cost_report_id_fkey"
+            columns: ["cost_report_id"]
+            isOneToOne: false
+            referencedRelation: "cost_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cost_reports: {
         Row: {
           cctv_contractor: string | null

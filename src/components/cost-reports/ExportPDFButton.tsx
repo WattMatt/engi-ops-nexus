@@ -1,19 +1,22 @@
 import { Button } from "@/components/ui/button";
-import { Download } from "lucide-react";
+import { Download, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchCompanyDetails, generateCoverPage } from "@/utils/pdfCoverPage";
+import { StandardReportPreview } from "@/components/shared/StandardReportPreview";
 
 interface ExportPDFButtonProps {
   report: any;
+  onReportGenerated?: () => void;
 }
 
-export const ExportPDFButton = ({ report }: ExportPDFButtonProps) => {
+export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonProps) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [previewReport, setPreviewReport] = useState<any>(null);
 
   const handleExport = async () => {
     setLoading(true);
@@ -294,13 +297,54 @@ export const ExportPDFButton = ({ report }: ExportPDFButtonProps) => {
         );
       }
 
-      // Save the PDF
-      doc.save(`Cost_Report_${report.report_number}_${Date.now()}.pdf`);
+      // Generate PDF as blob
+      const pdfBlob = doc.output("blob");
+      
+      // Generate unique filename
+      const timestamp = Date.now();
+      const fileName = `Cost_Report_${report.report_number}_${timestamp}.pdf`;
+      const filePath = `${report.project_id}/${fileName}`;
+
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from("cost-report-pdfs")
+        .upload(filePath, pdfBlob, {
+          contentType: "application/pdf",
+          upsert: false,
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+
+      // Save record to database
+      const { data: savedReport, error: dbError } = await supabase
+        .from("cost_report_pdfs")
+        .insert({
+          cost_report_id: report.id,
+          project_id: report.project_id,
+          file_path: filePath,
+          file_name: fileName,
+          file_size: pdfBlob.size,
+          revision: `Report ${report.report_number}`,
+          generated_by: user?.id,
+        })
+        .select()
+        .single();
+
+      if (dbError) throw dbError;
 
       toast({
         title: "Success",
-        description: "Cost report PDF exported successfully",
+        description: "Cost report PDF generated successfully",
       });
+
+      // Show preview
+      setPreviewReport(savedReport);
+      
+      // Notify parent to refresh
+      onReportGenerated?.();
     } catch (error) {
       console.error("PDF export error:", error);
       toast({
@@ -314,9 +358,20 @@ export const ExportPDFButton = ({ report }: ExportPDFButtonProps) => {
   };
 
   return (
-    <Button onClick={handleExport} disabled={loading}>
-      <Download className="mr-2 h-4 w-4" />
-      {loading ? "Generating..." : "Export PDF"}
-    </Button>
+    <>
+      <Button onClick={handleExport} disabled={loading}>
+        <FileText className="mr-2 h-4 w-4" />
+        {loading ? "Generating..." : "Generate PDF"}
+      </Button>
+      
+      {previewReport && (
+        <StandardReportPreview
+          report={previewReport}
+          open={!!previewReport}
+          onOpenChange={(open) => !open && setPreviewReport(null)}
+          storageBucket="cost-report-pdfs"
+        />
+      )}
+    </>
   );
 };
