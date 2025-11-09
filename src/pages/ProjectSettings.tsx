@@ -378,18 +378,21 @@ export default function ProjectSettings() {
                       value={formData.building_calculation_type}
                       onValueChange={(value) => updateField("building_calculation_type", value)}
                     >
-                      <SelectTrigger>
+                      <SelectTrigger id="building_calculation_type">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="bg-background z-50">
                         <SelectItem value="commercial">Commercial/Retail (SANS 204)</SelectItem>
-                        <SelectItem value="residential">Residential (SANS 10142)</SelectItem>
+                        <SelectItem value="sans10142">General Buildings (SANS 10142-1)</SelectItem>
+                        <SelectItem value="residential">Residential Units (ADMD Method)</SelectItem>
                       </SelectContent>
                     </Select>
                     <p className="text-xs text-muted-foreground">
                       {formData.building_calculation_type === "commercial" 
-                        ? "Uses SANS 204 energy demand standards for commercial and retail buildings"
-                        : "Uses SANS 10142 fitting-based calculations for residential developments"}
+                        ? "Uses SANS 204 energy demand standards (VA/m²) by climatic zone for commercial and retail buildings"
+                        : formData.building_calculation_type === "sans10142"
+                          ? "Uses SANS 10142-1 socket outlet and lighting load tables (VA/m²) for general building types"
+                          : "Uses SANS 10142 fitting-based calculations with ADMD diversity factors for residential developments"}
                     </p>
                   </div>
                 </div>
