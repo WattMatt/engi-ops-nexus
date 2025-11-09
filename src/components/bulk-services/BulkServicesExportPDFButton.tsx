@@ -10,6 +10,7 @@ import { format } from "date-fns";
 import { fetchCompanyDetails, generateCoverPage } from "@/utils/pdfCoverPage";
 import { StandardReportPreview } from "@/components/shared/StandardReportPreview";
 import html2canvas from "html2canvas";
+import { COPPER_CABLE_TABLE } from "@/utils/cableSizing";
 
 interface BulkServicesExportPDFButtonProps {
   documentId: string;
@@ -354,6 +355,250 @@ export function BulkServicesExportPDFButton({ documentId, onReportSaved }: BulkS
           margin: { left: 14, right: 14 },
         });
       }
+
+      // ========== PAGE: CONNECTION SIZE & CABLE ROUTING ==========
+      doc.addPage();
+      yPos = 20;
+      
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text("CONNECTION SIZE & CABLE ROUTING RECOMMENDATIONS", 14, yPos);
+      yPos += 10;
+
+      // Calculate cable requirements
+      const maxDemandKVA = document.maximum_demand || 0;
+      const maxDemandAmps = maxDemandKVA > 0 ? (maxDemandKVA * 1000) / (Math.sqrt(3) * 400) : 0;
+      
+      // Determine number of cables needed
+      const maxAmpsPerCable = 300; // Standard max per cable
+      const cablesNeeded = Math.ceil(maxDemandAmps / maxAmpsPerCable);
+      const ampsPerCable = maxDemandAmps / cablesNeeded;
+      
+      
+      // Find suitable cable size from table
+      const suitableCable = COPPER_CABLE_TABLE.find(cable => cable.currentRatingAir >= ampsPerCable) 
+        || COPPER_CABLE_TABLE[COPPER_CABLE_TABLE.length - 1];
+
+      // Connection Details Box
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text("Connection Parameters", 14, yPos);
+      yPos += 8;
+
+      const connectionData = [
+        ['Parameter', 'Value', 'Notes'],
+        ['Maximum Demand', `${maxDemandKVA.toFixed(2)} kVA`, 'After diversity'],
+        ['Supply Voltage', `${document.primary_voltage || '11kV/400V'}`, '3-Phase'],
+        ['Design Current', `${maxDemandAmps.toFixed(1)} A`, 'Per phase'],
+        ['Connection Size', `${document.connection_size || maxDemandKVA.toFixed(0) + ' kVA'}`, 'Required capacity'],
+        ['Supply Authority', `${document.supply_authority || 'TBD'}`, 'Local municipality'],
+      ];
+
+      autoTable(doc, {
+        startY: yPos,
+        head: [connectionData[0]],
+        body: connectionData.slice(1),
+        theme: "striped",
+        headStyles: { fillColor: [52, 152, 219], fontSize: 9, fontStyle: 'bold' },
+        styles: { fontSize: 9, cellPadding: 3 },
+        columnStyles: {
+          0: { cellWidth: 50, fontStyle: 'bold' },
+          1: { cellWidth: 45, halign: 'center' },
+          2: { cellWidth: 82 },
+        },
+        margin: { left: 14, right: 14 },
+      });
+
+      yPos = (doc as any).lastAutoTable.finalY + 12;
+
+      // Visual Diagram - Connection Point to Distribution
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text("Single Line Diagram - Bulk Connection", 14, yPos);
+      yPos += 8;
+
+      const diagramStartX = 30;
+      const diagramWidth = 150;
+      
+      // Draw Supply Point (top)
+      doc.setFillColor(52, 152, 219);
+      doc.roundedRect(diagramStartX + diagramWidth/2 - 30, yPos, 60, 12, 2, 2, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text("SUPPLY AUTHORITY", diagramStartX + diagramWidth/2, yPos + 8, { align: 'center' });
+      doc.setTextColor(0, 0, 0);
+      
+      yPos += 18;
+      
+      // Supply details
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.text(`${document.primary_voltage || '11kV'}`, diagramStartX + diagramWidth/2, yPos, { align: 'center' });
+      yPos += 5;
+
+      // Vertical line from supply
+      doc.setDrawColor(0, 0, 0);
+      doc.setLineWidth(0.5);
+      doc.line(diagramStartX + diagramWidth/2, yPos, diagramStartX + diagramWidth/2, yPos + 15);
+      yPos += 18;
+
+      // Metering Equipment
+      doc.setFillColor(241, 196, 15);
+      doc.roundedRect(diagramStartX + diagramWidth/2 - 35, yPos, 70, 16, 2, 2, 'FD');
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.text("BULK METERING", diagramStartX + diagramWidth/2, yPos + 6, { align: 'center' });
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.text(`${document.connection_size || maxDemandKVA.toFixed(0) + ' kVA'}`, 
+        diagramStartX + diagramWidth/2, yPos + 11, { align: 'center' });
+      doc.text("(Municipal Equipment)", diagramStartX + diagramWidth/2, yPos + 14, { align: 'center' });
+      
+      yPos += 22;
+
+      // Vertical line
+      doc.line(diagramStartX + diagramWidth/2, yPos, diagramStartX + diagramWidth/2, yPos + 12);
+      yPos += 15;
+
+      // Main Protection Device
+      doc.setFillColor(231, 76, 60);
+      doc.roundedRect(diagramStartX + diagramWidth/2 - 40, yPos, 80, 16, 2, 2, 'FD');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.text("MAIN PROTECTION", diagramStartX + diagramWidth/2, yPos + 6, { align: 'center' });
+      
+      const breakerSize = Math.ceil(maxDemandAmps / 50) * 50; // Round up to nearest 50A
+      doc.setFontSize(8);
+      doc.text(`MCCB ${breakerSize}A`, diagramStartX + diagramWidth/2, yPos + 11, { align: 'center' });
+      doc.text(`@ 400V 3φ`, diagramStartX + diagramWidth/2, yPos + 14, { align: 'center' });
+      doc.setTextColor(0, 0, 0);
+      
+      yPos += 22;
+
+      // Vertical line with cable annotation
+      doc.line(diagramStartX + diagramWidth/2, yPos, diagramStartX + diagramWidth/2, yPos + 20);
+      
+      // Cable annotation
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "bold");
+      if (cablesNeeded > 1) {
+        doc.text(`${cablesNeeded}x ${suitableCable.size} COPPER`, diagramStartX + diagramWidth/2 + 5, yPos + 8);
+        doc.text(`(${ampsPerCable.toFixed(0)}A per cable)`, diagramStartX + diagramWidth/2 + 5, yPos + 12);
+      } else {
+        doc.text(`${suitableCable.size} COPPER`, diagramStartX + diagramWidth/2 + 5, yPos + 8);
+        doc.text(`(${maxDemandAmps.toFixed(0)}A)`, diagramStartX + diagramWidth/2 + 5, yPos + 12);
+      }
+      doc.text(`PVC/SWA/PVC`, diagramStartX + diagramWidth/2 + 5, yPos + 16);
+      
+      yPos += 25;
+
+      // Main Distribution Board
+      doc.setFillColor(46, 204, 113);
+      doc.roundedRect(diagramStartX + diagramWidth/2 - 45, yPos, 90, 16, 2, 2, 'FD');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "bold");
+      doc.text("MAIN DISTRIBUTION BOARD", diagramStartX + diagramWidth/2, yPos + 6, { align: 'center' });
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.text("(MDB - Location per layout)", diagramStartX + diagramWidth/2, yPos + 11, { align: 'center' });
+      doc.text(`Busbar Rating: ${breakerSize}A`, diagramStartX + diagramWidth/2, yPos + 14, { align: 'center' });
+      doc.setTextColor(0, 0, 0);
+      
+      yPos += 22;
+
+      // Distribution lines to sub-boards
+      const subBoardCount = 3;
+      const subBoardSpacing = diagramWidth / (subBoardCount + 1);
+      
+      // Draw distribution lines
+      for (let i = 1; i <= subBoardCount; i++) {
+        const xPos = diagramStartX + (subBoardSpacing * i);
+        // Vertical line down from MDB
+        doc.line(diagramStartX + diagramWidth/2, yPos, xPos, yPos + 8);
+        doc.line(xPos, yPos + 8, xPos, yPos + 15);
+      }
+      
+      yPos += 18;
+
+      // Sub-distribution boards
+      for (let i = 1; i <= subBoardCount; i++) {
+        const xPos = diagramStartX + (subBoardSpacing * i) - 18;
+        doc.setFillColor(155, 89, 182);
+        doc.roundedRect(xPos, yPos, 36, 12, 2, 2, 'FD');
+        doc.setTextColor(255, 255, 255);
+        doc.setFontSize(7);
+        doc.setFont("helvetica", "bold");
+        doc.text(`SUB-DB ${i}`, xPos + 18, yPos + 5, { align: 'center' });
+        doc.setFont("helvetica", "normal");
+        doc.text(`Area ${i}`, xPos + 18, yPos + 9, { align: 'center' });
+      }
+      doc.setTextColor(0, 0, 0);
+
+      yPos += 18;
+
+      // Cable Routing Recommendations Table
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.text("Cable Routing Recommendations", 14, yPos);
+      yPos += 8;
+
+      const cableRouteData = [
+        ['Route Segment', 'Cable Size', 'Installation Method', 'Protection'],
+        ['Supply → Metering', 'By Supply Authority', 'Underground (Ducts)', 'As per Authority'],
+        ['Metering → Main Protection', suitableCable.size + (cablesNeeded > 1 ? ` (${cablesNeeded} cables)` : ''), 'Underground/Trunking', `${breakerSize}A MCCB`],
+        ['Main → Sub-distribution', 'Per sub-board load', 'Trunking/Cable Tray', 'Per circuit design'],
+        ['Future Expansion', `Allow ${Math.round((document.future_expansion_factor || 1.2 - 1) * 100)}% spare capacity`, 'Reserve conduits', 'Upsize protection'],
+      ];
+
+      autoTable(doc, {
+        startY: yPos,
+        head: [cableRouteData[0]],
+        body: cableRouteData.slice(1),
+        theme: "striped",
+        headStyles: { fillColor: [52, 73, 94], fontSize: 8, fontStyle: 'bold' },
+        styles: { fontSize: 7.5, cellPadding: 2.5 },
+        columnStyles: {
+          0: { cellWidth: 45, fontStyle: 'bold' },
+          1: { cellWidth: 45 },
+          2: { cellWidth: 45 },
+          3: { cellWidth: 42 },
+        },
+        margin: { left: 14, right: 14 },
+      });
+
+      yPos = (doc as any).lastAutoTable.finalY + 10;
+
+      // Technical Notes
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text("Technical Notes:", 14, yPos);
+      yPos += 6;
+      
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      const technicalNotes = [
+        `• All cables to be copper conductors, PVC insulated, SWA armoured, PVC sheathed`,
+        `• Cable sizing based on ${maxDemandKVA.toFixed(2)} kVA maximum demand (${maxDemandAmps.toFixed(1)}A)`,
+        `• Installation method: ${suitableCable.currentRatingAir}A rating (air/trunking installation)`,
+        `• Voltage drop allowance: 2.5% from source to final distribution point`,
+        `• All cable terminations to be crimped with appropriate lugs`,
+        `• Earth continuity to be maintained throughout via cable armouring and earth bar`,
+        `• Color coding: Brown/Black/Grey (L1/L2/L3), Blue (Neutral), Green-Yellow (Earth)`,
+        `• Future expansion factor of ${((document.future_expansion_factor || 1.2) * 100).toFixed(0)}% considered in main infrastructure`,
+      ];
+
+      technicalNotes.forEach(note => {
+        if (yPos > 270) {
+          doc.addPage();
+          yPos = 20;
+        }
+        const splitText = doc.splitTextToSize(note, 180);
+        doc.text(splitText, 14, yPos);
+        yPos += splitText.length * 4 + 2;
+      });
 
       // ========== SECTIONS CONTENT ==========
       if (sections.length > 0) {
