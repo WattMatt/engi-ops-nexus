@@ -51,6 +51,9 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       const variations = variationsResult.data || [];
       const details = detailsResult.data || [];
 
+      // Track sections and their page numbers for TOC
+      const tocSections: { title: string; page: number }[] = [];
+
       // Create PDF
       const doc = new jsPDF("portrait");
       const pageWidth = doc.internal.pageSize.width;
@@ -69,6 +72,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
 
       // ========== PAGE 2: PROJECT INFORMATION ==========
       doc.addPage();
+      tocSections.push({ title: "Project Information", page: doc.getCurrentPageInfo().pageNumber });
       let yPos = 20;
 
       doc.setFontSize(14);
@@ -108,6 +112,8 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
 
       // ========== REPORT DETAILS SECTIONS ==========
       if (details.length > 0) {
+        tocSections.push({ title: "Report Details", page: doc.getCurrentPageInfo().pageNumber });
+        
         doc.setFontSize(14);
         doc.setFont("helvetica", "bold");
         doc.text("REPORT DETAILS", 14, yPos);
@@ -191,6 +197,8 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       }
 
       // ========== COST CATEGORIES SUMMARY ==========
+      tocSections.push({ title: "Cost Summary", page: doc.getCurrentPageInfo().pageNumber });
+      
       doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
       doc.text("COST SUMMARY", 14, yPos);
@@ -268,6 +276,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       // ========== DETAILED LINE ITEMS ==========
       if (categories.length > 0) {
         doc.addPage();
+        tocSections.push({ title: "Detailed Line Items", page: doc.getCurrentPageInfo().pageNumber });
         yPos = 20;
 
         doc.setFontSize(14);
@@ -333,6 +342,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       // ========== VARIATIONS ==========
       if (variations.length > 0) {
         doc.addPage();
+        tocSections.push({ title: "Variations", page: doc.getCurrentPageInfo().pageNumber });
         yPos = 20;
 
         doc.setFontSize(14);
@@ -374,9 +384,52 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         });
       }
 
-      // Add page numbers to all pages except cover
+      // ========== INSERT TABLE OF CONTENTS ==========
+      // Insert TOC after cover page (page 2 becomes TOC, others shift)
+      doc.insertPage(2);
+      doc.setPage(2);
+      
+      // Draw TOC header
+      yPos = 30;
+      doc.setFontSize(18);
+      doc.setFont("helvetica", "bold");
+      doc.text("TABLE OF CONTENTS", pageWidth / 2, yPos, { align: "center" });
+      
+      yPos += 20;
+      
+      // Draw TOC entries
+      doc.setFontSize(11);
+      for (const section of tocSections) {
+        if (yPos > pageHeight - 30) {
+          doc.addPage();
+          yPos = 30;
+        }
+        
+        doc.setFont("helvetica", "normal");
+        doc.text(section.title, 20, yPos);
+        
+        // Add dots
+        const dotsWidth = pageWidth - 60;
+        const titleWidth = doc.getTextWidth(section.title);
+        const pageNumText = `${section.page + 1}`; // +1 because TOC is now page 2
+        const pageNumWidth = doc.getTextWidth(pageNumText);
+        const dotsSpace = dotsWidth - titleWidth - pageNumWidth;
+        const numDots = Math.floor(dotsSpace / 3);
+        const dots = '.'.repeat(Math.max(0, numDots));
+        
+        doc.setTextColor(150);
+        doc.text(dots, 20 + titleWidth + 2, yPos);
+        doc.setTextColor(0);
+        
+        doc.setFont("helvetica", "bold");
+        doc.text(pageNumText, pageWidth - 20, yPos, { align: "right" });
+        
+        yPos += 8;
+      }
+
+      // Add page numbers to all pages except cover and TOC
       const totalPages = doc.getNumberOfPages();
-      for (let i = 2; i <= totalPages; i++) {
+      for (let i = 3; i <= totalPages; i++) {
         doc.setPage(i);
         doc.setFontSize(9);
         doc.setTextColor(100);
