@@ -108,6 +108,61 @@ const getCableSize = (current: number): string => {
   return ">300 mm² (consult engineer)";
 };
 
+// Circuit breaker sizing based on IEC 60898/61009 standards
+// Returns recommended breaker rating considering 1.25x factor for continuous loads
+const getCircuitBreakerSize = (current: number): { rating: number; type: string; tripCurve: string } => {
+  // Calculate required breaker size (125% of design current for continuous loads)
+  const requiredRating = current * 1.25;
+  
+  // Standard MCB ratings (IEC 60898)
+  const standardRatings = [6, 10, 16, 20, 25, 32, 40, 50, 63, 80, 100, 125, 160, 200, 250, 315, 400, 630, 800, 1000, 1250, 1600];
+  
+  // Find next standard rating above required
+  const rating = standardRatings.find(r => r >= requiredRating) || standardRatings[standardRatings.length - 1];
+  
+  // Determine breaker type and trip curve based on rating
+  let type = "MCB";
+  let tripCurve = "C";
+  
+  if (rating <= 125) {
+    type = "MCB";
+    tripCurve = "C"; // C-curve for general distribution (5-10× In)
+  } else if (rating <= 630) {
+    type = "MCCB";
+    tripCurve = "Thermal-Magnetic"; // MCCB with adjustable trip
+  } else {
+    type = "ACB";
+    tripCurve = "Electronic"; // Air circuit breaker with electronic protection
+  }
+  
+  return { rating, type, tripCurve };
+};
+
+// Calculate discrimination ratio for upstream/downstream protection
+const calculateDiscrimination = (downstreamRating: number, upstreamRating: number): {
+  ratio: number;
+  isAdequate: boolean;
+  recommendation: string;
+} => {
+  const ratio = upstreamRating / downstreamRating;
+  
+  // IEC 60947-2 recommendation: upstream should be at least 1.6× downstream for full discrimination
+  const isAdequate = ratio >= 1.6;
+  
+  let recommendation = "";
+  if (ratio >= 2.5) {
+    recommendation = "Excellent discrimination - Full selectivity ensured";
+  } else if (ratio >= 1.6) {
+    recommendation = "Good discrimination - Adequate selectivity";
+  } else if (ratio >= 1.3) {
+    recommendation = "Partial discrimination - Consider coordination study";
+  } else {
+    recommendation = "Poor discrimination - Upstream may trip first. Increase ratio.";
+  }
+  
+  return { ratio, isAdequate, recommendation };
+};
+
 // SANS 204 Table 1 - Maximum energy demand (VA/m²)
 const SANS_204_TABLE = {
   A1: { name: "Entertainment & Public Assembly", zones: [85, 80, 90, 80, 80, 85] },
@@ -1385,6 +1440,357 @@ export const SANS204Calculator = ({
                         );
                       })()}
                     </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Circuit Breaker & Protection Device Recommendations */}
+              {useADMD && parseFloat(numUnits || "0") > 0 && (
+                <Card className="border-purple-200 dark:border-purple-900">
+                  <CardHeader>
+                    <CardTitle className="text-base flex items-center gap-2">
+                      <CheckCircle2 className="h-5 w-5 text-purple-600" />
+                      Circuit Breaker & Protection Device Recommendations
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {(() => {
+                      const units = parseFloat(numUnits) || 0;
+                      const totalPerUnitWatts = 
+                        fittingLoads.lamps.qty * fittingLoads.lamps.load * fittingLoads.lamps.diversity +
+                        fittingLoads.plugs.qty * fittingLoads.plugs.load * fittingLoads.plugs.diversity +
+                        fittingLoads.geyser.qty * fittingLoads.geyser.load * fittingLoads.geyser.diversity +
+                        fittingLoads.stove.qty * fittingLoads.stove.load * fittingLoads.stove.diversity +
+                        fittingLoads.poolPump.qty * fittingLoads.poolPump.load * fittingLoads.poolPump.diversity;
+                      
+                      const totalPerUnitKva = totalPerUnitWatts / 1000 / 0.95;
+                      const unitsPerPhase = Math.ceil(units / 3);
+                      const diversityFactor = parseFloat(generalDiversity);
+                      const admdPerPhase = totalPerUnitKva * unitsPerPhase * diversityFactor;
+                      const currentPerPhase = (admdPerPhase * 1000) / 230;
+                      
+                      // Calculate unit breaker (per dwelling)
+                      const unitCurrent = (totalPerUnitKva * 1000) / 230;
+                      const unitBreaker = getCircuitBreakerSize(unitCurrent);
+                      
+                      // Calculate sub-distribution breaker (per phase)
+                      const subDistBreaker = getCircuitBreakerSize(currentPerPhase);
+                      
+                      // Calculate main incomer (3-phase)
+                      const total3PhaseKva = admdPerPhase * 3;
+                      const mainIncomerCurrent = (total3PhaseKva * 1000) / (Math.sqrt(3) * 400);
+                      const mainBreaker = getCircuitBreakerSize(mainIncomerCurrent);
+                      
+                      // Calculate discrimination ratios
+                      const subToMainDiscrimination = calculateDiscrimination(subDistBreaker.rating, mainBreaker.rating);
+                      const unitToSubDiscrimination = calculateDiscrimination(unitBreaker.rating, subDistBreaker.rating);
+                      
+                      // Prepare data for discrimination curve
+                      const discriminationCurveData = [
+                        { 
+                          current: unitBreaker.rating * 0.5, 
+                          unit: 0.01, 
+                          subDist: 0, 
+                          main: 0,
+                          label: `${(unitBreaker.rating * 0.5).toFixed(0)}A`
+                        },
+                        { 
+                          current: unitBreaker.rating, 
+                          unit: 0.05, 
+                          subDist: 0, 
+                          main: 0,
+                          label: `${unitBreaker.rating}A`
+                        },
+                        { 
+                          current: unitBreaker.rating * 3, 
+                          unit: 0.3, 
+                          subDist: 0.01, 
+                          main: 0,
+                          label: `${(unitBreaker.rating * 3).toFixed(0)}A`
+                        },
+                        { 
+                          current: unitBreaker.rating * 10, 
+                          unit: 2, 
+                          subDist: 0.02, 
+                          main: 0,
+                          label: `${(unitBreaker.rating * 10).toFixed(0)}A`
+                        },
+                        { 
+                          current: subDistBreaker.rating, 
+                          unit: null, 
+                          subDist: 0.05, 
+                          main: 0,
+                          label: `${subDistBreaker.rating}A`
+                        },
+                        { 
+                          current: subDistBreaker.rating * 3, 
+                          unit: null, 
+                          subDist: 0.5, 
+                          main: 0.01,
+                          label: `${(subDistBreaker.rating * 3).toFixed(0)}A`
+                        },
+                        { 
+                          current: subDistBreaker.rating * 10, 
+                          unit: null, 
+                          subDist: 3, 
+                          main: 0.03,
+                          label: `${(subDistBreaker.rating * 10).toFixed(0)}A`
+                        },
+                        { 
+                          current: mainBreaker.rating, 
+                          unit: null, 
+                          subDist: null, 
+                          main: 0.08,
+                          label: `${mainBreaker.rating}A`
+                        },
+                        { 
+                          current: mainBreaker.rating * 3, 
+                          unit: null, 
+                          subDist: null, 
+                          main: 0.8,
+                          label: `${(mainBreaker.rating * 3).toFixed(0)}A`
+                        },
+                        { 
+                          current: mainBreaker.rating * 10, 
+                          unit: null, 
+                          subDist: null, 
+                          main: 5,
+                          label: `${(mainBreaker.rating * 10).toFixed(0)}A`
+                        },
+                      ];
+
+                      return (
+                        <div className="space-y-6">
+                          {/* Protection Device Sizing */}
+                          <div>
+                            <h4 className="text-sm font-semibold mb-3">Protection Device Sizing</h4>
+                            <div className="rounded-md border">
+                              <table className="w-full text-sm">
+                                <thead className="bg-muted">
+                                  <tr>
+                                    <th className="p-2 text-left">Level</th>
+                                    <th className="p-2 text-center">Design Current</th>
+                                    <th className="p-2 text-center">Breaker Rating</th>
+                                    <th className="p-2 text-center">Type</th>
+                                    <th className="p-2 text-center">Trip Curve</th>
+                                    <th className="p-2 text-center">Poles</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  <tr className="border-t">
+                                    <td className="p-2 font-medium">Unit Breaker (per dwelling)</td>
+                                    <td className="p-2 text-center">{unitCurrent.toFixed(1)} A</td>
+                                    <td className="p-2 text-center font-semibold text-purple-600 dark:text-purple-400">
+                                      {unitBreaker.rating} A
+                                    </td>
+                                    <td className="p-2 text-center">{unitBreaker.type}</td>
+                                    <td className="p-2 text-center">{unitBreaker.tripCurve}</td>
+                                    <td className="p-2 text-center">1P+N</td>
+                                  </tr>
+                                  <tr className="border-t">
+                                    <td className="p-2 font-medium">Sub-Distribution (per phase)</td>
+                                    <td className="p-2 text-center">{currentPerPhase.toFixed(1)} A</td>
+                                    <td className="p-2 text-center font-semibold text-purple-600 dark:text-purple-400">
+                                      {subDistBreaker.rating} A
+                                    </td>
+                                    <td className="p-2 text-center">{subDistBreaker.type}</td>
+                                    <td className="p-2 text-center">{subDistBreaker.tripCurve}</td>
+                                    <td className="p-2 text-center">3P</td>
+                                  </tr>
+                                  <tr className="border-t bg-primary/5">
+                                    <td className="p-2 font-medium">Main Incomer (3Ø)</td>
+                                    <td className="p-2 text-center">{mainIncomerCurrent.toFixed(1)} A</td>
+                                    <td className="p-2 text-center font-semibold text-primary">
+                                      {mainBreaker.rating} A
+                                    </td>
+                                    <td className="p-2 text-center">{mainBreaker.type}</td>
+                                    <td className="p-2 text-center">{mainBreaker.tripCurve}</td>
+                                    <td className="p-2 text-center">3P+N</td>
+                                  </tr>
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+
+                          {/* Discrimination Analysis */}
+                          <div>
+                            <h4 className="text-sm font-semibold mb-3">Discrimination & Coordination Analysis</h4>
+                            <div className="space-y-3">
+                              {/* Unit to Sub-Distribution */}
+                              <div className={`p-3 rounded-lg border ${
+                                unitToSubDiscrimination.isAdequate 
+                                  ? "bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-900"
+                                  : "bg-yellow-50 dark:bg-yellow-950/30 border-yellow-200 dark:border-yellow-900"
+                              }`}>
+                                <div className="flex items-center justify-between mb-2">
+                                  <p className="text-sm font-semibold">Unit → Sub-Distribution</p>
+                                  <span className={`text-xs px-2 py-1 rounded ${
+                                    unitToSubDiscrimination.isAdequate 
+                                      ? "bg-green-200 dark:bg-green-900 text-green-800 dark:text-green-200"
+                                      : "bg-yellow-200 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200"
+                                  }`}>
+                                    Ratio: {unitToSubDiscrimination.ratio.toFixed(2)}:1
+                                  </span>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                  {unitBreaker.rating}A → {subDistBreaker.rating}A
+                                </p>
+                                <p className="text-xs mt-1">
+                                  {unitToSubDiscrimination.recommendation}
+                                </p>
+                              </div>
+
+                              {/* Sub-Distribution to Main */}
+                              <div className={`p-3 rounded-lg border ${
+                                subToMainDiscrimination.isAdequate 
+                                  ? "bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-900"
+                                  : "bg-yellow-50 dark:bg-yellow-950/30 border-yellow-200 dark:border-yellow-900"
+                              }`}>
+                                <div className="flex items-center justify-between mb-2">
+                                  <p className="text-sm font-semibold">Sub-Distribution → Main Incomer</p>
+                                  <span className={`text-xs px-2 py-1 rounded ${
+                                    subToMainDiscrimination.isAdequate 
+                                      ? "bg-green-200 dark:bg-green-900 text-green-800 dark:text-green-200"
+                                      : "bg-yellow-200 dark:bg-yellow-900 text-yellow-800 dark:text-yellow-200"
+                                  }`}>
+                                    Ratio: {subToMainDiscrimination.ratio.toFixed(2)}:1
+                                  </span>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                  {subDistBreaker.rating}A → {mainBreaker.rating}A
+                                </p>
+                                <p className="text-xs mt-1">
+                                  {subToMainDiscrimination.recommendation}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Discrimination Curve */}
+                          <div>
+                            <h4 className="text-sm font-semibold mb-3">Time-Current Discrimination Curve</h4>
+                            <div className="h-[400px] w-full">
+                              <ResponsiveContainer width="100%" height="100%">
+                                <LineChart 
+                                  data={discriminationCurveData}
+                                  margin={{ top: 5, right: 30, left: 20, bottom: 40 }}
+                                >
+                                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                                  <XAxis 
+                                    dataKey="current" 
+                                    scale="log"
+                                    domain={[unitBreaker.rating * 0.5, mainBreaker.rating * 10]}
+                                    label={{ value: 'Current (A)', position: 'insideBottom', offset: -10 }}
+                                    tickFormatter={(value) => value.toFixed(0)}
+                                  />
+                                  <YAxis 
+                                    scale="log"
+                                    domain={[0.01, 10]}
+                                    label={{ value: 'Time (s)', angle: -90, position: 'insideLeft' }}
+                                    tickFormatter={(value) => value >= 1 ? value.toFixed(0) : value.toFixed(2)}
+                                  />
+                                  <Tooltip 
+                                    formatter={(value: any) => {
+                                      if (value === null) return ['N/A', ''];
+                                      return [value >= 1 ? `${value.toFixed(2)}s` : `${(value * 1000).toFixed(0)}ms`, ''];
+                                    }}
+                                    labelFormatter={(label) => `Current: ${label}A`}
+                                  />
+                                  <Line 
+                                    type="monotone" 
+                                    dataKey="unit" 
+                                    stroke="hsl(var(--purple-600))" 
+                                    strokeWidth={2}
+                                    dot={{ fill: "hsl(var(--purple-600))", r: 4 }}
+                                    name={`Unit Breaker (${unitBreaker.rating}A)`}
+                                    connectNulls={false}
+                                  />
+                                  <Line 
+                                    type="monotone" 
+                                    dataKey="subDist" 
+                                    stroke="hsl(var(--orange-600))" 
+                                    strokeWidth={2}
+                                    dot={{ fill: "hsl(var(--orange-600))", r: 4 }}
+                                    name={`Sub-Dist (${subDistBreaker.rating}A)`}
+                                    connectNulls={false}
+                                  />
+                                  <Line 
+                                    type="monotone" 
+                                    dataKey="main" 
+                                    stroke="hsl(var(--primary))" 
+                                    strokeWidth={2}
+                                    dot={{ fill: "hsl(var(--primary))", r: 4 }}
+                                    name={`Main (${mainBreaker.rating}A)`}
+                                    connectNulls={false}
+                                  />
+                                </LineChart>
+                              </ResponsiveContainer>
+                            </div>
+                            <div className="flex items-center justify-center gap-6 mt-2 text-xs">
+                              <div className="flex items-center gap-2">
+                                <div className="w-4 h-0.5 bg-purple-600"></div>
+                                <span>Unit Breaker ({unitBreaker.rating}A)</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <div className="w-4 h-0.5 bg-orange-600"></div>
+                                <span>Sub-Distribution ({subDistBreaker.rating}A)</span>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <div className="w-4 h-0.5 bg-primary"></div>
+                                <span>Main Incomer ({mainBreaker.rating}A)</span>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Protection Coordination Notes */}
+                          <div className="p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-900 text-xs">
+                            <p className="font-semibold mb-2 text-blue-800 dark:text-blue-400">🛡️ Protection Coordination Requirements:</p>
+                            <ul className="space-y-1 text-muted-foreground">
+                              <li>• <strong>Selectivity Ratio:</strong> Upstream breaker rating should be ≥1.6× downstream for full discrimination (IEC 60947-2)</li>
+                              <li>• <strong>Time Grading:</strong> Curves show coordination zones - downstream trips before upstream under fault conditions</li>
+                              <li>• <strong>Trip Curves:</strong> {unitBreaker.tripCurve}-curve breakers selected based on load characteristics</li>
+                              <li>• <strong>Breaking Capacity:</strong> Verify breakers have adequate fault rating for installation location (typically 6-10kA for domestic, 15-25kA for distribution)</li>
+                              <li>• <strong>Earth Fault Protection:</strong> Consider RCDs (30mA for final circuits, 100-300mA time-delayed for distribution)</li>
+                              <li>• <strong>Overload vs Short Circuit:</strong> Thermal elements protect against overload, magnetic elements against short circuits</li>
+                              <li>• <strong>Cable Protection:</strong> Breaker rating must protect cable from overload (In ≤ Iz, cable current-carrying capacity)</li>
+                            </ul>
+                          </div>
+
+                          {/* Summary */}
+                          <div className="grid grid-cols-3 gap-3">
+                            <div className="p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg border border-purple-200 dark:border-purple-900">
+                              <p className="text-xs text-muted-foreground mb-1">Per-Unit Protection</p>
+                              <p className="text-xl font-bold text-purple-600 dark:text-purple-400">
+                                {unitBreaker.rating}A {unitBreaker.type}
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {unitBreaker.tripCurve}-curve, 1P+N
+                              </p>
+                            </div>
+
+                            <div className="p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg border border-purple-200 dark:border-purple-900">
+                              <p className="text-xs text-muted-foreground mb-1">Sub-Distribution</p>
+                              <p className="text-xl font-bold text-purple-600 dark:text-purple-400">
+                                {subDistBreaker.rating}A {subDistBreaker.type}
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {subDistBreaker.tripCurve}, 3P
+                              </p>
+                            </div>
+
+                            <div className="p-3 bg-purple-50 dark:bg-purple-950/30 rounded-lg border border-purple-200 dark:border-purple-900">
+                              <p className="text-xs text-muted-foreground mb-1">Main Incomer</p>
+                              <p className="text-xl font-bold text-purple-600 dark:text-purple-400">
+                                {mainBreaker.rating}A {mainBreaker.type}
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {mainBreaker.tripCurve}, 3P+N
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </CardContent>
                 </Card>
               )}
