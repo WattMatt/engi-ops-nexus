@@ -78,14 +78,50 @@ export const CreateBulkServicesDialog = ({
 
       if (docError) throw docError;
 
-      // Create default sections
+      // Create default sections with SANS 204 compliant content
       const defaultSections = [
-        { section_number: "1", section_title: "Supply Capacity", sort_order: 1 },
-        { section_number: "2", section_title: "Distribution Strategy", sort_order: 2 },
-        { section_number: "3", section_title: "Load Calculations", sort_order: 3 },
-        { section_number: "4", section_title: "Protection & Earthing", sort_order: 4 },
-        { section_number: "5", section_title: "Cable Sizing", sort_order: 5 },
-        { section_number: "6", section_title: "Future Expansion", sort_order: 6 },
+        { 
+          section_number: "1", 
+          section_title: "Introduction", 
+          sort_order: 1,
+          content: `The following report has been put together based on the instruction as received from the client.\n\nThe information for this report has been based on the areas as derived from the leasing layout as received from the architect.`
+        },
+        { 
+          section_number: "2", 
+          section_title: "Load Clarification", 
+          sort_order: 2,
+          content: `Being a ${projectData?.load_category || 'commercial'} development, the electrical load sizing will be done in accordance with SANS 204 which deals with energy efficiency in buildings.\n\n## SANS 204 Classification\n\nFor this portion the following has been derived from the SANS regulation Table 1:\n\n| Classification | Description | Max Demand (VA/m²) |\n|---|---|---|\n| F1 | Large shop | 90 |\n| G1 | Offices | 80 |\n| A1 | Entertainment/Assembly | 85 |\n\n## Climatic Zones of South Africa\n\n| Zone | Description | Major Centre |\n|---|---|---|\n| 1 | Cold interior | Johannesburg, Bloemfontein |\n| 2 | Hot interior | Makhado, Nelspruit |\n| 3 | Temperate coastal | Cape Town, Port Elizabeth |\n| 4 | Sub-tropical coastal | East London, Durban |\n| 5 | Arid interior | Upington, Kimberley |\n\nThe total proposed area will have a floor area of [AREA]m² of ${projectData?.load_category || 'retail'}. Based on the required allowances from SANS 204, an applied load of [VA/m²] has been applied.\n\nOn this basis, a total connected nominated maximum demand of ${projectData?.connection_size || '[SIZE]'} would be required for this development.`
+        },
+        { 
+          section_number: "3", 
+          section_title: "Connection Classification", 
+          sort_order: 3,
+          content: `The supply authority in the region is ${projectData?.supply_authority || '[SUPPLY AUTHORITY]'}.\n\nThe primary supply voltage in the area is ${projectData?.primary_voltage || '[VOLTAGE]'} and the bulk connection will be taken at the same. This will be done by means of the placement of a ${projectData?.primary_voltage === '11kV' ? 'Metering type Ring Main Unit' : 'suitable metering equipment'} on the Erf boundary.`
+        },
+        { 
+          section_number: "4", 
+          section_title: "Bulk Connection Point", 
+          sort_order: 4,
+          content: `Placement of the connection equipment to be as per electrical layout drawing.\n\nArea required for the placement of the council equipment is 3m x 6m, accessible from the road side.\n\nThe equipment shall be installed at the property boundary in accordance with the supply authority's requirements.`
+        },
+        { 
+          section_number: "5", 
+          section_title: "Distribution Strategy", 
+          sort_order: 5,
+          content: `## Primary Distribution\n\nThe bulk supply at ${projectData?.primary_voltage || '[VOLTAGE]'} will be stepped down to 400V via miniature substations strategically placed throughout the development.\n\n## Secondary Distribution\n\nFrom the miniature substations, distribution will be via:\n- Main distribution boards\n- Sub-distribution boards\n- Final distribution to tenant DBs\n\n## Diversity Factor\n\nA diversity factor of ${projectData?.diversity_factor || '0.75'} has been applied in accordance with ${projectData?.electrical_standard || 'SANS 10142-1'}.`
+        },
+        { 
+          section_number: "6", 
+          section_title: "Protection & Earthing", 
+          sort_order: 6,
+          content: `## Protection Philosophy\n\nProtection and discrimination to be in accordance with ${projectData?.electrical_standard || 'SANS 10142-1'}.\n\n${projectData?.protection_philosophy || 'Protection devices shall be coordinated to ensure selectivity and minimize nuisance tripping.'}\n\n## Earthing System\n\nEarthing to be done in accordance with SANS 10142-1. A TN-S earthing system shall be implemented with separate earth bars in all distribution boards.`
+        },
+        { 
+          section_number: "7", 
+          section_title: "Metering Requirements", 
+          sort_order: 7,
+          content: `## Bulk Metering\n\nBulk metering will be installed by ${projectData?.supply_authority || 'the supply authority'} at the point of supply.\n\n## Sub-Metering\n\n${projectData?.metering_requirements || 'Sub-metering to be provided for individual tenants and common areas to facilitate accurate cost recovery and monitoring.'}\n\n## Tariff Structure\n\nThe development will be billed under the ${projectData?.tariff_structure || '[TARIFF STRUCTURE]'} tariff structure.`
+        },
       ];
 
       const { error: sectionsError } = await supabase

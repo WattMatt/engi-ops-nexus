@@ -22,6 +22,13 @@ export const BulkServicesHeader = ({ document }: BulkServicesHeaderProps) => {
     total_connected_load: document.total_connected_load?.toString() || "",
     maximum_demand: document.maximum_demand?.toString() || "",
     future_expansion_factor: document.future_expansion_factor?.toString() || "1.20",
+    project_area: document.project_area?.toString() || "",
+    va_per_sqm: document.va_per_sqm?.toString() || "",
+    climatic_zone: document.climatic_zone || "",
+    prepared_by: document.prepared_by || "",
+    prepared_by_contact: document.prepared_by_contact || "",
+    client_name: document.client_name || "",
+    architect: document.architect || "",
   });
 
   const handleSave = async () => {
@@ -38,6 +45,13 @@ export const BulkServicesHeader = ({ document }: BulkServicesHeaderProps) => {
           total_connected_load: formData.total_connected_load ? parseFloat(formData.total_connected_load) : null,
           maximum_demand: formData.maximum_demand ? parseFloat(formData.maximum_demand) : null,
           future_expansion_factor: formData.future_expansion_factor ? parseFloat(formData.future_expansion_factor) : 1.20,
+          project_area: formData.project_area ? parseFloat(formData.project_area) : null,
+          va_per_sqm: formData.va_per_sqm ? parseFloat(formData.va_per_sqm) : null,
+          climatic_zone: formData.climatic_zone || null,
+          prepared_by: formData.prepared_by || null,
+          prepared_by_contact: formData.prepared_by_contact || null,
+          client_name: formData.client_name || null,
+          architect: formData.architect || null,
         })
         .eq("id", document.id);
 
@@ -70,6 +84,34 @@ export const BulkServicesHeader = ({ document }: BulkServicesHeaderProps) => {
           <div>
             <p className="text-sm text-muted-foreground">Date</p>
             <p className="font-medium">{new Date(document.document_date).toLocaleDateString()}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Client</p>
+            <p className="font-medium">{document.client_name || "Not set"}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Architect</p>
+            <p className="font-medium">{document.architect || "Not set"}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Prepared By</p>
+            <p className="font-medium">{document.prepared_by || "Not set"}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Contact Person</p>
+            <p className="font-medium">{document.prepared_by_contact || "Not set"}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Project Area</p>
+            <p className="font-medium">{document.project_area ? `${document.project_area} m²` : "Not set"}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Load (VA/m²)</p>
+            <p className="font-medium">{document.va_per_sqm ? `${document.va_per_sqm} VA/m²` : "Not set"}</p>
+          </div>
+          <div>
+            <p className="text-sm text-muted-foreground">Climatic Zone</p>
+            <p className="font-medium">{document.climatic_zone || "Not set"}</p>
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Primary Voltage</p>
@@ -130,6 +172,66 @@ export const BulkServicesHeader = ({ document }: BulkServicesHeaderProps) => {
           />
         </div>
         <div className="space-y-2">
+          <Label>Client Name</Label>
+          <Input
+            value={formData.client_name}
+            onChange={(e) => setFormData({ ...formData, client_name: e.target.value })}
+            placeholder="Client name"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Architect</Label>
+          <Input
+            value={formData.architect}
+            onChange={(e) => setFormData({ ...formData, architect: e.target.value })}
+            placeholder="Architect firm"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Prepared By (Consultant)</Label>
+          <Input
+            value={formData.prepared_by}
+            onChange={(e) => setFormData({ ...formData, prepared_by: e.target.value })}
+            placeholder="Watson Mattheus Consulting"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Contact Person</Label>
+          <Input
+            value={formData.prepared_by_contact}
+            onChange={(e) => setFormData({ ...formData, prepared_by_contact: e.target.value })}
+            placeholder="Mr. Contact Name"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Project Area (m²)</Label>
+          <Input
+            type="number"
+            step="0.01"
+            value={formData.project_area}
+            onChange={(e) => setFormData({ ...formData, project_area: e.target.value })}
+            placeholder="23814"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Load (VA/m²) - SANS 204</Label>
+          <Input
+            type="number"
+            step="0.01"
+            value={formData.va_per_sqm}
+            onChange={(e) => setFormData({ ...formData, va_per_sqm: e.target.value })}
+            placeholder="85 or 90"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label>Climatic Zone (1-5)</Label>
+          <Input
+            value={formData.climatic_zone}
+            onChange={(e) => setFormData({ ...formData, climatic_zone: e.target.value })}
+            placeholder="1 (Cold interior)"
+          />
+        </div>
+        <div className="space-y-2">
           <Label>Primary Voltage</Label>
           <Input
             value={formData.primary_voltage}
@@ -150,7 +252,7 @@ export const BulkServicesHeader = ({ document }: BulkServicesHeaderProps) => {
           <Input
             value={formData.supply_authority}
             onChange={(e) => setFormData({ ...formData, supply_authority: e.target.value })}
-            placeholder="Eskom"
+            placeholder="Eskom / Tshwane / City Power"
           />
         </div>
         <div className="space-y-2">
@@ -178,7 +280,7 @@ export const BulkServicesHeader = ({ document }: BulkServicesHeaderProps) => {
             step="0.01"
             value={formData.total_connected_load}
             onChange={(e) => setFormData({ ...formData, total_connected_load: e.target.value })}
-            placeholder="1000"
+            placeholder="2000"
           />
         </div>
         <div className="space-y-2">
@@ -188,7 +290,7 @@ export const BulkServicesHeader = ({ document }: BulkServicesHeaderProps) => {
             step="0.01"
             value={formData.maximum_demand}
             onChange={(e) => setFormData({ ...formData, maximum_demand: e.target.value })}
-            placeholder="750"
+            placeholder="1500"
           />
         </div>
         <div className="space-y-2">

@@ -122,13 +122,34 @@ export const BulkServicesSections = ({ documentId, sections }: BulkServicesSecti
               <Textarea
                 value={editContent}
                 onChange={(e) => setEditContent(e.target.value)}
-                rows={10}
+                rows={15}
                 placeholder="Enter section content..."
+                className="font-mono text-sm"
               />
             ) : (
               <div className="prose prose-sm max-w-none">
                 {section.content ? (
-                  <p className="whitespace-pre-wrap">{section.content}</p>
+                  <div className="whitespace-pre-wrap">
+                    {section.content.split('\n').map((line: string, idx: number) => {
+                      // Handle markdown tables
+                      if (line.trim().startsWith('|')) {
+                        return <div key={idx} className="font-mono text-xs bg-muted p-2 rounded my-1">{line}</div>;
+                      }
+                      // Handle markdown headers
+                      if (line.trim().startsWith('## ')) {
+                        return <h3 key={idx} className="text-lg font-semibold mt-4 mb-2">{line.replace('## ', '')}</h3>;
+                      }
+                      if (line.trim().startsWith('# ')) {
+                        return <h2 key={idx} className="text-xl font-bold mt-4 mb-2">{line.replace('# ', '')}</h2>;
+                      }
+                      // Handle bullet points
+                      if (line.trim().startsWith('- ')) {
+                        return <li key={idx} className="ml-4">{line.replace('- ', '')}</li>;
+                      }
+                      // Regular text
+                      return line.trim() ? <p key={idx} className="mb-2">{line}</p> : <br key={idx} />;
+                    })}
+                  </div>
                 ) : (
                   <p className="text-muted-foreground italic">
                     No content yet. Click Edit to add content.

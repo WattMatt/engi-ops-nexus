@@ -422,6 +422,9 @@ export type Database = {
       }
       bulk_services_documents: {
         Row: {
+          architect: string | null
+          client_name: string | null
+          climatic_zone: string | null
           connection_size: string | null
           created_at: string
           created_by: string
@@ -434,15 +437,22 @@ export type Database = {
           load_category: string | null
           maximum_demand: number | null
           notes: string | null
+          prepared_by: string | null
+          prepared_by_contact: string | null
           primary_voltage: string | null
+          project_area: number | null
           project_id: string
           revision: string
           supply_authority: string | null
           tariff_structure: string | null
           total_connected_load: number | null
           updated_at: string
+          va_per_sqm: number | null
         }
         Insert: {
+          architect?: string | null
+          client_name?: string | null
+          climatic_zone?: string | null
           connection_size?: string | null
           created_at?: string
           created_by: string
@@ -455,15 +465,22 @@ export type Database = {
           load_category?: string | null
           maximum_demand?: number | null
           notes?: string | null
+          prepared_by?: string | null
+          prepared_by_contact?: string | null
           primary_voltage?: string | null
+          project_area?: number | null
           project_id: string
           revision?: string
           supply_authority?: string | null
           tariff_structure?: string | null
           total_connected_load?: number | null
           updated_at?: string
+          va_per_sqm?: number | null
         }
         Update: {
+          architect?: string | null
+          client_name?: string | null
+          climatic_zone?: string | null
           connection_size?: string | null
           created_at?: string
           created_by?: string
@@ -476,13 +493,17 @@ export type Database = {
           load_category?: string | null
           maximum_demand?: number | null
           notes?: string | null
+          prepared_by?: string | null
+          prepared_by_contact?: string | null
           primary_voltage?: string | null
+          project_area?: number | null
           project_id?: string
           revision?: string
           supply_authority?: string | null
           tariff_structure?: string | null
           total_connected_load?: number | null
           updated_at?: string
+          va_per_sqm?: number | null
         }
         Relationships: []
       }
