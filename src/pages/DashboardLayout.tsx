@@ -36,6 +36,14 @@ const DashboardLayout = () => {
   useEffect(() => {
     checkAuth();
     loadProjectInfo();
+
+    // Listen for project changes
+    const handleProjectChange = () => {
+      loadProjectInfo();
+    };
+    
+    window.addEventListener('projectChanged', handleProjectChange);
+    return () => window.removeEventListener('projectChanged', handleProjectChange);
   }, []);
 
   const checkAuth = async () => {

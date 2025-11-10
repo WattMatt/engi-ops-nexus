@@ -63,10 +63,9 @@ export const ProjectDropdown = () => {
   const handleProjectSelect = (project: Project) => {
     localStorage.setItem("selectedProjectId", project.id);
     setSelectedProject(project);
-    // Navigate to dashboard to trigger re-render with new project
+    // Dispatch custom event to notify other components
+    window.dispatchEvent(new Event('projectChanged'));
     navigate("/dashboard");
-    // Force a clean navigation by reloading after navigation
-    setTimeout(() => window.location.reload(), 100);
   };
 
   const handleManageProjects = () => {

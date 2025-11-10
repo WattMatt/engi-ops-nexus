@@ -1,4 +1,6 @@
+import { useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { 
@@ -20,9 +22,19 @@ import { BeneficialOccupationWidget } from "@/components/dashboard/BeneficialOcc
 import { BulkServicesWidget } from "@/components/dashboard/BulkServicesWidget";
 
 const Dashboard = () => {
-  const projectId = localStorage.getItem("selectedProjectId");
-  const projectName = localStorage.getItem("currentProjectName");
   const navigate = useNavigate();
+  const [projectId, setProjectId] = useState(localStorage.getItem("selectedProjectId"));
+  const projectName = localStorage.getItem("currentProjectName");
+
+  // Listen for project changes
+  useEffect(() => {
+    const handleProjectChange = () => {
+      setProjectId(localStorage.getItem("selectedProjectId"));
+    };
+    
+    window.addEventListener('projectChanged', handleProjectChange);
+    return () => window.removeEventListener('projectChanged', handleProjectChange);
+  }, []);
 
   const { data: costReports = [] } = useQuery({
     queryKey: ["cost-reports", projectId],
