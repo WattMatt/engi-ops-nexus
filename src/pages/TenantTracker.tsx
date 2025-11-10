@@ -77,7 +77,7 @@ const TenantTracker = () => {
   };
 
   return (
-    <div className="h-full flex flex-col p-4 md:p-8 pt-6 overflow-hidden">
+    <div className="h-full flex flex-col p-4 md:p-8 pt-6">
       <div className="flex justify-between items-center mb-4 flex-shrink-0">
         <div>
           <div className="flex items-center gap-3">
@@ -96,7 +96,7 @@ const TenantTracker = () => {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col min-h-0">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-visible">
         <TabsList className="flex-shrink-0">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="tenants">Tenant Schedule</TabsTrigger>
@@ -130,7 +130,7 @@ const TenantTracker = () => {
         
         <div className={activeTab !== "documents" ? "mt-4" : ""}></div>
         
-        <TabsContent value="overview" className="flex-1 overflow-auto pr-4">
+        <TabsContent value="overview" className="mt-4 space-y-6">
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
               <p className="text-muted-foreground">Loading data...</p>
