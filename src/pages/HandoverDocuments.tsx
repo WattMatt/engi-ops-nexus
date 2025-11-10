@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Upload, Link2, Share2, Package, Users, BarChart3 } from "lucide-react";
+import { Upload, Link2, Share2, Package, Users, BarChart3, Zap, Cpu, Server, Lightbulb, Camera, Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { UploadHandoverDocumentDialog } from "@/components/handover/UploadHandoverDocumentDialog";
 import { LinkHandoverDocumentDialog } from "@/components/handover/LinkHandoverDocumentDialog";
@@ -15,6 +15,7 @@ import { HandoverTenantsList } from "@/components/handover/HandoverTenantsList";
 import { DocumentSearchFilters } from "@/components/handover/DocumentSearchFilters";
 import { HandoverDashboard } from "@/components/handover/HandoverDashboard";
 import { AsBuiltDrawingsView } from "@/components/handover/AsBuiltDrawingsView";
+import { EquipmentDocumentsView } from "@/components/handover/EquipmentDocumentsView";
 
 const HandoverDocuments = () => {
   const { toast } = useToast();
@@ -185,26 +186,46 @@ const HandoverDocuments = () => {
 
       {/* Tabs for different sections */}
       <Tabs defaultValue="dashboard" className="w-full">
-        <TabsList>
+        <TabsList className="grid w-full grid-cols-5 lg:grid-cols-10">
           <TabsTrigger value="dashboard">
             <BarChart3 className="h-4 w-4 mr-2" />
             Overview
           </TabsTrigger>
           <TabsTrigger value="as-built">
             <Package className="h-4 w-4 mr-2" />
-            As Built Drawings
+            As Built
           </TabsTrigger>
-          <TabsTrigger value="search">
-            <Package className="h-4 w-4 mr-2" />
-            Search Documents
+          <TabsTrigger value="generators">
+            <Zap className="h-4 w-4 mr-2" />
+            Generators
+          </TabsTrigger>
+          <TabsTrigger value="transformers">
+            <Cpu className="h-4 w-4 mr-2" />
+            Transformers
+          </TabsTrigger>
+          <TabsTrigger value="main-boards">
+            <Server className="h-4 w-4 mr-2" />
+            Main Boards
+          </TabsTrigger>
+          <TabsTrigger value="lighting">
+            <Lightbulb className="h-4 w-4 mr-2" />
+            Lighting
+          </TabsTrigger>
+          <TabsTrigger value="cctv">
+            <Camera className="h-4 w-4 mr-2" />
+            CCTV & Access
+          </TabsTrigger>
+          <TabsTrigger value="lightning">
+            <Shield className="h-4 w-4 mr-2" />
+            Lightning
           </TabsTrigger>
           <TabsTrigger value="tenants">
             <Users className="h-4 w-4 mr-2" />
             Tenants
           </TabsTrigger>
-          <TabsTrigger value="documents">
+          <TabsTrigger value="search">
             <Package className="h-4 w-4 mr-2" />
-            Documents
+            Search
           </TabsTrigger>
         </TabsList>
 
@@ -219,12 +240,66 @@ const HandoverDocuments = () => {
           <AsBuiltDrawingsView projectId={projectId} />
         </TabsContent>
 
-        <TabsContent value="search">
-          <DocumentSearchFilters projectId={projectId} />
+        <TabsContent value="generators">
+          <EquipmentDocumentsView 
+            projectId={projectId}
+            equipmentType="generators"
+            equipmentLabel="Generators"
+            icon={<Zap className="h-5 w-5" />}
+          />
+        </TabsContent>
+
+        <TabsContent value="transformers">
+          <EquipmentDocumentsView 
+            projectId={projectId}
+            equipmentType="transformers"
+            equipmentLabel="Transformers"
+            icon={<Cpu className="h-5 w-5" />}
+          />
+        </TabsContent>
+
+        <TabsContent value="main-boards">
+          <EquipmentDocumentsView 
+            projectId={projectId}
+            equipmentType="main_boards"
+            equipmentLabel="Main Boards"
+            icon={<Server className="h-5 w-5" />}
+          />
+        </TabsContent>
+
+        <TabsContent value="lighting">
+          <EquipmentDocumentsView 
+            projectId={projectId}
+            equipmentType="lighting"
+            equipmentLabel="Lighting"
+            icon={<Lightbulb className="h-5 w-5" />}
+          />
+        </TabsContent>
+
+        <TabsContent value="cctv">
+          <EquipmentDocumentsView 
+            projectId={projectId}
+            equipmentType="cctv_access_control"
+            equipmentLabel="CCTV and Access Control"
+            icon={<Camera className="h-5 w-5" />}
+          />
+        </TabsContent>
+
+        <TabsContent value="lightning">
+          <EquipmentDocumentsView 
+            projectId={projectId}
+            equipmentType="lightning_protection"
+            equipmentLabel="Lightning Protection"
+            icon={<Shield className="h-5 w-5" />}
+          />
         </TabsContent>
 
         <TabsContent value="tenants">
           <HandoverTenantsList projectId={projectId} />
+        </TabsContent>
+
+        <TabsContent value="search">
+          <DocumentSearchFilters projectId={projectId} />
         </TabsContent>
 
         <TabsContent value="documents" className="space-y-6">
