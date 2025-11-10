@@ -8,9 +8,7 @@ import { Upload, Link2, Share2, Package, Users, BarChart3, Zap, Cpu, Server, Lig
 import { useToast } from "@/hooks/use-toast";
 import { UploadHandoverDocumentDialog } from "@/components/handover/UploadHandoverDocumentDialog";
 import { LinkHandoverDocumentDialog } from "@/components/handover/LinkHandoverDocumentDialog";
-import { GenerateHandoverLinkDialog } from "@/components/handover/GenerateHandoverLinkDialog";
 import { HandoverDocumentsList } from "@/components/handover/HandoverDocumentsList";
-import { HandoverLinksManager } from "@/components/handover/HandoverLinksManager";
 import { HandoverTenantsList } from "@/components/handover/HandoverTenantsList";
 import { DocumentSearchFilters } from "@/components/handover/DocumentSearchFilters";
 import { HandoverDashboard } from "@/components/handover/HandoverDashboard";
@@ -21,8 +19,6 @@ const HandoverDocuments = () => {
   const { toast } = useToast();
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
-  const [generateLinkDialogOpen, setGenerateLinkDialogOpen] = useState(false);
-  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
 
   // Get current project from localStorage (using same key as TenantTracker)
   const projectId = localStorage.getItem("selectedProjectId") || "";
@@ -178,9 +174,12 @@ const HandoverDocuments = () => {
           <Link2 className="h-4 w-4 mr-2" />
           Link from Project
         </Button>
-        <Button variant="secondary" onClick={() => setGenerateLinkDialogOpen(true)}>
+        <Button 
+          variant="secondary" 
+          onClick={() => window.open(`/handover-client-management`, '_blank')}
+        >
           <Share2 className="h-4 w-4 mr-2" />
-          Generate Client Link
+          Client Portal Link
         </Button>
       </div>
 
@@ -301,14 +300,6 @@ const HandoverDocuments = () => {
         <TabsContent value="search">
           <DocumentSearchFilters projectId={projectId} />
         </TabsContent>
-
-        <TabsContent value="documents" className="space-y-6">
-          {/* Documents List */}
-          <HandoverDocumentsList projectId={projectId} />
-
-          {/* Active Links Manager */}
-          <HandoverLinksManager projectId={projectId} />
-        </TabsContent>
       </Tabs>
 
       {/* Dialogs */}
@@ -321,12 +312,6 @@ const HandoverDocuments = () => {
       <LinkHandoverDocumentDialog
         open={linkDialogOpen}
         onOpenChange={setLinkDialogOpen}
-        projectId={projectId}
-      />
-
-      <GenerateHandoverLinkDialog
-        open={generateLinkDialogOpen}
-        onOpenChange={setGenerateLinkDialogOpen}
         projectId={projectId}
       />
     </div>

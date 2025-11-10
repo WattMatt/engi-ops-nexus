@@ -38,6 +38,7 @@ import AITools from "./pages/AITools";
 import BulkServices from "./pages/BulkServices";
 import HandoverDocuments from "./pages/HandoverDocuments";
 import HandoverClient from "./pages/HandoverClient";
+import HandoverClientManagement from "./pages/HandoverClientManagement";
 import NotFound from "./pages/NotFound";
 import { HelpButton } from "./components/feedback/HelpButton";
 
@@ -57,7 +58,10 @@ const App = () => (
         <Route path="/projects" element={<ProjectSelect />} />
         
         {/* Public handover route - no authentication required */}
-        <Route path="/handover/:token" element={<HandoverClient />} />
+        <Route path="/handover-client" element={<HandoverClient />} />
+        
+        {/* Admin handover management route */}
+        <Route path="/handover-client-management" element={<HandoverClientManagement />} />
           
           {/* Admin routes - no project required */}
           <Route path="/admin" element={<AdminLayout />}>

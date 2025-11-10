@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -15,75 +15,49 @@ import {
 } from "@/components/ui/table";
 import { FileText, Download, Package, Loader2, AlertCircle, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { format, isPast } from "date-fns";
 import JSZip from "jszip";
 import { ClientDocumentPreview } from "@/components/handover/ClientDocumentPreview";
 
 const HandoverClient = () => {
-  const { token } = useParams<{ token: string }>();
+  const [searchParams] = useSearchParams();
+  const projectId = searchParams.get("project");
   const { toast } = useToast();
   const [isDownloadingAll, setIsDownloadingAll] = useState(false);
   const [previewDocument, setPreviewDocument] = useState<any>(null);
 
-  // Fetch handover link details
-  const { data: handoverLinkData, isLoading: linkLoading, error: linkError } = useQuery({
-    queryKey: ["handover-link", token],
+  // Fetch project details
+  const { data: project, isLoading: projectLoading, error: projectError } = useQuery({
+    queryKey: ["project", projectId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("handover_links" as any)
-        .select(`
-          *,
-          projects(name, client_name)
-        `)
-        .eq("link_token", token)
+        .from("projects")
+        .select("name, client_name")
+        .eq("id", projectId)
         .maybeSingle();
 
       if (error) throw error;
-      if (!data) throw new Error("Invalid or expired link");
+      if (!data) throw new Error("Project not found");
       
-      const linkData = data as any;
-      
-      // Check if expired
-      if (linkData.expires_at && isPast(new Date(linkData.expires_at))) {
-        throw new Error("This link has expired");
-      }
-
-      return linkData;
+      return data;
     },
-    enabled: !!token,
+    enabled: !!projectId,
     retry: false,
   });
 
-  const handoverLink = handoverLinkData as any;
-
-  // Track access
-  useEffect(() => {
-    if (handoverLink?.id) {
-      supabase
-        .from("handover_links" as any)
-        .update({
-          access_count: (handoverLink.access_count || 0) + 1,
-          last_accessed_at: new Date().toISOString(),
-        })
-        .eq("id", handoverLink.id)
-        .then();
-    }
-  }, [handoverLink?.id, handoverLink?.access_count]);
-
   // Fetch documents
   const { data: documents, isLoading: docsLoading } = useQuery({
-    queryKey: ["handover-client-documents", handoverLink?.project_id],
+    queryKey: ["handover-client-documents", projectId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("handover_documents" as any)
         .select("*")
-        .eq("project_id", handoverLink?.project_id)
+        .eq("project_id", projectId)
         .order("document_type", { ascending: true });
 
       if (error) throw error;
       return data;
     },
-    enabled: !!handoverLink?.project_id,
+    enabled: !!projectId,
   });
 
   const handleDownload = async (doc: any) => {
@@ -119,7 +93,7 @@ const HandoverClient = () => {
     setIsDownloadingAll(true);
     try {
       const zip = new JSZip();
-      const projectName = handoverLink?.projects?.name || "handover";
+      const projectName = project?.name || "handover";
 
       toast({
         title: "Preparing download",
@@ -172,7 +146,7 @@ const HandoverClient = () => {
     }
   };
 
-  if (linkLoading || docsLoading) {
+  if (projectLoading || docsLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Card className="w-full max-w-md">
@@ -185,7 +159,7 @@ const HandoverClient = () => {
     );
   }
 
-  if (linkError || !handoverLink) {
+  if (projectError || !project || !projectId) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Card className="w-full max-w-md">
@@ -193,7 +167,7 @@ const HandoverClient = () => {
             <AlertCircle className="h-12 w-12 text-destructive mb-4" />
             <h2 className="text-2xl font-bold mb-2">Invalid Link</h2>
             <p className="text-muted-foreground text-center">
-              {linkError?.message || "This handover link is invalid or has expired."}
+              {projectError?.message || "This handover link is invalid or the project was not found."}
             </p>
           </CardContent>
         </Card>
@@ -201,8 +175,8 @@ const HandoverClient = () => {
     );
   }
 
-  const projectName = handoverLink?.projects?.name || "Project";
-  const clientName = handoverLink?.projects?.client_name;
+  const projectName = project?.name || "Project";
+  const clientName = project?.client_name;
   const documentsWithFiles = documents?.filter((d: any) => d.file_url) || [];
 
   return (
@@ -281,7 +255,11 @@ const HandoverClient = () => {
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {format(new Date(doc.created_at), "MMM d, yyyy")}
+                        {new Date(doc.created_at).toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                          year: "numeric"
+                        })}
                       </TableCell>
                       <TableCell className="text-right">
                         {doc.file_url ? (
@@ -322,13 +300,8 @@ const HandoverClient = () => {
           <CardContent className="py-6">
             <div className="text-sm text-muted-foreground space-y-2">
               <p>
-                This secure link provides access to all project handover documents.
+                This portal provides access to all project handover documents.
               </p>
-              {handoverLink?.expires_at && (
-                <p>
-                  Link expires: {format(new Date(handoverLink.expires_at), "MMMM d, yyyy")}
-                </p>
-              )}
               <p className="text-xs">
                 If you have any questions about these documents, please contact your project manager.
               </p>
