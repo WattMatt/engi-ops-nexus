@@ -20,6 +20,8 @@ import { Button } from "@/components/ui/button";
 import { TenantChangesWidget } from "@/components/dashboard/TenantChangesWidget";
 import { BeneficialOccupationWidget } from "@/components/dashboard/BeneficialOccupationWidget";
 import { BulkServicesWidget } from "@/components/dashboard/BulkServicesWidget";
+import { ProjectCompletionCard } from "@/components/dashboard/ProjectCompletionCard";
+import { IssuesIncompleteWidget } from "@/components/dashboard/IssuesIncompleteWidget";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -82,15 +84,22 @@ const Dashboard = () => {
 
   return (
     <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold">Project Overview</h1>
-          <p className="text-muted-foreground mt-1">{projectName || "No project selected"}</p>
-        </div>
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold mb-2">Project Overview</h1>
+        <p className="text-muted-foreground">
+          Selected Project: <span className="font-semibold">{projectName || "None"}</span>
+        </p>
       </div>
 
-      {/* Quick Stats */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {/* Project Completion Card - Prominent Position */}
+      {projectId && (
+        <div className="mb-6">
+          <ProjectCompletionCard projectId={projectId} />
+        </div>
+      )}
+
+      {/* Quick Stats - More Compact */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => navigate("/dashboard/cost-reports")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Cost Reports</CardTitle>
@@ -136,7 +145,14 @@ const Dashboard = () => {
         </Card>
       </div>
 
-      {/* Main Content Grid */}
+      {/* Issues & Incomplete Items Widget */}
+      {projectId && (
+        <div className="mb-6">
+          <IssuesIncompleteWidget projectId={projectId} />
+        </div>
+      )}
+
+      {/* Status Widgets Grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {/* Left column - Tenant Changes */}
         <div className="lg:col-span-1">
