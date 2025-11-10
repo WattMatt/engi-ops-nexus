@@ -179,7 +179,7 @@ const HandoverDocuments = () => {
         {isAdmin && (
           <Button 
             variant="secondary" 
-            onClick={() => window.open(`/handover-client-management`, '_blank')}
+            onClick={() => window.location.href = '/handover-client-management'}
           >
             <Share2 className="h-4 w-4 mr-2" />
             Client Portal Link

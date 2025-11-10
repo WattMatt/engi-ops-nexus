@@ -13,7 +13,8 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { FileText, Download, Package, Loader2, AlertCircle, Eye } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FileText, Download, Package, Loader2, AlertCircle, Eye, Zap, Cpu, Server, Lightbulb, Camera, Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import JSZip from "jszip";
 import { ClientDocumentPreview } from "@/components/handover/ClientDocumentPreview";
@@ -179,6 +180,81 @@ const HandoverClient = () => {
   const clientName = project?.client_name;
   const documentsWithFiles = documents?.filter((d: any) => d.file_url) || [];
 
+  const getDocumentsByType = (equipmentType: string) => {
+    return documents?.filter((doc: any) => doc.equipment_type === equipmentType) || [];
+  };
+
+  const renderDocumentsTable = (docs: any[]) => (
+    <Table>
+      <TableHeader>
+        <TableRow>
+          <TableHead>Document Name</TableHead>
+          <TableHead>Type</TableHead>
+          <TableHead>Added</TableHead>
+          <TableHead className="text-right">Action</TableHead>
+        </TableRow>
+      </TableHeader>
+      <TableBody>
+        {docs.length === 0 ? (
+          <TableRow>
+            <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+              No documents available for this category
+            </TableCell>
+          </TableRow>
+        ) : (
+          docs.map((doc: any) => (
+            <TableRow key={doc.id}>
+              <TableCell className="font-medium">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  {doc.document_name}
+                </div>
+              </TableCell>
+              <TableCell>
+                <Badge variant="secondary">
+                  {doc.document_type.replace(/_/g, " ")}
+                </Badge>
+              </TableCell>
+              <TableCell>
+                {new Date(doc.created_at).toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric"
+                })}
+              </TableCell>
+              <TableCell className="text-right">
+                {doc.file_url ? (
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setPreviewDocument(doc)}
+                    >
+                      <Eye className="h-4 w-4 mr-2" />
+                      Preview
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleDownload(doc)}
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Download
+                    </Button>
+                  </div>
+                ) : (
+                  <span className="text-sm text-muted-foreground">
+                    No file
+                  </span>
+                )}
+              </TableCell>
+            </TableRow>
+          ))
+        )}
+      </TableBody>
+    </Table>
+  );
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -215,85 +291,138 @@ const HandoverClient = () => {
         </div>
       </div>
 
-      {/* Content */}
+      {/* Content with Tabs */}
       <div className="container mx-auto px-6 py-8">
-        <Card>
-          <CardHeader>
-            <CardTitle>Available Documents</CardTitle>
-            <CardDescription>
-              Click on individual documents to download, or use "Download All" to get everything at once
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            {!documents || documents.length === 0 ? (
-              <div className="text-center py-12 text-muted-foreground">
-                <FileText className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                <p className="text-lg">No documents available</p>
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Document Name</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Added</TableHead>
-                    <TableHead className="text-right">Action</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {documents.map((doc: any) => (
-                    <TableRow key={doc.id}>
-                      <TableCell className="font-medium">
-                        <div className="flex items-center gap-2">
-                          <FileText className="h-4 w-4 text-muted-foreground" />
-                          {doc.document_name}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="secondary">
-                          {doc.document_type.replace(/_/g, " ")}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>
-                        {new Date(doc.created_at).toLocaleDateString("en-US", {
-                          month: "short",
-                          day: "numeric",
-                          year: "numeric"
-                        })}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        {doc.file_url ? (
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setPreviewDocument(doc)}
-                            >
-                              <Eye className="h-4 w-4 mr-2" />
-                              Preview
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleDownload(doc)}
-                            >
-                              <Download className="h-4 w-4 mr-2" />
-                              Download
-                            </Button>
-                          </div>
-                        ) : (
-                          <span className="text-sm text-muted-foreground">
-                            No file
-                          </span>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )}
-          </CardContent>
-        </Card>
+        <Tabs defaultValue="overview" className="space-y-4">
+          <TabsList className="grid grid-cols-8 w-full">
+            <TabsTrigger value="overview">
+              <Package className="h-4 w-4 mr-2" />
+              Overview
+            </TabsTrigger>
+            <TabsTrigger value="generators">
+              <Zap className="h-4 w-4 mr-2" />
+              Generators
+            </TabsTrigger>
+            <TabsTrigger value="transformers">
+              <Cpu className="h-4 w-4 mr-2" />
+              Transformers
+            </TabsTrigger>
+            <TabsTrigger value="main_boards">
+              <Server className="h-4 w-4 mr-2" />
+              Main Boards
+            </TabsTrigger>
+            <TabsTrigger value="lighting">
+              <Lightbulb className="h-4 w-4 mr-2" />
+              Lighting
+            </TabsTrigger>
+            <TabsTrigger value="cctv">
+              <Camera className="h-4 w-4 mr-2" />
+              CCTV & Access
+            </TabsTrigger>
+            <TabsTrigger value="lightning">
+              <Shield className="h-4 w-4 mr-2" />
+              Lightning
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview">
+            <Card>
+              <CardHeader>
+                <CardTitle>All Documents</CardTitle>
+                <CardDescription>
+                  View and download all available handover documents
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {renderDocumentsTable(documents || [])}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="generators">
+            <Card>
+              <CardHeader>
+                <CardTitle>Generator Documents</CardTitle>
+                <CardDescription>
+                  Documents related to generators and power generation equipment
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {renderDocumentsTable(getDocumentsByType('generators'))}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="transformers">
+            <Card>
+              <CardHeader>
+                <CardTitle>Transformer Documents</CardTitle>
+                <CardDescription>
+                  Documents related to transformers and power distribution
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {renderDocumentsTable(getDocumentsByType('transformers'))}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="main_boards">
+            <Card>
+              <CardHeader>
+                <CardTitle>Main Board Documents</CardTitle>
+                <CardDescription>
+                  Documents related to main electrical boards and distribution panels
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {renderDocumentsTable(getDocumentsByType('main_boards'))}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="lighting">
+            <Card>
+              <CardHeader>
+                <CardTitle>Lighting Documents</CardTitle>
+                <CardDescription>
+                  Documents related to lighting systems and controls
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {renderDocumentsTable(getDocumentsByType('lighting'))}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="cctv">
+            <Card>
+              <CardHeader>
+                <CardTitle>CCTV & Access Control Documents</CardTitle>
+                <CardDescription>
+                  Documents related to CCTV and access control systems
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {renderDocumentsTable(getDocumentsByType('cctv_access_control'))}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="lightning">
+            <Card>
+              <CardHeader>
+                <CardTitle>Lightning Protection Documents</CardTitle>
+                <CardDescription>
+                  Documents related to lightning protection systems
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {renderDocumentsTable(getDocumentsByType('lightning_protection'))}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
 
         {/* Footer Info */}
         <Card className="mt-6">
