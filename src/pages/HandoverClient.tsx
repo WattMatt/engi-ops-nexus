@@ -13,15 +13,17 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { FileText, Download, Package, Loader2, AlertCircle } from "lucide-react";
+import { FileText, Download, Package, Loader2, AlertCircle, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format, isPast } from "date-fns";
 import JSZip from "jszip";
+import { ClientDocumentPreview } from "@/components/handover/ClientDocumentPreview";
 
 const HandoverClient = () => {
   const { token } = useParams<{ token: string }>();
   const { toast } = useToast();
   const [isDownloadingAll, setIsDownloadingAll] = useState(false);
+  const [previewDocument, setPreviewDocument] = useState<any>(null);
 
   // Fetch handover link details
   const { data: handoverLinkData, isLoading: linkLoading, error: linkError } = useQuery({
@@ -283,14 +285,24 @@ const HandoverClient = () => {
                       </TableCell>
                       <TableCell className="text-right">
                         {doc.file_url ? (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleDownload(doc)}
-                          >
-                            <Download className="h-4 w-4 mr-2" />
-                            Download
-                          </Button>
+                          <div className="flex justify-end gap-2">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setPreviewDocument(doc)}
+                            >
+                              <Eye className="h-4 w-4 mr-2" />
+                              Preview
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleDownload(doc)}
+                            >
+                              <Download className="h-4 w-4 mr-2" />
+                              Download
+                            </Button>
+                          </div>
                         ) : (
                           <span className="text-sm text-muted-foreground">
                             No file
@@ -324,6 +336,14 @@ const HandoverClient = () => {
           </CardContent>
         </Card>
       </div>
+
+      {/* Document Preview Modal */}
+      <ClientDocumentPreview
+        document={previewDocument}
+        open={!!previewDocument}
+        onOpenChange={(open) => !open && setPreviewDocument(null)}
+        onDownload={handleDownload}
+      />
     </div>
   );
 };
