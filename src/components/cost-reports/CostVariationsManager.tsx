@@ -3,10 +3,19 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Plus, FileText, Pencil } from "lucide-react";
+import { Plus, Trash, Pencil } from "lucide-react";
 import { AddVariationDialog } from "./AddVariationDialog";
 import { VariationSheetDialog } from "./VariationSheetDialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 
 interface CostVariationsManagerProps {
@@ -21,8 +30,62 @@ export const CostVariationsManager = ({
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [sheetDialogOpen, setSheetDialogOpen] = useState(false);
   const [selectedVariationId, setSelectedVariationId] = useState<string | null>(null);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [variationToDelete, setVariationToDelete] = useState<any>(null);
 
   const queryClient = useQueryClient();
+
+  const deleteMutation = useMutation({
+    mutationFn: async (variationId: string) => {
+      // Get the variation to check for tenant_id
+      const { data: variation } = await supabase
+        .from("cost_variations")
+        .select("tenant_id")
+        .eq("id", variationId)
+        .single();
+
+      // Delete line items first
+      const { error: itemsError } = await supabase
+        .from("variation_line_items")
+        .delete()
+        .eq("variation_id", variationId);
+
+      if (itemsError) throw itemsError;
+
+      // Delete the variation
+      const { error: variationError } = await supabase
+        .from("cost_variations")
+        .delete()
+        .eq("id", variationId);
+
+      if (variationError) throw variationError;
+
+      // Update tenant tracker if a tenant was assigned
+      if (variation?.tenant_id) {
+        const { data: otherVariations } = await supabase
+          .from("cost_variations")
+          .select("id")
+          .eq("tenant_id", variation.tenant_id);
+
+        if (!otherVariations || otherVariations.length === 0) {
+          await supabase
+            .from("tenants")
+            .update({ cost_reported: false })
+            .eq("id", variation.tenant_id);
+        }
+      }
+    },
+    onSuccess: () => {
+      toast.success("Variation deleted successfully");
+      refetch();
+      setDeleteDialogOpen(false);
+      setVariationToDelete(null);
+    },
+    onError: (error) => {
+      toast.error("Failed to delete variation");
+      console.error("Delete error:", error);
+    },
+  });
 
   const { data: variations = [], refetch } = useQuery({
     queryKey: ["cost-variations", reportId],
@@ -154,11 +217,11 @@ export const CostVariationsManager = ({
                             size="sm"
                             variant="outline"
                             onClick={() => {
-                              setSelectedVariationId(variation.id);
-                              setSheetDialogOpen(true);
+                              setVariationToDelete(variation);
+                              setDeleteDialogOpen(true);
                             }}
                           >
-                            <FileText className="h-4 w-4" />
+                            <Trash className="h-4 w-4" />
                           </Button>
                         </div>
                       </td>
@@ -195,6 +258,39 @@ export const CostVariationsManager = ({
           }}
         />
       )}
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Variation</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete variation{" "}
+              <strong>{variationToDelete?.code}</strong>: {variationToDelete?.description}?
+              {variationToDelete?.tenants && (
+                <>
+                  <br />
+                  This variation is assigned to tenant:{" "}
+                  <strong>
+                    {variationToDelete.tenants.shop_number} - {variationToDelete.tenants.shop_name}
+                  </strong>
+                </>
+              )}
+              <br />
+              <br />
+              This action cannot be undone. All line items will be permanently deleted.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deleteMutation.mutate(variationToDelete?.id)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };
