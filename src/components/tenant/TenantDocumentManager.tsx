@@ -355,15 +355,17 @@ export const TenantDocumentManager = ({
                 Documents - {shopNumber} {shopName}
               </DialogTitle>
               <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setLinkHandoverDialogOpen(true)}
-                  disabled={documents.length === 0}
-                >
-                  <Link2 className="h-4 w-4 mr-2" />
-                  Link to Handover
-                </Button>
+                {completionPercentage === 100 && documents.length > 0 && (
+                  <Button
+                    variant="default"
+                    size="sm"
+                    onClick={() => setLinkHandoverDialogOpen(true)}
+                    className="bg-emerald-600 hover:bg-emerald-700"
+                  >
+                    <Link2 className="h-4 w-4 mr-2" />
+                    Bulk Link to Handover
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   size="sm"

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,13 @@ export const LinkToHandoverDialog = ({
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedDocs, setSelectedDocs] = useState<string[]>([]);
+
+  // Auto-select all documents when dialog opens
+  useEffect(() => {
+    if (open && documents.length > 0) {
+      setSelectedDocs(documents.map(d => d.id));
+    }
+  }, [open, documents]);
 
   const linkMutation = useMutation({
     mutationFn: async () => {
@@ -139,10 +146,10 @@ export const LinkToHandoverDialog = ({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Link2 className="h-5 w-5" />
-            Link to Handover Folders
+            Bulk Link to Handover Folders
           </DialogTitle>
           <DialogDescription>
-            Create renamed copies in line diagram folder: {shopNumber} {shopName}
+            All documents will be copied and renamed in: Handover &gt; Line Diagrams &gt; {shopNumber} {shopName}
           </DialogDescription>
         </DialogHeader>
 
