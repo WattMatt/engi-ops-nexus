@@ -238,7 +238,14 @@ export const CategoryCard = ({ category, onUpdate }: CategoryCardProps) => {
                           } hover:bg-muted/40 transition-colors group`}
                         >
                           <div className="col-span-2 font-medium">{variation.code}</div>
-                          <div className="col-span-5">{variation.description}</div>
+                          <div className="col-span-5">
+                            {variation.description}
+                            {variation.tenants && (
+                              <div className="text-xs text-muted-foreground mt-0.5">
+                                {variation.tenants.shop_number} - {variation.tenants.shop_name}
+                              </div>
+                            )}
+                          </div>
                           <div className="col-span-3 text-right">-</div>
                           <div className="col-span-3 text-right">-</div>
                           <div className="col-span-3 text-right font-medium">
