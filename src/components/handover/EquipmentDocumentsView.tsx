@@ -4,8 +4,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Download, Eye, FileText, Calendar, Package } from "lucide-react";
+import { Search, Download, Eye, FileText, Calendar, Package, Upload } from "lucide-react";
 import { DocumentPreviewDialog } from "@/components/tenant/DocumentPreviewDialog";
+import { UploadHandoverDocumentDialog } from "@/components/handover/UploadHandoverDocumentDialog";
 import {
   Table,
   TableBody,
@@ -31,6 +32,7 @@ export const EquipmentDocumentsView = ({
 }: EquipmentDocumentsViewProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [previewDocument, setPreviewDocument] = useState<any>(null);
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
 
   // Fetch equipment documents
   const { data: documents = [], isLoading } = useQuery({
@@ -170,6 +172,10 @@ export const EquipmentDocumentsView = ({
                   View and manage all {equipmentLabel} documents
                 </CardDescription>
               </div>
+              <Button onClick={() => setUploadDialogOpen(true)}>
+                <Upload className="h-4 w-4 mr-2" />
+                Upload Document
+              </Button>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -292,6 +298,13 @@ export const EquipmentDocumentsView = ({
           onOpenChange={(open) => !open && setPreviewDocument(null)}
         />
       )}
+
+      {/* Upload Dialog */}
+      <UploadHandoverDocumentDialog
+        open={uploadDialogOpen}
+        onOpenChange={setUploadDialogOpen}
+        projectId={projectId}
+      />
     </>
   );
 };

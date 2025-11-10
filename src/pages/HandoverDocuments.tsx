@@ -18,7 +18,6 @@ import { EquipmentDocumentsView } from "@/components/handover/EquipmentDocuments
 const HandoverDocuments = () => {
   const { toast } = useToast();
   const { isAdmin } = useUserRole();
-  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
 
   // Get current project from localStorage (using same key as TenantTracker)
   const projectId = localStorage.getItem("selectedProjectId") || "";
@@ -136,31 +135,10 @@ const HandoverDocuments = () => {
             </p>
           </CardContent>
         </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Quick Actions</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <Button
-              size="sm"
-              variant="outline"
-              className="w-full justify-start"
-              onClick={() => setUploadDialogOpen(true)}
-            >
-              <Upload className="h-4 w-4 mr-2" />
-              Upload Document
-            </Button>
-          </CardContent>
-        </Card>
       </div>
 
       {/* Action Buttons */}
-      <div className="flex gap-3">
-        <Button onClick={() => setUploadDialogOpen(true)}>
-          <Upload className="h-4 w-4 mr-2" />
-          Upload Document
-        </Button>
+      <div className="flex gap-3 justify-end">
         {isAdmin && (
           <Button 
             variant="secondary" 
@@ -292,11 +270,6 @@ const HandoverDocuments = () => {
       </Tabs>
 
       {/* Dialogs */}
-      <UploadHandoverDocumentDialog
-        open={uploadDialogOpen}
-        onOpenChange={setUploadDialogOpen}
-        projectId={projectId}
-      />
     </div>
   );
 };

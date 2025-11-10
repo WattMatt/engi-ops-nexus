@@ -5,8 +5,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Search, Download, Eye, FileText, Calendar } from "lucide-react";
+import { Search, Download, Eye, FileText, Calendar, Upload } from "lucide-react";
 import { DocumentPreviewDialog } from "@/components/tenant/DocumentPreviewDialog";
+import { UploadHandoverDocumentDialog } from "@/components/handover/UploadHandoverDocumentDialog";
 import {
   Table,
   TableBody,
@@ -24,6 +25,7 @@ interface AsBuiltDrawingsViewProps {
 export const AsBuiltDrawingsView = ({ projectId }: AsBuiltDrawingsViewProps) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [previewDocument, setPreviewDocument] = useState<any>(null);
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
 
   // Fetch As Built Drawing documents
   const { data: documents = [], isLoading } = useQuery({
@@ -163,6 +165,10 @@ export const AsBuiltDrawingsView = ({ projectId }: AsBuiltDrawingsViewProps) => 
                   View and manage all As Built Drawing documents
                 </CardDescription>
               </div>
+              <Button onClick={() => setUploadDialogOpen(true)}>
+                <Upload className="h-4 w-4 mr-2" />
+                Upload Drawing
+              </Button>
             </div>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -285,6 +291,13 @@ export const AsBuiltDrawingsView = ({ projectId }: AsBuiltDrawingsViewProps) => 
           onOpenChange={(open) => !open && setPreviewDocument(null)}
         />
       )}
+
+      {/* Upload Dialog */}
+      <UploadHandoverDocumentDialog
+        open={uploadDialogOpen}
+        onOpenChange={setUploadDialogOpen}
+        projectId={projectId}
+      />
     </>
   );
 };
