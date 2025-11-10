@@ -35,6 +35,7 @@ interface ProjectMember {
   profiles: {
     full_name: string;
     email: string;
+    avatar_url: string | null;
   };
 }
 
@@ -42,6 +43,7 @@ interface User {
   id: string;
   full_name: string;
   email: string;
+  avatar_url: string | null;
 }
 
 interface ProjectMembersProps {
@@ -71,7 +73,8 @@ export function ProjectMembers({ projectId }: ProjectMembersProps) {
         role,
         profiles:user_id (
           full_name,
-          email
+          email,
+          avatar_url
         )
       `)
       .eq("project_id", projectId);
@@ -87,7 +90,7 @@ export function ProjectMembers({ projectId }: ProjectMembersProps) {
   const loadAvailableUsers = async () => {
     const { data, error } = await supabase
       .from("profiles")
-      .select("id, full_name, email");
+      .select("id, full_name, email, avatar_url");
 
     if (error) {
       toast.error("Failed to load users");
@@ -232,6 +235,7 @@ export function ProjectMembers({ projectId }: ProjectMembersProps) {
                   {selectedUser ? (
                     <div className="flex items-center gap-2 truncate">
                       <Avatar className="h-6 w-6">
+                        <AvatarImage src={selectedUser.avatar_url || undefined} />
                         <AvatarFallback className="text-xs">
                           {getInitials(selectedUser.full_name)}
                         </AvatarFallback>
@@ -271,6 +275,7 @@ export function ProjectMembers({ projectId }: ProjectMembersProps) {
                         >
                           <div className="flex items-center gap-3 w-full">
                             <Avatar className="h-8 w-8">
+                              <AvatarImage src={user.avatar_url || undefined} />
                               <AvatarFallback className="text-xs">
                                 {getInitials(user.full_name)}
                               </AvatarFallback>
@@ -326,6 +331,7 @@ export function ProjectMembers({ projectId }: ProjectMembersProps) {
               <CardContent className="py-4">
                 <div className="flex items-center gap-4">
                   <Avatar className="h-10 w-10">
+                    <AvatarImage src={member.profiles.avatar_url || undefined} />
                     <AvatarFallback>
                       {getInitials(member.profiles.full_name)}
                     </AvatarFallback>
