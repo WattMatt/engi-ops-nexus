@@ -14,7 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Download, Package, Loader2, AlertCircle, Eye, Zap, Cpu, Server, Lightbulb, Camera, Shield } from "lucide-react";
+import { FileText, Download, Package, Loader2, AlertCircle, Eye, Zap, Cpu, Server, Lightbulb, Camera, Shield, ClipboardCheck, FileCheck, Award, BookOpen, BadgeCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import JSZip from "jszip";
 import { ClientDocumentPreview } from "@/components/handover/ClientDocumentPreview";
@@ -181,7 +181,7 @@ const HandoverClient = () => {
   const documentsWithFiles = documents?.filter((d: any) => d.file_url) || [];
 
   const getDocumentsByType = (equipmentType: string) => {
-    return documents?.filter((doc: any) => doc.equipment_type === equipmentType) || [];
+    return documents?.filter((doc: any) => doc.equipment_type === equipmentType || doc.document_type === equipmentType) || [];
   };
 
   const renderDocumentsTable = (docs: any[]) => (
@@ -294,7 +294,7 @@ const HandoverClient = () => {
       {/* Content with Tabs */}
       <div className="container mx-auto px-6 py-8">
         <Tabs defaultValue="overview" className="space-y-4">
-          <TabsList className="grid grid-cols-8 w-full">
+          <TabsList className="grid grid-cols-4 lg:grid-cols-7 w-full">
             <TabsTrigger value="overview">
               <Package className="h-4 w-4 mr-2" />
               Overview
@@ -322,6 +322,30 @@ const HandoverClient = () => {
             <TabsTrigger value="lightning">
               <Shield className="h-4 w-4 mr-2" />
               Lightning
+            </TabsTrigger>
+            <TabsTrigger value="specifications">
+              <ClipboardCheck className="h-4 w-4 mr-2" />
+              Specifications
+            </TabsTrigger>
+            <TabsTrigger value="test_certificates">
+              <FileCheck className="h-4 w-4 mr-2" />
+              Test Certificates
+            </TabsTrigger>
+            <TabsTrigger value="warranties">
+              <Award className="h-4 w-4 mr-2" />
+              Warranties
+            </TabsTrigger>
+            <TabsTrigger value="manuals">
+              <BookOpen className="h-4 w-4 mr-2" />
+              Manuals
+            </TabsTrigger>
+            <TabsTrigger value="commissioning_docs">
+              <BadgeCheck className="h-4 w-4 mr-2" />
+              Commissioning
+            </TabsTrigger>
+            <TabsTrigger value="compliance_certs">
+              <FileCheck className="h-4 w-4 mr-2" />
+              Compliance
             </TabsTrigger>
           </TabsList>
 
@@ -419,6 +443,90 @@ const HandoverClient = () => {
               </CardHeader>
               <CardContent>
                 {renderDocumentsTable(getDocumentsByType('lightning_protection'))}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="specifications">
+            <Card>
+              <CardHeader>
+                <CardTitle>Specifications</CardTitle>
+                <CardDescription>
+                  Project specifications and technical requirements
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {renderDocumentsTable(getDocumentsByType('specifications'))}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="test_certificates">
+            <Card>
+              <CardHeader>
+                <CardTitle>Test Certificates</CardTitle>
+                <CardDescription>
+                  Equipment and system test certificates
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {renderDocumentsTable(getDocumentsByType('test_certificates'))}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="warranties">
+            <Card>
+              <CardHeader>
+                <CardTitle>Warranties</CardTitle>
+                <CardDescription>
+                  Equipment warranties and guarantee documents
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {renderDocumentsTable(getDocumentsByType('warranties'))}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="manuals">
+            <Card>
+              <CardHeader>
+                <CardTitle>Manuals and Instructions</CardTitle>
+                <CardDescription>
+                  Equipment manuals and operational instructions
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {renderDocumentsTable(getDocumentsByType('manuals'))}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="commissioning_docs">
+            <Card>
+              <CardHeader>
+                <CardTitle>Commissioning Documents</CardTitle>
+                <CardDescription>
+                  System commissioning and startup documentation
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {renderDocumentsTable(getDocumentsByType('commissioning_docs'))}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="compliance_certs">
+            <Card>
+              <CardHeader>
+                <CardTitle>Compliance Certificates</CardTitle>
+                <CardDescription>
+                  Compliance and certification documentation
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {renderDocumentsTable(getDocumentsByType('compliance_certs'))}
               </CardContent>
             </Card>
           </TabsContent>

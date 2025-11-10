@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Upload, Share2, Package, Users, BarChart3, Zap, Cpu, Server, Lightbulb, Camera, Shield } from "lucide-react";
+import { Upload, Share2, Package, Users, BarChart3, Zap, Cpu, Server, Lightbulb, Camera, Shield, FileText, FileCheck, BookOpen, ClipboardCheck, Award, BadgeCheck } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUserRole } from "@/hooks/useUserRole";
 import { UploadHandoverDocumentDialog } from "@/components/handover/UploadHandoverDocumentDialog";
@@ -14,6 +14,7 @@ import { DocumentSearchFilters } from "@/components/handover/DocumentSearchFilte
 import { HandoverDashboard } from "@/components/handover/HandoverDashboard";
 import { AsBuiltDrawingsView } from "@/components/handover/AsBuiltDrawingsView";
 import { EquipmentDocumentsView } from "@/components/handover/EquipmentDocumentsView";
+import { GeneralDocumentsView } from "@/components/handover/GeneralDocumentsView";
 
 const HandoverDocuments = () => {
   const { toast } = useToast();
@@ -152,7 +153,7 @@ const HandoverDocuments = () => {
 
       {/* Tabs for different sections */}
       <Tabs defaultValue="dashboard" className="w-full">
-        <TabsList className="grid w-full grid-cols-5 lg:grid-cols-10">
+        <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8">
           <TabsTrigger value="dashboard">
             <BarChart3 className="h-4 w-4 mr-2" />
             Overview
@@ -184,6 +185,30 @@ const HandoverDocuments = () => {
           <TabsTrigger value="lightning">
             <Shield className="h-4 w-4 mr-2" />
             Lightning
+          </TabsTrigger>
+          <TabsTrigger value="specifications">
+            <ClipboardCheck className="h-4 w-4 mr-2" />
+            Specifications
+          </TabsTrigger>
+          <TabsTrigger value="test-certificates">
+            <FileCheck className="h-4 w-4 mr-2" />
+            Test Certificates
+          </TabsTrigger>
+          <TabsTrigger value="warranties">
+            <Award className="h-4 w-4 mr-2" />
+            Warranties
+          </TabsTrigger>
+          <TabsTrigger value="manuals">
+            <BookOpen className="h-4 w-4 mr-2" />
+            Manuals
+          </TabsTrigger>
+          <TabsTrigger value="commissioning">
+            <BadgeCheck className="h-4 w-4 mr-2" />
+            Commissioning
+          </TabsTrigger>
+          <TabsTrigger value="compliance">
+            <FileCheck className="h-4 w-4 mr-2" />
+            Compliance
           </TabsTrigger>
           <TabsTrigger value="tenants">
             <Users className="h-4 w-4 mr-2" />
@@ -257,6 +282,60 @@ const HandoverDocuments = () => {
             equipmentType="lightning_protection"
             equipmentLabel="Lightning Protection"
             icon={<Shield className="h-5 w-5" />}
+          />
+        </TabsContent>
+
+        <TabsContent value="specifications">
+          <GeneralDocumentsView 
+            projectId={projectId}
+            documentType="specifications"
+            documentLabel="Specifications"
+            icon={<ClipboardCheck className="h-5 w-5" />}
+          />
+        </TabsContent>
+
+        <TabsContent value="test-certificates">
+          <GeneralDocumentsView 
+            projectId={projectId}
+            documentType="test_certificates"
+            documentLabel="Test Certificates"
+            icon={<FileCheck className="h-5 w-5" />}
+          />
+        </TabsContent>
+
+        <TabsContent value="warranties">
+          <GeneralDocumentsView 
+            projectId={projectId}
+            documentType="warranties"
+            documentLabel="Warranties"
+            icon={<Award className="h-5 w-5" />}
+          />
+        </TabsContent>
+
+        <TabsContent value="manuals">
+          <GeneralDocumentsView 
+            projectId={projectId}
+            documentType="manuals"
+            documentLabel="Manuals and Instructions"
+            icon={<BookOpen className="h-5 w-5" />}
+          />
+        </TabsContent>
+
+        <TabsContent value="commissioning">
+          <GeneralDocumentsView 
+            projectId={projectId}
+            documentType="commissioning_docs"
+            documentLabel="Commissioning Documents"
+            icon={<BadgeCheck className="h-5 w-5" />}
+          />
+        </TabsContent>
+
+        <TabsContent value="compliance">
+          <GeneralDocumentsView 
+            projectId={projectId}
+            documentType="compliance_certs"
+            documentLabel="Compliance Certificates"
+            icon={<FileCheck className="h-5 w-5" />}
           />
         </TabsContent>
 
