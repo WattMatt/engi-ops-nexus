@@ -1,6 +1,8 @@
-import { useQuery } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import {
   Table,
   TableBody,
@@ -9,14 +11,18 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Store, Loader2 } from "lucide-react";
+import { Store, Loader2, RefreshCw } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface HandoverTenantsListProps {
   projectId: string;
 }
 
 export const HandoverTenantsList = ({ projectId }: HandoverTenantsListProps) => {
-  const { data: tenants, isLoading } = useQuery({
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: tenants, isLoading, refetch } = useQuery({
     queryKey: ["handover-tenants", projectId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -29,6 +35,64 @@ export const HandoverTenantsList = ({ projectId }: HandoverTenantsListProps) => 
       return data;
     },
   });
+
+  // Set up real-time subscription for live tracking
+  useEffect(() => {
+    const channel = supabase
+      .channel('tenant-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*', // Listen to all events (INSERT, UPDATE, DELETE)
+          schema: 'public',
+          table: 'tenants',
+          filter: `project_id=eq.${projectId}`,
+        },
+        (payload) => {
+          console.log('Tenant change detected:', payload);
+          
+          // Invalidate and refetch the tenants query
+          queryClient.invalidateQueries({ queryKey: ["handover-tenants", projectId] });
+          
+          // Show notification based on event type
+          if (payload.eventType === 'INSERT') {
+            toast({
+              title: "Tenant Added",
+              description: "A new tenant has been added to the schedule",
+            });
+          } else if (payload.eventType === 'UPDATE') {
+            toast({
+              title: "Tenant Updated",
+              description: "Tenant information has been updated",
+            });
+          } else if (payload.eventType === 'DELETE') {
+            toast({
+              title: "Tenant Removed",
+              description: "A tenant has been removed from the schedule",
+            });
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [projectId, queryClient, toast]);
+
+  const handleRecreateSchedule = async () => {
+    toast({
+      title: "Refreshing schedule",
+      description: "Syncing tenant data from tracker...",
+    });
+    
+    await refetch();
+    
+    toast({
+      title: "Success",
+      description: "Tenant schedule refreshed successfully",
+    });
+  };
 
   if (isLoading) {
     return (
@@ -43,10 +107,22 @@ export const HandoverTenantsList = ({ projectId }: HandoverTenantsListProps) => 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Project Tenants</CardTitle>
-        <CardDescription>
-          All tenants associated with this project for handover documentation
-        </CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>Project Tenants</CardTitle>
+            <CardDescription>
+              All tenants associated with this project for handover documentation
+            </CardDescription>
+          </div>
+          <Button
+            onClick={handleRecreateSchedule}
+            variant="outline"
+            size="sm"
+          >
+            <RefreshCw className="h-4 w-4 mr-2" />
+            Re-create Tenant Schedule
+          </Button>
+        </div>
       </CardHeader>
       <CardContent>
         {!tenants || tenants.length === 0 ? (
