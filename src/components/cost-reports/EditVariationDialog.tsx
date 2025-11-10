@@ -77,7 +77,7 @@ export const EditVariationDialog = ({
       setFormData({
         code: variation.code || "",
         description: variation.description || "",
-        tenant_id: variation.tenant_id || "",
+        tenant_id: variation.tenant_id || "none",
         is_credit: variation.is_credit || false,
       });
     }
@@ -100,7 +100,7 @@ export const EditVariationDialog = ({
         .update({
           code: formData.code.trim(),
           description: formData.description.trim(),
-          tenant_id: formData.tenant_id || null,
+          tenant_id: formData.tenant_id === "none" ? null : formData.tenant_id,
           is_credit: formData.is_credit,
         })
         .eq("id", variationId);
@@ -169,7 +169,7 @@ export const EditVariationDialog = ({
                 <SelectValue placeholder="Select tenant" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">General (No Tenant)</SelectItem>
+                <SelectItem value="none">General (No Tenant)</SelectItem>
                 {tenants.map((tenant) => (
                   <SelectItem key={tenant.id} value={tenant.id}>
                     {tenant.shop_number} - {tenant.shop_name}
