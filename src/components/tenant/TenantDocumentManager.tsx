@@ -16,12 +16,12 @@ import { Progress } from "@/components/ui/progress";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
 
 const DOCUMENT_TYPES = [
-  { key: "lighting_quote_received", label: "Lighting Quotation (Received)" },
-  { key: "lighting_quote_instruction", label: "Lighting Quotation Instruction" },
-  { key: "db_order_quote_received", label: "DB Order Quote (Received)" },
-  { key: "db_order_instruction", label: "DB Order Instruction" },
-  { key: "db_shop_drawing_received", label: "DB Shop Drawing (Received)" },
-  { key: "db_shop_drawing_approved", label: "DB Shop Drawing (Approved)" },
+  { key: "lighting_quote_received", label: "Lighting Quotation (Received)", allowMultiple: false },
+  { key: "lighting_quote_instruction", label: "Lighting Quotation Instruction", allowMultiple: false },
+  { key: "db_order_quote_received", label: "DB Order Quote (Received)", allowMultiple: false },
+  { key: "db_order_instruction", label: "DB Order Instruction", allowMultiple: false },
+  { key: "db_shop_drawing_received", label: "DB Shop Drawing (Received)", allowMultiple: true },
+  { key: "db_shop_drawing_approved", label: "DB Shop Drawing (Approved)", allowMultiple: true },
 ] as const;
 
 interface TenantDocumentManagerProps {
@@ -275,6 +275,10 @@ export const TenantDocumentManager = ({
     return documents.find(doc => doc.document_type === type);
   };
 
+  const getDocumentsForType = (type: string) => {
+    return documents.filter(doc => doc.document_type === type);
+  };
+
   const getExclusionForType = (type: string) => {
     return exclusions.find(exc => exc.document_type === type);
   };
@@ -428,9 +432,10 @@ export const TenantDocumentManager = ({
                 </div>
               ) : (
                 DOCUMENT_TYPES.map((type) => {
-                  const doc = getDocumentForType(type.key);
+                  const docs = getDocumentsForType(type.key);
+                  const doc = docs[0];
                   const exclusion = getExclusionForType(type.key);
-                  const hasDocument = !!doc;
+                  const hasDocument = docs.length > 0;
                   const isByTenant = !!exclusion;
 
                   return (
@@ -442,7 +447,7 @@ export const TenantDocumentManager = ({
                             {hasDocument ? (
                               <Badge variant="default" className="bg-emerald-500">
                                 <CheckCircle2 className="h-3 w-3 mr-1" />
-                                Uploaded
+                                Uploaded {type.allowMultiple && docs.length > 1 ? `(${docs.length})` : ''}
                               </Badge>
                             ) : isByTenant ? (
                               <Badge variant="secondary" className="bg-blue-500 text-white">
@@ -457,15 +462,51 @@ export const TenantDocumentManager = ({
                             )}
                           </div>
 
-                          {hasDocument && doc && (
-                            <div className="text-sm text-muted-foreground space-y-1">
-                              <p className="truncate">📎 {doc.document_name}</p>
-                              <p>
-                                Uploaded {format(new Date(doc.uploaded_at), "PPp")}
-                              </p>
-                              {doc.notes && (
-                                <p className="italic">Note: {doc.notes}</p>
-                              )}
+                          {hasDocument && (
+                            <div className="text-sm text-muted-foreground space-y-2">
+                              {docs.map((document, index) => (
+                                <div key={document.id} className="flex items-start justify-between gap-2 p-2 bg-muted/50 rounded">
+                                  <div className="flex-1 min-w-0 space-y-1">
+                                    <p className="truncate">📎 {document.document_name}</p>
+                                    <p className="text-xs">
+                                      Uploaded {format(new Date(document.uploaded_at), "PPp")}
+                                    </p>
+                                    {document.notes && (
+                                      <p className="italic text-xs">Note: {document.notes}</p>
+                                    )}
+                                  </div>
+                                  <div className="flex gap-1 shrink-0">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => setPreviewDocument(document)}
+                                      className="h-8 w-8 p-0"
+                                    >
+                                      <Eye className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => handleDownload(document.file_url, document.document_name)}
+                                      className="h-8 w-8 p-0"
+                                    >
+                                      <Download className="h-4 w-4" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      onClick={() => {
+                                        if (window.confirm(`Are you sure you want to delete ${document.document_name}?${type.allowMultiple && docs.length === 1 ? '\n\nNote: This is the last document. At least one is recommended.' : ''}`)) {
+                                          deleteMutation.mutate(document.id);
+                                        }
+                                      }}
+                                      className="h-8 w-8 p-0 hover:text-destructive"
+                                    >
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              ))}
                             </div>
                           )}
                           
@@ -481,58 +522,8 @@ export const TenantDocumentManager = ({
                           )}
                         </div>
 
-                          <div className="flex gap-2 flex-wrap">
-                          {hasDocument && doc ? (
-                            <>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => setPreviewDocument(doc)}
-                              >
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleDownload(doc.file_url, doc.document_name)}
-                              >
-                                <Download className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => deleteMutation.mutate(doc.id)}
-                                disabled={deleteMutation.isPending}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                onClick={() => handleUpload(type.key)}
-                              >
-                                <Upload className="h-4 w-4 mr-2" />
-                                Replace
-                              </Button>
-                            </>
-                          ) : isByTenant ? (
-                            <>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => unmarkByTenantMutation.mutate(type.key)}
-                                disabled={unmarkByTenantMutation.isPending}
-                              >
-                                Unmark
-                              </Button>
-                              <Button
-                                size="sm"
-                                onClick={() => handleUpload(type.key)}
-                              >
-                                <Upload className="h-4 w-4 mr-2" />
-                                Upload Instead
-                              </Button>
-                            </>
-                          ) : (
+                        <div className="flex gap-2 flex-wrap shrink-0">
+                          {!hasDocument && !isByTenant && (
                             <>
                               <Button
                                 size="sm"
@@ -549,6 +540,46 @@ export const TenantDocumentManager = ({
                               >
                                 <Upload className="h-4 w-4 mr-2" />
                                 Upload
+                              </Button>
+                            </>
+                          )}
+
+                          {hasDocument && type.allowMultiple && (
+                            <Button
+                              size="sm"
+                              onClick={() => handleUpload(type.key)}
+                            >
+                              <Upload className="h-4 w-4 mr-2" />
+                              Add Another
+                            </Button>
+                          )}
+
+                          {hasDocument && !type.allowMultiple && (
+                            <Button
+                              size="sm"
+                              onClick={() => handleUpload(type.key)}
+                            >
+                              <Upload className="h-4 w-4 mr-2" />
+                              Replace
+                            </Button>
+                          )}
+
+                          {isByTenant && (
+                            <>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => unmarkByTenantMutation.mutate(type.key)}
+                                disabled={unmarkByTenantMutation.isPending}
+                              >
+                                Unmark
+                              </Button>
+                              <Button
+                                size="sm"
+                                onClick={() => handleUpload(type.key)}
+                              >
+                                <Upload className="h-4 w-4 mr-2" />
+                                Upload Instead
                               </Button>
                             </>
                           )}
