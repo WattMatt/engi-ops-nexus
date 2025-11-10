@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { TenantList } from "@/components/tenant/TenantList";
@@ -41,7 +41,7 @@ const TenantTracker = () => {
 
   const projectName = projectData?.name || "Project";
 
-  const { data: tenants = [], isLoading } = useQuery({
+  const { data: tenants = [], isLoading, refetch } = useQuery({
     queryKey: ["tenants", projectId, refreshTrigger],
     queryFn: async () => {
       if (!projectId) return [];
@@ -71,6 +71,32 @@ const TenantTracker = () => {
     },
     enabled: !!projectId,
   });
+
+  // Real-time subscription for tenant changes
+  useEffect(() => {
+    if (!projectId) return;
+
+    const channel = supabase
+      .channel('tenants-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'tenants',
+          filter: `project_id=eq.${projectId}`
+        },
+        () => {
+          // Refetch tenants when any change occurs
+          refetch();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [projectId, refetch]);
 
   const handleUpdate = () => {
     setRefreshTrigger((prev) => prev + 1);
