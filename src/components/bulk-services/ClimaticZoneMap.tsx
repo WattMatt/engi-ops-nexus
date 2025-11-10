@@ -286,7 +286,7 @@ export const ClimaticZoneMap = ({ selectedZone, onZoneSelect }: ClimaticZoneMapP
 
   return (
     <div className="space-y-3">
-      <div className="relative h-[400px] rounded-lg overflow-hidden border">
+      <div className="relative h-[600px] rounded-lg overflow-hidden border shadow-lg">
         <div ref={mapContainer} className="absolute inset-0" />
         
         {/* Map Style Switcher */}
@@ -334,7 +334,7 @@ export const ClimaticZoneMap = ({ selectedZone, onZoneSelect }: ClimaticZoneMapP
       </div>
 
       {/* Zone Legend */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
         {Object.entries(ZONE_INFO).map(([zone, info]) => (
           <button
             key={zone}

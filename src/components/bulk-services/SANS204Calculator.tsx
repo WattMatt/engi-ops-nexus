@@ -264,6 +264,8 @@ export const SANS204Calculator = ({
   const [projectArea, setProjectArea] = useState(initialValues?.project_area?.toString() || "");
   const [buildingClass, setBuildingClass] = useState<keyof typeof SANS_204_TABLE>("F1");
   const [climaticZone, setClimaticZone] = useState(initialValues?.climatic_zone || "1");
+  const [showMapFullWidth, setShowMapFullWidth] = useState(false);
+  const [activeZoneTab, setActiveZoneTab] = useState("dropdown");
   const [diversityFactor, setDiversityFactor] = useState(
     initialValues?.diversity_factor?.toString() || "0.75"
   );
@@ -2608,7 +2610,7 @@ export const SANS204Calculator = ({
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="bg-popover z-50">
                       {Object.entries(SANS_204_TABLE).map(([key, value]) => (
                         <SelectItem key={key} value={key}>
                           {key} - {value.name}
@@ -2618,14 +2620,21 @@ export const SANS204Calculator = ({
                   </Select>
                 </div>
 
-                <div className="space-y-2">
+                <div className="space-y-2 col-span-2">
                   <Label>Climatic Zone</Label>
-                  <Tabs defaultValue="dropdown" className="w-full">
+                  <Tabs 
+                    value={activeZoneTab} 
+                    onValueChange={(value) => {
+                      setActiveZoneTab(value);
+                      setShowMapFullWidth(value === 'map');
+                    }} 
+                    className="w-full"
+                  >
                     <TabsList className="grid w-full grid-cols-2">
                       <TabsTrigger value="dropdown">Dropdown</TabsTrigger>
                       <TabsTrigger value="map">
                         <Map className="h-4 w-4 mr-2" />
-                        Map
+                        Map View
                       </TabsTrigger>
                     </TabsList>
                     
@@ -2634,7 +2643,7 @@ export const SANS204Calculator = ({
                         <SelectTrigger>
                           <SelectValue />
                         </SelectTrigger>
-                        <SelectContent>
+                        <SelectContent className="bg-popover z-50">
                           {CLIMATIC_ZONES.map((zone) => (
                             <SelectItem key={zone.value} value={zone.value}>
                               Zone {zone.value} - {zone.name}
@@ -2648,10 +2657,9 @@ export const SANS204Calculator = ({
                     </TabsContent>
                     
                     <TabsContent value="map" className="mt-2">
-                      <ClimaticZoneMap
-                        selectedZone={climaticZone}
-                        onZoneSelect={setClimaticZone}
-                      />
+                      <p className="text-sm text-muted-foreground mb-2">
+                        Selected: Zone {climaticZone} - {CLIMATIC_ZONES.find((z) => z.value === climaticZone)?.name}
+                      </p>
                     </TabsContent>
                   </Tabs>
                 </div>
@@ -2674,6 +2682,29 @@ export const SANS204Calculator = ({
               </div>
             </CardContent>
           </Card>
+
+          {/* Full-Width Map View */}
+          {showMapFullWidth && (
+            <Card className="w-full">
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Map className="h-5 w-5" />
+                  Climatic Zone Selection - Interactive Map
+                </CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  Search for your location or click on city markers to select the appropriate climatic zone
+                </p>
+              </CardHeader>
+      <CardContent>
+        <div className="relative">
+          <ClimaticZoneMap
+            selectedZone={climaticZone}
+            onZoneSelect={setClimaticZone}
+          />
+        </div>
+      </CardContent>
+    </Card>
+  )}
 
           {/* SANS 204 Complete Comparison Table */}
           <Card>
