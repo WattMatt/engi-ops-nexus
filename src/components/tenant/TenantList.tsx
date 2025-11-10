@@ -16,6 +16,8 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useMutation } from "@tanstack/react-query";
+import { useTenantPresence } from "@/hooks/useTenantPresence";
+import { User } from "lucide-react";
 interface Tenant {
   id: string;
   shop_name: string;
@@ -56,6 +58,9 @@ export const TenantList = ({
   const [categoryFilter, setCategoryFilter] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<"all" | "complete" | "incomplete">("all");
   const [groupBy, setGroupBy] = useState<"none" | "category" | "bo-period">("none");
+  
+  // Presence tracking
+  const { getEditingUser, setEditing } = useTenantPresence(projectId);
 
   // Sync local state when tenants prop changes
   useEffect(() => {
@@ -628,20 +633,41 @@ export const TenantList = ({
                     ? addDays(new Date(tenant.opening_date), -(tenant.beneficial_occupation_days || 90))
                     : null;
                   const daysUntil = beneficialDate ? differenceInDays(beneficialDate, new Date()) : null;
+                  const editingUser = getEditingUser(tenant.id);
                   
                   return (
                     <TableRow key={tenant.id} className={getRowClassName(tenant)}>
                     <TableCell className="font-medium">
-                      <Input
-                        value={tenant.shop_number}
-                        onChange={(e) => handleFieldUpdate(tenant.id, 'shop_number', e.target.value)}
-                        className="h-8 w-24"
-                      />
+                      <div className="flex items-center gap-2">
+                        <Input
+                          value={tenant.shop_number}
+                          onChange={(e) => handleFieldUpdate(tenant.id, 'shop_number', e.target.value)}
+                          onFocus={() => setEditing(tenant.id)}
+                          onBlur={() => setEditing(null)}
+                          className="h-8 w-24"
+                        />
+                        {editingUser && (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="flex items-center gap-1 text-primary animate-pulse">
+                                  <User className="h-3 w-3" />
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="text-xs">{editingUser.userName} is editing</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        )}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Input
                         value={tenant.shop_name}
                         onChange={(e) => handleFieldUpdate(tenant.id, 'shop_name', e.target.value)}
+                        onFocus={() => setEditing(tenant.id)}
+                        onBlur={() => setEditing(null)}
                         className="h-8 min-w-[150px]"
                       />
                     </TableCell>
@@ -683,6 +709,8 @@ export const TenantList = ({
                         type="date"
                         value={tenant.opening_date || ""}
                         onChange={(e) => handleFieldUpdate(tenant.id, 'opening_date', e.target.value || null)}
+                        onFocus={() => setEditing(tenant.id)}
+                        onBlur={() => setEditing(null)}
                         className="h-8 w-[140px]"
                       />
                     </TableCell>
@@ -722,6 +750,8 @@ export const TenantList = ({
                         step="0.01"
                         value={tenant.area || ""}
                         onChange={(e) => handleFieldUpdate(tenant.id, 'area', e.target.value ? parseFloat(e.target.value) : null)}
+                        onFocus={() => setEditing(tenant.id)}
+                        onBlur={() => setEditing(null)}
                         className="h-8 w-24"
                       />
                     </TableCell>
@@ -729,6 +759,8 @@ export const TenantList = ({
                       <Input
                         value={tenant.db_size_allowance || ""}
                         onChange={(e) => handleFieldUpdate(tenant.id, 'db_size_allowance', e.target.value || null)}
+                        onFocus={() => setEditing(tenant.id)}
+                        onBlur={() => setEditing(null)}
                         className="h-8 w-24"
                         placeholder="e.g. 100A"
                       />
@@ -737,6 +769,8 @@ export const TenantList = ({
                       <Input
                         value={tenant.db_size_scope_of_work || ""}
                         onChange={(e) => handleFieldUpdate(tenant.id, 'db_size_scope_of_work', e.target.value || null)}
+                        onFocus={() => setEditing(tenant.id)}
+                        onBlur={() => setEditing(null)}
                         className="h-8 w-24"
                         placeholder="e.g. 80A TP"
                       />
@@ -771,6 +805,8 @@ export const TenantList = ({
                           step="0.01"
                           value={tenant.db_cost || ""}
                           onChange={(e) => handleFieldUpdate(tenant.id, 'db_cost', e.target.value ? parseFloat(e.target.value) : null)}
+                          onFocus={() => setEditing(tenant.id)}
+                          onBlur={() => setEditing(null)}
                           className="h-8 w-28 text-right"
                           placeholder="0.00"
                         />
@@ -792,6 +828,8 @@ export const TenantList = ({
                           step="0.01"
                           value={tenant.lighting_cost || ""}
                           onChange={(e) => handleFieldUpdate(tenant.id, 'lighting_cost', e.target.value ? parseFloat(e.target.value) : null)}
+                          onFocus={() => setEditing(tenant.id)}
+                          onBlur={() => setEditing(null)}
                           className="h-8 w-28 text-right"
                           placeholder="0.00"
                         />
