@@ -110,6 +110,16 @@ export const AddVariationDialog = ({
 
       if (error) throw error;
 
+      // Update tenant's cost_reported flag if tenant is assigned
+      if (formData.tenant_id !== "none") {
+        const { error: tenantError } = await supabase
+          .from("tenants")
+          .update({ cost_reported: true })
+          .eq("id", formData.tenant_id);
+        
+        if (tenantError) console.error("Failed to update tenant:", tenantError);
+      }
+
       toast({
         title: "Success",
         description: "Variation created. Add line items to calculate total.",

@@ -229,6 +229,9 @@ export const VariationSheetDialog = ({
   const handleDelete = async () => {
     setDeleting(true);
     try {
+      // Get the tenant_id before deleting
+      const deletedTenantId = variation?.tenant_id;
+
       // Delete line items first
       const { error: lineItemsError } = await supabase
         .from("variation_line_items")
@@ -244,6 +247,22 @@ export const VariationSheetDialog = ({
         .eq("id", variationId);
 
       if (error) throw error;
+
+      // If variation had a tenant, check if tenant has other variations
+      if (deletedTenantId) {
+        const { data: otherVariations } = await supabase
+          .from("cost_variations")
+          .select("id")
+          .eq("tenant_id", deletedTenantId);
+        
+        // If no other variations, unset cost_reported
+        if (!otherVariations || otherVariations.length === 0) {
+          await supabase
+            .from("tenants")
+            .update({ cost_reported: false })
+            .eq("id", deletedTenantId);
+        }
+      }
 
       toast({
         title: "Success",

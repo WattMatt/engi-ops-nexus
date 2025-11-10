@@ -95,17 +95,48 @@ export const EditVariationDialog = ({
 
     setLoading(true);
     try {
+      const oldTenantId = variation?.tenant_id;
+      const newTenantId = formData.tenant_id === "none" ? null : formData.tenant_id;
+
       const { error } = await supabase
         .from("cost_variations")
         .update({
           code: formData.code.trim(),
           description: formData.description.trim(),
-          tenant_id: formData.tenant_id === "none" ? null : formData.tenant_id,
+          tenant_id: newTenantId,
           is_credit: formData.is_credit,
         })
         .eq("id", variationId);
 
       if (error) throw error;
+
+      // Handle tenant cost_reported flag updates
+      if (oldTenantId !== newTenantId) {
+        // If old tenant exists and was changed, check if it has other variations
+        if (oldTenantId) {
+          const { data: otherVariations } = await supabase
+            .from("cost_variations")
+            .select("id")
+            .eq("tenant_id", oldTenantId)
+            .neq("id", variationId);
+          
+          // If no other variations, unset cost_reported
+          if (!otherVariations || otherVariations.length === 0) {
+            await supabase
+              .from("tenants")
+              .update({ cost_reported: false })
+              .eq("id", oldTenantId);
+          }
+        }
+        
+        // If new tenant is assigned, set cost_reported to true
+        if (newTenantId) {
+          await supabase
+            .from("tenants")
+            .update({ cost_reported: true })
+            .eq("id", newTenantId);
+        }
+      }
 
       toast({
         title: "Success",
