@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { sortTenantsByShopNumber } from "@/utils/tenantSorting";
 
 interface Tenant {
   id: string;
@@ -42,11 +43,10 @@ export const TenantReportPreview = ({ projectId, projectName }: TenantReportPrev
       const { data, error } = await supabase
         .from("tenants")
         .select("*")
-        .eq("project_id", projectId)
-        .order("shop_number");
+        .eq("project_id", projectId);
 
       if (error) throw error;
-      return data as Tenant[];
+      return data ? sortTenantsByShopNumber(data as Tenant[]) : [];
     },
   });
 

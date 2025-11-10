@@ -14,6 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Pencil, Trash2, RefreshCw } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { sortTenantsByShopNumber } from "@/utils/tenantSorting";
 
 interface Tenant {
   id: string;
@@ -81,19 +82,8 @@ export const AssignTenantDialog = ({
         return shouldShow;
       });
       
-      // Sort by shop_number numerically
-      const sortedTenants = filteredTenants.sort((a, b) => {
-        // Extract numeric part from shop_number (handles formats like "1", "01", "Shop 1", etc.)
-        const getNumericValue = (shopNum: string) => {
-          const match = shopNum.match(/\d+/);
-          return match ? parseInt(match[0], 10) : 0;
-        };
-        
-        const numA = getNumericValue(a.shop_number);
-        const numB = getNumericValue(b.shop_number);
-        
-        return numA - numB;
-      });
+      // Sort by shop_number numerically using utility function
+      const sortedTenants = sortTenantsByShopNumber(filteredTenants);
       
       setTenants(sortedTenants);
     } catch (error) {

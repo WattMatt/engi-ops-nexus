@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { sortTenantsByShopNumber } from "@/utils/tenantSorting";
 import {
   Dialog,
   DialogContent,
@@ -64,10 +65,9 @@ export const EditVariationDialog = ({
       const { data, error } = await supabase
         .from("tenants")
         .select("id, shop_name, shop_number")
-        .eq("project_id", projectId)
-        .order("shop_number");
+        .eq("project_id", projectId);
       if (error) throw error;
-      return data || [];
+      return data ? sortTenantsByShopNumber(data) : [];
     },
     enabled: !!projectId && open,
   });

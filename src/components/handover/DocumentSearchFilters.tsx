@@ -4,6 +4,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { sortTenantsByShopNumber } from "@/utils/tenantSorting";
 import {
   Select,
   SelectContent,
@@ -85,11 +86,10 @@ export const DocumentSearchFilters = ({ projectId }: DocumentSearchFiltersProps)
       const { data, error } = await supabase
         .from("tenants")
         .select("id, shop_number, shop_name")
-        .eq("project_id", projectId)
-        .order("shop_number", { ascending: true });
+        .eq("project_id", projectId);
 
       if (error) throw error;
-      return data;
+      return data ? sortTenantsByShopNumber(data) : [];
     },
   });
 

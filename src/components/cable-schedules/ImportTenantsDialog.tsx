@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { sortTenantsByShopNumber } from "@/utils/tenantSorting";
 import {
   Dialog,
   DialogContent,
@@ -57,11 +58,10 @@ export const ImportTenantsDialog = ({
       const { data, error } = await supabase
         .from("tenants")
         .select("id, shop_number, shop_name, db_size_allowance")
-        .eq("project_id", projectId)
-        .order("shop_number");
+        .eq("project_id", projectId);
 
       if (error) throw error;
-      return data;
+      return data ? sortTenantsByShopNumber(data) : [];
     },
     enabled: !!projectId && open,
   });

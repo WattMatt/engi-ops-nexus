@@ -12,6 +12,7 @@ import { MaskingToolbar } from "./MaskingToolbar";
 import { AssignTenantDialog } from "./AssignTenantDialog";
 import { FloorPlanLegend } from "./FloorPlanLegend";
 import type { PDFDocumentProxy } from 'pdfjs-dist';
+import { sortTenantsByShopNumber } from "@/utils/tenantSorting";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -73,11 +74,10 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
       const { data, error } = await supabase
         .from('tenants')
         .select('*')
-        .eq('project_id', projectId)
-        .order('shop_number');
+        .eq('project_id', projectId);
       
       if (error) throw error;
-      return data || [];
+      return data ? sortTenantsByShopNumber(data) : [];
     },
     enabled: !!projectId
   });

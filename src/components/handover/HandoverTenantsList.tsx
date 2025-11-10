@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { sortTenantsByShopNumber } from "@/utils/tenantSorting";
 import {
   Table,
   TableBody,
@@ -35,11 +36,11 @@ export const HandoverTenantsList = ({ projectId }: HandoverTenantsListProps) => 
       const { data, error } = await supabase
         .from("tenants")
         .select("id, shop_number, shop_name, created_at")
-        .eq("project_id", projectId)
-        .order("shop_number", { ascending: true });
+        .eq("project_id", projectId);
 
       if (error) throw error;
-      return data;
+      // Apply natural numeric sorting
+      return data ? sortTenantsByShopNumber(data) : [];
     },
   });
 

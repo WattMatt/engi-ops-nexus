@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { sortTenantsByShopNumber } from "@/utils/tenantSorting";
 import {
   Dialog,
   DialogContent,
@@ -72,11 +73,10 @@ export const EditCableEntryDialog = ({
           const { data: tenantsData } = await supabase
             .from("tenants")
             .select("id, shop_number, shop_name, db_size_allowance")
-            .eq("project_id", schedule.project_id)
-            .order("shop_number");
+            .eq("project_id", schedule.project_id);
 
           if (tenantsData) {
-            setTenants(tenantsData);
+            setTenants(sortTenantsByShopNumber(tenantsData));
           }
         }
       };

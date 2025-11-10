@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
+import { sortTenantsByShopNumber } from "@/utils/tenantSorting";
 
 interface AddVariationDialogProps {
   open: boolean;
@@ -41,16 +42,7 @@ export const AddVariationDialog = ({
         .eq("project_id", projectId);
       if (error) throw error;
       
-      // Sort numerically by shop_number
-      const sorted = (data || []).sort((a, b) => {
-        const numA = parseInt(a.shop_number.match(/\d+/)?.[0] || '0');
-        const numB = parseInt(b.shop_number.match(/\d+/)?.[0] || '0');
-        if (numA !== numB) return numA - numB;
-        // If numbers are equal, sort by full string (for Shop 10A, 10B, etc.)
-        return a.shop_number.localeCompare(b.shop_number);
-      });
-      
-      return sorted;
+      return data ? sortTenantsByShopNumber(data) : [];
     },
     enabled: !!projectId,
   });

@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
+import { sortTenantsByShopNumber } from "@/utils/tenantSorting";
 import {
   Store,
   CheckCircle2,
@@ -40,11 +41,10 @@ export const HandoverDashboard = ({ projectId, projectName }: HandoverDashboardP
       const { data, error } = await supabase
         .from("tenants")
         .select("id, shop_number, shop_name")
-        .eq("project_id", projectId)
-        .order("shop_number", { ascending: true });
+        .eq("project_id", projectId);
 
       if (error) throw error;
-      return data;
+      return data ? sortTenantsByShopNumber(data) : [];
     },
   });
 
