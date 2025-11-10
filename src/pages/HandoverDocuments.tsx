@@ -187,7 +187,7 @@ const HandoverDocuments = () => {
         <TabsList>
           <TabsTrigger value="dashboard">
             <BarChart3 className="h-4 w-4 mr-2" />
-            Dashboard
+            Overview
           </TabsTrigger>
           <TabsTrigger value="search">
             <Package className="h-4 w-4 mr-2" />
