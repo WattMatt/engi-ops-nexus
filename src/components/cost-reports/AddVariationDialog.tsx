@@ -38,10 +38,19 @@ export const AddVariationDialog = ({
       const { data, error } = await supabase
         .from("tenants")
         .select("*")
-        .eq("project_id", projectId)
-        .order("shop_number");
+        .eq("project_id", projectId);
       if (error) throw error;
-      return data || [];
+      
+      // Sort numerically by shop_number
+      const sorted = (data || []).sort((a, b) => {
+        const numA = parseInt(a.shop_number.match(/\d+/)?.[0] || '0');
+        const numB = parseInt(b.shop_number.match(/\d+/)?.[0] || '0');
+        if (numA !== numB) return numA - numB;
+        // If numbers are equal, sort by full string (for Shop 10A, 10B, etc.)
+        return a.shop_number.localeCompare(b.shop_number);
+      });
+      
+      return sorted;
     },
     enabled: !!projectId,
   });
@@ -51,7 +60,7 @@ export const AddVariationDialog = ({
     queryFn: async () => {
       const { data, error } = await supabase
         .from("cost_variations")
-        .select("code")
+        .select("code, tenant_id")
         .eq("cost_report_id", reportId)
         .order("code");
       if (error) throw error;
@@ -59,6 +68,11 @@ export const AddVariationDialog = ({
     },
     enabled: !!reportId && open,
   });
+
+  // Filter out tenants already assigned to variations
+  const availableTenants = tenants.filter(
+    tenant => !variations.some(v => v.tenant_id === tenant.id)
+  );
 
   // Auto-calculate next variation code when dialog opens
   useEffect(() => {
@@ -184,7 +198,7 @@ export const AddVariationDialog = ({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">None (General)</SelectItem>
-                {tenants.map((tenant) => (
+                {availableTenants.map((tenant) => (
                   <SelectItem key={tenant.id} value={tenant.id}>
                     {tenant.shop_number} - {tenant.shop_name}
                   </SelectItem>
