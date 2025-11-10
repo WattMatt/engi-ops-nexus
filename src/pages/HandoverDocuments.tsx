@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Upload, Link2, Share2, Package, Users, BarChart3, Zap, Cpu, Server, Lightbulb, Camera, Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useUserRole } from "@/hooks/useUserRole";
 import { UploadHandoverDocumentDialog } from "@/components/handover/UploadHandoverDocumentDialog";
 import { LinkHandoverDocumentDialog } from "@/components/handover/LinkHandoverDocumentDialog";
 import { HandoverDocumentsList } from "@/components/handover/HandoverDocumentsList";
@@ -17,6 +18,7 @@ import { EquipmentDocumentsView } from "@/components/handover/EquipmentDocuments
 
 const HandoverDocuments = () => {
   const { toast } = useToast();
+  const { isAdmin } = useUserRole();
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [linkDialogOpen, setLinkDialogOpen] = useState(false);
 
@@ -174,13 +176,15 @@ const HandoverDocuments = () => {
           <Link2 className="h-4 w-4 mr-2" />
           Link from Project
         </Button>
-        <Button 
-          variant="secondary" 
-          onClick={() => window.open(`/handover-client-management`, '_blank')}
-        >
-          <Share2 className="h-4 w-4 mr-2" />
-          Client Portal Link
-        </Button>
+        {isAdmin && (
+          <Button 
+            variant="secondary" 
+            onClick={() => window.open(`/handover-client-management`, '_blank')}
+          >
+            <Share2 className="h-4 w-4 mr-2" />
+            Client Portal Link
+          </Button>
+        )}
       </div>
 
       {/* Tabs for different sections */}
