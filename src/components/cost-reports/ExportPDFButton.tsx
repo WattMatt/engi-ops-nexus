@@ -112,27 +112,46 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         return currentY;
       };
 
-      // Helper function to draw metric card
-      const drawMetricCard = (x: number, y: number, width: number, height: number, title: string, value: string, color: [number, number, number]) => {
-        // Card background
-        doc.setFillColor(250, 250, 250);
-        doc.roundedRect(x, y, width, height, 2, 2, 'F');
+      // Helper function to draw modern metric card
+      const drawMetricCard = (x: number, y: number, width: number, height: number, title: string, value: string, color: [number, number, number], subtext?: string) => {
+        // Card shadow (subtle)
+        doc.setFillColor(235, 237, 240);
+        doc.roundedRect(x + 0.5, y + 0.5, width, height, 3, 3, 'F');
         
-        // Accent top border
+        // Card background (clean white)
+        doc.setFillColor(255, 255, 255);
+        doc.roundedRect(x, y, width, height, 3, 3, 'F');
+        
+        // Colored left accent bar
         doc.setFillColor(color[0], color[1], color[2]);
-        doc.roundedRect(x, y, width, 3, 2, 2, 'F');
+        doc.roundedRect(x + 2, y + 8, 3, height - 16, 1.5, 1.5, 'F');
         
-        // Title
-        doc.setFontSize(9);
+        // Title (small, uppercase, muted)
+        doc.setFontSize(8);
         doc.setFont("helvetica", "normal");
-        doc.setTextColor(100);
-        doc.text(title, x + width / 2, y + 12, { align: "center" });
+        doc.setTextColor(107, 114, 128); // Muted gray
+        doc.text(title, x + 8, y + 10);
         
-        // Value
-        doc.setFontSize(16);
+        // Value (large, bold)
+        doc.setFontSize(14);
         doc.setFont("helvetica", "bold");
-        doc.setTextColor(0);
-        doc.text(value, x + width / 2, y + 24, { align: "center" });
+        doc.setTextColor(17, 24, 39); // Dark gray, almost black
+        
+        // Wrap long values if needed
+        const maxWidth = width - 16;
+        const textWidth = doc.getTextWidth(value);
+        if (textWidth > maxWidth) {
+          doc.setFontSize(12);
+        }
+        doc.text(value, x + 8, y + 22);
+        
+        // Subtext (if provided)
+        if (subtext) {
+          doc.setFontSize(7);
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(color[0], color[1], color[2]);
+          doc.text(subtext, x + 8, y + height - 6);
+        }
       };
 
       // Helper function to draw category legend item
@@ -245,21 +264,28 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
 
       // Key Metrics Cards (3-column layout)
       const cardWidth = (pageWidth - 28 - 16) / 3; // 3 cards with gaps
-      const cardHeight = 30;
+      const cardHeight = 38;
+      
+      const variancePercent = totalOriginalBudget > 0 
+        ? ((Math.abs(totalVariance) / totalOriginalBudget) * 100).toFixed(1)
+        : "0.0";
       
       drawMetricCard(14, yPos, cardWidth, cardHeight, "ORIGINAL BUDGET", 
         `R ${totalOriginalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, 
-        [41, 128, 185]);
+        [59, 130, 246],
+        "Initial approved budget");
       
       drawMetricCard(14 + cardWidth + 8, yPos, cardWidth, cardHeight, "ANTICIPATED FINAL", 
         `R ${totalAnticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, 
-        [136, 132, 216]);
+        [139, 92, 246],
+        "Projected final cost");
       
       const varianceColor = totalVariance < 0 ? [34, 197, 94] : [239, 68, 68];
       const varianceLabel = totalVariance < 0 ? "TOTAL SAVING" : "TOTAL EXTRA";
       drawMetricCard(14 + (cardWidth + 8) * 2, yPos, cardWidth, cardHeight, varianceLabel, 
         `R ${Math.abs(totalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, 
-        varianceColor as [number, number, number]);
+        varianceColor as [number, number, number],
+        `${variancePercent}% variance`);
       
       yPos += cardHeight + 20;
 
