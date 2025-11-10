@@ -82,9 +82,9 @@ export const CategoryCard = ({ category, onUpdate }: CategoryCardProps) => {
   let categoryAnticipatedFinal = 0;
 
   if (isVariationsCategory) {
-    // For variations, calculate based on credits and extras
+    // For variations, sum amounts directly (already have correct signs)
     categoryAnticipatedFinal = variations.reduce(
-      (sum, v) => sum + (v.is_credit ? -Number(v.amount) : Number(v.amount)),
+      (sum, v) => sum + Number(v.amount || 0),
       0
     );
   } else {
