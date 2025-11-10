@@ -20,18 +20,17 @@ const HandoverDocuments = () => {
 
   // Get current project from localStorage
   const currentProject = localStorage.getItem("currentProject");
-  const projectId = currentProject ? JSON.parse(currentProject).id : null;
+  const projectId = currentProject ? JSON.parse(currentProject).id : "";
 
   // Fetch project details
   const { data: project } = useQuery({
     queryKey: ["project", projectId],
     queryFn: async () => {
-      if (!projectId) return null;
       const { data, error } = await supabase
         .from("projects")
         .select("*")
         .eq("id", projectId)
-        .single();
+        .maybeSingle();
       
       if (error) throw error;
       return data;
@@ -43,7 +42,6 @@ const HandoverDocuments = () => {
   const { data: documentsCount } = useQuery({
     queryKey: ["handover-documents-count", projectId],
     queryFn: async () => {
-      if (!projectId) return 0;
       const { count, error } = await supabase
         .from("handover_documents")
         .select("*", { count: "exact", head: true })
@@ -54,21 +52,6 @@ const HandoverDocuments = () => {
     },
     enabled: !!projectId,
   });
-
-  if (!projectId) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <Card>
-          <CardHeader>
-            <CardTitle>No Project Selected</CardTitle>
-            <CardDescription>
-              Please select a project to manage handover documents.
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
-    );
-  }
 
   return (
     <div className="container mx-auto p-6 space-y-6">
