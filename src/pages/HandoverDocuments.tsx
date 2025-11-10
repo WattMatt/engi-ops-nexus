@@ -3,13 +3,15 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Upload, Link2, Share2, Package } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Upload, Link2, Share2, Package, Users } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { UploadHandoverDocumentDialog } from "@/components/handover/UploadHandoverDocumentDialog";
 import { LinkHandoverDocumentDialog } from "@/components/handover/LinkHandoverDocumentDialog";
 import { GenerateHandoverLinkDialog } from "@/components/handover/GenerateHandoverLinkDialog";
 import { HandoverDocumentsList } from "@/components/handover/HandoverDocumentsList";
 import { HandoverLinksManager } from "@/components/handover/HandoverLinksManager";
+import { HandoverTenantsList } from "@/components/handover/HandoverTenantsList";
 
 const HandoverDocuments = () => {
   const { toast } = useToast();
@@ -53,6 +55,21 @@ const HandoverDocuments = () => {
     enabled: !!projectId,
   });
 
+  // Fetch tenants count
+  const { data: tenantsCount } = useQuery({
+    queryKey: ["tenants-count", projectId],
+    queryFn: async () => {
+      const { count, error } = await supabase
+        .from("tenants")
+        .select("*", { count: "exact", head: true })
+        .eq("project_id", projectId);
+      
+      if (error) throw error;
+      return count || 0;
+    },
+    enabled: !!projectId,
+  });
+
   return (
     <div className="container mx-auto p-6 space-y-6">
       {/* Header */}
@@ -66,7 +83,7 @@ const HandoverDocuments = () => {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid gap-4 md:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Documents</CardTitle>
@@ -76,6 +93,19 @@ const HandoverDocuments = () => {
             <div className="text-2xl font-bold">{documentsCount || 0}</div>
             <p className="text-xs text-muted-foreground">
               Documents in repository
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Tenants</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{tenantsCount || 0}</div>
+            <p className="text-xs text-muted-foreground">
+              Project tenants
             </p>
           </CardContent>
         </Card>
@@ -136,11 +166,31 @@ const HandoverDocuments = () => {
         </Button>
       </div>
 
-      {/* Documents List */}
-      <HandoverDocumentsList projectId={projectId} />
+      {/* Tabs for different sections */}
+      <Tabs defaultValue="documents" className="w-full">
+        <TabsList>
+          <TabsTrigger value="documents">
+            <Package className="h-4 w-4 mr-2" />
+            Documents
+          </TabsTrigger>
+          <TabsTrigger value="tenants">
+            <Users className="h-4 w-4 mr-2" />
+            Tenants
+          </TabsTrigger>
+        </TabsList>
 
-      {/* Active Links Manager */}
-      <HandoverLinksManager projectId={projectId} />
+        <TabsContent value="documents" className="space-y-6">
+          {/* Documents List */}
+          <HandoverDocumentsList projectId={projectId} />
+
+          {/* Active Links Manager */}
+          <HandoverLinksManager projectId={projectId} />
+        </TabsContent>
+
+        <TabsContent value="tenants">
+          <HandoverTenantsList projectId={projectId} />
+        </TabsContent>
+      </Tabs>
 
       {/* Dialogs */}
       <UploadHandoverDocumentDialog
