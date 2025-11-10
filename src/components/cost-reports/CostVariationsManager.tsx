@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Plus, FileText, Pencil, Check, X } from "lucide-react";
+import { Plus, FileText, Pencil } from "lucide-react";
 import { AddVariationDialog } from "./AddVariationDialog";
 import { VariationSheetDialog } from "./VariationSheetDialog";
 import { toast } from "sonner";
@@ -21,12 +21,6 @@ export const CostVariationsManager = ({
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [sheetDialogOpen, setSheetDialogOpen] = useState(false);
   const [selectedVariationId, setSelectedVariationId] = useState<string | null>(null);
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editValues, setEditValues] = useState<{
-    code: string;
-    description: string;
-    amount: string;
-  }>({ code: "", description: "", amount: "" });
 
   const queryClient = useQueryClient();
 
@@ -67,58 +61,6 @@ export const CostVariationsManager = ({
     0
   );
 
-  const updateMutation = useMutation({
-    mutationFn: async ({
-      id,
-      code,
-      description,
-      amount,
-    }: {
-      id: string;
-      code: string;
-      description: string;
-      amount: number;
-    }) => {
-      const { error } = await supabase
-        .from("cost_variations")
-        .update({ code, description, amount })
-        .eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["cost-variations", reportId] });
-      toast.success("Variation updated successfully");
-      setEditingId(null);
-    },
-    onError: (error) => {
-      toast.error("Failed to update variation");
-      console.error(error);
-    },
-  });
-
-  const handleEdit = (variation: any) => {
-    setEditingId(variation.id);
-    setEditValues({
-      code: variation.code,
-      description: variation.description,
-      amount: String(variation.amount),
-    });
-  };
-
-  const handleSave = () => {
-    if (!editingId) return;
-    updateMutation.mutate({
-      id: editingId,
-      code: editValues.code,
-      description: editValues.description,
-      amount: Number(editValues.amount),
-    });
-  };
-
-  const handleCancel = () => {
-    setEditingId(null);
-    setEditValues({ code: "", description: "", amount: "" });
-  };
 
   return (
     <div className="space-y-4">
@@ -162,125 +104,66 @@ export const CostVariationsManager = ({
                   </tr>
                 </thead>
                 <tbody>
-                  {variations.map((variation) => {
-                    const isEditing = editingId === variation.id;
-                    return (
-                      <tr key={variation.id} className="border-b hover:bg-muted/50">
-                        <td className="p-4 font-medium">
-                          {isEditing ? (
-                            <Input
-                              value={editValues.code}
-                              onChange={(e) =>
-                                setEditValues({ ...editValues, code: e.target.value })
-                              }
-                              className="w-24"
-                            />
-                          ) : (
-                            variation.code
-                          )}
-                        </td>
-                        <td className="p-4">
-                          {isEditing ? (
-                            <Input
-                              value={editValues.description}
-                              onChange={(e) =>
-                                setEditValues({ ...editValues, description: e.target.value })
-                              }
-                              className="w-full"
-                            />
-                          ) : (
-                            variation.description
-                          )}
-                        </td>
-                        <td className="p-4">
-                          {variation.tenants
-                            ? `${variation.tenants.shop_number} - ${variation.tenants.shop_name}`
-                            : "General"}
-                        </td>
-                        <td className="p-4">
-                          {isEditing ? (
-                            <Input
-                              type="number"
-                              step="0.01"
-                              value={editValues.amount}
-                              onChange={(e) =>
-                                setEditValues({ ...editValues, amount: e.target.value })
-                              }
-                              className="w-32 text-right"
-                            />
-                          ) : (
-                            <span
-                              className={`font-medium ${
-                                Number(variation.amount || 0) < 0
-                                  ? "text-green-600"
-                                  : "text-red-600"
-                              }`}
-                            >
-                              {Number(variation.amount || 0) < 0 ? "-" : "+"}R
-                              {Math.abs(Number(variation.amount || 0)).toLocaleString("en-ZA", {
-                                minimumFractionDigits: 2,
-                              })}
-                            </span>
-                          )}
-                        </td>
-                        <td className="p-4">
-                          <span
-                            className={`px-2 py-1 rounded text-xs ${
-                              variation.is_credit
-                                ? "bg-green-100 text-green-800"
-                                : "bg-red-100 text-red-800"
-                            }`}
+                  {variations.map((variation) => (
+                    <tr key={variation.id} className="border-b hover:bg-muted/50">
+                      <td className="p-4 font-medium">{variation.code}</td>
+                      <td className="p-4">{variation.description}</td>
+                      <td className="p-4">
+                        {variation.tenants
+                          ? `${variation.tenants.shop_number} - ${variation.tenants.shop_name}`
+                          : "General"}
+                      </td>
+                      <td className="p-4">
+                        <span
+                          className={`font-medium ${
+                            Number(variation.amount || 0) < 0
+                              ? "text-green-600"
+                              : "text-red-600"
+                          }`}
+                        >
+                          {Number(variation.amount || 0) < 0 ? "-" : "+"}R
+                          {Math.abs(Number(variation.amount || 0)).toLocaleString("en-ZA", {
+                            minimumFractionDigits: 2,
+                          })}
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        <span
+                          className={`px-2 py-1 rounded text-xs ${
+                            variation.is_credit
+                              ? "bg-green-100 text-green-800"
+                              : "bg-red-100 text-red-800"
+                          }`}
+                        >
+                          {variation.is_credit ? "Credit" : "Extra"}
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedVariationId(variation.id);
+                              setSheetDialogOpen(true);
+                            }}
                           >
-                            {variation.is_credit ? "Credit" : "Extra"}
-                          </span>
-                        </td>
-                        <td className="p-4">
-                          <div className="flex gap-2">
-                            {isEditing ? (
-                              <>
-                                <Button
-                                  size="sm"
-                                  variant="default"
-                                  onClick={handleSave}
-                                  disabled={updateMutation.isPending}
-                                >
-                                  <Check className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={handleCancel}
-                                  disabled={updateMutation.isPending}
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
-                              </>
-                            ) : (
-                              <>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleEdit(variation)}
-                                >
-                                  <Pencil className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => {
-                                    setSelectedVariationId(variation.id);
-                                    setSheetDialogOpen(true);
-                                  }}
-                                >
-                                  <FileText className="h-4 w-4" />
-                                </Button>
-                              </>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    );
-                  })}
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => {
+                              setSelectedVariationId(variation.id);
+                              setSheetDialogOpen(true);
+                            }}
+                          >
+                            <FileText className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
             </div>
