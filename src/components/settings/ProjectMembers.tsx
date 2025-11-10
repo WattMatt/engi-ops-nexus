@@ -10,8 +10,22 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { UserPlus, Trash2, Users } from "lucide-react";
+import { UserPlus, Trash2, Users, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 interface ProjectMember {
   id: string;
@@ -39,6 +53,8 @@ export function ProjectMembers({ projectId }: ProjectMembersProps) {
   const [selectedUserId, setSelectedUserId] = useState<string>("");
   const [selectedRole, setSelectedRole] = useState<string>("member");
   const [loading, setLoading] = useState(false);
+  const [userSearchOpen, setUserSearchOpen] = useState(false);
+  const [userSearch, setUserSearch] = useState("");
 
   useEffect(() => {
     loadMembers();
@@ -159,9 +175,9 @@ export function ProjectMembers({ projectId }: ProjectMembersProps) {
 
   const getRoleBadgeVariant = (role: string) => {
     switch (role) {
-      case "admin":
+      case "owner":
         return "default";
-      case "manager":
+      case "editor":
         return "secondary";
       default:
         return "outline";
@@ -172,41 +188,91 @@ export function ProjectMembers({ projectId }: ProjectMembersProps) {
     (user) => !members.some((m) => m.user_id === user.id)
   );
 
+  const selectedUser = availableUsers.find((u) => u.id === selectedUserId);
+
+  const filteredUsers = nonMembers.filter((user) =>
+    user.full_name.toLowerCase().includes(userSearch.toLowerCase()) ||
+    user.email.toLowerCase().includes(userSearch.toLowerCase())
+  );
+
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2 mb-4">
         <Users className="h-5 w-5" />
-        <h3 className="text-lg font-semibold">Project Members</h3>
+        <h3 className="text-lg font-semibold">Project Team</h3>
         <Badge variant="secondary" className="ml-auto">
           {members.length} {members.length === 1 ? "member" : "members"}
         </Badge>
       </div>
 
-      {/* Add Member Form */}
-      <Card>
+      <Card className="border-primary/20">
         <CardContent className="pt-6">
+          <p className="text-sm text-muted-foreground mb-4">
+            Add team members for messaging and task collaboration
+          </p>
           <div className="flex gap-2">
-            <Select value={selectedUserId} onValueChange={setSelectedUserId}>
-              <SelectTrigger className="flex-1">
-                <SelectValue placeholder="Select user to add" />
-              </SelectTrigger>
-              <SelectContent>
-                {nonMembers.map((user) => (
-                  <SelectItem key={user.id} value={user.id}>
-                    {user.full_name} ({user.email})
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Popover open={userSearchOpen} onOpenChange={setUserSearchOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={userSearchOpen}
+                  className="flex-1 justify-between"
+                >
+                  {selectedUser ? (
+                    <span className="truncate">
+                      {selectedUser.full_name} ({selectedUser.email})
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">
+                      Search and select user...
+                    </span>
+                  )}
+                  <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[400px] p-0" align="start">
+                <Command>
+                  <CommandInput 
+                    placeholder="Search users by name or email..." 
+                    value={userSearch}
+                    onValueChange={setUserSearch}
+                  />
+                  <CommandList>
+                    <CommandEmpty>No users found.</CommandEmpty>
+                    <CommandGroup heading="Available Users">
+                      {filteredUsers.map((user) => (
+                        <CommandItem
+                          key={user.id}
+                          value={user.id}
+                          onSelect={() => {
+                            setSelectedUserId(user.id);
+                            setUserSearchOpen(false);
+                            setUserSearch("");
+                          }}
+                        >
+                          <div className="flex flex-col">
+                            <span className="font-medium">{user.full_name}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {user.email}
+                            </span>
+                          </div>
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
 
             <Select value={selectedRole} onValueChange={setSelectedRole}>
               <SelectTrigger className="w-[150px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="owner">Owner</SelectItem>
+                <SelectItem value="editor">Editor</SelectItem>
                 <SelectItem value="member">Member</SelectItem>
-                <SelectItem value="manager">Manager</SelectItem>
-                <SelectItem value="admin">Admin</SelectItem>
               </SelectContent>
             </Select>
 
@@ -215,7 +281,7 @@ export function ProjectMembers({ projectId }: ProjectMembersProps) {
               disabled={loading || !selectedUserId}
             >
               <UserPlus className="h-4 w-4 mr-2" />
-              Add Member
+              Add
             </Button>
           </div>
         </CardContent>
@@ -252,9 +318,9 @@ export function ProjectMembers({ projectId }: ProjectMembersProps) {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="owner">Owner</SelectItem>
+                      <SelectItem value="editor">Editor</SelectItem>
                       <SelectItem value="member">Member</SelectItem>
-                      <SelectItem value="manager">Manager</SelectItem>
-                      <SelectItem value="admin">Admin</SelectItem>
                     </SelectContent>
                   </Select>
 
