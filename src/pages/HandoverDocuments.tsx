@@ -4,11 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Upload, Link2, Share2, Package, Users, BarChart3, Zap, Cpu, Server, Lightbulb, Camera, Shield } from "lucide-react";
+import { Upload, Share2, Package, Users, BarChart3, Zap, Cpu, Server, Lightbulb, Camera, Shield } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useUserRole } from "@/hooks/useUserRole";
 import { UploadHandoverDocumentDialog } from "@/components/handover/UploadHandoverDocumentDialog";
-import { LinkHandoverDocumentDialog } from "@/components/handover/LinkHandoverDocumentDialog";
 import { HandoverDocumentsList } from "@/components/handover/HandoverDocumentsList";
 import { HandoverTenantsList } from "@/components/handover/HandoverTenantsList";
 import { DocumentSearchFilters } from "@/components/handover/DocumentSearchFilters";
@@ -20,7 +19,6 @@ const HandoverDocuments = () => {
   const { toast } = useToast();
   const { isAdmin } = useUserRole();
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
-  const [linkDialogOpen, setLinkDialogOpen] = useState(false);
 
   // Get current project from localStorage (using same key as TenantTracker)
   const projectId = localStorage.getItem("selectedProjectId") || "";
@@ -153,15 +151,6 @@ const HandoverDocuments = () => {
               <Upload className="h-4 w-4 mr-2" />
               Upload Document
             </Button>
-            <Button
-              size="sm"
-              variant="outline"
-              className="w-full justify-start"
-              onClick={() => setLinkDialogOpen(true)}
-            >
-              <Link2 className="h-4 w-4 mr-2" />
-              Link Document
-            </Button>
           </CardContent>
         </Card>
       </div>
@@ -171,10 +160,6 @@ const HandoverDocuments = () => {
         <Button onClick={() => setUploadDialogOpen(true)}>
           <Upload className="h-4 w-4 mr-2" />
           Upload Document
-        </Button>
-        <Button variant="outline" onClick={() => setLinkDialogOpen(true)}>
-          <Link2 className="h-4 w-4 mr-2" />
-          Link from Project
         </Button>
         {isAdmin && (
           <Button 
@@ -310,12 +295,6 @@ const HandoverDocuments = () => {
       <UploadHandoverDocumentDialog
         open={uploadDialogOpen}
         onOpenChange={setUploadDialogOpen}
-        projectId={projectId}
-      />
-
-      <LinkHandoverDocumentDialog
-        open={linkDialogOpen}
-        onOpenChange={setLinkDialogOpen}
         projectId={projectId}
       />
     </div>
