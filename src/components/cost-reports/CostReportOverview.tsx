@@ -75,7 +75,7 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
   );
   
   const totalVariations = variations.reduce(
-    (sum, v) => sum + (v.is_credit ? -Number(v.amount) : Number(v.amount)),
+    (sum, v) => sum + Number(v.amount || 0),
     0
   );
   
