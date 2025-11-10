@@ -268,7 +268,9 @@ export const VariationSheetDialog = ({
   };
 
   const total = lineItems.reduce((sum, item) => sum + item.amount, 0);
-  const displayTotal = variation?.is_credit ? -total : total;
+  // Determine the actual sign based on the calculated total
+  const isNegative = total < 0;
+  const displayTotal = total;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -393,8 +395,8 @@ export const VariationSheetDialog = ({
                       />
                     </td>
                     <td className="border p-2 text-right font-medium">
-                      {variation?.is_credit ? "-" : ""}R
-                      {item.amount.toLocaleString("en-ZA", {
+                      {item.amount < 0 ? "-" : ""}R
+                      {Math.abs(item.amount).toLocaleString("en-ZA", {
                         minimumFractionDigits: 2,
                       })}
                     </td>
@@ -428,7 +430,7 @@ export const VariationSheetDialog = ({
               TOTAL ADDITIONAL WORKS EXCLUSIVE OF VAT
             </span>
             <span className="text-xl font-bold text-black dark:text-white">
-              {variation?.is_credit ? "-" : "+"}R
+              {isNegative ? "-" : "+"}R
               {Math.abs(displayTotal).toLocaleString("en-ZA", {
                 minimumFractionDigits: 2,
               })}
