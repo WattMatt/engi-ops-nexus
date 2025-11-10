@@ -162,7 +162,7 @@ const TenantTracker = () => {
               <p className="text-muted-foreground">Loading data...</p>
             </div>
           ) : (
-            <TenantOverview tenants={tenants} />
+            <TenantOverview tenants={tenants} projectId={projectId || ""} />
           )}
         </TabsContent>
         

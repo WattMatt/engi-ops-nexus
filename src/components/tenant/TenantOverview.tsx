@@ -1,7 +1,8 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Building2, Calculator, CheckCircle2, Package, Lightbulb, FileText, LayoutGrid, DollarSign, TrendingUp, PercentIcon, AlertCircle } from "lucide-react";
+import { Building2, Calculator, CheckCircle2, Package, Lightbulb, FileText, LayoutGrid, DollarSign, TrendingUp, PercentIcon, AlertCircle, FolderSymlink } from "lucide-react";
+import { useHandoverLinkStatus } from "@/hooks/useHandoverLinkStatus";
 
 interface Tenant {
   id: string;
@@ -18,11 +19,17 @@ interface Tenant {
 
 interface TenantOverviewProps {
   tenants: Tenant[];
+  projectId: string;
 }
 
-export const TenantOverview = ({ tenants }: TenantOverviewProps) => {
+export const TenantOverview = ({ tenants, projectId }: TenantOverviewProps) => {
   const totalTenants = tenants.length;
   const totalArea = tenants.reduce((sum, t) => sum + (t.area || 0), 0);
+  
+  // Fetch handover link status
+  const { data: handoverLinkStatus } = useHandoverLinkStatus(projectId);
+  const tenantsLinkedToHandover = handoverLinkStatus?.totalLinked || 0;
+  const handoverLinkProgress = totalTenants > 0 ? (tenantsLinkedToHandover / totalTenants) * 100 : 0;
   
   const categoryCounts = tenants.reduce((acc, t) => {
     acc[t.shop_category] = (acc[t.shop_category] || 0) + 1;
@@ -113,11 +120,15 @@ export const TenantOverview = ({ tenants }: TenantOverviewProps) => {
               <p className="text-xs text-muted-foreground">Lighting</p>
               <p className="text-lg font-semibold">{lightingProgress.toFixed(0)}%</p>
             </div>
-            <div className="text-center">
-              <p className="text-xs text-muted-foreground">Costing</p>
-              <p className="text-lg font-semibold">{costProgress.toFixed(0)}%</p>
-            </div>
+          <div className="text-center">
+            <p className="text-xs text-muted-foreground">Costing</p>
+            <p className="text-lg font-semibold">{costProgress.toFixed(0)}%</p>
           </div>
+          <div className="text-center">
+            <p className="text-xs text-muted-foreground">Handover Links</p>
+            <p className="text-lg font-semibold">{handoverLinkProgress.toFixed(0)}%</p>
+          </div>
+        </div>
         </CardContent>
       </Card>
 
@@ -256,6 +267,29 @@ export const TenantOverview = ({ tenants }: TenantOverviewProps) => {
                 <p className="text-sm">All actions completed!</p>
               </div>
             )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FolderSymlink className="h-5 w-5" />
+              Handover Link Status
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium">Tenants Linked</span>
+                <span className="font-bold text-emerald-600">
+                  {tenantsLinkedToHandover} / {totalTenants}
+                </span>
+              </div>
+              <Progress value={handoverLinkProgress} className="h-2" />
+              <p className="text-xs text-muted-foreground mt-1">
+                {handoverLinkProgress.toFixed(1)}% of tenants have documents linked to handover folders
+              </p>
+            </div>
           </CardContent>
         </Card>
       </div>

@@ -1,7 +1,7 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Trash2, CheckCircle2, Circle, Calculator, AlertTriangle, Clock, CalendarDays, Search, Filter, Link2 } from "lucide-react";
+import { Trash2, CheckCircle2, Circle, Calculator, AlertTriangle, Clock, CalendarDays, Search, Filter, Link2, FolderSymlink } from "lucide-react";
 import { TenantDialog } from "./TenantDialog";
 import { DeleteTenantDialog } from "./DeleteTenantDialog";
 import { supabase } from "@/integrations/supabase/client";
@@ -17,6 +17,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useMutation } from "@tanstack/react-query";
 import { useTenantPresence } from "@/hooks/useTenantPresence";
+import { useHandoverLinkStatus } from "@/hooks/useHandoverLinkStatus";
 import { User } from "lucide-react";
 interface Tenant {
   id: string;
@@ -61,6 +62,9 @@ export const TenantList = ({
   
   // Presence tracking
   const { getEditingUser, setEditing } = useTenantPresence(projectId);
+  
+  // Handover link status
+  const { data: handoverLinkStatus } = useHandoverLinkStatus(projectId);
 
   // Sync local state when tenants prop changes
   useEffect(() => {
@@ -614,13 +618,30 @@ export const TenantList = ({
                   </div>
                 </TableHead>
                 <TableHead className="text-right">Light Cost</TableHead>
+                <TableHead className="text-center">
+                  <div className="flex items-center justify-center gap-1">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="flex items-center gap-1">
+                            <FolderSymlink className="h-4 w-4" />
+                            <span>Handover</span>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-xs">Documents linked to handover folders</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                </TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {group.tenants.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={16} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={17} className="text-center py-8 text-muted-foreground">
                     {searchQuery || categoryFilter || statusFilter !== "all" 
                       ? "No tenants match the current filters" 
                       : "No tenants found"}
@@ -833,6 +854,27 @@ export const TenantList = ({
                           className="h-8 w-28 text-right"
                           placeholder="0.00"
                         />
+                      )}
+                    </TableCell>
+                    <TableCell className="text-center">
+                      {handoverLinkStatus?.linkedTenantIds.includes(tenant.id) ? (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="flex items-center justify-center">
+                                <Badge variant="default" className="bg-emerald-600">
+                                  <FolderSymlink className="h-3 w-3 mr-1" />
+                                  Linked
+                                </Badge>
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p className="text-xs">Documents linked to handover folders</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      ) : (
+                        <span className="text-muted-foreground text-xs">-</span>
                       )}
                     </TableCell>
                     <TableCell className="text-right">
