@@ -32,10 +32,23 @@ export const CostVariationsManager = ({
             shop_number
           )
         `)
-        .eq("cost_report_id", reportId)
-        .order("code");
+        .eq("cost_report_id", reportId);
       if (error) throw error;
-      return data || [];
+      
+      // Natural sort by code (handles G1, G2, G10 correctly)
+      return (data || []).sort((a, b) => {
+        const aMatch = a.code.match(/([A-Z]+)(\d+)/);
+        const bMatch = b.code.match(/([A-Z]+)(\d+)/);
+        
+        if (!aMatch || !bMatch) return a.code.localeCompare(b.code);
+        
+        // Compare letter prefix first
+        const prefixCompare = aMatch[1].localeCompare(bMatch[1]);
+        if (prefixCompare !== 0) return prefixCompare;
+        
+        // Then compare numbers numerically
+        return parseInt(aMatch[2]) - parseInt(bMatch[2]);
+      });
     },
   });
 
