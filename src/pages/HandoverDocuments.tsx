@@ -199,7 +199,10 @@ const HandoverDocuments = () => {
         </TabsList>
 
         <TabsContent value="dashboard">
-          <TenantCompletionDashboard projectId={projectId} />
+          <TenantCompletionDashboard 
+            projectId={projectId} 
+            projectName={project?.name || "Project"}
+          />
         </TabsContent>
 
         <TabsContent value="tenants">

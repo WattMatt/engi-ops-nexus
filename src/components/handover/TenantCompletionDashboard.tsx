@@ -16,9 +16,11 @@ import { Input } from "@/components/ui/input";
 import { Store, Search, CheckCircle2, AlertCircle, Clock, ChevronDown, ChevronRight } from "lucide-react";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { TenantDocumentUpload } from "./TenantDocumentUpload";
+import { TenantCompletionExportPDFButton } from "./TenantCompletionExportPDFButton";
 
 interface TenantCompletionDashboardProps {
   projectId: string;
+  projectName: string;
 }
 
 const TENANT_DOCUMENT_TYPES = [
@@ -30,7 +32,7 @@ const TENANT_DOCUMENT_TYPES = [
   "db_guarantee",
 ];
 
-export const TenantCompletionDashboard = ({ projectId }: TenantCompletionDashboardProps) => {
+export const TenantCompletionDashboard = ({ projectId, projectName }: TenantCompletionDashboardProps) => {
   const [completionFilter, setCompletionFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [expandedTenants, setExpandedTenants] = useState<Set<string>>(new Set());
@@ -61,7 +63,7 @@ export const TenantCompletionDashboard = ({ projectId }: TenantCompletionDashboa
         .eq("source_type", "tenant");
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as any[];
     },
   });
 
@@ -75,7 +77,7 @@ export const TenantCompletionDashboard = ({ projectId }: TenantCompletionDashboa
         .eq("project_id", projectId);
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as any[];
     },
   });
 
@@ -246,6 +248,14 @@ export const TenantCompletionDashboard = ({ projectId }: TenantCompletionDashboa
                 Track handover document completion across all tenants
               </CardDescription>
             </div>
+            <TenantCompletionExportPDFButton
+              projectId={projectId}
+              projectName={projectName}
+              tenants={tenantsWithCompletion}
+              allDocuments={allDocuments}
+              allExclusions={allExclusions}
+              stats={stats}
+            />
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
