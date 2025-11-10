@@ -1,7 +1,7 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Trash2, CheckCircle2, Circle, Calculator, AlertTriangle, Clock, CalendarDays, Search, Filter } from "lucide-react";
+import { Trash2, CheckCircle2, Circle, Calculator, AlertTriangle, Clock, CalendarDays, Search, Filter, Link2 } from "lucide-react";
 import { TenantDialog } from "./TenantDialog";
 import { DeleteTenantDialog } from "./DeleteTenantDialog";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,6 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useMutation } from "@tanstack/react-query";
 interface Tenant {
   id: string;
@@ -198,18 +199,34 @@ export const TenantList = ({
       toast.error("Failed to set opening date: " + error.message);
     }
   };
-  const StatusIcon = ({ checked, onClick }: { checked: boolean; onClick?: () => void }) => (
-    <button
-      onClick={onClick}
-      className="hover:opacity-70 transition-opacity cursor-pointer"
-      type="button"
-    >
-      {checked ? (
-        <CheckCircle2 className="h-4 w-4 text-green-600" />
-      ) : (
-        <Circle className="h-4 w-4 text-muted-foreground" />
+  const StatusIcon = ({ checked, onClick, autoSynced }: { checked: boolean; onClick?: () => void; autoSynced?: boolean }) => (
+    <div className="flex items-center gap-1">
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <button
+              onClick={onClick}
+              className="hover:opacity-70 transition-opacity cursor-pointer"
+              type="button"
+            >
+              {checked ? (
+                <CheckCircle2 className="h-4 w-4 text-green-600" />
+              ) : (
+                <Circle className="h-4 w-4 text-muted-foreground" />
+              )}
+            </button>
+          </TooltipTrigger>
+          {autoSynced && (
+            <TooltipContent>
+              <p className="text-xs">Auto-synced from document uploads</p>
+            </TooltipContent>
+          )}
+        </Tooltip>
+      </TooltipProvider>
+      {autoSynced && checked && (
+        <Link2 className="h-3 w-3 text-primary" />
       )}
-    </button>
+    </div>
   );
   
   const isTenantComplete = (tenant: Tenant) => {
@@ -530,11 +547,67 @@ export const TenantList = ({
                 <TableHead>Area</TableHead>
                 <TableHead>DB Allow</TableHead>
                 <TableHead>DB SOW</TableHead>
-                <TableHead className="text-center">SOW</TableHead>
-                <TableHead className="text-center">Layout</TableHead>
-                <TableHead className="text-center">DB Ord</TableHead>
+                <TableHead className="text-center">
+                  <div className="flex items-center justify-center gap-1">
+                    SOW
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Link2 className="h-3 w-3 text-primary" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-xs">Auto-synced from document uploads</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                </TableHead>
+                <TableHead className="text-center">
+                  <div className="flex items-center justify-center gap-1">
+                    Layout
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Link2 className="h-3 w-3 text-primary" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-xs">Auto-synced from document uploads</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                </TableHead>
+                <TableHead className="text-center">
+                  <div className="flex items-center justify-center gap-1">
+                    DB Ord
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Link2 className="h-3 w-3 text-primary" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-xs">Auto-synced from document uploads</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                </TableHead>
                 <TableHead className="text-right">DB Cost</TableHead>
-                <TableHead className="text-center">Light Ord</TableHead>
+                <TableHead className="text-center">
+                  <div className="flex items-center justify-center gap-1">
+                    Light Ord
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Link2 className="h-3 w-3 text-primary" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="text-xs">Auto-synced from document uploads</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                </TableHead>
                 <TableHead className="text-right">Light Cost</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -672,18 +745,21 @@ export const TenantList = ({
                       <StatusIcon 
                         checked={tenant.sow_received} 
                         onClick={() => handleBooleanToggle(tenant.id, 'sow_received', tenant.sow_received)}
+                        autoSynced={true}
                       />
                     </TableCell>
                     <TableCell className="text-center">
                       <StatusIcon 
                         checked={tenant.layout_received}
                         onClick={() => handleBooleanToggle(tenant.id, 'layout_received', tenant.layout_received)}
+                        autoSynced={true}
                       />
                     </TableCell>
                     <TableCell className="text-center">
                       <StatusIcon 
                         checked={tenant.db_ordered}
                         onClick={() => handleBooleanToggle(tenant.id, 'db_ordered', tenant.db_ordered)}
+                        autoSynced={true}
                       />
                     </TableCell>
                     <TableCell className="text-right">
@@ -703,6 +779,7 @@ export const TenantList = ({
                     <TableCell className="text-center">
                       <StatusIcon 
                         checked={tenant.lighting_ordered}
+                        autoSynced={true}
                         onClick={() => handleBooleanToggle(tenant.id, 'lighting_ordered', tenant.lighting_ordered)}
                       />
                     </TableCell>
