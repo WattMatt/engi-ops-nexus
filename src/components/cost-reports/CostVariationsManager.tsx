@@ -97,11 +97,11 @@ export const CostVariationsManager = ({
                       </td>
                       <td
                         className={`p-4 text-right font-medium ${
-                          Number(variation.amount) < 0 ? "text-green-600" : "text-red-600"
+                          Number(variation.amount || 0) < 0 ? "text-green-600" : "text-red-600"
                         }`}
                       >
-                        {Number(variation.amount) < 0 ? "-" : "+"}R
-                        {Math.abs(Number(variation.amount)).toLocaleString("en-ZA", {
+                        {Number(variation.amount || 0) < 0 ? "-" : "+"}R
+                        {Math.abs(Number(variation.amount || 0)).toLocaleString("en-ZA", {
                           minimumFractionDigits: 2,
                         })}
                       </td>
