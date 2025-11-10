@@ -118,14 +118,52 @@ export const TenantDocumentsTab = ({ projectId, tenants, activeView }: TenantDoc
 
               {/* Document Types Legend */}
               <Card className="p-4">
-                <h4 className="font-semibold mb-2 text-sm">Required Documents per Tenant:</h4>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm text-muted-foreground">
-                  <div>• Lighting Quotation (Received)</div>
-                  <div>• Lighting Quotation Instruction</div>
-                  <div>• DB Order Quote (Received)</div>
-                  <div>• DB Order Instruction</div>
-                  <div>• DB Shop Drawing (Received)</div>
-                  <div>• DB Shop Drawing (Approved)</div>
+                <h4 className="font-semibold mb-3 text-sm">Required Documents per Tenant:</h4>
+                <div className="space-y-3">
+                  <div className="text-xs text-muted-foreground mb-2">
+                    Documents marked with 🔗 automatically update tenant schedule checkboxes
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                    <div className="flex items-start gap-2 p-2 bg-muted/50 rounded">
+                      <div className="flex-1">
+                        <div className="font-medium">• Lighting Quotation (Received)</div>
+                        <div className="text-xs text-muted-foreground">Reference document only</div>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2 p-2 bg-blue-50 dark:bg-blue-950/20 rounded border border-blue-200 dark:border-blue-800">
+                      <div className="flex-1">
+                        <div className="font-medium">• Lighting Quotation Instruction 🔗</div>
+                        <div className="text-xs text-blue-600 dark:text-blue-400">→ Lighting Ordered checkbox</div>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2 p-2 bg-muted/50 rounded">
+                      <div className="flex-1">
+                        <div className="font-medium">• DB Order Quote (Received)</div>
+                        <div className="text-xs text-muted-foreground">Reference document only</div>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2 p-2 bg-blue-50 dark:bg-blue-950/20 rounded border border-blue-200 dark:border-blue-800">
+                      <div className="flex-1">
+                        <div className="font-medium">• DB Order Instruction 🔗</div>
+                        <div className="text-xs text-blue-600 dark:text-blue-400">→ DB Ordered checkbox</div>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2 p-2 bg-muted/50 rounded">
+                      <div className="flex-1">
+                        <div className="font-medium">• DB Shop Drawing (Received)</div>
+                        <div className="text-xs text-muted-foreground">Reference document only</div>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2 p-2 bg-muted/50 rounded">
+                      <div className="flex-1">
+                        <div className="font-medium">• DB Shop Drawing (Approved)</div>
+                        <div className="text-xs text-muted-foreground">Reference document only</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-3 p-2 bg-amber-50 dark:bg-amber-950/20 rounded border border-amber-200 dark:border-amber-800">
+                    <strong>Note:</strong> SOW and Layout documents are tracked separately in the main tenant schedule.
+                  </div>
                 </div>
               </Card>
 

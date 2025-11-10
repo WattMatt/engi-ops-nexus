@@ -18,7 +18,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useMutation } from "@tanstack/react-query";
 import { useTenantPresence } from "@/hooks/useTenantPresence";
 import { useHandoverLinkStatus } from "@/hooks/useHandoverLinkStatus";
-import { User } from "lucide-react";
+import { User, ArrowRight } from "lucide-react";
 interface Tenant {
   id: string;
   shop_name: string;

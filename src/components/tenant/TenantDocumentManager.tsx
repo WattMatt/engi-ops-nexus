@@ -11,18 +11,57 @@ import { UploadTenantDocumentDialog } from "./UploadTenantDocumentDialog";
 import { DocumentPreviewDialog } from "./DocumentPreviewDialog";
 import { LinkToHandoverDialog } from "./LinkToHandoverDialog";
 import { toast } from "sonner";
-import { Download, Trash2, Upload, FileText, CheckCircle2, AlertCircle, UserCheck, RefreshCw, Package, Eye, Link2 } from "lucide-react";
+import { Download, Trash2, Upload, FileText, CheckCircle2, AlertCircle, UserCheck, RefreshCw, Package, Eye, Link2, ArrowRight } from "lucide-react";
 import { format } from "date-fns";
 import { Progress } from "@/components/ui/progress";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
 
 const DOCUMENT_TYPES = [
-  { key: "lighting_quote_received", label: "Lighting Quotation (Received)", allowMultiple: false },
-  { key: "lighting_quote_instruction", label: "Lighting Quotation Instruction", allowMultiple: false },
-  { key: "db_order_quote_received", label: "DB Order Quote (Received)", allowMultiple: false },
-  { key: "db_order_instruction", label: "DB Order Instruction", allowMultiple: false },
-  { key: "db_shop_drawing_received", label: "DB Shop Drawing (Received)", allowMultiple: true },
-  { key: "db_shop_drawing_approved", label: "DB Shop Drawing (Approved)", allowMultiple: true },
+  { 
+    key: "lighting_quote_received", 
+    label: "Lighting Quotation (Received)", 
+    allowMultiple: false,
+    syncsToSchedule: false,
+    description: "Reference document for quotation review"
+  },
+  { 
+    key: "lighting_quote_instruction", 
+    label: "Lighting Quotation Instruction", 
+    allowMultiple: false,
+    syncsToSchedule: true,
+    scheduleField: "Lighting Ordered",
+    description: "Automatically checks 'Lighting Ordered' in schedule"
+  },
+  { 
+    key: "db_order_quote_received", 
+    label: "DB Order Quote (Received)", 
+    allowMultiple: false,
+    syncsToSchedule: false,
+    description: "Reference document for quotation review"
+  },
+  { 
+    key: "db_order_instruction", 
+    label: "DB Order Instruction", 
+    allowMultiple: false,
+    syncsToSchedule: true,
+    scheduleField: "DB Ordered",
+    description: "Automatically checks 'DB Ordered' in schedule"
+  },
+  { 
+    key: "db_shop_drawing_received", 
+    label: "DB Shop Drawing (Received)", 
+    allowMultiple: true,
+    syncsToSchedule: false,
+    description: "Reference drawings for review"
+  },
+  { 
+    key: "db_shop_drawing_approved", 
+    label: "DB Shop Drawing (Approved)", 
+    allowMultiple: true,
+    syncsToSchedule: false,
+    description: "Approved drawings for construction"
+  },
 ] as const;
 
 interface TenantDocumentManagerProps {
@@ -453,11 +492,26 @@ export const TenantDocumentManager = ({
                   const isByTenant = !!exclusion;
 
                   return (
-                    <Card key={type.key} className="p-4">
+                    <Card key={type.key} className={`p-4 ${type.syncsToSchedule ? 'border-blue-200 dark:border-blue-800' : ''}`}>
                       <div className="flex items-start justify-between gap-4">
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1">
+                          <div className="flex items-center gap-2 mb-1 flex-wrap">
                             <h4 className="font-medium">{type.label}</h4>
+                            {type.syncsToSchedule && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <Badge variant="outline" className="bg-blue-50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-300 border-blue-300 dark:border-blue-700">
+                                      <ArrowRight className="h-3 w-3 mr-1" />
+                                      {type.scheduleField}
+                                    </Badge>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p className="text-xs">{type.description}</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
                             {hasDocument ? (
                               <Badge variant="default" className="bg-emerald-500">
                                 <CheckCircle2 className="h-3 w-3 mr-1" />
@@ -475,6 +529,9 @@ export const TenantDocumentManager = ({
                               </Badge>
                             )}
                           </div>
+                          {!type.syncsToSchedule && (
+                            <p className="text-xs text-muted-foreground mb-2">{type.description}</p>
+                          )}
 
                           {hasDocument && (
                             <div className="text-sm text-muted-foreground space-y-2">
