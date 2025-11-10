@@ -9,8 +9,9 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { UploadTenantDocumentDialog } from "./UploadTenantDocumentDialog";
 import { DocumentPreviewDialog } from "./DocumentPreviewDialog";
+import { LinkToHandoverDialog } from "./LinkToHandoverDialog";
 import { toast } from "sonner";
-import { Download, Trash2, Upload, FileText, CheckCircle2, AlertCircle, UserCheck, RefreshCw, Package, Eye } from "lucide-react";
+import { Download, Trash2, Upload, FileText, CheckCircle2, AlertCircle, UserCheck, RefreshCw, Package, Eye, Link2 } from "lucide-react";
 import { format } from "date-fns";
 import { Progress } from "@/components/ui/progress";
 import { useActivityLogger } from "@/hooks/useActivityLogger";
@@ -42,6 +43,7 @@ export const TenantDocumentManager = ({
   shopName,
 }: TenantDocumentManagerProps) => {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [linkHandoverDialogOpen, setLinkHandoverDialogOpen] = useState(false);
   const [selectedDocType, setSelectedDocType] = useState<typeof DOCUMENT_TYPES[number]["key"] | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [showProgressPulse, setShowProgressPulse] = useState(false);
@@ -352,25 +354,35 @@ export const TenantDocumentManager = ({
                 <FileText className="h-5 w-5" />
                 Documents - {shopNumber} {shopName}
               </DialogTitle>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleDownloadAll}
-                disabled={isDownloadingAll || documents.length === 0}
-                className="ml-4"
-              >
-                {isDownloadingAll ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                    Creating ZIP...
-                  </>
-                ) : (
-                  <>
-                    <Package className="h-4 w-4 mr-2" />
-                    Download All ({documents.filter(d => d.file_url).length})
-                  </>
-                )}
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setLinkHandoverDialogOpen(true)}
+                  disabled={documents.length === 0}
+                >
+                  <Link2 className="h-4 w-4 mr-2" />
+                  Link to Handover
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDownloadAll}
+                  disabled={isDownloadingAll || documents.length === 0}
+                >
+                  {isDownloadingAll ? (
+                    <>
+                      <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                      Creating ZIP...
+                    </>
+                  ) : (
+                    <>
+                      <Package className="h-4 w-4 mr-2" />
+                      Download All ({documents.filter(d => d.file_url).length})
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </DialogHeader>
 
@@ -626,6 +638,16 @@ export const TenantDocumentManager = ({
           onOpenChange={(open) => !open && setPreviewDocument(null)}
         />
       )}
+
+      <LinkToHandoverDialog
+        open={linkHandoverDialogOpen}
+        onOpenChange={setLinkHandoverDialogOpen}
+        documents={documents}
+        tenantId={tenantId}
+        projectId={projectId}
+        shopNumber={shopNumber}
+        shopName={shopName}
+      />
     </>
   );
 };
