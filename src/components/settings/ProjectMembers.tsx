@@ -13,6 +13,7 @@ import { toast } from "sonner";
 import { UserPlus, Trash2, Users, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   Command,
   CommandEmpty,
@@ -184,6 +185,15 @@ export function ProjectMembers({ projectId }: ProjectMembersProps) {
     }
   };
 
+  const getInitials = (name: string) => {
+    return name
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .toUpperCase()
+      .substring(0, 2);
+  };
+
   const nonMembers = availableUsers.filter(
     (user) => !members.some((m) => m.user_id === user.id)
   );
@@ -217,12 +227,19 @@ export function ProjectMembers({ projectId }: ProjectMembersProps) {
                   variant="outline"
                   role="combobox"
                   aria-expanded={userSearchOpen}
-                  className="flex-1 justify-between"
+                  className="flex-1 justify-start"
                 >
                   {selectedUser ? (
-                    <span className="truncate">
-                      {selectedUser.full_name} ({selectedUser.email})
-                    </span>
+                    <div className="flex items-center gap-2 truncate">
+                      <Avatar className="h-6 w-6">
+                        <AvatarFallback className="text-xs">
+                          {getInitials(selectedUser.full_name)}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="truncate">
+                        {selectedUser.full_name}
+                      </span>
+                    </div>
                   ) : (
                     <span className="text-muted-foreground">
                       Search and select user...
@@ -250,12 +267,20 @@ export function ProjectMembers({ projectId }: ProjectMembersProps) {
                             setUserSearchOpen(false);
                             setUserSearch("");
                           }}
+                          className="cursor-pointer"
                         >
-                          <div className="flex flex-col">
-                            <span className="font-medium">{user.full_name}</span>
-                            <span className="text-xs text-muted-foreground">
-                              {user.email}
-                            </span>
+                          <div className="flex items-center gap-3 w-full">
+                            <Avatar className="h-8 w-8">
+                              <AvatarFallback className="text-xs">
+                                {getInitials(user.full_name)}
+                              </AvatarFallback>
+                            </Avatar>
+                            <div className="flex flex-col flex-1">
+                              <span className="font-medium">{user.full_name}</span>
+                              <span className="text-xs text-muted-foreground">
+                                {user.email}
+                              </span>
+                            </div>
                           </div>
                         </CommandItem>
                       ))}
@@ -300,9 +325,15 @@ export function ProjectMembers({ projectId }: ProjectMembersProps) {
             <Card key={member.id}>
               <CardContent className="py-4">
                 <div className="flex items-center gap-4">
-                  <div className="flex-1">
-                    <p className="font-medium">{member.profiles.full_name}</p>
-                    <p className="text-sm text-muted-foreground">
+                  <Avatar className="h-10 w-10">
+                    <AvatarFallback>
+                      {getInitials(member.profiles.full_name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium truncate">{member.profiles.full_name}</p>
+                    <p className="text-sm text-muted-foreground truncate">
                       {member.profiles.email}
                     </p>
                   </div>
