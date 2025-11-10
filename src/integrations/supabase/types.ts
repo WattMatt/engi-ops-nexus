@@ -1244,42 +1244,92 @@ export type Database = {
           },
         ]
       }
+      cost_variation_history: {
+        Row: {
+          action_type: string
+          change_summary: string | null
+          changed_at: string
+          changed_by: string | null
+          created_at: string
+          id: string
+          new_values: Json | null
+          old_values: Json | null
+          variation_id: string | null
+        }
+        Insert: {
+          action_type: string
+          change_summary?: string | null
+          changed_at?: string
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          new_values?: Json | null
+          old_values?: Json | null
+          variation_id?: string | null
+        }
+        Update: {
+          action_type?: string
+          change_summary?: string | null
+          changed_at?: string
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          new_values?: Json | null
+          old_values?: Json | null
+          variation_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cost_variation_history_variation_id_fkey"
+            columns: ["variation_id"]
+            isOneToOne: false
+            referencedRelation: "cost_variations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cost_variations: {
         Row: {
           amount: number
           code: string
           cost_report_id: string
           created_at: string | null
+          created_by: string | null
           description: string
           display_order: number
           id: string
           is_credit: boolean | null
           tenant_id: string | null
           updated_at: string | null
+          updated_by: string | null
         }
         Insert: {
           amount: number
           code: string
           cost_report_id: string
           created_at?: string | null
+          created_by?: string | null
           description: string
           display_order?: number
           id?: string
           is_credit?: boolean | null
           tenant_id?: string | null
           updated_at?: string | null
+          updated_by?: string | null
         }
         Update: {
           amount?: number
           code?: string
           cost_report_id?: string
           created_at?: string | null
+          created_by?: string | null
           description?: string
           display_order?: number
           id?: string
           is_credit?: boolean | null
           tenant_id?: string | null
           updated_at?: string | null
+          updated_by?: string | null
         }
         Relationships: [
           {
@@ -2409,6 +2459,100 @@ export type Database = {
           zone_number?: number
         }
         Relationships: []
+      }
+      handover_documents: {
+        Row: {
+          added_by: string | null
+          created_at: string | null
+          document_name: string
+          document_type: string
+          file_size: number | null
+          file_url: string | null
+          id: string
+          notes: string | null
+          project_id: string
+          source_id: string | null
+          source_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          added_by?: string | null
+          created_at?: string | null
+          document_name: string
+          document_type: string
+          file_size?: number | null
+          file_url?: string | null
+          id?: string
+          notes?: string | null
+          project_id: string
+          source_id?: string | null
+          source_type: string
+          updated_at?: string | null
+        }
+        Update: {
+          added_by?: string | null
+          created_at?: string | null
+          document_name?: string
+          document_type?: string
+          file_size?: number | null
+          file_url?: string | null
+          id?: string
+          notes?: string | null
+          project_id?: string
+          source_id?: string | null
+          source_type?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "handover_documents_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      handover_links: {
+        Row: {
+          access_count: number | null
+          created_at: string | null
+          created_by: string | null
+          expires_at: string | null
+          id: string
+          last_accessed_at: string | null
+          link_token: string
+          project_id: string
+        }
+        Insert: {
+          access_count?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          last_accessed_at?: string | null
+          link_token: string
+          project_id: string
+        }
+        Update: {
+          access_count?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          expires_at?: string | null
+          id?: string
+          last_accessed_at?: string | null
+          link_token?: string
+          project_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "handover_links_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       import_sessions: {
         Row: {
