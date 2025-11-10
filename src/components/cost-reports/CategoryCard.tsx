@@ -373,6 +373,7 @@ export const CategoryCard = ({ category, onUpdate }: CategoryCardProps) => {
           onOpenChange={setSheetDialogOpen}
           variationId={selectedVariationId}
           costReportId={category.cost_report_id}
+          projectId={category.project_id}
           onSuccess={() => {
             refetchVariations();
             onUpdate();

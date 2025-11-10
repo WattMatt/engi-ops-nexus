@@ -9,16 +9,28 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, Save } from "lucide-react";
+import { Plus, Trash2, Save, Edit, Trash } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { EditVariationDialog } from "./EditVariationDialog";
 
 interface VariationSheetDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   variationId: string;
   costReportId: string;
+  projectId: string;
   onSuccess: () => void;
 }
 
@@ -37,11 +49,15 @@ export const VariationSheetDialog = ({
   onOpenChange,
   variationId,
   costReportId,
+  projectId,
   onSuccess,
 }: VariationSheetDialogProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [lineItems, setLineItems] = useState<LineItem[]>([
     { line_number: 1, description: "", comments: "", quantity: "0", rate: "0", amount: 0 },
   ]);
@@ -210,6 +226,47 @@ export const VariationSheetDialog = ({
     }
   };
 
+  const handleDelete = async () => {
+    setDeleting(true);
+    try {
+      // Delete line items first
+      const { error: lineItemsError } = await supabase
+        .from("variation_line_items")
+        .delete()
+        .eq("variation_id", variationId);
+
+      if (lineItemsError) throw lineItemsError;
+
+      // Delete the variation
+      const { error } = await supabase
+        .from("cost_variations")
+        .delete()
+        .eq("id", variationId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Variation deleted successfully",
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["cost-variations", costReportId] });
+      queryClient.invalidateQueries({ queryKey: ["cost-variations-overview", costReportId] });
+      
+      onSuccess();
+      onOpenChange(false);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setDeleting(false);
+      setDeleteDialogOpen(false);
+    }
+  };
+
   const total = lineItems.reduce((sum, item) => sum + item.amount, 0);
   const displayTotal = variation?.is_credit ? -total : total;
 
@@ -217,7 +274,27 @@ export const VariationSheetDialog = ({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Variation Sheet - {variation?.code}</DialogTitle>
+          <div className="flex items-center justify-between">
+            <DialogTitle>Variation Sheet - {variation?.code}</DialogTitle>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setEditDialogOpen(true)}
+              >
+                <Edit className="mr-2 h-4 w-4" />
+                Edit Details
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                onClick={() => setDeleteDialogOpen(true)}
+              >
+                <Trash className="mr-2 h-4 w-4" />
+                Delete
+              </Button>
+            </div>
+          </div>
         </DialogHeader>
 
         {/* Header Section */}
@@ -370,6 +447,40 @@ export const VariationSheetDialog = ({
           </Button>
         </div>
       </DialogContent>
+
+      <EditVariationDialog
+        open={editDialogOpen}
+        onOpenChange={setEditDialogOpen}
+        variationId={variationId}
+        projectId={projectId}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ["variation-detail", variationId] });
+          queryClient.invalidateQueries({ queryKey: ["cost-variations", costReportId] });
+          onSuccess();
+        }}
+      />
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Variation</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this variation? This will also delete all
+              associated line items. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleting ? "Deleting..." : "Delete"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </Dialog>
   );
 };
