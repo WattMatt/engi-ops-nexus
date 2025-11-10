@@ -63,7 +63,10 @@ export const ProjectDropdown = () => {
   const handleProjectSelect = (project: Project) => {
     localStorage.setItem("selectedProjectId", project.id);
     setSelectedProject(project);
-    window.location.reload(); // Reload to update all components
+    // Navigate to dashboard to trigger re-render with new project
+    navigate("/dashboard");
+    // Force a clean navigation by reloading after navigation
+    setTimeout(() => window.location.reload(), 100);
   };
 
   const handleManageProjects = () => {
