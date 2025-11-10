@@ -304,7 +304,10 @@ export const VariationSheetDialog = ({
           <div className="space-y-4">
             <div className="text-center">
               <h2 className="text-2xl font-bold text-cyan-600">
-                {variation?.is_credit ? "TENANT CREDIT" : "VARIATION ORDER"}
+                {variation?.is_credit 
+                  ? (variation?.tenants ? "TENANT CREDIT" : "CREDIT NOTE")
+                  : (variation?.tenants ? "TENANT VARIATION ORDER" : "VARIATION ORDER")
+                }
               </h2>
             </div>
 
@@ -336,7 +339,7 @@ export const VariationSheetDialog = ({
 
             {variation?.tenants && (
               <div className="bg-black text-white p-2 text-center font-bold">
-                {variation.tenants.shop_number} - {variation.tenants.shop_name}
+                TENANT: {variation.tenants.shop_number} - {variation.tenants.shop_name}
               </div>
             )}
           </div>
