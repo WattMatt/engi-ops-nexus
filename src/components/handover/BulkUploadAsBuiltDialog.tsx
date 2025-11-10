@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2, Upload, X, FileText } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 interface BulkUploadAsBuiltDialogProps {
   open: boolean;
@@ -31,6 +32,7 @@ export const BulkUploadAsBuiltDialog = ({
   const [files, setFiles] = useState<File[]>([]);
   const [isDragging, setIsDragging] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [fileType, setFileType] = useState<"pdf" | "dwg">("pdf");
 
   const uploadMutation = useMutation({
     mutationFn: async () => {
@@ -41,8 +43,8 @@ export const BulkUploadAsBuiltDialog = ({
       let uploadedCount = 0;
 
       for (const file of files) {
-        // Upload file to storage
-        const filePath = `${projectId}/${Date.now()}-${file.name}`;
+        // Upload file to storage with type-specific folder
+        const filePath = `${projectId}/${fileType}/${Date.now()}-${file.name}`;
         const { error: uploadError } = await supabase.storage
           .from("handover-documents")
           .upload(filePath, file);
@@ -96,6 +98,7 @@ export const BulkUploadAsBuiltDialog = ({
   const resetForm = () => {
     setFiles([]);
     setUploadProgress(0);
+    setFileType("pdf");
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -110,32 +113,35 @@ export const BulkUploadAsBuiltDialog = ({
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    const droppedFiles = Array.from(e.dataTransfer.files).filter(
-      (file) => file.type === "application/pdf" || 
-                file.name.toLowerCase().endsWith(".dwg")
+    const acceptedType = fileType === "pdf" ? "application/pdf" : ".dwg";
+    const droppedFiles = Array.from(e.dataTransfer.files).filter((file) =>
+      fileType === "pdf"
+        ? file.type === "application/pdf"
+        : file.name.toLowerCase().endsWith(".dwg")
     );
     if (droppedFiles.length > 0) {
       setFiles((prev) => [...prev, ...droppedFiles]);
     } else {
       toast({
         title: "Invalid file type",
-        description: "Only PDF and DWG files are allowed",
+        description: `Only ${fileType.toUpperCase()} files are allowed for this upload`,
         variant: "destructive",
       });
     }
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = Array.from(e.target.files || []).filter(
-      (file) => file.type === "application/pdf" || 
-                file.name.toLowerCase().endsWith(".dwg")
+    const selectedFiles = Array.from(e.target.files || []).filter((file) =>
+      fileType === "pdf"
+        ? file.type === "application/pdf"
+        : file.name.toLowerCase().endsWith(".dwg")
     );
     if (selectedFiles.length > 0) {
       setFiles((prev) => [...prev, ...selectedFiles]);
     } else {
       toast({
         title: "Invalid file type",
-        description: "Only PDF and DWG files are allowed",
+        description: `Only ${fileType.toUpperCase()} files are allowed for this upload`,
         variant: "destructive",
       });
     }
@@ -171,13 +177,38 @@ export const BulkUploadAsBuiltDialog = ({
           <DialogHeader>
             <DialogTitle>Bulk Upload As-Built Drawings</DialogTitle>
             <DialogDescription>
-              Upload multiple PDF and DWG files at once
+              Select file type and upload multiple files at once
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-4">
             <div className="space-y-2">
-              <Label>Files (PDF & DWG only)</Label>
+              <Label>File Type</Label>
+              <RadioGroup
+                value={fileType}
+                onValueChange={(value) => {
+                  setFileType(value as "pdf" | "dwg");
+                  setFiles([]); // Clear files when changing type
+                }}
+                className="flex gap-4"
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="pdf" id="pdf" />
+                  <Label htmlFor="pdf" className="font-normal cursor-pointer">
+                    PDF Files
+                  </Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="dwg" id="dwg" />
+                  <Label htmlFor="dwg" className="font-normal cursor-pointer">
+                    DWG Files
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Files ({fileType.toUpperCase()} only)</Label>
               <div
                 className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
                   isDragging
@@ -193,14 +224,14 @@ export const BulkUploadAsBuiltDialog = ({
                   id="file-upload"
                   className="hidden"
                   multiple
-                  accept=".pdf,.dwg"
+                  accept={fileType === "pdf" ? ".pdf" : ".dwg"}
                   onChange={handleFileSelect}
                 />
                 <label htmlFor="file-upload" className="cursor-pointer">
                   <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
                   <p className="font-medium">Drop files here or click to browse</p>
                   <p className="text-sm text-muted-foreground">
-                    PDF and DWG files only
+                    {fileType.toUpperCase()} files only
                   </p>
                 </label>
               </div>
