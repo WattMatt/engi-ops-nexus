@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -11,8 +11,14 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Store, Loader2, RefreshCw } from "lucide-react";
+import { Store, Loader2, RefreshCw, ChevronDown, ChevronRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { TenantDocumentUpload } from "./TenantDocumentUpload";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
 
 interface HandoverTenantsListProps {
   projectId: string;
@@ -21,6 +27,7 @@ interface HandoverTenantsListProps {
 export const HandoverTenantsList = ({ projectId }: HandoverTenantsListProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [expandedTenants, setExpandedTenants] = useState<Set<string>>(new Set());
 
   const { data: tenants, isLoading, refetch } = useQuery({
     queryKey: ["handover-tenants", projectId],
@@ -94,6 +101,18 @@ export const HandoverTenantsList = ({ projectId }: HandoverTenantsListProps) => 
     });
   };
 
+  const toggleTenant = (tenantId: string) => {
+    setExpandedTenants((prev) => {
+      const newSet = new Set(prev);
+      if (newSet.has(tenantId)) {
+        newSet.delete(tenantId);
+      } else {
+        newSet.add(tenantId);
+      }
+      return newSet;
+    });
+  };
+
   if (isLoading) {
     return (
       <Card>
@@ -135,22 +154,58 @@ export const HandoverTenantsList = ({ projectId }: HandoverTenantsListProps) => 
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-12"></TableHead>
                 <TableHead>Shop Number</TableHead>
                 <TableHead>Shop Name</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {tenants.map((tenant) => (
-                <TableRow key={tenant.id}>
-                  <TableCell className="font-medium">
-                    <div className="flex items-center gap-2">
-                      <Store className="h-4 w-4 text-muted-foreground" />
-                      {tenant.shop_number}
-                    </div>
-                  </TableCell>
-                  <TableCell>{tenant.shop_name}</TableCell>
-                </TableRow>
-              ))}
+              {tenants.map((tenant) => {
+                const isExpanded = expandedTenants.has(tenant.id);
+                return (
+                  <Collapsible
+                    key={tenant.id}
+                    open={isExpanded}
+                    onOpenChange={() => toggleTenant(tenant.id)}
+                    asChild
+                  >
+                    <>
+                      <TableRow>
+                        <TableCell>
+                          <CollapsibleTrigger asChild>
+                            <Button variant="ghost" size="sm">
+                              {isExpanded ? (
+                                <ChevronDown className="h-4 w-4" />
+                              ) : (
+                                <ChevronRight className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </CollapsibleTrigger>
+                        </TableCell>
+                        <TableCell className="font-medium">
+                          <div className="flex items-center gap-2">
+                            <Store className="h-4 w-4 text-muted-foreground" />
+                            {tenant.shop_number}
+                          </div>
+                        </TableCell>
+                        <TableCell>{tenant.shop_name}</TableCell>
+                      </TableRow>
+                      <CollapsibleContent asChild>
+                        <TableRow>
+                          <TableCell colSpan={3} className="p-4 bg-muted/50">
+                            <TenantDocumentUpload
+                              tenantId={tenant.id}
+                              projectId={projectId}
+                              shopNumber={tenant.shop_number}
+                              shopName={tenant.shop_name}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      </CollapsibleContent>
+                    </>
+                  </Collapsible>
+                );
+              })}
             </TableBody>
           </Table>
         )}
