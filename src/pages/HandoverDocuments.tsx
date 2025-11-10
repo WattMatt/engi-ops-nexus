@@ -12,8 +12,8 @@ import { GenerateHandoverLinkDialog } from "@/components/handover/GenerateHandov
 import { HandoverDocumentsList } from "@/components/handover/HandoverDocumentsList";
 import { HandoverLinksManager } from "@/components/handover/HandoverLinksManager";
 import { HandoverTenantsList } from "@/components/handover/HandoverTenantsList";
-import { TenantCompletionDashboard } from "@/components/handover/TenantCompletionDashboard";
 import { DocumentSearchFilters } from "@/components/handover/DocumentSearchFilters";
+import { HandoverDashboard } from "@/components/handover/HandoverDashboard";
 
 const HandoverDocuments = () => {
   const { toast } = useToast();
@@ -204,7 +204,7 @@ const HandoverDocuments = () => {
         </TabsList>
 
         <TabsContent value="dashboard">
-          <TenantCompletionDashboard 
+          <HandoverDashboard 
             projectId={projectId} 
             projectName={project?.name || "Project"}
           />
