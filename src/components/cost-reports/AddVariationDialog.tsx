@@ -13,7 +13,7 @@ interface AddVariationDialogProps {
   onOpenChange: (open: boolean) => void;
   reportId: string;
   projectId: string;
-  onSuccess: () => void;
+  onSuccess: (variationId: string) => void;
 }
 
 export const AddVariationDialog = ({
@@ -29,7 +29,6 @@ export const AddVariationDialog = ({
     code: "",
     description: "",
     tenant_id: "none",
-    amount: "",
     is_credit: "true",
   });
 
@@ -85,31 +84,32 @@ export const AddVariationDialog = ({
     setLoading(true);
 
     try {
-      const { error } = await supabase.from("cost_variations").insert({
+      const { data, error } = await supabase.from("cost_variations").insert({
         cost_report_id: reportId,
         tenant_id: formData.tenant_id === "none" ? null : formData.tenant_id,
         code: formData.code,
         description: formData.description,
-        amount: parseFloat(formData.amount),
+        amount: 0,
         is_credit: formData.is_credit === "true",
         display_order: 0,
-      });
+      }).select().single();
 
       if (error) throw error;
 
       toast({
         title: "Success",
-        description: "Variation added successfully",
+        description: "Variation created. Add line items to calculate total.",
       });
 
-      onSuccess();
       setFormData({
         code: "",
         description: "",
         tenant_id: "none",
-        amount: "",
         is_credit: "true",
       });
+      
+      onOpenChange(false);
+      onSuccess(data.id);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -191,21 +191,6 @@ export const AddVariationDialog = ({
                 ))}
               </SelectContent>
             </Select>
-          </div>
-
-          <div>
-            <Label htmlFor="amount">Amount *</Label>
-            <Input
-              id="amount"
-              type="number"
-              step="0.01"
-              value={formData.amount}
-              onChange={(e) =>
-                setFormData({ ...formData, amount: e.target.value })
-              }
-              placeholder="0.00"
-              required
-            />
           </div>
 
           <div className="flex justify-end gap-2">

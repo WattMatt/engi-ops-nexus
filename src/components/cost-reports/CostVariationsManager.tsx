@@ -143,9 +143,10 @@ export const CostVariationsManager = ({
         onOpenChange={setAddDialogOpen}
         reportId={reportId}
         projectId={projectId}
-        onSuccess={() => {
+        onSuccess={(variationId) => {
           refetch();
-          setAddDialogOpen(false);
+          setSelectedVariationId(variationId);
+          setSheetDialogOpen(true);
         }}
       />
 
