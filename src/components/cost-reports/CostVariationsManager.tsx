@@ -33,7 +33,7 @@ export const CostVariationsManager = ({
           )
         `)
         .eq("cost_report_id", reportId)
-        .order("display_order");
+        .order("code");
       if (error) throw error;
       return data || [];
     },
