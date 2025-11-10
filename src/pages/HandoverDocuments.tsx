@@ -20,9 +20,8 @@ const HandoverDocuments = () => {
   const [generateLinkDialogOpen, setGenerateLinkDialogOpen] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
 
-  // Get current project from localStorage
-  const currentProject = localStorage.getItem("currentProject");
-  const projectId = currentProject ? JSON.parse(currentProject).id : "";
+  // Get current project from localStorage (using same key as TenantTracker)
+  const projectId = localStorage.getItem("selectedProjectId") || "";
 
   // Fetch project details
   const { data: project } = useQuery({
@@ -69,6 +68,21 @@ const HandoverDocuments = () => {
     },
     enabled: !!projectId,
   });
+
+  if (!projectId) {
+    return (
+      <div className="container mx-auto p-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>No Project Selected</CardTitle>
+            <CardDescription>
+              Please select a project from the Tenant Tracker to manage handover documents.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto p-6 space-y-6">
