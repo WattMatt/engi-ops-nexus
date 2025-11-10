@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Search, Download, Eye, FileText, Calendar, Upload } from "lucide-react";
 import { DocumentPreviewDialog } from "@/components/tenant/DocumentPreviewDialog";
-import { UploadHandoverDocumentDialog } from "@/components/handover/UploadHandoverDocumentDialog";
+import { BulkUploadAsBuiltDialog } from "@/components/handover/BulkUploadAsBuiltDialog";
 import {
   Table,
   TableBody,
@@ -167,7 +167,7 @@ export const AsBuiltDrawingsView = ({ projectId }: AsBuiltDrawingsViewProps) => 
               </div>
               <Button onClick={() => setUploadDialogOpen(true)}>
                 <Upload className="h-4 w-4 mr-2" />
-                Upload Drawing
+                Bulk Upload Drawings
               </Button>
             </div>
           </CardHeader>
@@ -293,7 +293,7 @@ export const AsBuiltDrawingsView = ({ projectId }: AsBuiltDrawingsViewProps) => 
       )}
 
       {/* Upload Dialog */}
-      <UploadHandoverDocumentDialog
+      <BulkUploadAsBuiltDialog
         open={uploadDialogOpen}
         onOpenChange={setUploadDialogOpen}
         projectId={projectId}
