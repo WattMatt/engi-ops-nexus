@@ -2460,6 +2460,54 @@ export type Database = {
         }
         Relationships: []
       }
+      handover_document_exclusions: {
+        Row: {
+          created_at: string | null
+          document_type: string
+          exclusion_reason: string | null
+          id: string
+          marked_by: string | null
+          notes: string | null
+          project_id: string
+          tenant_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          document_type: string
+          exclusion_reason?: string | null
+          id?: string
+          marked_by?: string | null
+          notes?: string | null
+          project_id: string
+          tenant_id: string
+        }
+        Update: {
+          created_at?: string | null
+          document_type?: string
+          exclusion_reason?: string | null
+          id?: string
+          marked_by?: string | null
+          notes?: string | null
+          project_id?: string
+          tenant_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "handover_document_exclusions_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "handover_document_exclusions_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       handover_documents: {
         Row: {
           added_by: string | null
