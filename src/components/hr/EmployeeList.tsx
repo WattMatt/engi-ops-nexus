@@ -17,10 +17,11 @@ import {
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Pencil, FileText, DollarSign } from "lucide-react";
+import { Pencil, FileText, History } from "lucide-react";
 import { EmployeeDocuments } from "./EmployeeDocuments";
 import { EditEmployeeDialog } from "./EditEmployeeDialog";
 import { EditSalaryDialog } from "./EditSalaryDialog";
+import { SalaryHistoryDialog } from "./SalaryHistoryDialog";
 
 export function EmployeeList() {
   const queryClient = useQueryClient();
@@ -30,6 +31,8 @@ export function EmployeeList() {
   const [documentsDialogOpen, setDocumentsDialogOpen] = useState(false);
   const [salaryEmployee, setSalaryEmployee] = useState<any>(null);
   const [salaryDialogOpen, setSalaryDialogOpen] = useState(false);
+  const [historyEmployee, setHistoryEmployee] = useState<any>(null);
+  const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
   
   const { data: employees = [], isLoading, error } = useQuery({
     queryKey: ["employees"],
@@ -141,7 +144,7 @@ export function EmployeeList() {
               <TableCell>{employee.departments?.name || "-"}</TableCell>
               <TableCell>{employee.positions?.title || "-"}</TableCell>
               <TableCell>
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-1">
                   <span className="font-medium">
                     {formatCurrency(payroll?.salary_amount, payroll?.salary_currency)}
                   </span>
@@ -156,6 +159,18 @@ export function EmployeeList() {
                     className="h-7 w-7 p-0"
                   >
                     <Pencil className="h-3 w-3" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setHistoryEmployee(employee);
+                      setHistoryDialogOpen(true);
+                    }}
+                    title="View Salary History"
+                    className="h-7 w-7 p-0"
+                  >
+                    <History className="h-3 w-3" />
                   </Button>
                 </div>
               </TableCell>
@@ -231,6 +246,14 @@ export function EmployeeList() {
         open={salaryDialogOpen}
         onOpenChange={setSalaryDialogOpen}
         onSuccess={handleSalaryEditSuccess}
+      />
+    )}
+
+    {historyEmployee && (
+      <SalaryHistoryDialog
+        employee={historyEmployee}
+        open={historyDialogOpen}
+        onOpenChange={setHistoryDialogOpen}
       />
     )}
     </>
