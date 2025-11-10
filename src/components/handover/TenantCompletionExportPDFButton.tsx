@@ -92,9 +92,226 @@ export const TenantCompletionExportPDFButton = ({
         companyDetails
       );
 
-      // Add summary page
+      // Add File Naming Convention page
       doc.addPage();
       let yPos = 20;
+
+      doc.setFontSize(18);
+      doc.setFont("helvetica", "bold");
+      doc.text("File Naming Convention & Structure", 14, yPos);
+      yPos += 12;
+
+      // Introduction
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      const introText = doc.splitTextToSize(
+        "All handover documents uploaded to this system follow a standardized naming convention to ensure easy identification, traceability, and searchability. This structured approach links files directly to projects, tenants, and document types.",
+        pageWidth - 28
+      );
+      introText.forEach((line: string) => {
+        doc.text(line, 14, yPos);
+        yPos += 5;
+      });
+      yPos += 8;
+
+      // File Name Structure
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("File Name Structure", 14, yPos);
+      yPos += 8;
+
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text("Format:", 14, yPos);
+      yPos += 6;
+      
+      doc.setFont("courier", "bold");
+      doc.setFontSize(9);
+      doc.text("[ProjectNum]_[ShopNum]_[ShopName]_[DocType]_[Date].[ext]", 20, yPos);
+      yPos += 10;
+
+      // Component Breakdown
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("Component Breakdown", 14, yPos);
+      yPos += 8;
+
+      const components = [
+        {
+          name: "ProjectNum",
+          desc: "Project number or abbreviated project name (max 10 characters, alphanumeric only)",
+          example: "PRJ12345, MALL2024"
+        },
+        {
+          name: "ShopNum",
+          desc: "Shop/Tenant number with special characters removed (alphanumeric only)",
+          example: "S101, T042, UNIT25"
+        },
+        {
+          name: "ShopName",
+          desc: "Abbreviated shop name (max 20 characters, alphanumeric only)",
+          example: "COFFEESHOP, RETAILSTORE"
+        },
+        {
+          name: "DocType",
+          desc: "Document type code (uppercase, no underscores)",
+          example: "ELECTRICALCOC, ASBUILTDRAWING, LINEDIAGRAM"
+        },
+        {
+          name: "Date",
+          desc: "Upload date in YYYYMMDD format (8 digits)",
+          example: "20250315, 20241225"
+        },
+        {
+          name: "ext",
+          desc: "Original file extension",
+          example: "pdf, jpg, png, dwg"
+        }
+      ];
+
+      doc.setFontSize(9);
+      components.forEach((comp) => {
+        if (yPos > pageHeight - 40) {
+          doc.addPage();
+          yPos = 20;
+        }
+
+        doc.setFont("helvetica", "bold");
+        doc.text(`[${comp.name}]`, 20, yPos);
+        yPos += 5;
+
+        doc.setFont("helvetica", "normal");
+        const descLines = doc.splitTextToSize(comp.desc, pageWidth - 50);
+        descLines.forEach((line: string) => {
+          doc.text(line, 26, yPos);
+          yPos += 4;
+        });
+
+        doc.setFont("helvetica", "italic");
+        doc.text(`Example: ${comp.example}`, 26, yPos);
+        yPos += 8;
+      });
+
+      // Real Examples
+      if (yPos > pageHeight - 60) {
+        doc.addPage();
+        yPos = 20;
+      }
+
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("Complete File Name Examples", 14, yPos);
+      yPos += 8;
+
+      const examples = [
+        "MALL2024_S101_COFFEESHOP_ELECTRICALCOC_20250315.pdf",
+        "PRJ12345_T042_RETAILSTORE_ASBUILTDRAWING_20250110.dwg",
+        "OFFICE_UNIT25_ACCOUNTINGFIRM_LINEDIAGRAM_20241220.pdf",
+        "RETAIL_S200_FASHIONBOUTIQUE_QCINSPECTIONREPORT_20250228.pdf"
+      ];
+
+      doc.setFontSize(8);
+      doc.setFont("courier", "normal");
+      examples.forEach((example) => {
+        doc.text(example, 20, yPos);
+        yPos += 5;
+      });
+      yPos += 8;
+
+      // Search & Traceability Guide
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("Search & Traceability Guide", 14, yPos);
+      yPos += 8;
+
+      const searchTips = [
+        {
+          title: "Search by Project",
+          tip: "Use the project number or name at the start of the filename",
+          example: "Search for: MALL2024_* or PRJ12345_*"
+        },
+        {
+          title: "Search by Tenant",
+          tip: "Use shop number or shop name in the search",
+          example: "Search for: *_S101_* or *_COFFEESHOP_*"
+        },
+        {
+          title: "Search by Document Type",
+          tip: "Use the document type code in uppercase",
+          example: "Search for: *_ELECTRICALCOC_* or *_LINEDIAGRAM_*"
+        },
+        {
+          title: "Search by Date Range",
+          tip: "Use date format YYYYMMDD to find files from specific periods",
+          example: "Search for: *_202503*_ (all files from March 2025)"
+        },
+        {
+          title: "Combined Search",
+          tip: "Combine multiple components for precise results",
+          example: "Search for: MALL2024_S101_*_ELECTRICALCOC_*"
+        }
+      ];
+
+      doc.setFontSize(9);
+      searchTips.forEach((tip) => {
+        if (yPos > pageHeight - 30) {
+          doc.addPage();
+          yPos = 20;
+        }
+
+        doc.setFont("helvetica", "bold");
+        doc.text(`• ${tip.title}:`, 20, yPos);
+        yPos += 5;
+
+        doc.setFont("helvetica", "normal");
+        const tipLines = doc.splitTextToSize(tip.tip, pageWidth - 50);
+        tipLines.forEach((line: string) => {
+          doc.text(line, 26, yPos);
+          yPos += 4;
+        });
+
+        doc.setFont("courier", "italic");
+        doc.setFontSize(8);
+        doc.text(tip.example, 26, yPos);
+        yPos += 8;
+        doc.setFontSize(9);
+      });
+
+      // Benefits Section
+      if (yPos > pageHeight - 50) {
+        doc.addPage();
+        yPos = 20;
+      }
+
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("Benefits of Structured Naming", 14, yPos);
+      yPos += 8;
+
+      const benefits = [
+        "Instant identification of file contents without opening",
+        "Consistent organization across all project documents",
+        "Easy filtering and searching in file systems",
+        "Automated sorting by project, tenant, or date",
+        "Reduced risk of file duplication or misplacement",
+        "Enhanced collaboration through clear file identification",
+        "Simplified audit trails and compliance verification"
+      ];
+
+      doc.setFontSize(9);
+      doc.setFont("helvetica", "normal");
+      benefits.forEach((benefit) => {
+        if (yPos > pageHeight - 20) {
+          doc.addPage();
+          yPos = 20;
+        }
+        doc.text(`• ${benefit}`, 20, yPos);
+        yPos += 6;
+      });
+
+      // Add summary page
+      doc.addPage();
+      yPos = 20;
 
       doc.setFontSize(18);
       doc.setFont("helvetica", "bold");

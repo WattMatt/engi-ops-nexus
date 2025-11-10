@@ -158,8 +158,28 @@ export const TenantDocumentUpload = ({
       file: File;
       documentType: string;
     }) => {
-      // Upload file to storage
-      const filePath = `${projectId}/tenants/${tenantId}/${documentType}-${Date.now()}-${file.name}`;
+      // Fetch project details for structured naming
+      const { data: projectData } = await supabase
+        .from("projects")
+        .select("name, project_number")
+        .eq("id", projectId)
+        .single();
+
+      // Create structured file name
+      // Format: [ProjectNum]_[ShopNum]_[ShopName]_[DocType]_[Date].[ext]
+      const fileExt = file.name.split(".").pop();
+      const dateStr = new Date().toISOString().split("T")[0].replace(/-/g, "");
+      const docTypeCode = documentType.toUpperCase().replace(/_/g, "");
+      const shopNumClean = shopNumber.replace(/[^a-zA-Z0-9]/g, "");
+      const shopNameClean = shopName.replace(/[^a-zA-Z0-9]/g, "").substring(0, 20);
+      const projectNumClean = (projectData?.project_number || projectData?.name || "PRJ")
+        .replace(/[^a-zA-Z0-9]/g, "")
+        .substring(0, 10);
+
+      const structuredFileName = `${projectNumClean}_${shopNumClean}_${shopNameClean}_${docTypeCode}_${dateStr}.${fileExt}`;
+      
+      // Upload file to storage with structured naming
+      const filePath = `${projectId}/tenants/${tenantId}/${structuredFileName}`;
       const { error: uploadError } = await supabase.storage
         .from("handover-documents")
         .upload(filePath, file);
@@ -182,7 +202,7 @@ export const TenantDocumentUpload = ({
           .from("handover_documents" as any)
           .update({
             file_url: publicUrl,
-            document_name: file.name,
+            document_name: structuredFileName,
             file_size: file.size,
             updated_at: new Date().toISOString(),
           })
@@ -196,7 +216,7 @@ export const TenantDocumentUpload = ({
           .from("handover_documents" as any)
           .insert({
             project_id: projectId,
-            document_name: file.name,
+            document_name: structuredFileName,
             document_type: documentType,
             file_url: publicUrl,
             source_type: "tenant",
