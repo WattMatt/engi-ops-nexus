@@ -13,6 +13,7 @@ import { HandoverDocumentsList } from "@/components/handover/HandoverDocumentsLi
 import { HandoverLinksManager } from "@/components/handover/HandoverLinksManager";
 import { HandoverTenantsList } from "@/components/handover/HandoverTenantsList";
 import { TenantCompletionDashboard } from "@/components/handover/TenantCompletionDashboard";
+import { DocumentSearchFilters } from "@/components/handover/DocumentSearchFilters";
 
 const HandoverDocuments = () => {
   const { toast } = useToast();
@@ -188,6 +189,10 @@ const HandoverDocuments = () => {
             <BarChart3 className="h-4 w-4 mr-2" />
             Dashboard
           </TabsTrigger>
+          <TabsTrigger value="search">
+            <Package className="h-4 w-4 mr-2" />
+            Search Documents
+          </TabsTrigger>
           <TabsTrigger value="tenants">
             <Users className="h-4 w-4 mr-2" />
             Tenants
@@ -203,6 +208,10 @@ const HandoverDocuments = () => {
             projectId={projectId} 
             projectName={project?.name || "Project"}
           />
+        </TabsContent>
+
+        <TabsContent value="search">
+          <DocumentSearchFilters projectId={projectId} />
         </TabsContent>
 
         <TabsContent value="tenants">
