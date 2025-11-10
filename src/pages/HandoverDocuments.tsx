@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Upload, Link2, Share2, Package, Users } from "lucide-react";
+import { Upload, Link2, Share2, Package, Users, BarChart3 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { UploadHandoverDocumentDialog } from "@/components/handover/UploadHandoverDocumentDialog";
 import { LinkHandoverDocumentDialog } from "@/components/handover/LinkHandoverDocumentDialog";
@@ -12,6 +12,7 @@ import { GenerateHandoverLinkDialog } from "@/components/handover/GenerateHandov
 import { HandoverDocumentsList } from "@/components/handover/HandoverDocumentsList";
 import { HandoverLinksManager } from "@/components/handover/HandoverLinksManager";
 import { HandoverTenantsList } from "@/components/handover/HandoverTenantsList";
+import { TenantCompletionDashboard } from "@/components/handover/TenantCompletionDashboard";
 
 const HandoverDocuments = () => {
   const { toast } = useToast();
@@ -181,17 +182,29 @@ const HandoverDocuments = () => {
       </div>
 
       {/* Tabs for different sections */}
-      <Tabs defaultValue="documents" className="w-full">
+      <Tabs defaultValue="dashboard" className="w-full">
         <TabsList>
-          <TabsTrigger value="documents">
-            <Package className="h-4 w-4 mr-2" />
-            Documents
+          <TabsTrigger value="dashboard">
+            <BarChart3 className="h-4 w-4 mr-2" />
+            Dashboard
           </TabsTrigger>
           <TabsTrigger value="tenants">
             <Users className="h-4 w-4 mr-2" />
             Tenants
           </TabsTrigger>
+          <TabsTrigger value="documents">
+            <Package className="h-4 w-4 mr-2" />
+            Documents
+          </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="dashboard">
+          <TenantCompletionDashboard projectId={projectId} />
+        </TabsContent>
+
+        <TabsContent value="tenants">
+          <HandoverTenantsList projectId={projectId} />
+        </TabsContent>
 
         <TabsContent value="documents" className="space-y-6">
           {/* Documents List */}
@@ -199,10 +212,6 @@ const HandoverDocuments = () => {
 
           {/* Active Links Manager */}
           <HandoverLinksManager projectId={projectId} />
-        </TabsContent>
-
-        <TabsContent value="tenants">
-          <HandoverTenantsList projectId={projectId} />
         </TabsContent>
       </Tabs>
 
