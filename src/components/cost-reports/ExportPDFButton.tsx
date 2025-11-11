@@ -72,19 +72,36 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
 
       // Calculate totals for KPIs (needed for dashboard pages)
       const categoryTotals = categories.map((cat: any) => {
-        const lineItems = cat.cost_line_items || [];
-        const originalBudget = lineItems.reduce((sum: number, item: any) => 
-          sum + Number(item.original_budget || 0), 0);
-        const anticipatedFinal = lineItems.reduce((sum: number, item: any) => 
-          sum + Number(item.anticipated_final || 0), 0);
+        const isVariationsCategory = cat.description?.toUpperCase().includes("VARIATION");
         
-        return {
-          code: cat.code,
-          description: cat.description,
-          originalBudget,
-          anticipatedFinal,
-          variance: anticipatedFinal - originalBudget
-        };
+        if (isVariationsCategory) {
+          // For variations category, sum from variations table (debits add, credits subtract)
+          const anticipatedFinal = variations.reduce((sum: number, v: any) => 
+            sum + (v.is_credit ? -Number(v.amount || 0) : Number(v.amount || 0)), 0);
+          
+          return {
+            code: cat.code,
+            description: cat.description,
+            originalBudget: 0,
+            anticipatedFinal,
+            variance: anticipatedFinal
+          };
+        } else {
+          // For regular categories, sum line items
+          const lineItems = cat.cost_line_items || [];
+          const originalBudget = lineItems.reduce((sum: number, item: any) => 
+            sum + Number(item.original_budget || 0), 0);
+          const anticipatedFinal = lineItems.reduce((sum: number, item: any) => 
+            sum + Number(item.anticipated_final || 0), 0);
+          
+          return {
+            code: cat.code,
+            description: cat.description,
+            originalBudget,
+            anticipatedFinal,
+            variance: anticipatedFinal - originalBudget
+          };
+        }
       });
 
       const totalOriginalBudget = categoryTotals.reduce((sum: number, cat: any) => sum + cat.originalBudget, 0);
