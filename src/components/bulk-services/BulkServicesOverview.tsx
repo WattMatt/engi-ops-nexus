@@ -12,6 +12,7 @@ import { useState } from "react";
 import { BulkServicesSettingsOverview } from "./BulkServicesSettingsOverview";
 import { BulkServicesKPICard } from "./BulkServicesKPICard";
 import { SANS204Calculator } from "./SANS204Calculator";
+import { BulkServicesDrawingMarkup } from "./BulkServicesDrawingMarkup";
 
 interface BulkServicesOverviewProps {
   documentId: string;
@@ -85,11 +86,12 @@ export const BulkServicesOverview = ({ documentId, onBack }: BulkServicesOvervie
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="map">Zone Map</TabsTrigger>
           <TabsTrigger value="details">Details</TabsTrigger>
           <TabsTrigger value="sections">Sections</TabsTrigger>
+          <TabsTrigger value="markup">Drawing Markup</TabsTrigger>
           <TabsTrigger value="saved-reports">Saved Reports</TabsTrigger>
         </TabsList>
 
@@ -136,6 +138,10 @@ export const BulkServicesOverview = ({ documentId, onBack }: BulkServicesOvervie
               />
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="markup" className="space-y-4">
+          <BulkServicesDrawingMarkup documentId={documentId} />
         </TabsContent>
 
         <TabsContent value="saved-reports" className="space-y-4">

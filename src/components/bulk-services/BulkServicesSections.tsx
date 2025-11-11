@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Pencil, Save, X, Trash2 } from "lucide-react";
+import { Pencil, Save, X, Trash2, Sparkles } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   AlertDialog,
@@ -26,6 +26,7 @@ export const BulkServicesSections = ({ documentId, sections }: BulkServicesSecti
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editContent, setEditContent] = useState("");
   const [deleteSectionId, setDeleteSectionId] = useState<string | null>(null);
+  const [generatingId, setGeneratingId] = useState<string | null>(null);
 
   const { data: document } = useQuery({
     queryKey: ["bulk-services-document", documentId],
@@ -123,6 +124,40 @@ export const BulkServicesSections = ({ documentId, sections }: BulkServicesSecti
     }
   };
 
+  const handleAIGenerate = async (section: any) => {
+    setGeneratingId(section.id);
+    try {
+      const { data: functionData, error: functionError } = await supabase.functions.invoke(
+        "ai-generate-document",
+        {
+          body: {
+            documentType: "bulk_services_section",
+            sectionTitle: section.section_title,
+            sectionNumber: section.section_number,
+            projectData: document,
+          },
+        }
+      );
+
+      if (functionError) throw functionError;
+
+      const { error: updateError } = await supabase
+        .from("bulk_services_sections")
+        .update({ content: functionData.content })
+        .eq("id", section.id);
+
+      if (updateError) throw updateError;
+
+      toast.success("Section generated successfully");
+      window.location.reload();
+    } catch (error: any) {
+      console.error("Error generating section:", error);
+      toast.error("Failed to generate section");
+    } finally {
+      setGeneratingId(null);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {sections.map((section) => (
@@ -150,6 +185,15 @@ export const BulkServicesSections = ({ documentId, sections }: BulkServicesSecti
                   </>
                 ) : (
                   <>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleAIGenerate(section)}
+                      disabled={generatingId === section.id}
+                    >
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      {generatingId === section.id ? "Generating..." : "AI Generate"}
+                    </Button>
                     <Button
                       variant="ghost"
                       size="sm"

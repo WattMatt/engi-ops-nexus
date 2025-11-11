@@ -11,7 +11,8 @@ serve(async (req) => {
   }
 
   try {
-    const { documentType, projectData, specifications } = await req.json();
+    const body = await req.json();
+    const { documentType, projectData, specifications } = body;
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
     
     if (!LOVABLE_API_KEY) {
@@ -50,9 +51,59 @@ serve(async (req) => {
 - Operations and maintenance manuals
 - Warranty information
 - Contact information for ongoing support`,
+      
+      bulk_services_section: `Generate professional technical content for a bulk services electrical engineering document section. 
+    
+The content should:
+- Be technical and professional in tone
+- Use proper South African electrical engineering standards (SANS 204, SANS 10142-1)
+- Include relevant calculations and justifications
+- Reference the project data provided
+- Use markdown formatting for tables and headings
+- Be approximately 200-400 words
+
+Use these placeholders that will be replaced:
+- [AREA] for project area
+- [VA/m²] for VA per square meter
+- [SIZE] for calculated size in kVA
+- [SUPPLY AUTHORITY] for the supply authority name
+- [CLIENT NAME] for client name
+- [DOCUMENT NUMBER] for document number
+- [CLIMATIC ZONE] for the climatic zone description
+- [CALCULATION TYPE] for the calculation standard used
+- [ARCHITECT] for architect name
+- [PRIMARY VOLTAGE] for primary voltage
+- [CONNECTION SIZE] for connection size
+- [DIVERSITY FACTOR] for diversity factor
+- [ELECTRICAL STANDARD] for electrical standard
+
+Return ONLY the section content, no headers or titles.`,
     };
 
     const prompt = documentPrompts[documentType] || documentPrompts.specification;
+
+    let userContent = `${prompt}
+
+Project Data:
+${JSON.stringify(projectData, null, 2)}
+
+Additional Specifications:
+${specifications || "Standard specifications apply"}
+
+Generate the document in markdown format with proper headings and sections.`;
+
+    // Special handling for bulk services sections
+    if (documentType === 'bulk_services_section' && body.sectionTitle && body.sectionNumber) {
+      userContent = `${prompt}
+
+Section Number: ${body.sectionNumber}
+Section Title: ${body.sectionTitle}
+
+Project Information:
+${JSON.stringify(projectData, null, 2)}
+
+Generate professional content for this section following the guidelines above. Focus on technical accuracy and include relevant calculations where appropriate.`;
+    }
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -69,15 +120,7 @@ serve(async (req) => {
           },
           {
             role: "user",
-            content: `${prompt}
-
-Project Data:
-${JSON.stringify(projectData, null, 2)}
-
-Additional Specifications:
-${specifications || "Standard specifications apply"}
-
-Generate the document in markdown format with proper headings and sections.`,
+            content: userContent,
           },
         ],
       }),
@@ -100,10 +143,10 @@ Generate the document in markdown format with proper headings and sections.`,
     }
 
     const data = await response.json();
-    const generatedDocument = data.choices[0].message.content;
+    const generatedContent = data.choices[0].message.content;
 
     return new Response(
-      JSON.stringify({ document: generatedDocument }),
+      JSON.stringify({ content: generatedContent }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {

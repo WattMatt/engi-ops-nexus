@@ -422,6 +422,7 @@ export type Database = {
       }
       bulk_services_documents: {
         Row: {
+          ai_guidance_parameters: Json | null
           architect: string | null
           building_calculation_type: string | null
           client_name: string | null
@@ -432,6 +433,8 @@ export type Database = {
           diversity_factor: number | null
           document_date: string
           document_number: string
+          drawing_file_path: string | null
+          drawing_markup_data: Json | null
           electrical_standard: string | null
           future_expansion_factor: number | null
           id: string
@@ -451,6 +454,7 @@ export type Database = {
           va_per_sqm: number | null
         }
         Insert: {
+          ai_guidance_parameters?: Json | null
           architect?: string | null
           building_calculation_type?: string | null
           client_name?: string | null
@@ -461,6 +465,8 @@ export type Database = {
           diversity_factor?: number | null
           document_date?: string
           document_number: string
+          drawing_file_path?: string | null
+          drawing_markup_data?: Json | null
           electrical_standard?: string | null
           future_expansion_factor?: number | null
           id?: string
@@ -480,6 +486,7 @@ export type Database = {
           va_per_sqm?: number | null
         }
         Update: {
+          ai_guidance_parameters?: Json | null
           architect?: string | null
           building_calculation_type?: string | null
           client_name?: string | null
@@ -490,6 +497,8 @@ export type Database = {
           diversity_factor?: number | null
           document_date?: string
           document_number?: string
+          drawing_file_path?: string | null
+          drawing_markup_data?: Json | null
           electrical_standard?: string | null
           future_expansion_factor?: number | null
           id?: string
