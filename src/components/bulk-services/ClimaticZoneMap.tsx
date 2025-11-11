@@ -291,26 +291,94 @@ export const ClimaticZoneMap = ({ selectedZone, onZoneSelect }: ClimaticZoneMapP
     const representativeCity = SA_CITIES_ZONES.find(city => city.zone === selectedZone);
     
     if (representativeCity) {
-      // Create a custom pin element
+      // Create a custom pin element with animations
       const el = document.createElement('div');
       el.className = 'selected-zone-marker';
-      el.innerHTML = `
-        <div style="
-          position: relative;
-          width: 40px;
-          height: 40px;
-        ">
-          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" 
-                  fill="${ZONE_COLORS[selectedZone as keyof typeof ZONE_COLORS]}" 
-                  stroke="white" 
-                  stroke-width="2"/>
-            <circle cx="12" cy="9" r="3" fill="white"/>
-            <text x="12" y="11" text-anchor="middle" font-size="8" font-weight="bold" fill="${ZONE_COLORS[selectedZone as keyof typeof ZONE_COLORS]}">${selectedZone}</text>
-          </svg>
-        </div>
+      
+      // Add pulsing glow background
+      const glowRing = document.createElement('div');
+      glowRing.style.cssText = `
+        position: absolute;
+        width: 60px;
+        height: 60px;
+        top: -10px;
+        left: -10px;
+        border-radius: 50%;
+        background: radial-gradient(circle, ${ZONE_COLORS[selectedZone as keyof typeof ZONE_COLORS]}40 0%, transparent 70%);
+        animation: pulse-glow 2s ease-in-out infinite;
+        pointer-events: none;
       `;
-      el.style.cursor = 'pointer';
+      
+      const pinContainer = document.createElement('div');
+      pinContainer.style.cssText = `
+        position: relative;
+        width: 40px;
+        height: 40px;
+        animation: bounce-in 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+      `;
+      
+      pinContainer.innerHTML = `
+        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));">
+          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" 
+                fill="${ZONE_COLORS[selectedZone as keyof typeof ZONE_COLORS]}" 
+                stroke="white" 
+                stroke-width="2"/>
+          <circle cx="12" cy="9" r="3" fill="white"/>
+          <text x="12" y="11" text-anchor="middle" font-size="8" font-weight="bold" fill="${ZONE_COLORS[selectedZone as keyof typeof ZONE_COLORS]}">${selectedZone}</text>
+        </svg>
+      `;
+      
+      el.appendChild(glowRing);
+      el.appendChild(pinContainer);
+      el.style.cssText = `
+        cursor: pointer;
+        position: relative;
+        width: 40px;
+        height: 40px;
+      `;
+      
+      // Add CSS animations
+      const style = document.createElement('style');
+      style.textContent = `
+        @keyframes pulse-glow {
+          0%, 100% {
+            transform: scale(1);
+            opacity: 0.6;
+          }
+          50% {
+            transform: scale(1.2);
+            opacity: 0.3;
+          }
+        }
+        
+        @keyframes bounce-in {
+          0% {
+            transform: translateY(-100px) scale(0);
+            opacity: 0;
+          }
+          50% {
+            transform: translateY(0) scale(1.1);
+          }
+          100% {
+            transform: translateY(0) scale(1);
+            opacity: 1;
+          }
+        }
+        
+        .selected-zone-marker:hover .pin-container {
+          animation: bounce 0.5s ease-in-out;
+        }
+        
+        @keyframes bounce {
+          0%, 100% {
+            transform: translateY(0);
+          }
+          50% {
+            transform: translateY(-10px);
+          }
+        }
+      `;
+      document.head.appendChild(style);
 
       const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(`
         <div style="padding: 8px 12px;">
