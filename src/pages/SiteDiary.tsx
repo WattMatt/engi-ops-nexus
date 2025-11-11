@@ -25,7 +25,7 @@ import { RemindersPanel } from "@/components/site-diary/RemindersPanel";
 interface SubEntry {
   id: string;
   description: string;
-  assignedTo: string;
+  assignedTo: string[];
   priority: "note" | "low" | "medium" | "high";
   timestamp: string;
   completed: boolean;
@@ -181,7 +181,7 @@ const SiteDiary = () => {
     const newSubEntry: SubEntry = {
       id: `sub_${Date.now()}`,
       description: "",
-      assignedTo: "",
+      assignedTo: [],
       priority: "note",
       timestamp: new Date().toISOString(),
       completed: false,
@@ -189,7 +189,7 @@ const SiteDiary = () => {
     setSubEntries([...subEntries, newSubEntry]);
   };
 
-  const updateSubEntry = (id: string, field: keyof SubEntry, value: string | boolean) => {
+  const updateSubEntry = (id: string, field: keyof SubEntry, value: string | boolean | string[]) => {
     setSubEntries(subEntries.map(entry => {
       if (entry.id === id) {
         const updated = { ...entry, [field]: value };
@@ -355,7 +355,7 @@ const SiteDiary = () => {
         const actionItemsData = entry.sub_entries.map((item: SubEntry, index: number) => [
           `${index + 1}`,
           item.description,
-          item.assignedTo || "-",
+          item.assignedTo && item.assignedTo.length > 0 ? item.assignedTo.join(', ') : "-",
           item.priority === "note" ? "📝 Note" :
           item.priority === "high" ? "🔴 HIGH" :
           item.priority === "medium" ? "🟡 MEDIUM" :
@@ -531,18 +531,23 @@ const SiteDiary = () => {
                               />
                             </div>
                             <div className="grid grid-cols-2 gap-3">
-                              <div className="space-y-2">
+                              <div className="space-y-2 col-span-2">
                                 <Label className="text-sm flex items-center gap-1">
                                   <User className="h-3 w-3" />
-                                  Assigned To
+                                  Assigned To (one per line)
                                 </Label>
-                                <Input
-                                  placeholder="Name or role..."
-                                  value={subEntry.assignedTo}
-                                  onChange={(e) => updateSubEntry(subEntry.id, "assignedTo", e.target.value)}
+                                <Textarea
+                                  placeholder="Enter names, one per line..."
+                                  value={subEntry.assignedTo.join('\n')}
+                                  onChange={(e) => {
+                                    const names = e.target.value.split('\n').filter(n => n.trim());
+                                    updateSubEntry(subEntry.id, "assignedTo", names);
+                                  }}
+                                  rows={3}
+                                  className="resize-none"
                                 />
                               </div>
-                              <div className="space-y-2">
+                              <div className="space-y-2 col-span-2">
                                 <Label className="text-sm">Priority</Label>
                                 <Select
                                   value={subEntry.priority}
@@ -944,10 +949,16 @@ const SiteDiary = () => {
                                   <p className={`text-sm mb-2 whitespace-pre-wrap ${subEntry.completed ? 'line-through text-muted-foreground' : ''}`}>
                                     {subEntry.description}
                                   </p>
-                                  {subEntry.assignedTo && (
-                                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                  {subEntry.assignedTo && subEntry.assignedTo.length > 0 && (
+                                    <div className="flex flex-wrap gap-1 items-center text-xs text-muted-foreground">
                                       <User className="h-3 w-3" />
-                                      <span>{subEntry.assignedTo}</span>
+                                      <div className="flex flex-wrap gap-1">
+                                        {subEntry.assignedTo.map((person, idx) => (
+                                          <span key={idx} className="bg-muted px-2 py-0.5 rounded">
+                                            {person}
+                                          </span>
+                                        ))}
+                                      </div>
                                     </div>
                                   )}
                                 </div>
