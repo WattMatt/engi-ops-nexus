@@ -26,6 +26,16 @@ export const SouthAfricaZoneMap = ({ selectedZone }: SouthAfricaZoneMapProps) =>
     "6": { x: 120, y: 160 },
   };
 
+  // Geographical coordinates for each zone (approximate center)
+  const zoneCoordinates: Record<string, string> = {
+    "1": "26.2°S, 28.0°E",
+    "2": "25.4°S, 28.2°E",
+    "3": "25.5°S, 31.0°E",
+    "4": "33.9°S, 18.4°E",
+    "5": "29.9°S, 31.0°E",
+    "6": "28.7°S, 24.8°E",
+  };
+
   return (
     <svg
       viewBox="0 0 400 350"
@@ -172,6 +182,30 @@ export const SouthAfricaZoneMap = ({ selectedZone }: SouthAfricaZoneMapProps) =>
           >
             {selectedZone}
           </text>
+          
+          {/* Coordinate label below pin */}
+          <g>
+            <rect
+              x={zoneCenters[selectedZone].x - 40}
+              y={zoneCenters[selectedZone].y + 38}
+              width="80"
+              height="18"
+              fill="#fff"
+              stroke="#000"
+              strokeWidth="1"
+              rx="3"
+            />
+            <text
+              x={zoneCenters[selectedZone].x}
+              y={zoneCenters[selectedZone].y + 50}
+              fontSize="10"
+              fontWeight="bold"
+              fill="#000"
+              textAnchor="middle"
+            >
+              {zoneCoordinates[selectedZone]}
+            </text>
+          </g>
         </g>
       )}
 
