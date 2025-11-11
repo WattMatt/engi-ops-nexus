@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { MapPin } from "lucide-react";
+import { SouthAfricaZoneMap } from "./SouthAfricaZoneMap";
 
 interface StaticZoneDisplayProps {
   selectedZone: string;
@@ -60,6 +61,11 @@ export const StaticZoneDisplay = ({ selectedZone }: StaticZoneDisplayProps) => {
 
   return (
     <div className="space-y-4">
+      {/* Simplified South Africa Map */}
+      <div className="bg-card border rounded-lg p-3">
+        <SouthAfricaZoneMap selectedZone={selectedZone} />
+      </div>
+
       {/* Selected Zone Card */}
       <div className="p-4 rounded-lg border-2 border-primary bg-primary/5">
         <div className="flex items-center gap-3 mb-3">
