@@ -389,10 +389,7 @@ const SiteDiary = () => {
           `${index + 1}`,
           item.description,
           item.assignedTo && item.assignedTo.length > 0 ? item.assignedTo.join(', ') : "-",
-          item.priority === "note" ? "Note" :
-          item.priority === "high" ? "HIGH" :
-          item.priority === "medium" ? "MEDIUM" :
-          "LOW",
+          item.priority, // Store raw priority value for custom rendering
           item.completed ? "Done" : "Pending",
         ]);
 
@@ -409,6 +406,51 @@ const SiteDiary = () => {
             2: { cellWidth: 40 },
             3: { cellWidth: 25 },
             4: { cellWidth: 28 },
+          },
+          didDrawCell: (data: any) => {
+            // Draw colored priority indicators matching the UI
+            if (data.section === 'body' && data.column.index === 3) {
+              const priority = actionItemsData[data.row.index][3];
+              const cell = data.cell;
+              
+              // Clear the default text
+              doc.setFillColor(255, 255, 255);
+              doc.rect(cell.x, cell.y, cell.width, cell.height, 'F');
+              
+              // Draw colored circle
+              const circleX = cell.x + 5;
+              const circleY = cell.y + cell.height / 2;
+              const circleRadius = 2;
+              
+              if (priority === 'high') {
+                doc.setFillColor(220, 38, 38); // red matching UI
+                doc.circle(circleX, circleY, circleRadius, 'F');
+                doc.setTextColor(220, 38, 38);
+                doc.setFontSize(10);
+                doc.text('HIGH', circleX + 5, circleY + 1);
+              } else if (priority === 'medium') {
+                doc.setFillColor(249, 115, 22); // orange matching UI
+                doc.circle(circleX, circleY, circleRadius, 'F');
+                doc.setTextColor(249, 115, 22);
+                doc.setFontSize(10);
+                doc.text('MEDIUM', circleX + 5, circleY + 1);
+              } else if (priority === 'low') {
+                doc.setFillColor(34, 197, 94); // green matching UI
+                doc.circle(circleX, circleY, circleRadius, 'F');
+                doc.setTextColor(34, 197, 94);
+                doc.setFontSize(10);
+                doc.text('LOW', circleX + 5, circleY + 1);
+              } else if (priority === 'note') {
+                doc.setFillColor(100, 116, 139); // gray matching UI
+                doc.circle(circleX, circleY, circleRadius, 'F');
+                doc.setTextColor(100, 116, 139);
+                doc.setFontSize(10);
+                doc.text('Note', circleX + 5, circleY + 1);
+              }
+              
+              // Reset text color
+              doc.setTextColor(0, 0, 0);
+            }
           },
         });
       }
