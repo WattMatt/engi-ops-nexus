@@ -69,6 +69,7 @@ export const ClimaticZoneMap = ({ selectedZone, onZoneSelect }: ClimaticZoneMapP
   const map = useRef<mapboxgl.Map | null>(null);
   const geocoder = useRef<MapboxGeocoder | null>(null);
   const cityMarkers = useRef<mapboxgl.Marker[]>([]);
+  const selectedMarker = useRef<mapboxgl.Marker | null>(null);
   const [mapboxToken, setMapboxToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [mapStyle, setMapStyle] = useState<'streets' | 'satellite' | 'terrain'>('streets');
@@ -213,6 +214,16 @@ export const ClimaticZoneMap = ({ selectedZone, onZoneSelect }: ClimaticZoneMapP
     });
 
     return () => {
+      // Cleanup selected marker
+      if (selectedMarker.current) {
+        try {
+          selectedMarker.current.remove();
+        } catch (e) {
+          // Silently ignore if marker already removed
+        }
+      }
+      selectedMarker.current = null;
+      
       // Cleanup markers first
       cityMarkers.current.forEach(marker => {
         try {
@@ -265,6 +276,63 @@ export const ClimaticZoneMap = ({ selectedZone, onZoneSelect }: ClimaticZoneMapP
       }
     });
   }, [showCityMarkers]);
+
+  // Display persistent marker for selected zone
+  useEffect(() => {
+    if (!map.current || !selectedZone) return;
+
+    // Remove existing selected marker
+    if (selectedMarker.current) {
+      selectedMarker.current.remove();
+      selectedMarker.current = null;
+    }
+
+    // Find a representative city for the selected zone
+    const representativeCity = SA_CITIES_ZONES.find(city => city.zone === selectedZone);
+    
+    if (representativeCity) {
+      // Create a custom pin element
+      const el = document.createElement('div');
+      el.className = 'selected-zone-marker';
+      el.innerHTML = `
+        <div style="
+          position: relative;
+          width: 40px;
+          height: 40px;
+        ">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" 
+                  fill="${ZONE_COLORS[selectedZone as keyof typeof ZONE_COLORS]}" 
+                  stroke="white" 
+                  stroke-width="2"/>
+            <circle cx="12" cy="9" r="3" fill="white"/>
+            <text x="12" y="11" text-anchor="middle" font-size="8" font-weight="bold" fill="${ZONE_COLORS[selectedZone as keyof typeof ZONE_COLORS]}">${selectedZone}</text>
+          </svg>
+        </div>
+      `;
+      el.style.cursor = 'pointer';
+
+      const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(`
+        <div style="padding: 8px 12px;">
+          <strong style="color: ${ZONE_COLORS[selectedZone as keyof typeof ZONE_COLORS]};">Selected Zone ${selectedZone}</strong><br/>
+          <span style="color: #666;">${ZONE_INFO[selectedZone as keyof typeof ZONE_INFO].name}</span><br/>
+          <span style="color: #888; font-size: 12px;">${ZONE_INFO[selectedZone as keyof typeof ZONE_INFO].temp}</span>
+        </div>
+      `);
+
+      selectedMarker.current = new mapboxgl.Marker(el)
+        .setLngLat(representativeCity.coordinates)
+        .setPopup(popup)
+        .addTo(map.current);
+
+      // Fly to the selected location
+      map.current.flyTo({
+        center: representativeCity.coordinates,
+        zoom: 7,
+        duration: 1500,
+      });
+    }
+  }, [selectedZone, mapboxToken]);
 
   if (loading) {
     return (
