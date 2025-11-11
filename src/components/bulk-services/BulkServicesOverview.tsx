@@ -10,6 +10,8 @@ import { BulkServicesSavedReportsList } from "./BulkServicesSavedReportsList";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useState } from "react";
 import { BulkServicesSettingsOverview } from "./BulkServicesSettingsOverview";
+import { BulkServicesKPICard } from "./BulkServicesKPICard";
+import { SANS204Calculator } from "./SANS204Calculator";
 
 interface BulkServicesOverviewProps {
   documentId: string;
@@ -18,6 +20,7 @@ interface BulkServicesOverviewProps {
 
 export const BulkServicesOverview = ({ documentId, onBack }: BulkServicesOverviewProps) => {
   const [reportsRefreshTrigger, setReportsRefreshTrigger] = useState(0);
+  const [showMapSelector, setShowMapSelector] = useState(false);
   
   const { data: document, isLoading } = useQuery({
     queryKey: ["bulk-services-document", documentId],
@@ -77,14 +80,17 @@ export const BulkServicesOverview = ({ documentId, onBack }: BulkServicesOvervie
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-4">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="map">Zone Map</TabsTrigger>
           <TabsTrigger value="details">Details</TabsTrigger>
           <TabsTrigger value="sections">Sections</TabsTrigger>
           <TabsTrigger value="saved-reports">Saved Reports</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
+          <BulkServicesKPICard documentId={documentId} />
+          
           <Card>
             <CardHeader>
               <CardTitle>Settings & Configuration</CardTitle>
@@ -96,6 +102,20 @@ export const BulkServicesOverview = ({ documentId, onBack }: BulkServicesOvervie
               />
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="map" className="space-y-4">
+          <SANS204Calculator
+            open={true}
+            onOpenChange={setShowMapSelector}
+            onApplyValues={() => {}}
+            initialValues={{
+              project_area: document?.project_area,
+              climatic_zone: document?.climatic_zone,
+              diversity_factor: document?.diversity_factor,
+            }}
+            documentId={documentId}
+          />
         </TabsContent>
 
         <TabsContent value="details" className="space-y-4">
