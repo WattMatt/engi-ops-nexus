@@ -7,7 +7,8 @@ import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchCompanyDetails, generateCoverPage } from "@/utils/pdfCoverPage";
 import { StandardReportPreview } from "@/components/shared/StandardReportPreview";
-import { createHighQualityPDF } from "@/utils/pdfQualitySettings";
+import { createHighQualityPDF, captureChartAsCanvas, prepareElementForCapture, addHighQualityImage } from "@/utils/pdfQualitySettings";
+import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from "recharts";
 
 interface ExportPDFButtonProps {
   report: any;
@@ -407,121 +408,145 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       const colWidth = pageWidth / 2 - 18;
       const panelHeight = 110;
 
-      // LEFT: Category Distribution Panel
+      // LEFT: Category Distribution Panel - CAPTURE ACTUAL PIE CHART
       const analyticsY = yPos;
       
-      // Panel background with subtle border
-      doc.setFillColor(249, 250, 251);
-      doc.setDrawColor(229, 231, 235);
-      doc.setLineWidth(0.5);
-      doc.roundedRect(leftColX, analyticsY, colWidth, panelHeight, 3, 3, 'FD');
+      // Prepare chart data
+      const distributionChartData = categoryTotals.map((cat: any, index: number) => ({
+        name: `${cat.code} - ${cat.description}`,
+        value: cat.originalBudget,
+        color: `rgb(${COLORS[index % COLORS.length].join(',')})`,
+      }));
+
+      // Create hidden div to render chart
+      const chartContainer = document.createElement('div');
+      chartContainer.style.position = 'absolute';
+      chartContainer.style.left = '-9999px';
+      chartContainer.style.width = '600px';
+      chartContainer.style.height = '400px';
+      chartContainer.style.backgroundColor = '#ffffff';
+      chartContainer.style.padding = '20px';
+      document.body.appendChild(chartContainer);
+
+      // Render pie chart to hidden container
+      const chartDiv = document.createElement('div');
+      chartDiv.style.width = '100%';
+      chartDiv.style.height = '350px';
+      chartContainer.appendChild(chartDiv);
+
+      const { createRoot } = await import('react-dom/client');
+      const root = createRoot(chartDiv);
       
-      // Panel header
-      doc.setFillColor(241, 245, 249);
-      doc.roundedRect(leftColX, analyticsY, colWidth, 12, 3, 3, 'F');
-      
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(30, 58, 138);
-      doc.text("Category Distribution", leftColX + 6, analyticsY + 8);
-      
-      // Category legend with improved layout
-      let legendY = analyticsY + 22;
-      categoryTotals.forEach((cat: any, index: number) => {
-        if (index < 7) {
-          const color = COLORS[index % COLORS.length] as [number, number, number];
-          const percentage = (cat.originalBudget / totalForDistribution) * 100;
-          
-          // Color indicator
-          doc.setFillColor(color[0], color[1], color[2]);
-          doc.roundedRect(leftColX + 8, legendY - 3.5, 5, 5, 1, 1, 'F');
-          
-          // Code badge
-          doc.setFontSize(8);
-          doc.setFont("helvetica", "bold");
-          doc.setTextColor(60, 60, 60);
-          doc.text(cat.code, leftColX + 16, legendY);
-          
-          // Description
-          doc.setFont("helvetica", "normal");
-          doc.setTextColor(80, 80, 80);
-          const maxDescWidth = 42;
-          let truncDesc = cat.description;
-          if (doc.getTextWidth(truncDesc) > maxDescWidth) {
-            while (doc.getTextWidth(truncDesc + "...") > maxDescWidth && truncDesc.length > 0) {
-              truncDesc = truncDesc.slice(0, -1);
-            }
-            truncDesc += "...";
-          }
-          doc.text(truncDesc, leftColX + 24, legendY);
-          
-          // Percentage and amount
-          doc.setFont("helvetica", "bold");
-          doc.setFontSize(7);
-          doc.setTextColor(100, 100, 100);
-          doc.text(`${percentage.toFixed(1)}%`, leftColX + colWidth - 35, legendY);
-          
-          doc.setFontSize(8);
-          doc.setTextColor(30, 30, 30);
-          const amount = `R ${cat.originalBudget.toLocaleString('en-ZA', { maximumFractionDigits: 0 })}`;
-          doc.text(amount, leftColX + colWidth - 6, legendY, { align: "right" });
-          
-          legendY += 13;
-        }
+      await new Promise<void>((resolve) => {
+        root.render(
+          <ResponsiveContainer width="100%" height="100%">
+            <PieChart>
+              <Pie
+                data={distributionChartData}
+                cx="50%"
+                cy="50%"
+                labelLine={false}
+                label={({ percent }) => percent > 0.05 ? `${(percent * 100).toFixed(0)}%` : ''}
+                outerRadius={140}
+                innerRadius={80}
+                fill="#8884d8"
+                dataKey="value"
+                paddingAngle={2}
+              >
+                {distributionChartData.map((entry, index) => (
+                  <Cell key={`cell-${index}`} fill={entry.color} />
+                ))}
+              </Pie>
+              <Tooltip 
+                formatter={(value: number) => `R${value.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+        );
+        setTimeout(resolve, 2000); // Wait for chart to render
       });
 
-      // RIGHT: Variance Analysis Panel
-      doc.setFillColor(249, 250, 251);
-      doc.setDrawColor(229, 231, 235);
-      doc.setLineWidth(0.5);
-      doc.roundedRect(rightColX, analyticsY, colWidth, panelHeight, 3, 3, 'FD');
+      // Capture the chart
+      await prepareElementForCapture(chartContainer);
+      const chartCanvas = await captureChartAsCanvas(chartContainer);
       
-      // Panel header
-      doc.setFillColor(241, 245, 249);
-      doc.roundedRect(rightColX, analyticsY, colWidth, 12, 3, 3, 'F');
+      // Add chart to PDF
+      const chartWidth = colWidth;
+      const chartHeight = panelHeight;
+      addHighQualityImage(doc, chartCanvas, leftColX, analyticsY, chartWidth, chartHeight, 'PNG');
       
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(30, 58, 138);
-      doc.text("Variance by Category", rightColX + 6, analyticsY + 8);
+      // Cleanup
+      root.unmount();
+      document.body.removeChild(chartContainer);
+
+      // RIGHT: Variance Analysis Panel - CAPTURE ACTUAL BAR CHART
+      // Prepare variance chart data
+      const varianceChartData = categoryTotals.map((cat: any) => ({
+        name: cat.code,
+        saving: cat.variance < 0 ? Math.abs(cat.variance) : 0,
+        extra: cat.variance >= 0 ? cat.variance : 0,
+      }));
+
+      // Create hidden div to render variance chart
+      const varianceChartContainer = document.createElement('div');
+      varianceChartContainer.style.position = 'absolute';
+      varianceChartContainer.style.left = '-9999px';
+      varianceChartContainer.style.width = '600px';
+      varianceChartContainer.style.height = '400px';
+      varianceChartContainer.style.backgroundColor = '#ffffff';
+      varianceChartContainer.style.padding = '20px';
+      document.body.appendChild(varianceChartContainer);
+
+      // Render bar chart to hidden container
+      const varianceChartDiv = document.createElement('div');
+      varianceChartDiv.style.width = '100%';
+      varianceChartDiv.style.height = '350px';
+      varianceChartContainer.appendChild(varianceChartDiv);
+
+      const varianceRoot = createRoot(varianceChartDiv);
       
-      // Professional variance table
-      let varY = analyticsY + 22;
-      categoryTotals.slice(0, 7).forEach((cat: any) => {
-        const varianceSign = cat.variance < 0 ? '' : '+';
-        const isPositive = cat.variance < 0;
-        
-        // Row background (alternating)
-        const rowIndex = categoryTotals.slice(0, 7).indexOf(cat);
-        if (rowIndex % 2 === 0) {
-          doc.setFillColor(255, 255, 255);
-          doc.rect(rightColX + 4, varY - 4, colWidth - 8, 11, 'F');
-        }
-        
-        // Code badge
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(60, 60, 60);
-        doc.text(cat.code, rightColX + 8, varY);
-        
-        // Variance amount
-        doc.setFontSize(9);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(isPositive ? 22 : 220, isPositive ? 163 : 38, isPositive ? 74 : 38);
-        const varianceText = `${varianceSign}R ${Math.abs(cat.variance).toLocaleString('en-ZA', { maximumFractionDigits: 0 })}`;
-        doc.text(varianceText, rightColX + colWidth - 32, varY, { align: "right" });
-        
-        // Status badge
-        doc.setFillColor(isPositive ? 220 : 254, isPositive ? 252 : 243, isPositive ? 231 : 199);
-        doc.roundedRect(rightColX + colWidth - 26, varY - 3.5, 20, 6, 2, 2, 'F');
-        
-        doc.setFontSize(6);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(isPositive ? 21 : 161, isPositive ? 128 : 98, isPositive ? 61 : 7);
-        doc.text(isPositive ? 'SAVING' : 'EXTRA', rightColX + colWidth - 16, varY, { align: "center" });
-        
-        varY += 13;
+      await new Promise<void>((resolve) => {
+        varianceRoot.render(
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={varianceChartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis 
+                dataKey="name" 
+                tick={{ fontSize: 12, fill: '#6b7280' }}
+              />
+              <YAxis 
+                tick={{ fontSize: 12, fill: '#6b7280' }}
+                tickFormatter={(value) => `R${(value / 1000).toFixed(0)}k`}
+              />
+              <Tooltip 
+                formatter={(value: number) => `R${value.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`}
+                contentStyle={{ 
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '6px'
+                }}
+              />
+              <Legend 
+                wrapperStyle={{ fontSize: '14px' }}
+              />
+              <Bar dataKey="saving" fill="#22c55e" name="Savings" radius={[4, 4, 0, 0]} />
+              <Bar dataKey="extra" fill="#ef4444" name="Extras" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        );
+        setTimeout(resolve, 2000); // Wait for chart to render
       });
+
+      // Capture the variance chart
+      await prepareElementForCapture(varianceChartContainer);
+      const varianceChartCanvas = await captureChartAsCanvas(varianceChartContainer);
+      
+      // Add variance chart to PDF
+      addHighQualityImage(doc, varianceChartCanvas, rightColX, analyticsY, colWidth, panelHeight, 'PNG');
+      
+      // Cleanup
+      varianceRoot.unmount();
+      document.body.removeChild(varianceChartContainer);
 
       yPos = analyticsY + panelHeight + 10;
 
