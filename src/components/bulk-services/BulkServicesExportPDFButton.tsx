@@ -172,7 +172,7 @@ export function BulkServicesExportPDFButton({ documentId, onReportSaved }: BulkS
       yPos += 8;
 
       const sans204Data = [
-        ['Class', 'Building Type', 'Zone 1\nCold', 'Zone 2\nTemp Int', 'Zone 3\nHot Int', 'Zone 4\nTemp Coast', 'Zone 5\nSub-trop', 'Zone 6\nArid'],
+        ['Class', 'Building Type', 'Zone 1\nCold Int', 'Zone 2\nTemp Int', 'Zone 3\nHot Int', 'Zone 4\nTemp Coast', 'Zone 5\nSub-trop', 'Zone 6\nArid Int'],
         ['A1', 'Entertainment & Assembly', '85', '80', '90', '80', '80', '85'],
         ['A2', 'Theatrical & Indoor Sport', '85', '80', '90', '80', '80', '85'],
         ['A3', 'Places of Instruction', '80', '75', '85', '75', '75', '80'],
@@ -404,10 +404,10 @@ export function BulkServicesExportPDFButton({ documentId, onReportSaved }: BulkS
 
       const zoneData = [
         { num: "Zone 1", name: "Cold Interior", avg: "84.3", min: "80", max: "90" },
-        { num: "Zone 2", name: "Temp Interior", avg: "79.3", min: "75", max: "85" },
+        { num: "Zone 2", name: "Temperate Interior", avg: "79.3", min: "75", max: "85" },
         { num: "Zone 3", name: "Hot Interior", avg: "89.3", min: "85", max: "95" },
-        { num: "Zone 4", name: "Temp Coastal", avg: "79.3", min: "75", max: "85" },
-        { num: "Zone 5", name: "Sub-tropical", avg: "79.3", min: "75", max: "85" },
+        { num: "Zone 4", name: "Temperate Coastal", avg: "79.3", min: "75", max: "85" },
+        { num: "Zone 5", name: "Sub-tropical Coastal", avg: "79.3", min: "75", max: "85" },
         { num: "Zone 6", name: "Arid Interior", avg: "84.3", min: "80", max: "90" },
       ];
 
