@@ -192,7 +192,6 @@ export default function ProjectSettings() {
                     id="project_number"
                     value={formData.project_number}
                     onChange={(e) => updateField("project_number", e.target.value)}
-                    placeholder="WM-2024-001"
                     required
                   />
                 </div>
@@ -213,7 +212,6 @@ export default function ProjectSettings() {
                     id="client_name"
                     value={formData.client_name}
                     onChange={(e) => updateField("client_name", e.target.value)}
-                    placeholder="Moolman Group"
                   />
                 </div>
 
@@ -292,7 +290,6 @@ export default function ProjectSettings() {
                       id="primary_voltage"
                       value={formData.primary_voltage}
                       onChange={(e) => updateField("primary_voltage", e.target.value)}
-                      placeholder="11kV, 22kV, 33kV"
                     />
                   </div>
 
@@ -302,7 +299,6 @@ export default function ProjectSettings() {
                       id="connection_size"
                       value={formData.connection_size}
                       onChange={(e) => updateField("connection_size", e.target.value)}
-                      placeholder="2500kVA, 5MVA"
                     />
                   </div>
 
@@ -313,7 +309,7 @@ export default function ProjectSettings() {
                       onValueChange={(value) => updateField("supply_authority", value)}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select authority" />
+                        <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Eskom">Eskom</SelectItem>
@@ -353,7 +349,6 @@ export default function ProjectSettings() {
                       max="1"
                       value={formData.diversity_factor}
                       onChange={(e) => updateField("diversity_factor", e.target.value)}
-                      placeholder="0.75"
                     />
                   </div>
 
@@ -364,7 +359,7 @@ export default function ProjectSettings() {
                       onValueChange={(value) => updateField("load_category", value)}
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select category" />
+                        <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Commercial">Commercial</SelectItem>
@@ -407,7 +402,7 @@ export default function ProjectSettings() {
                     onValueChange={(value) => updateField("tariff_structure", value)}
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select tariff" />
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Megaflex">Megaflex</SelectItem>
@@ -425,7 +420,6 @@ export default function ProjectSettings() {
                     id="metering_requirements"
                     value={formData.metering_requirements}
                     onChange={(e) => updateField("metering_requirements", e.target.value)}
-                    placeholder="Specify metering and sub-metering requirements"
                     rows={3}
                   />
                 </div>
@@ -436,7 +430,6 @@ export default function ProjectSettings() {
                     id="protection_philosophy"
                     value={formData.protection_philosophy}
                     onChange={(e) => updateField("protection_philosophy", e.target.value)}
-                    placeholder="Describe protection coordination and selectivity approach"
                     rows={3}
                   />
                 </div>
@@ -457,7 +450,6 @@ export default function ProjectSettings() {
                       id="electrical_contractor"
                       value={formData.electrical_contractor}
                       onChange={(e) => updateField("electrical_contractor", e.target.value)}
-                      placeholder="KHULU"
                     />
                   </div>
 
@@ -467,7 +459,6 @@ export default function ProjectSettings() {
                       id="earthing_contractor"
                       value={formData.earthing_contractor}
                       onChange={(e) => updateField("earthing_contractor", e.target.value)}
-                      placeholder="MITRONIC"
                     />
                   </div>
 
@@ -486,7 +477,6 @@ export default function ProjectSettings() {
                       id="cctv_contractor"
                       value={formData.cctv_contractor}
                       onChange={(e) => updateField("cctv_contractor", e.target.value)}
-                      placeholder="East End"
                     />
                   </div>
                 </div>
