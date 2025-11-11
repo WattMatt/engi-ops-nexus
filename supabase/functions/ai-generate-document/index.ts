@@ -66,8 +66,18 @@ The content should:
 - Reference the client representative as the key stakeholder
 - Use proper South African electrical engineering standards (SANS 204, SANS 10142-1)
 - Include relevant calculations and justifications
-- Use markdown formatting for tables and headings
+- Use markdown tables for technical data, specifications, and calculations (especially for supply requirements, load calculations, and equipment specifications)
+- Use numbered lists for objectives, requirements, and procedural items
+- Use bullet points only for brief supporting details
 - Be approximately 200-400 words
+
+IMPORTANT: When presenting technical data such as project area, load density, calculated demand, voltage levels, or equipment specifications, ALWAYS format as a markdown table:
+
+| Parameter | Value | Unit |
+|-----------|-------|------|
+| Total Project Area | [AREA] | m² |
+| Load Density | [VA/m²] | VA/m² |
+| Estimated Maximum Demand | [SIZE] | kVA |
 
 Use these placeholders that will be replaced:
 - [PROJECT DESCRIPTION] for project description and objectives
