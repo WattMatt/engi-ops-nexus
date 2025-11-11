@@ -232,25 +232,94 @@ export const BulkServicesSections = ({ documentId, sections }: BulkServicesSecti
             ) : (
               <div className="prose prose-sm max-w-none">
                 {section.content ? (
-                  <div className="whitespace-pre-wrap">
+                  <div className="space-y-3 text-foreground leading-relaxed">
                     {populatePlaceholders(section.content).split('\n').map((line: string, idx: number) => {
-                      // Handle markdown tables
-                      if (line.trim().startsWith('|')) {
-                        return <div key={idx} className="font-mono text-xs bg-muted/50 p-2 rounded my-1 border border-border">{line}</div>;
+                      const trimmed = line.trim();
+                      
+                      // Handle markdown tables - render as proper table
+                      if (trimmed.startsWith('|')) {
+                        const cells = trimmed.split('|').filter(Boolean).map(c => c.trim());
+                        const isHeader = line.includes('---');
+                        
+                        if (isHeader) return null; // Skip separator line
+                        
+                        return (
+                          <div key={idx} className="my-4 overflow-x-auto">
+                            <table className="min-w-full border-collapse border border-border">
+                              <tbody>
+                                <tr className={cells.length > 0 ? "border-b border-border bg-muted/30" : ""}>
+                                  {cells.map((cell, i) => (
+                                    <td key={i} className="border border-border px-4 py-2 text-sm">
+                                      {cell}
+                                    </td>
+                                  ))}
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        );
                       }
+                      
                       // Handle markdown headers
-                      if (line.trim().startsWith('## ')) {
-                        return <h3 key={idx} className="text-lg font-semibold mt-4 mb-2 text-foreground">{line.replace('## ', '')}</h3>;
+                      if (trimmed.startsWith('### ')) {
+                        return <h4 key={idx} className="text-base font-semibold mt-6 mb-3 text-foreground">{trimmed.replace('### ', '')}</h4>;
                       }
-                      if (line.trim().startsWith('# ')) {
-                        return <h2 key={idx} className="text-xl font-bold mt-4 mb-2 text-foreground">{line.replace('# ', '')}</h2>;
+                      if (trimmed.startsWith('## ')) {
+                        return <h3 key={idx} className="text-lg font-semibold mt-6 mb-3 text-foreground border-b border-border pb-2">{trimmed.replace('## ', '')}</h3>;
                       }
-                      // Handle bullet points
-                      if (line.trim().startsWith('- ')) {
-                        return <li key={idx} className="ml-4 text-foreground">{line.replace('- ', '')}</li>;
+                      if (trimmed.startsWith('# ')) {
+                        return <h2 key={idx} className="text-xl font-bold mt-8 mb-4 text-foreground border-b-2 border-border pb-2">{trimmed.replace('# ', '')}</h2>;
                       }
-                      // Regular text
-                      return line.trim() ? <p key={idx} className="mb-2 text-foreground leading-relaxed">{line}</p> : <br key={idx} />;
+                      
+                      // Handle numbered lists
+                      const numberedMatch = trimmed.match(/^(\d+)\.\s+(.+)$/);
+                      if (numberedMatch) {
+                        return (
+                          <div key={idx} className="flex gap-3 ml-6 mb-2">
+                            <span className="font-semibold min-w-[2rem]">{numberedMatch[1]}.</span>
+                            <span className="flex-1">{numberedMatch[2]}</span>
+                          </div>
+                        );
+                      }
+                      
+                      // Handle nested bullet points with indentation
+                      if (trimmed.startsWith('  - ') || trimmed.startsWith('    - ')) {
+                        const level = line.match(/^(\s+)/)?.[1].length || 0;
+                        const indent = Math.floor(level / 2) * 1.5;
+                        return (
+                          <div key={idx} className="flex gap-2 mb-1" style={{ marginLeft: `${indent + 2}rem` }}>
+                            <span className="text-muted-foreground">•</span>
+                            <span className="flex-1">{trimmed.replace(/^-\s+/, '')}</span>
+                          </div>
+                        );
+                      }
+                      
+                      // Handle top-level bullet points
+                      if (trimmed.startsWith('- ')) {
+                        return (
+                          <div key={idx} className="flex gap-2 ml-6 mb-2">
+                            <span className="text-muted-foreground font-bold">•</span>
+                            <span className="flex-1">{trimmed.replace('- ', '')}</span>
+                          </div>
+                        );
+                      }
+                      
+                      // Handle bold text
+                      const boldText = trimmed.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+                      
+                      // Regular paragraph with proper spacing and indentation
+                      if (trimmed) {
+                        return (
+                          <p 
+                            key={idx} 
+                            className="mb-3 text-foreground leading-relaxed text-justify"
+                            dangerouslySetInnerHTML={{ __html: boldText }}
+                          />
+                        );
+                      }
+                      
+                      // Empty line for spacing
+                      return <div key={idx} className="h-2" />;
                     })}
                   </div>
                 ) : (
