@@ -258,53 +258,75 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
       {/* Category Breakdown */}
       {categoryTotals.length > 0 && (
         <Card>
-          <CardHeader>
-            <CardTitle>Category Breakdown</CardTitle>
+          <CardHeader className="pb-4">
+            <CardTitle className="text-xl">Category Breakdown</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
               {categoryTotals.map((cat, index) => (
-                <Card key={cat.id} className="border-l-4" style={{ borderLeftColor: COLORS[index % COLORS.length] }}>
-                  <CardContent className="p-4">
-                    <div className="space-y-3">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-2">
-                          <div 
-                            className="flex items-center justify-center w-8 h-8 rounded-md text-white font-bold text-sm"
-                            style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                          >
-                            {cat.code}
-                          </div>
-                          <div>
-                            <h4 className="font-medium text-sm leading-tight">{cat.description}</h4>
-                          </div>
+                <Card 
+                  key={cat.id} 
+                  className="border-l-[6px] shadow-sm hover:shadow-md transition-shadow" 
+                  style={{ borderLeftColor: COLORS[index % COLORS.length] }}
+                >
+                  <CardContent className="p-5">
+                    <div className="space-y-4">
+                      <div className="flex items-start gap-3">
+                        <div 
+                          className="flex items-center justify-center min-w-[44px] w-11 h-11 rounded-lg text-white font-bold text-base shadow-sm"
+                          style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                        >
+                          {cat.code}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-semibold text-base leading-tight break-words">
+                            {cat.description}
+                          </h4>
                         </div>
                       </div>
                       
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-baseline">
-                          <span className="text-xs text-muted-foreground">Original Budget</span>
-                          <span className="font-mono text-sm font-medium">
-                            R{cat.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
-                          </span>
-                        </div>
-                        
-                        <div className="flex justify-between items-baseline">
-                          <span className="text-xs text-muted-foreground">Anticipated Final</span>
-                          <span className="font-mono text-sm font-medium">
-                            R{cat.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
-                          </span>
-                        </div>
-                        
-                        <div className="pt-2 border-t">
-                          <div className="flex justify-between items-baseline">
-                            <span className="text-xs font-medium">Variance</span>
-                            <span className={`font-mono text-sm font-bold ${cat.originalVariance < 0 ? 'text-green-600' : 'text-red-600'}`}>
-                              {cat.originalVariance < 0 ? '-' : '+'}R{Math.abs(cat.originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                      <div className="space-y-3 pt-2">
+                        <div className="space-y-1">
+                          <div className="flex justify-between items-baseline gap-2">
+                            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                              Original Budget
                             </span>
                           </div>
-                          <div className="text-xs text-muted-foreground text-right mt-1">
-                            {cat.originalVariance < 0 ? 'Saving' : 'Extra'}
+                          <div className="font-mono text-base font-semibold">
+                            R{cat.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-1">
+                          <div className="flex justify-between items-baseline gap-2">
+                            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                              Anticipated Final
+                            </span>
+                          </div>
+                          <div className="font-mono text-base font-semibold">
+                            R{cat.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                          </div>
+                        </div>
+                        
+                        <div className="pt-3 border-t-2 border-border">
+                          <div className="space-y-1">
+                            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                              Variance
+                            </div>
+                            <div className="flex items-baseline justify-between gap-2">
+                              <span className={`font-mono text-lg font-bold ${cat.originalVariance < 0 ? 'text-green-600' : 'text-red-600'}`}>
+                                {cat.originalVariance < 0 ? '-' : '+'}R{Math.abs(cat.originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                              </span>
+                              <span 
+                                className={`px-2.5 py-1 text-xs font-bold uppercase rounded-full ${
+                                  cat.originalVariance < 0 
+                                    ? 'bg-green-100 text-green-700' 
+                                    : 'bg-red-100 text-red-700'
+                                }`}
+                              >
+                                {cat.originalVariance < 0 ? 'Saving' : 'Extra'}
+                              </span>
+                            </div>
                           </div>
                         </div>
                       </div>
