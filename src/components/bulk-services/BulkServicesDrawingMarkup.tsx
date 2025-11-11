@@ -33,6 +33,7 @@ export const BulkServicesDrawingMarkup = ({ documentId }: BulkServicesDrawingMar
   const [activeTool, setActiveTool] = useState<Marker["type"] | null>(null);
   const [uploading, setUploading] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [loadingPdf, setLoadingPdf] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const markupCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -53,6 +54,7 @@ export const BulkServicesDrawingMarkup = ({ documentId }: BulkServicesDrawingMar
   }, [markers, zoom]);
 
   const loadSavedMarkup = async () => {
+    setLoadingPdf(true);
     try {
       const { data, error } = await supabase
         .from("bulk_services_documents")
@@ -72,6 +74,9 @@ export const BulkServicesDrawingMarkup = ({ documentId }: BulkServicesDrawingMar
       }
     } catch (error) {
       console.error("Error loading saved markup:", error);
+      toast.error("Failed to load saved drawing");
+    } finally {
+      setLoadingPdf(false);
     }
   };
 
@@ -350,7 +355,14 @@ export const BulkServicesDrawingMarkup = ({ documentId }: BulkServicesDrawingMar
       </Card>
 
       <div className="relative border rounded-lg overflow-auto bg-muted/20" style={{ height: "600px" }}>
-        {!pdfDoc ? (
+        {loadingPdf ? (
+          <div className="flex items-center justify-center h-full text-muted-foreground">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-16 w-16 border-b-2 border-primary mx-auto mb-4" />
+              <p>Loading drawing...</p>
+            </div>
+          </div>
+        ) : !pdfDoc ? (
           <div className="flex items-center justify-center h-full text-muted-foreground">
             <div className="text-center">
               <Upload className="h-16 w-16 mx-auto mb-4 opacity-50" />
