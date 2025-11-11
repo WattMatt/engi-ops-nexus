@@ -4,11 +4,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Calendar, Cloud, ListTodo, GanttChart, Bell, X } from "lucide-react";
+import { Plus, Calendar, Cloud, ListTodo, GanttChart, Bell, X, User } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { TasksManager } from "@/components/site-diary/TasksManager";
@@ -19,7 +20,9 @@ import { RemindersPanel } from "@/components/site-diary/RemindersPanel";
 
 interface SubEntry {
   id: string;
-  content: string;
+  description: string;
+  assignedTo: string;
+  priority: "low" | "medium" | "high";
   timestamp: string;
 }
 
@@ -131,15 +134,17 @@ const SiteDiary = () => {
   const addSubEntry = () => {
     const newSubEntry: SubEntry = {
       id: `sub_${Date.now()}`,
-      content: "",
+      description: "",
+      assignedTo: "",
+      priority: "medium",
       timestamp: new Date().toISOString(),
     };
     setSubEntries([...subEntries, newSubEntry]);
   };
 
-  const updateSubEntry = (id: string, content: string) => {
+  const updateSubEntry = (id: string, field: keyof SubEntry, value: string) => {
     setSubEntries(subEntries.map(entry => 
-      entry.id === id ? { ...entry, content } : entry
+      entry.id === id ? { ...entry, [field]: value } : entry
     ));
   };
 
@@ -234,6 +239,84 @@ const SiteDiary = () => {
                     className="resize-none"
                   />
                 </div>
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-base">Action Items & Assignments</h3>
+                  <Button type="button" variant="outline" size="sm" onClick={addSubEntry}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Action Item
+                  </Button>
+                </div>
+                {subEntries.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4 border-2 border-dashed rounded-lg">
+                    Add action items with assigned responsibilities
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {subEntries.map((subEntry, index) => (
+                      <div key={subEntry.id} className="border rounded-lg p-3 space-y-3">
+                        <div className="flex items-start gap-2">
+                          <div className="flex-1 space-y-3">
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <span className="font-medium">Item {index + 1}</span>
+                              <span>•</span>
+                              <span>{format(new Date(subEntry.timestamp), "h:mm a")}</span>
+                            </div>
+                            <div className="space-y-2">
+                              <Label className="text-sm">Description</Label>
+                              <Textarea
+                                placeholder="Describe the action item or task..."
+                                value={subEntry.description}
+                                onChange={(e) => updateSubEntry(subEntry.id, "description", e.target.value)}
+                                rows={2}
+                                className="resize-none"
+                              />
+                            </div>
+                            <div className="grid grid-cols-2 gap-3">
+                              <div className="space-y-2">
+                                <Label className="text-sm flex items-center gap-1">
+                                  <User className="h-3 w-3" />
+                                  Assigned To
+                                </Label>
+                                <Input
+                                  placeholder="Name or role..."
+                                  value={subEntry.assignedTo}
+                                  onChange={(e) => updateSubEntry(subEntry.id, "assignedTo", e.target.value)}
+                                />
+                              </div>
+                              <div className="space-y-2">
+                                <Label className="text-sm">Priority</Label>
+                                <Select
+                                  value={subEntry.priority}
+                                  onValueChange={(value) => updateSubEntry(subEntry.id, "priority", value)}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="low">Low</SelectItem>
+                                    <SelectItem value="medium">Medium</SelectItem>
+                                    <SelectItem value="high">High</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => removeSubEntry(subEntry.id)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               <DialogFooter className="gap-2">
@@ -350,18 +433,35 @@ const SiteDiary = () => {
                     )}
                     {entry.sub_entries && entry.sub_entries.length > 0 && (
                       <div>
-                        <h4 className="font-medium text-sm mb-3">Notes & Observations</h4>
+                        <h4 className="font-medium text-sm mb-3">Action Items & Assignments</h4>
                         <div className="space-y-2">
                           {entry.sub_entries.map((subEntry: SubEntry, index: number) => (
-                            <div key={subEntry.id} className="border-l-2 border-primary/30 pl-3 py-2">
-                              <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
-                                <span>Note {index + 1}</span>
-                                <span>•</span>
-                                <span>{format(new Date(subEntry.timestamp), "h:mm a")}</span>
+                            <div key={subEntry.id} className="border rounded-lg p-3 bg-muted/20">
+                              <div className="flex items-start justify-between gap-3 mb-2">
+                                <div className="flex items-center gap-2 text-xs">
+                                  <span className="font-medium">Item {index + 1}</span>
+                                  <span>•</span>
+                                  <span className="text-muted-foreground">
+                                    {format(new Date(subEntry.timestamp), "h:mm a")}
+                                  </span>
+                                </div>
+                                <span className={`text-xs px-2 py-0.5 rounded ${
+                                  subEntry.priority === "high" ? "bg-destructive/20 text-destructive" :
+                                  subEntry.priority === "medium" ? "bg-orange-500/20 text-orange-700" :
+                                  "bg-muted text-muted-foreground"
+                                }`}>
+                                  {subEntry.priority}
+                                </span>
                               </div>
-                              <p className="text-sm text-muted-foreground whitespace-pre-wrap">
-                                {subEntry.content}
+                              <p className="text-sm mb-2 whitespace-pre-wrap">
+                                {subEntry.description}
                               </p>
+                              {subEntry.assignedTo && (
+                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                  <User className="h-3 w-3" />
+                                  <span>{subEntry.assignedTo}</span>
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>
