@@ -12,6 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 import { Save, Calculator, Download, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
@@ -47,6 +48,7 @@ export const BulkServicesKPICard = ({ documentId, mapSelectedZone }: BulkService
   const [climaticZone, setClimaticZone] = useState("1");
   const [diversityFactor, setDiversityFactor] = useState("0.75");
   const [saving, setSaving] = useState(false);
+  const [autoSyncZone, setAutoSyncZone] = useState(false);
 
   const { data: document } = useQuery({
     queryKey: ["bulk-services-document", documentId],
@@ -92,6 +94,14 @@ export const BulkServicesKPICard = ({ documentId, mapSelectedZone }: BulkService
       setDiversityFactor(document.diversity_factor?.toString() || "0.75");
     }
   }, [document]);
+
+  // Auto-sync zone from map when enabled
+  useEffect(() => {
+    if (autoSyncZone && mapSelectedZone && mapSelectedZone !== climaticZone) {
+      setClimaticZone(mapSelectedZone);
+      toast.success(`Auto-synced to Zone ${mapSelectedZone}`);
+    }
+  }, [mapSelectedZone, autoSyncZone]);
 
   const handleImportFromTenantTracker = () => {
     if (tenantData?.totalArea) {
@@ -194,9 +204,21 @@ export const BulkServicesKPICard = ({ documentId, mapSelectedZone }: BulkService
           </div>
 
           <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Climatic Zone</Label>
+              <div className="flex items-center gap-2">
+                <Switch
+                  id="auto-sync"
+                  checked={autoSyncZone}
+                  onCheckedChange={setAutoSyncZone}
+                />
+                <Label htmlFor="auto-sync" className="text-xs cursor-pointer">
+                  Auto-sync from map
+                </Label>
+              </div>
+            </div>
             <div className="flex items-end gap-2">
               <div className="flex-1 space-y-2">
-                <Label>Climatic Zone</Label>
                 <Select value={climaticZone} onValueChange={setClimaticZone}>
                   <SelectTrigger>
                     <SelectValue />
@@ -210,7 +232,7 @@ export const BulkServicesKPICard = ({ documentId, mapSelectedZone }: BulkService
                   </SelectContent>
                 </Select>
               </div>
-              {mapSelectedZone && mapSelectedZone !== climaticZone && (
+              {!autoSyncZone && mapSelectedZone && mapSelectedZone !== climaticZone && (
                 <Button
                   variant="outline"
                   onClick={handleSyncZoneFromMap}
