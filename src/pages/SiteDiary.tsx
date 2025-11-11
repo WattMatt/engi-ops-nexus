@@ -389,11 +389,11 @@ const SiteDiary = () => {
           `${index + 1}`,
           item.description,
           item.assignedTo && item.assignedTo.length > 0 ? item.assignedTo.join(', ') : "-",
-          item.priority === "note" ? "📝 Note" :
-          item.priority === "high" ? "🔴 HIGH" :
-          item.priority === "medium" ? "🟡 MEDIUM" :
-          "🟢 LOW",
-          item.completed ? "✓ Done" : "Pending",
+          item.priority === "note" ? "Note" :
+          item.priority === "high" ? "HIGH" :
+          item.priority === "medium" ? "MEDIUM" :
+          "LOW",
+          item.completed ? "Done" : "Pending",
         ]);
 
         autoTable(doc, {
