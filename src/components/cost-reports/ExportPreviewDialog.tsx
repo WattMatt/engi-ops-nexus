@@ -14,6 +14,9 @@ interface ExportPreviewDialogProps {
   report: any;
   categories: any[];
   variations: any[];
+  companyName?: string;
+  projectInfo?: any;
+  contractors?: any[];
 }
 
 const COLORS = ['hsl(var(--chart-1))', 'hsl(var(--chart-2))', 'hsl(var(--chart-3))', 'hsl(var(--chart-4))', 'hsl(var(--chart-5))'];
@@ -24,7 +27,10 @@ export const ExportPreviewDialog = ({
   onProceedExport,
   report,
   categories,
-  variations
+  variations,
+  companyName = "Your Company",
+  projectInfo,
+  contractors = []
 }: ExportPreviewDialogProps) => {
   const [isExporting, setIsExporting] = useState(false);
 
@@ -71,6 +77,21 @@ export const ExportPreviewDialog = ({
             </div>
             <ScrollArea className="flex-1 p-4">
               <div className="space-y-6">
+                {/* Cover Page Preview */}
+                <Card className="bg-gradient-to-br from-primary/10 to-primary/5">
+                  <CardHeader>
+                    <CardTitle className="text-center">Cover Page</CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="text-center space-y-2">
+                      <p className="text-sm text-muted-foreground">{companyName}</p>
+                      <h2 className="text-2xl font-bold">Cost Report</h2>
+                      <p className="text-lg">{report.project_name}</p>
+                      <p className="text-sm text-muted-foreground">Report #{report.report_number}</p>
+                    </div>
+                  </CardContent>
+                </Card>
+
                 {/* Executive Summary */}
                 <Card>
                   <CardHeader>
@@ -157,6 +178,91 @@ export const ExportPreviewDialog = ({
                     ))}
                   </div>
                 </div>
+
+                {/* Project Information */}
+                {projectInfo && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Project Information</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        {Object.entries(projectInfo).map(([key, value]) => (
+                          <div key={key}>
+                            <p className="text-muted-foreground capitalize">{key.replace(/_/g, ' ')}</p>
+                            <p className="font-medium">{value as string}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Contractors */}
+                {contractors.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Contractors</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="space-y-2">
+                        {contractors.map((contractor, idx) => (
+                          <div key={idx} className="flex justify-between items-center p-2 border rounded">
+                            <span className="font-medium">{contractor.name}</span>
+                            <span className="text-sm text-muted-foreground">{contractor.role}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {/* Detailed Category Breakdowns */}
+                <div>
+                  <h3 className="font-semibold mb-3">Detailed Category Breakdowns</h3>
+                  <p className="text-sm text-muted-foreground mb-3">
+                    Each category will have a dedicated page with line items
+                  </p>
+                  {categories.map((category) => (
+                    <Card key={category.id} className="mb-3">
+                      <CardHeader>
+                        <CardTitle className="text-sm">{category.category_name}</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                        <p className="text-xs text-muted-foreground">
+                          {category.cost_line_items?.length || 0} line items will be detailed in PDF
+                        </p>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+
+                {/* Variations */}
+                {variations.length > 0 && (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle>Variations</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-muted-foreground mb-2">
+                        {variations.length} variation(s) will be included
+                      </p>
+                      <div className="space-y-2">
+                        {variations.slice(0, 3).map((variation) => (
+                          <div key={variation.id} className="text-xs p-2 border rounded">
+                            <p className="font-medium">{variation.description}</p>
+                            <p className="text-muted-foreground">
+                              R {Number(variation.amount || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                            </p>
+                          </div>
+                        ))}
+                        {variations.length > 3 && (
+                          <p className="text-xs text-muted-foreground italic">+ {variations.length - 3} more</p>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
               </div>
             </ScrollArea>
           </div>
@@ -168,6 +274,14 @@ export const ExportPreviewDialog = ({
             </div>
             <ScrollArea className="flex-1 p-4">
               <div className="bg-white p-8 space-y-6 text-black" style={{ fontFamily: 'Arial, sans-serif' }}>
+                {/* Cover Page Preview */}
+                <div className="border-b pb-6 text-center bg-gradient-to-br from-blue-50 to-blue-100 p-8 rounded">
+                  <p className="text-sm text-gray-600 mb-2">{companyName}</p>
+                  <h1 className="text-3xl font-bold mb-4">Cost Report</h1>
+                  <p className="text-xl mb-2">{report.project_name}</p>
+                  <p className="text-sm text-gray-600">Report #{report.report_number}</p>
+                </div>
+
                 {/* Executive Summary */}
                 <div className="border-b pb-4">
                   <h2 className="text-xl font-bold mb-4">Executive Summary</h2>
@@ -195,7 +309,7 @@ export const ExportPreviewDialog = ({
                 {/* Charts Preview */}
                 <div className="border-b pb-4">
                   <h2 className="text-xl font-bold mb-4">Financial Analysis</h2>
-                  <p className="text-sm text-gray-600">Charts will be rendered at high quality in the final PDF</p>
+                  <p className="text-sm text-gray-600">Charts will be captured from UI at high quality</p>
                   <div className="space-y-4 mt-4">
                     <div className="bg-gray-50 p-4 rounded">
                       <p className="text-sm font-semibold mb-2">Budget vs Actual by Category</p>
@@ -215,8 +329,9 @@ export const ExportPreviewDialog = ({
                 </div>
 
                 {/* Category Cards Preview */}
-                <div>
+                <div className="border-b pb-4">
                   <h2 className="text-xl font-bold mb-4">Category Performance Details</h2>
+                  <p className="text-sm text-gray-600 mb-3">Captured from UI</p>
                   <div className="space-y-4">
                     {categories.slice(0, 2).map((category) => {
                       const variance = Number(category.budget_amount || 0) - Number(category.actual_cost || 0);
@@ -250,10 +365,71 @@ export const ExportPreviewDialog = ({
                       );
                     })}
                     {categories.length > 2 && (
-                      <p className="text-sm text-gray-600 italic">+ {categories.length - 2} more categories in full PDF</p>
+                      <p className="text-sm text-gray-600 italic">+ {categories.length - 2} more categories</p>
                     )}
                   </div>
                 </div>
+
+                {/* Project Information Preview */}
+                {projectInfo && (
+                  <div className="border-b pb-4">
+                    <h2 className="text-xl font-bold mb-4">Project Information</h2>
+                    <p className="text-sm text-gray-600 mb-3">Captured from UI</p>
+                    <div className="bg-gray-50 p-4 rounded">
+                      <p className="text-xs text-gray-600">Project details section will appear here</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Contractors Preview */}
+                {contractors.length > 0 && (
+                  <div className="border-b pb-4">
+                    <h2 className="text-xl font-bold mb-4">Contractors</h2>
+                    <p className="text-sm text-gray-600 mb-3">Captured from UI</p>
+                    <div className="bg-gray-50 p-4 rounded space-y-2">
+                      {contractors.slice(0, 2).map((contractor, idx) => (
+                        <div key={idx} className="text-sm">
+                          <span className="font-semibold">{contractor.name}</span> - {contractor.role}
+                        </div>
+                      ))}
+                      {contractors.length > 2 && (
+                        <p className="text-xs text-gray-600 italic">+ {contractors.length - 2} more</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Category Detail Pages */}
+                <div className="border-b pb-4">
+                  <h2 className="text-xl font-bold mb-4">Detailed Category Breakdowns</h2>
+                  <p className="text-sm text-gray-600 mb-3">
+                    Each category will have a dedicated page with all line items
+                  </p>
+                  <div className="bg-gray-50 p-4 rounded">
+                    <p className="text-xs text-gray-600">{categories.length} category detail page(s)</p>
+                  </div>
+                </div>
+
+                {/* Variations Preview */}
+                {variations.length > 0 && (
+                  <div>
+                    <h2 className="text-xl font-bold mb-4">Variations</h2>
+                    <p className="text-sm text-gray-600 mb-3">{variations.length} variation(s)</p>
+                    <div className="bg-gray-50 p-4 rounded space-y-2">
+                      {variations.slice(0, 2).map((variation) => (
+                        <div key={variation.id} className="text-sm border-l-2 border-blue-500 pl-2">
+                          <p className="font-semibold">{variation.description}</p>
+                          <p className="text-gray-600">
+                            R {Number(variation.amount || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                          </p>
+                        </div>
+                      ))}
+                      {variations.length > 2 && (
+                        <p className="text-xs text-gray-600 italic">+ {variations.length - 2} more</p>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             </ScrollArea>
           </div>

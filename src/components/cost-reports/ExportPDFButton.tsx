@@ -20,13 +20,19 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
   const [loading, setLoading] = useState(false);
   const [previewReport, setPreviewReport] = useState<any>(null);
   const [showExportPreview, setShowExportPreview] = useState(false);
-  const [previewData, setPreviewData] = useState<{ categories: any[], variations: any[] } | null>(null);
+  const [previewData, setPreviewData] = useState<{ 
+    categories: any[], 
+    variations: any[],
+    companyName?: string,
+    projectInfo?: any,
+    contractors?: any[]
+  } | null>(null);
 
   const handleShowPreview = async () => {
     setLoading(true);
     try {
-      // Fetch just categories and variations for preview
-      const [categoriesResult, variationsResult] = await Promise.all([
+      // Fetch all data needed for preview
+      const [categoriesResult, variationsResult, companyResult] = await Promise.all([
         supabase
           .from("cost_categories")
           .select(`
@@ -39,7 +45,12 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           .from("cost_variations")
           .select("*")
           .eq("cost_report_id", report.id)
-          .order("display_order")
+          .order("display_order"),
+        supabase
+          .from("company_settings")
+          .select("*")
+          .limit(1)
+          .single()
       ]);
 
       if (categoriesResult.error) throw categoriesResult.error;
@@ -47,9 +58,16 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
 
       const categories = categoriesResult.data || [];
       const variations = variationsResult.data || [];
+      const company = companyResult.data;
 
       // Store data for preview and show preview dialog
-      setPreviewData({ categories, variations });
+      setPreviewData({ 
+        categories, 
+        variations, 
+        companyName: company?.company_name,
+        projectInfo: { project_name: report.project_name, report_number: report.report_number },
+        contractors: []
+      });
       setShowExportPreview(true);
     } catch (error: any) {
       console.error('Error preparing preview:', error);
@@ -1006,6 +1024,9 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           report={report}
           categories={previewData.categories}
           variations={previewData.variations}
+          companyName={previewData.companyName}
+          projectInfo={previewData.projectInfo}
+          contractors={previewData.contractors}
         />
       )}
       
