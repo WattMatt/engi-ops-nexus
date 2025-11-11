@@ -7,19 +7,19 @@ import { toast } from "sonner";
 
 interface SANS204CalculatorProps {
   documentId: string;
-  onZoneSelect?: (zone: string) => void;
+  onZoneSelect?: (zone: string, city?: string, coordinates?: [number, number]) => void;
 }
 
 export const SANS204Calculator = ({ documentId, onZoneSelect }: SANS204CalculatorProps) => {
   const [selectedZone, setSelectedZone] = useState<string | null>(null);
 
-  // Fetch the document to get the current zone
+  // Fetch the document to get the current zone and location
   const { data: document } = useQuery({
     queryKey: ["bulk-services-document", documentId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("bulk_services_documents")
-        .select("climatic_zone")
+        .select("climatic_zone, climatic_zone_city, climatic_zone_lng, climatic_zone_lat")
         .eq("id", documentId)
         .single();
 
@@ -35,19 +35,27 @@ export const SANS204Calculator = ({ documentId, onZoneSelect }: SANS204Calculato
     }
   }, [document]);
 
-  const handleZoneSelect = async (zone: string) => {
+  const handleZoneSelect = async (zone: string, city?: string, coordinates?: [number, number]) => {
     setSelectedZone(zone);
-    onZoneSelect?.(zone);
+    onZoneSelect?.(zone, city, coordinates);
     
-    // Save the zone selection to the database
+    // Save the zone selection AND location to the database
     try {
+      const updateData: any = { climatic_zone: zone };
+      
+      if (city && coordinates) {
+        updateData.climatic_zone_city = city;
+        updateData.climatic_zone_lng = coordinates[0];
+        updateData.climatic_zone_lat = coordinates[1];
+      }
+      
       const { error } = await supabase
         .from("bulk_services_documents")
-        .update({ climatic_zone: zone })
+        .update(updateData)
         .eq("id", documentId);
 
       if (error) throw error;
-      toast.success(`Zone ${zone} selected and saved`);
+      toast.success(`${city || `Zone ${zone}`} selected and saved`);
     } catch (error: any) {
       console.error("Error saving zone:", error);
       toast.error("Failed to save zone selection");
@@ -63,6 +71,12 @@ export const SANS204Calculator = ({ documentId, onZoneSelect }: SANS204Calculato
         <ClimaticZoneMap
           onZoneSelect={handleZoneSelect}
           selectedZone={selectedZone}
+          selectedCity={document?.climatic_zone_city}
+          selectedCoordinates={
+            document?.climatic_zone_lng && document?.climatic_zone_lat
+              ? [document.climatic_zone_lng, document.climatic_zone_lat]
+              : undefined
+          }
         />
       </CardContent>
     </Card>

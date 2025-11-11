@@ -12,8 +12,10 @@ import { toast } from "@/hooks/use-toast";
 import { SA_CITIES_ZONES, findClosestCity } from "@/data/saCitiesZones";
 
 interface ClimaticZoneMapProps {
-  selectedZone: string;
-  onZoneSelect: (zone: string) => void;
+  selectedZone: string | null;
+  onZoneSelect: (zone: string, city?: string, coordinates?: [number, number]) => void;
+  selectedCity?: string | null;
+  selectedCoordinates?: [number, number];
 }
 
 const ZONE_COLORS = {
@@ -64,7 +66,7 @@ const ZONE_INFO = {
   },
 };
 
-export const ClimaticZoneMap = ({ selectedZone, onZoneSelect }: ClimaticZoneMapProps) => {
+export const ClimaticZoneMap = ({ selectedZone, onZoneSelect, selectedCity, selectedCoordinates }: ClimaticZoneMapProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const geocoder = useRef<MapboxGeocoder | null>(null);
@@ -148,7 +150,7 @@ export const ClimaticZoneMap = ({ selectedZone, onZoneSelect }: ClimaticZoneMapP
 
         // Click handler to select zone
         el.addEventListener('click', () => {
-          onZoneSelect(city.zone);
+          onZoneSelect(city.zone, city.city, city.coordinates);
           toast({
             title: "City Selected",
             description: `${city.city} is in ${ZONE_INFO[city.zone as keyof typeof ZONE_INFO].name} (Zone ${city.zone})`,
@@ -184,7 +186,7 @@ export const ClimaticZoneMap = ({ selectedZone, onZoneSelect }: ClimaticZoneMapP
       const closestCity = findClosestCity(lng, lat);
       
       if (closestCity) {
-        onZoneSelect(closestCity.zone);
+        onZoneSelect(closestCity.zone, closestCity.city, closestCity.coordinates);
         toast({
           title: "Zone Suggested",
           description: `${e.result.place_name} is near ${closestCity.city} in ${ZONE_INFO[closestCity.zone as keyof typeof ZONE_INFO].name} (Zone ${closestCity.zone})`,
@@ -279,128 +281,122 @@ export const ClimaticZoneMap = ({ selectedZone, onZoneSelect }: ClimaticZoneMapP
 
   // Display persistent marker for selected zone
   useEffect(() => {
-    if (!map.current || !selectedZone) return;
+    if (!map.current || !selectedZone || !selectedCoordinates) return;
 
     // Remove existing selected marker
     if (selectedMarker.current) {
       selectedMarker.current.remove();
       selectedMarker.current = null;
     }
-
-    // Find a representative city for the selected zone
-    const representativeCity = SA_CITIES_ZONES.find(city => city.zone === selectedZone);
+    // Create a custom pin element with animations
+    const el = document.createElement('div');
+    el.className = 'selected-zone-marker';
     
-    if (representativeCity) {
-      // Create a custom pin element with animations
-      const el = document.createElement('div');
-      el.className = 'selected-zone-marker';
-      
-      // Add pulsing glow background
-      const glowRing = document.createElement('div');
-      glowRing.style.cssText = `
-        position: absolute;
-        width: 60px;
-        height: 60px;
-        top: -10px;
-        left: -10px;
-        border-radius: 50%;
-        background: radial-gradient(circle, ${ZONE_COLORS[selectedZone as keyof typeof ZONE_COLORS]}40 0%, transparent 70%);
-        animation: pulse-glow 2s ease-in-out infinite;
-        pointer-events: none;
-      `;
-      
-      const pinContainer = document.createElement('div');
-      pinContainer.style.cssText = `
-        position: relative;
-        width: 40px;
-        height: 40px;
-        animation: bounce-in 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-      `;
-      
-      pinContainer.innerHTML = `
-        <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));">
-          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" 
-                fill="${ZONE_COLORS[selectedZone as keyof typeof ZONE_COLORS]}" 
-                stroke="white" 
-                stroke-width="2"/>
-          <circle cx="12" cy="9" r="3" fill="white"/>
-          <text x="12" y="11" text-anchor="middle" font-size="8" font-weight="bold" fill="${ZONE_COLORS[selectedZone as keyof typeof ZONE_COLORS]}">${selectedZone}</text>
-        </svg>
-      `;
-      
-      el.appendChild(glowRing);
-      el.appendChild(pinContainer);
-      el.style.cssText = `
-        cursor: pointer;
-        position: relative;
-        width: 40px;
-        height: 40px;
-      `;
-      
-      // Add CSS animations
-      const style = document.createElement('style');
-      style.textContent = `
-        @keyframes pulse-glow {
-          0%, 100% {
-            transform: scale(1);
-            opacity: 0.6;
-          }
-          50% {
-            transform: scale(1.2);
-            opacity: 0.3;
-          }
+    // Add pulsing glow background
+    const glowRing = document.createElement('div');
+    glowRing.style.cssText = `
+      position: absolute;
+      width: 60px;
+      height: 60px;
+      top: -10px;
+      left: -10px;
+      border-radius: 50%;
+      background: radial-gradient(circle, ${ZONE_COLORS[selectedZone as keyof typeof ZONE_COLORS]}40 0%, transparent 70%);
+      animation: pulse-glow 2s ease-in-out infinite;
+      pointer-events: none;
+    `;
+    
+    const pinContainer = document.createElement('div');
+    pinContainer.style.cssText = `
+      position: relative;
+      width: 40px;
+      height: 40px;
+      animation: bounce-in 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    `;
+    
+    pinContainer.innerHTML = `
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));">
+        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" 
+              fill="${ZONE_COLORS[selectedZone as keyof typeof ZONE_COLORS]}" 
+              stroke="white" 
+              stroke-width="2"/>
+        <circle cx="12" cy="9" r="3" fill="white"/>
+        <text x="12" y="11" text-anchor="middle" font-size="8" font-weight="bold" fill="${ZONE_COLORS[selectedZone as keyof typeof ZONE_COLORS]}">${selectedZone}</text>
+      </svg>
+    `;
+    
+    el.appendChild(glowRing);
+    el.appendChild(pinContainer);
+    el.style.cssText = `
+      cursor: pointer;
+      position: relative;
+      width: 40px;
+      height: 40px;
+    `;
+    
+    // Add CSS animations
+    const style = document.createElement('style');
+    style.textContent = `
+      @keyframes pulse-glow {
+        0%, 100% {
+          transform: scale(1);
+          opacity: 0.6;
         }
-        
-        @keyframes bounce-in {
-          0% {
-            transform: translateY(-100px) scale(0);
-            opacity: 0;
-          }
-          50% {
-            transform: translateY(0) scale(1.1);
-          }
-          100% {
-            transform: translateY(0) scale(1);
-            opacity: 1;
-          }
+        50% {
+          transform: scale(1.2);
+          opacity: 0.3;
         }
-        
-        .selected-zone-marker:hover .pin-container {
-          animation: bounce 0.5s ease-in-out;
+      }
+      
+      @keyframes bounce-in {
+        0% {
+          transform: translateY(-100px) scale(0);
+          opacity: 0;
         }
-        
-        @keyframes bounce {
-          0%, 100% {
-            transform: translateY(0);
-          }
-          50% {
-            transform: translateY(-10px);
-          }
+        50% {
+          transform: translateY(0) scale(1.1);
         }
-      `;
-      document.head.appendChild(style);
+        100% {
+          transform: translateY(0) scale(1);
+          opacity: 1;
+        }
+      }
+      
+      .selected-zone-marker:hover .pin-container {
+        animation: bounce 0.5s ease-in-out;
+      }
+      
+      @keyframes bounce {
+        0%, 100% {
+          transform: translateY(0);
+        }
+        50% {
+          transform: translateY(-10px);
+        }
+      }
+    `;
+    document.head.appendChild(style);
 
-      const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(`
-        <div style="padding: 8px 12px;">
-          <strong style="color: ${ZONE_COLORS[selectedZone as keyof typeof ZONE_COLORS]};">Selected Zone ${selectedZone}</strong><br/>
-          <span style="color: #666;">${ZONE_INFO[selectedZone as keyof typeof ZONE_INFO].name}</span><br/>
-          <span style="color: #888; font-size: 12px;">${ZONE_INFO[selectedZone as keyof typeof ZONE_INFO].temp}</span>
-        </div>
-      `);
+    const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(`
+      <div style="padding: 8px 12px;">
+        <strong style="color: ${ZONE_COLORS[selectedZone as keyof typeof ZONE_COLORS]};">${selectedCity || 'Zone ' + selectedZone}</strong><br/>
+        <span style="color: #666;">${ZONE_INFO[selectedZone as keyof typeof ZONE_INFO].name}</span><br/>
+        <span style="color: #888; font-size: 12px;">${ZONE_INFO[selectedZone as keyof typeof ZONE_INFO].temp}</span>
+      </div>
+    `);
 
-      selectedMarker.current = new mapboxgl.Marker(el)
-        .setLngLat(representativeCity.coordinates)
-        .setPopup(popup)
-        .addTo(map.current);
+    selectedMarker.current = new mapboxgl.Marker(el)
+      .setLngLat(selectedCoordinates)
+      .setPopup(popup)
+      .addTo(map.current);
 
-      // Fly to the selected location
-      map.current.flyTo({
-        center: representativeCity.coordinates,
-        zoom: 7,
-        duration: 1500,
-      });
-    }
-  }, [selectedZone, mapboxToken]);
+    // Fly to the selected location
+    map.current.flyTo({
+      center: selectedCoordinates,
+      zoom: 7,
+      duration: 1500,
+    });
+  }, [selectedZone, selectedCoordinates, selectedCity, mapboxToken]);
 
   if (loading) {
     return (

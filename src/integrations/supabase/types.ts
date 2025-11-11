@@ -427,6 +427,9 @@ export type Database = {
           building_calculation_type: string | null
           client_name: string | null
           climatic_zone: string | null
+          climatic_zone_city: string | null
+          climatic_zone_lat: number | null
+          climatic_zone_lng: number | null
           connection_size: string | null
           created_at: string
           created_by: string
@@ -459,6 +462,9 @@ export type Database = {
           building_calculation_type?: string | null
           client_name?: string | null
           climatic_zone?: string | null
+          climatic_zone_city?: string | null
+          climatic_zone_lat?: number | null
+          climatic_zone_lng?: number | null
           connection_size?: string | null
           created_at?: string
           created_by: string
@@ -491,6 +497,9 @@ export type Database = {
           building_calculation_type?: string | null
           client_name?: string | null
           climatic_zone?: string | null
+          climatic_zone_city?: string | null
+          climatic_zone_lat?: number | null
+          climatic_zone_lng?: number | null
           connection_size?: string | null
           created_at?: string
           created_by?: string
