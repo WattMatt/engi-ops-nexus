@@ -53,16 +53,25 @@ serve(async (req) => {
 - Contact information for ongoing support`,
       
       bulk_services_section: `Generate professional technical content for a bulk services electrical engineering document section. 
-    
+
+CRITICAL CONTEXT - Use these as the key driving points for the entire report:
+1. Project Purpose: [PROJECT DESCRIPTION] - This defines what we're trying to achieve
+2. Client Context: Prepared for [CLIENT NAME], represented by [CLIENT REPRESENTATIVE]
+3. Supply Authority: Working with [SUPPLY AUTHORITY] - this shapes technical requirements and approval processes
+
 The content should:
 - Be technical and professional in tone
+- Align with the project description and client's objectives
+- Address requirements specific to the supply authority
+- Reference the client representative as the key stakeholder
 - Use proper South African electrical engineering standards (SANS 204, SANS 10142-1)
 - Include relevant calculations and justifications
-- Reference the project data provided
 - Use markdown formatting for tables and headings
 - Be approximately 200-400 words
 
 Use these placeholders that will be replaced:
+- [PROJECT DESCRIPTION] for project description and objectives
+- [CLIENT REPRESENTATIVE] for client representative name
 - [AREA] for project area
 - [VA/m²] for VA per square meter
 - [SIZE] for calculated size in kVA
@@ -71,7 +80,6 @@ Use these placeholders that will be replaced:
 - [DOCUMENT NUMBER] for document number
 - [CLIMATIC ZONE] for the climatic zone description
 - [CALCULATION TYPE] for the calculation standard used
-- [ARCHITECT] for architect name
 - [PRIMARY VOLTAGE] for primary voltage
 - [CONNECTION SIZE] for connection size
 - [DIVERSITY FACTOR] for diversity factor

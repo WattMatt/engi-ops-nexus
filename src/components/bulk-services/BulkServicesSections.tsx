@@ -66,6 +66,8 @@ export const BulkServicesSections = ({ documentId, sections }: BulkServicesSecti
     };
 
     let result = content
+      .replace(/\[PROJECT DESCRIPTION\]/g, document.project_description || 'electrical infrastructure development project')
+      .replace(/\[CLIENT REPRESENTATIVE\]/g, document.client_representative || 'the client representative')
       .replace(/\[AREA\]/g, document.project_area?.toLocaleString() || '0')
       .replace(/\[VA\/m²\]/g, vaPerSqm.toString())
       .replace(/\[SIZE\]/g, `${totalSize} kVA`)
@@ -74,7 +76,6 @@ export const BulkServicesSections = ({ documentId, sections }: BulkServicesSecti
       .replace(/\[DOCUMENT NUMBER\]/g, document.document_number || 'N/A')
       .replace(/\[CLIMATIC ZONE\]/g, climaticZoneNames[document.climatic_zone || '3'] || 'Temperate Coastal (Zone 3)')
       .replace(/\[CALCULATION TYPE\]/g, (document.building_calculation_type || 'sans_204').toUpperCase().replace('_', ' '))
-      .replace(/\[ARCHITECT\]/g, document.architect || 'the appointed architect')
       .replace(/\[PRIMARY VOLTAGE\]/g, document.primary_voltage || '11kV')
       .replace(/\[CONNECTION SIZE\]/g, document.connection_size || 'to be determined')
       .replace(/\[DIVERSITY FACTOR\]/g, document.diversity_factor?.toString() || '1.0')
