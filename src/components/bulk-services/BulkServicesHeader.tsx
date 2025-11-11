@@ -157,7 +157,7 @@ export const BulkServicesHeader = ({ document }: BulkServicesHeaderProps) => {
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Total Connected Load</p>
-            <p className="font-medium">{document.total_connected_load ? `${document.total_connected_load} kVA` : "Not set"}</p>
+            <p className="font-medium">{document.total_connected_load ? `${(document.total_connected_load / 1000).toLocaleString()} kVA` : "Not set"}</p>
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Maximum Demand</p>
