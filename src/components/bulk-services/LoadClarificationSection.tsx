@@ -2,7 +2,6 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { MapPin, Zap, Building2, TrendingUp } from "lucide-react";
-import { StaticZoneDisplay } from "./StaticZoneDisplay";
 
 interface LoadClarificationSectionProps {
   documentId: string;
@@ -184,12 +183,6 @@ export const LoadClarificationSection = ({ documentId }: LoadClarificationSectio
                 {climaticZoneNames[document.climatic_zone || '3'] || 'Not specified'}
               </div>
             </div>
-          </div>
-
-          {/* Climatic Zone Display */}
-          <div className="space-y-2">
-            <div className="text-sm text-muted-foreground mb-2">Climatic Zone</div>
-            <StaticZoneDisplay selectedZone={document.climatic_zone || '3'} />
           </div>
         </CardContent>
       </Card>
