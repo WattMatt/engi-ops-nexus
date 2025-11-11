@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/badge";
+import { MapPin } from "lucide-react";
 
 interface StaticZoneDisplayProps {
   selectedZone: string;
@@ -62,10 +63,15 @@ export const StaticZoneDisplay = ({ selectedZone }: StaticZoneDisplayProps) => {
       {/* Selected Zone Card */}
       <div className="p-4 rounded-lg border-2 border-primary bg-primary/5">
         <div className="flex items-center gap-3 mb-3">
-          <div
-            className="w-8 h-8 rounded shadow-sm border-2 border-primary"
-            style={{ backgroundColor: ZONE_COLORS[selectedZone as keyof typeof ZONE_COLORS] }}
-          />
+          <div className="relative">
+            <div
+              className="w-8 h-8 rounded shadow-sm border-2 border-primary"
+              style={{ backgroundColor: ZONE_COLORS[selectedZone as keyof typeof ZONE_COLORS] }}
+            />
+            <div className="absolute -top-1 -right-1 bg-primary rounded-full p-0.5">
+              <MapPin className="h-3 w-3 text-primary-foreground" />
+            </div>
+          </div>
           <div className="flex items-center gap-2">
             <Badge className="text-sm font-semibold">
               Zone {selectedZone}
