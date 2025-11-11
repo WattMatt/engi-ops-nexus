@@ -24,7 +24,7 @@ interface SubEntry {
   id: string;
   description: string;
   assignedTo: string;
-  priority: "low" | "medium" | "high";
+  priority: "note" | "low" | "medium" | "high";
   timestamp: string;
 }
 
@@ -178,7 +178,7 @@ const SiteDiary = () => {
       id: `sub_${Date.now()}`,
       description: "",
       assignedTo: "",
-      priority: "medium",
+      priority: "note",
       timestamp: new Date().toISOString(),
     };
     setSubEntries([...subEntries, newSubEntry]);
@@ -288,7 +288,10 @@ const SiteDiary = () => {
           `${index + 1}`,
           item.description,
           item.assignedTo || "-",
-          item.priority.toUpperCase(),
+          item.priority === "note" ? "📝 Note" :
+          item.priority === "high" ? "🔴 HIGH" :
+          item.priority === "medium" ? "🟡 MEDIUM" :
+          "🟢 LOW",
         ]);
 
         autoTable(doc, {
@@ -466,9 +469,10 @@ const SiteDiary = () => {
                                     <SelectValue />
                                   </SelectTrigger>
                                   <SelectContent>
-                                    <SelectItem value="low">Low</SelectItem>
-                                    <SelectItem value="medium">Medium</SelectItem>
-                                    <SelectItem value="high">High</SelectItem>
+                                    <SelectItem value="note">📝 Note (No Priority)</SelectItem>
+                                    <SelectItem value="low">🟢 Low</SelectItem>
+                                    <SelectItem value="medium">🟡 Medium</SelectItem>
+                                    <SelectItem value="high">🔴 High</SelectItem>
                                   </SelectContent>
                                 </Select>
                               </div>
@@ -636,13 +640,22 @@ const SiteDiary = () => {
                                     {format(new Date(subEntry.timestamp), "h:mm a")}
                                   </span>
                                 </div>
-                                <span className={`text-xs px-2 py-0.5 rounded ${
-                                  subEntry.priority === "high" ? "bg-destructive/20 text-destructive" :
-                                  subEntry.priority === "medium" ? "bg-orange-500/20 text-orange-700" :
-                                  "bg-muted text-muted-foreground"
-                                }`}>
-                                  {subEntry.priority}
-                                </span>
+                                 {subEntry.priority !== "note" && (
+                                   <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+                                     subEntry.priority === "high" ? "bg-destructive/20 text-destructive" :
+                                     subEntry.priority === "medium" ? "bg-orange-500/20 text-orange-700" :
+                                     "bg-green-500/20 text-green-700"
+                                   }`}>
+                                     {subEntry.priority === "high" ? "🔴 HIGH" :
+                                      subEntry.priority === "medium" ? "🟡 MEDIUM" :
+                                      "🟢 LOW"}
+                                   </span>
+                                 )}
+                                 {subEntry.priority === "note" && (
+                                   <span className="text-xs px-2 py-0.5 rounded bg-muted/50 text-muted-foreground">
+                                     📝 Note
+                                   </span>
+                                 )}
                               </div>
                               <p className="text-sm mb-2 whitespace-pre-wrap">
                                 {subEntry.description}
