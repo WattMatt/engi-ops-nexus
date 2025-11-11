@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Calendar, Cloud, ListTodo, GanttChart, Bell, X, User, Download } from "lucide-react";
+import { Plus, Calendar, Cloud, ListTodo, GanttChart, Bell, X, User, Download, Edit } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import jsPDF from "jspdf";
@@ -58,6 +58,7 @@ const SiteDiary = () => {
   const [meetingMinutes, setMeetingMinutes] = useState("");
   const [attendees, setAttendees] = useState<string[]>([]);
   const [subEntries, setSubEntries] = useState<SubEntry[]>([]);
+  const [editingEntry, setEditingEntry] = useState<SiteDiaryEntry | null>(null);
 
   useEffect(() => {
     loadEntries();
@@ -100,27 +101,48 @@ const SiteDiary = () => {
     }
 
     try {
-      const { error } = await supabase.from("site_diary_entries").insert({
-        project_id: projectId,
-        created_by: session.user.id,
-        entry_date: entryDate,
-        weather_conditions: weather,
-        site_progress: progress,
-        queries: queries,
-        notes: notes,
-        meeting_minutes: meetingMinutes,
-        attendees: attendees,
-        sub_entries: subEntries.length > 0 ? subEntries : null,
-      } as any);
+      if (editingEntry) {
+        // Update existing entry
+        const { error } = await supabase
+          .from("site_diary_entries")
+          .update({
+            entry_date: entryDate,
+            weather_conditions: weather,
+            site_progress: progress,
+            queries: queries,
+            notes: notes,
+            meeting_minutes: meetingMinutes,
+            attendees: attendees,
+            sub_entries: subEntries.length > 0 ? subEntries : null,
+          } as any)
+          .eq("id", editingEntry.id);
 
-      if (error) throw error;
+        if (error) throw error;
+        toast.success("Entry updated successfully");
+      } else {
+        // Create new entry
+        const { error } = await supabase.from("site_diary_entries").insert({
+          project_id: projectId,
+          created_by: session.user.id,
+          entry_date: entryDate,
+          weather_conditions: weather,
+          site_progress: progress,
+          queries: queries,
+          notes: notes,
+          meeting_minutes: meetingMinutes,
+          attendees: attendees,
+          sub_entries: subEntries.length > 0 ? subEntries : null,
+        } as any);
 
-      toast.success("Entry added successfully");
+        if (error) throw error;
+        toast.success("Entry added successfully");
+      }
+
       setDialogOpen(false);
       resetForm();
       loadEntries();
     } catch (error: any) {
-      toast.error(error.message || "Failed to add entry");
+      toast.error(error.message || "Failed to save entry");
     } finally {
       setSubmitting(false);
     }
@@ -135,6 +157,20 @@ const SiteDiary = () => {
     setMeetingMinutes("");
     setAttendees([]);
     setSubEntries([]);
+    setEditingEntry(null);
+  };
+
+  const handleEditEntry = (entry: SiteDiaryEntry) => {
+    setEditingEntry(entry);
+    setEntryDate(entry.entry_date);
+    setWeather(entry.weather_conditions || "");
+    setProgress(entry.site_progress || "");
+    setQueries(entry.queries || "");
+    setNotes(entry.notes || "");
+    setMeetingMinutes(entry.meeting_minutes || "");
+    setAttendees(entry.attendees || []);
+    setSubEntries(entry.sub_entries || []);
+    setDialogOpen(true);
   };
 
   const addSubEntry = () => {
@@ -290,7 +326,10 @@ const SiteDiary = () => {
             Daily progress, tasks, meetings, and project timeline
           </p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <Dialog open={dialogOpen} onOpenChange={(open) => {
+          setDialogOpen(open);
+          if (!open) resetForm();
+        }}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="h-4 w-4 mr-2" />
@@ -299,9 +338,11 @@ const SiteDiary = () => {
           </DialogTrigger>
           <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Site Diary Entry - {format(new Date(entryDate), "EEEE, MMMM d, yyyy")}</DialogTitle>
+              <DialogTitle>
+                {editingEntry ? "Edit" : "New"} Site Diary Entry - {format(new Date(entryDate), "EEEE, MMMM d, yyyy")}
+              </DialogTitle>
               <DialogDescription>
-                Document today's activities in diary format
+                {editingEntry ? "Update this diary entry and add more action items" : "Document today's activities in diary format"}
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-6">
@@ -449,11 +490,14 @@ const SiteDiary = () => {
               </div>
 
               <DialogFooter className="gap-2">
-                <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
+                <Button type="button" variant="outline" onClick={() => {
+                  setDialogOpen(false);
+                  resetForm();
+                }}>
                   Cancel
                 </Button>
                 <Button type="submit" disabled={submitting}>
-                  {submitting ? "Saving Entry..." : "Save Diary Entry"}
+                  {submitting ? (editingEntry ? "Updating Entry..." : "Saving Entry...") : (editingEntry ? "Update Entry" : "Save Diary Entry")}
                 </Button>
               </DialogFooter>
             </form>
@@ -518,6 +562,14 @@ const SiteDiary = () => {
                         )}
                       </div>
                       <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditEntry(entry)}
+                        >
+                          <Edit className="h-4 w-4 mr-2" />
+                          Edit
+                        </Button>
                         <Button
                           variant="outline"
                           size="sm"
