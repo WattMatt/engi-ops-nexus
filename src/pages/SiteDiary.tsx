@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, Calendar, Cloud, ListTodo, GanttChart, Bell, X, User, Download, Edit } from "lucide-react";
@@ -26,6 +27,8 @@ interface SubEntry {
   assignedTo: string;
   priority: "note" | "low" | "medium" | "high";
   timestamp: string;
+  completed: boolean;
+  completedAt?: string;
 }
 
 interface SiteDiaryEntry {
@@ -180,14 +183,27 @@ const SiteDiary = () => {
       assignedTo: "",
       priority: "note",
       timestamp: new Date().toISOString(),
+      completed: false,
     };
     setSubEntries([...subEntries, newSubEntry]);
   };
 
-  const updateSubEntry = (id: string, field: keyof SubEntry, value: string) => {
-    setSubEntries(subEntries.map(entry => 
-      entry.id === id ? { ...entry, [field]: value } : entry
-    ));
+  const updateSubEntry = (id: string, field: keyof SubEntry, value: string | boolean) => {
+    setSubEntries(subEntries.map(entry => {
+      if (entry.id === id) {
+        const updated = { ...entry, [field]: value };
+        // If marking as completed, add completedAt timestamp
+        if (field === 'completed' && value === true) {
+          updated.completedAt = new Date().toISOString();
+        }
+        // If unmarking as completed, remove completedAt
+        if (field === 'completed' && value === false) {
+          delete updated.completedAt;
+        }
+        return updated;
+      }
+      return entry;
+    }));
   };
 
   const removeSubEntry = (id: string) => {
@@ -292,20 +308,22 @@ const SiteDiary = () => {
           item.priority === "high" ? "🔴 HIGH" :
           item.priority === "medium" ? "🟡 MEDIUM" :
           "🟢 LOW",
+          item.completed ? "✓ Done" : "Pending",
         ]);
 
         autoTable(doc, {
           startY: yPosition,
-          head: [["#", "Description", "Assigned To", "Priority"]],
+          head: [["#", "Description", "Assigned To", "Priority", "Status"]],
           body: actionItemsData,
           theme: "grid",
           headStyles: { fillColor: [41, 128, 185], textColor: 255 },
           styles: { fontSize: 10 },
           columnStyles: {
-            0: { cellWidth: 15 },
-            1: { cellWidth: 85 },
-            2: { cellWidth: 45 },
-            3: { cellWidth: 30 },
+            0: { cellWidth: 12 },
+            1: { cellWidth: 70 },
+            2: { cellWidth: 40 },
+            3: { cellWidth: 25 },
+            4: { cellWidth: 28 },
           },
         });
       }
@@ -429,14 +447,27 @@ const SiteDiary = () => {
                 ) : (
                   <div className="space-y-3">
                     {subEntries.map((subEntry, index) => (
-                      <div key={subEntry.id} className="border rounded-lg p-3 space-y-3">
-                        <div className="flex items-start gap-2">
-                          <div className="flex-1 space-y-3">
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <span className="font-medium">Item {index + 1}</span>
-                              <span>•</span>
-                              <span>{format(new Date(subEntry.timestamp), "h:mm a")}</span>
-                            </div>
+                       <div key={subEntry.id} className={`border rounded-lg p-3 space-y-3 transition-all ${
+                         subEntry.completed ? 'bg-muted/30 opacity-75' : ''
+                       }`}>
+                         <div className="flex items-start gap-3">
+                           <Checkbox
+                             checked={subEntry.completed}
+                             onCheckedChange={(checked) => updateSubEntry(subEntry.id, "completed", checked as boolean)}
+                             className="mt-1"
+                           />
+                           <div className="flex-1 space-y-3">
+                             <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                               <span className="font-medium">Item {index + 1}</span>
+                               <span>•</span>
+                               <span>{format(new Date(subEntry.timestamp), "h:mm a")}</span>
+                               {subEntry.completed && subEntry.completedAt && (
+                                 <>
+                                   <span>•</span>
+                                   <span className="text-green-600">✓ Completed {format(new Date(subEntry.completedAt), "MMM d, h:mm a")}</span>
+                                 </>
+                               )}
+                             </div>
                             <div className="space-y-2">
                               <Label className="text-sm">Description</Label>
                               <Textarea
@@ -631,41 +662,83 @@ const SiteDiary = () => {
                         <h4 className="font-medium text-sm mb-3">Action Items & Assignments</h4>
                         <div className="space-y-2">
                           {entry.sub_entries.map((subEntry: SubEntry, index: number) => (
-                            <div key={subEntry.id} className="border rounded-lg p-3 bg-muted/20">
-                              <div className="flex items-start justify-between gap-3 mb-2">
-                                <div className="flex items-center gap-2 text-xs">
-                                  <span className="font-medium">Item {index + 1}</span>
-                                  <span>•</span>
-                                  <span className="text-muted-foreground">
-                                    {format(new Date(subEntry.timestamp), "h:mm a")}
-                                  </span>
+                            <div key={subEntry.id} className={`border rounded-lg p-3 transition-all ${
+                              subEntry.completed ? 'bg-muted/50 opacity-75' : 'bg-muted/20'
+                            }`}>
+                              <div className="flex items-start gap-3 mb-2">
+                                <Checkbox
+                                  checked={subEntry.completed || false}
+                                  onCheckedChange={async (checked) => {
+                                    const updatedEntry = {
+                                      ...entry,
+                                      sub_entries: entry.sub_entries!.map((se: SubEntry) =>
+                                        se.id === subEntry.id
+                                          ? { 
+                                              ...se, 
+                                              completed: checked as boolean,
+                                              completedAt: checked ? new Date().toISOString() : undefined
+                                            }
+                                          : se
+                                      ),
+                                    };
+                                    
+                                    const { error } = await supabase
+                                      .from("site_diary_entries")
+                                      .update({ sub_entries: updatedEntry.sub_entries } as any)
+                                      .eq("id", entry.id);
+                                    
+                                    if (error) {
+                                      toast.error("Failed to update status");
+                                    } else {
+                                      toast.success(checked ? "Marked as complete" : "Marked as incomplete");
+                                      loadEntries();
+                                    }
+                                  }}
+                                  className="mt-0.5"
+                                />
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 text-xs mb-2">
+                                    <span className="font-medium">Item {index + 1}</span>
+                                    <span>•</span>
+                                    <span className="text-muted-foreground">
+                                      {format(new Date(subEntry.timestamp), "h:mm a")}
+                                    </span>
+                                    {subEntry.completed && subEntry.completedAt && (
+                                      <>
+                                        <span>•</span>
+                                        <span className="text-green-600 font-medium">✓ Completed {format(new Date(subEntry.completedAt), "MMM d, h:mm a")}</span>
+                                      </>
+                                    )}
+                                  </div>
+                                  <div className="flex items-center gap-2">
+                                    {subEntry.priority !== "note" && (
+                                      <span className={`text-xs px-2 py-0.5 rounded font-medium ${
+                                        subEntry.priority === "high" ? "bg-destructive/20 text-destructive" :
+                                        subEntry.priority === "medium" ? "bg-orange-500/20 text-orange-700" :
+                                        "bg-green-500/20 text-green-700"
+                                      }`}>
+                                        {subEntry.priority === "high" ? "🔴 HIGH" :
+                                         subEntry.priority === "medium" ? "🟡 MEDIUM" :
+                                         "🟢 LOW"}
+                                      </span>
+                                    )}
+                                    {subEntry.priority === "note" && (
+                                      <span className="text-xs px-2 py-0.5 rounded bg-muted/50 text-muted-foreground">
+                                        📝 Note
+                                      </span>
+                                    )}
+                                  </div>
+                                  <p className={`text-sm mb-2 whitespace-pre-wrap ${subEntry.completed ? 'line-through text-muted-foreground' : ''}`}>
+                                    {subEntry.description}
+                                  </p>
+                                  {subEntry.assignedTo && (
+                                    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                      <User className="h-3 w-3" />
+                                      <span>{subEntry.assignedTo}</span>
+                                    </div>
+                                  )}
                                 </div>
-                                 {subEntry.priority !== "note" && (
-                                   <span className={`text-xs px-2 py-0.5 rounded font-medium ${
-                                     subEntry.priority === "high" ? "bg-destructive/20 text-destructive" :
-                                     subEntry.priority === "medium" ? "bg-orange-500/20 text-orange-700" :
-                                     "bg-green-500/20 text-green-700"
-                                   }`}>
-                                     {subEntry.priority === "high" ? "🔴 HIGH" :
-                                      subEntry.priority === "medium" ? "🟡 MEDIUM" :
-                                      "🟢 LOW"}
-                                   </span>
-                                 )}
-                                 {subEntry.priority === "note" && (
-                                   <span className="text-xs px-2 py-0.5 rounded bg-muted/50 text-muted-foreground">
-                                     📝 Note
-                                   </span>
-                                 )}
                               </div>
-                              <p className="text-sm mb-2 whitespace-pre-wrap">
-                                {subEntry.description}
-                              </p>
-                              {subEntry.assignedTo && (
-                                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                                  <User className="h-3 w-3" />
-                                  <span>{subEntry.assignedTo}</span>
-                                </div>
-                              )}
                             </div>
                           ))}
                         </div>
