@@ -49,8 +49,9 @@ export const LoadClarificationSection = ({ documentId }: LoadClarificationSectio
     : 25;
 
   const totalConnectedLoad = document.total_connected_load || 0;
-  const maximumDemand = document.maximum_demand || 0;
   const diversityFactor = document.diversity_factor || 0.8;
+  // Calculate maximum demand from total connected load and diversity factor
+  const maximumDemand = totalConnectedLoad * diversityFactor;
 
   const climaticZoneNames: Record<string, string> = {
     '1': 'Cold Interior (Zone 1)',
