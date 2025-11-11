@@ -414,12 +414,8 @@ export const ClimaticZoneMap = forwardRef<{ captureMap: () => Promise<Blob> }, C
         .setPopup(popup)
         .addTo(map.current!);
 
-      // Fly to the selected location
-      map.current!.flyTo({
-        center: selectedCoordinates,
-        zoom: 7,
-        duration: 1500,
-      });
+      // Only fly to location if it's a new selection (not on initial load)
+      // This prevents auto-zoom when just loading the saved selection
     };
 
     // Check if map is already loaded
