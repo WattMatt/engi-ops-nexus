@@ -60,30 +60,49 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
 
   const [formData, setFormData] = useState(getInitialFormData());
 
-  // Reset form when dialog opens in "add" mode (no tenant prop)
+  // Reset form when dialog opens or tenant changes
   useEffect(() => {
-    if (open && !tenant) {
-      setFormData({
-        shop_name: "",
-        shop_number: "",
-        area: "",
-        db_size_allowance: "",
-        db_size_scope_of_work: "",
-        shop_category: "standard",
-        sow_received: false,
-        layout_received: false,
-        db_ordered: false,
-        db_cost: "",
-        lighting_ordered: false,
-        lighting_cost: "",
-        cost_reported: false,
-        opening_date: "",
-        beneficial_occupation_days: "90",
-      });
-      setIsDbSizeAutoCalculated(false);
-    } else if (open && tenant) {
-      // Load tenant data when editing
-      setFormData(getInitialFormData());
+    if (open) {
+      if (!tenant) {
+        // Clear form for new tenant
+        setFormData({
+          shop_name: "",
+          shop_number: "",
+          area: "",
+          db_size_allowance: "",
+          db_size_scope_of_work: "",
+          shop_category: "standard",
+          sow_received: false,
+          layout_received: false,
+          db_ordered: false,
+          db_cost: "",
+          lighting_ordered: false,
+          lighting_cost: "",
+          cost_reported: false,
+          opening_date: "",
+          beneficial_occupation_days: "90",
+        });
+        setIsDbSizeAutoCalculated(false);
+      } else {
+        // Load tenant data when editing
+        setFormData({
+          shop_name: tenant.shop_name || "",
+          shop_number: tenant.shop_number || "",
+          area: tenant.area?.toString() || "",
+          db_size_allowance: tenant.db_size_allowance || "",
+          db_size_scope_of_work: tenant.db_size_scope_of_work || "",
+          shop_category: tenant.shop_category || "standard",
+          sow_received: tenant.sow_received || false,
+          layout_received: tenant.layout_received || false,
+          db_ordered: tenant.db_ordered || false,
+          db_cost: tenant.db_cost?.toString() || "",
+          lighting_ordered: tenant.lighting_ordered || false,
+          lighting_cost: tenant.lighting_cost?.toString() || "",
+          cost_reported: tenant.cost_reported || false,
+          opening_date: tenant.opening_date || "",
+          beneficial_occupation_days: tenant.beneficial_occupation_days?.toString() || "90",
+        });
+      }
     }
   }, [open, tenant]);
 
