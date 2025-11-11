@@ -75,16 +75,23 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         const isVariationsCategory = cat.description?.toUpperCase().includes("VARIATION");
         
         if (isVariationsCategory) {
-          // For variations category, sum from variations table (debits add, credits subtract)
-          const anticipatedFinal = variations.reduce((sum: number, v: any) => 
+          // For variations category:
+          // - originalBudget: 0 (variations weren't in original budget)
+          // - anticipatedFinal: NET total (debits add cost, credits reduce cost)
+          // - For display purposes, we'll store the absolute total separately
+          const netTotal = variations.reduce((sum: number, v: any) => 
             sum + (v.is_credit ? -Number(v.amount || 0) : Number(v.amount || 0)), 0);
+          
+          const absoluteTotal = variations.reduce((sum: number, v: any) => 
+            sum + Math.abs(Number(v.amount || 0)), 0);
           
           return {
             code: cat.code,
             description: cat.description,
-            originalBudget: 0,
-            anticipatedFinal,
-            variance: anticipatedFinal
+            originalBudget: absoluteTotal, // Use absolute total for distribution display
+            anticipatedFinal: netTotal, // Use net for final cost impact
+            variance: netTotal, // Variance is the net impact
+            isVariations: true
           };
         } else {
           // For regular categories, sum line items
@@ -99,14 +106,24 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
             description: cat.description,
             originalBudget,
             anticipatedFinal,
-            variance: anticipatedFinal - originalBudget
+            variance: anticipatedFinal - originalBudget,
+            isVariations: false
           };
         }
       });
 
-      const totalOriginalBudget = categoryTotals.reduce((sum: number, cat: any) => sum + cat.originalBudget, 0);
-      const totalAnticipatedFinal = categoryTotals.reduce((sum: number, cat: any) => sum + cat.anticipatedFinal, 0);
+      const totalOriginalBudget = categoryTotals
+        .filter((cat: any) => !cat.isVariations)
+        .reduce((sum: number, cat: any) => sum + cat.originalBudget, 0);
+      
+      const totalAnticipatedFinal = categoryTotals.reduce((sum: number, cat: any) => 
+        sum + cat.anticipatedFinal, 0);
+      
       const totalVariance = totalAnticipatedFinal - totalOriginalBudget;
+
+      // Total for distribution display (includes absolute value of variations)
+      const totalForDistribution = categoryTotals.reduce((sum: number, cat: any) => 
+        sum + cat.originalBudget, 0);
 
       // Color palette for categories
       const COLORS = [
@@ -410,7 +427,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       categoryTotals.forEach((cat: any, index: number) => {
         if (index < 7) {
           const color = COLORS[index % COLORS.length] as [number, number, number];
-          const percentage = (cat.originalBudget / totalOriginalBudget) * 100;
+          const percentage = (cat.originalBudget / totalForDistribution) * 100;
           
           // Color indicator
           doc.setFillColor(color[0], color[1], color[2]);
