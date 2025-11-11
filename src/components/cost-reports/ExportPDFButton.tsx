@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Download, FileText, Eye } from "lucide-react";
+import { Download, FileText, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import jsPDF from "jspdf";
@@ -7,7 +7,6 @@ import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchCompanyDetails, generateCoverPage } from "@/utils/pdfCoverPage";
 import { StandardReportPreview } from "@/components/shared/StandardReportPreview";
-import { ExportPreviewDialog } from "./ExportPreviewDialog";
 import { createHighQualityPDF, captureChartAsCanvas, prepareElementForCapture, addHighQualityImage } from "@/utils/pdfQualitySettings";
 
 interface ExportPDFButtonProps {
@@ -19,67 +18,6 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [previewReport, setPreviewReport] = useState<any>(null);
-  const [showExportPreview, setShowExportPreview] = useState(false);
-  const [previewData, setPreviewData] = useState<{ 
-    categories: any[], 
-    variations: any[],
-    companyName?: string,
-    projectInfo?: any,
-    contractors?: any[]
-  } | null>(null);
-
-  const handleShowPreview = async () => {
-    setLoading(true);
-    try {
-      // Fetch all data needed for preview
-      const [categoriesResult, variationsResult, companyResult] = await Promise.all([
-        supabase
-          .from("cost_categories")
-          .select(`
-            *,
-            cost_line_items (*)
-          `)
-          .eq("cost_report_id", report.id)
-          .order("display_order"),
-        supabase
-          .from("cost_variations")
-          .select("*")
-          .eq("cost_report_id", report.id)
-          .order("display_order"),
-        supabase
-          .from("company_settings")
-          .select("*")
-          .limit(1)
-          .single()
-      ]);
-
-      if (categoriesResult.error) throw categoriesResult.error;
-      if (variationsResult.error) throw variationsResult.error;
-
-      const categories = categoriesResult.data || [];
-      const variations = variationsResult.data || [];
-      const company = companyResult.data;
-
-      // Store data for preview and show preview dialog
-      setPreviewData({ 
-        categories, 
-        variations, 
-        companyName: company?.company_name,
-        projectInfo: { project_name: report.project_name, report_number: report.report_number },
-        contractors: []
-      });
-      setShowExportPreview(true);
-    } catch (error: any) {
-      console.error('Error preparing preview:', error);
-      toast({
-        title: "Error",
-        description: "Failed to prepare export preview",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleExport = async () => {
     setLoading(true);
@@ -1007,28 +945,19 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
 
   return (
     <>
-      <Button onClick={handleShowPreview} disabled={loading}>
+      <Button onClick={handleExport} disabled={loading}>
         {loading ? (
-          <FileText className="mr-2 h-4 w-4 animate-pulse" />
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Generating PDF...
+          </>
         ) : (
-          <Eye className="mr-2 h-4 w-4" />
+          <>
+            <Download className="mr-2 h-4 w-4" />
+            Export PDF
+          </>
         )}
-        {loading ? "Loading Preview..." : "Preview & Export PDF"}
       </Button>
-
-      {previewData && (
-        <ExportPreviewDialog
-          open={showExportPreview}
-          onOpenChange={setShowExportPreview}
-          onProceedExport={handleExport}
-          report={report}
-          categories={previewData.categories}
-          variations={previewData.variations}
-          companyName={previewData.companyName}
-          projectInfo={previewData.projectInfo}
-          contractors={previewData.contractors}
-        />
-      )}
       
       {previewReport && (
         <StandardReportPreview
