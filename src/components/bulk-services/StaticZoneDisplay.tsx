@@ -71,11 +71,11 @@ export const StaticZoneDisplay = ({ selectedZone }: StaticZoneDisplayProps) => {
         <div className="flex items-center gap-3 mb-3">
           <div className="relative">
             <div
-              className="w-8 h-8 rounded shadow-sm border-2 border-primary"
+              className="w-10 h-10 rounded shadow-sm border-2 border-primary"
               style={{ backgroundColor: ZONE_COLORS[selectedZone as keyof typeof ZONE_COLORS] }}
             />
-            <div className="absolute -top-1 -right-1 bg-primary rounded-full p-0.5">
-              <MapPin className="h-3 w-3 text-primary-foreground" />
+            <div className="absolute -top-2 -right-2 bg-white rounded-full p-1 shadow-lg border-2 border-primary">
+              <MapPin className="h-5 w-5 text-primary fill-primary" />
             </div>
           </div>
           <div className="flex items-center gap-2">
