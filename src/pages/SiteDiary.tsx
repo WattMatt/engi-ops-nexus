@@ -524,7 +524,7 @@ const SiteDiary = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-start">
+      <div className="flex justify-between items-start gap-4">
         <div>
           <h1 className="text-3xl font-bold text-foreground mb-2">Site Diary</h1>
           <p className="text-muted-foreground">
@@ -536,8 +536,8 @@ const SiteDiary = () => {
           if (!open) resetForm();
         }}>
           <DialogTrigger asChild>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
+            <Button size="lg" className="shadow-lg">
+              <Plus className="h-5 w-5 mr-2" />
               New Entry
             </Button>
           </DialogTrigger>
