@@ -402,36 +402,35 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       doc.rect(14, yPos, 40, 1.5, 'F');
       yPos += 10;
 
-      // Two-column professional layout
-      const leftColX = 14;
-      const rightColX = pageWidth / 2 + 4;
-      const colWidth = pageWidth / 2 - 18;
-      const panelHeight = 110;
-
-      // LEFT: Category Distribution Panel - CAPTURE ACTUAL PIE CHART
+      // Single comprehensive financial analysis chart
       const analyticsY = yPos;
+      const fullWidth = pageWidth - 28;
+      const chartHeight = 140;
       
-      // Prepare chart data
-      const distributionChartData = categoryTotals.map((cat: any, index: number) => ({
-        name: `${cat.code} - ${cat.description}`,
-        value: cat.originalBudget,
+      // Prepare combined chart data
+      const combinedChartData = categoryTotals.map((cat: any, index: number) => ({
+        name: cat.code,
+        description: cat.description,
+        originalBudget: cat.originalBudget,
+        anticipatedFinal: cat.anticipatedFinal,
+        variance: cat.variance,
         color: `rgb(${COLORS[index % COLORS.length].join(',')})`,
       }));
 
-      // Create hidden div to render chart
+      // Create hidden div to render combined chart
       const chartContainer = document.createElement('div');
       chartContainer.style.position = 'absolute';
       chartContainer.style.left = '-9999px';
-      chartContainer.style.width = '600px';
-      chartContainer.style.height = '400px';
+      chartContainer.style.width = '1200px';
+      chartContainer.style.height = '600px';
       chartContainer.style.backgroundColor = '#ffffff';
       chartContainer.style.padding = '20px';
       document.body.appendChild(chartContainer);
 
-      // Render pie chart to hidden container
+      // Render combined chart to hidden container
       const chartDiv = document.createElement('div');
       chartDiv.style.width = '100%';
-      chartDiv.style.height = '350px';
+      chartDiv.style.height = '550px';
       chartContainer.appendChild(chartDiv);
 
       const { createRoot } = await import('react-dom/client');
@@ -440,30 +439,65 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       await new Promise<void>((resolve) => {
         root.render(
           <ResponsiveContainer width="100%" height="100%">
-            <PieChart>
-              <Pie
-                data={distributionChartData}
-                cx="50%"
-                cy="50%"
-                labelLine={false}
-                label={({ percent }) => percent > 0.05 ? `${(percent * 100).toFixed(0)}%` : ''}
-                outerRadius={140}
-                innerRadius={80}
-                fill="#8884d8"
-                dataKey="value"
-                paddingAngle={2}
-              >
-                {distributionChartData.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={entry.color} />
-                ))}
-              </Pie>
+            <BarChart 
+              data={combinedChartData}
+              margin={{ top: 20, right: 30, left: 60, bottom: 80 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis 
+                dataKey="name" 
+                angle={-45}
+                textAnchor="end"
+                height={100}
+                tick={{ fontSize: 14, fill: '#374151', fontWeight: 600 }}
+              />
+              <YAxis 
+                tick={{ fontSize: 13, fill: '#6b7280' }}
+                tickFormatter={(value) => `R${(value / 1000000).toFixed(1)}M`}
+                label={{ 
+                  value: 'Amount (Millions)', 
+                  angle: -90, 
+                  position: 'insideLeft',
+                  style: { fontSize: 14, fill: '#374151', fontWeight: 600 }
+                }}
+              />
               <Tooltip 
                 formatter={(value: number) => `R${value.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`}
+                contentStyle={{ 
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #e5e7eb',
+                  borderRadius: '8px',
+                  padding: '12px',
+                  fontSize: '14px'
+                }}
+                labelFormatter={(label) => {
+                  const item = combinedChartData.find(d => d.name === label);
+                  return item ? `${item.name} - ${item.description}` : label;
+                }}
               />
-            </PieChart>
+              <Legend 
+                wrapperStyle={{ fontSize: '15px', fontWeight: 600, paddingTop: '20px' }}
+                iconType="rect"
+                iconSize={16}
+              />
+              <Bar 
+                dataKey="originalBudget" 
+                fill="#3b82f6" 
+                name="Original Budget" 
+                radius={[4, 4, 0, 0]}
+                maxBarSize={60}
+              />
+              <Bar 
+                dataKey="anticipatedFinal" 
+                fill="#8b5cf6" 
+                name="Anticipated Final" 
+                radius={[4, 4, 0, 0]}
+                maxBarSize={60}
+              />
+            </BarChart>
           </ResponsiveContainer>
         );
-        setTimeout(resolve, 2000); // Wait for chart to render
+        setTimeout(resolve, 2500); // Wait for chart to render
       });
 
       // Capture the chart
@@ -471,84 +505,13 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       const chartCanvas = await captureChartAsCanvas(chartContainer);
       
       // Add chart to PDF
-      const chartWidth = colWidth;
-      const chartHeight = panelHeight;
-      addHighQualityImage(doc, chartCanvas, leftColX, analyticsY, chartWidth, chartHeight, 'PNG');
+      addHighQualityImage(doc, chartCanvas, 14, analyticsY, fullWidth, chartHeight, 'PNG');
       
       // Cleanup
       root.unmount();
       document.body.removeChild(chartContainer);
 
-      // RIGHT: Variance Analysis Panel - CAPTURE ACTUAL BAR CHART
-      // Prepare variance chart data
-      const varianceChartData = categoryTotals.map((cat: any) => ({
-        name: cat.code,
-        saving: cat.variance < 0 ? Math.abs(cat.variance) : 0,
-        extra: cat.variance >= 0 ? cat.variance : 0,
-      }));
-
-      // Create hidden div to render variance chart
-      const varianceChartContainer = document.createElement('div');
-      varianceChartContainer.style.position = 'absolute';
-      varianceChartContainer.style.left = '-9999px';
-      varianceChartContainer.style.width = '600px';
-      varianceChartContainer.style.height = '400px';
-      varianceChartContainer.style.backgroundColor = '#ffffff';
-      varianceChartContainer.style.padding = '20px';
-      document.body.appendChild(varianceChartContainer);
-
-      // Render bar chart to hidden container
-      const varianceChartDiv = document.createElement('div');
-      varianceChartDiv.style.width = '100%';
-      varianceChartDiv.style.height = '350px';
-      varianceChartContainer.appendChild(varianceChartDiv);
-
-      const varianceRoot = createRoot(varianceChartDiv);
-      
-      await new Promise<void>((resolve) => {
-        varianceRoot.render(
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={varianceChartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis 
-                dataKey="name" 
-                tick={{ fontSize: 12, fill: '#6b7280' }}
-              />
-              <YAxis 
-                tick={{ fontSize: 12, fill: '#6b7280' }}
-                tickFormatter={(value) => `R${(value / 1000).toFixed(0)}k`}
-              />
-              <Tooltip 
-                formatter={(value: number) => `R${value.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`}
-                contentStyle={{ 
-                  backgroundColor: '#ffffff',
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '6px'
-                }}
-              />
-              <Legend 
-                wrapperStyle={{ fontSize: '14px' }}
-              />
-              <Bar dataKey="saving" fill="#22c55e" name="Savings" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="extra" fill="#ef4444" name="Extras" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        );
-        setTimeout(resolve, 2000); // Wait for chart to render
-      });
-
-      // Capture the variance chart
-      await prepareElementForCapture(varianceChartContainer);
-      const varianceChartCanvas = await captureChartAsCanvas(varianceChartContainer);
-      
-      // Add variance chart to PDF
-      addHighQualityImage(doc, varianceChartCanvas, rightColX, analyticsY, colWidth, panelHeight, 'PNG');
-      
-      // Cleanup
-      varianceRoot.unmount();
-      document.body.removeChild(varianceChartContainer);
-
-      yPos = analyticsY + panelHeight + 10;
+      yPos = analyticsY + chartHeight + 10;
 
       // Overall variance summary with professional styling
       doc.setFillColor(241, 245, 249);
