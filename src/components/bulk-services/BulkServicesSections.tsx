@@ -16,6 +16,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { LoadClarificationSection } from "./LoadClarificationSection";
 
 interface BulkServicesSectionsProps {
   documentId: string;
@@ -224,6 +225,8 @@ export const BulkServicesSections = ({ documentId, sections }: BulkServicesSecti
                 placeholder="Enter section content..."
                 className="font-mono text-sm"
               />
+            ) : section.section_title === "Load Clarification" ? (
+              <LoadClarificationSection documentId={documentId} />
             ) : (
               <div className="prose prose-sm max-w-none">
                 {section.content ? (
