@@ -184,6 +184,30 @@ export const LoadClarificationSection = ({ documentId }: LoadClarificationSectio
               </div>
             </div>
           </div>
+
+          {/* Climatic Zone Details */}
+          <div className="space-y-2">
+            <div className="text-sm text-muted-foreground mb-2">Climatic Zone Details</div>
+            <div className="bg-muted/50 rounded-lg p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Zone</span>
+                <span className="text-sm">{document.climatic_zone || '3'}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Classification</span>
+                <span className="text-sm">{climaticZoneNames[document.climatic_zone || '3'] || 'Not specified'}</span>
+              </div>
+              {document.climatic_zone_city && (
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Selected Location</span>
+                  <span className="text-sm flex items-center gap-1">
+                    <MapPin className="h-3 w-3" />
+                    {document.climatic_zone_city}
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
         </CardContent>
       </Card>
 
