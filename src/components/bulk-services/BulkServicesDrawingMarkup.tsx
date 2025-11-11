@@ -52,10 +52,10 @@ export const BulkServicesDrawingMarkup = ({ documentId }: BulkServicesDrawingMar
   }, [documentId]);
 
   useEffect(() => {
-    if (pdfDoc) {
+    if (pdfDoc && containerRef.current) {
       renderPage();
     }
-  }, [pdfDoc, currentPage]);
+  }, [pdfDoc, containerRef.current]);
 
   useEffect(() => {
     renderMarkup();
@@ -91,17 +91,19 @@ export const BulkServicesDrawingMarkup = ({ documentId }: BulkServicesDrawingMar
 
   const loadPdfFromStorage = async (path: string) => {
     try {
+      console.log('loadPdfFromStorage: downloading from', path);
       const { data, error } = await supabase.storage
         .from("bulk_services_drawings")
         .download(path);
 
       if (error) throw error;
 
+      console.log('loadPdfFromStorage: download successful, parsing PDF');
       const arrayBuffer = await data.arrayBuffer();
       const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
       const pdf = await loadingTask.promise;
+      console.log('loadPdfFromStorage: PDF parsed successfully');
       setPdfDoc(pdf);
-      setLoadingPdf(false);
     } catch (error) {
       console.error("Error loading PDF:", error);
       toast.error("Failed to load drawing");
@@ -152,32 +154,48 @@ export const BulkServicesDrawingMarkup = ({ documentId }: BulkServicesDrawingMar
   };
 
   const renderPage = async () => {
-    if (!pdfDoc || !canvasRef.current || !containerRef.current) return;
-
-    const page = await pdfDoc.getPage(currentPage);
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d");
-
-    const renderScale = 2.0;
-    const viewport = page.getViewport({ scale: renderScale });
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
-
-    if (markupCanvasRef.current) {
-      markupCanvasRef.current.width = viewport.width;
-      markupCanvasRef.current.height = viewport.height;
+    if (!pdfDoc || !canvasRef.current || !containerRef.current) {
+      console.log('renderPage: missing refs', { 
+        pdfDoc: !!pdfDoc, 
+        canvasRef: !!canvasRef.current, 
+        containerRef: !!containerRef.current 
+      });
+      return;
     }
 
-    await page.render({ canvasContext: ctx!, viewport }).promise;
+    try {
+      console.log('renderPage: starting render');
+      const page = await pdfDoc.getPage(currentPage);
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext("2d");
 
-    // Calculate initial view state to fit the PDF
-    const containerWidth = containerRef.current.clientWidth;
-    const containerHeight = containerRef.current.clientHeight;
-    const initialZoom = Math.min(containerWidth / viewport.width, containerHeight / viewport.height) * 0.95;
-    const initialOffsetX = (containerWidth - viewport.width * initialZoom) / 2;
-    const initialOffsetY = (containerHeight - viewport.height * initialZoom) / 2;
-    
-    setViewState({ zoom: initialZoom, offset: { x: initialOffsetX, y: initialOffsetY } });
+      const renderScale = 2.0;
+      const viewport = page.getViewport({ scale: renderScale });
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+
+      if (markupCanvasRef.current) {
+        markupCanvasRef.current.width = viewport.width;
+        markupCanvasRef.current.height = viewport.height;
+      }
+
+      await page.render({ canvasContext: ctx!, viewport }).promise;
+      console.log('renderPage: PDF rendered successfully');
+
+      // Calculate initial view state to fit the PDF
+      const containerWidth = containerRef.current.clientWidth;
+      const containerHeight = containerRef.current.clientHeight;
+      const initialZoom = Math.min(containerWidth / viewport.width, containerHeight / viewport.height) * 0.95;
+      const initialOffsetX = (containerWidth - viewport.width * initialZoom) / 2;
+      const initialOffsetY = (containerHeight - viewport.height * initialZoom) / 2;
+      
+      setViewState({ zoom: initialZoom, offset: { x: initialOffsetX, y: initialOffsetY } });
+      setLoadingPdf(false);
+      console.log('renderPage: view state set');
+    } catch (error) {
+      console.error('renderPage: error', error);
+      setLoadingPdf(false);
+    }
   };
 
   const renderMarkup = () => {
