@@ -6,6 +6,7 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchCompanyDetails, generateCoverPage } from "@/utils/pdfCoverPage";
+import { createHighQualityPDF } from "@/utils/pdfQualitySettings";
 
 interface CableScheduleExportPDFButtonProps {
   schedule: any;
@@ -31,8 +32,8 @@ export const CableScheduleExportPDFButton = ({ schedule }: CableScheduleExportPD
 
       if (error) throw error;
 
-      // Create PDF
-      const doc = new jsPDF("landscape");
+      // Create high-quality PDF
+      const doc = createHighQualityPDF("landscape", true);
       const pageWidth = doc.internal.pageSize.width;
 
       // Fetch company details for cover page

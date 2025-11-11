@@ -7,7 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import html2canvas from "html2canvas";
+import { captureChartAsCanvas, createHighQualityPDF, addHighQualityImage, waitForElementRender } from "@/utils/pdfQualitySettings";
 import { fetchCompanyDetails, generateCoverPage } from "@/utils/pdfCoverPage";
 import { LoadDistributionChart } from "./charts/LoadDistributionChart";
 import { CostBreakdownChart } from "./charts/CostBreakdownChart";
@@ -157,7 +157,7 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
     setIsGenerating(true);
 
     try {
-      const doc = new jsPDF();
+      const doc = createHighQualityPDF("portrait", true);
       const pageWidth = doc.internal.pageSize.width;
       const pageHeight = doc.internal.pageSize.height;
       let yPos = 20;
@@ -1132,15 +1132,9 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
         );
 
         // Wait for chart to render
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await waitForElementRender(2000);
 
-        const loadCanvas = await html2canvas(loadChartDiv, { 
-          backgroundColor: "#ffffff",
-          scale: 1.5,
-          logging: false,
-          useCORS: true
-        });
-        const loadImgData = loadCanvas.toDataURL("image/jpeg", 0.75);
+        const loadCanvas = await captureChartAsCanvas(loadChartDiv);
         
         doc.setFontSize(11);
         doc.setFont("helvetica", "bold");
@@ -1154,7 +1148,7 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
         const maxChartHeight = 65;
         const finalLoadHeight = Math.min(loadImgHeight, maxChartHeight);
         
-        doc.addImage(loadImgData, "JPEG", chartMargin, yPos, loadImgWidth, finalLoadHeight);
+        addHighQualityImage(doc, loadCanvas, chartMargin, yPos, loadImgWidth, finalLoadHeight, 'JPEG', 0.92);
         yPos += finalLoadHeight + 18;
 
         // Render Cost Breakdown Chart
@@ -1173,15 +1167,9 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
           React.createElement(CostBreakdownChart, { costs: costBreakdownData })
         );
 
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await waitForElementRender(2000);
 
-        const costCanvas = await html2canvas(costChartDiv, { 
-          backgroundColor: "#ffffff",
-          scale: 1.5,
-          logging: false,
-          useCORS: true
-        });
-        const costImgData = costCanvas.toDataURL("image/jpeg", 0.75);
+        const costCanvas = await captureChartAsCanvas(costChartDiv);
         
         doc.setFontSize(11);
         doc.setFont("helvetica", "bold");
@@ -1192,7 +1180,7 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
         const costImgHeight = (costCanvas.height * costImgWidth) / costCanvas.width;
         const finalCostHeight = Math.min(costImgHeight, maxChartHeight);
         
-        doc.addImage(costImgData, "JPEG", chartMargin, yPos, costImgWidth, finalCostHeight);
+        addHighQualityImage(doc, costCanvas, chartMargin, yPos, costImgWidth, finalCostHeight, 'JPEG', 0.92);
         yPos += finalCostHeight + 18;
 
         // Check if we need a new page for the recovery chart
@@ -1230,15 +1218,9 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
           })
         );
 
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        await waitForElementRender(2000);
 
-        const recoveryCanvas = await html2canvas(recoveryChartDiv, { 
-          backgroundColor: "#ffffff",
-          scale: 1.5,
-          logging: false,
-          useCORS: true
-        });
-        const recoveryImgData = recoveryCanvas.toDataURL("image/jpeg", 0.75);
+        const recoveryCanvas = await captureChartAsCanvas(recoveryChartDiv);
         
         doc.setFontSize(11);
         doc.setFont("helvetica", "bold");
@@ -1249,7 +1231,7 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
         const recoveryImgHeight = (recoveryCanvas.height * recoveryImgWidth) / recoveryCanvas.width;
         const finalRecoveryHeight = Math.min(recoveryImgHeight, maxChartHeight);
         
-        doc.addImage(recoveryImgData, "JPEG", chartMargin, yPos, recoveryImgWidth, finalRecoveryHeight);
+        addHighQualityImage(doc, recoveryCanvas, chartMargin, yPos, recoveryImgWidth, finalRecoveryHeight, 'JPEG', 0.92);
 
         // Cleanup
         root3.unmount();

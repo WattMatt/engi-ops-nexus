@@ -7,6 +7,7 @@ import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchCompanyDetails, generateCoverPage } from "@/utils/pdfCoverPage";
 import { StandardReportPreview } from "@/components/shared/StandardReportPreview";
+import { createHighQualityPDF } from "@/utils/pdfQualitySettings";
 
 interface ExportPDFButtonProps {
   report: any;
@@ -54,8 +55,8 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       // Track sections and their page numbers for TOC
       const tocSections: { title: string; page: number }[] = [];
 
-      // Create PDF
-      const doc = new jsPDF("portrait");
+      // Create high-quality PDF
+      const doc = createHighQualityPDF("portrait", true);
       const pageWidth = doc.internal.pageSize.width;
       const pageHeight = doc.internal.pageSize.height;
 

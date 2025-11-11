@@ -1,5 +1,5 @@
 import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
+import { captureChartAsCanvas, createHighQualityPDF, addHighQualityImage, waitForElementRender } from "@/utils/pdfQualitySettings";
 import { generateCoverPage, fetchCompanyDetails } from "@/utils/pdfCoverPage";
 
 interface PredictionData {
@@ -44,7 +44,7 @@ export const exportPredictionToPDF = async ({
   projectNumber,
   parameters,
 }: ExportParams) => {
-  const doc = new jsPDF();
+  const doc = createHighQualityPDF("portrait", true);
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   let yPos = 20;
@@ -163,22 +163,18 @@ export const exportPredictionToPDF = async ({
     yPos += 10;
 
     try {
-      const canvas = await html2canvas(chartsContainer, {
-        scale: 2,
-        logging: false,
-        useCORS: true,
-      });
+      await waitForElementRender(1500);
+      const canvas = await captureChartAsCanvas(chartsContainer);
 
-      const imgData = canvas.toDataURL("image/png");
       const imgWidth = pageWidth - 28;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
       if (imgHeight > pageHeight - 40) {
         // Split into multiple pages if needed
         const ratio = (pageHeight - 40) / imgHeight;
-        doc.addImage(imgData, "PNG", 14, yPos, imgWidth * ratio, (pageHeight - 40));
+        addHighQualityImage(doc, canvas, 14, yPos, imgWidth * ratio, (pageHeight - 40));
       } else {
-        doc.addImage(imgData, "PNG", 14, yPos, imgWidth, imgHeight);
+        addHighQualityImage(doc, canvas, 14, yPos, imgWidth, imgHeight);
       }
     } catch (error) {
       console.error("Error capturing charts:", error);

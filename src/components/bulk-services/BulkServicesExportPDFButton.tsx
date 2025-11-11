@@ -9,7 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { fetchCompanyDetails, generateCoverPage } from "@/utils/pdfCoverPage";
 import { StandardReportPreview } from "@/components/shared/StandardReportPreview";
-import html2canvas from "html2canvas";
+import { captureChartAsCanvas, createHighQualityPDF, addHighQualityImage, waitForElementRender } from "@/utils/pdfQualitySettings";
 import { COPPER_CABLE_TABLE } from "@/utils/cableSizing";
 
 interface BulkServicesExportPDFButtonProps {
@@ -62,7 +62,7 @@ export function BulkServicesExportPDFButton({ documentId, onReportSaved }: BulkS
     setIsGenerating(true);
 
     try {
-      const doc = new jsPDF();
+      const doc = createHighQualityPDF("portrait", true);
       let yPos = 20;
 
       // Get the latest revision
@@ -493,13 +493,9 @@ export function BulkServicesExportPDFButton({ documentId, onReportSaved }: BulkS
         // Try to capture the chart from the UI
         const chartElement = window.document.getElementById('zone-statistics-chart');
         if (chartElement) {
-          const canvas = await html2canvas(chartElement, {
-            scale: 2,
-            backgroundColor: '#ffffff',
-            logging: false,
-          });
+          await waitForElementRender(1500);
+          const canvas = await captureChartAsCanvas(chartElement);
           
-          const imgData = canvas.toDataURL('image/png');
           const imgWidth = 180;
           const imgHeight = (canvas.height * imgWidth) / canvas.width;
           
@@ -513,7 +509,7 @@ export function BulkServicesExportPDFButton({ documentId, onReportSaved }: BulkS
             yPos += 8;
           }
           
-          doc.addImage(imgData, 'PNG', 14, yPos, imgWidth, imgHeight);
+          addHighQualityImage(doc, canvas, 14, yPos, imgWidth, imgHeight);
           yPos += imgHeight + 10;
         } else {
           // Fallback: Add a note if chart not available
