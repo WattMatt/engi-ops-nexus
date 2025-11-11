@@ -339,39 +339,41 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
         </Card>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Project Information</CardTitle>
+      <Card className="shadow-sm">
+        <CardHeader className="pb-4 border-b">
+          <CardTitle className="text-xl">Project Information</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-4 md:grid-cols-2">
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">Project Number</p>
-            <p className="text-lg">{report.project_number}</p>
-          </div>
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">Client</p>
-            <p className="text-lg">{report.client_name}</p>
-          </div>
-          <div>
-            <p className="text-sm font-medium text-muted-foreground">Report Date</p>
-            <p className="text-lg">{format(new Date(report.report_date), "dd MMM yyyy")}</p>
-          </div>
-          {report.site_handover_date && (
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Site Handover</p>
-              <p className="text-lg">
-                {format(new Date(report.site_handover_date), "dd MMM yyyy")}
-              </p>
+        <CardContent className="pt-6">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Project Number</p>
+              <p className="text-base font-semibold">{report.project_number}</p>
             </div>
-          )}
-          {report.practical_completion_date && (
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Practical Completion</p>
-              <p className="text-lg">
-                {format(new Date(report.practical_completion_date), "dd MMM yyyy")}
-              </p>
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Client</p>
+              <p className="text-base font-semibold">{report.client_name}</p>
             </div>
-          )}
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Report Date</p>
+              <p className="text-base font-semibold">{format(new Date(report.report_date), "dd MMM yyyy")}</p>
+            </div>
+            {report.site_handover_date && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Site Handover</p>
+                <p className="text-base font-semibold">
+                  {format(new Date(report.site_handover_date), "dd MMM yyyy")}
+                </p>
+              </div>
+            )}
+            {report.practical_completion_date && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Practical Completion</p>
+                <p className="text-base font-semibold">
+                  {format(new Date(report.practical_completion_date), "dd MMM yyyy")}
+                </p>
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 
@@ -379,46 +381,50 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
         report.earthing_contractor ||
         report.standby_plants_contractor ||
         report.cctv_contractor) && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Contractors</CardTitle>
+        <Card className="shadow-sm">
+          <CardHeader className="pb-4 border-b">
+            <CardTitle className="text-xl">Contractors</CardTitle>
           </CardHeader>
-          <CardContent className="grid gap-4 md:grid-cols-2">
-            {report.electrical_contractor && (
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Electrical</p>
-                <p className="text-lg">{report.electrical_contractor}</p>
-              </div>
-            )}
-            {report.earthing_contractor && (
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Earthing & Lightning</p>
-                <p className="text-lg">{report.earthing_contractor}</p>
-              </div>
-            )}
-            {report.standby_plants_contractor && (
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">Standby Plants</p>
-                <p className="text-lg">{report.standby_plants_contractor}</p>
-              </div>
-            )}
-            {report.cctv_contractor && (
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">CCTV & Access Control</p>
-                <p className="text-lg">{report.cctv_contractor}</p>
-              </div>
-            )}
+          <CardContent className="pt-6">
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {report.electrical_contractor && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Electrical</p>
+                  <p className="text-base font-semibold">{report.electrical_contractor}</p>
+                </div>
+              )}
+              {report.earthing_contractor && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Earthing & Lightning</p>
+                  <p className="text-base font-semibold">{report.earthing_contractor}</p>
+                </div>
+              )}
+              {report.standby_plants_contractor && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Standby Plants</p>
+                  <p className="text-base font-semibold">{report.standby_plants_contractor}</p>
+                </div>
+              )}
+              {report.cctv_contractor && (
+                <div className="space-y-2">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">CCTV & Access Control</p>
+                  <p className="text-base font-semibold">{report.cctv_contractor}</p>
+                </div>
+              )}
+            </div>
           </CardContent>
         </Card>
       )}
 
       {report.notes && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Notes</CardTitle>
+        <Card className="shadow-sm">
+          <CardHeader className="pb-4 border-b">
+            <CardTitle className="text-xl">Notes</CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="whitespace-pre-wrap">{report.notes}</p>
+          <CardContent className="pt-6">
+            <div className="prose prose-sm max-w-none">
+              <p className="whitespace-pre-wrap text-base leading-relaxed">{report.notes}</p>
+            </div>
           </CardContent>
         </Card>
       )}
