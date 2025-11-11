@@ -9,9 +9,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Calendar, Cloud, ListTodo, GanttChart, Bell, X, User } from "lucide-react";
+import { Plus, Calendar, Cloud, ListTodo, GanttChart, Bell, X, User, Download } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import { TasksManager } from "@/components/site-diary/TasksManager";
 import { EnhancedTasksManager } from "@/components/site-diary/task-views/EnhancedTasksManager";
 import { MeetingMinutes } from "@/components/site-diary/MeetingMinutes";
@@ -150,6 +152,129 @@ const SiteDiary = () => {
 
   const removeSubEntry = (id: string) => {
     setSubEntries(subEntries.filter(entry => entry.id !== id));
+  };
+
+  const exportToPDF = async (entry: SiteDiaryEntry) => {
+    try {
+      const doc = new jsPDF();
+      let yPosition = 20;
+
+      // Header
+      doc.setFontSize(20);
+      doc.setTextColor(40, 40, 40);
+      doc.text("Site Diary Entry", 20, yPosition);
+      yPosition += 15;
+
+      // Date and Time
+      doc.setFontSize(12);
+      doc.setTextColor(100, 100, 100);
+      doc.text(format(new Date(entry.entry_date), "EEEE, MMMM d, yyyy"), 20, yPosition);
+      yPosition += 6;
+      doc.text(`Created: ${format(new Date(entry.created_at), "h:mm a")}`, 20, yPosition);
+      yPosition += 15;
+
+      // Weather (if exists)
+      if (entry.weather_conditions) {
+        doc.setFontSize(14);
+        doc.setTextColor(40, 40, 40);
+        doc.text("Weather Conditions", 20, yPosition);
+        yPosition += 8;
+        doc.setFontSize(11);
+        doc.setTextColor(80, 80, 80);
+        const weatherLines = doc.splitTextToSize(entry.weather_conditions, 170);
+        doc.text(weatherLines, 20, yPosition);
+        yPosition += weatherLines.length * 6 + 10;
+      }
+
+      // Site Progress
+      if (entry.site_progress) {
+        doc.setFontSize(14);
+        doc.setTextColor(40, 40, 40);
+        doc.text("Daily Log", 20, yPosition);
+        yPosition += 8;
+        doc.setFontSize(11);
+        doc.setTextColor(80, 80, 80);
+        const progressLines = doc.splitTextToSize(entry.site_progress, 170);
+        doc.text(progressLines, 20, yPosition);
+        yPosition += progressLines.length * 6 + 10;
+      }
+
+      // Issues & Concerns
+      if (entry.queries) {
+        if (yPosition > 250) {
+          doc.addPage();
+          yPosition = 20;
+        }
+        doc.setFontSize(14);
+        doc.setTextColor(40, 40, 40);
+        doc.text("Issues & Concerns", 20, yPosition);
+        yPosition += 8;
+        doc.setFontSize(11);
+        doc.setTextColor(80, 80, 80);
+        const queriesLines = doc.splitTextToSize(entry.queries, 170);
+        doc.text(queriesLines, 20, yPosition);
+        yPosition += queriesLines.length * 6 + 10;
+      }
+
+      // Additional Notes
+      if (entry.notes) {
+        if (yPosition > 250) {
+          doc.addPage();
+          yPosition = 20;
+        }
+        doc.setFontSize(14);
+        doc.setTextColor(40, 40, 40);
+        doc.text("Additional Observations", 20, yPosition);
+        yPosition += 8;
+        doc.setFontSize(11);
+        doc.setTextColor(80, 80, 80);
+        const notesLines = doc.splitTextToSize(entry.notes, 170);
+        doc.text(notesLines, 20, yPosition);
+        yPosition += notesLines.length * 6 + 10;
+      }
+
+      // Action Items
+      if (entry.sub_entries && entry.sub_entries.length > 0) {
+        if (yPosition > 220) {
+          doc.addPage();
+          yPosition = 20;
+        }
+        doc.setFontSize(14);
+        doc.setTextColor(40, 40, 40);
+        doc.text("Action Items & Assignments", 20, yPosition);
+        yPosition += 10;
+
+        const actionItemsData = entry.sub_entries.map((item: SubEntry, index: number) => [
+          `${index + 1}`,
+          item.description,
+          item.assignedTo || "-",
+          item.priority.toUpperCase(),
+        ]);
+
+        autoTable(doc, {
+          startY: yPosition,
+          head: [["#", "Description", "Assigned To", "Priority"]],
+          body: actionItemsData,
+          theme: "grid",
+          headStyles: { fillColor: [41, 128, 185], textColor: 255 },
+          styles: { fontSize: 10 },
+          columnStyles: {
+            0: { cellWidth: 15 },
+            1: { cellWidth: 85 },
+            2: { cellWidth: 45 },
+            3: { cellWidth: 30 },
+          },
+        });
+      }
+
+      // Save the PDF
+      const fileName = `Site-Diary-${format(new Date(entry.entry_date), "yyyy-MM-dd")}.pdf`;
+      doc.save(fileName);
+      toast.success("PDF exported successfully");
+    } catch (error) {
+      console.error("Error exporting PDF:", error);
+      toast.error("Failed to export PDF");
+    }
   };
 
   return (
@@ -377,7 +502,7 @@ const SiteDiary = () => {
                 <Card key={entry.id} className="hover:shadow-md transition-shadow">
                   <CardHeader>
                     <div className="flex justify-between items-start">
-                      <div>
+                      <div className="flex-1">
                         <CardTitle className="text-lg">
                           {format(new Date(entry.entry_date), "EEEE, MMMM d, yyyy")}
                         </CardTitle>
@@ -388,9 +513,19 @@ const SiteDiary = () => {
                           </CardDescription>
                         )}
                       </div>
-                      <span className="text-xs text-muted-foreground">
-                        {format(new Date(entry.created_at), "h:mm a")}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => exportToPDF(entry)}
+                        >
+                          <Download className="h-4 w-4 mr-2" />
+                          Export PDF
+                        </Button>
+                        <span className="text-xs text-muted-foreground">
+                          {format(new Date(entry.created_at), "h:mm a")}
+                        </span>
+                      </div>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
