@@ -39,7 +39,8 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
   const [loading, setLoading] = useState(false);
   const [isDbSizeAutoCalculated, setIsDbSizeAutoCalculated] = useState(false);
   const [sizingRules, setSizingRules] = useState<Array<{ min_area: number; max_area: number; db_size_allowance: string; db_size_scope_of_work: string | null; category: string }>>([]);
-  const [formData, setFormData] = useState({
+  
+  const getInitialFormData = () => ({
     shop_name: tenant?.shop_name || "",
     shop_number: tenant?.shop_number || "",
     area: tenant?.area?.toString() || "",
@@ -56,6 +57,35 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
     opening_date: tenant?.opening_date || "",
     beneficial_occupation_days: tenant?.beneficial_occupation_days?.toString() || "90",
   });
+
+  const [formData, setFormData] = useState(getInitialFormData());
+
+  // Reset form when dialog opens in "add" mode (no tenant prop)
+  useEffect(() => {
+    if (open && !tenant) {
+      setFormData({
+        shop_name: "",
+        shop_number: "",
+        area: "",
+        db_size_allowance: "",
+        db_size_scope_of_work: "",
+        shop_category: "standard",
+        sow_received: false,
+        layout_received: false,
+        db_ordered: false,
+        db_cost: "",
+        lighting_ordered: false,
+        lighting_cost: "",
+        cost_reported: false,
+        opening_date: "",
+        beneficial_occupation_days: "90",
+      });
+      setIsDbSizeAutoCalculated(false);
+    } else if (open && tenant) {
+      // Load tenant data when editing
+      setFormData(getInitialFormData());
+    }
+  }, [open, tenant]);
 
   // Load DB sizing rules from database
   useEffect(() => {
