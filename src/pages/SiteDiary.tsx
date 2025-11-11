@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -13,6 +13,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Plus, Calendar, Cloud, ListTodo, GanttChart, Bell, X, User, Download, Edit, CheckCircle2, Clock, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { TasksManager } from "@/components/site-diary/TasksManager";
@@ -232,6 +233,34 @@ const SiteDiary = () => {
   };
 
   const stats = calculateStatistics();
+
+  // Calculate trend data for chart
+  const trendData = useMemo(() => {
+    const dataByDate = new Map<string, { created: number; completed: number }>();
+    
+    entries.forEach(entry => {
+      const date = format(new Date(entry.entry_date), "MMM dd");
+      const actionItems = entry.sub_entries || [];
+      
+      const existing = dataByDate.get(date) || { created: 0, completed: 0 };
+      existing.created += actionItems.length;
+      existing.completed += actionItems.filter(item => item.completed).length;
+      dataByDate.set(date, existing);
+    });
+
+    return Array.from(dataByDate.entries())
+      .map(([date, data]) => ({
+        date,
+        created: data.created,
+        completed: data.completed,
+      }))
+      .sort((a, b) => {
+        const dateA = new Date(a.date + " 2025");
+        const dateB = new Date(b.date + " 2025");
+        return dateA.getTime() - dateB.getTime();
+      })
+      .slice(-14); // Show last 14 data points
+  }, [entries]);
 
   const exportToPDF = async (entry: SiteDiaryEntry) => {
     try {
@@ -691,6 +720,58 @@ const SiteDiary = () => {
                 </CardContent>
               </Card>
             </div>
+          )}
+
+          {/* Trend Chart */}
+          {!loading && entries.length > 0 && trendData.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Action Items Trend</CardTitle>
+                <CardDescription>
+                  Track of action items created and completed over time
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={trendData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                    <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
+                    <XAxis 
+                      dataKey="date" 
+                      className="text-xs"
+                      tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                    />
+                    <YAxis 
+                      className="text-xs"
+                      tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                    />
+                    <Tooltip 
+                      contentStyle={{ 
+                        backgroundColor: 'hsl(var(--background))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '0.5rem'
+                      }}
+                    />
+                    <Legend />
+                    <Line 
+                      type="monotone" 
+                      dataKey="created" 
+                      stroke="hsl(var(--primary))" 
+                      strokeWidth={2}
+                      name="Created"
+                      dot={{ fill: 'hsl(var(--primary))' }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="completed" 
+                      stroke="hsl(142, 76%, 36%)" 
+                      strokeWidth={2}
+                      name="Completed"
+                      dot={{ fill: 'hsl(142, 76%, 36%)' }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
           )}
 
           {loading ? (
