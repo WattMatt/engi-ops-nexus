@@ -9,6 +9,7 @@ import { fetchCompanyDetails, generateCoverPage } from "@/utils/pdfCoverPage";
 import { StandardReportPreview } from "@/components/shared/StandardReportPreview";
 import { createHighQualityPDF, captureChartAsCanvas, prepareElementForCapture, addHighQualityImage } from "@/utils/pdfQualitySettings";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from "recharts";
+import { createRoot } from "react-dom/client";
 
 interface ExportPDFButtonProps {
   report: any;
@@ -426,11 +427,10 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       chartDiv.style.height = '550px';
       chartContainer.appendChild(chartDiv);
 
-      const { createRoot } = await import('react-dom/client');
-      const root = createRoot(chartDiv);
+      const chartRoot = createRoot(chartDiv);
       
       await new Promise<void>((resolve) => {
-        root.render(
+        chartRoot.render(
           <ResponsiveContainer width="100%" height="100%">
             <BarChart 
               data={combinedChartData}
@@ -501,7 +501,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       addHighQualityImage(doc, chartCanvas, 14, analyticsY, fullWidth, chartHeight, 'PNG');
       
       // Cleanup
-      root.unmount();
+      chartRoot.unmount();
       document.body.removeChild(chartContainer);
 
       yPos = analyticsY + chartHeight + 10;
@@ -524,47 +524,165 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       doc.setTextColor(80, 80, 80);
       doc.text(`(R ${Math.abs(totalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })})`, pageWidth - 20, yPos + 8, { align: "right" });
 
-      // ========== PAGE 3: KPI DASHBOARD - PAGE 2 ==========
+      // ========== PAGE 3: CATEGORY BREAKDOWN - CAPTURE FROM UI ==========
       doc.addPage();
       tocSections.push({ title: "Category Performance Details", page: doc.getCurrentPageInfo().pageNumber });
-      yPos = 20;
-
-      // Header
-      doc.setFillColor(41, 128, 185);
-      doc.rect(0, 0, pageWidth, 35, 'F');
-      doc.setFontSize(16);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(255, 255, 255);
-      doc.text("CATEGORY PERFORMANCE DETAILS", pageWidth / 2, 22, { align: "center" });
       
-      yPos = 45;
+      // Create hidden container to render the category breakdown cards
+      const categoryContainer = document.createElement('div');
+      categoryContainer.style.position = 'absolute';
+      categoryContainer.style.left = '-9999px';
+      categoryContainer.style.width = '1400px';
+      categoryContainer.style.backgroundColor = '#ffffff';
+      categoryContainer.style.padding = '40px';
+      document.body.appendChild(categoryContainer);
 
-      // Category cards grid (3 columns)
-      const categoryCardWidth = (pageWidth - 28 - 16) / 3;
-      const categoryCardHeight = 50;
-      const categoryCardGap = 8;
+      // Create title
+      const titleDiv = document.createElement('div');
+      titleDiv.style.fontSize = '24px';
+      titleDiv.style.fontWeight = 'bold';
+      titleDiv.style.marginBottom = '30px';
+      titleDiv.style.textAlign = 'center';
+      titleDiv.style.color = '#1e3a8a';
+      titleDiv.textContent = 'CATEGORY PERFORMANCE DETAILS';
+      categoryContainer.appendChild(titleDiv);
 
-      categoryTotals.forEach((cat: any, index: number) => {
-        const col = index % 3;
-        const row = Math.floor(index / 3);
-        const x = 14 + col * (categoryCardWidth + categoryCardGap);
-        const y = yPos + row * (categoryCardHeight + categoryCardGap);
-        
-        // Check if we need a new page
-        if (y > pageHeight - 60) {
-          doc.addPage();
-          yPos = 20;
-          const newRow = 0;
-          const newY = yPos + newRow * (categoryCardHeight + categoryCardGap);
-          drawCategoryDetailCard(x, newY, categoryCardWidth, categoryCardHeight, cat, COLORS[index % COLORS.length] as [number, number, number]);
-        } else {
-          drawCategoryDetailCard(x, y, categoryCardWidth, categoryCardHeight, cat, COLORS[index % COLORS.length] as [number, number, number]);
-        }
+      // Create grid container
+      const gridDiv = document.createElement('div');
+      gridDiv.style.display = 'grid';
+      gridDiv.style.gridTemplateColumns = 'repeat(3, 1fr)';
+      gridDiv.style.gap = '20px';
+      categoryContainer.appendChild(gridDiv);
+
+      // Render category cards
+      const gridRoot = createRoot(gridDiv);
+      
+      await new Promise<void>((resolve) => {
+        gridRoot.render(
+          <>
+            {categoryTotals.map((cat: any, index: number) => {
+              const color = COLORS[index % COLORS.length];
+              const colorString = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+              
+              return (
+                <div 
+                  key={cat.code}
+                  style={{
+                    backgroundColor: 'white',
+                    border: '1px solid #e5e7eb',
+                    borderLeft: `6px solid ${colorString}`,
+                    borderRadius: '8px',
+                    padding: '20px',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'start', gap: '12px', marginBottom: '16px' }}>
+                    <div 
+                      style={{
+                        minWidth: '44px',
+                        width: '44px',
+                        height: '44px',
+                        backgroundColor: colorString,
+                        color: 'white',
+                        fontWeight: 'bold',
+                        fontSize: '16px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        borderRadius: '8px'
+                      }}
+                    >
+                      {cat.code}
+                    </div>
+                    <div style={{ flex: 1 }}>
+                      <h4 style={{ fontWeight: '600', fontSize: '16px', lineHeight: '1.2', margin: 0 }}>
+                        {cat.description}
+                      </h4>
+                    </div>
+                  </div>
+                  
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', paddingTop: '8px' }}>
+                    <div>
+                      <div style={{ fontSize: '10px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+                        Original Budget
+                      </div>
+                      <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: '600' }}>
+                        R{cat.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                      </div>
+                    </div>
+                    
+                    <div>
+                      <div style={{ fontSize: '10px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+                        Anticipated Final
+                      </div>
+                      <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: '600' }}>
+                        R{cat.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                      </div>
+                    </div>
+                    
+                    <div style={{ paddingTop: '12px', borderTop: '2px solid #e5e7eb' }}>
+                      <div style={{ fontSize: '10px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
+                        Variance
+                      </div>
+                      <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 'bold', color: cat.variance < 0 ? '#16a34a' : '#dc2626' }}>
+                        {cat.variance < 0 ? '-' : '+'}R{Math.abs(cat.variance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </>
+        );
+        setTimeout(resolve, 2500);
       });
 
-      // Calculate space needed for project metadata
-      const numRows = Math.ceil(categoryTotals.length / 3);
-      yPos += numRows * (categoryCardHeight + categoryCardGap) + 15;
+      // Capture the category cards
+      await prepareElementForCapture(categoryContainer);
+      const categoryCanvas = await captureChartAsCanvas(categoryContainer);
+      
+      // Add to PDF - scale to fit page width
+      const captureWidth = pageWidth - 28;
+      const captureHeight = (categoryCanvas.height / categoryCanvas.width) * captureWidth;
+      
+      // Check if we need multiple pages
+      let currentY = 20;
+      const maxPageHeight = pageHeight - 40;
+      
+      if (captureHeight > maxPageHeight) {
+        // Split across multiple pages if needed
+        const numPages = Math.ceil(captureHeight / maxPageHeight);
+        for (let i = 0; i < numPages; i++) {
+          if (i > 0) doc.addPage();
+          
+          // Calculate slice of canvas to show
+          const sliceHeight = Math.min(maxPageHeight, captureHeight - (i * maxPageHeight));
+          const sliceCanvas = document.createElement('canvas');
+          sliceCanvas.width = categoryCanvas.width;
+          sliceCanvas.height = (sliceHeight / captureWidth) * categoryCanvas.width;
+          
+          const sliceCtx = sliceCanvas.getContext('2d');
+          if (sliceCtx) {
+            sliceCtx.drawImage(
+              categoryCanvas,
+              0, (i * maxPageHeight / captureWidth) * categoryCanvas.width,
+              categoryCanvas.width, sliceCanvas.height,
+              0, 0,
+              sliceCanvas.width, sliceCanvas.height
+            );
+            
+            addHighQualityImage(doc, sliceCanvas, 14, 20, captureWidth, sliceHeight, 'PNG');
+          }
+        }
+      } else {
+        addHighQualityImage(doc, categoryCanvas, 14, currentY, captureWidth, captureHeight, 'PNG');
+      }
+      
+      // Cleanup
+      gridRoot.unmount();
+      document.body.removeChild(categoryContainer);
+
+      yPos = 20;
 
       // ========== PAGE 4: PROJECT INFORMATION (Consolidated) ==========
       doc.addPage();
