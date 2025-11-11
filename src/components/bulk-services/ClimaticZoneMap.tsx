@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { Map, Satellite, Mountain, MapPin } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { SA_CITIES_ZONES, findClosestCity } from "@/data/saCitiesZones";
+import { SA_CITIES_ZONES, findClosestCity, getCitiesByZone } from "@/data/saCitiesZones";
 
 interface ClimaticZoneMapProps {
   selectedZone: string | null;
@@ -467,33 +467,42 @@ export const ClimaticZoneMap = ({ selectedZone, onZoneSelect, selectedCity, sele
 
       {/* Zone Legend */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
-        {Object.entries(ZONE_INFO).map(([zone, info]) => (
-          <button
-            key={zone}
-            onClick={() => onZoneSelect(zone)}
-            className={`p-3 rounded-lg border-2 transition-all text-left hover:shadow-md ${
-              selectedZone === zone
-                ? "border-primary bg-primary/10 shadow-lg"
-                : "border-border bg-card hover:border-primary/50"
-            }`}
-          >
-            <div className="flex items-center gap-2 mb-2">
-              <div
-                className="w-5 h-5 rounded shadow-sm border border-border/50"
-                style={{ backgroundColor: ZONE_COLORS[zone as keyof typeof ZONE_COLORS] }}
-              />
-              <Badge variant={selectedZone === zone ? "default" : "outline"} className="text-xs font-semibold">
-                Zone {zone}
-              </Badge>
-            </div>
-            <p className="text-sm font-semibold mb-1">{info.name}</p>
-            <p className="text-xs text-primary font-medium mb-1">{info.temp}</p>
-            <p className="text-xs text-muted-foreground mb-2">{info.characteristics}</p>
-            <p className="text-xs text-muted-foreground italic">
-              e.g. {info.cities}
-            </p>
-          </button>
-        ))}
+        {Object.entries(ZONE_INFO).map(([zone, info]) => {
+          // Get the first city in this zone as representative
+          const representativeCity = getCitiesByZone(zone)[0];
+          
+          return (
+            <button
+              key={zone}
+              onClick={() => {
+                if (representativeCity) {
+                  onZoneSelect(zone, representativeCity.city, representativeCity.coordinates);
+                }
+              }}
+              className={`p-3 rounded-lg border-2 transition-all text-left hover:shadow-md ${
+                selectedZone === zone
+                  ? "border-primary bg-primary/10 shadow-lg"
+                  : "border-border bg-card hover:border-primary/50"
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-2">
+                <div
+                  className="w-5 h-5 rounded shadow-sm border border-border/50"
+                  style={{ backgroundColor: ZONE_COLORS[zone as keyof typeof ZONE_COLORS] }}
+                />
+                <Badge variant={selectedZone === zone ? "default" : "outline"} className="text-xs font-semibold">
+                  Zone {zone}
+                </Badge>
+              </div>
+              <p className="text-sm font-semibold mb-1">{info.name}</p>
+              <p className="text-xs text-primary font-medium mb-1">{info.temp}</p>
+              <p className="text-xs text-muted-foreground mb-2">{info.characteristics}</p>
+              <p className="text-xs text-muted-foreground italic">
+                e.g. {info.cities}
+              </p>
+            </button>
+          );
+        })}
       </div>
 
     </div>

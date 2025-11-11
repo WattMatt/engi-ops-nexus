@@ -74,7 +74,7 @@ export const SANS204Calculator = ({ documentId, onZoneSelect }: SANS204Calculato
           selectedCity={document?.climatic_zone_city}
           selectedCoordinates={
             document?.climatic_zone_lng && document?.climatic_zone_lat
-              ? [document.climatic_zone_lng, document.climatic_zone_lat]
+              ? [Number(document.climatic_zone_lng), Number(document.climatic_zone_lat)]
               : undefined
           }
         />
