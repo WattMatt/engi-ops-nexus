@@ -252,137 +252,259 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         doc.text(category.variance < 0 ? 'SAVING' : 'EXTRA', x + width / 2, y + height - 6.5, { align: "center" });
       };
 
-      // ========== PAGE 2: KPI DASHBOARD - PAGE 1 ==========
+      // ========== PAGE 2: EXECUTIVE SUMMARY ==========
       doc.addPage();
       tocSections.push({ title: "Executive Summary", page: doc.getCurrentPageInfo().pageNumber });
-      let yPos = 20;
+      let yPos = 30;
 
-      // Header with themed background
-      doc.setFillColor(41, 128, 185);
-      doc.rect(0, 0, pageWidth, 35, 'F');
-      doc.setFontSize(16);
+      // Professional Header with subtle gradient effect
+      doc.setFillColor(30, 58, 138); // Dark blue
+      doc.rect(0, 0, pageWidth, 50, 'F');
+      
+      // Lighter accent bar
+      doc.setFillColor(59, 130, 246);
+      doc.rect(0, 48, pageWidth, 2, 'F');
+      
+      doc.setFontSize(20);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(255, 255, 255);
-      doc.text("EXECUTIVE SUMMARY & KEY PERFORMANCE INDICATORS", pageWidth / 2, 22, { align: "center" });
+      doc.text("EXECUTIVE SUMMARY", pageWidth / 2, 25, { align: "center" });
       
-      yPos = 45;
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "normal");
+      doc.text("Key Performance Indicators & Financial Overview", pageWidth / 2, 38, { align: "center" });
+      
+      yPos = 65;
 
-      // Key Metrics Cards (3-column layout)
-      const cardWidth = (pageWidth - 28 - 16) / 3; // 3 cards with gaps
-      const cardHeight = 38;
+      // Improved KPI Cards with better visual hierarchy
+      const cardWidth = (pageWidth - 28 - 16) / 3;
+      const cardHeight = 42;
+      const cardGap = 8;
       
       const variancePercent = totalOriginalBudget > 0 
-        ? ((Math.abs(totalVariance) / totalOriginalBudget) * 100).toFixed(1)
+        ? ((Math.abs(totalVariance) / totalOriginalBudget) * 100).toFixed(2)
         : "0.0";
       
-      drawMetricCard(14, yPos, cardWidth, cardHeight, "ORIGINAL BUDGET", 
+      // Enhanced metric card drawing
+      const drawProfessionalMetricCard = (x: number, y: number, width: number, height: number, title: string, value: string, color: [number, number, number], subtext: string, isHighlight: boolean = false) => {
+        // Card shadow
+        doc.setFillColor(200, 200, 200);
+        doc.roundedRect(x + 1, y + 1, width, height, 4, 4, 'F');
+        
+        // Card background
+        doc.setFillColor(255, 255, 255);
+        doc.roundedRect(x, y, width, height, 4, 4, 'F');
+        
+        // Border with color accent
+        doc.setDrawColor(color[0], color[1], color[2]);
+        doc.setLineWidth(isHighlight ? 1.5 : 0.5);
+        doc.roundedRect(x, y, width, height, 4, 4, 'S');
+        
+        // Top colored strip
+        doc.setFillColor(color[0], color[1], color[2]);
+        doc.rect(x + 4, y, width - 8, 3, 'F');
+        
+        // Title
+        doc.setFontSize(7);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(100, 100, 100);
+        const titleUpper = title.toUpperCase();
+        doc.text(titleUpper, x + width / 2, y + 12, { align: "center" });
+        
+        // Value (larger, bold, centered)
+        doc.setFontSize(isHighlight ? 16 : 15);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(30, 30, 30);
+        const textWidth = doc.getTextWidth(value);
+        const valueFontSize = textWidth > (width - 8) ? 13 : (isHighlight ? 16 : 15);
+        doc.setFontSize(valueFontSize);
+        doc.text(value, x + width / 2, y + 25, { align: "center" });
+        
+        // Subtext
+        doc.setFontSize(7);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(120, 120, 120);
+        doc.text(subtext, x + width / 2, y + 35, { align: "center" });
+      };
+      
+      drawProfessionalMetricCard(14, yPos, cardWidth, cardHeight, "Original Budget", 
         `R ${totalOriginalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, 
         [59, 130, 246],
-        "Initial approved budget");
+        "Initial approved budget", false);
       
-      drawMetricCard(14 + cardWidth + 8, yPos, cardWidth, cardHeight, "ANTICIPATED FINAL", 
+      drawProfessionalMetricCard(14 + cardWidth + cardGap, yPos, cardWidth, cardHeight, "Anticipated Final", 
         `R ${totalAnticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, 
-        [139, 92, 246],
-        "Projected final cost");
+        [99, 102, 241],
+        "Projected final cost", false);
       
       const varianceColor = totalVariance < 0 ? [34, 197, 94] : [239, 68, 68];
-      const varianceLabel = totalVariance < 0 ? "TOTAL SAVING" : "TOTAL EXTRA";
-      drawMetricCard(14 + (cardWidth + 8) * 2, yPos, cardWidth, cardHeight, varianceLabel, 
+      const varianceLabel = totalVariance < 0 ? "Total Saving" : "Total Extra";
+      drawProfessionalMetricCard(14 + (cardWidth + cardGap) * 2, yPos, cardWidth, cardHeight, varianceLabel, 
         `R ${Math.abs(totalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, 
         varianceColor as [number, number, number],
-        `${variancePercent}% variance`);
+        `${variancePercent}% variance`, true);
       
-      yPos += cardHeight + 20;
+      yPos += cardHeight + 25;
 
-      // Visual Analytics Section Header
-      doc.setFontSize(12);
+      // Section divider
+      doc.setDrawColor(220, 220, 220);
+      doc.setLineWidth(0.5);
+      doc.line(14, yPos, pageWidth - 14, yPos);
+      yPos += 15;
+
+      // Visual Analytics Header
+      doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(0);
-      doc.text("VISUAL ANALYTICS", 14, yPos);
+      doc.setTextColor(30, 58, 138);
+      doc.text("FINANCIAL ANALYSIS", 14, yPos);
+      yPos += 3;
+      
+      // Accent line under header
+      doc.setFillColor(59, 130, 246);
+      doc.rect(14, yPos, 40, 1.5, 'F');
       yPos += 10;
 
-      // Two-column layout for analytics
+      // Two-column professional layout
       const leftColX = 14;
       const rightColX = pageWidth / 2 + 4;
       const colWidth = pageWidth / 2 - 18;
+      const panelHeight = 110;
 
-      // LEFT: Category Distribution
+      // LEFT: Category Distribution Panel
       const analyticsY = yPos;
-      doc.setFillColor(250, 250, 250);
-      doc.roundedRect(leftColX, analyticsY, colWidth, 95, 2, 2, 'F');
+      
+      // Panel background with subtle border
+      doc.setFillColor(249, 250, 251);
+      doc.setDrawColor(229, 231, 235);
+      doc.setLineWidth(0.5);
+      doc.roundedRect(leftColX, analyticsY, colWidth, panelHeight, 3, 3, 'FD');
+      
+      // Panel header
+      doc.setFillColor(241, 245, 249);
+      doc.roundedRect(leftColX, analyticsY, colWidth, 12, 3, 3, 'F');
       
       doc.setFontSize(10);
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(0);
-      doc.text("Category Distribution", leftColX + 4, analyticsY + 8);
+      doc.setTextColor(30, 58, 138);
+      doc.text("Category Distribution", leftColX + 6, analyticsY + 8);
       
-      // Category legend with percentages
-      let legendY = analyticsY + 18;
+      // Category legend with improved layout
+      let legendY = analyticsY + 22;
       categoryTotals.forEach((cat: any, index: number) => {
-        if (index < 8) { // Limit to 8 categories on this page
+        if (index < 7) {
           const color = COLORS[index % COLORS.length] as [number, number, number];
           const percentage = (cat.originalBudget / totalOriginalBudget) * 100;
-          drawCategoryLegendItem(leftColX + 6, legendY, color, cat.code, cat.description, percentage, cat.originalBudget);
-          legendY += 10;
+          
+          // Color indicator
+          doc.setFillColor(color[0], color[1], color[2]);
+          doc.roundedRect(leftColX + 8, legendY - 3.5, 5, 5, 1, 1, 'F');
+          
+          // Code badge
+          doc.setFontSize(8);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(60, 60, 60);
+          doc.text(cat.code, leftColX + 16, legendY);
+          
+          // Description
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(80, 80, 80);
+          const maxDescWidth = 42;
+          let truncDesc = cat.description;
+          if (doc.getTextWidth(truncDesc) > maxDescWidth) {
+            while (doc.getTextWidth(truncDesc + "...") > maxDescWidth && truncDesc.length > 0) {
+              truncDesc = truncDesc.slice(0, -1);
+            }
+            truncDesc += "...";
+          }
+          doc.text(truncDesc, leftColX + 24, legendY);
+          
+          // Percentage and amount
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(7);
+          doc.setTextColor(100, 100, 100);
+          doc.text(`${percentage.toFixed(1)}%`, leftColX + colWidth - 35, legendY);
+          
+          doc.setFontSize(8);
+          doc.setTextColor(30, 30, 30);
+          const amount = `R ${cat.originalBudget.toLocaleString('en-ZA', { maximumFractionDigits: 0 })}`;
+          doc.text(amount, leftColX + colWidth - 6, legendY, { align: "right" });
+          
+          legendY += 13;
         }
       });
 
-      // RIGHT: Variance Analysis
-      doc.setFillColor(250, 250, 250);
-      doc.roundedRect(rightColX, analyticsY, colWidth, 95, 2, 2, 'F');
+      // RIGHT: Variance Analysis Panel
+      doc.setFillColor(249, 250, 251);
+      doc.setDrawColor(229, 231, 235);
+      doc.setLineWidth(0.5);
+      doc.roundedRect(rightColX, analyticsY, colWidth, panelHeight, 3, 3, 'FD');
+      
+      // Panel header
+      doc.setFillColor(241, 245, 249);
+      doc.roundedRect(rightColX, analyticsY, colWidth, 12, 3, 3, 'F');
       
       doc.setFontSize(10);
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(0);
-      doc.text("Variance by Category", rightColX + 4, analyticsY + 8);
+      doc.setTextColor(30, 58, 138);
+      doc.text("Variance by Category", rightColX + 6, analyticsY + 8);
       
-      // Variance table
-      const varianceTableData = categoryTotals.slice(0, 8).map((cat: any) => {
-        const varianceSign = cat.variance < 0 ? '-' : '+';
-        return [
-          cat.code,
-          `${varianceSign}R ${Math.abs(cat.variance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-          cat.variance < 0 ? 'Saving' : 'Extra'
-        ];
+      // Professional variance table
+      let varY = analyticsY + 22;
+      categoryTotals.slice(0, 7).forEach((cat: any) => {
+        const varianceSign = cat.variance < 0 ? '' : '+';
+        const isPositive = cat.variance < 0;
+        
+        // Row background (alternating)
+        const rowIndex = categoryTotals.slice(0, 7).indexOf(cat);
+        if (rowIndex % 2 === 0) {
+          doc.setFillColor(255, 255, 255);
+          doc.rect(rightColX + 4, varY - 4, colWidth - 8, 11, 'F');
+        }
+        
+        // Code badge
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(60, 60, 60);
+        doc.text(cat.code, rightColX + 8, varY);
+        
+        // Variance amount
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(isPositive ? 22 : 220, isPositive ? 163 : 38, isPositive ? 74 : 38);
+        const varianceText = `${varianceSign}R ${Math.abs(cat.variance).toLocaleString('en-ZA', { maximumFractionDigits: 0 })}`;
+        doc.text(varianceText, rightColX + colWidth - 32, varY, { align: "right" });
+        
+        // Status badge
+        doc.setFillColor(isPositive ? 220 : 254, isPositive ? 252 : 243, isPositive ? 231 : 199);
+        doc.roundedRect(rightColX + colWidth - 26, varY - 3.5, 20, 6, 2, 2, 'F');
+        
+        doc.setFontSize(6);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(isPositive ? 21 : 161, isPositive ? 128 : 98, isPositive ? 61 : 7);
+        doc.text(isPositive ? 'SAVING' : 'EXTRA', rightColX + colWidth - 16, varY, { align: "center" });
+        
+        varY += 13;
       });
 
-      autoTable(doc, {
-        startY: analyticsY + 12,
-        body: varianceTableData,
-        theme: "plain",
-        styles: { fontSize: 7, cellPadding: 2 },
-        columnStyles: {
-          0: { cellWidth: 15, fontStyle: 'bold' },
-          1: { cellWidth: 35, halign: 'right', fontStyle: 'bold' },
-          2: { cellWidth: 20, halign: 'center', fontSize: 6 },
-        },
-        margin: { left: rightColX + 4, right: pageWidth - rightColX - colWidth + 4 },
-        willDrawCell: (data) => {
-          if (data.column.index === 1 || data.column.index === 2) {
-            const cat = categoryTotals[data.row.index];
-            if (cat && cat.variance < 0) {
-              data.cell.styles.textColor = [34, 197, 94];
-              if (data.column.index === 2) {
-                data.cell.styles.fillColor = [220, 252, 231];
-              }
-            } else {
-              data.cell.styles.textColor = [239, 68, 68];
-              if (data.column.index === 2) {
-                data.cell.styles.fillColor = [254, 226, 226];
-              }
-            }
-          }
-        },
-      });
+      yPos = analyticsY + panelHeight + 10;
 
-      yPos = analyticsY + 100;
-
-      // Overall variance percentage
+      // Overall variance summary with professional styling
+      doc.setFillColor(241, 245, 249);
+      doc.roundedRect(14, yPos, pageWidth - 28, 12, 3, 3, 'F');
+      
       doc.setFontSize(9);
       doc.setFont("helvetica", "normal");
-      doc.setTextColor(100);
+      doc.setTextColor(80, 80, 80);
+      doc.text("Overall Project Variance:", 20, yPos + 8);
+      
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(totalVariance < 0 ? 22 : 220, totalVariance < 0 ? 163 : 38, totalVariance < 0 ? 74 : 38);
       const variancePercentage = ((Math.abs(totalVariance) / totalOriginalBudget) * 100).toFixed(2);
-      doc.text(`Overall variance: ${variancePercentage}% ${totalVariance < 0 ? 'under' : 'over'} budget`, pageWidth / 2, yPos, { align: "center" });
+      doc.text(`${variancePercentage}% ${totalVariance < 0 ? 'Under Budget' : 'Over Budget'}`, pageWidth / 2, yPos + 8, { align: "center" });
+      
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(80, 80, 80);
+      doc.text(`(R ${Math.abs(totalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })})`, pageWidth - 20, yPos + 8, { align: "right" });
 
       // ========== PAGE 3: KPI DASHBOARD - PAGE 2 ==========
       doc.addPage();
