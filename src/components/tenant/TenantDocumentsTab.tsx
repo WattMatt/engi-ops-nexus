@@ -7,7 +7,8 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { TenantDocumentManager } from "./TenantDocumentManager";
 import { TenantDocumentStatusReport } from "./TenantDocumentStatusReport";
-import { FileText, FolderOpen } from "lucide-react";
+import { QuickUploadDialog } from "./QuickUploadDialog";
+import { FileText, FolderOpen, Upload } from "lucide-react";
 
 interface Tenant {
   id: string;
@@ -27,6 +28,7 @@ const TOTAL_DOCUMENT_TYPES = 6;
 export const TenantDocumentsTab = ({ projectId, tenants, activeView }: TenantDocumentsTabProps) => {
   const [selectedTenant, setSelectedTenant] = useState<Tenant | null>(null);
   const [managerOpen, setManagerOpen] = useState(false);
+  const [quickUploadOpen, setQuickUploadOpen] = useState(false);
 
   const { data: documentsSummary = {}, isLoading } = useQuery({
     queryKey: ["tenant-documents-summary", projectId],
@@ -78,6 +80,11 @@ export const TenantDocumentsTab = ({ projectId, tenants, activeView }: TenantDoc
   const handleOpenManager = (tenant: Tenant) => {
     setSelectedTenant(tenant);
     setManagerOpen(true);
+  };
+
+  const handleQuickUpload = (tenant: Tenant) => {
+    setSelectedTenant(tenant);
+    setQuickUploadOpen(true);
   };
 
   const getDocumentStatus = (tenantId: string) => {
@@ -205,14 +212,23 @@ export const TenantDocumentsTab = ({ projectId, tenants, activeView }: TenantDoc
                               </Badge>
                             </TableCell>
                             <TableCell className="text-right">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleOpenManager(tenant)}
-                              >
-                                <FolderOpen className="h-4 w-4 mr-2" />
-                                Manage Documents
-                              </Button>
+                              <div className="flex gap-2 justify-end">
+                                <Button
+                                  size="sm"
+                                  onClick={() => handleQuickUpload(tenant)}
+                                >
+                                  <Upload className="h-4 w-4 mr-2" />
+                                  Quick Upload
+                                </Button>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleOpenManager(tenant)}
+                                >
+                                  <FolderOpen className="h-4 w-4 mr-2" />
+                                  Manage
+                                </Button>
+                              </div>
                             </TableCell>
                           </TableRow>
                         );
@@ -227,16 +243,26 @@ export const TenantDocumentsTab = ({ projectId, tenants, activeView }: TenantDoc
         )}
       </div>
 
-      {/* Document Manager Dialog */}
+      {/* Dialogs */}
       {selectedTenant && (
-        <TenantDocumentManager
-          open={managerOpen}
-          onOpenChange={setManagerOpen}
-          tenantId={selectedTenant.id}
-          projectId={selectedTenant.project_id}
-          shopNumber={selectedTenant.shop_number}
-          shopName={selectedTenant.shop_name}
-        />
+        <>
+          <QuickUploadDialog
+            open={quickUploadOpen}
+            onOpenChange={setQuickUploadOpen}
+            tenantId={selectedTenant.id}
+            projectId={selectedTenant.project_id}
+            shopNumber={selectedTenant.shop_number}
+            shopName={selectedTenant.shop_name}
+          />
+          <TenantDocumentManager
+            open={managerOpen}
+            onOpenChange={setManagerOpen}
+            tenantId={selectedTenant.id}
+            projectId={selectedTenant.project_id}
+            shopNumber={selectedTenant.shop_number}
+            shopName={selectedTenant.shop_name}
+          />
+        </>
       )}
     </>
   );
