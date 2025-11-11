@@ -10,7 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Calendar, Cloud, ListTodo, GanttChart, Bell, X, User, Download, Edit } from "lucide-react";
+import { Plus, Calendar, Cloud, ListTodo, GanttChart, Bell, X, User, Download, Edit, CheckCircle2, Clock, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import jsPDF from "jspdf";
@@ -209,6 +209,29 @@ const SiteDiary = () => {
   const removeSubEntry = (id: string) => {
     setSubEntries(subEntries.filter(entry => entry.id !== id));
   };
+
+  // Calculate statistics from all entries
+  const calculateStatistics = () => {
+    const allActionItems = entries.flatMap(entry => entry.sub_entries || []);
+    const total = allActionItems.length;
+    const completed = allActionItems.filter(item => item.completed).length;
+    const completionRate = total > 0 ? Math.round((completed / total) * 100) : 0;
+    
+    const byPriority = {
+      high: allActionItems.filter(item => item.priority === "high").length,
+      medium: allActionItems.filter(item => item.priority === "medium").length,
+      low: allActionItems.filter(item => item.priority === "low").length,
+      note: allActionItems.filter(item => item.priority === "note").length,
+    };
+
+    const highPriorityPending = allActionItems.filter(
+      item => item.priority === "high" && !item.completed
+    ).length;
+
+    return { total, completed, completionRate, byPriority, highPriorityPending };
+  };
+
+  const stats = calculateStatistics();
 
   const exportToPDF = async (entry: SiteDiaryEntry) => {
     try {
@@ -560,7 +583,116 @@ const SiteDiary = () => {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="entries" className="mt-6">
+        <TabsContent value="entries" className="mt-6 space-y-6">
+          {/* Statistics Dashboard */}
+          {!loading && entries.length > 0 && stats.total > 0 && (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                      Total Action Items
+                    </CardTitle>
+                    <ListTodo className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stats.total}</div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Across all diary entries
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                      Completion Rate
+                    </CardTitle>
+                    <CheckCircle2 className="h-4 w-4 text-green-600" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-green-600">{stats.completionRate}%</div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {stats.completed} of {stats.total} completed
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                      High Priority Pending
+                    </CardTitle>
+                    <AlertCircle className="h-4 w-4 text-destructive" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className={`text-2xl font-bold ${stats.highPriorityPending > 0 ? 'text-destructive' : 'text-green-600'}`}>
+                    {stats.highPriorityPending}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Requires immediate attention
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="text-sm font-medium text-muted-foreground">
+                      By Priority
+                    </CardTitle>
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-1">
+                    {stats.byPriority.high > 0 && (
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="flex items-center gap-1">
+                          <span className="w-2 h-2 rounded-full bg-destructive"></span>
+                          High
+                        </span>
+                        <span className="font-medium">{stats.byPriority.high}</span>
+                      </div>
+                    )}
+                    {stats.byPriority.medium > 0 && (
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="flex items-center gap-1">
+                          <span className="w-2 h-2 rounded-full bg-orange-500"></span>
+                          Medium
+                        </span>
+                        <span className="font-medium">{stats.byPriority.medium}</span>
+                      </div>
+                    )}
+                    {stats.byPriority.low > 0 && (
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="flex items-center gap-1">
+                          <span className="w-2 h-2 rounded-full bg-green-500"></span>
+                          Low
+                        </span>
+                        <span className="font-medium">{stats.byPriority.low}</span>
+                      </div>
+                    )}
+                    {stats.byPriority.note > 0 && (
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="flex items-center gap-1">
+                          <span className="w-2 h-2 rounded-full bg-muted"></span>
+                          Notes
+                        </span>
+                        <span className="font-medium">{stats.byPriority.note}</span>
+                      </div>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+
           {loading ? (
             <div className="flex items-center justify-center min-h-[400px]">
               <p className="text-muted-foreground">Loading entries...</p>
