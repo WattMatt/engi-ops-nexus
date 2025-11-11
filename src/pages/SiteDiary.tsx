@@ -93,7 +93,11 @@ const SiteDiary = () => {
     setSubmitting(true);
     
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session || !projectId) return;
+    if (!session || !projectId) {
+      toast.error("You must be logged in to create entries");
+      setSubmitting(false);
+      return;
+    }
 
     try {
       const { error } = await supabase.from("site_diary_entries").insert({
