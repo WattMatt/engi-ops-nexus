@@ -79,11 +79,12 @@ export const BulkServicesDrawingMarkup = ({ documentId }: BulkServicesDrawingMar
 
       if (data?.drawing_file_path) {
         await loadPdfFromStorage(data.drawing_file_path);
+      } else {
+        setLoadingPdf(false);
       }
     } catch (error) {
       console.error("Error loading saved markup:", error);
       toast.error("Failed to load saved drawing");
-    } finally {
       setLoadingPdf(false);
     }
   };
@@ -100,9 +101,11 @@ export const BulkServicesDrawingMarkup = ({ documentId }: BulkServicesDrawingMar
       const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
       const pdf = await loadingTask.promise;
       setPdfDoc(pdf);
+      setLoadingPdf(false);
     } catch (error) {
       console.error("Error loading PDF:", error);
       toast.error("Failed to load drawing");
+      setLoadingPdf(false);
     }
   };
 
