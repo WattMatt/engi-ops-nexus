@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Download, FileText } from "lucide-react";
+import { Download, FileText, Eye } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import jsPDF from "jspdf";
@@ -7,6 +7,7 @@ import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchCompanyDetails, generateCoverPage } from "@/utils/pdfCoverPage";
 import { StandardReportPreview } from "@/components/shared/StandardReportPreview";
+import { ExportPreviewDialog } from "./ExportPreviewDialog";
 import { createHighQualityPDF, captureChartAsCanvas, prepareElementForCapture, addHighQualityImage } from "@/utils/pdfQualitySettings";
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from "recharts";
 import { createRoot } from "react-dom/client";
@@ -20,6 +21,49 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [previewReport, setPreviewReport] = useState<any>(null);
+  const [showExportPreview, setShowExportPreview] = useState(false);
+  const [previewData, setPreviewData] = useState<{ categories: any[], variations: any[] } | null>(null);
+
+  const handleShowPreview = async () => {
+    setLoading(true);
+    try {
+      // Fetch just categories and variations for preview
+      const [categoriesResult, variationsResult] = await Promise.all([
+        supabase
+          .from("cost_categories")
+          .select(`
+            *,
+            cost_line_items (*)
+          `)
+          .eq("cost_report_id", report.id)
+          .order("display_order"),
+        supabase
+          .from("cost_variations")
+          .select("*")
+          .eq("cost_report_id", report.id)
+          .order("display_order")
+      ]);
+
+      if (categoriesResult.error) throw categoriesResult.error;
+      if (variationsResult.error) throw variationsResult.error;
+
+      const categories = categoriesResult.data || [];
+      const variations = variationsResult.data || [];
+
+      // Store data for preview and show preview dialog
+      setPreviewData({ categories, variations });
+      setShowExportPreview(true);
+    } catch (error: any) {
+      console.error('Error preparing preview:', error);
+      toast({
+        title: "Error",
+        description: "Failed to prepare export preview",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleExport = async () => {
     setLoading(true);
@@ -1270,10 +1314,25 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
 
   return (
     <>
-      <Button onClick={handleExport} disabled={loading}>
-        <FileText className="mr-2 h-4 w-4" />
-        {loading ? "Generating..." : "Generate PDF"}
+      <Button onClick={handleShowPreview} disabled={loading}>
+        {loading ? (
+          <FileText className="mr-2 h-4 w-4 animate-pulse" />
+        ) : (
+          <Eye className="mr-2 h-4 w-4" />
+        )}
+        {loading ? "Loading Preview..." : "Preview & Export PDF"}
       </Button>
+
+      {previewData && (
+        <ExportPreviewDialog
+          open={showExportPreview}
+          onOpenChange={setShowExportPreview}
+          onProceedExport={handleExport}
+          report={report}
+          categories={previewData.categories}
+          variations={previewData.variations}
+        />
+      )}
       
       {previewReport && (
         <StandardReportPreview
