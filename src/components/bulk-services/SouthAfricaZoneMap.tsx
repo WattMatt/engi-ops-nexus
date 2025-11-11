@@ -112,7 +112,7 @@ export const SouthAfricaZoneMap = ({ selectedZone }: SouthAfricaZoneMapProps) =>
 
       {/* Large location pin on selected zone */}
       {selectedZone && zoneCenters[selectedZone] && (
-        <g>
+        <g className="animate-pulse" style={{ transformOrigin: `${zoneCenters[selectedZone].x}px ${zoneCenters[selectedZone].y}px` }}>
           {/* Pin shadow/glow */}
           <ellipse
             cx={zoneCenters[selectedZone].x}
