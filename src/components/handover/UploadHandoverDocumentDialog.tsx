@@ -21,7 +21,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Upload } from "lucide-react";
+import { Loader2, Upload, X, FileText } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 
 interface UploadHandoverDocumentDialogProps {
   open: boolean;
@@ -48,49 +49,58 @@ export const UploadHandoverDocumentDialog = ({
 }: UploadHandoverDocumentDialogProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [documentType, setDocumentType] = useState("");
   const [notes, setNotes] = useState("");
   const [isDragging, setIsDragging] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const uploadMutation = useMutation({
     mutationFn: async () => {
-      if (!file) throw new Error("No file selected");
+      if (files.length === 0) throw new Error("No files selected");
 
-      // Upload file to storage
-      const filePath = `${projectId}/${Date.now()}-${file.name}`;
-      const { error: uploadError } = await supabase.storage
-        .from("handover-documents")
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from("handover-documents")
-        .getPublicUrl(filePath);
-
-      // Insert document record
       const { data: user } = await supabase.auth.getUser();
-      const { error: insertError } = await supabase
-        .from("handover_documents" as any)
-        .insert({
-          project_id: projectId,
-          document_name: file.name,
-          document_type: documentType,
-          file_url: publicUrl,
-          source_type: "upload",
-          file_size: file.size,
-          added_by: user.user?.id,
-          notes: notes || null,
-        });
+      const totalFiles = files.length;
+      let uploadedCount = 0;
 
-      if (insertError) throw insertError;
+      for (const file of files) {
+        // Upload file to storage
+        const filePath = `${projectId}/${Date.now()}-${file.name}`;
+        const { error: uploadError } = await supabase.storage
+          .from("handover-documents")
+          .upload(filePath, file);
+
+        if (uploadError) throw uploadError;
+
+        // Get public URL
+        const { data: { publicUrl } } = supabase.storage
+          .from("handover-documents")
+          .getPublicUrl(filePath);
+
+        // Insert document record
+        const { error: insertError } = await supabase
+          .from("handover_documents" as any)
+          .insert({
+            project_id: projectId,
+            document_name: file.name,
+            document_type: documentType,
+            file_url: publicUrl,
+            source_type: "upload",
+            file_size: file.size,
+            added_by: user.user?.id,
+            notes: notes || null,
+          });
+
+        if (insertError) throw insertError;
+
+        uploadedCount++;
+        setUploadProgress((uploadedCount / totalFiles) * 100);
+      }
     },
     onSuccess: () => {
       toast({
         title: "Success",
-        description: "Document uploaded successfully",
+        description: `${files.length} document(s) uploaded successfully`,
       });
       queryClient.invalidateQueries({ queryKey: ["handover-documents", projectId] });
       queryClient.invalidateQueries({ queryKey: ["handover-documents-count", projectId] });
@@ -103,13 +113,15 @@ export const UploadHandoverDocumentDialog = ({
         description: error.message,
         variant: "destructive",
       });
+      setUploadProgress(0);
     },
   });
 
   const resetForm = () => {
-    setFile(null);
+    setFiles([]);
     setDocumentType("");
     setNotes("");
+    setUploadProgress(0);
   };
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -124,18 +136,35 @@ export const UploadHandoverDocumentDialog = ({
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    const droppedFile = e.dataTransfer.files[0];
-    if (droppedFile) {
-      setFile(droppedFile);
+    const droppedFiles = Array.from(e.dataTransfer.files);
+    if (droppedFiles.length > 0) {
+      setFiles((prev) => [...prev, ...droppedFiles]);
     }
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(e.target.files || []);
+    if (selectedFiles.length > 0) {
+      setFiles((prev) => [...prev, ...selectedFiles]);
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setFiles((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + " B";
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+    return (bytes / (1024 * 1024)).toFixed(1) + " MB";
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!file || !documentType) {
+    if (files.length === 0 || !documentType) {
       toast({
         title: "Error",
-        description: "Please select a file and document type",
+        description: "Please select at least one file and document type",
         variant: "destructive",
       });
       return;
@@ -148,9 +177,9 @@ export const UploadHandoverDocumentDialog = ({
       <DialogContent className="sm:max-w-[525px]">
         <form onSubmit={handleSubmit}>
           <DialogHeader>
-            <DialogTitle>Upload Document</DialogTitle>
+            <DialogTitle>Upload Documents</DialogTitle>
             <DialogDescription>
-              Upload a new document to the handover repository
+              Upload one or multiple documents to the handover repository
             </DialogDescription>
           </DialogHeader>
 
@@ -172,7 +201,7 @@ export const UploadHandoverDocumentDialog = ({
             </div>
 
             <div className="space-y-2">
-              <Label>File</Label>
+              <Label>Files</Label>
               <div
                 className={`border-2 border-dashed rounded-lg p-6 text-center transition-colors ${
                   isDragging
@@ -187,28 +216,61 @@ export const UploadHandoverDocumentDialog = ({
                   type="file"
                   id="file-upload"
                   className="hidden"
-                  onChange={(e) => setFile(e.target.files?.[0] || null)}
+                  multiple
+                  onChange={handleFileSelect}
                 />
                 <label htmlFor="file-upload" className="cursor-pointer">
                   <Upload className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                  {file ? (
-                    <div>
-                      <p className="font-medium">{file.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {(file.size / 1024 / 1024).toFixed(2)} MB
-                      </p>
-                    </div>
-                  ) : (
-                    <div>
-                      <p className="font-medium">Drop file here or click to browse</p>
-                      <p className="text-sm text-muted-foreground">
-                        Support for PDFs, images, and documents
-                      </p>
-                    </div>
-                  )}
+                  <p className="font-medium">Drop files here or click to browse</p>
+                  <p className="text-sm text-muted-foreground">
+                    Support for PDFs, images, and documents (multiple files allowed)
+                  </p>
                 </label>
               </div>
             </div>
+
+            {files.length > 0 && (
+              <div className="space-y-2">
+                <Label>Selected Files ({files.length})</Label>
+                <div className="border rounded-lg max-h-[200px] overflow-y-auto">
+                  {files.map((file, index) => (
+                    <div
+                      key={index}
+                      className="flex items-center justify-between p-3 border-b last:border-b-0 hover:bg-muted/50"
+                    >
+                      <div className="flex items-center gap-2 flex-1 min-w-0">
+                        <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{file.name}</p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatFileSize(file.size)}
+                          </p>
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeFile(index)}
+                        disabled={uploadMutation.isPending}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {uploadMutation.isPending && (
+              <div className="space-y-2">
+                <Label>Upload Progress</Label>
+                <Progress value={uploadProgress} />
+                <p className="text-sm text-muted-foreground text-center">
+                  Uploading {Math.round(uploadProgress)}%...
+                </p>
+              </div>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="notes">Notes (Optional)</Label>
@@ -230,11 +292,11 @@ export const UploadHandoverDocumentDialog = ({
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={uploadMutation.isPending || !file || !documentType}>
+            <Button type="submit" disabled={uploadMutation.isPending || files.length === 0 || !documentType}>
               {uploadMutation.isPending && (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               )}
-              Upload
+              Upload {files.length > 0 && `(${files.length})`}
             </Button>
           </DialogFooter>
         </form>
