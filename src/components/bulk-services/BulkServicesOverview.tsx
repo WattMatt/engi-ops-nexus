@@ -20,6 +20,7 @@ interface BulkServicesOverviewProps {
 
 export const BulkServicesOverview = ({ documentId, onBack }: BulkServicesOverviewProps) => {
   const [reportsRefreshTrigger, setReportsRefreshTrigger] = useState(0);
+  const [mapSelectedZone, setMapSelectedZone] = useState<string | null>(null);
   const [showMapSelector, setShowMapSelector] = useState(false);
   
   const { data: document, isLoading } = useQuery({
@@ -66,6 +67,10 @@ export const BulkServicesOverview = ({ documentId, onBack }: BulkServicesOvervie
     );
   }
 
+  const handleZoneSelect = (zone: string) => {
+    setMapSelectedZone(zone);
+  };
+
   return (
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -89,7 +94,7 @@ export const BulkServicesOverview = ({ documentId, onBack }: BulkServicesOvervie
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
-          <BulkServicesKPICard documentId={documentId} />
+          <BulkServicesKPICard documentId={documentId} mapSelectedZone={mapSelectedZone} />
           
           <Card>
             <CardHeader>
@@ -105,7 +110,7 @@ export const BulkServicesOverview = ({ documentId, onBack }: BulkServicesOvervie
         </TabsContent>
 
         <TabsContent value="map" className="space-y-4">
-          <SANS204Calculator documentId={documentId} />
+          <SANS204Calculator documentId={documentId} onZoneSelect={handleZoneSelect} />
         </TabsContent>
 
         <TabsContent value="details" className="space-y-4">

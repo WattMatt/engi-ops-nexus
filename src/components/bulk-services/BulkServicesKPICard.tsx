@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Save, Calculator, Download } from "lucide-react";
+import { Save, Calculator, Download, MapPin } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 
@@ -38,9 +38,10 @@ const CLIMATIC_ZONES = [
 
 interface BulkServicesKPICardProps {
   documentId: string;
+  mapSelectedZone?: string | null;
 }
 
-export const BulkServicesKPICard = ({ documentId }: BulkServicesKPICardProps) => {
+export const BulkServicesKPICard = ({ documentId, mapSelectedZone }: BulkServicesKPICardProps) => {
   const [projectArea, setProjectArea] = useState("");
   const [buildingClass, setBuildingClass] = useState<keyof typeof SANS_204_TABLE>("F1");
   const [climaticZone, setClimaticZone] = useState("1");
@@ -96,6 +97,13 @@ export const BulkServicesKPICard = ({ documentId }: BulkServicesKPICardProps) =>
     if (tenantData?.totalArea) {
       setProjectArea(tenantData.totalArea.toString());
       toast.success(`Imported ${tenantData.totalArea.toLocaleString()} m² from tenant tracker (${tenantData.tenantCount} tenants)`);
+    }
+  };
+
+  const handleSyncZoneFromMap = () => {
+    if (mapSelectedZone) {
+      setClimaticZone(mapSelectedZone);
+      toast.success(`Synced Zone ${mapSelectedZone} from map`);
     }
   };
 
@@ -186,19 +194,33 @@ export const BulkServicesKPICard = ({ documentId }: BulkServicesKPICardProps) =>
           </div>
 
           <div className="space-y-2">
-            <Label>Climatic Zone</Label>
-            <Select value={climaticZone} onValueChange={setClimaticZone}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="bg-popover z-50">
-                {CLIMATIC_ZONES.map((zone) => (
-                  <SelectItem key={zone.value} value={zone.value}>
-                    Zone {zone.value} - {zone.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex items-end gap-2">
+              <div className="flex-1 space-y-2">
+                <Label>Climatic Zone</Label>
+                <Select value={climaticZone} onValueChange={setClimaticZone}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className="bg-popover z-50">
+                    {CLIMATIC_ZONES.map((zone) => (
+                      <SelectItem key={zone.value} value={zone.value}>
+                        Zone {zone.value} - {zone.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              {mapSelectedZone && mapSelectedZone !== climaticZone && (
+                <Button
+                  variant="outline"
+                  onClick={handleSyncZoneFromMap}
+                  className="mb-0"
+                >
+                  <MapPin className="mr-2 h-4 w-4" />
+                  Sync from Map (Zone {mapSelectedZone})
+                </Button>
+              )}
+            </div>
             <p className="text-xs text-muted-foreground">
               {CLIMATIC_ZONES.find((z) => z.value === climaticZone)?.cities}
             </p>
