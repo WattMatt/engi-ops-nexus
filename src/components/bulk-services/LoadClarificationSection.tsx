@@ -54,10 +54,11 @@ export const LoadClarificationSection = ({ documentId }: LoadClarificationSectio
 
   const climaticZoneNames: Record<string, string> = {
     '1': 'Cold Interior (Zone 1)',
-    '2': 'Hot Interior (Zone 2)',
-    '3': 'Temperate Coastal (Zone 3)',
-    '4': 'Sub-tropical Coastal (Zone 4)',
-    '5': 'Arid Interior (Zone 5)',
+    '2': 'Temperate Interior (Zone 2)',
+    '3': 'Hot Interior (Zone 3)',
+    '4': 'Temperate Coastal (Zone 4)',
+    '5': 'Sub-tropical Coastal (Zone 5)',
+    '6': 'Arid Interior (Zone 6)',
   };
 
   return (
