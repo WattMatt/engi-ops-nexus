@@ -149,7 +149,7 @@ const BulkServices = () => {
                 <div>
                   <span className="text-muted-foreground">Max Demand: </span>
                   <span className="font-medium">
-                    {doc.maximum_demand ? `${(doc.maximum_demand / 1000).toFixed(2)} kVA` : "N/A"}
+                    {doc.maximum_demand ? `${doc.maximum_demand.toLocaleString()} kVA` : "N/A"}
                   </span>
                 </div>
               </div>
