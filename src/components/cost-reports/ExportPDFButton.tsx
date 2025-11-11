@@ -9,8 +9,6 @@ import { fetchCompanyDetails, generateCoverPage } from "@/utils/pdfCoverPage";
 import { StandardReportPreview } from "@/components/shared/StandardReportPreview";
 import { ExportPreviewDialog } from "./ExportPreviewDialog";
 import { createHighQualityPDF, captureChartAsCanvas, prepareElementForCapture, addHighQualityImage } from "@/utils/pdfQualitySettings";
-import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid, Legend } from "recharts";
-import { createRoot } from "react-dom/client";
 
 interface ExportPDFButtonProps {
   report: any;
@@ -333,11 +331,9 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       tocSections.push({ title: "Executive Summary", page: doc.getCurrentPageInfo().pageNumber });
       let yPos = 30;
 
-      // Professional Header with subtle gradient effect
-      doc.setFillColor(30, 58, 138); // Dark blue
+      // Professional Header
+      doc.setFillColor(30, 58, 138);
       doc.rect(0, 0, pageWidth, 50, 'F');
-      
-      // Lighter accent bar
       doc.setFillColor(59, 130, 246);
       doc.rect(0, 48, pageWidth, 2, 'F');
       
@@ -352,75 +348,19 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       
       yPos = 65;
 
-      // Improved KPI Cards with better visual hierarchy
-      const cardWidth = (pageWidth - 28 - 16) / 3;
-      const cardHeight = 42;
-      const cardGap = 8;
-      
-      const variancePercent = totalOriginalBudget > 0 
-        ? ((Math.abs(totalVariance) / totalOriginalBudget) * 100).toFixed(2)
-        : "0.0";
-      
-      // Enhanced metric card drawing
-      const drawProfessionalMetricCard = (x: number, y: number, width: number, height: number, title: string, value: string, color: [number, number, number], subtext: string, isHighlight: boolean = false) => {
-        // Card shadow
-        doc.setFillColor(200, 200, 200);
-        doc.roundedRect(x + 1, y + 1, width, height, 4, 4, 'F');
+      // CAPTURE ACTUAL UI KPI CARDS FROM DOM
+      const kpiElement = document.getElementById('cost-report-kpi-cards');
+      if (kpiElement) {
+        const kpiCanvas = await captureChartAsCanvas(kpiElement);
+        const kpiAspectRatio = kpiCanvas.height / kpiCanvas.width;
+        const kpiWidth = pageWidth - 28;
+        const kpiHeight = kpiWidth * kpiAspectRatio;
         
-        // Card background
-        doc.setFillColor(255, 255, 255);
-        doc.roundedRect(x, y, width, height, 4, 4, 'F');
-        
-        // Border with color accent
-        doc.setDrawColor(color[0], color[1], color[2]);
-        doc.setLineWidth(isHighlight ? 1.5 : 0.5);
-        doc.roundedRect(x, y, width, height, 4, 4, 'S');
-        
-        // Top colored strip
-        doc.setFillColor(color[0], color[1], color[2]);
-        doc.rect(x + 4, y, width - 8, 3, 'F');
-        
-        // Title
-        doc.setFontSize(7);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(100, 100, 100);
-        const titleUpper = title.toUpperCase();
-        doc.text(titleUpper, x + width / 2, y + 12, { align: "center" });
-        
-        // Value (larger, bold, centered)
-        doc.setFontSize(isHighlight ? 16 : 15);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(30, 30, 30);
-        const textWidth = doc.getTextWidth(value);
-        const valueFontSize = textWidth > (width - 8) ? 13 : (isHighlight ? 16 : 15);
-        doc.setFontSize(valueFontSize);
-        doc.text(value, x + width / 2, y + 25, { align: "center" });
-        
-        // Subtext
-        doc.setFontSize(7);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(120, 120, 120);
-        doc.text(subtext, x + width / 2, y + 35, { align: "center" });
-      };
+        addHighQualityImage(doc, kpiCanvas, 14, yPos, kpiWidth, kpiHeight);
+        yPos += kpiHeight + 20;
+      }
       
-      drawProfessionalMetricCard(14, yPos, cardWidth, cardHeight, "Original Budget", 
-        `R ${totalOriginalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, 
-        [59, 130, 246],
-        "Initial approved budget", false);
-      
-      drawProfessionalMetricCard(14 + cardWidth + cardGap, yPos, cardWidth, cardHeight, "Anticipated Final", 
-        `R ${totalAnticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, 
-        [99, 102, 241],
-        "Projected final cost", false);
-      
-      const varianceColor = totalVariance < 0 ? [34, 197, 94] : [239, 68, 68];
-      const varianceLabel = totalVariance < 0 ? "Total Saving" : "Total Extra";
-      drawProfessionalMetricCard(14 + (cardWidth + cardGap) * 2, yPos, cardWidth, cardHeight, varianceLabel, 
-        `R ${Math.abs(totalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, 
-        varianceColor as [number, number, number],
-        `${variancePercent}% variance`, true);
-      
-      yPos += cardHeight + 25;
+      yPos = checkPageSpace(yPos, 60);
 
       // Section divider
       doc.setDrawColor(220, 220, 220);
@@ -435,122 +375,26 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       doc.text("FINANCIAL ANALYSIS", 14, yPos);
       yPos += 3;
       
-      // Accent line under header
       doc.setFillColor(59, 130, 246);
       doc.rect(14, yPos, 40, 1.5, 'F');
       yPos += 10;
 
-      // Single comprehensive financial analysis chart
-      const analyticsY = yPos;
-      const fullWidth = pageWidth - 28;
-      const chartHeight = 140;
+      // CAPTURE ACTUAL UI CHARTS FROM DOM
+      const chartsElement = document.getElementById('cost-report-charts');
+      if (chartsElement) {
+        await prepareElementForCapture(chartsElement);
+        const chartsCanvas = await captureChartAsCanvas(chartsElement);
+        const chartsAspectRatio = chartsCanvas.height / chartsCanvas.width;
+        const chartsWidth = pageWidth - 28;
+        const chartsHeight = Math.min(chartsWidth * chartsAspectRatio, 150);
+        
+        addHighQualityImage(doc, chartsCanvas, 14, yPos, chartsWidth, chartsHeight);
+        yPos += chartsHeight + 10;
+      }
+
+      yPos = checkPageSpace(yPos, 20);
       
-      // Prepare combined chart data
-      const combinedChartData = categoryTotals.map((cat: any, index: number) => ({
-        name: cat.code,
-        description: cat.description,
-        originalBudget: cat.originalBudget,
-        anticipatedFinal: cat.anticipatedFinal,
-        variance: cat.variance,
-        color: `rgb(${COLORS[index % COLORS.length].join(',')})`,
-      }));
-
-      // Create hidden div to render combined chart
-      const chartContainer = document.createElement('div');
-      chartContainer.style.position = 'absolute';
-      chartContainer.style.left = '-9999px';
-      chartContainer.style.width = '1200px';
-      chartContainer.style.height = '600px';
-      chartContainer.style.backgroundColor = '#ffffff';
-      chartContainer.style.padding = '20px';
-      document.body.appendChild(chartContainer);
-
-      // Render combined chart to hidden container
-      const chartDiv = document.createElement('div');
-      chartDiv.style.width = '100%';
-      chartDiv.style.height = '550px';
-      chartContainer.appendChild(chartDiv);
-
-      const chartRoot = createRoot(chartDiv);
-      
-      await new Promise<void>((resolve) => {
-        chartRoot.render(
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart 
-              data={combinedChartData}
-              margin={{ top: 20, right: 30, left: 60, bottom: 80 }}
-            >
-              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-              <XAxis 
-                dataKey="name" 
-                angle={-45}
-                textAnchor="end"
-                height={100}
-                tick={{ fontSize: 14, fill: '#374151', fontWeight: 600 }}
-              />
-              <YAxis 
-                tick={{ fontSize: 13, fill: '#6b7280' }}
-                tickFormatter={(value) => `R${(value / 1000000).toFixed(1)}M`}
-                label={{ 
-                  value: 'Amount (Millions)', 
-                  angle: -90, 
-                  position: 'insideLeft',
-                  style: { fontSize: 14, fill: '#374151', fontWeight: 600 }
-                }}
-              />
-              <Tooltip 
-                formatter={(value: number) => `R${value.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`}
-                contentStyle={{ 
-                  backgroundColor: '#ffffff',
-                  border: '1px solid #e5e7eb',
-                  borderRadius: '8px',
-                  padding: '12px',
-                  fontSize: '14px'
-                }}
-                labelFormatter={(label) => {
-                  const item = combinedChartData.find(d => d.name === label);
-                  return item ? `${item.name} - ${item.description}` : label;
-                }}
-              />
-              <Legend 
-                wrapperStyle={{ fontSize: '15px', fontWeight: 600, paddingTop: '20px' }}
-                iconType="rect"
-                iconSize={16}
-              />
-              <Bar 
-                dataKey="originalBudget" 
-                fill="#3b82f6" 
-                name="Original Budget" 
-                radius={[4, 4, 0, 0]}
-                maxBarSize={60}
-              />
-              <Bar 
-                dataKey="anticipatedFinal" 
-                fill="#8b5cf6" 
-                name="Anticipated Final" 
-                radius={[4, 4, 0, 0]}
-                maxBarSize={60}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        );
-        setTimeout(resolve, 2500); // Wait for chart to render
-      });
-
-      // Capture the chart
-      await prepareElementForCapture(chartContainer);
-      const chartCanvas = await captureChartAsCanvas(chartContainer);
-      
-      // Add chart to PDF
-      addHighQualityImage(doc, chartCanvas, 14, analyticsY, fullWidth, chartHeight, 'PNG');
-      
-      // Cleanup
-      chartRoot.unmount();
-      document.body.removeChild(chartContainer);
-
-      yPos = analyticsY + chartHeight + 10;
-
-      // Overall variance summary with professional styling
+      // Overall variance summary
       doc.setFillColor(241, 245, 249);
       doc.roundedRect(14, yPos, pageWidth - 28, 12, 3, 3, 'F');
       
@@ -571,162 +415,58 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       // ========== PAGE 3: CATEGORY BREAKDOWN - CAPTURE FROM UI ==========
       doc.addPage();
       tocSections.push({ title: "Category Performance Details", page: doc.getCurrentPageInfo().pageNumber });
+      yPos = 30;
       
-      // Create hidden container to render the category breakdown cards
-      const categoryContainer = document.createElement('div');
-      categoryContainer.style.position = 'absolute';
-      categoryContainer.style.left = '-9999px';
-      categoryContainer.style.width = '1400px';
-      categoryContainer.style.backgroundColor = '#ffffff';
-      categoryContainer.style.padding = '40px';
-      document.body.appendChild(categoryContainer);
+      // Header
+      doc.setFontSize(18);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(30, 58, 138);
+      doc.text("CATEGORY PERFORMANCE DETAILS", pageWidth / 2, yPos, { align: "center" });
+      yPos += 15;
 
-      // Create title
-      const titleDiv = document.createElement('div');
-      titleDiv.style.fontSize = '24px';
-      titleDiv.style.fontWeight = 'bold';
-      titleDiv.style.marginBottom = '30px';
-      titleDiv.style.textAlign = 'center';
-      titleDiv.style.color = '#1e3a8a';
-      titleDiv.textContent = 'CATEGORY PERFORMANCE DETAILS';
-      categoryContainer.appendChild(titleDiv);
-
-      // Create grid container
-      const gridDiv = document.createElement('div');
-      gridDiv.style.display = 'grid';
-      gridDiv.style.gridTemplateColumns = 'repeat(3, 1fr)';
-      gridDiv.style.gap = '20px';
-      categoryContainer.appendChild(gridDiv);
-
-      // Render category cards
-      const gridRoot = createRoot(gridDiv);
-      
-      await new Promise<void>((resolve) => {
-        gridRoot.render(
-          <>
-            {categoryTotals.map((cat: any, index: number) => {
-              const color = COLORS[index % COLORS.length];
-              const colorString = `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
-              
-              return (
-                <div 
-                  key={cat.code}
-                  style={{
-                    backgroundColor: 'white',
-                    border: '1px solid #e5e7eb',
-                    borderLeft: `6px solid ${colorString}`,
-                    borderRadius: '8px',
-                    padding: '20px',
-                    boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
-                  }}
-                >
-                  <div style={{ display: 'flex', alignItems: 'start', gap: '12px', marginBottom: '16px' }}>
-                    <div 
-                      style={{
-                        minWidth: '44px',
-                        width: '44px',
-                        height: '44px',
-                        backgroundColor: colorString,
-                        color: 'white',
-                        fontWeight: 'bold',
-                        fontSize: '16px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        borderRadius: '8px'
-                      }}
-                    >
-                      {cat.code}
-                    </div>
-                    <div style={{ flex: 1 }}>
-                      <h4 style={{ fontWeight: '600', fontSize: '16px', lineHeight: '1.2', margin: 0 }}>
-                        {cat.description}
-                      </h4>
-                    </div>
-                  </div>
-                  
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', paddingTop: '8px' }}>
-                    <div>
-                      <div style={{ fontSize: '10px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
-                        Original Budget
-                      </div>
-                      <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: '600' }}>
-                        R{cat.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
-                      </div>
-                    </div>
-                    
-                    <div>
-                      <div style={{ fontSize: '10px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
-                        Anticipated Final
-                      </div>
-                      <div style={{ fontFamily: 'monospace', fontSize: '16px', fontWeight: '600' }}>
-                        R{cat.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
-                      </div>
-                    </div>
-                    
-                    <div style={{ paddingTop: '12px', borderTop: '2px solid #e5e7eb' }}>
-                      <div style={{ fontSize: '10px', fontWeight: '600', color: '#6b7280', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '4px' }}>
-                        Variance
-                      </div>
-                      <div style={{ fontFamily: 'monospace', fontSize: '18px', fontWeight: 'bold', color: cat.variance < 0 ? '#16a34a' : '#dc2626' }}>
-                        {cat.variance < 0 ? '-' : '+'}R{Math.abs(cat.variance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </>
-        );
-        setTimeout(resolve, 2500);
-      });
-
-      // Capture the category cards
-      await prepareElementForCapture(categoryContainer);
-      const categoryCanvas = await captureChartAsCanvas(categoryContainer);
-      
-      // Add to PDF - scale to fit page width
-      const captureWidth = pageWidth - 28;
-      const captureHeight = (categoryCanvas.height / categoryCanvas.width) * captureWidth;
-      
-      // Check if we need multiple pages
-      let currentY = 20;
-      const maxPageHeight = pageHeight - 40;
-      
-      if (captureHeight > maxPageHeight) {
-        // Split across multiple pages if needed
-        const numPages = Math.ceil(captureHeight / maxPageHeight);
-        for (let i = 0; i < numPages; i++) {
-          if (i > 0) doc.addPage();
-          
-          // Calculate slice of canvas to show
-          const sliceHeight = Math.min(maxPageHeight, captureHeight - (i * maxPageHeight));
-          const sliceCanvas = document.createElement('canvas');
-          sliceCanvas.width = categoryCanvas.width;
-          sliceCanvas.height = (sliceHeight / captureWidth) * categoryCanvas.width;
-          
-          const sliceCtx = sliceCanvas.getContext('2d');
-          if (sliceCtx) {
-            sliceCtx.drawImage(
-              categoryCanvas,
-              0, (i * maxPageHeight / captureWidth) * categoryCanvas.width,
-              categoryCanvas.width, sliceCanvas.height,
-              0, 0,
-              sliceCanvas.width, sliceCanvas.height
-            );
+      // CAPTURE ACTUAL UI CATEGORY CARDS FROM DOM
+      const categoryElement = document.getElementById('cost-report-category-cards');
+      if (categoryElement) {
+        await prepareElementForCapture(categoryElement);
+        const categoryCanvas = await captureChartAsCanvas(categoryElement);
+        const categoryAspectRatio = categoryCanvas.height / categoryCanvas.width;
+        const categoryWidth = pageWidth - 28;
+        const categoryHeight = categoryWidth * categoryAspectRatio;
+        
+        // Check if we need multiple pages
+        const maxHeight = pageHeight - yPos - 20;
+        
+        if (categoryHeight > maxHeight) {
+          // Split across multiple pages if needed
+          const numPages = Math.ceil(categoryHeight / maxHeight);
+          for (let i = 0; i < numPages; i++) {
+            if (i > 0) {
+              doc.addPage();
+              yPos = 20;
+            }
             
-            addHighQualityImage(doc, sliceCanvas, 14, 20, captureWidth, sliceHeight, 'PNG');
+            const sliceHeight = Math.min(maxHeight, categoryHeight - (i * maxHeight));
+            const sliceCanvas = document.createElement('canvas');
+            sliceCanvas.width = categoryCanvas.width;
+            sliceCanvas.height = (sliceHeight / categoryWidth) * categoryCanvas.width;
+            
+            const sliceCtx = sliceCanvas.getContext('2d');
+            if (sliceCtx) {
+              sliceCtx.drawImage(
+                categoryCanvas,
+                0, (i * maxHeight / categoryWidth) * categoryCanvas.width,
+                categoryCanvas.width, sliceCanvas.height,
+                0, 0,
+                sliceCanvas.width, sliceCanvas.height
+              );
+              
+              addHighQualityImage(doc, sliceCanvas, 14, yPos, categoryWidth, sliceHeight);
+            }
           }
+        } else {
+          addHighQualityImage(doc, categoryCanvas, 14, yPos, categoryWidth, categoryHeight);
         }
-      } else {
-        addHighQualityImage(doc, categoryCanvas, 14, currentY, captureWidth, captureHeight, 'PNG');
       }
-      
-      // Cleanup
-      gridRoot.unmount();
-      document.body.removeChild(categoryContainer);
-
-      yPos = 20;
 
       // ========== PAGE 4: PROJECT INFORMATION (Consolidated) ==========
       doc.addPage();
@@ -743,99 +483,34 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       
       yPos = 45;
 
-      // Project Details Card
-      doc.setFillColor(250, 250, 250);
-      doc.roundedRect(14, yPos, pageWidth - 28, 70, 3, 3, 'F');
-
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(41, 128, 185);
-      doc.text("Project Details", 20, yPos + 10);
-      
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(0);
-      
-      let detailsY = yPos + 20;
-      doc.setFont("helvetica", "bold");
-      doc.text("Client:", 20, detailsY);
-      doc.setFont("helvetica", "normal");
-      doc.text(report.client_name, 60, detailsY);
-      
-      detailsY += 8;
-      doc.setFont("helvetica", "bold");
-      doc.text("Project:", 20, detailsY);
-      doc.setFont("helvetica", "normal");
-      doc.text(report.project_name, 60, detailsY);
-      
-      detailsY += 8;
-      doc.setFont("helvetica", "bold");
-      doc.text("Project Number:", 20, detailsY);
-      doc.setFont("helvetica", "normal");
-      doc.text(report.project_number, 60, detailsY);
-      
-      detailsY += 8;
-      doc.setFont("helvetica", "bold");
-      doc.text("Report Date:", 20, detailsY);
-      doc.setFont("helvetica", "normal");
-      doc.text(new Date().toLocaleDateString('en-ZA', { day: '2-digit', month: 'long', year: 'numeric' }), 60, detailsY);
-
-      yPos += 80;
-
-      // Contractors Card (if any contractors exist)
-      if (report.electrical_contractor || report.earthing_contractor || report.cctv_contractor || report.standby_plants_contractor) {
-        doc.setFillColor(250, 250, 250);
-        const contractorCount = [
-          report.electrical_contractor,
-          report.earthing_contractor, 
-          report.cctv_contractor,
-          report.standby_plants_contractor
-        ].filter(Boolean).length;
-        const contractorCardHeight = 30 + (contractorCount * 8);
-        doc.roundedRect(14, yPos, pageWidth - 28, contractorCardHeight, 3, 3, 'F');
-
-        doc.setFontSize(11);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(41, 128, 185);
-        doc.text("Contractors", 20, yPos + 10);
+      // CAPTURE ACTUAL UI PROJECT INFO FROM DOM
+      const projectInfoElement = document.getElementById('cost-report-project-info');
+      if (projectInfoElement) {
+        await prepareElementForCapture(projectInfoElement);
+        const projectInfoCanvas = await captureChartAsCanvas(projectInfoElement);
+        const projectInfoAspectRatio = projectInfoCanvas.height / projectInfoCanvas.width;
+        const projectInfoWidth = pageWidth - 28;
+        const projectInfoHeight = projectInfoWidth * projectInfoAspectRatio;
         
-        doc.setFontSize(10);
-        doc.setTextColor(0);
-        let contractorY = yPos + 20;
-        
-        if (report.electrical_contractor) {
-          doc.setFont("helvetica", "bold");
-          doc.text("Electrical:", 20, contractorY);
-          doc.setFont("helvetica", "normal");
-          doc.text(report.electrical_contractor, 65, contractorY);
-          contractorY += 8;
-        }
-        if (report.earthing_contractor) {
-          doc.setFont("helvetica", "bold");
-          doc.text("Earthing & Lightning:", 20, contractorY);
-          doc.setFont("helvetica", "normal");
-          doc.text(report.earthing_contractor, 65, contractorY);
-          contractorY += 8;
-        }
-        if (report.standby_plants_contractor) {
-          doc.setFont("helvetica", "bold");
-          doc.text("Standby Plants:", 20, contractorY);
-          doc.setFont("helvetica", "normal");
-          doc.text(report.standby_plants_contractor, 65, contractorY);
-          contractorY += 8;
-        }
-        if (report.cctv_contractor) {
-          doc.setFont("helvetica", "bold");
-          doc.text("CCTV & Access Control:", 20, contractorY);
-          doc.setFont("helvetica", "normal");
-          doc.text(report.cctv_contractor, 65, contractorY);
-          contractorY += 8;
-        }
-        
-        yPos += contractorCardHeight + 10;
+        addHighQualityImage(doc, projectInfoCanvas, 14, yPos, projectInfoWidth, projectInfoHeight);
+        yPos += projectInfoHeight + 15;
       }
 
-      yPos += 10;
+      // CAPTURE ACTUAL UI CONTRACTORS FROM DOM (if exists)
+      const contractorsElement = document.getElementById('cost-report-contractors');
+      if (contractorsElement) {
+        await prepareElementForCapture(contractorsElement);
+        const contractorsCanvas = await captureChartAsCanvas(contractorsElement);
+        const contractorsAspectRatio = contractorsCanvas.height / contractorsCanvas.width;
+        const contractorsWidth = pageWidth - 28;
+        const contractorsHeight = contractorsWidth * contractorsAspectRatio;
+        
+        yPos = checkPageSpace(yPos, contractorsHeight + 20);
+        addHighQualityImage(doc, contractorsCanvas, 14, yPos, contractorsWidth, contractorsHeight);
+        yPos += contractorsHeight + 15;
+      }
+
+      yPos = checkPageSpace(yPos, 40);
 
       // ========== REPORT DETAILS SECTIONS ==========
       if (details.length > 0) {

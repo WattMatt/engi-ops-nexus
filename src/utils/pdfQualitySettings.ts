@@ -10,24 +10,21 @@ import jsPDF from "jspdf";
 
 /**
  * High-quality html2canvas settings
- * - scale: 4 provides 4x resolution for crisp output
+ * - scale: 2 provides good quality without massive file sizes
  * - useCORS: true for cross-origin images
  * - allowTaint: false for security
  * - backgroundColor: white for consistent backgrounds
  * - imageTimeout: longer timeout for complex charts
  */
 export const HIGH_QUALITY_CANVAS_OPTIONS = {
-  scale: 4,
+  scale: 2,
   useCORS: true,
   allowTaint: false,
   backgroundColor: '#ffffff',
   logging: false,
   imageTimeout: 15000,
   removeContainer: true,
-  // Improve text rendering
   letterRendering: true,
-  // Improve image quality
-  foreignObjectRendering: true,
 } as const;
 
 /**
@@ -47,10 +44,10 @@ export const STANDARD_QUALITY_CANVAS_OPTIONS = {
 
 /**
  * Chart-specific canvas settings
- * - Optimized for chart elements with higher scale
+ * - Optimized for chart elements with reasonable scale
  */
 export const CHART_QUALITY_CANVAS_OPTIONS = {
-  scale: 4,
+  scale: 2,
   useCORS: true,
   allowTaint: false,
   backgroundColor: '#ffffff',
@@ -58,10 +55,8 @@ export const CHART_QUALITY_CANVAS_OPTIONS = {
   imageTimeout: 20000,
   removeContainer: true,
   letterRendering: true,
-  foreignObjectRendering: true,
-  // Ensure charts render completely
-  windowWidth: 1920,
-  windowHeight: 1080,
+  windowWidth: 1200,
+  windowHeight: 800,
 } as const;
 
 /**
@@ -91,7 +86,8 @@ export const captureChartAsCanvas = async (
 };
 
 /**
- * Add image to PDF with high quality settings
+ * Add image to PDF with optimized quality settings
+ * Uses JPEG compression by default to reduce file size
  * 
  * @param doc - jsPDF instance
  * @param canvas - HTML canvas element
@@ -99,8 +95,8 @@ export const captureChartAsCanvas = async (
  * @param y - Y position in PDF
  * @param width - Width in PDF
  * @param height - Height in PDF
- * @param format - Image format ('PNG' or 'JPEG')
- * @param quality - JPEG quality (0-1), only used if format is 'JPEG'
+ * @param format - Image format ('PNG' or 'JPEG'), defaults to JPEG for smaller files
+ * @param quality - JPEG quality (0-1), defaults to 0.85 for good quality/size balance
  */
 export const addHighQualityImage = (
   doc: jsPDF,
@@ -109,16 +105,16 @@ export const addHighQualityImage = (
   y: number,
   width: number,
   height: number,
-  format: 'PNG' | 'JPEG' = 'PNG',
-  quality: number = 0.95
+  format: 'PNG' | 'JPEG' = 'JPEG',
+  quality: number = 0.85
 ) => {
-  // Convert canvas to high-quality data URL
+  // Convert canvas to data URL with compression
   const imgData = format === 'JPEG' 
     ? canvas.toDataURL('image/jpeg', quality)
     : canvas.toDataURL('image/png');
   
-  // Add image to PDF with compression settings
-  doc.addImage(imgData, format, x, y, width, height, undefined, format === 'JPEG' ? 'FAST' : 'NONE');
+  // Add image to PDF with compression
+  doc.addImage(imgData, format, x, y, width, height, undefined, 'FAST');
 };
 
 /**

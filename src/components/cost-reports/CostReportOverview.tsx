@@ -114,7 +114,8 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
 
   return (
     <div className="space-y-4">
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      {/* KPI Cards - add id for PDF capture */}
+      <div id="cost-report-kpi-cards" className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Original Budget</CardTitle>
@@ -165,9 +166,9 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
         </Card>
       </div>
 
-      {/* Visual Charts */}
+      {/* Visual Charts - add id for PDF capture */}
       {categoryTotals.length > 0 && (
-        <div className="grid gap-4 md:grid-cols-2">
+        <div id="cost-report-charts" className="grid gap-4 md:grid-cols-2">
           {/* Category Distribution Chart */}
           <Card>
             <CardHeader>
@@ -255,9 +256,9 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
         </div>
       )}
 
-      {/* Category Breakdown */}
+      {/* Category Breakdown - add id for PDF capture */}
       {categoryTotals.length > 0 && (
-        <Card>
+        <Card id="cost-report-category-cards">
           <CardHeader className="pb-4">
             <CardTitle className="text-xl">Category Breakdown</CardTitle>
           </CardHeader>
@@ -339,7 +340,7 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
         </Card>
       )}
 
-      <Card className="shadow-sm">
+      <Card id="cost-report-project-info" className="shadow-sm">
         <CardHeader className="pb-4 border-b">
           <CardTitle className="text-xl">Project Information</CardTitle>
         </CardHeader>
@@ -381,7 +382,7 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
         report.earthing_contractor ||
         report.standby_plants_contractor ||
         report.cctv_contractor) && (
-        <Card className="shadow-sm">
+        <Card id="cost-report-contractors" className="shadow-sm">
           <CardHeader className="pb-4 border-b">
             <CardTitle className="text-xl">Contractors</CardTitle>
           </CardHeader>
