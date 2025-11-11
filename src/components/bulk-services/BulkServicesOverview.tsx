@@ -105,17 +105,7 @@ export const BulkServicesOverview = ({ documentId, onBack }: BulkServicesOvervie
         </TabsContent>
 
         <TabsContent value="map" className="space-y-4">
-          <SANS204Calculator
-            open={true}
-            onOpenChange={setShowMapSelector}
-            onApplyValues={() => {}}
-            initialValues={{
-              project_area: document?.project_area,
-              climatic_zone: document?.climatic_zone,
-              diversity_factor: document?.diversity_factor,
-            }}
-            documentId={documentId}
-          />
+          <SANS204Calculator documentId={documentId} />
         </TabsContent>
 
         <TabsContent value="details" className="space-y-4">
