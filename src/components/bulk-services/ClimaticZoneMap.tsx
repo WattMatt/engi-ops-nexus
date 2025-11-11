@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, forwardRef, useImperativeHandle } from "react";
 import mapboxgl from "mapbox-gl";
 import MapboxGeocoder from "@mapbox/mapbox-gl-geocoder";
 import "mapbox-gl/dist/mapbox-gl.css";
@@ -66,57 +66,79 @@ const ZONE_INFO = {
   },
 };
 
-export const ClimaticZoneMap = ({ selectedZone, onZoneSelect, selectedCity, selectedCoordinates }: ClimaticZoneMapProps) => {
-  const mapContainer = useRef<HTMLDivElement>(null);
-  const map = useRef<mapboxgl.Map | null>(null);
-  const geocoder = useRef<MapboxGeocoder | null>(null);
-  const cityMarkers = useRef<mapboxgl.Marker[]>([]);
-  const selectedMarker = useRef<mapboxgl.Marker | null>(null);
-  const [mapboxToken, setMapboxToken] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [mapStyle, setMapStyle] = useState<'streets' | 'satellite' | 'terrain'>('streets');
-  const [showCityMarkers, setShowCityMarkers] = useState(true);
+export const ClimaticZoneMap = forwardRef<{ captureMap: () => Promise<Blob> }, ClimaticZoneMapProps>(
+  ({ selectedZone, onZoneSelect, selectedCity, selectedCoordinates }, ref) => {
+    const mapContainer = useRef<HTMLDivElement>(null);
+    const map = useRef<mapboxgl.Map | null>(null);
+    const geocoder = useRef<MapboxGeocoder | null>(null);
+    const cityMarkers = useRef<mapboxgl.Marker[]>([]);
+    const selectedMarker = useRef<mapboxgl.Marker | null>(null);
+    const [mapboxToken, setMapboxToken] = useState<string | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [mapStyle, setMapStyle] = useState<'streets' | 'satellite' | 'terrain'>('streets');
+    const [showCityMarkers, setShowCityMarkers] = useState(true);
 
-  const MAP_STYLES = {
-    streets: 'mapbox://styles/mapbox/light-v11',
-    satellite: 'mapbox://styles/mapbox/satellite-streets-v12',
-    terrain: 'mapbox://styles/mapbox/outdoors-v12',
-  };
-
-  useEffect(() => {
-    const fetchToken = async () => {
-      try {
-        // Fetch the Mapbox token from Supabase secrets via edge function
-        const { data, error } = await supabase.functions.invoke("get-mapbox-token");
-        
-        if (error) {
-          console.error("Error fetching Mapbox token:", error);
-          return;
-        }
-        
-        setMapboxToken(data.token);
-      } catch (error) {
-        console.error("Error fetching Mapbox token:", error);
-      } finally {
-        setLoading(false);
-      }
+    const MAP_STYLES = {
+      streets: 'mapbox://styles/mapbox/light-v11',
+      satellite: 'mapbox://styles/mapbox/satellite-streets-v12',
+      terrain: 'mapbox://styles/mapbox/outdoors-v12',
     };
 
-    fetchToken();
-  }, []);
+    // Expose captureMap method to parent
+    useImperativeHandle(ref, () => ({
+      captureMap: async () => {
+        if (!map.current) {
+          throw new Error("Map not initialized");
+        }
 
-  useEffect(() => {
-    if (!mapContainer.current || !mapboxToken) return;
+        return new Promise<Blob>((resolve, reject) => {
+          const canvas = map.current!.getCanvas();
+          canvas.toBlob((blob) => {
+            if (blob) {
+              resolve(blob);
+            } else {
+              reject(new Error("Failed to create blob from canvas"));
+            }
+          }, 'image/png');
+        });
+      }
+    }));
 
-    mapboxgl.accessToken = mapboxToken;
+    useEffect(() => {
+      const fetchToken = async () => {
+        try {
+          // Fetch the Mapbox token from Supabase secrets via edge function
+          const { data, error } = await supabase.functions.invoke("get-mapbox-token");
+          
+          if (error) {
+            console.error("Error fetching Mapbox token:", error);
+            return;
+          }
+          
+          setMapboxToken(data.token);
+        } catch (error) {
+          console.error("Error fetching Mapbox token:", error);
+        } finally {
+          setLoading(false);
+        }
+      };
 
-    map.current = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: MAP_STYLES[mapStyle],
-      center: [24.5, -28.5], // Center of South Africa
-      zoom: 4.5,
-      pitch: 0,
-    });
+      fetchToken();
+    }, []);
+
+    useEffect(() => {
+      if (!mapContainer.current || !mapboxToken) return;
+
+      mapboxgl.accessToken = mapboxToken;
+
+      map.current = new mapboxgl.Map({
+        container: mapContainer.current,
+        style: MAP_STYLES[mapStyle],
+        center: [24.5, -28.5], // Center of South Africa
+        zoom: 4.5,
+        pitch: 0,
+        preserveDrawingBuffer: true, // Required for capturing map as image
+      });
 
     map.current.on("load", () => {
       if (!map.current) return;
@@ -518,4 +540,4 @@ export const ClimaticZoneMap = ({ selectedZone, onZoneSelect, selectedCity, sele
 
     </div>
   );
-};
+});

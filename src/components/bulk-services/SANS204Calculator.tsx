@@ -6,7 +6,11 @@ import { Button } from "@/components/ui/button";
 import { ClimaticZoneMap } from "./ClimaticZoneMap";
 import { toast } from "sonner";
 import { Camera } from "lucide-react";
-import html2canvas from "html2canvas";
+
+interface MapComponentRef {
+  captureMap: () => Promise<Blob>;
+}
+
 
 interface SANS204CalculatorProps {
   documentId: string;
@@ -16,7 +20,7 @@ interface SANS204CalculatorProps {
 export const SANS204Calculator = ({ documentId, onZoneSelect }: SANS204CalculatorProps) => {
   const [selectedZone, setSelectedZone] = useState<string | null>(null);
   const [capturing, setCapturing] = useState(false);
-  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<MapComponentRef>(null);
 
   // Fetch the document to get the current zone and location
   const { data: document } = useQuery({
@@ -68,24 +72,15 @@ export const SANS204Calculator = ({ documentId, onZoneSelect }: SANS204Calculato
   };
 
   const handleCaptureMap = async () => {
-    if (!mapContainerRef.current || !selectedZone) {
+    if (!mapRef.current || !selectedZone) {
       toast.error("Please select a zone first");
       return;
     }
 
     setCapturing(true);
     try {
-      // Capture the map as canvas
-      const canvas = await html2canvas(mapContainerRef.current, {
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-      });
-
-      // Convert to blob
-      const blob = await new Promise<Blob>((resolve) => {
-        canvas.toBlob((blob) => resolve(blob!), 'image/png');
-      });
+      // Use the map's capture method
+      const blob = await mapRef.current.captureMap();
 
       // Upload to Supabase storage
       const fileName = `map-snapshot-${documentId}-${Date.now()}.png`;
@@ -171,8 +166,8 @@ export const SANS204Calculator = ({ documentId, onZoneSelect }: SANS204Calculato
         </div>
       </CardHeader>
       <CardContent>
-        <div ref={mapContainerRef}>
         <ClimaticZoneMap
+          ref={mapRef}
           onZoneSelect={handleZoneSelect}
           selectedZone={selectedZone}
           selectedCity={document?.climatic_zone_city}
@@ -182,7 +177,6 @@ export const SANS204Calculator = ({ documentId, onZoneSelect }: SANS204Calculato
               : undefined
             }
           />
-        </div>
       </CardContent>
     </Card>
   );
