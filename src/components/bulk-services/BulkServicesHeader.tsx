@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -18,6 +19,7 @@ interface BulkServicesHeaderProps {
 }
 
 export const BulkServicesHeader = ({ document }: BulkServicesHeaderProps) => {
+  const queryClient = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [formData, setFormData] = useState({
     document_number: document.document_number || "",
@@ -66,9 +68,11 @@ export const BulkServicesHeader = ({ document }: BulkServicesHeaderProps) => {
 
       if (error) throw error;
 
+      // Invalidate queries to refresh data
+      await queryClient.invalidateQueries({ queryKey: ["bulk-services-document", document.id] });
+      
       toast.success("Document updated successfully");
       setEditing(false);
-      window.location.reload();
     } catch (error: any) {
       console.error("Error updating document:", error);
       toast.error("Failed to update document");
