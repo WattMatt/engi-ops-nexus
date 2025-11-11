@@ -142,26 +142,15 @@ const SiteDiary = () => {
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="date">Date</Label>
-                  <Input
-                    id="date"
-                    type="date"
-                    value={entryDate}
-                    onChange={(e) => setEntryDate(e.target.value)}
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="weather">Weather</Label>
-                  <Input
-                    id="weather"
-                    placeholder="e.g., Sunny, 24°C, light breeze"
-                    value={weather}
-                    onChange={(e) => setWeather(e.target.value)}
-                  />
-                </div>
+              <div className="space-y-2">
+                <Label htmlFor="date">Date</Label>
+                <Input
+                  id="date"
+                  type="date"
+                  value={entryDate}
+                  onChange={(e) => setEntryDate(e.target.value)}
+                  required
+                />
               </div>
 
               <div className="space-y-3 border-l-4 border-primary/30 pl-4 bg-muted/20 p-4 rounded-r">
