@@ -12,9 +12,19 @@ const ZONE_COLORS = {
 };
 
 export const SouthAfricaZoneMap = ({ selectedZone }: SouthAfricaZoneMapProps) => {
-  const getZoneOpacity = (zone: string) => selectedZone === zone ? 1 : 0.3;
-  const getZoneStroke = (zone: string) => selectedZone === zone ? "#000" : "#666";
-  const getZoneStrokeWidth = (zone: string) => selectedZone === zone ? 2 : 0.5;
+  const getZoneOpacity = (zone: string) => selectedZone === zone ? 1 : 0.25;
+  const getZoneStroke = (zone: string) => selectedZone === zone ? "#000" : "#999";
+  const getZoneStrokeWidth = (zone: string) => selectedZone === zone ? 3 : 0.5;
+
+  // Zone center coordinates for pin placement
+  const zoneCenters: Record<string, { x: number; y: number }> = {
+    "1": { x: 260, y: 155 },
+    "2": { x: 270, y: 85 },
+    "3": { x: 340, y: 150 },
+    "4": { x: 90, y: 250 },
+    "5": { x: 280, y: 260 },
+    "6": { x: 120, y: 160 },
+  };
 
   return (
     <svg
@@ -91,6 +101,79 @@ export const SouthAfricaZoneMap = ({ selectedZone }: SouthAfricaZoneMapProps) =>
         stroke="#000"
         strokeWidth="2"
       />
+
+      {/* Zone labels */}
+      <text x="260" y="155" fontSize="20" fontWeight="bold" fill="#000" opacity={getZoneOpacity("1")}>1</text>
+      <text x="270" y="85" fontSize="20" fontWeight="bold" fill="#000" opacity={getZoneOpacity("2")}>2</text>
+      <text x="340" y="150" fontSize="20" fontWeight="bold" fill="#000" opacity={getZoneOpacity("3")}>3</text>
+      <text x="90" y="250" fontSize="20" fontWeight="bold" fill="#000" opacity={getZoneOpacity("4")}>4</text>
+      <text x="280" y="260" fontSize="20" fontWeight="bold" fill="#000" opacity={getZoneOpacity("5")}>5</text>
+      <text x="120" y="160" fontSize="20" fontWeight="bold" fill="#000" opacity={getZoneOpacity("6")}>6</text>
+
+      {/* Large location pin on selected zone */}
+      {selectedZone && zoneCenters[selectedZone] && (
+        <g>
+          {/* Pin shadow/glow */}
+          <ellipse
+            cx={zoneCenters[selectedZone].x}
+            cy={zoneCenters[selectedZone].y + 35}
+            rx="12"
+            ry="4"
+            fill="#000"
+            opacity="0.3"
+          />
+          
+          {/* Pin outer border */}
+          <path
+            d={`M ${zoneCenters[selectedZone].x} ${zoneCenters[selectedZone].y + 30} 
+                Q ${zoneCenters[selectedZone].x - 15} ${zoneCenters[selectedZone].y + 15}, 
+                  ${zoneCenters[selectedZone].x - 15} ${zoneCenters[selectedZone].y} 
+                Q ${zoneCenters[selectedZone].x - 15} ${zoneCenters[selectedZone].y - 15}, 
+                  ${zoneCenters[selectedZone].x} ${zoneCenters[selectedZone].y - 15} 
+                Q ${zoneCenters[selectedZone].x + 15} ${zoneCenters[selectedZone].y - 15}, 
+                  ${zoneCenters[selectedZone].x + 15} ${zoneCenters[selectedZone].y} 
+                Q ${zoneCenters[selectedZone].x + 15} ${zoneCenters[selectedZone].y + 15}, 
+                  ${zoneCenters[selectedZone].x} ${zoneCenters[selectedZone].y + 30} Z`}
+            fill="#fff"
+            stroke="#000"
+            strokeWidth="3"
+          />
+          
+          {/* Pin inner color */}
+          <path
+            d={`M ${zoneCenters[selectedZone].x} ${zoneCenters[selectedZone].y + 28} 
+                Q ${zoneCenters[selectedZone].x - 13} ${zoneCenters[selectedZone].y + 14}, 
+                  ${zoneCenters[selectedZone].x - 13} ${zoneCenters[selectedZone].y} 
+                Q ${zoneCenters[selectedZone].x - 13} ${zoneCenters[selectedZone].y - 13}, 
+                  ${zoneCenters[selectedZone].x} ${zoneCenters[selectedZone].y - 13} 
+                Q ${zoneCenters[selectedZone].x + 13} ${zoneCenters[selectedZone].y - 13}, 
+                  ${zoneCenters[selectedZone].x + 13} ${zoneCenters[selectedZone].y} 
+                Q ${zoneCenters[selectedZone].x + 13} ${zoneCenters[selectedZone].y + 14}, 
+                  ${zoneCenters[selectedZone].x} ${zoneCenters[selectedZone].y + 28} Z`}
+            fill="#ef4444"
+          />
+          
+          {/* Pin center dot */}
+          <circle
+            cx={zoneCenters[selectedZone].x}
+            cy={zoneCenters[selectedZone].y}
+            r="5"
+            fill="#fff"
+          />
+          
+          {/* Zone number on pin */}
+          <text
+            x={zoneCenters[selectedZone].x}
+            y={zoneCenters[selectedZone].y + 4}
+            fontSize="12"
+            fontWeight="bold"
+            fill="#fff"
+            textAnchor="middle"
+          >
+            {selectedZone}
+          </text>
+        </g>
+      )}
 
       {/* Zone labels */}
       <text x="260" y="155" fontSize="20" fontWeight="bold" fill="#000" opacity={getZoneOpacity("1")}>1</text>
