@@ -184,9 +184,11 @@ const SiteDiary = () => {
                 </div>
               </div>
 
-              <div className="space-y-3">
-                <h3 className="font-semibold text-base">Meeting Notes</h3>
-                <div className="grid gap-4 border rounded-lg p-4 bg-card">
+              <details className="space-y-3 border rounded-lg">
+                <summary className="font-semibold text-base p-4 cursor-pointer hover:bg-muted/50 rounded-lg">
+                  Meeting Notes (Optional)
+                </summary>
+                <div className="grid gap-4 px-4 pb-4">
                   <div className="space-y-2">
                     <Label htmlFor="attendees" className="text-sm">Who attended?</Label>
                     <Input
@@ -208,7 +210,7 @@ const SiteDiary = () => {
                     />
                   </div>
                 </div>
-              </div>
+              </details>
 
               <div className="space-y-3 border-l-4 border-destructive/30 pl-4 bg-destructive/5 p-4 rounded-r">
                 <h3 className="font-semibold text-base">Issues & Concerns</h3>
