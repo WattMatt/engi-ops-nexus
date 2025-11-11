@@ -133,7 +133,7 @@ export const LoadClarificationSection = ({ documentId }: LoadClarificationSectio
                 <span className="text-lg ml-1">kVA</span>
               </div>
               <div className="text-xs text-muted-foreground">
-                After diversity = {(totalConnectedLoad / 1000).toFixed(2)} × {diversityFactor}
+                {(totalConnectedLoad / 1000).toFixed(2)} kVA × {diversityFactor} = {(maximumDemand / 1000).toFixed(2)} kVA
               </div>
             </div>
           </div>
