@@ -14,6 +14,7 @@ import { SA_CITIES_ZONES, findClosestCity } from "@/data/saCitiesZones";
 interface ClimaticZoneMapProps {
   selectedZone: string;
   onZoneSelect: (zone: string) => void;
+  showReferenceMap?: boolean;
 }
 
 const ZONE_COLORS = {
@@ -64,7 +65,7 @@ const ZONE_INFO = {
   },
 };
 
-export const ClimaticZoneMap = ({ selectedZone, onZoneSelect }: ClimaticZoneMapProps) => {
+export const ClimaticZoneMap = ({ selectedZone, onZoneSelect, showReferenceMap = true }: ClimaticZoneMapProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const geocoder = useRef<MapboxGeocoder | null>(null);
@@ -364,34 +365,36 @@ export const ClimaticZoneMap = ({ selectedZone, onZoneSelect }: ClimaticZoneMapP
         ))}
       </div>
 
-      <div className="bg-muted/50 rounded-lg p-4 border border-border space-y-3">
-        <div className="flex items-center justify-between">
-          <p className="text-sm font-semibold">
-            Official SANS 10400-XA Climatic Zones Reference
-          </p>
-          <Badge variant="outline">Regulatory Standard</Badge>
+      {showReferenceMap && (
+        <div className="bg-muted/50 rounded-lg p-4 border border-border space-y-3">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold">
+              Official SANS 10400-XA Climatic Zones Reference
+            </p>
+            <Badge variant="outline">Regulatory Standard</Badge>
+          </div>
+          
+          <div className="relative rounded-lg overflow-hidden border-2 border-border">
+            <img 
+              src="/images/sans-10400-xa-official-map.png" 
+              alt="Official SANS 10400-XA Climatic Zones Map" 
+              className="w-full h-auto"
+            />
+          </div>
+          
+          <div className="text-xs text-muted-foreground space-y-1">
+            <p>
+              <strong>How to use:</strong> Search for your city in the map above, or click on city markers to identify your zone.
+            </p>
+            <p>
+              The interactive map includes {SA_CITIES_ZONES.length} major South African cities color-coded by climatic zone.
+            </p>
+            <p className="text-center pt-2">
+              Cross-reference with the official map above to verify your selection.
+            </p>
+          </div>
         </div>
-        
-        <div className="relative rounded-lg overflow-hidden border-2 border-border">
-          <img 
-            src="/images/sans-10400-xa-official-map.png" 
-            alt="Official SANS 10400-XA Climatic Zones Map" 
-            className="w-full h-auto"
-          />
-        </div>
-        
-        <div className="text-xs text-muted-foreground space-y-1">
-          <p>
-            <strong>How to use:</strong> Search for your city in the map above, or click on city markers to identify your zone.
-          </p>
-          <p>
-            The interactive map includes {SA_CITIES_ZONES.length} major South African cities color-coded by climatic zone.
-          </p>
-          <p className="text-center pt-2">
-            Cross-reference with the official map above to verify your selection.
-          </p>
-        </div>
-      </div>
+      )}
     </div>
   );
 };
