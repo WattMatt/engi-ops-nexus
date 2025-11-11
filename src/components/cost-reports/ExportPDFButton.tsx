@@ -75,14 +75,16 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         const isVariationsCategory = cat.description?.toUpperCase().includes("VARIATION");
         
         if (isVariationsCategory) {
+          // Filter variations for THIS specific category
+          const categoryVariations = variations.filter((v: any) => v.category_id === cat.id);
+          
           // For variations category:
-          // - originalBudget: 0 (variations weren't in original budget)
+          // - originalBudget: absolute total for display in distribution
           // - anticipatedFinal: NET total (debits add cost, credits reduce cost)
-          // - For display purposes, we'll store the absolute total separately
-          const netTotal = variations.reduce((sum: number, v: any) => 
+          const netTotal = categoryVariations.reduce((sum: number, v: any) => 
             sum + (v.is_credit ? -Number(v.amount || 0) : Number(v.amount || 0)), 0);
           
-          const absoluteTotal = variations.reduce((sum: number, v: any) => 
+          const absoluteTotal = categoryVariations.reduce((sum: number, v: any) => 
             sum + Math.abs(Number(v.amount || 0)), 0);
           
           return {
