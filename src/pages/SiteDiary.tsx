@@ -297,8 +297,33 @@ const SiteDiary = () => {
 
   const exportToPDF = async (entry: SiteDiaryEntry) => {
     try {
+      // Fetch project details
+      const { data: projectData, error: projectError } = await supabase
+        .from("projects")
+        .select("name, project_number")
+        .eq("id", projectId)
+        .single();
+
+      if (projectError) {
+        console.error("Error fetching project:", projectError);
+      }
+
       const doc = new jsPDF();
       let yPosition = 20;
+
+      // Project Information (if available)
+      if (projectData) {
+        doc.setFontSize(10);
+        doc.setTextColor(100, 100, 100);
+        doc.text(`Project: ${projectData.name}`, 20, yPosition);
+        yPosition += 5;
+        if (projectData.project_number) {
+          doc.text(`Project #: ${projectData.project_number}`, 20, yPosition);
+          yPosition += 10;
+        } else {
+          yPosition += 5;
+        }
+      }
 
       // Header
       doc.setFontSize(20);
