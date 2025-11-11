@@ -82,7 +82,6 @@ const App = () => (
             <Route path="tenant-tracker" element={<TenantTracker />} />
             <Route path="project-settings" element={<ProjectSettings />} />
             <Route path="site-diary" element={<SiteDiary />} />
-            <Route path="tasks" element={<SiteDiary />} />
             <Route path="ai-tools" element={<AITools />} />
             <Route path="cost-reports" element={<CostReports />} />
             <Route path="cost-reports/:reportId" element={<CostReportDetail />} />
