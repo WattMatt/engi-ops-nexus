@@ -233,6 +233,19 @@ export const BulkServicesSections = ({ documentId, sections }: BulkServicesSecti
                 {section.content ? (
                   <div className="whitespace-pre-wrap">
                     {populatePlaceholders(section.content).split('\n').map((line: string, idx: number) => {
+                      // Handle markdown images
+                      const imageMatch = line.match(/!\[([^\]]*)\]\(([^)]+)\)/);
+                      if (imageMatch) {
+                        return (
+                          <div key={idx} className="my-4">
+                            <img 
+                              src={imageMatch[2]} 
+                              alt={imageMatch[1]} 
+                              className="w-full h-auto rounded-lg border shadow-lg"
+                            />
+                          </div>
+                        );
+                      }
                       // Handle markdown tables
                       if (line.trim().startsWith('|')) {
                         return <div key={idx} className="font-mono text-xs bg-muted/50 p-2 rounded my-1 border border-border">{line}</div>;
