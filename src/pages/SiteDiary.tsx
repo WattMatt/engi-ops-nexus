@@ -66,6 +66,14 @@ const SiteDiary = () => {
 
   useEffect(() => {
     loadEntries();
+    
+    // Listen for project changes
+    const handleProjectChange = () => {
+      loadEntries();
+    };
+    
+    window.addEventListener('projectChanged', handleProjectChange);
+    return () => window.removeEventListener('projectChanged', handleProjectChange);
   }, []);
 
   const loadEntries = async () => {
