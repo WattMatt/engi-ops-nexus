@@ -29,6 +29,15 @@ export const ProjectDropdown = () => {
   useEffect(() => {
     loadProjects();
     loadSelectedProject();
+    
+    // Listen for project updates
+    const handleProjectUpdate = () => {
+      loadProjects();
+      loadSelectedProject();
+    };
+    
+    window.addEventListener('projectUpdated', handleProjectUpdate);
+    return () => window.removeEventListener('projectUpdated', handleProjectUpdate);
   }, []);
 
   const loadProjects = async () => {

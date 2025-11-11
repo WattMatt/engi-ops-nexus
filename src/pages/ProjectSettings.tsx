@@ -142,6 +142,9 @@ export default function ProjectSettings() {
 
       if (error) throw error;
 
+      // Dispatch event to notify ProjectDropdown to refresh
+      window.dispatchEvent(new Event('projectUpdated'));
+      
       toast.success("Project updated successfully");
       navigate("/dashboard");
     } catch (error: any) {
