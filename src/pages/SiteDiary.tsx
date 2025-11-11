@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Plus, Calendar, Cloud, ListTodo, GanttChart, Bell } from "lucide-react";
+import { Plus, Calendar, Cloud, ListTodo, GanttChart, Bell, X } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { TasksManager } from "@/components/site-diary/TasksManager";
@@ -16,6 +16,12 @@ import { EnhancedTasksManager } from "@/components/site-diary/task-views/Enhance
 import { MeetingMinutes } from "@/components/site-diary/MeetingMinutes";
 import { TasksGanttChart } from "@/components/site-diary/TasksGanttChart";
 import { RemindersPanel } from "@/components/site-diary/RemindersPanel";
+
+interface SubEntry {
+  id: string;
+  content: string;
+  timestamp: string;
+}
 
 interface SiteDiaryEntry {
   id: string;
@@ -26,6 +32,7 @@ interface SiteDiaryEntry {
   notes: string | null;
   meeting_minutes: string | null;
   attendees: any;
+  sub_entries: SubEntry[] | null;
   created_at: string;
 }
 
@@ -45,6 +52,7 @@ const SiteDiary = () => {
   const [notes, setNotes] = useState("");
   const [meetingMinutes, setMeetingMinutes] = useState("");
   const [attendees, setAttendees] = useState<string[]>([]);
+  const [subEntries, setSubEntries] = useState<SubEntry[]>([]);
 
   useEffect(() => {
     loadEntries();
@@ -67,7 +75,7 @@ const SiteDiary = () => {
         .order("entry_date", { ascending: false });
 
       if (error) throw error;
-      setEntries(data || []);
+      setEntries(data as any as SiteDiaryEntry[]);
     } catch (error: any) {
       toast.error("Failed to load diary entries");
     } finally {
@@ -93,7 +101,8 @@ const SiteDiary = () => {
         notes: notes,
         meeting_minutes: meetingMinutes,
         attendees: attendees,
-      });
+        sub_entries: subEntries.length > 0 ? subEntries : null,
+      } as any);
 
       if (error) throw error;
 
@@ -116,6 +125,26 @@ const SiteDiary = () => {
     setNotes("");
     setMeetingMinutes("");
     setAttendees([]);
+    setSubEntries([]);
+  };
+
+  const addSubEntry = () => {
+    const newSubEntry: SubEntry = {
+      id: `sub_${Date.now()}`,
+      content: "",
+      timestamp: new Date().toISOString(),
+    };
+    setSubEntries([...subEntries, newSubEntry]);
+  };
+
+  const updateSubEntry = (id: string, content: string) => {
+    setSubEntries(subEntries.map(entry => 
+      entry.id === id ? { ...entry, content } : entry
+    ));
+  };
+
+  const removeSubEntry = (id: string) => {
+    setSubEntries(subEntries.filter(entry => entry.id !== id));
   };
 
   return (
@@ -317,6 +346,25 @@ const SiteDiary = () => {
                         <p className="text-sm text-muted-foreground whitespace-pre-wrap">
                           {entry.meeting_minutes}
                         </p>
+                      </div>
+                    )}
+                    {entry.sub_entries && entry.sub_entries.length > 0 && (
+                      <div>
+                        <h4 className="font-medium text-sm mb-3">Notes & Observations</h4>
+                        <div className="space-y-2">
+                          {entry.sub_entries.map((subEntry: SubEntry, index: number) => (
+                            <div key={subEntry.id} className="border-l-2 border-primary/30 pl-3 py-2">
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
+                                <span>Note {index + 1}</span>
+                                <span>•</span>
+                                <span>{format(new Date(subEntry.timestamp), "h:mm a")}</span>
+                              </div>
+                              <p className="text-sm text-muted-foreground whitespace-pre-wrap">
+                                {subEntry.content}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
                     <div className="pt-4 border-t">

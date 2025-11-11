@@ -4523,6 +4523,7 @@ export type Database = {
           project_id: string
           queries: string | null
           site_progress: string | null
+          sub_entries: Json | null
           updated_at: string
           weather_conditions: string | null
         }
@@ -4538,6 +4539,7 @@ export type Database = {
           project_id: string
           queries?: string | null
           site_progress?: string | null
+          sub_entries?: Json | null
           updated_at?: string
           weather_conditions?: string | null
         }
@@ -4553,6 +4555,7 @@ export type Database = {
           project_id?: string
           queries?: string | null
           site_progress?: string | null
+          sub_entries?: Json | null
           updated_at?: string
           weather_conditions?: string | null
         }
