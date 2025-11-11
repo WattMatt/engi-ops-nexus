@@ -134,85 +134,122 @@ const SiteDiary = () => {
               New Entry
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Create Site Diary Entry</DialogTitle>
+              <DialogTitle>Site Diary Entry - {format(new Date(entryDate), "EEEE, MMMM d, yyyy")}</DialogTitle>
               <DialogDescription>
-                Record daily activities, weather, progress, and meeting notes
+                Document today's activities in diary format
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleSubmit}>
-              <Tabs defaultValue="basic" className="w-full">
-                <TabsList className="grid w-full grid-cols-2">
-                  <TabsTrigger value="basic">Basic Info</TabsTrigger>
-                  <TabsTrigger value="meeting">Meeting Minutes</TabsTrigger>
-                </TabsList>
-                <TabsContent value="basic" className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="date">Date</Label>
-                    <Input
-                      id="date"
-                      type="date"
-                      value={entryDate}
-                      onChange={(e) => setEntryDate(e.target.value)}
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="weather">Weather Conditions</Label>
-                    <Input
-                      id="weather"
-                      placeholder="Sunny, 25°C, light wind..."
-                      value={weather}
-                      onChange={(e) => setWeather(e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="progress">Site Progress</Label>
-                    <Textarea
-                      id="progress"
-                      placeholder="Describe work completed today..."
-                      value={progress}
-                      onChange={(e) => setProgress(e.target.value)}
-                      rows={4}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="queries">Queries & Issues</Label>
-                    <Textarea
-                      id="queries"
-                      placeholder="Any queries or issues that arose..."
-                      value={queries}
-                      onChange={(e) => setQueries(e.target.value)}
-                      rows={3}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="notes">Additional Notes</Label>
-                    <Textarea
-                      id="notes"
-                      placeholder="Any other notes..."
-                      value={notes}
-                      onChange={(e) => setNotes(e.target.value)}
-                      rows={3}
-                    />
-                  </div>
-                </TabsContent>
-                <TabsContent value="meeting" className="py-4">
-                  <MeetingMinutes
-                    value={meetingMinutes}
-                    attendees={attendees}
-                    onChange={setMeetingMinutes}
-                    onAttendeesChange={setAttendees}
+            <form onSubmit={handleSubmit} className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="date">Date</Label>
+                  <Input
+                    id="date"
+                    type="date"
+                    value={entryDate}
+                    onChange={(e) => setEntryDate(e.target.value)}
+                    required
                   />
-                </TabsContent>
-              </Tabs>
-              <DialogFooter className="mt-4">
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="weather">Weather</Label>
+                  <Input
+                    id="weather"
+                    placeholder="e.g., Sunny, 24°C, light breeze"
+                    value={weather}
+                    onChange={(e) => setWeather(e.target.value)}
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-3 border-l-4 border-primary/30 pl-4 bg-muted/20 p-4 rounded-r">
+                <h3 className="font-semibold text-base flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  Daily Log
+                </h3>
+                <div className="space-y-2">
+                  <Label htmlFor="progress" className="text-sm font-normal text-muted-foreground">
+                    What happened on site today?
+                  </Label>
+                  <Textarea
+                    id="progress"
+                    placeholder="Example: Started the day with morning briefing at 7:30 AM. Excavation works continued in the northern section. Concrete pour completed for foundation Block A. Electrical team began conduit installation..."
+                    value={progress}
+                    onChange={(e) => setProgress(e.target.value)}
+                    rows={6}
+                    className="resize-none"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <h3 className="font-semibold text-base">Meeting Notes</h3>
+                <div className="grid gap-4 border rounded-lg p-4 bg-card">
+                  <div className="space-y-2">
+                    <Label htmlFor="attendees" className="text-sm">Who attended?</Label>
+                    <Input
+                      id="attendees"
+                      placeholder="Names separated by commas: John Smith, Jane Doe, Mike Johnson"
+                      value={attendees.join(", ")}
+                      onChange={(e) => setAttendees(e.target.value.split(",").map(a => a.trim()).filter(Boolean))}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="meetingMinutes" className="text-sm">Discussion & Decisions</Label>
+                    <Textarea
+                      id="meetingMinutes"
+                      placeholder="Example: Met with the architect and contractor at 10:00 AM to discuss the layout changes. Agreed to proceed with revised floor plan. Action items: Update drawings by Friday, procure additional materials..."
+                      value={meetingMinutes}
+                      onChange={(e) => setMeetingMinutes(e.target.value)}
+                      rows={5}
+                      className="resize-none"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="space-y-3 border-l-4 border-destructive/30 pl-4 bg-destructive/5 p-4 rounded-r">
+                <h3 className="font-semibold text-base">Issues & Concerns</h3>
+                <div className="space-y-2">
+                  <Label htmlFor="queries" className="text-sm font-normal text-muted-foreground">
+                    Any problems or questions that came up?
+                  </Label>
+                  <Textarea
+                    id="queries"
+                    placeholder="Example: Delay in steel delivery - expected tomorrow. Need clarification on window specifications from architect. Safety concern noted regarding scaffolding in west wing..."
+                    value={queries}
+                    onChange={(e) => setQueries(e.target.value)}
+                    rows={4}
+                    className="resize-none"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <h3 className="font-semibold text-base">Additional Observations</h3>
+                <div className="space-y-2">
+                  <Label htmlFor="notes" className="text-sm font-normal text-muted-foreground">
+                    Anything else worth noting?
+                  </Label>
+                  <Textarea
+                    id="notes"
+                    placeholder="Example: Site morale is high. New workers settled in well. Reminded team about safety protocols. Site cleaned and secured for the night..."
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    rows={3}
+                    className="resize-none"
+                  />
+                </div>
+              </div>
+
+              <DialogFooter className="gap-2">
                 <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                   Cancel
                 </Button>
                 <Button type="submit" disabled={submitting}>
-                  {submitting ? "Saving..." : "Save Entry"}
+                  {submitting ? "Saving Entry..." : "Save Diary Entry"}
                 </Button>
               </DialogFooter>
             </form>
