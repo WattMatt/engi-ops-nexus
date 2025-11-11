@@ -392,8 +392,12 @@ export const ClimaticZoneMap = ({ selectedZone, onZoneSelect, selectedCity, sele
         .setPopup(popup)
         .addTo(map.current!);
 
-      // Only fly to location if it's a new selection (not on initial load)
-      // This prevents auto-zoom when just loading the saved selection
+      // Fly to the selected location
+      map.current!.flyTo({
+        center: selectedCoordinates,
+        zoom: 7,
+        duration: 1500,
+      });
     };
 
     // Check if map is already loaded
