@@ -451,6 +451,38 @@ const SiteDiary = () => {
               // Reset text color
               doc.setTextColor(0, 0, 0);
             }
+            
+            // Draw colored status indicators
+            if (data.section === 'body' && data.column.index === 4) {
+              const status = actionItemsData[data.row.index][4];
+              const cell = data.cell;
+              
+              // Clear the default text
+              doc.setFillColor(255, 255, 255);
+              doc.rect(cell.x, cell.y, cell.width, cell.height, 'F');
+              
+              // Draw colored circle
+              const circleX = cell.x + 5;
+              const circleY = cell.y + cell.height / 2;
+              const circleRadius = 2;
+              
+              if (status === 'Done') {
+                doc.setFillColor(34, 197, 94); // green for completed
+                doc.circle(circleX, circleY, circleRadius, 'F');
+                doc.setTextColor(34, 197, 94);
+                doc.setFontSize(10);
+                doc.text('Done', circleX + 5, circleY + 1);
+              } else {
+                doc.setFillColor(234, 179, 8); // yellow/amber for pending
+                doc.circle(circleX, circleY, circleRadius, 'F');
+                doc.setTextColor(234, 179, 8);
+                doc.setFontSize(10);
+                doc.text('Pending', circleX + 5, circleY + 1);
+              }
+              
+              // Reset text color
+              doc.setTextColor(0, 0, 0);
+            }
           },
         });
       }
