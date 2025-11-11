@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
-import { Save, Calculator } from "lucide-react";
+import { Save, Calculator, Download } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 
@@ -52,13 +52,36 @@ export const BulkServicesKPICard = ({ documentId }: BulkServicesKPICardProps) =>
     queryFn: async () => {
       const { data, error } = await supabase
         .from("bulk_services_documents")
-        .select("*")
+        .select("*, project_id")
         .eq("id", documentId)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return data;
     },
+  });
+
+  const projectId = document?.project_id;
+
+  const { data: tenantData } = useQuery({
+    queryKey: ["tenant-tracker-total", projectId],
+    queryFn: async () => {
+      if (!projectId) return null;
+
+      const { data, error } = await supabase
+        .from("tenants")
+        .select("area")
+        .eq("project_id", projectId);
+
+      if (error) throw error;
+
+      const totalArea = data?.reduce((sum, tenant) => sum + (tenant.area || 0), 0) || 0;
+      return {
+        totalArea: Math.round(totalArea * 100) / 100,
+        tenantCount: data?.length || 0,
+      };
+    },
+    enabled: !!projectId,
   });
 
   useEffect(() => {
@@ -68,6 +91,13 @@ export const BulkServicesKPICard = ({ documentId }: BulkServicesKPICardProps) =>
       setDiversityFactor(document.diversity_factor?.toString() || "0.75");
     }
   }, [document]);
+
+  const handleImportFromTenantTracker = () => {
+    if (tenantData?.totalArea) {
+      setProjectArea(tenantData.totalArea.toString());
+      toast.success(`Imported ${tenantData.totalArea.toLocaleString()} m² from tenant tracker (${tenantData.tenantCount} tenants)`);
+    }
+  };
 
   const vaPerSqm = SANS_204_TABLE[buildingClass].zones[parseInt(climaticZone) - 1];
   const area = parseFloat(projectArea) || 0;
@@ -111,14 +141,32 @@ export const BulkServicesKPICard = ({ documentId }: BulkServicesKPICardProps) =>
       <CardContent className="space-y-6">
         {/* Input Parameters */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="space-y-2">
-            <Label>Project Area (m²)</Label>
-            <Input
-              type="number"
-              value={projectArea}
-              onChange={(e) => setProjectArea(e.target.value)}
-              placeholder="Enter total floor area"
-            />
+          <div className="space-y-2 md:col-span-2">
+            <div className="flex items-end gap-2">
+              <div className="flex-1 space-y-2">
+                <Label>Project Area (m²)</Label>
+                <Input
+                  type="number"
+                  value={projectArea}
+                  onChange={(e) => setProjectArea(e.target.value)}
+                  placeholder="Enter total floor area"
+                />
+              </div>
+              <Button
+                variant="outline"
+                onClick={handleImportFromTenantTracker}
+                disabled={!tenantData?.totalArea}
+                className="mb-0"
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Import from Tenant Tracker
+              </Button>
+            </div>
+            {tenantData && (
+              <p className="text-xs text-muted-foreground">
+                Tenant tracker total: {tenantData.totalArea.toLocaleString()} m² ({tenantData.tenantCount} tenants)
+              </p>
+            )}
           </div>
 
           <div className="space-y-2">
