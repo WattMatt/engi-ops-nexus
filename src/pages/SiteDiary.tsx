@@ -184,34 +184,6 @@ const SiteDiary = () => {
                 </div>
               </div>
 
-              <details className="space-y-3 border rounded-lg">
-                <summary className="font-semibold text-base p-4 cursor-pointer hover:bg-muted/50 rounded-lg">
-                  Meeting Notes (Optional)
-                </summary>
-                <div className="grid gap-4 px-4 pb-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="attendees" className="text-sm">Who attended?</Label>
-                    <Input
-                      id="attendees"
-                      placeholder="Names separated by commas: John Smith, Jane Doe, Mike Johnson"
-                      value={attendees.join(", ")}
-                      onChange={(e) => setAttendees(e.target.value.split(",").map(a => a.trim()).filter(Boolean))}
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="meetingMinutes" className="text-sm">Discussion & Decisions</Label>
-                    <Textarea
-                      id="meetingMinutes"
-                      placeholder="Example: Met with the architect and contractor at 10:00 AM to discuss the layout changes. Agreed to proceed with revised floor plan. Action items: Update drawings by Friday, procure additional materials..."
-                      value={meetingMinutes}
-                      onChange={(e) => setMeetingMinutes(e.target.value)}
-                      rows={5}
-                      className="resize-none"
-                    />
-                  </div>
-                </div>
-              </details>
-
               <div className="space-y-3 border-l-4 border-destructive/30 pl-4 bg-destructive/5 p-4 rounded-r">
                 <h3 className="font-semibold text-base">Issues & Concerns</h3>
                 <div className="space-y-2">
