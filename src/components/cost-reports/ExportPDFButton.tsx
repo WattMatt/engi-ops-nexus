@@ -281,13 +281,6 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         doc.setTextColor(varianceColor[0], varianceColor[1], varianceColor[2]);
         const varianceSign = category.variance < 0 ? '-' : '+';
         doc.text(`${varianceSign}R ${Math.abs(category.variance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, x + 8, y + 48);
-        
-        // Status badge
-        doc.setFillColor(category.variance < 0 ? 220 : 254, category.variance < 0 ? 252 : 226, category.variance < 0 ? 231 : 226);
-        doc.roundedRect(x + 8, y + height - 10, width - 16, 6, 1, 1, 'F');
-        doc.setFontSize(7);
-        doc.setFont("helvetica", "bold");
-        doc.text(category.variance < 0 ? 'SAVING' : 'EXTRA', x + width / 2, y + height - 6.5, { align: "center" });
       };
 
       // ========== PAGE 2: EXECUTIVE SUMMARY ==========
