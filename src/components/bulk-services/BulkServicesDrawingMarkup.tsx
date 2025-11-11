@@ -21,6 +21,11 @@ interface Marker {
   type: "connection_point" | "transformer" | "substation" | "cable_route";
 }
 
+interface ViewState {
+  zoom: number;
+  offset: Point;
+}
+
 interface BulkServicesDrawingMarkupProps {
   documentId: string;
 }
@@ -28,7 +33,9 @@ interface BulkServicesDrawingMarkupProps {
 export const BulkServicesDrawingMarkup = ({ documentId }: BulkServicesDrawingMarkupProps) => {
   const [pdfDoc, setPdfDoc] = useState<any>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [zoom, setZoom] = useState(1);
+  const [viewState, setViewState] = useState<ViewState>({ zoom: 1, offset: { x: 0, y: 0 } });
+  const [isPanning, setIsPanning] = useState(false);
+  const [panStart, setPanStart] = useState<Point>({ x: 0, y: 0 });
   const [markers, setMarkers] = useState<Marker[]>([]);
   const [activeTool, setActiveTool] = useState<Marker["type"] | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -37,6 +44,7 @@ export const BulkServicesDrawingMarkup = ({ documentId }: BulkServicesDrawingMar
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const markupCanvasRef = useRef<HTMLCanvasElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -47,11 +55,11 @@ export const BulkServicesDrawingMarkup = ({ documentId }: BulkServicesDrawingMar
     if (pdfDoc) {
       renderPage();
     }
-  }, [pdfDoc, currentPage, zoom]);
+  }, [pdfDoc, currentPage]);
 
   useEffect(() => {
     renderMarkup();
-  }, [markers, zoom]);
+  }, [markers, viewState]);
 
   const loadSavedMarkup = async () => {
     setLoadingPdf(true);
@@ -141,13 +149,14 @@ export const BulkServicesDrawingMarkup = ({ documentId }: BulkServicesDrawingMar
   };
 
   const renderPage = async () => {
-    if (!pdfDoc || !canvasRef.current) return;
+    if (!pdfDoc || !canvasRef.current || !containerRef.current) return;
 
     const page = await pdfDoc.getPage(currentPage);
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
 
-    const viewport = page.getViewport({ scale: zoom });
+    const renderScale = 2.0;
+    const viewport = page.getViewport({ scale: renderScale });
     canvas.width = viewport.width;
     canvas.height = viewport.height;
 
@@ -157,6 +166,15 @@ export const BulkServicesDrawingMarkup = ({ documentId }: BulkServicesDrawingMar
     }
 
     await page.render({ canvasContext: ctx!, viewport }).promise;
+
+    // Calculate initial view state to fit the PDF
+    const containerWidth = containerRef.current.clientWidth;
+    const containerHeight = containerRef.current.clientHeight;
+    const initialZoom = Math.min(containerWidth / viewport.width, containerHeight / viewport.height) * 0.95;
+    const initialOffsetX = (containerWidth - viewport.width * initialZoom) / 2;
+    const initialOffsetY = (containerHeight - viewport.height * initialZoom) / 2;
+    
+    setViewState({ zoom: initialZoom, offset: { x: initialOffsetX, y: initialOffsetY } });
   };
 
   const renderMarkup = () => {
@@ -168,12 +186,14 @@ export const BulkServicesDrawingMarkup = ({ documentId }: BulkServicesDrawingMar
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    ctx.save();
+    ctx.translate(viewState.offset.x, viewState.offset.y);
+    ctx.scale(viewState.zoom, viewState.zoom);
+
     markers.forEach((marker) => {
-      const scaledPos = { x: marker.position.x * zoom, y: marker.position.y * zoom };
-      
       // Draw marker icon based on type
       ctx.save();
-      ctx.translate(scaledPos.x, scaledPos.y);
+      ctx.translate(marker.position.x, marker.position.y);
 
       // Marker circle
       ctx.fillStyle = getMarkerColor(marker.type);
@@ -181,16 +201,18 @@ export const BulkServicesDrawingMarkup = ({ documentId }: BulkServicesDrawingMar
       ctx.arc(0, 0, 12, 0, Math.PI * 2);
       ctx.fill();
       ctx.strokeStyle = "#fff";
-      ctx.lineWidth = 2;
+      ctx.lineWidth = 2 / viewState.zoom;
       ctx.stroke();
 
       // Marker label
       ctx.fillStyle = "#000";
-      ctx.font = "12px Arial";
+      ctx.font = `${12 / viewState.zoom}px Arial`;
       ctx.fillText(marker.label, 16, 4);
 
       ctx.restore();
     });
+
+    ctx.restore();
   };
 
   const getMarkerColor = (type: Marker["type"]) => {
@@ -203,22 +225,82 @@ export const BulkServicesDrawingMarkup = ({ documentId }: BulkServicesDrawingMar
     }
   };
 
-  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!activeTool || !markupCanvasRef.current) return;
-
+  const getMousePos = (e: React.MouseEvent<HTMLCanvasElement>): Point => {
+    if (!markupCanvasRef.current) return { x: 0, y: 0 };
     const rect = markupCanvasRef.current.getBoundingClientRect();
-    const x = (e.clientX - rect.left) / zoom;
-    const y = (e.clientY - rect.top) / zoom;
-
-    const newMarker: Marker = {
-      id: `marker_${Date.now()}`,
-      position: { x, y },
-      label: getMarkerLabel(activeTool),
-      type: activeTool,
+    return {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top
     };
+  };
 
-    setMarkers([...markers, newMarker]);
-    setActiveTool(null);
+  const toWorld = (screenPos: Point): Point => {
+    return {
+      x: (screenPos.x - viewState.offset.x) / viewState.zoom,
+      y: (screenPos.y - viewState.offset.y) / viewState.zoom
+    };
+  };
+
+  const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const screenPos = getMousePos(e);
+
+    if (activeTool) {
+      // Place marker
+      const worldPos = toWorld(screenPos);
+      const newMarker: Marker = {
+        id: `marker_${Date.now()}`,
+        position: worldPos,
+        label: getMarkerLabel(activeTool),
+        type: activeTool,
+      };
+      setMarkers([...markers, newMarker]);
+      setActiveTool(null);
+    } else {
+      // Start panning
+      setIsPanning(true);
+      setPanStart(screenPos);
+    }
+  };
+
+  const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (isPanning) {
+      const screenPos = getMousePos(e);
+      const dx = screenPos.x - panStart.x;
+      const dy = screenPos.y - panStart.y;
+      
+      setViewState(prev => ({
+        ...prev,
+        offset: { x: prev.offset.x + dx, y: prev.offset.y + dy }
+      }));
+      setPanStart(screenPos);
+    }
+  };
+
+  const handleMouseUp = () => {
+    setIsPanning(false);
+  };
+
+  const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
+    e.preventDefault();
+    
+    const screenPos = getMousePos(e);
+    const worldPosBefore = toWorld(screenPos);
+    
+    const zoomFactor = e.deltaY < 0 ? 1.1 : 0.9;
+    const newZoom = Math.max(0.5, Math.min(5, viewState.zoom * zoomFactor));
+    
+    // Calculate new offset to zoom towards mouse position
+    const worldPosAfter = {
+      x: (screenPos.x - viewState.offset.x) / newZoom,
+      y: (screenPos.y - viewState.offset.y) / newZoom
+    };
+    
+    const newOffset = {
+      x: viewState.offset.x + (worldPosBefore.x - worldPosAfter.x) * newZoom,
+      y: viewState.offset.y + (worldPosBefore.y - worldPosAfter.y) * newZoom
+    };
+    
+    setViewState({ zoom: newZoom, offset: newOffset });
   };
 
   const getMarkerLabel = (type: Marker["type"]) => {
@@ -302,13 +384,13 @@ export const BulkServicesDrawingMarkup = ({ documentId }: BulkServicesDrawingMar
               <Upload className="mr-2 h-4 w-4" />
               {uploading ? "Uploading..." : "Upload Drawing"}
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setZoom(z => Math.max(0.5, z - 0.25))}>
+            <Button variant="outline" size="sm" onClick={() => setViewState(prev => ({ ...prev, zoom: Math.max(0.5, prev.zoom * 0.8) }))}>
               <ZoomOut className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setZoom(z => Math.min(3, z + 0.25))}>
+            <Button variant="outline" size="sm" onClick={() => setViewState(prev => ({ ...prev, zoom: Math.min(5, prev.zoom * 1.2) }))}>
               <ZoomIn className="h-4 w-4" />
             </Button>
-            <Button variant="outline" size="sm" onClick={() => setZoom(1)}>
+            <Button variant="outline" size="sm" onClick={() => pdfDoc && renderPage()}>
               <Maximize2 className="h-4 w-4" />
             </Button>
             <Button variant="outline" size="sm" onClick={handleExportImage} disabled={!pdfDoc}>
@@ -354,7 +436,11 @@ export const BulkServicesDrawingMarkup = ({ documentId }: BulkServicesDrawingMar
         </div>
       </Card>
 
-      <div className="relative border rounded-lg overflow-auto bg-muted/20" style={{ height: "600px" }}>
+      <div 
+        ref={containerRef}
+        className="relative border rounded-lg overflow-hidden bg-muted/20" 
+        style={{ height: "600px" }}
+      >
         {loadingPdf ? (
           <div className="flex items-center justify-center h-full text-muted-foreground">
             <div className="text-center">
@@ -370,13 +456,26 @@ export const BulkServicesDrawingMarkup = ({ documentId }: BulkServicesDrawingMar
             </div>
           </div>
         ) : (
-          <div className="relative inline-block">
-            <canvas ref={canvasRef} className="border" />
+          <div className="relative w-full h-full">
+            <canvas 
+              ref={canvasRef} 
+              className="absolute top-0 left-0"
+              style={{
+                transform: `translate(${viewState.offset.x}px, ${viewState.offset.y}px) scale(${viewState.zoom})`,
+                transformOrigin: '0 0',
+              }}
+            />
             <canvas
               ref={markupCanvasRef}
-              className="absolute top-0 left-0 cursor-crosshair"
-              onClick={handleCanvasClick}
-              style={{ pointerEvents: activeTool ? "auto" : "none" }}
+              className="absolute top-0 left-0"
+              style={{ 
+                cursor: activeTool ? "crosshair" : isPanning ? "grabbing" : "grab"
+              }}
+              onMouseDown={handleMouseDown}
+              onMouseMove={handleMouseMove}
+              onMouseUp={handleMouseUp}
+              onMouseLeave={handleMouseUp}
+              onWheel={handleWheel}
             />
           </div>
         )}
