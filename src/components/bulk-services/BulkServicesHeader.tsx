@@ -35,9 +35,9 @@ export const BulkServicesHeader = ({ document }: BulkServicesHeaderProps) => {
     va_per_sqm: document.va_per_sqm?.toString() || "",
     climatic_zone: document.climatic_zone || "",
     prepared_by: document.prepared_by || "",
-    prepared_by_contact: document.prepared_by_contact || "",
     client_name: document.client_name || "",
-    architect: document.architect || "",
+    project_description: document.project_description || "",
+    client_representative: document.client_representative || "",
     building_calculation_type: document.building_calculation_type || "sans_204",
   });
 
@@ -59,9 +59,9 @@ export const BulkServicesHeader = ({ document }: BulkServicesHeaderProps) => {
           va_per_sqm: formData.va_per_sqm ? parseFloat(formData.va_per_sqm) : null,
           climatic_zone: formData.climatic_zone || null,
           prepared_by: formData.prepared_by || null,
-          prepared_by_contact: formData.prepared_by_contact || null,
           client_name: formData.client_name || null,
-          architect: formData.architect || null,
+          project_description: formData.project_description || null,
+          client_representative: formData.client_representative || null,
           building_calculation_type: formData.building_calculation_type,
         })
         .eq("id", document.id);
@@ -112,16 +112,16 @@ export const BulkServicesHeader = ({ document }: BulkServicesHeaderProps) => {
             <p className="font-medium">{document.client_name || "Not set"}</p>
           </div>
           <div>
-            <p className="text-sm text-muted-foreground">Architect</p>
-            <p className="font-medium">{document.architect || "Not set"}</p>
+            <p className="text-sm text-muted-foreground">Client Representative</p>
+            <p className="font-medium">{document.client_representative || "Not set"}</p>
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Prepared By</p>
             <p className="font-medium">{document.prepared_by || "Not set"}</p>
           </div>
-          <div>
-            <p className="text-sm text-muted-foreground">Contact Person</p>
-            <p className="font-medium">{document.prepared_by_contact || "Not set"}</p>
+          <div className="col-span-2">
+            <p className="text-sm text-muted-foreground">Project Description</p>
+            <p className="font-medium">{document.project_description || "Not set"}</p>
           </div>
           <div>
             <p className="text-sm text-muted-foreground">Project Area</p>
@@ -206,11 +206,19 @@ export const BulkServicesHeader = ({ document }: BulkServicesHeaderProps) => {
           />
         </div>
         <div className="space-y-2">
-          <Label>Architect</Label>
+          <Label>Client Representative</Label>
           <Input
-            value={formData.architect}
-            onChange={(e) => setFormData({ ...formData, architect: e.target.value })}
-            placeholder="Architect firm"
+            value={formData.client_representative}
+            onChange={(e) => setFormData({ ...formData, client_representative: e.target.value })}
+            placeholder="Client representative name"
+          />
+        </div>
+        <div className="space-y-2 col-span-2">
+          <Label>Project Description</Label>
+          <Input
+            value={formData.project_description}
+            onChange={(e) => setFormData({ ...formData, project_description: e.target.value })}
+            placeholder="Brief description of the project"
           />
         </div>
         <div className="space-y-2">
@@ -219,14 +227,6 @@ export const BulkServicesHeader = ({ document }: BulkServicesHeaderProps) => {
             value={formData.prepared_by}
             onChange={(e) => setFormData({ ...formData, prepared_by: e.target.value })}
             placeholder="Watson Mattheus Consulting"
-          />
-        </div>
-        <div className="space-y-2">
-          <Label>Contact Person</Label>
-          <Input
-            value={formData.prepared_by_contact}
-            onChange={(e) => setFormData({ ...formData, prepared_by_contact: e.target.value })}
-            placeholder="Mr. Contact Name"
           />
         </div>
         <div className="space-y-2">

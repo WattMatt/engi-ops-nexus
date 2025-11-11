@@ -426,6 +426,7 @@ export type Database = {
           architect: string | null
           building_calculation_type: string | null
           client_name: string | null
+          client_representative: string | null
           climatic_zone: string | null
           climatic_zone_city: string | null
           climatic_zone_lat: number | null
@@ -448,6 +449,7 @@ export type Database = {
           prepared_by_contact: string | null
           primary_voltage: string | null
           project_area: number | null
+          project_description: string | null
           project_id: string
           revision: string
           supply_authority: string | null
@@ -461,6 +463,7 @@ export type Database = {
           architect?: string | null
           building_calculation_type?: string | null
           client_name?: string | null
+          client_representative?: string | null
           climatic_zone?: string | null
           climatic_zone_city?: string | null
           climatic_zone_lat?: number | null
@@ -483,6 +486,7 @@ export type Database = {
           prepared_by_contact?: string | null
           primary_voltage?: string | null
           project_area?: number | null
+          project_description?: string | null
           project_id: string
           revision?: string
           supply_authority?: string | null
@@ -496,6 +500,7 @@ export type Database = {
           architect?: string | null
           building_calculation_type?: string | null
           client_name?: string | null
+          client_representative?: string | null
           climatic_zone?: string | null
           climatic_zone_city?: string | null
           climatic_zone_lat?: number | null
@@ -518,6 +523,7 @@ export type Database = {
           prepared_by_contact?: string | null
           primary_voltage?: string | null
           project_area?: number | null
+          project_description?: string | null
           project_id?: string
           revision?: string
           supply_authority?: string | null
