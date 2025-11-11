@@ -843,21 +843,29 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         doc.text("VARIATIONS", 14, yPos);
         yPos += 10;
 
-        const variationData = variations.map((variation: any) => [
+        // Sort variations by code
+        const sortedVariations = [...variations].sort((a: any, b: any) => {
+          const codeA = a.code || '';
+          const codeB = b.code || '';
+          return codeA.localeCompare(codeB, undefined, { numeric: true, sensitivity: 'base' });
+        });
+
+        const variationData = sortedVariations.map((variation: any) => [
           variation.code,
           variation.description,
           variation.is_credit ? "Credit" : "Debit",
           `R ${Number(variation.amount || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
         ]);
 
-        const variationTotal = variations.reduce((sum: number, v: any) => 
-          sum + (v.is_credit ? Number(v.amount || 0) : -Number(v.amount || 0)), 0);
+        // Calculate total correctly: debits add to cost (positive), credits reduce cost (negative)
+        const variationTotal = sortedVariations.reduce((sum: number, v: any) => 
+          sum + (v.is_credit ? -Number(v.amount || 0) : Number(v.amount || 0)), 0);
 
         variationData.push([
           '',
           'TOTAL',
           '',
-          `R${variationTotal.toFixed(2)}`,
+          `R ${variationTotal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
         ]);
 
         autoTable(doc, {
@@ -873,6 +881,14 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
             1: { cellWidth: 100 },
             2: { cellWidth: 25 },
             3: { cellWidth: 30, halign: 'right' },
+          },
+          willDrawCell: (data) => {
+            // Highlight the total row
+            if (data.section === 'body' && data.row.index === variationData.length - 1) {
+              data.cell.styles.fillColor = [220, 230, 240];
+              data.cell.styles.fontStyle = 'bold';
+              data.cell.styles.fontSize = 9;
+            }
           },
         });
       }
