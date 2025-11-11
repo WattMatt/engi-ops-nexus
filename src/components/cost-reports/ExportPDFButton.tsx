@@ -176,7 +176,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         
         // Amount
         doc.setFont("helvetica", "bold");
-        doc.text(`R${amount.toLocaleString('en-ZA', { minimumFractionDigits: 0 })}`, x + 85, y, { align: "right" });
+        doc.text(`R ${amount.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, x + 85, y, { align: "right" });
       };
 
       // Helper function to draw category detail card
@@ -203,41 +203,46 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         doc.text(category.code, x + 14, y + 8.5, { align: "center" });
         
         // Description
-        doc.setFontSize(8);
+        doc.setFontSize(9);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(0);
         const truncDesc = category.description.length > 20 ? category.description.substring(0, 17) + "..." : category.description;
         doc.text(truncDesc, x + 8, y + 14);
         
-        // Metrics
-        doc.setFontSize(7);
+        // Metrics with improved visibility
+        doc.setFontSize(8);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(100);
         
         // Original Budget
-        doc.text("Original Budget:", x + 8, y + 20);
+        doc.text("Original Budget:", x + 8, y + 21);
+        doc.setFontSize(10);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(0);
-        doc.text(`R${category.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 0 })}`, x + 8, y + 24);
+        doc.text(`R ${category.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, x + 8, y + 26);
         
         // Anticipated Final
+        doc.setFontSize(8);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(100);
-        doc.text("Anticipated Final:", x + 8, y + 30);
+        doc.text("Anticipated Final:", x + 8, y + 32);
+        doc.setFontSize(10);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(0);
-        doc.text(`R${category.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 0 })}`, x + 8, y + 34);
+        doc.text(`R ${category.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, x + 8, y + 37);
         
         // Variance
+        doc.setFontSize(8);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(100);
-        doc.text("Variance:", x + 8, y + 40);
+        doc.text("Variance:", x + 8, y + 43);
+        doc.setFontSize(10);
         doc.setFont("helvetica", "bold");
         
         const varianceColor = category.variance < 0 ? [34, 197, 94] : [239, 68, 68];
         doc.setTextColor(varianceColor[0], varianceColor[1], varianceColor[2]);
         const varianceSign = category.variance < 0 ? '-' : '+';
-        doc.text(`${varianceSign}R${Math.abs(category.variance).toLocaleString('en-ZA', { minimumFractionDigits: 0 })}`, x + 8, y + 44);
+        doc.text(`${varianceSign}R ${Math.abs(category.variance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, x + 8, y + 48);
         
         // Status badge
         doc.setFillColor(category.variance < 0 ? 220 : 254, category.variance < 0 ? 252 : 226, category.variance < 0 ? 231 : 226);
@@ -336,7 +341,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         const varianceSign = cat.variance < 0 ? '-' : '+';
         return [
           cat.code,
-          `${varianceSign}R${Math.abs(cat.variance).toLocaleString('en-ZA', { minimumFractionDigits: 0 })}`,
+          `${varianceSign}R ${Math.abs(cat.variance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
           cat.variance < 0 ? 'Saving' : 'Extra'
         ];
       });
@@ -421,83 +426,111 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       const numRows = Math.ceil(categoryTotals.length / 3);
       yPos += numRows * (categoryCardHeight + categoryCardGap) + 15;
 
-      // Check page space for metadata
-      yPos = checkPageSpace(yPos, 60);
-
-      // Project Metadata Section
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(0);
-      doc.text("PROJECT INFORMATION", 14, yPos);
-      yPos += 8;
-
-      doc.setFillColor(250, 250, 250);
-      doc.roundedRect(14, yPos, pageWidth - 28, 45, 2, 2, 'F');
-
-      doc.setFontSize(9);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(0);
-      
-      const metadataY = yPos + 8;
-      doc.text(`Client: ${report.client_name}`, 18, metadataY);
-      doc.text(`Project: ${report.project_name}`, 18, metadataY + 6);
-      doc.text(`Project Number: ${report.project_number}`, 18, metadataY + 12);
-      doc.text(`Report Date: ${new Date().toLocaleDateString('en-ZA', { day: '2-digit', month: 'long', year: 'numeric' })}`, 18, metadataY + 18);
-
-      // Contractors (if any)
-      let contractorY = metadataY + 24;
-      if (report.electrical_contractor || report.earthing_contractor || report.cctv_contractor || report.standby_plants_contractor) {
-        doc.setFont("helvetica", "bold");
-        doc.text("Contractors:", 18, contractorY);
-        contractorY += 6;
-        doc.setFont("helvetica", "normal");
-        
-        if (report.electrical_contractor) {
-          doc.text(`• Electrical: ${report.electrical_contractor}`, 18, contractorY);
-          contractorY += 5;
-        }
-        if (report.earthing_contractor) {
-          doc.text(`• Earthing: ${report.earthing_contractor}`, 18, contractorY);
-          contractorY += 5;
-        }
-      }
-
-      // ========== PAGE 4: PROJECT INFORMATION (old structure continues) ==========
+      // ========== PAGE 4: PROJECT INFORMATION (Consolidated) ==========
       doc.addPage();
       tocSections.push({ title: "Project Information", page: doc.getCurrentPageInfo().pageNumber });
       yPos = 20;
 
-      doc.setFontSize(14);
+      // Header
+      doc.setFillColor(41, 128, 185);
+      doc.rect(0, 0, pageWidth, 35, 'F');
+      doc.setFontSize(16);
       doc.setFont("helvetica", "bold");
-      doc.text("PROJECT INFORMATION", 14, yPos);
-      yPos += 10;
+      doc.setTextColor(255, 255, 255);
+      doc.text("PROJECT INFORMATION", pageWidth / 2, 22, { align: "center" });
+      
+      yPos = 45;
 
+      // Project Details Card
+      doc.setFillColor(250, 250, 250);
+      doc.roundedRect(14, yPos, pageWidth - 28, 70, 3, 3, 'F');
+
+      doc.setFontSize(11);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(41, 128, 185);
+      doc.text("Project Details", 20, yPos + 10);
+      
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
-      doc.text(`Client: ${report.client_name}`, 14, yPos);
-      yPos += 6;
-      doc.text(`Project: ${report.project_name}`, 14, yPos);
-      yPos += 6;
-      doc.text(`Project Number: ${report.project_number}`, 14, yPos);
-      yPos += 6;
-      doc.text(`Report Date: ${new Date().toLocaleDateString('en-ZA', { day: '2-digit', month: 'long', year: 'numeric' })}`, 14, yPos);
-      yPos += 6;
+      doc.setTextColor(0);
+      
+      let detailsY = yPos + 20;
+      doc.setFont("helvetica", "bold");
+      doc.text("Client:", 20, detailsY);
+      doc.setFont("helvetica", "normal");
+      doc.text(report.client_name, 60, detailsY);
+      
+      detailsY += 8;
+      doc.setFont("helvetica", "bold");
+      doc.text("Project:", 20, detailsY);
+      doc.setFont("helvetica", "normal");
+      doc.text(report.project_name, 60, detailsY);
+      
+      detailsY += 8;
+      doc.setFont("helvetica", "bold");
+      doc.text("Project Number:", 20, detailsY);
+      doc.setFont("helvetica", "normal");
+      doc.text(report.project_number, 60, detailsY);
+      
+      detailsY += 8;
+      doc.setFont("helvetica", "bold");
+      doc.text("Report Date:", 20, detailsY);
+      doc.setFont("helvetica", "normal");
+      doc.text(new Date().toLocaleDateString('en-ZA', { day: '2-digit', month: 'long', year: 'numeric' }), 60, detailsY);
 
-      if (report.electrical_contractor) {
-        doc.text(`Electrical Contractor: ${report.electrical_contractor}`, 14, yPos);
-        yPos += 6;
-      }
-      if (report.earthing_contractor) {
-        doc.text(`Earthing Contractor: ${report.earthing_contractor}`, 14, yPos);
-        yPos += 6;
-      }
-      if (report.cctv_contractor) {
-        doc.text(`CCTV Contractor: ${report.cctv_contractor}`, 14, yPos);
-        yPos += 6;
-      }
-      if (report.standby_plants_contractor) {
-        doc.text(`Standby Plants Contractor: ${report.standby_plants_contractor}`, 14, yPos);
-        yPos += 6;
+      yPos += 80;
+
+      // Contractors Card (if any contractors exist)
+      if (report.electrical_contractor || report.earthing_contractor || report.cctv_contractor || report.standby_plants_contractor) {
+        doc.setFillColor(250, 250, 250);
+        const contractorCount = [
+          report.electrical_contractor,
+          report.earthing_contractor, 
+          report.cctv_contractor,
+          report.standby_plants_contractor
+        ].filter(Boolean).length;
+        const contractorCardHeight = 30 + (contractorCount * 8);
+        doc.roundedRect(14, yPos, pageWidth - 28, contractorCardHeight, 3, 3, 'F');
+
+        doc.setFontSize(11);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(41, 128, 185);
+        doc.text("Contractors", 20, yPos + 10);
+        
+        doc.setFontSize(10);
+        doc.setTextColor(0);
+        let contractorY = yPos + 20;
+        
+        if (report.electrical_contractor) {
+          doc.setFont("helvetica", "bold");
+          doc.text("Electrical:", 20, contractorY);
+          doc.setFont("helvetica", "normal");
+          doc.text(report.electrical_contractor, 65, contractorY);
+          contractorY += 8;
+        }
+        if (report.earthing_contractor) {
+          doc.setFont("helvetica", "bold");
+          doc.text("Earthing & Lightning:", 20, contractorY);
+          doc.setFont("helvetica", "normal");
+          doc.text(report.earthing_contractor, 65, contractorY);
+          contractorY += 8;
+        }
+        if (report.standby_plants_contractor) {
+          doc.setFont("helvetica", "bold");
+          doc.text("Standby Plants:", 20, contractorY);
+          doc.setFont("helvetica", "normal");
+          doc.text(report.standby_plants_contractor, 65, contractorY);
+          contractorY += 8;
+        }
+        if (report.cctv_contractor) {
+          doc.setFont("helvetica", "bold");
+          doc.text("CCTV & Access Control:", 20, contractorY);
+          doc.setFont("helvetica", "normal");
+          doc.text(report.cctv_contractor, 65, contractorY);
+          contractorY += 8;
+        }
+        
+        yPos += contractorCardHeight + 10;
       }
 
       yPos += 10;
@@ -764,10 +797,10 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
             return [
               item.code,
               item.description,
-              `R${Number(item.original_budget || 0).toFixed(2)}`,
-              `R${Number(item.previous_report || 0).toFixed(2)}`,
-              `R${Number(item.anticipated_final || 0).toFixed(2)}`,
-              `R${variance.toFixed(2)}`,
+              `R ${Number(item.original_budget || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+              `R ${Number(item.previous_report || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+              `R ${Number(item.anticipated_final || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+              `R ${variance.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
             ];
           });
 
@@ -814,7 +847,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           variation.code,
           variation.description,
           variation.is_credit ? "Credit" : "Debit",
-          `R${Number(variation.amount || 0).toFixed(2)}`,
+          `R ${Number(variation.amount || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
         ]);
 
         const variationTotal = variations.reduce((sum: number, v: any) => 
