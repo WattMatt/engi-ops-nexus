@@ -85,7 +85,21 @@ const SiteDiary = () => {
         .order("entry_date", { ascending: false });
 
       if (error) throw error;
-      setEntries(data as any as SiteDiaryEntry[]);
+      
+      // Normalize assignedTo to always be an array for backward compatibility
+      const normalizedData = (data as any as SiteDiaryEntry[]).map(entry => ({
+        ...entry,
+        sub_entries: entry.sub_entries?.map((subEntry: any) => ({
+          ...subEntry,
+          assignedTo: Array.isArray(subEntry.assignedTo) 
+            ? subEntry.assignedTo 
+            : subEntry.assignedTo 
+              ? [subEntry.assignedTo] 
+              : []
+        })) || null
+      }));
+      
+      setEntries(normalizedData);
     } catch (error: any) {
       toast.error("Failed to load diary entries");
     } finally {
@@ -173,7 +187,18 @@ const SiteDiary = () => {
     setNotes(entry.notes || "");
     setMeetingMinutes(entry.meeting_minutes || "");
     setAttendees(entry.attendees || []);
-    setSubEntries(entry.sub_entries || []);
+    
+    // Normalize sub_entries assignedTo to always be arrays
+    const normalizedSubEntries = (entry.sub_entries || []).map((subEntry: any) => ({
+      ...subEntry,
+      assignedTo: Array.isArray(subEntry.assignedTo) 
+        ? subEntry.assignedTo 
+        : subEntry.assignedTo 
+          ? [subEntry.assignedTo] 
+          : []
+    }));
+    
+    setSubEntries(normalizedSubEntries);
     setDialogOpen(true);
   };
 
