@@ -53,12 +53,18 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
   const grandTotals = calculateGrandTotals(categoryTotals);
   
   const totalOriginalBudget = grandTotals.originalBudget;
+  const totalPreviousReport = grandTotals.previousReport;
   const totalAnticipatedFinal = grandTotals.anticipatedFinal;
-  const totalVariance = grandTotals.originalVariance;
+  const currentVariance = grandTotals.currentVariance;
+  const originalVariance = grandTotals.originalVariance;
   
-  // Calculate variance percentage
-  const variancePercentage = totalOriginalBudget > 0 
-    ? ((Math.abs(totalVariance) / totalOriginalBudget) * 100).toFixed(2)
+  // Calculate variance percentages
+  const currentVariancePercentage = totalPreviousReport > 0 
+    ? ((Math.abs(currentVariance) / totalPreviousReport) * 100).toFixed(2)
+    : "0.00";
+  
+  const originalVariancePercentage = totalOriginalBudget > 0 
+    ? ((Math.abs(originalVariance) / totalOriginalBudget) * 100).toFixed(2)
     : "0.00";
 
   // Prepare chart data
@@ -79,7 +85,7 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
   return (
     <div className="space-y-4">
       {/* KPI Cards - add id for PDF capture */}
-      <div id="cost-report-kpi-cards" className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div id="cost-report-kpi-cards" className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Original Budget</CardTitle>
@@ -88,6 +94,18 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
           <CardContent>
             <div className="text-2xl font-bold">
               R{totalOriginalBudget.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Previous Report</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              R{totalPreviousReport.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
             </div>
           </CardContent>
         </Card>
@@ -107,9 +125,9 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              {totalVariance < 0 ? "Total Saving" : "Total Extra"}
+              Current {currentVariance < 0 ? "(Saving)" : "Extra"}
             </CardTitle>
-            {totalVariance < 0 ? (
+            {currentVariance < 0 ? (
               <TrendingDown className="h-4 w-4 text-green-600" />
             ) : (
               <TrendingUp className="h-4 w-4 text-red-600" />
@@ -118,13 +136,38 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
           <CardContent>
             <div
               className={`text-2xl font-bold ${
-                totalVariance < 0 ? "text-green-600" : "text-red-600"
+                currentVariance < 0 ? "text-green-600" : "text-red-600"
               }`}
             >
-              R{Math.abs(totalVariance).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
+              R{Math.abs(currentVariance).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
             </div>
             <p className="text-xs text-muted-foreground">
-              {variancePercentage}% vs Original Budget
+              {currentVariancePercentage}% vs Previous Report
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">
+              {originalVariance < 0 ? "(Saving)" : "Extra"} vs Original
+            </CardTitle>
+            {originalVariance < 0 ? (
+              <TrendingDown className="h-4 w-4 text-green-600" />
+            ) : (
+              <TrendingUp className="h-4 w-4 text-red-600" />
+            )}
+          </CardHeader>
+          <CardContent>
+            <div
+              className={`text-2xl font-bold ${
+                originalVariance < 0 ? "text-green-600" : "text-red-600"
+              }`}
+            >
+              R{Math.abs(originalVariance).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {originalVariancePercentage}% vs Original Budget
             </p>
           </CardContent>
         </Card>
