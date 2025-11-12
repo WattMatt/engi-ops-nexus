@@ -11,7 +11,6 @@ import { PDFExportSettings, DEFAULT_MARGINS, DEFAULT_SECTIONS, type PDFMargins, 
 import { calculateCategoryTotals, calculateGrandTotals, validateTotals } from "@/utils/costReportCalculations";
 import { ValidationWarningDialog } from "./ValidationWarningDialog";
 import { captureKPICards, prepareElementForCapture, canvasToDataURL } from "@/utils/captureUIForPDF";
-import { PDFPreviewDialog, type PDFGenerationSettings } from "./PDFPreviewDialog";
 
 interface ExportPDFButtonProps {
   report: any;
@@ -24,24 +23,11 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
   const [currentSection, setCurrentSection] = useState<string>("");
   const [previewReport, setPreviewReport] = useState<any>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [previewOpen, setPreviewOpen] = useState(false);
   const [margins, setMargins] = useState<PDFMargins>(DEFAULT_MARGINS);
   const [sections, setSections] = useState<PDFSectionOptions>(DEFAULT_SECTIONS);
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
   const [validationMismatches, setValidationMismatches] = useState<string[]>([]);
   const [pendingExport, setPendingExport] = useState(false);
-  const [pdfSettings, setPdfSettings] = useState<PDFGenerationSettings>({
-    pageSize: 'A4',
-    orientation: 'portrait',
-    fontSize: 10,
-    includePageNumbers: true,
-    includeWatermark: false,
-    watermarkText: 'CONFIDENTIAL',
-    headerColor: '#1e3a8a',
-    accentColor: '#3b82f6',
-    margins: DEFAULT_MARGINS,
-    sections: DEFAULT_SECTIONS,
-  });
 
   const handleExport = async (useMargins: PDFMargins = margins, useSections: PDFSectionOptions = sections, skipValidation: boolean = false) => {
     setLoading(true);
@@ -1041,7 +1027,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
     <>
       <div className="space-y-3">
         <div className="flex gap-2">
-          <Button onClick={() => setPreviewOpen(true)} disabled={loading}>
+          <Button onClick={() => handleExport()} disabled={loading}>
             {loading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -1053,6 +1039,9 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
                 Export PDF
               </>
             )}
+          </Button>
+          <Button onClick={() => setSettingsOpen(true)} variant="outline" size="icon" disabled={loading}>
+            <Settings className="h-4 w-4" />
           </Button>
         </div>
         
@@ -1070,17 +1059,6 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           </div>
         )}
       </div>
-      
-      <PDFPreviewDialog
-        open={previewOpen}
-        onOpenChange={setPreviewOpen}
-        onGenerate={async (settings) => {
-          setPdfSettings(settings);
-          await handleExport(settings.margins, settings.sections);
-        }}
-        report={report}
-        initialSettings={pdfSettings}
-      />
       
       <PDFExportSettings
         open={settingsOpen}
