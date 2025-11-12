@@ -609,23 +609,43 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         doc.addPage();
         tocSections.push({ title: `Detailed Line Items - ${category.description}`, page: doc.getCurrentPageInfo().pageNumber });
         
+        // Get the category color from the same palette used in executive summary
+        const categoryColor = cardColors[index % cardColors.length];
+        
+        // Add colored header bar
+        doc.setFillColor(categoryColor[0], categoryColor[1], categoryColor[2]);
+        doc.rect(0, 0, pageWidth, 25, 'F');
+        
+        // Add category badge circle
+        doc.setFillColor(255, 255, 255);
+        doc.circle(contentStartX + 8, 12, 5, 'F');
+        doc.setFillColor(categoryColor[0], categoryColor[1], categoryColor[2]);
+        doc.circle(contentStartX + 8, 12, 4, 'F');
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(255, 255, 255);
+        doc.text(category.code, contentStartX + 8, 14, { align: "center" });
+        
+        // Category title
         doc.setFontSize(16);
         doc.setFont("helvetica", "bold");
-        doc.text(`${category.code} - ${category.description}`, contentStartX, contentStartY + 10);
+        doc.setTextColor(255, 255, 255);
+        doc.text(`${category.description}`, contentStartX + 20, 15);
 
         // Find the corresponding category totals for this category
         const catTotals = categoryTotals.find((ct: any) => ct.code === category.code);
         
         if (catTotals) {
           // Add category summary cards
-          let summaryY = contentStartY + 25;
+          let summaryY = 35;
           const cardWidth = (contentWidth - 12) / 3; // 3 cards per row
           const cardHeight = 22;
           const cardSpacing = 6;
           
           // Row 1: Original Budget, Previous Report, Anticipated Final
-          doc.setDrawColor(0, 200, 200);
+          doc.setDrawColor(categoryColor[0], categoryColor[1], categoryColor[2]);
           doc.setLineWidth(0.5);
+          doc.setTextColor(0, 0, 0);
           
           // Original Budget
           doc.rect(contentStartX, summaryY, cardWidth, cardHeight);
@@ -662,6 +682,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           
           // Current Variance
           doc.setDrawColor(catTotals.currentVariance < 0 ? 0 : 255, catTotals.currentVariance < 0 ? 200 : 100, catTotals.currentVariance < 0 ? 0 : 0);
+          doc.setTextColor(0, 0, 0);
           doc.rect(twoCardStartX, summaryY, twoCardWidth, cardHeight);
           doc.setFontSize(7);
           doc.setFont("helvetica", "normal");
@@ -674,6 +695,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           
           // Original Variance
           doc.setDrawColor(catTotals.originalVariance < 0 ? 0 : 255, catTotals.originalVariance < 0 ? 200 : 100, catTotals.originalVariance < 0 ? 0 : 0);
+          doc.setTextColor(0, 0, 0);
           doc.rect(twoCardStartX + twoCardWidth + cardSpacing, summaryY, twoCardWidth, cardHeight);
           doc.setFontSize(7);
           doc.setFont("helvetica", "normal");
@@ -705,7 +727,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
             }),
             theme: 'grid',
             styles: { fontSize: 8, cellPadding: 2 },
-            headStyles: { fillColor: [30, 58, 138], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7 },
+            headStyles: { fillColor: [categoryColor[0], categoryColor[1], categoryColor[2]], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7 },
             columnStyles: {
               0: { cellWidth: 12 },
               1: { cellWidth: contentWidth * 0.30 },
@@ -716,6 +738,12 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
               6: { cellWidth: contentWidth * 0.12, halign: 'right' }
             },
             didDrawCell: (data) => {
+              // Add colored bar on the left side of each row
+              if (data.section === 'body' && data.column.index === 0) {
+                doc.setFillColor(categoryColor[0], categoryColor[1], categoryColor[2]);
+                doc.rect(data.cell.x - 3, data.cell.y, 3, data.cell.height, 'F');
+              }
+              
               // Color variance cells
               if (data.section === 'body') {
                 const item = lineItems[data.row.index];
