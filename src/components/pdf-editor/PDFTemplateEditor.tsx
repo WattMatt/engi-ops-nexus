@@ -15,6 +15,7 @@ import { TemplateSelector } from "./TemplateSelector";
 import { LayersPanel } from "./LayersPanel";
 import { AlignmentToolbar, AlignmentType } from "./AlignmentToolbar";
 import { PDFPagePreview } from "./PDFPagePreview";
+import { ThumbnailSidebar } from "./ThumbnailSidebar";
 import { PDFStyleSettings } from "@/utils/pdfStyleManager";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -489,6 +490,17 @@ export const PDFTemplateEditor = ({
           </DialogHeader>
 
           <div className="flex flex-1 overflow-hidden border-t">
+            {/* Thumbnail Sidebar */}
+            {pdfUrl && numPages > 0 && (
+              <ThumbnailSidebar
+                pdfUrl={pdfUrl}
+                numPages={numPages}
+                currentPage={currentPage}
+                settings={currentSettings}
+                onPageSelect={setCurrentPage}
+              />
+            )}
+            
             {/* Layers Panel */}
             <div className="w-64 border-r bg-background">
               <LayersPanel
