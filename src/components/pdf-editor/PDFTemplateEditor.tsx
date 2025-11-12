@@ -724,36 +724,58 @@ export const PDFTemplateEditor = ({
                 />
               </div>
               
-              <div className="relative">
+              <div className="relative mx-auto" style={{ width: '793.7px' }}>
                 {/* PDF Background */}
                 {pdfUrl && (
-                  <PDFPagePreview
-                    pdfUrl={pdfUrl}
-                    currentPage={currentPage}
-                    onDocumentLoadSuccess={handleDocumentLoadSuccess}
-                    onDocumentLoadError={handleDocumentLoadError}
-                  />
+                  <div className="relative">
+                    <PDFPagePreview
+                      pdfUrl={pdfUrl}
+                      currentPage={currentPage}
+                      onDocumentLoadSuccess={handleDocumentLoadSuccess}
+                      onDocumentLoadError={handleDocumentLoadError}
+                    />
+                  </div>
                 )}
 
                 {/* Editable Elements Overlay */}
-                <div className="absolute inset-0 pointer-events-none">
-                  <div className="relative w-full h-full pointer-events-auto">
-                    <LivePreview
-                      settings={currentSettings}
-                      selectedElements={filteredElementsForPage(currentPage)}
-                      onSelectElement={handleSelectElement}
-                      onPositionChange={handlePositionChange}
-                      onGroupDrag={handleGroupDrag}
-                      reportType={reportType}
-                      currentPage={currentPage}
-                      pdfUrl={pdfUrl}
-                      enablePDFEditing={true}
-                      onUndoRedoChange={handleUndoRedoChange}
-                      onColorChange={handleColorChange}
-                      onElementsExtracted={(elements) => setExtractedElements(elements)}
-                    />
+                {pdfUrl && (
+                  <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
+                    <div className="relative w-full h-full pointer-events-auto">
+                      <LivePreview
+                        settings={currentSettings}
+                        selectedElements={filteredElementsForPage(currentPage)}
+                        onSelectElement={handleSelectElement}
+                        onPositionChange={handlePositionChange}
+                        onGroupDrag={handleGroupDrag}
+                        reportType={reportType}
+                        currentPage={currentPage}
+                        pdfUrl={pdfUrl}
+                        enablePDFEditing={true}
+                        onUndoRedoChange={handleUndoRedoChange}
+                        onColorChange={handleColorChange}
+                        onElementsExtracted={(elements) => setExtractedElements(elements)}
+                      />
+                    </div>
                   </div>
-                </div>
+                )}
+                
+                {/* Fallback when no PDF */}
+                {!pdfUrl && (
+                  <LivePreview
+                    settings={currentSettings}
+                    selectedElements={filteredElementsForPage(currentPage)}
+                    onSelectElement={handleSelectElement}
+                    onPositionChange={handlePositionChange}
+                    onGroupDrag={handleGroupDrag}
+                    reportType={reportType}
+                    currentPage={currentPage}
+                    pdfUrl={null}
+                    enablePDFEditing={false}
+                    onUndoRedoChange={handleUndoRedoChange}
+                    onColorChange={handleColorChange}
+                    onElementsExtracted={(elements) => setExtractedElements(elements)}
+                  />
+                )}
               </div>
             </ScrollArea>
 

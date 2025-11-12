@@ -382,11 +382,12 @@ export const LivePreview = ({
 
   return (
     <div 
-      className="bg-white shadow-lg mx-auto relative"
+      className="mx-auto relative"
       style={{
-        width: '210mm',
-        minHeight: '297mm',
+        width: enablePDFEditing ? '793.7px' : '210mm', // Match PDF preview width or A4
+        minHeight: enablePDFEditing ? '1122.52px' : '297mm', // Match PDF preview height or A4
         padding: `${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm`,
+        background: enablePDFEditing ? 'transparent' : 'white', // Transparent when overlaying PDF
       }}
     >
       {generateGrid()}
