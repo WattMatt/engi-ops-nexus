@@ -824,7 +824,7 @@ export const PDFTemplateEditor = ({
 
                 <div className="p-3 bg-info/10 border border-info rounded-lg">
                   <p className="text-sm text-info-foreground flex items-center gap-2">
-                    <strong>Tip:</strong> {pdfUrl ? "Edit elements on the actual PDF pages" : "Generate a report to see actual pages"}. Ctrl+Click to multi-select.
+                    <strong>Tip:</strong> {pdfUrl ? "Edit elements on the actual PDF pages" : "Generate a report to see actual pages"}. Ctrl/⌘+Click to multi-select.
                     {currentSettings?.grid?.enabled && (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary/10 rounded text-xs">
                         Snap-to-grid ({currentSettings.grid.size}px)

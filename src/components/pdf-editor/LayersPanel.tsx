@@ -149,7 +149,7 @@ export const LayersPanel = ({
         <p className="text-xs text-muted-foreground mt-1">
           {selectedElements.length > 1 
             ? `${selectedElements.length} selected • Drag to move together`
-            : "Click to select • Ctrl+Click for multi-select"}
+            : "Click to select • Ctrl/⌘+Click for multi-select"}
         </p>
       </div>
 
