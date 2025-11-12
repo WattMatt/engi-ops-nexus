@@ -8,15 +8,11 @@ import { TemplateLibrary } from "@/components/pdf-templates/TemplateLibrary";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function PDFTemplates() {
-  const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | undefined>();
   const [isDesigning, setIsDesigning] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState("cost_report");
-
-  if (!projectId) {
-    return <div>Project not found</div>;
-  }
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
 
   const handleSelectTemplate = (templateId: string) => {
     setSelectedTemplateId(templateId);
@@ -59,12 +55,18 @@ export default function PDFTemplates() {
 
       <div className="flex-1 overflow-auto">
         {isDesigning ? (
+          selectedProjectId ? (
           <PDFTemplateDesigner
             templateId={selectedTemplateId}
             category={selectedCategory}
-            projectId={projectId}
+            projectId={selectedProjectId}
             onSave={handleSave}
           />
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-muted-foreground">Please select a project first</p>
+            </div>
+          )
         ) : (
           <div className="container mx-auto p-6 space-y-4">
             <Alert>
@@ -88,10 +90,11 @@ export default function PDFTemplates() {
 
               <TabsContent value={selectedCategory} className="mt-6">
                 <TemplateLibrary
-                  projectId={projectId}
+                  projectId={selectedProjectId}
                   category={selectedCategory}
                   onSelectTemplate={handleSelectTemplate}
                   onCreateNew={handleCreateNew}
+                  onProjectChange={setSelectedProjectId}
                 />
               </TabsContent>
             </Tabs>

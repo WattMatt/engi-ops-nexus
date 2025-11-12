@@ -74,6 +74,7 @@ const App = () => (
             <Route path="backup" element={<BackupManagement />} />
             <Route path="feedback" element={<FeedbackManagement />} />
             <Route path="feedback-analytics" element={<FeedbackAnalytics />} />
+            <Route path="pdf-templates" element={<PDFTemplates />} />
             <Route path="settings" element={<Settings />} />
           </Route>
 
@@ -100,7 +101,6 @@ const App = () => (
             <Route path="projects-report/outline" element={<ProjectOutline />} />
             <Route path="projects-report/handover" element={<HandoverDocuments />} />
             <Route path="bulk-services" element={<BulkServices />} />
-            <Route path="pdf-templates/:projectId" element={<PDFTemplates />} />
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

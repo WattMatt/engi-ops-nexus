@@ -6,7 +6,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Plus, FileText, Trash2, Edit, Star, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { getCostReportStarterTemplate } from "./StarterTemplates";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { getStarterTemplateForCategory, getTemplateDescription } from "./StarterTemplates";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,6 +25,7 @@ interface TemplateLibraryProps {
   category?: string;
   onSelectTemplate: (templateId: string) => void;
   onCreateNew: () => void;
+  onProjectChange?: (projectId: string) => void;
 }
 
 export const TemplateLibrary = ({
@@ -31,14 +33,29 @@ export const TemplateLibrary = ({
   category,
   onSelectTemplate,
   onCreateNew,
+  onProjectChange,
 }: TemplateLibraryProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [deleteTemplateId, setDeleteTemplateId] = useState<string | null>(null);
 
+  const { data: projects } = useQuery({
+    queryKey: ["projects"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("projects")
+        .select("id, name")
+        .order("name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const { data: templates, isLoading, refetch } = useQuery({
     queryKey: ["pdf-templates", projectId, category],
     queryFn: async () => {
+      if (!projectId) return [];
+      
       let query = supabase
         .from("pdf_templates")
         .select("*")
@@ -53,6 +70,7 @@ export const TemplateLibrary = ({
       if (error) throw error;
       return data;
     },
+    enabled: !!projectId,
   });
 
   const handleDelete = async () => {
@@ -118,18 +136,28 @@ export const TemplateLibrary = ({
   };
 
   const createFromStarter = async () => {
+    if (!projectId) {
+      toast({
+        title: "Error",
+        description: "Please select a project first",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      const starterTemplate = getCostReportStarterTemplate();
+      const starterTemplate = getStarterTemplateForCategory(category || "cost_report");
+      if (!starterTemplate) throw new Error("No starter template for this category");
       
       const { data, error } = await supabase
         .from("pdf_templates")
         .insert([{
           project_id: projectId,
-          name: "Cost Report - Starter Template",
-          description: "Pre-configured fields that auto-fill with report data. Click fields to edit, drag to rearrange, or add new fields from toolbar.",
+          name: `${getCategoryLabel(category || "cost_report")} - Starter Template`,
+          description: getTemplateDescription(category || "cost_report"),
           category: category || "cost_report",
           template_json: starterTemplate as any,
           created_by: user.id,
@@ -144,7 +172,7 @@ export const TemplateLibrary = ({
 
       toast({
         title: "Success",
-        description: "Starter template created! Field names like 'report_name' will auto-fill with your data.",
+        description: "Starter template created! Field names will auto-fill with your data.",
       });
     } catch (error) {
       console.error("Error creating starter template:", error);
@@ -177,20 +205,46 @@ export const TemplateLibrary = ({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold">PDF Templates</h2>
-          <p className="text-sm text-muted-foreground">
-            Create and manage reusable PDF templates
-          </p>
+      <div className="flex items-center justify-between gap-4">
+        <div className="flex-1 max-w-xs">
+          <Select value={projectId} onValueChange={onProjectChange}>
+            <SelectTrigger>
+              <SelectValue placeholder="Select a project..." />
+            </SelectTrigger>
+            <SelectContent>
+              {projects?.map((project) => (
+                <SelectItem key={project.id} value={project.id}>
+                  {project.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
-        <Button onClick={onCreateNew}>
-          <Plus className="h-4 w-4 mr-2" />
-          Create Template
-        </Button>
+        {projectId && (
+          <Button onClick={onCreateNew}>
+            <Plus className="h-4 w-4 mr-2" />
+            Create Template
+          </Button>
+        )}
       </div>
 
-      {templates && templates.length > 0 ? (
+      {!projectId ? (
+        <Card className="p-12">
+          <div className="flex flex-col items-center justify-center text-center space-y-4">
+            <FileText className="h-12 w-12 text-muted-foreground" />
+            <div>
+              <h3 className="font-semibold">Select a Project</h3>
+              <p className="text-sm text-muted-foreground">
+                Choose a project above to view and manage its PDF templates
+              </p>
+            </div>
+          </div>
+        </Card>
+      ) : isLoading ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="text-muted-foreground">Loading templates...</div>
+        </div>
+      ) : templates && templates.length > 0 ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {templates.map((template) => (
             <Card key={template.id} className="relative group">
