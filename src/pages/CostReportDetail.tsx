@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, FileText } from "lucide-react";
 import { CostReportOverview } from "@/components/cost-reports/CostReportOverview";
 import { CostCategoriesManager } from "@/components/cost-reports/CostCategoriesManager";
 import { CostVariationsManager } from "@/components/cost-reports/CostVariationsManager";
@@ -85,6 +85,13 @@ const CostReportDetail = () => {
           </div>
         </div>
         <div className="flex gap-2">
+          <Button
+            variant="outline"
+            onClick={() => navigate(`/dashboard/pdf-templates/${report.project_id}`)}
+          >
+            <FileText className="h-4 w-4 mr-2" />
+            Manage Templates
+          </Button>
           <ImportExcelDialog reportId={report.id} onSuccess={refetch} />
           <CompareReportsDialog
             currentReportId={report.id}
