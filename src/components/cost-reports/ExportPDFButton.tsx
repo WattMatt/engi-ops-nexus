@@ -11,6 +11,7 @@ import { PDFExportSettings, DEFAULT_MARGINS, DEFAULT_SECTIONS, type PDFMargins, 
 import { calculateCategoryTotals, calculateGrandTotals, validateTotals } from "@/utils/costReportCalculations";
 import { ValidationWarningDialog } from "./ValidationWarningDialog";
 import { captureKPICards, prepareElementForCapture, canvasToDataURL } from "@/utils/captureUIForPDF";
+import { format } from "date-fns";
 
 interface ExportPDFButtonProps {
   report: any;
@@ -964,6 +965,192 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
             2: { cellWidth: 30, halign: 'right', cellPadding: { right: 4 } },
             3: { cellWidth: 20, halign: 'center' }
           }
+        });
+        
+        // ========== INDIVIDUAL VARIATION DETAIL SHEETS ==========
+        variations.forEach((variation: any, index: number) => {
+          setCurrentSection(`Adding variation sheet ${index + 1}/${variations.length}...`);
+          doc.addPage();
+          tocSections.push({ 
+            title: `Variation Sheet - ${variation.code}`, 
+            page: doc.getCurrentPageInfo().pageNumber 
+          });
+          
+          // Header with variation type color
+          const variationColor = variation.is_credit ? colors.success : colors.danger;
+          const headerHeight = 50;
+          for (let i = 0; i < headerHeight; i++) {
+            const ratio = i / headerHeight;
+            const r = Math.round(variationColor[0] + (variationColor[0] * 0.2) * ratio);
+            const g = Math.round(variationColor[1] + (variationColor[1] * 0.2) * ratio);
+            const b = Math.round(variationColor[2] + (variationColor[2] * 0.2) * ratio);
+            doc.setFillColor(r, g, b);
+            doc.rect(0, i, pageWidth, 1, 'F');
+          }
+          
+          // Variation badge
+          doc.setFillColor(...colors.white);
+          doc.circle(contentStartX + 10, 25, 8, 'F');
+          doc.setFillColor(...variationColor);
+          doc.circle(contentStartX + 10, 25, 7, 'F');
+          doc.setFontSize(11);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(...colors.white);
+          doc.text(variation.code, contentStartX + 10, 27.5, { align: "center" });
+          
+          // Title
+          doc.setFontSize(18);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(...colors.white);
+          doc.text("VARIATION SHEET", contentStartX + 25, 23);
+          doc.setFontSize(12);
+          doc.setFont("helvetica", "normal");
+          doc.text(variation.is_credit ? "Credit Note" : "Extra Work", contentStartX + 25, 32);
+          
+          let yPos = contentStartY + 35;
+          
+          // Variation details card
+          doc.setFillColor(...colors.light);
+          doc.roundedRect(contentStartX, yPos, contentWidth, 50, 3, 3, 'F');
+          
+          yPos += 8;
+          doc.setTextColor(...colors.primary);
+          doc.setFontSize(10);
+          doc.setFont("helvetica", "bold");
+          doc.text("VARIATION DETAILS", contentStartX + 5, yPos);
+          
+          yPos += 8;
+          doc.setTextColor(...colors.text);
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "bold");
+          doc.text("Code:", contentStartX + 5, yPos);
+          doc.setFont("helvetica", "normal");
+          doc.text(variation.code, contentStartX + 25, yPos);
+          
+          yPos += 7;
+          doc.setFont("helvetica", "bold");
+          doc.text("Description:", contentStartX + 5, yPos);
+          doc.setFont("helvetica", "normal");
+          const descLines = doc.splitTextToSize(variation.description || "N/A", contentWidth - 35);
+          doc.text(descLines, contentStartX + 25, yPos);
+          yPos += (descLines.length * 5);
+          
+          yPos += 2;
+          doc.setFont("helvetica", "bold");
+          doc.text("Amount:", contentStartX + 5, yPos);
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(...variationColor);
+          doc.setFontSize(11);
+          doc.text(
+            `R ${Math.abs(Number(variation.amount || 0)).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+            contentStartX + 25, 
+            yPos
+          );
+          
+          yPos += 7;
+          doc.setTextColor(...colors.text);
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "bold");
+          doc.text("Type:", contentStartX + 5, yPos);
+          doc.setFont("helvetica", "normal");
+          doc.text(variation.is_credit ? "Credit (Deduction)" : "Debit (Addition)", contentStartX + 25, yPos);
+          
+          yPos += 10;
+          
+          // Additional details section
+          if (variation.notes || variation.category_id || variation.date_created) {
+            yPos += 5;
+            doc.setFillColor(...colors.white);
+            doc.roundedRect(contentStartX, yPos, contentWidth, 45, 3, 3, 'F');
+            doc.setDrawColor(...colors.light);
+            doc.setLineWidth(0.5);
+            doc.roundedRect(contentStartX, yPos, contentWidth, 45, 3, 3, 'S');
+            
+            yPos += 8;
+            doc.setTextColor(...colors.primary);
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "bold");
+            doc.text("ADDITIONAL INFORMATION", contentStartX + 5, yPos);
+            
+            yPos += 8;
+            doc.setTextColor(...colors.text);
+            doc.setFontSize(9);
+            
+            if (variation.date_created) {
+              doc.setFont("helvetica", "bold");
+              doc.text("Date Created:", contentStartX + 5, yPos);
+              doc.setFont("helvetica", "normal");
+              doc.text(
+                format(new Date(variation.created_at), "dd MMMM yyyy"),
+                contentStartX + 30,
+                yPos
+              );
+              yPos += 7;
+            }
+            
+            if (variation.notes) {
+              doc.setFont("helvetica", "bold");
+              doc.text("Notes:", contentStartX + 5, yPos);
+              doc.setFont("helvetica", "normal");
+              const notesLines = doc.splitTextToSize(variation.notes, contentWidth - 35);
+              doc.text(notesLines, contentStartX + 30, yPos);
+              yPos += (notesLines.length * 5);
+            }
+          }
+          
+          // Impact summary
+          yPos += 10;
+          doc.setFillColor(...variationColor);
+          doc.roundedRect(contentStartX, yPos, contentWidth, 35, 3, 3, 'F');
+          
+          yPos += 10;
+          doc.setTextColor(...colors.white);
+          doc.setFontSize(11);
+          doc.setFont("helvetica", "bold");
+          doc.text("FINANCIAL IMPACT", pageWidth / 2, yPos, { align: "center" });
+          
+          yPos += 10;
+          doc.setFontSize(16);
+          const impactText = variation.is_credit 
+            ? `REDUCES CONTRACT VALUE BY R ${Math.abs(Number(variation.amount || 0)).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`
+            : `INCREASES CONTRACT VALUE BY R ${Math.abs(Number(variation.amount || 0)).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`;
+          doc.text(impactText, pageWidth / 2, yPos, { align: "center" });
+          
+          // Footer with approval section
+          yPos = pageHeight - 70;
+          doc.setDrawColor(...colors.neutral);
+          doc.setLineWidth(0.3);
+          doc.line(contentStartX, yPos, pageWidth - useMargins.right, yPos);
+          
+          yPos += 10;
+          doc.setTextColor(...colors.neutral);
+          doc.setFontSize(8);
+          doc.setFont("helvetica", "bold");
+          doc.text("APPROVALS", contentStartX, yPos);
+          
+          yPos += 10;
+          const approvalWidth = (contentWidth - 10) / 3;
+          
+          // Client approval
+          doc.setFont("helvetica", "normal");
+          doc.text("Client Representative", contentStartX, yPos);
+          doc.line(contentStartX, yPos + 12, contentStartX + approvalWidth - 5, yPos + 12);
+          doc.setFontSize(7);
+          doc.text("Signature & Date", contentStartX, yPos + 16);
+          
+          // Contractor approval
+          doc.setFontSize(8);
+          doc.text("Contractor Representative", contentStartX + approvalWidth + 5, yPos);
+          doc.line(contentStartX + approvalWidth + 5, yPos + 12, contentStartX + (approvalWidth * 2), yPos + 12);
+          doc.setFontSize(7);
+          doc.text("Signature & Date", contentStartX + approvalWidth + 5, yPos + 16);
+          
+          // Engineer approval
+          doc.setFontSize(8);
+          doc.text("Engineer's Approval", contentStartX + (approvalWidth * 2) + 10, yPos);
+          doc.line(contentStartX + (approvalWidth * 2) + 10, yPos + 12, pageWidth - useMargins.right, yPos + 12);
+          doc.setFontSize(7);
+          doc.text("Signature & Date", contentStartX + (approvalWidth * 2) + 10, yPos + 16);
         });
       }
 
