@@ -3,6 +3,9 @@ import { EditableElement } from "./EditableElement";
 import { AlignmentGuides, calculateAlignmentGuides, getElementBounds, ElementBounds } from "./AlignmentGuides";
 import { PDFTextExtractor, ExtractedTextItem } from "./PDFTextExtractor";
 import { EditablePDFText } from "./EditablePDFText";
+import { PDFVisualExtractor, ExtractedImage, ExtractedShape } from "./PDFVisualExtractor";
+import { EditablePDFImage } from "./EditablePDFImage";
+import { EditablePDFShape } from "./EditablePDFShape";
 import { usePDFEditorHistory } from "@/hooks/usePDFEditorHistory";
 
 interface LivePreviewProps {
@@ -56,7 +59,11 @@ export const LivePreview = ({
   // PDF text extraction state
   const [extractedText, setExtractedText] = useState<ExtractedTextItem[]>([]);
   const [editedTextItems, setEditedTextItems] = useState<Map<string, string>>(new Map());
-  const [scale] = useState(1.0); // Match PDF rendering scale
+  const [scale] = useState(1.0);
+  
+  // PDF visual elements state
+  const [extractedImages, setExtractedImages] = useState<ExtractedImage[]>([]);
+  const [extractedShapes, setExtractedShapes] = useState<ExtractedShape[]>([]);
 
   // History management for undo/redo
   const history = usePDFEditorHistory({
@@ -137,13 +144,48 @@ export const LivePreview = ({
     console.log(`[LivePreview] Received ${items.length} extracted text items`);
     setExtractedText(items);
     
-    // Initialize history with extracted text
     if (items.length > 0) {
       history.pushState({
         extractedText: items,
         editedTextItems: new Map(),
       });
     }
+  };
+
+  const handleImagesExtracted = (images: ExtractedImage[]) => {
+    console.log(`[LivePreview] Received ${images.length} extracted images`);
+    setExtractedImages(images);
+  };
+
+  const handleShapesExtracted = (shapes: ExtractedShape[]) => {
+    console.log(`[LivePreview] Received ${shapes.length} extracted shapes`);
+    setExtractedShapes(shapes);
+  };
+
+  const handleImagePositionChange = (id: string, x: number, y: number) => {
+    setExtractedImages(prev =>
+      prev.map(img => (img.id === id ? { ...img, x, y } : img))
+    );
+  };
+
+  const handleImageSizeChange = (id: string, width: number, height: number) => {
+    setExtractedImages(prev =>
+      prev.map(img => (img.id === id ? { ...img, width, height } : img))
+    );
+  };
+
+  const handleImageDelete = (id: string) => {
+    setExtractedImages(prev => prev.filter(img => img.id !== id));
+  };
+
+  const handleShapePositionChange = (id: string, x: number, y: number) => {
+    setExtractedShapes(prev =>
+      prev.map(shape => (shape.id === id ? { ...shape, x, y } : shape))
+    );
+  };
+
+  const handleShapeDelete = (id: string) => {
+    setExtractedShapes(prev => prev.filter(shape => shape.id !== id));
   };
 
   const handlePDFTextChange = (id: string, newText: string) => {
@@ -274,26 +316,40 @@ export const LivePreview = ({
       
       {/* PDF Text Extractor */}
       {enablePDFEditing && pdfUrl && (
-        <PDFTextExtractor
-          pdfUrl={pdfUrl}
-          currentPage={currentPage}
-          onTextExtracted={handleTextExtracted}
-          scale={1.0}
-        />
+        <>
+          <PDFTextExtractor
+            pdfUrl={pdfUrl}
+            currentPage={currentPage}
+            onTextExtracted={handleTextExtracted}
+            scale={1.0}
+          />
+          <PDFVisualExtractor
+            pdfUrl={pdfUrl}
+            currentPage={currentPage}
+            onImagesExtracted={handleImagesExtracted}
+            onShapesExtracted={handleShapesExtracted}
+            scale={1.0}
+          />
+        </>
       )}
 
       {/* Alignment Guides Overlay */}
       <AlignmentGuides guides={activeGuides.guides} />
 
       {/* Debug info */}
-      {enablePDFEditing && extractedText.length > 0 && (
+      {enablePDFEditing && (extractedText.length > 0 || extractedImages.length > 0 || extractedShapes.length > 0) && (
         <div className="absolute top-2 right-2 bg-background/90 border rounded p-2 text-xs z-50 pointer-events-none">
-          <div className="font-semibold">PDF Text Elements: {extractedText.length}</div>
-          <div className="text-muted-foreground">Double-click text to edit</div>
+          <div className="font-semibold">Editable Elements:</div>
+          <div className="text-muted-foreground">
+            Text: {extractedText.length} | 
+            Images: {extractedImages.length} | 
+            Shapes: {extractedShapes.length}
+          </div>
+          <div className="text-muted-foreground mt-1">Double-click text to edit</div>
         </div>
       )}
 
-      {/* Extracted PDF Text Elements - Editable */}
+      {/* Extracted PDF Text Elements */}
       {enablePDFEditing && extractedText.map((textItem) => (
         <EditablePDFText
           key={textItem.id}
@@ -303,6 +359,31 @@ export const LivePreview = ({
           onSelect={onSelectElement}
           onTextChange={handlePDFTextChange}
           onPositionChange={handlePDFTextPosition}
+        />
+      ))}
+
+      {/* Extracted PDF Images */}
+      {enablePDFEditing && extractedImages.map((imageItem) => (
+        <EditablePDFImage
+          key={imageItem.id}
+          item={imageItem}
+          isSelected={selectedElements.includes(imageItem.id)}
+          onSelect={onSelectElement}
+          onPositionChange={handleImagePositionChange}
+          onSizeChange={handleImageSizeChange}
+          onDelete={handleImageDelete}
+        />
+      ))}
+
+      {/* Extracted PDF Shapes */}
+      {enablePDFEditing && extractedShapes.map((shapeItem) => (
+        <EditablePDFShape
+          key={shapeItem.id}
+          item={shapeItem}
+          isSelected={selectedElements.includes(shapeItem.id)}
+          onSelect={onSelectElement}
+          onPositionChange={handleShapePositionChange}
+          onDelete={handleShapeDelete}
         />
       ))}
 
