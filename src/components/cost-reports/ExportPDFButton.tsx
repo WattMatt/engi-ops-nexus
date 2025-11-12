@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Download, Loader2 } from "lucide-react";
+import { Download, Loader2, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import jsPDF from "jspdf";
@@ -7,6 +7,7 @@ import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchCompanyDetails, generateCoverPage } from "@/utils/pdfCoverPage";
 import { StandardReportPreview } from "@/components/shared/StandardReportPreview";
+import { PDFExportSettings, DEFAULT_MARGINS, type PDFMargins } from "./PDFExportSettings";
 
 interface ExportPDFButtonProps {
   report: any;
@@ -17,8 +18,10 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [previewReport, setPreviewReport] = useState<any>(null);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [margins, setMargins] = useState<PDFMargins>(DEFAULT_MARGINS);
 
-  const handleExport = async () => {
+  const handleExport = async (useMargins: PDFMargins = margins) => {
     setLoading(true);
     try {
       // Fetch all data
@@ -54,6 +57,11 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       const pageWidth = doc.internal.pageSize.width;
       const pageHeight = doc.internal.pageSize.height;
       const tocSections: { title: string; page: number }[] = [];
+      
+      // Calculate content dimensions based on margins
+      const contentWidth = pageWidth - useMargins.left - useMargins.right;
+      const contentStartX = useMargins.left;
+      const contentStartY = useMargins.top;
 
       // ========== COVER PAGE ==========
       await generateCoverPage(doc, {
@@ -68,10 +76,10 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       const tocPage = doc.getCurrentPageInfo().pageNumber;
       doc.setFontSize(24);
       doc.setFont("helvetica", "bold");
-      doc.text("TABLE OF CONTENTS", pageWidth / 2, 30, { align: "center" });
+      doc.text("TABLE OF CONTENTS", pageWidth / 2, contentStartY + 10, { align: "center" });
 
       // We'll fill this in after generating all pages
-      const tocStartY = 50;
+      const tocStartY = contentStartY + 30;
 
       // Calculate totals
       const categoryTotals = categories.map((cat: any) => {
@@ -117,42 +125,42 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
 
       // Top KPI Cards
       doc.setTextColor(0, 0, 0);
-      let kpiY = 55;
-      const kpiCardWidth = 55;
+      let kpiY = contentStartY + 35;
+      const kpiCardWidth = (contentWidth - 16) / 3; // Distribute width based on content area
       const kpiCardHeight = 25;
       const kpiSpacing = 8;
       
       // Original Budget Card
       doc.setDrawColor(0, 200, 200);
       doc.setLineWidth(0.5);
-      doc.rect(20, kpiY, kpiCardWidth, kpiCardHeight);
+      doc.rect(contentStartX, kpiY, kpiCardWidth, kpiCardHeight);
       doc.setFontSize(8);
       doc.setFont("helvetica", "normal");
-      doc.text("Original Budget", 22, kpiY + 5);
+      doc.text("Original Budget", contentStartX + 2, kpiY + 5);
       doc.setFontSize(12);
       doc.setFont("helvetica", "bold");
-      doc.text(`R${totalOriginalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, 22, kpiY + 15);
+      doc.text(`R${totalOriginalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, contentStartX + 2, kpiY + 15);
       
       // Anticipated Final Card
-      doc.rect(20 + kpiCardWidth + kpiSpacing, kpiY, kpiCardWidth, kpiCardHeight);
+      doc.rect(contentStartX + kpiCardWidth + kpiSpacing, kpiY, kpiCardWidth, kpiCardHeight);
       doc.setFontSize(8);
       doc.setFont("helvetica", "normal");
-      doc.text("Anticipated Final", 22 + kpiCardWidth + kpiSpacing, kpiY + 5);
+      doc.text("Anticipated Final", contentStartX + kpiCardWidth + kpiSpacing + 2, kpiY + 5);
       doc.setFontSize(12);
       doc.setFont("helvetica", "bold");
-      doc.text(`R${finalTotal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, 22 + kpiCardWidth + kpiSpacing, kpiY + 15);
+      doc.text(`R${finalTotal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, contentStartX + kpiCardWidth + kpiSpacing + 2, kpiY + 15);
       
       // Saving Card
-      doc.rect(20 + (kpiCardWidth + kpiSpacing) * 2, kpiY, kpiCardWidth, kpiCardHeight);
+      doc.rect(contentStartX + (kpiCardWidth + kpiSpacing) * 2, kpiY, kpiCardWidth, kpiCardHeight);
       doc.setFontSize(8);
       doc.setFont("helvetica", "normal");
-      doc.text(totalVariance < 0 ? "Saving" : "Extra", 22 + (kpiCardWidth + kpiSpacing) * 2, kpiY + 5);
+      doc.text(totalVariance < 0 ? "Saving" : "Extra", contentStartX + (kpiCardWidth + kpiSpacing) * 2 + 2, kpiY + 5);
       doc.setFontSize(12);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(totalVariance < 0 ? 0 : 255, totalVariance < 0 ? 150 : 0, 0);
-      doc.text(`R${Math.abs(totalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, 22 + (kpiCardWidth + kpiSpacing) * 2, kpiY + 15);
+      doc.text(`R${Math.abs(totalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, contentStartX + (kpiCardWidth + kpiSpacing) * 2 + 2, kpiY + 15);
       doc.setFontSize(7);
-      doc.text(`${variancePercentage.toFixed(2)}% variance`, 22 + (kpiCardWidth + kpiSpacing) * 2, kpiY + 20);
+      doc.text(`${variancePercentage.toFixed(2)}% variance`, contentStartX + (kpiCardWidth + kpiSpacing) * 2 + 2, kpiY + 20);
 
       // Define colors for all visual elements
       const cardColors = [
@@ -171,7 +179,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       
       doc.setFontSize(12);
       doc.setFont("helvetica", "bold");
-      doc.text("Category Distribution & Financial Variance", 20, tableY);
+      doc.text("Category Distribution & Financial Variance", contentStartX, tableY);
       tableY += 10;
 
       // Prepare table data with color indicators
@@ -207,6 +215,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
 
       autoTable(doc, {
         startY: tableY,
+        margin: { left: contentStartX, right: useMargins.right },
         head: [[
           'Code',
           'Category',
@@ -227,12 +236,12 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         bodyStyles: { fontSize: 8 },
         columnStyles: {
           0: { cellWidth: 15, fontStyle: 'bold' },
-          1: { cellWidth: 45 },
-          2: { cellWidth: 30, halign: 'right' },
-          3: { cellWidth: 30, halign: 'right' },
-          4: { cellWidth: 18, halign: 'center' },
-          5: { cellWidth: 30, halign: 'right' },
-          6: { cellWidth: 20, halign: 'center' }
+          1: { cellWidth: contentWidth * 0.26 },
+          2: { cellWidth: contentWidth * 0.17, halign: 'right' },
+          3: { cellWidth: contentWidth * 0.17, halign: 'right' },
+          4: { cellWidth: contentWidth * 0.10, halign: 'center' },
+          5: { cellWidth: contentWidth * 0.17, halign: 'right' },
+          6: { cellWidth: contentWidth * 0.13, halign: 'center' }
         },
         didDrawCell: (data) => {
           // Add colored indicator bar on the left of each row (except totals row)
@@ -276,7 +285,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       });
 
       let cardY = (doc as any).lastAutoTable.finalY + 15;
-      const cardWidth = 85;
+      const cardWidth = (contentWidth - 8) / 2; // Two cards per row
       const cardHeight = 45;
       const cardsPerRow = 2;
       
@@ -284,20 +293,20 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       const totalRows = Math.ceil(categoryTotals.length / cardsPerRow);
       const totalCardsHeight = totalRows * (cardHeight + 8);
       
-      if (cardY + totalCardsHeight > pageHeight - 30) {
+      if (cardY + totalCardsHeight > pageHeight - useMargins.bottom) {
         doc.addPage();
-        cardY = 20;
+        cardY = contentStartY;
       }
       
       categoryTotals.forEach((cat: any, index: number) => {
         const col = index % cardsPerRow;
         const row = Math.floor(index / cardsPerRow);
-        const x = 20 + col * (cardWidth + 8);
+        const x = contentStartX + col * (cardWidth + 8);
         const y = cardY + row * (cardHeight + 8);
         
-        if (y > pageHeight - 60) {
+        if (y > pageHeight - useMargins.bottom - 60) {
           doc.addPage();
-          cardY = 20;
+          cardY = contentStartY;
         }
         
         const finalY = row === 0 ? cardY : cardY + row * (cardHeight + 8);
@@ -368,10 +377,11 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       doc.setFontSize(18);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(0, 0, 0);
-      doc.text("CATEGORY PERFORMANCE DETAILS", pageWidth / 2, 30, { align: "center" });
+      doc.text("CATEGORY PERFORMANCE DETAILS", pageWidth / 2, contentStartY + 10, { align: "center" });
 
       autoTable(doc, {
-        startY: 40,
+        startY: contentStartY + 20,
+        margin: { left: contentStartX, right: useMargins.right },
         head: [['Code', 'Category', 'Original Budget', 'Anticipated Final', 'Variance', 'Status']],
         body: categoryTotals.map((cat: any) => [
           cat.code,
@@ -397,43 +407,43 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       doc.setTextColor(255, 255, 255);
       doc.text("PROJECT INFORMATION", pageWidth / 2, 22, { align: "center" });
 
-      let yPos = 50;
+      let yPos = contentStartY + 30;
       doc.setTextColor(0, 0, 0);
       doc.setFontSize(12);
       doc.setFont("helvetica", "bold");
-      doc.text("REPORT DETAILS", 14, yPos);
+      doc.text("REPORT DETAILS", contentStartX, yPos);
       yPos += 10;
 
       // Add report details sections
       details.forEach((detail: any, index: number) => {
-        if (yPos > pageHeight - 30) {
+        if (yPos > pageHeight - useMargins.bottom - 10) {
           doc.addPage();
-          yPos = 20;
+          yPos = contentStartY;
         }
 
         doc.setFontSize(10);
         doc.setFont("helvetica", "bold");
-        doc.text(`${detail.section_number}. ${detail.section_title}`, 14, yPos);
+        doc.text(`${detail.section_number}. ${detail.section_title}`, contentStartX, yPos);
         yPos += 6;
 
         if (detail.section_content) {
           doc.setFont("helvetica", "normal");
-          const lines = doc.splitTextToSize(detail.section_content, pageWidth - 28);
-          doc.text(lines, 14, yPos);
+          const lines = doc.splitTextToSize(detail.section_content, contentWidth - 4);
+          doc.text(lines, contentStartX, yPos);
           yPos += lines.length * 5;
         }
         yPos += 5;
       });
 
       // Add contract information
-      if (yPos > pageHeight - 50) {
+      if (yPos > pageHeight - useMargins.bottom - 30) {
         doc.addPage();
-        yPos = 20;
+        yPos = contentStartY;
       }
 
       doc.setFontSize(10);
       doc.setFont("helvetica", "bold");
-      doc.text("8. CONTRACT INFORMATION", 14, yPos);
+      doc.text("8. CONTRACT INFORMATION", contentStartX, yPos);
       yPos += 6;
       doc.setFont("helvetica", "normal");
       
@@ -445,7 +455,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       ].filter(c => c.value);
 
       contractors.forEach(c => {
-        doc.text(`${c.label}: ${c.value}`, 14, yPos);
+        doc.text(`${c.label}: ${c.value}`, contentStartX, yPos);
         yPos += 5;
       });
 
@@ -455,11 +465,12 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       
       doc.setFontSize(18);
       doc.setFont("helvetica", "bold");
-      doc.text("EXECUTIVE SUMMARY", 14, 30);
+      doc.text("EXECUTIVE SUMMARY", contentStartX, contentStartY + 10);
 
       // Summary table
       autoTable(doc, {
-        startY: 40,
+        startY: contentStartY + 20,
+        margin: { left: contentStartX, right: useMargins.right },
         head: [['Metric', 'Value']],
         body: [
           ['Original Budget', `R ${totalOriginalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`],
@@ -475,10 +486,11 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       const lastY = (doc as any).lastAutoTable.finalY + 15;
       doc.setFontSize(14);
       doc.setFont("helvetica", "bold");
-      doc.text("CATEGORY BREAKDOWN", 14, lastY);
+      doc.text("CATEGORY BREAKDOWN", contentStartX, lastY);
 
       autoTable(doc, {
         startY: lastY + 5,
+        margin: { left: contentStartX, right: useMargins.right },
         head: [['Code', 'Category', 'Original Budget', 'Anticipated Final', 'Variance', 'Status']],
         body: categoryTotals.map((cat: any) => [
           cat.code,
@@ -503,10 +515,11 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         
         doc.setFontSize(16);
         doc.setFont("helvetica", "bold");
-        doc.text(`${category.code} - ${category.description}`, 14, 30);
+        doc.text(`${category.code} - ${category.description}`, contentStartX, contentStartY + 10);
 
         autoTable(doc, {
-          startY: 40,
+          startY: contentStartY + 20,
+          margin: { left: contentStartX, right: useMargins.right },
           head: [['Code', 'Description', 'Original Budget', 'Anticipated Final', 'Variance']],
           body: lineItems.map((item: any) => {
             const variance = Number(item.anticipated_final || 0) - Number(item.original_budget || 0);
@@ -522,7 +535,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           styles: { fontSize: 9, cellPadding: 3 },
           headStyles: { fillColor: [30, 58, 138], textColor: [255, 255, 255], fontStyle: 'bold' },
           columnStyles: {
-            1: { cellWidth: 60 }
+            1: { cellWidth: contentWidth * 0.4 }
           }
         });
       });
@@ -534,10 +547,11 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         
         doc.setFontSize(16);
         doc.setFont("helvetica", "bold");
-        doc.text("VARIATIONS", 14, 30);
+        doc.text("VARIATIONS", contentStartX, contentStartY + 10);
 
         autoTable(doc, {
-          startY: 40,
+          startY: contentStartY + 20,
+          margin: { left: contentStartX, right: useMargins.right },
           head: [['Code', 'Description', 'Amount', 'Type']],
           body: variations.map((v: any) => [
             v.code,
@@ -549,7 +563,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           styles: { fontSize: 9, cellPadding: 3 },
           headStyles: { fillColor: [30, 58, 138], textColor: [255, 255, 255], fontStyle: 'bold' },
           columnStyles: {
-            1: { cellWidth: 80 }
+            1: { cellWidth: contentWidth * 0.5 }
           }
         });
       }
@@ -561,8 +575,9 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       doc.setFont("helvetica", "normal");
       
       tocSections.forEach((section) => {
-        const dots = '.'.repeat(Math.floor((pageWidth - 40 - doc.getTextWidth(section.title) - doc.getTextWidth(String(section.page))) / doc.getTextWidth('.')));
-        doc.text(`${section.title} ${dots} ${section.page}`, 20, tocY);
+        const maxWidth = contentWidth - 4;
+        const dots = '.'.repeat(Math.floor((maxWidth - doc.getTextWidth(section.title) - doc.getTextWidth(String(section.page))) / doc.getTextWidth('.')));
+        doc.text(`${section.title} ${dots} ${section.page}`, contentStartX, tocY);
         tocY += 8;
       });
 
@@ -572,7 +587,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         doc.setPage(i);
         doc.setFontSize(9);
         doc.setTextColor(100);
-        doc.text(`Page ${i} of ${totalPages}`, pageWidth / 2, pageHeight - 10, { align: "center" });
+        doc.text(`Page ${i} of ${totalPages}`, pageWidth / 2, pageHeight - useMargins.bottom + 5, { align: "center" });
       }
 
       // Save PDF
@@ -625,19 +640,39 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
 
   return (
     <>
-      <Button onClick={handleExport} disabled={loading}>
-        {loading ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Generating PDF...
-          </>
-        ) : (
-          <>
-            <Download className="mr-2 h-4 w-4" />
-            Export PDF
-          </>
-        )}
-      </Button>
+      <div className="flex gap-2">
+        <Button onClick={() => handleExport()} disabled={loading}>
+          {loading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Generating PDF...
+            </>
+          ) : (
+            <>
+              <Download className="mr-2 h-4 w-4" />
+              Export PDF
+            </>
+          )}
+        </Button>
+        
+        <Button 
+          variant="outline" 
+          size="icon"
+          onClick={() => setSettingsOpen(true)}
+          disabled={loading}
+          title="PDF Export Settings"
+        >
+          <Settings className="h-4 w-4" />
+        </Button>
+      </div>
+      
+      <PDFExportSettings
+        open={settingsOpen}
+        onOpenChange={setSettingsOpen}
+        margins={margins}
+        onMarginsChange={setMargins}
+        onApply={() => handleExport()}
+      />
       
       {previewReport && (
         <StandardReportPreview
