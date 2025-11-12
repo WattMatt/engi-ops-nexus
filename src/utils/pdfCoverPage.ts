@@ -173,22 +173,30 @@ export async function generateCoverPage(
   const pageHeight = doc.internal.pageSize.height;
   
   // Check if there's a default cover page template
-  const { data: defaultTemplate } = await supabase
-    .from("cover_page_templates")
+  console.log("Fetching default cover page template...");
+  const { data: defaultTemplate, error: templateError } = await supabase
+    .from("cover_page_templates" as any)
     .select("*")
     .eq("is_default", true)
     .maybeSingle();
+  
+  console.log("Template fetch result:", { defaultTemplate, templateError });
 
   // If a template exists, use it as the background
   if (defaultTemplate) {
     try {
+      const template = defaultTemplate as any;
+      console.log("Loading template from storage:", template.file_path);
       const { data } = supabase.storage
         .from("cover-page-templates")
-        .getPublicUrl(defaultTemplate.file_path);
+        .getPublicUrl(template.file_path);
 
+      console.log("Template public URL:", data.publicUrl);
+      
       if (data.publicUrl) {
         const response = await fetch(data.publicUrl);
         const blob = await response.blob();
+        console.log("Template loaded successfully, size:", blob.size);
         
         // Convert to base64
         const dataUrl = await new Promise<string>((resolve) => {
@@ -198,15 +206,19 @@ export async function generateCoverPage(
         });
 
         // Determine image type
-        const imageType = defaultTemplate.file_type?.includes("pdf") ? "PDF" : "JPEG";
+        const imageType = template.file_type?.includes("pdf") ? "PDF" : "JPEG";
         
         // Add template as background (full page)
+        console.log("Adding template to PDF as", imageType);
         doc.addImage(dataUrl, imageType, 0, 0, pageWidth, pageHeight);
+        console.log("Template added successfully!");
       }
     } catch (error) {
       console.error("Failed to load cover page template:", error);
       // Fall through to generate default cover page
     }
+  } else {
+    console.log("No default template found, generating standard cover page");
   }
 
   // If no template or template failed, generate modern professional cover page
