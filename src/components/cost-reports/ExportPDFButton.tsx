@@ -137,25 +137,20 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         doc.addPage();
         tocPage = doc.getCurrentPageInfo().pageNumber;
         
-        // Modern TOC header with gradient
-        const headerHeight = 40;
-        for (let i = 0; i < headerHeight; i++) {
-          const ratio = i / headerHeight;
-          const r = Math.round(colors.primary[0] + (colors.secondary[0] - colors.primary[0]) * ratio);
-          const g = Math.round(colors.primary[1] + (colors.secondary[1] - colors.primary[1]) * ratio);
-          const b = Math.round(colors.primary[2] + (colors.secondary[2] - colors.primary[2]) * ratio);
-          doc.setFillColor(r, g, b);
-          doc.rect(0, i, pageWidth, 1, 'F');
-        }
-        
-        doc.setFontSize(24);
+        // Simple professional header
+        doc.setFontSize(18);
         doc.setFont("helvetica", "bold");
-        doc.setTextColor(...colors.white);
-        doc.text("TABLE OF CONTENTS", pageWidth / 2, 22, { align: "center" });
+        doc.setTextColor(0, 0, 0);
+        doc.text("TABLE OF CONTENTS", pageWidth / 2, contentStartY + 5, { align: "center" });
+        
+        // Add a subtle line under the header
+        doc.setDrawColor(200, 200, 200);
+        doc.setLineWidth(0.5);
+        doc.line(contentStartX, contentStartY + 8, pageWidth - useMargins.right, contentStartY + 8);
       }
 
-      // Start TOC entries below the header (40px header + spacing)
-      const tocStartY = 55;
+      // Start TOC entries below the header
+      const tocStartY = contentStartY + 20;
 
       // Use the already calculated totals
       const categoryTotals = pdfCategoryTotals.map(ct => ({
@@ -211,28 +206,24 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         doc.addPage();
         tocSections.push({ title: "Executive Summary", page: doc.getCurrentPageInfo().pageNumber });
         
-        // Modern gradient header
-        const headerHeight = 50;
-        for (let i = 0; i < headerHeight; i++) {
-          const ratio = i / headerHeight;
-          const r = Math.round(colors.primary[0] + (colors.secondary[0] - colors.primary[0]) * ratio);
-          const g = Math.round(colors.primary[1] + (colors.secondary[1] - colors.primary[1]) * ratio);
-          const b = Math.round(colors.primary[2] + (colors.secondary[2] - colors.primary[2]) * ratio);
-          doc.setFillColor(r, g, b);
-          doc.rect(0, i, pageWidth, 1, 'F');
-        }
-        
-        // Header text with better typography
-        doc.setFontSize(24);
+        // Simple professional header
+        doc.setFontSize(18);
         doc.setFont("helvetica", "bold");
-        doc.setTextColor(...colors.white);
-        doc.text("EXECUTIVE SUMMARY", pageWidth / 2, 22, { align: "center" });
-        doc.setFontSize(11);
+        doc.setTextColor(0, 0, 0);
+        doc.text("EXECUTIVE SUMMARY", pageWidth / 2, contentStartY + 5, { align: "center" });
+        
+        doc.setFontSize(10);
         doc.setFont("helvetica", "normal");
-        doc.text("Key Performance Indicators & Financial Overview", pageWidth / 2, 35, { align: "center" });
+        doc.setTextColor(60, 60, 60);
+        doc.text("Key Performance Indicators & Financial Overview", pageWidth / 2, contentStartY + 12, { align: "center" });
+
+        // Add a subtle line under the header
+        doc.setDrawColor(200, 200, 200);
+        doc.setLineWidth(0.5);
+        doc.line(contentStartX, contentStartY + 15, pageWidth - useMargins.right, contentStartY + 15);
 
         doc.setTextColor(...colors.text);
-        let kpiY = contentStartY + 35;
+        let kpiY = contentStartY + 25;
         
         // Try to capture KPI cards, but fall back to manual rendering if not available
         try {
