@@ -110,6 +110,11 @@ const CostReportDetail = () => {
         <TabsContent value="overview">
           <CostReportOverview report={report} />
         </TabsContent>
+        
+        {/* Keep Overview rendered but hidden for PDF capture */}
+        <div className="hidden">
+          <CostReportOverview report={report} />
+        </div>
 
         <TabsContent value="cover">
           <CoverPageManager report={report} />

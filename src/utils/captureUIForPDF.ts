@@ -20,16 +20,15 @@ const waitForElement = async (selector: string, timeout = 10000): Promise<HTMLEl
   
   while (Date.now() - startTime < timeout) {
     const element = document.getElementById(selector);
-    if (element && element.offsetParent !== null) {
-      // Element is visible in DOM
-      // Additional wait to ensure full rendering
+    if (element) {
+      // Element found, wait for full rendering regardless of visibility
       await new Promise(resolve => setTimeout(resolve, 1000));
       return element;
     }
     await new Promise(resolve => setTimeout(resolve, 200));
   }
   
-  throw new Error(`Element with id "${selector}" not found or not visible within ${timeout}ms`);
+  throw new Error(`Element with id "${selector}" not found within ${timeout}ms`);
 };
 
 /**
