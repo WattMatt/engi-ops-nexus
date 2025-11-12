@@ -6,8 +6,10 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, Download, Settings2 } from "lucide-react";
+import { FileText, Download, Settings2, Eye, BarChart3, FileBarChart, StickyNote } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -126,8 +128,36 @@ export const SmartTemplateBuilder = ({
     }
   };
 
+  const getColorSchemeStyles = () => {
+    switch (config.styling.colorScheme) {
+      case "blue":
+        return { primary: "bg-blue-600", secondary: "bg-blue-100", text: "text-blue-900" };
+      case "green":
+        return { primary: "bg-emerald-600", secondary: "bg-emerald-100", text: "text-emerald-900" };
+      case "purple":
+        return { primary: "bg-purple-600", secondary: "bg-purple-100", text: "text-purple-900" };
+      case "professional":
+        return { primary: "bg-slate-700", secondary: "bg-slate-100", text: "text-slate-900" };
+      default:
+        return { primary: "bg-blue-600", secondary: "bg-blue-100", text: "text-blue-900" };
+    }
+  };
+
+  const getFontSizeClass = () => {
+    switch (config.styling.fontSize) {
+      case "small": return "text-xs";
+      case "medium": return "text-sm";
+      case "large": return "text-base";
+      default: return "text-sm";
+    }
+  };
+
+  const colors = getColorSchemeStyles();
+
   return (
-    <div className="space-y-6">
+    <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+      {/* Left Side: Configuration */}
+      <div className="xl:col-span-2 space-y-6">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Sections Selection */}
         <Card>
@@ -446,6 +476,199 @@ export const SmartTemplateBuilder = ({
           <Download className="h-4 w-4 mr-2" />
           Generate PDF Template
         </Button>
+      </div>
+      </div>
+
+      {/* Right Side: Live Preview */}
+      <div className="xl:col-span-1">
+        <Card className="sticky top-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5" />
+              Live Preview
+            </CardTitle>
+            <CardDescription>
+              See how your PDF will look
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ScrollArea className="h-[700px] pr-4">
+              <div 
+                className={`bg-white border-2 shadow-lg mx-auto transition-all ${
+                  config.layout.orientation === "portrait" 
+                    ? "w-full aspect-[210/297]" 
+                    : "w-full aspect-[297/210]"
+                } ${getFontSizeClass()}`}
+              >
+                {/* Cover Page Preview */}
+                {config.sections.coverPage && (
+                  <div className={`${colors.primary} p-6 h-32 flex flex-col justify-center items-center text-white`}>
+                    {config.coverPage.includeCompanyLogo && (
+                      <div className="w-12 h-12 bg-white/20 rounded mb-2 flex items-center justify-center">
+                        <FileText className="h-6 w-6" />
+                      </div>
+                    )}
+                    <h1 className="font-bold text-lg text-center">
+                      {config.coverPage.title || getCategoryLabel()}
+                    </h1>
+                    {config.coverPage.subtitle && (
+                      <p className="text-xs mt-1 opacity-90">{config.coverPage.subtitle}</p>
+                    )}
+                  </div>
+                )}
+
+                <div className={`p-4 space-y-3 ${config.layout.columns === "double" ? "columns-2 gap-3" : ""}`}>
+                  {/* Executive Summary */}
+                  {config.sections.executiveSummary && category === "cost_report" && (
+                    <div className="break-inside-avoid">
+                      <div className={`${colors.secondary} p-3 rounded`}>
+                        <h2 className={`font-semibold mb-2 ${colors.text}`}>Executive Summary</h2>
+                        <div className="space-y-1 text-xs opacity-60">
+                          <div className="h-2 bg-current rounded w-full" />
+                          <div className="h-2 bg-current rounded w-3/4" />
+                          <div className="h-2 bg-current rounded w-5/6" />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* KPI Cards */}
+                  {config.sections.kpiCards && category === "cost_report" && (
+                    <div className="break-inside-avoid">
+                      <h3 className="font-semibold mb-2 text-xs">Key Performance Indicators</h3>
+                      <div className="grid grid-cols-2 gap-2">
+                        {[1, 2, 3, 4].map((i) => (
+                          <div key={i} className={`${colors.secondary} p-2 rounded border-l-2 ${colors.primary.replace('bg-', 'border-')}`}>
+                            <div className="text-[0.5rem] opacity-60 mb-1">KPI {i}</div>
+                            <div className="h-3 bg-current opacity-20 rounded w-3/4" />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Charts */}
+                  {config.sections.charts && category === "cost_report" && (
+                    <div className="break-inside-avoid">
+                      <h3 className="font-semibold mb-2 text-xs flex items-center gap-1">
+                        <BarChart3 className="h-3 w-3" />
+                        Charts & Visualizations
+                      </h3>
+                      <div className="space-y-2">
+                        <div className={`${colors.secondary} p-3 rounded h-20 flex items-end justify-around gap-1`}>
+                          {[60, 80, 45, 90, 70].map((height, i) => (
+                            <div 
+                              key={i} 
+                              className={colors.primary}
+                              style={{ height: `${height}%`, width: '15%' }}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Category Breakdown */}
+                  {config.sections.categoryBreakdown && category === "cost_report" && (
+                    <div className="break-inside-avoid">
+                      <h3 className="font-semibold mb-2 text-xs flex items-center gap-1">
+                        <FileBarChart className="h-3 w-3" />
+                        Category Breakdown
+                      </h3>
+                      <div className="border rounded overflow-hidden">
+                        <div className={`${colors.primary} text-white p-1 grid grid-cols-3 text-[0.5rem] font-medium`}>
+                          <div>Category</div>
+                          <div className="text-right">Budget</div>
+                          <div className="text-right">Actual</div>
+                        </div>
+                        {[1, 2, 3].map((i) => (
+                          <div key={i} className="grid grid-cols-3 p-1 text-[0.45rem] border-t">
+                            <div className="opacity-60">Category {i}</div>
+                            <div className="text-right opacity-60">R 0.00</div>
+                            <div className="text-right opacity-60">R 0.00</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Detailed Line Items */}
+                  {config.sections.detailedLineItems && (
+                    <div className="break-inside-avoid">
+                      <h3 className="font-semibold mb-2 text-xs">Detailed Line Items</h3>
+                      <div className="border rounded overflow-hidden">
+                        <div className={`${colors.primary} text-white p-1 text-[0.5rem] font-medium`}>
+                          Line Items Details
+                        </div>
+                        {[1, 2, 3, 4].map((i) => (
+                          <div key={i} className="p-1 text-[0.45rem] border-t">
+                            <div className="opacity-60">Item {i} description</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Variations */}
+                  {config.sections.variations && category === "cost_report" && (
+                    <div className="break-inside-avoid">
+                      <h3 className="font-semibold mb-2 text-xs">Variations</h3>
+                      <div className={`${colors.secondary} p-2 rounded`}>
+                        <div className="space-y-1">
+                          {[1, 2].map((i) => (
+                            <div key={i} className="text-[0.45rem] opacity-60">
+                              Variation #{i}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Notes */}
+                  {config.sections.notes && (
+                    <div className="break-inside-avoid">
+                      <h3 className="font-semibold mb-2 text-xs flex items-center gap-1">
+                        <StickyNote className="h-3 w-3" />
+                        Notes & Comments
+                      </h3>
+                      <div className={`${colors.secondary} p-2 rounded`}>
+                        <div className="space-y-1 text-[0.45rem] opacity-60">
+                          <div className="h-1.5 bg-current rounded w-full" />
+                          <div className="h-1.5 bg-current rounded w-5/6" />
+                          <div className="h-1.5 bg-current rounded w-4/5" />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Page Footer */}
+                <div className="absolute bottom-2 left-0 right-0 text-center">
+                  <div className="text-[0.4rem] opacity-40">
+                    Page 1 • {config.layout.orientation === "portrait" ? "Portrait" : "Landscape"} • {config.layout.pageSize.toUpperCase()}
+                  </div>
+                </div>
+              </div>
+
+              {/* Preview Badges */}
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Badge variant="outline" className="text-xs">
+                  {config.layout.orientation === "portrait" ? "Portrait" : "Landscape"}
+                </Badge>
+                <Badge variant="outline" className="text-xs">
+                  {config.layout.columns === "single" ? "Single Column" : "Two Columns"}
+                </Badge>
+                <Badge variant="outline" className="text-xs">
+                  {config.layout.pageSize.toUpperCase()}
+                </Badge>
+                <Badge variant="outline" className="text-xs">
+                  {config.styling.colorScheme.charAt(0).toUpperCase() + config.styling.colorScheme.slice(1)}
+                </Badge>
+              </div>
+            </ScrollArea>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );
