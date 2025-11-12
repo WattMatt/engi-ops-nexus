@@ -39,12 +39,12 @@ export const CoverPageTemplates = () => {
     queryKey: ["cover-page-templates"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("cover_page_templates")
+        .from("cover_page_templates" as any)
         .select("*")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      return data;
+      return (data || []) as any[];
     },
   });
 
@@ -86,7 +86,7 @@ export const CoverPageTemplates = () => {
 
       // Save to database
       const { error: dbError } = await supabase
-        .from("cover_page_templates")
+        .from("cover_page_templates" as any)
         .insert({
           name: templateName,
           file_path: filePath,
@@ -127,13 +127,13 @@ export const CoverPageTemplates = () => {
     mutationFn: async (templateId: string) => {
       // First, unset all defaults
       await supabase
-        .from("cover_page_templates")
+        .from("cover_page_templates" as any)
         .update({ is_default: false })
         .neq("id", "00000000-0000-0000-0000-000000000000");
 
       // Then set the new default
       const { error } = await supabase
-        .from("cover_page_templates")
+        .from("cover_page_templates" as any)
         .update({ is_default: true })
         .eq("id", templateId);
 
@@ -167,7 +167,7 @@ export const CoverPageTemplates = () => {
 
       // Delete from database
       const { error: dbError } = await supabase
-        .from("cover_page_templates")
+        .from("cover_page_templates" as any)
         .delete()
         .eq("id", template.id);
 
