@@ -10,6 +10,7 @@ interface EditablePDFTextProps {
   onSelect: (id: string, isCtrlKey: boolean) => void;
   onTextChange: (id: string, newText: string) => void;
   onPositionChange: (id: string, x: number, y: number) => void;
+  onColorChange?: (id: string, color: string) => void;
 }
 
 export const EditablePDFText: React.FC<EditablePDFTextProps> = ({
@@ -19,6 +20,7 @@ export const EditablePDFText: React.FC<EditablePDFTextProps> = ({
   onSelect,
   onTextChange,
   onPositionChange,
+  onColorChange,
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [text, setText] = useState(item.text);
@@ -113,6 +115,7 @@ export const EditablePDFText: React.FC<EditablePDFTextProps> = ({
               fontSize: `${item.fontSize}px`,
               fontFamily: item.fontFamily,
               fontWeight: item.bold ? 'bold' : 'normal',
+              color: item.color || '#000',
             }}
             onClick={(e) => e.stopPropagation()}
           />
@@ -123,7 +126,7 @@ export const EditablePDFText: React.FC<EditablePDFTextProps> = ({
               fontSize: `${item.fontSize}px`,
               fontFamily: item.fontFamily,
               fontWeight: item.bold ? 'bold' : 'normal',
-              color: '#000',
+              color: item.color || '#000',
             }}
           >
             {text}

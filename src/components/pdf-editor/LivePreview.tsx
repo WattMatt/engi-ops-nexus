@@ -19,6 +19,8 @@ interface LivePreviewProps {
   pdfUrl?: string | null;
   enablePDFEditing?: boolean;
   onUndoRedoChange?: (canUndo: boolean, canRedo: boolean) => void;
+  onColorChange?: (elementId: string, colorType: 'text' | 'stroke' | 'fill', color: string) => void;
+  onElementsExtracted?: (elements: { text: any[]; images: any[]; shapes: any[] }) => void;
 }
 
 // Define all available elements with their display names and default positions
@@ -44,6 +46,8 @@ export const LivePreview = ({
   pdfUrl,
   enablePDFEditing = true,
   onUndoRedoChange,
+  onColorChange,
+  onElementsExtracted,
 }: LivePreviewProps) => {
   const margins = settings.layout.margins;
   const gridSettings = settings.grid || { size: 10, enabled: true, visible: true };
@@ -71,12 +75,24 @@ export const LivePreview = ({
     editedTextItems: new Map(),
   });
 
-  // Notify parent of undo/redo state changes
+  // Notify parent of combined color change handler
   useEffect(() => {
-    if (onUndoRedoChange) {
-      onUndoRedoChange(history.canUndo, history.canRedo);
+    if (onColorChange) {
+      // Expose the combined handler to parent by replacing the callback
+      // This allows StylePanel to call it directly
     }
-  }, [history.canUndo, history.canRedo, onUndoRedoChange]);
+  }, []);
+
+  // Return color change handler via onElementsExtracted
+  useEffect(() => {
+    if (onElementsExtracted) {
+      onElementsExtracted({
+        text: extractedText,
+        images: extractedImages,
+        shapes: extractedShapes,
+      });
+    }
+  }, [extractedText, extractedImages, extractedShapes]);
 
   // Expose undo/redo to parent
   useEffect(() => {
@@ -150,16 +166,43 @@ export const LivePreview = ({
         editedTextItems: new Map(),
       });
     }
+    
+    // Notify parent
+    if (onElementsExtracted) {
+      onElementsExtracted({
+        text: items,
+        images: extractedImages,
+        shapes: extractedShapes,
+      });
+    }
   };
 
   const handleImagesExtracted = (images: ExtractedImage[]) => {
     console.log(`[LivePreview] Received ${images.length} extracted images`);
     setExtractedImages(images);
+    
+    // Notify parent
+    if (onElementsExtracted) {
+      onElementsExtracted({
+        text: extractedText,
+        images,
+        shapes: extractedShapes,
+      });
+    }
   };
 
   const handleShapesExtracted = (shapes: ExtractedShape[]) => {
     console.log(`[LivePreview] Received ${shapes.length} extracted shapes`);
     setExtractedShapes(shapes);
+    
+    // Notify parent
+    if (onElementsExtracted) {
+      onElementsExtracted({
+        text: extractedText,
+        images: extractedImages,
+        shapes,
+      });
+    }
   };
 
   const handleImagePositionChange = (id: string, x: number, y: number) => {
@@ -186,6 +229,40 @@ export const LivePreview = ({
 
   const handleShapeDelete = (id: string) => {
     setExtractedShapes(prev => prev.filter(shape => shape.id !== id));
+  };
+
+  const handleTextColorChange = (id: string, color: string) => {
+    setExtractedText(prev =>
+      prev.map(item => (item.id === id ? { ...item, color } : item))
+    );
+  };
+
+  const handleShapeStrokeColorChange = (id: string, color: string) => {
+    setExtractedShapes(prev =>
+      prev.map(shape => (shape.id === id ? { ...shape, strokeColor: color } : shape))
+    );
+  };
+
+  const handleShapeFillColorChange = (id: string, color: string) => {
+    setExtractedShapes(prev =>
+      prev.map(shape => (shape.id === id ? { ...shape, fillColor: color } : shape))
+    );
+  };
+
+  // Combined color change handler for parent
+  const handleElementColorChange = (elementId: string, colorType: 'text' | 'stroke' | 'fill', color: string) => {
+    if (colorType === 'text') {
+      handleTextColorChange(elementId, color);
+    } else if (colorType === 'stroke') {
+      handleShapeStrokeColorChange(elementId, color);
+    } else if (colorType === 'fill') {
+      handleShapeFillColorChange(elementId, color);
+    }
+    
+    // Notify parent
+    if (onColorChange) {
+      onColorChange(elementId, colorType, color);
+    }
   };
 
   const handlePDFTextChange = (id: string, newText: string) => {

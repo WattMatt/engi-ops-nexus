@@ -15,6 +15,13 @@ interface StylePanelProps {
   onStyleChange: (path: string, value: any) => void;
   onPositionChange: (elementKey: string, x: number, y: number) => void;
   onReset: () => void;
+  onColorChange?: (elementId: string, colorType: 'text' | 'stroke' | 'fill', color: string) => void;
+  selectedElementData?: {
+    type: 'text' | 'image' | 'shape';
+    color?: string;
+    strokeColor?: string;
+    fillColor?: string;
+  };
 }
 
 export const StylePanel = ({
@@ -25,6 +32,8 @@ export const StylePanel = ({
   onStyleChange,
   onPositionChange,
   onReset,
+  onColorChange,
+  selectedElementData,
 }: StylePanelProps) => {
   const position = selectedElement && currentStyles.positions?.[selectedElement] 
     ? currentStyles.positions[selectedElement] 
@@ -166,6 +175,81 @@ export const StylePanel = ({
       </div>
 
       <Separator />
+
+      {/* Color Controls for PDF Elements */}
+      {selectedElementData && onColorChange && selectedElement && (
+        <>
+          <div className="space-y-4">
+            <h4 className="font-medium">Colors</h4>
+            
+            {selectedElementData.type === 'text' && (
+              <div className="space-y-2">
+                <Label>Text Color</Label>
+                <div className="flex gap-2 items-center">
+                  <input
+                    type="color"
+                    value={selectedElementData.color || '#000000'}
+                    onChange={(e) => onColorChange(selectedElement, 'text', e.target.value)}
+                    className="w-12 h-10 rounded cursor-pointer border"
+                  />
+                  <Input
+                    value={selectedElementData.color || '#000000'}
+                    onChange={(e) => onColorChange(selectedElement, 'text', e.target.value)}
+                    placeholder="#000000"
+                    className="flex-1 font-mono"
+                  />
+                </div>
+              </div>
+            )}
+
+            {selectedElementData.type === 'shape' && (
+              <>
+                <div className="space-y-2">
+                  <Label>Stroke Color</Label>
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="color"
+                      value={selectedElementData.strokeColor || '#000000'}
+                      onChange={(e) => onColorChange(selectedElement, 'stroke', e.target.value)}
+                      className="w-12 h-10 rounded cursor-pointer border"
+                    />
+                    <Input
+                      value={selectedElementData.strokeColor || '#000000'}
+                      onChange={(e) => onColorChange(selectedElement, 'stroke', e.target.value)}
+                      placeholder="#000000"
+                      className="flex-1 font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Fill Color</Label>
+                  <div className="flex gap-2 items-center">
+                    <input
+                      type="color"
+                      value={selectedElementData.fillColor || 'none'}
+                      onChange={(e) => onColorChange(selectedElement, 'fill', e.target.value)}
+                      className="w-12 h-10 rounded cursor-pointer border"
+                      disabled={selectedElementData.fillColor === 'none'}
+                    />
+                    <Input
+                      value={selectedElementData.fillColor || 'none'}
+                      onChange={(e) => onColorChange(selectedElement, 'fill', e.target.value)}
+                      placeholder="none"
+                      className="flex-1 font-mono"
+                    />
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Use "none" for transparent fill
+                  </p>
+                </div>
+              </>
+            )}
+          </div>
+          
+          <Separator />
+        </>
+      )}
 
       {/* Typography */}
       {(elementType === 'heading' || elementType === 'body') && (

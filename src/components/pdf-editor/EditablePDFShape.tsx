@@ -10,6 +10,8 @@ interface EditablePDFShapeProps {
   onSelect: (id: string, isCtrlKey: boolean) => void;
   onPositionChange: (id: string, x: number, y: number) => void;
   onDelete: (id: string) => void;
+  onStrokeColorChange?: (id: string, color: string) => void;
+  onFillColorChange?: (id: string, color: string) => void;
 }
 
 export const EditablePDFShape: React.FC<EditablePDFShapeProps> = ({
@@ -18,6 +20,8 @@ export const EditablePDFShape: React.FC<EditablePDFShapeProps> = ({
   onSelect,
   onPositionChange,
   onDelete,
+  onStrokeColorChange,
+  onFillColorChange,
 }) => {
   const [isHovered, setIsHovered] = useState(false);
 

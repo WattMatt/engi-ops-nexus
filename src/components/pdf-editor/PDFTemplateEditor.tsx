@@ -54,10 +54,75 @@ export const PDFTemplateEditor = ({
   // Undo/Redo state
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
+  
+  // Track extracted PDF elements for color control
+  const [extractedElements, setExtractedElements] = useState<{
+    text: any[];
+    images: any[];
+    shapes: any[];
+  }>({ text: [], images: [], shapes: [] });
 
   const handleUndoRedoChange = (undo: boolean, redo: boolean) => {
     setCanUndo(undo);
     setCanRedo(redo);
+  };
+
+  const handleColorChange = (elementId: string, colorType: 'text' | 'stroke' | 'fill', color: string) => {
+    // This is called from StylePanel and needs to update LivePreview's elements
+    // Update the local tracking state
+    setExtractedElements(prev => {
+      if (colorType === 'text') {
+        return {
+          ...prev,
+          text: prev.text.map(item => 
+            item.id === elementId ? { ...item, color } : item
+          ),
+        };
+      } else if (colorType === 'stroke') {
+        return {
+          ...prev,
+          shapes: prev.shapes.map(item =>
+            item.id === elementId ? { ...item, strokeColor: color } : item
+          ),
+        };
+      } else if (colorType === 'fill') {
+        return {
+          ...prev,
+          shapes: prev.shapes.map(item =>
+            item.id === elementId ? { ...item, fillColor: color } : item
+          ),
+        };
+      }
+      return prev;
+    });
+  };
+
+  // Get data for selected element
+  const getSelectedElementData = () => {
+    if (!selectedElements.length || selectedElements.length > 1) return null;
+    
+    const selectedId = selectedElements[0];
+    
+    // Check if it's a text element
+    const textElement = extractedElements.text.find(t => t.id === selectedId);
+    if (textElement) {
+      return {
+        type: 'text' as const,
+        color: textElement.color || '#000000',
+      };
+    }
+    
+    // Check if it's a shape element
+    const shapeElement = extractedElements.shapes.find(s => s.id === selectedId);
+    if (shapeElement) {
+      return {
+        type: 'shape' as const,
+        strokeColor: shapeElement.strokeColor || '#000000',
+        fillColor: shapeElement.fillColor || 'none',
+      };
+    }
+    
+    return null;
   };
 
   // Element definitions with defaults (imported from LivePreview for consistency)
@@ -684,6 +749,8 @@ export const PDFTemplateEditor = ({
                       pdfUrl={pdfUrl}
                       enablePDFEditing={true}
                       onUndoRedoChange={handleUndoRedoChange}
+                      onColorChange={handleColorChange}
+                      onElementsExtracted={(elements) => setExtractedElements(elements)}
                     />
                   </div>
                 </div>
@@ -700,6 +767,8 @@ export const PDFTemplateEditor = ({
                 onStyleChange={handleStyleChange}
                 onPositionChange={handlePositionChange}
                 onReset={handleReset}
+                onColorChange={handleColorChange}
+                selectedElementData={getSelectedElementData()}
               />
             </div>
           </div>
