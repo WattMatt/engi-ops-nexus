@@ -24,6 +24,7 @@ export interface GrandTotals {
 
 /**
  * Calculate category totals from categories, line items, and variations
+ * Variations appear in their own category but properly flow through all totals
  */
 export function calculateCategoryTotals(
   categories: any[],
@@ -44,11 +45,11 @@ export function calculateCategoryTotals(
         id: category.id,
         code: category.code,
         description: category.description,
-        originalBudget: 0,
-        previousReport: 0,
-        anticipatedFinal,
-        currentVariance: anticipatedFinal,
-        originalVariance: anticipatedFinal
+        originalBudget: 0, // Variations didn't exist in original budget
+        previousReport: 0, // Variations didn't exist in previous report
+        anticipatedFinal, // Current variations value
+        currentVariance: anticipatedFinal, // Full amount is variance vs previous
+        originalVariance: anticipatedFinal // Full amount is variance vs original
       };
     } else {
       // For regular categories, sum line items
