@@ -8,7 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Save, Download, Upload, RefreshCw, Eye, EyeOff } from "lucide-react";
+import { Save, Download, Upload, RefreshCw, Eye, EyeOff, ArrowLeft } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
@@ -30,6 +31,7 @@ interface PDFTemplateDesignerProps {
   projectId: string;
   reportId?: string;
   onSave?: (templateId: string) => void;
+  onBack?: () => void;
 }
 
 const getBlankTemplate = (): Template => ({
@@ -55,6 +57,7 @@ export const PDFTemplateDesigner = ({
   projectId,
   reportId,
   onSave,
+  onBack,
 }: PDFTemplateDesignerProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const designerRef = useRef<Designer | null>(null);
@@ -331,16 +334,36 @@ export const PDFTemplateDesigner = ({
   };
 
   return (
-    <div className="flex h-full gap-4">
-      {/* Component Library Sidebar */}
-      <div className="w-72 flex-shrink-0">
-        <ComponentLibraryPanel
-          projectId={projectId}
-          reportId={reportId}
-          category={category}
-          onComponentCaptured={handleComponentCaptured}
-        />
-      </div>
+    <div className="flex flex-col h-screen bg-background">
+      {/* Header with Back Button */}
+      {onBack && (
+        <div className="border-b bg-card px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button variant="ghost" size="sm" onClick={onBack}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to Templates
+            </Button>
+            <div>
+              <h2 className="text-xl font-semibold">Advanced Template Designer</h2>
+              <p className="text-sm text-muted-foreground">
+                Create pixel-perfect PDF layouts
+              </p>
+            </div>
+          </div>
+          <Badge variant="outline">Advanced Mode</Badge>
+        </div>
+      )}
+
+      <div className="flex flex-1 overflow-hidden gap-4">
+        {/* Component Library Sidebar */}
+        <div className="w-72 flex-shrink-0">
+          <ComponentLibraryPanel
+            projectId={projectId}
+            reportId={reportId}
+            category={category}
+            onComponentCaptured={handleComponentCaptured}
+          />
+        </div>
 
       {/* Report Preview Pane (if cost report selected) */}
       {reportId && category === "cost_report" && reportData && showPreview && (
@@ -461,6 +484,7 @@ export const PDFTemplateDesigner = ({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 };

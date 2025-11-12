@@ -1,211 +1,279 @@
-import { useState, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft, Info } from "lucide-react";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { PDFTemplateDesigner } from "@/components/pdf-templates/PDFTemplateDesigner";
-import { TemplateLibrary } from "@/components/pdf-templates/TemplateLibrary";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { ArrowLeft, Zap, FileText, Settings, Download, Sparkles } from "lucide-react";
+import { TemplateLibrary } from "@/components/pdf-templates/TemplateLibrary";
+import { PDFTemplateDesigner } from "@/components/pdf-templates/PDFTemplateDesigner";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
 
-export default function PDFTemplates() {
+const PDFTemplates = () => {
   const navigate = useNavigate();
-  const { toast } = useToast();
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string | undefined>();
-  const [isDesigning, setIsDesigning] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState("cost_report");
+  const [category, setCategory] = useState<"cost_report" | "cable_schedule" | "final_account">("cost_report");
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [selectedReportId, setSelectedReportId] = useState<string>("");
-  const [availableReports, setAvailableReports] = useState<any[]>([]);
-  const [loadingReports, setLoadingReports] = useState(false);
+  const [advancedMode, setAdvancedMode] = useState(false);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>();
 
-  // Fetch reports when project or category changes
-  useEffect(() => {
-    if (!selectedProjectId) {
-      setAvailableReports([]);
-      setSelectedReportId("");
-      return;
-    }
+  // Fetch projects
+  const { data: projects } = useQuery({
+    queryKey: ["projects"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("projects")
+        .select("*")
+        .order("created_at", { ascending: false });
+      
+      if (error) throw error;
+      return data;
+    },
+  });
 
-    const fetchReports = async () => {
-      setLoadingReports(true);
-      try {
-        let reports: any[] = [];
+  // Fetch reports based on category
+  const { data: reports } = useQuery({
+    queryKey: ["reports", category, selectedProjectId],
+    queryFn: async () => {
+      if (!selectedProjectId) return [];
 
-        if (selectedCategory === "cost_report") {
-          const { data, error } = await supabase
-            .from("cost_reports")
-            .select("id, report_number, project_name")
-            .eq("project_id", selectedProjectId)
-            .order("created_at", { ascending: false });
-          if (error) throw error;
-          reports = (data || []).map(r => ({ 
-            id: r.id, 
-            name: r.report_number || r.project_name || `Report ${r.id.slice(0, 8)}` 
-          }));
-        } else if (selectedCategory === "cable_schedule") {
-          const { data, error } = await supabase
-            .from("cable_schedules")
-            .select("id, schedule_name")
-            .eq("project_id", selectedProjectId)
-            .order("created_at", { ascending: false });
-          if (error) throw error;
-          reports = (data || []).map(r => ({ 
-            id: r.id, 
-            name: r.schedule_name || `Schedule ${r.id.slice(0, 8)}` 
-          }));
-        } else if (selectedCategory === "final_account") {
-          const { data, error } = await supabase
-            .from("final_accounts")
-            .select("id, account_name")
-            .eq("project_id", selectedProjectId)
-            .order("created_at", { ascending: false });
-          if (error) throw error;
-          reports = (data || []).map(r => ({ 
-            id: r.id, 
-            name: r.account_name || `Account ${r.id.slice(0, 8)}` 
-          }));
-        }
-        // tenant_report and bulk_services don't have main report tables,
-        // so we'll need to handle those differently or skip for now
-
-        setAvailableReports(reports);
+      if (category === "cost_report") {
+        const { data, error } = await supabase
+          .from("cost_reports")
+          .select("*")
+          .eq("project_id", selectedProjectId)
+          .order("created_at", { ascending: false });
         
-        // Auto-select first report if available
-        if (reports.length > 0 && !selectedReportId) {
-          setSelectedReportId(reports[0].id);
-        } else if (reports.length === 0) {
-          setSelectedReportId("");
-        }
-      } catch (error) {
-        console.error("Error fetching reports:", error);
-        toast({
-          title: "Error",
-          description: "Failed to load reports",
-          variant: "destructive",
-        });
-      } finally {
-        setLoadingReports(false);
+        if (error) throw error;
+        return data;
+      } else if (category === "cable_schedule") {
+        const { data, error } = await supabase
+          .from("cable_schedules")
+          .select("*")
+          .eq("project_id", selectedProjectId)
+          .order("created_at", { ascending: false });
+        
+        if (error) throw error;
+        return data;
+      } else if (category === "final_account") {
+        const { data, error } = await supabase
+          .from("final_accounts")
+          .select("*")
+          .eq("project_id", selectedProjectId)
+          .order("created_at", { ascending: false });
+        
+        if (error) throw error;
+        return data;
       }
-    };
+      return [];
+    },
+    enabled: !!selectedProjectId,
+  });
 
-    fetchReports();
-  }, [selectedProjectId, selectedCategory, toast]);
+  const handleQuickExport = () => {
+    if (!selectedReportId) return;
 
-  const handleSelectTemplate = (templateId: string) => {
-    setSelectedTemplateId(templateId);
-    setIsDesigning(true);
+    // Navigate to the report detail page where they can use the existing export button
+    if (category === "cost_report") {
+      navigate(`/cost-reports/${selectedReportId}`);
+    } else if (category === "cable_schedule") {
+      navigate(`/cable-schedules/${selectedReportId}`);
+    } else if (category === "final_account") {
+      navigate(`/final-accounts/${selectedReportId}`);
+    }
   };
 
-  const handleCreateNew = () => {
-    setSelectedTemplateId(undefined);
-    setIsDesigning(true);
+  const getCategoryLabel = () => {
+    switch (category) {
+      case "cost_report": return "Cost Report";
+      case "cable_schedule": return "Cable Schedule";
+      case "final_account": return "Final Account";
+      default: return "";
+    }
   };
 
-  const handleSave = (templateId: string) => {
-    setSelectedTemplateId(templateId);
-    setIsDesigning(false);
-  };
-
-  const handleBackToLibrary = () => {
-    setIsDesigning(false);
-    setSelectedTemplateId(undefined);
-  };
+  if (advancedMode) {
+    return (
+      <div className="min-h-screen bg-background">
+        <PDFTemplateDesigner
+          templateId={selectedTemplateId}
+          reportId={selectedReportId}
+          category={category}
+          projectId={selectedProjectId}
+          onBack={() => {
+            setAdvancedMode(false);
+            setSelectedTemplateId(undefined);
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
-    <div className="flex flex-col h-screen">
-      <div className="border-b bg-background p-4">
-        <div className="flex items-center gap-4">
-          {isDesigning && (
-            <Button variant="ghost" size="sm" onClick={handleBackToLibrary}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to Library
-            </Button>
-          )}
-          <div className="flex-1">
-            <h1 className="text-2xl font-bold">PDF Templates</h1>
-            <p className="text-sm text-muted-foreground">
-              Design custom PDF layouts with drag-and-drop editing
-            </p>
+    <div className="min-h-screen bg-background">
+      <div className="border-b bg-card">
+        <div className="container mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
+                <ArrowLeft className="h-4 w-4 mr-2" />
+                Back
+              </Button>
+              <div>
+                <h1 className="text-2xl font-bold">PDF Templates</h1>
+                <p className="text-sm text-muted-foreground">
+                  Export reports quickly or customize your PDF templates
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </div>
 
-      <div className="flex-1 overflow-auto">
-        {isDesigning ? (
-          selectedProjectId ? (
-            <div className="flex flex-col h-full">
-              <div className="border-b bg-background p-4">
-                <div className="flex items-center gap-4">
-                  <div className="flex-1">
-                    <Label htmlFor="report-select">Select Report to Capture Components</Label>
-                    <Select value={selectedReportId} onValueChange={setSelectedReportId} disabled={loadingReports}>
-                      <SelectTrigger id="report-select" className="w-full max-w-md">
-                        <SelectValue placeholder="Select a report..." />
+      <div className="container mx-auto px-6 py-8">
+        <Tabs value={category} onValueChange={(v) => setCategory(v as any)}>
+          <TabsList className="grid w-full max-w-md grid-cols-3">
+            <TabsTrigger value="cost_report">Cost Reports</TabsTrigger>
+            <TabsTrigger value="cable_schedule">Cable Schedules</TabsTrigger>
+            <TabsTrigger value="final_account">Final Accounts</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value={category} className="mt-8 space-y-6">
+            {/* Quick Export Section */}
+            <Card className="border-primary/20 bg-gradient-to-br from-primary/5 to-primary/10">
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Zap className="h-5 w-5 text-primary" />
+                  <CardTitle>Quick Export</CardTitle>
+                  <Badge variant="secondary">Recommended</Badge>
+                </div>
+                <CardDescription>
+                  Export your {getCategoryLabel().toLowerCase()} with one click using the default template
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Select Project</label>
+                    <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Choose a project" />
                       </SelectTrigger>
                       <SelectContent>
-                        {availableReports.map((report) => (
+                        {projects?.map((project) => (
+                          <SelectItem key={project.id} value={project.id}>
+                            {project.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Select {getCategoryLabel()}</label>
+                    <Select 
+                      value={selectedReportId} 
+                      onValueChange={setSelectedReportId}
+                      disabled={!selectedProjectId}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={selectedProjectId ? "Choose a report" : "Select project first"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {reports?.map((report) => (
                           <SelectItem key={report.id} value={report.id}>
-                            {report.name || report.report_number || `Report ${report.id.slice(0, 8)}`}
+                            {report.report_name || report.schedule_name || report.account_name} 
+                            {report.report_number && ` (#${report.report_number})`}
+                            {report.schedule_number && ` (#${report.schedule_number})`}
+                            {report.account_number && ` (#${report.account_number})`}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
                 </div>
-              </div>
-              <div className="flex-1">
-                <PDFTemplateDesigner
-                  templateId={selectedTemplateId}
-                  category={selectedCategory}
-                  projectId={selectedProjectId}
-                  reportId={selectedReportId || undefined}
-                  onSave={handleSave}
-                />
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-center justify-center h-full">
-              <p className="text-muted-foreground">Please select a project first</p>
-            </div>
-          )
-        ) : (
-          <div className="container mx-auto p-6 space-y-4">
-            <Alert>
-              <Info className="h-4 w-4" />
-              <AlertDescription>
-                <strong>How field mapping works:</strong> Field names in your template automatically fill with report data. 
-                For example, <code className="bg-muted px-1 py-0.5 rounded text-xs">report_name</code>, <code className="bg-muted px-1 py-0.5 rounded text-xs">project_number</code>, 
-                and <code className="bg-muted px-1 py-0.5 rounded text-xs">category_1_budget</code> will auto-populate when you export. 
-                Use the starter template to see available fields.
-              </AlertDescription>
-            </Alert>
-            
-            <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
-              <TabsList>
-                <TabsTrigger value="cost_report">Cost Reports</TabsTrigger>
-                <TabsTrigger value="tenant_report">Tenant Reports</TabsTrigger>
-                <TabsTrigger value="cable_schedule">Cable Schedules</TabsTrigger>
-                <TabsTrigger value="final_account">Final Accounts</TabsTrigger>
-                <TabsTrigger value="bulk_services">Bulk Services</TabsTrigger>
-              </TabsList>
 
-              <TabsContent value={selectedCategory} className="mt-6">
-                <TemplateLibrary
-                  projectId={selectedProjectId}
-                  category={selectedCategory}
-                  onSelectTemplate={handleSelectTemplate}
-                  onCreateNew={handleCreateNew}
-                  onProjectChange={setSelectedProjectId}
-                />
-              </TabsContent>
-            </Tabs>
-          </div>
-        )}
+                <Button 
+                  size="lg" 
+                  className="w-full md:w-auto"
+                  onClick={handleQuickExport}
+                  disabled={!selectedReportId}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Export {getCategoryLabel()} PDF
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Separator />
+
+            {/* Template Library Section */}
+            <div>
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-2">
+                  <FileText className="h-5 w-5 text-muted-foreground" />
+                  <h2 className="text-xl font-semibold">Custom Templates</h2>
+                </div>
+              </div>
+              
+              <TemplateLibrary
+                category={category}
+                projectId={selectedProjectId}
+                onSelectTemplate={(templateId) => {
+                  setSelectedTemplateId(templateId);
+                  setAdvancedMode(true);
+                }}
+                onCreateNew={() => {
+                  setSelectedTemplateId(undefined);
+                  setAdvancedMode(true);
+                }}
+              />
+            </div>
+
+            <Separator />
+
+            {/* Advanced Designer Section */}
+            <Card className="border-muted">
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Settings className="h-5 w-5 text-muted-foreground" />
+                  <CardTitle className="text-muted-foreground">Advanced Designer</CardTitle>
+                  <Badge variant="outline">For Power Users</Badge>
+                </div>
+                <CardDescription>
+                  Create pixel-perfect custom templates with full design control
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button 
+                  variant="outline" 
+                  onClick={() => setAdvancedMode(true)}
+                  disabled={!selectedProjectId}
+                >
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Open Advanced Designer
+                </Button>
+                {!selectedProjectId && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Please select a project first
+                  </p>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
-}
+};
+
+export default PDFTemplates;
