@@ -437,9 +437,9 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         doc.text("VARIANCE", x + 5, finalY + 44);
         doc.setFontSize(9);
         doc.setFont("helvetica", "bold");
-        const isExtra = cat.variance > 0;
+        const isExtra = cat.originalVariance > 0;
         doc.setTextColor(isExtra ? 255 : 0, isExtra ? 0 : 150, 0);
-        doc.text(`${cat.variance >= 0 ? '+' : ''}R${cat.variance.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, x + 5, finalY + 50);
+        doc.text(`${cat.originalVariance >= 0 ? '+' : ''}R${Math.abs(cat.originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, x + 5, finalY + 50);
         
         // Status badge
         doc.setFontSize(6);
@@ -466,8 +466,8 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           cat.description,
           `R ${cat.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
           `R ${cat.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-          `${cat.variance >= 0 ? '+' : ''}R ${cat.variance.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-          cat.variance < 0 ? 'Saving' : 'Extra'
+          `${cat.originalVariance >= 0 ? '+' : ''}R ${Math.abs(cat.originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+          cat.originalVariance < 0 ? 'Saving' : 'Extra'
         ]),
         theme: 'grid',
         styles: { fontSize: 9, cellPadding: 3 },
