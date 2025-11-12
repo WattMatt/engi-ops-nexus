@@ -20,6 +20,7 @@ const CostReportDetail = () => {
   const { reportId } = useParams();
   const navigate = useNavigate();
   const [historyKey, setHistoryKey] = useState(0);
+  const [activeTab, setActiveTab] = useState("overview");
 
   const { data: report, isLoading, refetch } = useQuery({
     queryKey: ["cost-report", reportId],
@@ -97,7 +98,7 @@ const CostReportDetail = () => {
         </div>
       </div>
 
-      <Tabs defaultValue="overview" className="space-y-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="cover">Cover Page</TabsTrigger>
@@ -107,12 +108,8 @@ const CostReportDetail = () => {
           <TabsTrigger value="history">Report History</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="overview">
-          <CostReportOverview report={report} />
-        </TabsContent>
-        
-        {/* Keep Overview rendered but hidden for PDF capture */}
-        <div className="hidden">
+        {/* Always render Overview in DOM for PDF capture, show/hide based on tab */}
+        <div className={activeTab !== "overview" ? "hidden" : ""}>
           <CostReportOverview report={report} />
         </div>
 

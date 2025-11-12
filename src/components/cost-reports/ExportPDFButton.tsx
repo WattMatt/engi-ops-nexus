@@ -151,6 +151,12 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       // Capture the KPI cards from the actual rendered UI
       await prepareElementForCapture("cost-report-kpi-cards");
       const kpiCardsCanvas = await captureKPICards("cost-report-kpi-cards", { scale: 2 });
+      
+      // Validate canvas dimensions before proceeding
+      if (!kpiCardsCanvas || kpiCardsCanvas.width === 0 || kpiCardsCanvas.height === 0) {
+        throw new Error("Failed to capture KPI cards - invalid canvas dimensions");
+      }
+      
       const kpiCardsImage = canvasToDataURL(kpiCardsCanvas, 'JPEG', 0.9);
       
       setCurrentSection("Generating executive summary...");
@@ -186,10 +192,15 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       doc.setTextColor(0, 0, 0);
       let kpiY = contentStartY + 35;
       
-      // Calculate dimensions to fit the captured image
+      // Calculate dimensions to fit the captured image - validate to prevent NaN/Infinity
       const kpiImageAspectRatio = kpiCardsCanvas.width / kpiCardsCanvas.height;
       const kpiImageWidth = contentWidth;
       const kpiImageHeight = kpiImageWidth / kpiImageAspectRatio;
+      
+      // Final validation before adding image
+      if (!isFinite(kpiImageHeight) || kpiImageHeight <= 0) {
+        throw new Error("Invalid image dimensions calculated");
+      }
       
       doc.addImage(kpiCardsImage, 'JPEG', contentStartX, kpiY, kpiImageWidth, kpiImageHeight, undefined, 'FAST');
       
