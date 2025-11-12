@@ -111,12 +111,12 @@ export function UploadTemplateDialog({
             <Input
               id="file"
               type="file"
-              accept=".docx,.doc"
+              accept=".dotx,.docx,.dot,.doc"
               onChange={(e) => setFile(e.target.files?.[0] || null)}
               required
             />
             <p className="text-xs text-muted-foreground">
-              Accepts .docx and .doc files
+              Accepts Word templates (.dotx, .dot) and documents (.docx, .doc)
             </p>
           </div>
 
