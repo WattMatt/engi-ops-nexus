@@ -513,15 +513,15 @@ export const LivePreview = ({
         />
       ))}
 
-      {/* Render all visible elements for current page */}
-      {visibleElements.length === 0 && (
+      {/* Render all visible elements for current page - hide when PDF editing is enabled and elements are extracted */}
+      {!(enablePDFEditing && (extractedText.length > 0 || extractedImages.length > 0 || extractedShapes.length > 0)) && visibleElements.length === 0 && (
         <div className="flex items-center justify-center h-[800px] text-muted-foreground">
           <p>No editable elements on page {currentPage}. Elements may need to be assigned to this page.</p>
         </div>
       )}
 
-      {/* Cover Page - Page 1 */}
-      {isElementOnPage('cover-title', 1) && (
+      {/* Cover Page - Page 1 - hide when PDF editing is enabled and elements are extracted */}
+      {!(enablePDFEditing && (extractedText.length > 0 || extractedImages.length > 0 || extractedShapes.length > 0)) && isElementOnPage('cover-title', 1) && (
         <EditableElement
           type="heading"
           level={1}
@@ -541,7 +541,7 @@ export const LivePreview = ({
         </EditableElement>
       )}
       
-      {isElementOnPage('cover-subtitle', 1) && (
+      {!(enablePDFEditing && (extractedText.length > 0 || extractedImages.length > 0 || extractedShapes.length > 0)) && isElementOnPage('cover-subtitle', 1) && (
         <EditableElement
           type="body"
           styleKey="cover-subtitle"
@@ -560,8 +560,8 @@ export const LivePreview = ({
         </EditableElement>
       )}
 
-      {/* Content Pages - Page 2+ */}
-      {isElementOnPage('section-heading', 2) && (
+      {/* Content Pages - Page 2+ - hide when PDF editing is enabled and elements are extracted */}
+      {!(enablePDFEditing && (extractedText.length > 0 || extractedImages.length > 0 || extractedShapes.length > 0)) && isElementOnPage('section-heading', 2) && (
         <EditableElement
           type="heading"
           level={1}
@@ -581,7 +581,7 @@ export const LivePreview = ({
         </EditableElement>
       )}
 
-      {isElementOnPage('section-body', 2) && (
+      {!(enablePDFEditing && (extractedText.length > 0 || extractedImages.length > 0 || extractedShapes.length > 0)) && isElementOnPage('section-body', 2) && (
         <EditableElement
           type="body"
           styleKey="section-body"
@@ -603,7 +603,7 @@ export const LivePreview = ({
         </EditableElement>
       )}
 
-      {isElementOnPage('subsection-heading', 2) && (
+      {!(enablePDFEditing && (extractedText.length > 0 || extractedImages.length > 0 || extractedShapes.length > 0)) && isElementOnPage('subsection-heading', 2) && (
         <EditableElement
           type="heading"
           level={2}
@@ -623,7 +623,7 @@ export const LivePreview = ({
         </EditableElement>
       )}
 
-      {isElementOnPage('kpi-text', 2) && (
+      {!(enablePDFEditing && (extractedText.length > 0 || extractedImages.length > 0 || extractedShapes.length > 0)) && isElementOnPage('kpi-text', 2) && (
         <EditableElement
           type="body"
           styleKey="kpi-text"
@@ -651,7 +651,7 @@ export const LivePreview = ({
         </EditableElement>
       )}
 
-      {isElementOnPage('table-heading', 2) && (
+      {!(enablePDFEditing && (extractedText.length > 0 || extractedImages.length > 0 || extractedShapes.length > 0)) && isElementOnPage('table-heading', 2) && (
         <EditableElement
           type="heading"
           level={2}
@@ -671,7 +671,7 @@ export const LivePreview = ({
         </EditableElement>
       )}
 
-      {isElementOnPage('sample-table', 2) && (
+      {!(enablePDFEditing && (extractedText.length > 0 || extractedImages.length > 0 || extractedShapes.length > 0)) && isElementOnPage('sample-table', 2) && (
         <EditableElement
           type="table"
           styleKey="sample-table"

@@ -56,11 +56,9 @@ export const PDFTemplateEditor = ({
   const [canRedo, setCanRedo] = useState(false);
   
   // Track extracted PDF elements for color control
-  const [extractedElements, setExtractedElements] = useState<{
-    text: any[];
-    images: any[];
-    shapes: any[];
-  }>({ text: [], images: [], shapes: [] });
+  const [extractedText, setExtractedText] = useState<any[]>([]);
+  const [extractedImages, setExtractedImages] = useState<any[]>([]);
+  const [extractedShapes, setExtractedShapes] = useState<any[]>([]);
 
   // Track user-added elements
   const [addedElements, setAddedElements] = useState<{
@@ -76,31 +74,30 @@ export const PDFTemplateEditor = ({
 
   const handleColorChange = (elementId: string, colorType: 'text' | 'stroke' | 'fill', color: string) => {
     // This is called from StylePanel and needs to update LivePreview's elements
-    // Update the local tracking state
-    setExtractedElements(prev => {
-      if (colorType === 'text') {
-        return {
-          ...prev,
-          text: prev.text.map(item => 
-            item.id === elementId ? { ...item, color } : item
-          ),
-        };
-      } else if (colorType === 'stroke') {
-        return {
-          ...prev,
-          shapes: prev.shapes.map(item =>
-            item.id === elementId ? { ...item, strokeColor: color } : item
-          ),
-        };
-      } else if (colorType === 'fill') {
-        return {
-          ...prev,
-          shapes: prev.shapes.map(item =>
-            item.id === elementId ? { ...item, fillColor: color } : item
-          ),
-        };
-      }
-      return prev;
+    if (colorType === 'text') {
+      setExtractedText(prev => prev.map(item => 
+        item.id === elementId ? { ...item, color } : item
+      ));
+    } else if (colorType === 'stroke') {
+      setExtractedShapes(prev => prev.map(item =>
+        item.id === elementId ? { ...item, strokeColor: color } : item
+      ));
+    } else if (colorType === 'fill') {
+      setExtractedShapes(prev => prev.map(item =>
+        item.id === elementId ? { ...item, fillColor: color } : item
+      ));
+    }
+  };
+
+  // Handle elements extracted callback
+  const handleElementsExtracted = (elements: { text: any[]; images: any[]; shapes: any[] }) => {
+    setExtractedText(elements.text);
+    setExtractedImages(elements.images);
+    setExtractedShapes(elements.shapes);
+    
+    toast({
+      title: "Elements extracted",
+      description: `Found ${elements.text.length} text, ${elements.images.length} images, ${elements.shapes.length} shapes`,
     });
   };
 
@@ -111,7 +108,7 @@ export const PDFTemplateEditor = ({
     const selectedId = selectedElements[0];
     
     // Check extracted text elements
-    const textElement = extractedElements.text.find(t => t.id === selectedId);
+    const textElement = extractedText.find(t => t.id === selectedId);
     if (textElement) {
       return {
         type: 'text' as const,
@@ -129,7 +126,7 @@ export const PDFTemplateEditor = ({
     }
     
     // Check extracted shape elements
-    const shapeElement = extractedElements.shapes.find(s => s.id === selectedId);
+    const shapeElement = extractedShapes.find(s => s.id === selectedId);
     if (shapeElement) {
       return {
         type: 'shape' as const,
@@ -152,6 +149,8 @@ export const PDFTemplateEditor = ({
   };
 
   // Handlers for adding new elements
+  const imageInputRef = useState<HTMLInputElement | null>(null)[0];
+  
   const handleAddTextBox = () => {
     const newTextBox = {
       id: `added-text-${Date.now()}`,
@@ -178,7 +177,7 @@ export const PDFTemplateEditor = ({
     });
   };
 
-  const handleAddShape = (type: 'rectangle' | 'circle' | 'line') => {
+  const handleAddShape = (type: 'rect' | 'circle' | 'line') => {
     const newShape = {
       id: `added-shape-${Date.now()}`,
       type,
@@ -203,7 +202,10 @@ export const PDFTemplateEditor = ({
     });
   };
 
-  const handleAddImage = async (file: File) => {
+  const handleAddImage = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
     const reader = new FileReader();
     reader.onload = (e) => {
       const newImage = {
@@ -227,13 +229,6 @@ export const PDFTemplateEditor = ({
       });
     };
     reader.readAsDataURL(file);
-  };
-
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      handleAddImage(file);
-    }
   };
 
   // Element definitions with defaults (imported from LivePreview for consistency)
@@ -860,7 +855,7 @@ export const PDFTemplateEditor = ({
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => handleAddShape('rectangle')}
+                      onClick={() => handleAddShape('rect')}
                       title="Add Rectangle"
                     >
                       <Square className="h-4 w-4" />
@@ -896,7 +891,7 @@ export const PDFTemplateEditor = ({
                         type="file"
                         accept="image/*"
                         className="hidden"
-                        onChange={handleImageUpload}
+                        onChange={handleAddImage}
                       />
                     </label>
                   </div>
@@ -930,7 +925,7 @@ export const PDFTemplateEditor = ({
                         enablePDFEditing={true}
                         onUndoRedoChange={handleUndoRedoChange}
                         onColorChange={handleColorChange}
-                        onElementsExtracted={(elements) => setExtractedElements(elements)}
+                        onElementsExtracted={handleElementsExtracted}
                         addedElements={addedElements}
                       />
                     </div>
@@ -951,7 +946,7 @@ export const PDFTemplateEditor = ({
                     enablePDFEditing={false}
                     onUndoRedoChange={handleUndoRedoChange}
                     onColorChange={handleColorChange}
-                    onElementsExtracted={(elements) => setExtractedElements(elements)}
+                    onElementsExtracted={handleElementsExtracted}
                     addedElements={addedElements}
                   />
                 )}

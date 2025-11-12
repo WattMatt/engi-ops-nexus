@@ -1,6 +1,7 @@
-import { Eye, EyeOff, Lock, Unlock, MoveUp, MoveDown, Layers } from "lucide-react";
+import { Eye, EyeOff, Lock, Unlock, MoveUp, MoveDown, Layers, Image, Type, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 interface LayersPanelProps {
@@ -10,19 +11,13 @@ interface LayersPanelProps {
   onToggleVisibility: (key: string) => void;
   onToggleLocked: (key: string) => void;
   onChangeZIndex: (key: string, direction: 'up' | 'down') => void;
+  extractedElements?: {
+    text: any[];
+    images: any[];
+    shapes: any[];
+  };
+  addedElements?: any[];
 }
-
-// Define all available elements with their display names
-const ELEMENT_DEFINITIONS = [
-  { key: 'cover-title', name: 'Cover Title', type: 'heading' },
-  { key: 'cover-subtitle', name: 'Cover Subtitle', type: 'body' },
-  { key: 'section-heading', name: 'Section Heading', type: 'heading' },
-  { key: 'section-body', name: 'Section Body', type: 'body' },
-  { key: 'subsection-heading', name: 'Subsection Heading', type: 'heading' },
-  { key: 'kpi-text', name: 'KPI Text', type: 'body' },
-  { key: 'table-heading', name: 'Table Heading', type: 'heading' },
-  { key: 'sample-table', name: 'Sample Table', type: 'table' },
-];
 
 export const LayersPanel = ({
   settings,
@@ -31,29 +26,112 @@ export const LayersPanel = ({
   onToggleVisibility,
   onToggleLocked,
   onChangeZIndex,
+  extractedElements,
+  addedElements = [],
 }: LayersPanelProps) => {
   const getElementMetadata = (key: string) => {
     return settings.elements?.[key] || { visible: true, locked: false, zIndex: 0 };
   };
 
-  // Sort elements by z-index (highest first)
-  const sortedElements = [...ELEMENT_DEFINITIONS].sort((a, b) => {
-    const metaA = getElementMetadata(a.key);
-    const metaB = getElementMetadata(b.key);
-    return metaB.zIndex - metaA.zIndex;
-  });
+  // Count elements
+  const textCount = extractedElements?.text?.length || 0;
+  const imageCount = extractedElements?.images?.length || 0;
+  const shapeCount = extractedElements?.shapes?.length || 0;
+  const addedCount = addedElements.length;
+  const totalExtracted = textCount + imageCount + shapeCount + addedCount;
 
   const getTypeIcon = (type: string) => {
     switch (type) {
-      case 'heading':
-        return 'H';
-      case 'body':
-        return 'T';
-      case 'table':
-        return '⊞';
+      case 'text':
+        return <Type className="h-3 w-3" />;
+      case 'image':
+        return <Image className="h-3 w-3" />;
+      case 'shape':
+        return <Square className="h-3 w-3" />;
       default:
-        return '•';
+        return <Type className="h-3 w-3" />;
     }
+  };
+
+  const renderElement = (element: any, type: string) => {
+    const isSelected = selectedElements.includes(element.id);
+    const metadata = getElementMetadata(element.id);
+
+    return (
+      <div
+        key={element.id}
+        className={cn(
+          "group flex items-center gap-2 p-2 rounded-md cursor-pointer transition-colors",
+          isSelected && "bg-primary/10 ring-1 ring-primary",
+          !isSelected && "hover:bg-muted/50",
+          !metadata.visible && "opacity-50"
+        )}
+        onClick={(e) => !metadata.locked && onSelectElement(element.id, e.ctrlKey || e.metaKey)}
+      >
+        <div className="w-6 h-6 flex items-center justify-center bg-muted rounded">
+          {getTypeIcon(type)}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="text-sm font-medium truncate">
+            {type === 'text' ? element.text?.substring(0, 20) : element.id}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {type} • z: {metadata.zIndex}
+          </div>
+        </div>
+        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={(e) => {
+              e.stopPropagation();
+              onChangeZIndex(element.id, 'up');
+            }}
+            title="Move forward"
+          >
+            <MoveUp className="h-3 w-3" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={(e) => {
+              e.stopPropagation();
+              onChangeZIndex(element.id, 'down');
+            }}
+            title="Move backward"
+          >
+            <MoveDown className="h-3 w-3" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleLocked(element.id);
+            }}
+            title={metadata.locked ? "Unlock" : "Lock"}
+          >
+            {metadata.locked ? <Lock className="h-3 w-3" /> : <Unlock className="h-3 w-3" />}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-6 w-6"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleVisibility(element.id);
+            }}
+            title={metadata.visible ? "Hide" : "Show"}
+          >
+            {metadata.visible ? <Eye className="h-3 w-3" /> : <EyeOff className="h-3 w-3" />}
+          </Button>
+        </div>
+        {metadata.locked && <Lock className="h-3 w-3 text-muted-foreground" />}
+      </div>
+    );
   };
 
   return (
@@ -62,125 +140,87 @@ export const LayersPanel = ({
         <div className="flex items-center gap-2">
           <Layers className="w-4 h-4" />
           <h3 className="font-semibold">Layers</h3>
-          {selectedElements.length > 1 && (
-            <span className="ml-auto text-xs bg-primary/10 text-primary px-2 py-1 rounded">
-              {selectedElements.length} selected
-            </span>
+          {totalExtracted > 0 && (
+            <Badge variant="secondary" className="ml-auto">
+              {totalExtracted}
+            </Badge>
           )}
         </div>
         <p className="text-xs text-muted-foreground mt-1">
           {selectedElements.length > 1 
-            ? "Ctrl+Click to multi-select • Drag to move all together"
-            : "Ctrl+Click to multi-select elements"}
+            ? `${selectedElements.length} selected • Drag to move together`
+            : "Click to select • Ctrl+Click for multi-select"}
         </p>
       </div>
 
       <ScrollArea className="flex-1">
-        <div className="p-2 space-y-1">
-          {sortedElements.map((element) => {
-            const metadata = getElementMetadata(element.key);
-            const isSelected = selectedElements.includes(element.key);
-
-            return (
-              <div
-                key={element.key}
-                className={cn(
-                  "group flex items-center gap-2 p-2 rounded-md cursor-pointer transition-colors",
-                  isSelected && "bg-primary/10 ring-1 ring-primary",
-                  !isSelected && "hover:bg-muted/50",
-                  !metadata.visible && "opacity-50"
-                )}
-                onClick={(e) => !metadata.locked && onSelectElement(element.key, e.ctrlKey || e.metaKey)}
-              >
-                {/* Type indicator */}
-                <div className="w-6 h-6 flex items-center justify-center bg-muted rounded text-xs font-mono">
-                  {getTypeIcon(element.type)}
-                </div>
-
-                {/* Element name */}
-                <div className="flex-1 min-w-0">
-                  <div className="text-sm font-medium truncate">{element.name}</div>
-                  <div className="text-xs text-muted-foreground">z: {metadata.zIndex}</div>
-                </div>
-
-                {/* Controls */}
-                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  {/* Z-Index controls */}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onChangeZIndex(element.key, 'up');
-                    }}
-                    title="Move forward"
-                  >
-                    <MoveUp className="h-3 w-3" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onChangeZIndex(element.key, 'down');
-                    }}
-                    title="Move backward"
-                  >
-                    <MoveDown className="h-3 w-3" />
-                  </Button>
-
-                  {/* Lock toggle */}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onToggleLocked(element.key);
-                    }}
-                    title={metadata.locked ? "Unlock" : "Lock"}
-                  >
-                    {metadata.locked ? (
-                      <Lock className="h-3 w-3" />
-                    ) : (
-                      <Unlock className="h-3 w-3" />
-                    )}
-                  </Button>
-
-                  {/* Visibility toggle */}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-6 w-6"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onToggleVisibility(element.key);
-                    }}
-                    title={metadata.visible ? "Hide" : "Show"}
-                  >
-                    {metadata.visible ? (
-                      <Eye className="h-3 w-3" />
-                    ) : (
-                      <EyeOff className="h-3 w-3" />
-                    )}
-                  </Button>
-                </div>
-
-                {/* Lock indicator (always visible) */}
-                {metadata.locked && (
-                  <Lock className="h-3 w-3 text-muted-foreground" />
-                )}
+        <div className="p-2 space-y-3">
+          {/* Extracted Text Elements */}
+          {textCount > 0 && (
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 px-2 py-1">
+                <Type className="h-3 w-3 text-muted-foreground" />
+                <span className="text-xs font-semibold text-muted-foreground">
+                  Text Elements ({textCount})
+                </span>
               </div>
-            );
-          })}
+              {extractedElements?.text?.map((element) => renderElement(element, 'text'))}
+            </div>
+          )}
+
+          {/* Extracted Images */}
+          {imageCount > 0 && (
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 px-2 py-1">
+                <Image className="h-3 w-3 text-muted-foreground" />
+                <span className="text-xs font-semibold text-muted-foreground">
+                  Images ({imageCount})
+                </span>
+              </div>
+              {extractedElements?.images?.map((element) => renderElement(element, 'image'))}
+            </div>
+          )}
+
+          {/* Extracted Shapes */}
+          {shapeCount > 0 && (
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 px-2 py-1">
+                <Square className="h-3 w-3 text-muted-foreground" />
+                <span className="text-xs font-semibold text-muted-foreground">
+                  Shapes ({shapeCount})
+                </span>
+              </div>
+              {extractedElements?.shapes?.map((element) => renderElement(element, 'shape'))}
+            </div>
+          )}
+
+          {/* User Added Elements */}
+          {addedCount > 0 && (
+            <div className="space-y-1">
+              <div className="flex items-center gap-2 px-2 py-1">
+                <Layers className="h-3 w-3 text-muted-foreground" />
+                <span className="text-xs font-semibold text-muted-foreground">
+                  User Added ({addedCount})
+                </span>
+              </div>
+              {addedElements.map((element) => renderElement(element, element.type))}
+            </div>
+          )}
+
+          {/* Empty State */}
+          {totalExtracted === 0 && (
+            <div className="text-center py-8 text-muted-foreground">
+              <Layers className="h-8 w-8 mx-auto mb-2 opacity-50" />
+              <p className="text-sm">No elements extracted yet</p>
+              <p className="text-xs mt-1">Load a PDF to extract elements</p>
+            </div>
+          )}
         </div>
       </ScrollArea>
 
       <div className="p-3 border-t bg-muted/30">
         <p className="text-xs text-muted-foreground">
-          💡 Ctrl+Click to select multiple • Drag to move together
+          💡 Add elements with toolbar • Edit positions in Style Panel
         </p>
       </div>
     </div>
