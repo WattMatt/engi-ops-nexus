@@ -51,6 +51,53 @@ export const PDFTemplateEditor = ({
   const [numPages, setNumPages] = useState(0);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
+  // Element definitions with defaults (imported from LivePreview for consistency)
+  const ELEMENT_DEFAULTS = [
+    { key: 'cover-title', defaultX: 100, defaultY: 150, page: 1 },
+    { key: 'cover-subtitle', defaultX: 100, defaultY: 200, page: 1 },
+    { key: 'section-heading', defaultX: 50, defaultY: 100, page: 2 },
+    { key: 'section-body', defaultX: 50, defaultY: 140, page: 2 },
+    { key: 'subsection-heading', defaultX: 50, defaultY: 200, page: 2 },
+    { key: 'kpi-text', defaultX: 50, defaultY: 240, page: 2 },
+    { key: 'table-heading', defaultX: 50, defaultY: 300, page: 2 },
+    { key: 'sample-table', defaultX: 50, defaultY: 340, page: 2 },
+  ];
+
+  // Initialize missing positions with defaults
+  const initializeElementPositions = (settings: PDFStyleSettings): PDFStyleSettings => {
+    const newSettings = { ...settings };
+    
+    if (!newSettings.positions) {
+      newSettings.positions = {};
+    }
+    
+    if (!newSettings.elements) {
+      newSettings.elements = {};
+    }
+
+    // Add missing positions and metadata
+    ELEMENT_DEFAULTS.forEach(el => {
+      if (!newSettings.positions![el.key]) {
+        newSettings.positions![el.key] = { 
+          x: el.defaultX, 
+          y: el.defaultY,
+          page: el.page 
+        };
+      }
+      
+      if (!newSettings.elements![el.key]) {
+        newSettings.elements![el.key] = {
+          visible: true,
+          locked: false,
+          zIndex: 0,
+          page: el.page
+        };
+      }
+    });
+
+    return newSettings;
+  };
+
   // Load PDF URL when dialog opens
   useState(() => {
     if (open && reportPdfUrl) {
@@ -73,7 +120,8 @@ export const PDFTemplateEditor = ({
       // Load default template on initial load
       const defaultTemplate = data?.find(t => t.is_default);
       if (defaultTemplate && !currentSettings) {
-        setCurrentSettings(defaultTemplate.settings as unknown as PDFStyleSettings);
+        const initializedSettings = initializeElementPositions(defaultTemplate.settings as unknown as PDFStyleSettings);
+        setCurrentSettings(initializedSettings);
         setSelectedTemplateId(defaultTemplate.id);
       }
 
@@ -395,7 +443,8 @@ export const PDFTemplateEditor = ({
   const handleLoadTemplate = (templateId: string) => {
     const template = templates?.find(t => t.id === templateId);
     if (template) {
-      setCurrentSettings(template.settings as unknown as PDFStyleSettings);
+      const initializedSettings = initializeElementPositions(template.settings as unknown as PDFStyleSettings);
+      setCurrentSettings(initializedSettings);
       setSelectedTemplateId(templateId);
       setSelectedElements([]); // Clear selection when loading template
     }

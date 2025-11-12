@@ -12,16 +12,16 @@ interface LivePreviewProps {
   currentPage: number;
 }
 
-// Define all available elements with their display names
+// Define all available elements with their display names and default positions
 const ELEMENT_DEFINITIONS = [
-  { key: 'cover-title', name: 'Cover Title', type: 'heading' },
-  { key: 'cover-subtitle', name: 'Cover Subtitle', type: 'body' },
-  { key: 'section-heading', name: 'Section Heading', type: 'heading' },
-  { key: 'section-body', name: 'Section Body', type: 'body' },
-  { key: 'subsection-heading', name: 'Subsection Heading', type: 'heading' },
-  { key: 'kpi-text', name: 'KPI Text', type: 'body' },
-  { key: 'table-heading', name: 'Table Heading', type: 'heading' },
-  { key: 'sample-table', name: 'Sample Table', type: 'table' },
+  { key: 'cover-title', name: 'Cover Title', type: 'heading', defaultX: 100, defaultY: 150, page: 1 },
+  { key: 'cover-subtitle', name: 'Cover Subtitle', type: 'body', defaultX: 100, defaultY: 200, page: 1 },
+  { key: 'section-heading', name: 'Section Heading', type: 'heading', defaultX: 50, defaultY: 100, page: 2 },
+  { key: 'section-body', name: 'Section Body', type: 'body', defaultX: 50, defaultY: 140, page: 2 },
+  { key: 'subsection-heading', name: 'Subsection Heading', type: 'heading', defaultX: 50, defaultY: 200, page: 2 },
+  { key: 'kpi-text', name: 'KPI Text', type: 'body', defaultX: 50, defaultY: 240, page: 2 },
+  { key: 'table-heading', name: 'Table Heading', type: 'heading', defaultX: 50, defaultY: 300, page: 2 },
+  { key: 'sample-table', name: 'Sample Table', type: 'table', defaultX: 50, defaultY: 340, page: 2 },
 ];
 
 export const LivePreview = ({
@@ -74,12 +74,32 @@ export const LivePreview = ({
     setActiveGuides({ guides: [], snapX: null, snapY: null });
   };
 
-  // Filter elements for current page
+  // Filter elements for current page and ensure they have positions
   const visibleElements = ELEMENT_DEFINITIONS.filter(el => {
-    const metadata = settings.elements?.[el.key] || { visible: true, locked: false, zIndex: 0, page: 1 };
-    const elementPage = metadata.page || 1;
-    return elementPage === currentPage;
+    const metadata = settings.elements?.[el.key] || { visible: true, locked: false, zIndex: 0, page: el.page || 1 };
+    const elementPage = metadata.page || el.page || 1;
+    return elementPage === currentPage && metadata.visible;
   });
+
+  // Helper to get element position with fallback to default
+  const getElementPosition = (elementDef: typeof ELEMENT_DEFINITIONS[0]) => {
+    const storedPos = settings.positions?.[elementDef.key];
+    if (storedPos) return storedPos;
+    
+    // Return default position if none stored
+    return { 
+      x: elementDef.defaultX, 
+      y: elementDef.defaultY,
+      page: elementDef.page 
+    };
+  };
+
+  // Helper to check if element should render on current page
+  const isElementOnPage = (elementKey: string, defaultPage: number) => {
+    const metadata = settings.elements?.[elementKey] || { visible: true, locked: false, zIndex: 0, page: defaultPage };
+    const elementPage = metadata.page || defaultPage;
+    return elementPage === currentPage && metadata.visible;
+  };
 
   // Generate grid pattern
   const generateGrid = () => {
@@ -153,55 +173,55 @@ export const LivePreview = ({
       {/* Alignment Guides Overlay */}
       <AlignmentGuides guides={activeGuides.guides} />
 
-      {/* Cover Page Preview - Only show on page 1 */}
-      {currentPage === 1 && (
-        <div className="mb-8 relative">
-          <EditableElement
-            type="heading"
-            level={1}
-            styleKey="cover-title"
-            currentStyles={settings}
-            isSelected={selectedElements.length === 1 && selectedElements[0] === 'cover-title'}
-            isMultiSelected={selectedElements.length > 1 && selectedElements.includes('cover-title')}
-            onSelect={onSelectElement}
-            onPositionChange={onPositionChange}
-            onGroupDrag={onGroupDrag}
-            onDragStart={handleDragStart}
-            onDragging={handleDragging}
-            onDragEnd={handleDragEnd}
-            snapPosition={draggingElement === 'cover-title' ? { x: activeGuides.snapX, y: activeGuides.snapY } : undefined}
-          >
-            <div className="text-center mb-6" data-element-key="cover-title">PROJECT COST REPORT</div>
-          </EditableElement>
-          
-          <EditableElement
-            type="body"
-            styleKey="cover-subtitle"
-            currentStyles={settings}
-            isSelected={selectedElements.length === 1 && selectedElements[0] === 'cover-subtitle'}
-            isMultiSelected={selectedElements.length > 1 && selectedElements.includes('cover-subtitle')}
-            onSelect={onSelectElement}
-            onPositionChange={onPositionChange}
-            onGroupDrag={onGroupDrag}
-            onDragStart={handleDragStart}
-            onDragging={handleDragging}
-            onDragEnd={handleDragEnd}
-            snapPosition={draggingElement === 'cover-subtitle' ? { x: activeGuides.snapX, y: activeGuides.snapY } : undefined}
-          >
-            <div className="text-center" data-element-key="cover-subtitle">Sample Project Name</div>
-          </EditableElement>
+      {/* Render all visible elements for current page */}
+      {visibleElements.length === 0 && (
+        <div className="flex items-center justify-center h-[800px] text-muted-foreground">
+          <p>No editable elements on page {currentPage}. Elements may need to be assigned to this page.</p>
         </div>
       )}
 
-      {/* Other pages content would be rendered based on currentPage */}
-      {currentPage > 1 && visibleElements.length === 0 && (
-        <div className="flex items-center justify-center h-full text-muted-foreground">
-          <p>No editable elements on this page yet</p>
-        </div>
+      {/* Cover Page - Page 1 */}
+      {isElementOnPage('cover-title', 1) && (
+        <EditableElement
+          type="heading"
+          level={1}
+          styleKey="cover-title"
+          currentStyles={settings}
+          isSelected={selectedElements.length === 1 && selectedElements[0] === 'cover-title'}
+          isMultiSelected={selectedElements.length > 1 && selectedElements.includes('cover-title')}
+          onSelect={onSelectElement}
+          onPositionChange={onPositionChange}
+          onGroupDrag={onGroupDrag}
+          onDragStart={handleDragStart}
+          onDragging={handleDragging}
+          onDragEnd={handleDragEnd}
+          snapPosition={draggingElement === 'cover-title' ? { x: activeGuides.snapX, y: activeGuides.snapY } : undefined}
+        >
+          <div className="text-center text-4xl font-bold" data-element-key="cover-title">PROJECT COST REPORT</div>
+        </EditableElement>
+      )}
+      
+      {isElementOnPage('cover-subtitle', 1) && (
+        <EditableElement
+          type="body"
+          styleKey="cover-subtitle"
+          currentStyles={settings}
+          isSelected={selectedElements.length === 1 && selectedElements[0] === 'cover-subtitle'}
+          isMultiSelected={selectedElements.length > 1 && selectedElements.includes('cover-subtitle')}
+          onSelect={onSelectElement}
+          onPositionChange={onPositionChange}
+          onGroupDrag={onGroupDrag}
+          onDragStart={handleDragStart}
+          onDragging={handleDragging}
+          onDragEnd={handleDragEnd}
+          snapPosition={draggingElement === 'cover-subtitle' ? { x: activeGuides.snapX, y: activeGuides.snapY } : undefined}
+        >
+          <div className="text-center text-xl" data-element-key="cover-subtitle">Sample Project Name</div>
+        </EditableElement>
       )}
 
-      {/* Executive Summary Section */}
-      <div className="mb-8 relative">
+      {/* Content Pages - Page 2+ */}
+      {isElementOnPage('section-heading', 2) && (
         <EditableElement
           type="heading"
           level={1}
@@ -217,9 +237,11 @@ export const LivePreview = ({
           onDragEnd={handleDragEnd}
           snapPosition={draggingElement === 'section-heading' ? { x: activeGuides.snapX, y: activeGuides.snapY } : undefined}
         >
-          <div className="mb-4" data-element-key="section-heading">EXECUTIVE SUMMARY</div>
+          <div className="text-2xl font-bold" data-element-key="section-heading">EXECUTIVE SUMMARY</div>
         </EditableElement>
+      )}
 
+      {isElementOnPage('section-body', 2) && (
         <EditableElement
           type="body"
           styleKey="section-body"
@@ -234,12 +256,14 @@ export const LivePreview = ({
           onDragEnd={handleDragEnd}
           snapPosition={draggingElement === 'section-body' ? { x: activeGuides.snapX, y: activeGuides.snapY } : undefined}
         >
-          <div className="mb-4" data-element-key="section-body">
+          <div data-element-key="section-body">
             This report provides a comprehensive overview of project costs, including detailed breakdowns
             by category and line items. All values are calculated based on current quantities and rates.
           </div>
         </EditableElement>
+      )}
 
+      {isElementOnPage('subsection-heading', 2) && (
         <EditableElement
           type="heading"
           level={2}
@@ -255,9 +279,11 @@ export const LivePreview = ({
           onDragEnd={handleDragEnd}
           snapPosition={draggingElement === 'subsection-heading' ? { x: activeGuides.snapX, y: activeGuides.snapY } : undefined}
         >
-          <div className="mb-3" data-element-key="subsection-heading">Key Performance Indicators</div>
+          <div className="text-xl font-semibold" data-element-key="subsection-heading">Key Performance Indicators</div>
         </EditableElement>
+      )}
 
+      {isElementOnPage('kpi-text', 2) && (
         <EditableElement
           type="body"
           styleKey="kpi-text"
@@ -272,7 +298,7 @@ export const LivePreview = ({
           onDragEnd={handleDragEnd}
           snapPosition={draggingElement === 'kpi-text' ? { x: activeGuides.snapX, y: activeGuides.snapY } : undefined}
         >
-          <div className="grid grid-cols-2 gap-4 mb-4" data-element-key="kpi-text">
+          <div className="grid grid-cols-2 gap-4" data-element-key="kpi-text">
             <div>
               <div className="font-semibold">Total Project Value:</div>
               <div>R 1,234,567.89</div>
@@ -283,10 +309,9 @@ export const LivePreview = ({
             </div>
           </div>
         </EditableElement>
-      </div>
+      )}
 
-      {/* Sample Table */}
-      <div className="mb-8 relative">
+      {isElementOnPage('table-heading', 2) && (
         <EditableElement
           type="heading"
           level={2}
@@ -302,9 +327,11 @@ export const LivePreview = ({
           onDragEnd={handleDragEnd}
           snapPosition={draggingElement === 'table-heading' ? { x: activeGuides.snapX, y: activeGuides.snapY } : undefined}
         >
-          <div className="mb-3" data-element-key="table-heading">Cost Breakdown</div>
+          <div className="text-xl font-semibold" data-element-key="table-heading">Cost Breakdown</div>
         </EditableElement>
+      )}
 
+      {isElementOnPage('sample-table', 2) && (
         <EditableElement
           type="table"
           styleKey="sample-table"
@@ -320,7 +347,7 @@ export const LivePreview = ({
           snapPosition={draggingElement === 'sample-table' ? { x: activeGuides.snapX, y: activeGuides.snapY } : undefined}
         >
           <table 
-            className="w-full border-collapse"
+            className="w-full border-collapse bg-white"
             style={{
               fontSize: `${settings.tables.fontSize}px`,
               fontFamily: settings.typography.bodyFont,
@@ -353,7 +380,7 @@ export const LivePreview = ({
             </tbody>
           </table>
         </EditableElement>
-      </div>
+      )}
     </div>
   );
 };
