@@ -79,11 +79,14 @@ export const CategoryCard = ({ category, onUpdate }: CategoryCardProps) => {
   let categoryAnticipatedFinal = 0;
 
   if (isVariationsCategory) {
-    // For variations, sum amounts directly (already have correct signs)
-    categoryAnticipatedFinal = variations.reduce(
+    // For variations, show the same amount in ALL columns to reflect full contract value
+    const variationsTotal = variations.reduce(
       (sum, v) => sum + Number(v.amount || 0),
       0
     );
+    categoryOriginalBudget = variationsTotal;
+    categoryPreviousReport = variationsTotal;
+    categoryAnticipatedFinal = variationsTotal;
   } else {
     // For regular line items
     categoryOriginalBudget = lineItems.reduce(
@@ -228,36 +231,40 @@ export const CategoryCard = ({ category, onUpdate }: CategoryCardProps) => {
                   ) : (
                     <div>
                       {variations.map((variation, index) => (
-                        <div 
-                          key={variation.id} 
-                          className={`grid grid-cols-24 gap-2 text-sm py-2 px-4 border-b ${
-                            index % 2 === 0 ? 'bg-background' : 'bg-muted/20'
-                          } hover:bg-muted/40 transition-colors group`}
-                        >
-                          <div className="col-span-2 font-medium">{variation.code}</div>
-                          <div className="col-span-5">
-                            {variation.description}
-                            {variation.tenants && (
-                              <div className="text-xs text-muted-foreground mt-0.5">
-                                {variation.tenants.shop_number} - {variation.tenants.shop_name}
-                              </div>
-                            )}
-                          </div>
-                          <div className="col-span-3 text-right">-</div>
-                          <div className="col-span-3 text-right">-</div>
-                          <div className="col-span-3 text-right font-medium">
-                            {variation.is_credit ? "-" : "+"}R
-                            {Number(variation.amount).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
-                          </div>
-                          <div className="col-span-4 text-right">
-                            {variation.is_credit ? "-" : "+"}R
-                            {Number(variation.amount).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
-                          </div>
-                          <div className="col-span-4 text-right">
-                            {variation.is_credit ? "-" : "+"}R
-                            {Number(variation.amount).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
-                          </div>
+                      <div 
+                        key={variation.id} 
+                        className={`grid grid-cols-24 gap-2 text-sm py-2 px-4 border-b ${
+                          index % 2 === 0 ? 'bg-background' : 'bg-muted/20'
+                        } hover:bg-muted/40 transition-colors group`}
+                      >
+                        <div className="col-span-2 font-medium">{variation.code}</div>
+                        <div className="col-span-5">
+                          {variation.description}
+                          {variation.tenants && (
+                            <div className="text-xs text-muted-foreground mt-0.5">
+                              {variation.tenants.shop_number} - {variation.tenants.shop_name}
+                            </div>
+                          )}
                         </div>
+                        <div className="col-span-3 text-right font-medium">
+                          {variation.is_credit ? "-" : "+"}R
+                          {Number(variation.amount).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
+                        </div>
+                        <div className="col-span-3 text-right font-medium">
+                          {variation.is_credit ? "-" : "+"}R
+                          {Number(variation.amount).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
+                        </div>
+                        <div className="col-span-3 text-right font-medium">
+                          {variation.is_credit ? "-" : "+"}R
+                          {Number(variation.amount).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
+                        </div>
+                        <div className="col-span-4 text-right text-muted-foreground">
+                          R0.00
+                        </div>
+                        <div className="col-span-4 text-right text-muted-foreground">
+                          R0.00
+                        </div>
+                      </div>
                       ))}
                     </div>
                   )}
