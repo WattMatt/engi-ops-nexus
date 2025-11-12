@@ -30,6 +30,9 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Slider } from "@/components/ui/slider";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { calculateCategoryTotals, calculateGrandTotals } from "@/utils/costReportCalculations";
 
 interface PDFPage {
   title: string;
@@ -85,6 +88,51 @@ export const PDFPreviewDialog = ({
   const [zoom, setZoom] = useState(100);
   const [settings, setSettings] = useState<PDFGenerationSettings>(initialSettings);
   const [activeTab, setActiveTab] = useState<'preview' | 'settings'>('preview');
+
+  // Fetch actual report data
+  const { data: categories = [] } = useQuery({
+    queryKey: ["cost-categories", report.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("cost_categories")
+        .select("*")
+        .eq("cost_report_id", report.id)
+        .order("display_order");
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: open,
+  });
+
+  const { data: lineItems = [] } = useQuery({
+    queryKey: ["all-line-items-overview", report.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("cost_line_items")
+        .select("*, cost_categories!inner(cost_report_id)")
+        .eq("cost_categories.cost_report_id", report.id);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: open,
+  });
+
+  const { data: variations = [] } = useQuery({
+    queryKey: ["cost-variations-overview", report.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("cost_variations")
+        .select("*")
+        .eq("cost_report_id", report.id);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: open,
+  });
+
+  // Calculate totals
+  const categoryTotals = calculateCategoryTotals(categories, lineItems, variations);
+  const grandTotals = calculateGrandTotals(categoryTotals);
 
   // Simulate PDF pages based on settings
   const [pages, setPages] = useState<PDFPage[]>([]);
@@ -194,6 +242,231 @@ export const PDFPreviewDialog = ({
   const visiblePages = pages.filter(p => p.visible);
   const totalPages = visiblePages.length;
 
+  const renderPageContent = (pageTitle: string) => {
+    switch (pageTitle) {
+      case 'Cover Page':
+        return (
+          <div className="flex flex-col items-center justify-center h-full space-y-6">
+            <h1 className="text-4xl font-bold text-center">{report.project_name}</h1>
+            <h2 className="text-2xl">Cost Report</h2>
+            <div className="text-lg space-y-2 text-center">
+              <p>Report Name: {report.name}</p>
+              {report.report_date && <p>Date: {new Date(report.report_date).toLocaleDateString()}</p>}
+            </div>
+          </div>
+        );
+      
+      case 'Project Information':
+        return (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="font-semibold">Project Name:</p>
+                <p>{report.project_name}</p>
+              </div>
+              <div>
+                <p className="font-semibold">Report Name:</p>
+                <p>{report.name}</p>
+              </div>
+              {report.report_date && (
+                <div>
+                  <p className="font-semibold">Report Date:</p>
+                  <p>{new Date(report.report_date).toLocaleDateString()}</p>
+                </div>
+              )}
+              {report.description && (
+                <div className="col-span-2">
+                  <p className="font-semibold">Description:</p>
+                  <p>{report.description}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        );
+
+      case 'Executive Summary':
+        return (
+          <div className="space-y-6">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 border rounded">
+                <p className="text-sm text-gray-600">Original Budget</p>
+                <p className="text-2xl font-bold">R{grandTotals.originalBudget.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}</p>
+              </div>
+              <div className="p-4 border rounded">
+                <p className="text-sm text-gray-600">Previous Report</p>
+                <p className="text-2xl font-bold">R{grandTotals.previousReport.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}</p>
+              </div>
+              <div className="p-4 border rounded">
+                <p className="text-sm text-gray-600">Anticipated Final</p>
+                <p className="text-2xl font-bold">R{grandTotals.anticipatedFinal.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}</p>
+              </div>
+              <div className="p-4 border rounded">
+                <p className="text-sm text-gray-600">Variance</p>
+                <p className={`text-2xl font-bold ${grandTotals.originalVariance < 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  R{Math.abs(grandTotals.originalVariance).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
+                </p>
+              </div>
+            </div>
+            <div className="mt-6">
+              <p className="font-semibold mb-2">Key Highlights:</p>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>{categories.length} cost categories tracked</li>
+                <li>{lineItems.length} line items</li>
+                {variations.length > 0 && <li>{variations.length} variations recorded</li>}
+              </ul>
+            </div>
+          </div>
+        );
+
+      case 'Cost Summary':
+        return (
+          <div className="space-y-4">
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left p-2">Category</th>
+                  <th className="text-right p-2">Original</th>
+                  <th className="text-right p-2">Previous</th>
+                  <th className="text-right p-2">Anticipated</th>
+                  <th className="text-right p-2">Variance</th>
+                </tr>
+              </thead>
+              <tbody>
+                {categoryTotals.slice(0, 8).map((cat, idx) => (
+                  <tr key={idx} className="border-b">
+                    <td className="p-2">{cat.code} - {cat.description}</td>
+                    <td className="text-right p-2">R{cat.originalBudget.toLocaleString("en-ZA", { minimumFractionDigits: 0 })}</td>
+                    <td className="text-right p-2">R{cat.previousReport.toLocaleString("en-ZA", { minimumFractionDigits: 0 })}</td>
+                    <td className="text-right p-2">R{cat.anticipatedFinal.toLocaleString("en-ZA", { minimumFractionDigits: 0 })}</td>
+                    <td className={`text-right p-2 ${cat.originalVariance < 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      R{Math.abs(cat.originalVariance).toLocaleString("en-ZA", { minimumFractionDigits: 0 })}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {categoryTotals.length > 8 && (
+              <p className="text-sm text-gray-500 italic">+ {categoryTotals.length - 8} more categories...</p>
+            )}
+          </div>
+        );
+
+      case 'Category Performance':
+        return (
+          <div className="space-y-4">
+            <p className="font-semibold">Top Categories by Value:</p>
+            {categoryTotals
+              .sort((a, b) => b.anticipatedFinal - a.anticipatedFinal)
+              .slice(0, 5)
+              .map((cat, idx) => (
+                <div key={idx} className="border-l-4 pl-4 py-2" style={{ borderColor: settings.accentColor }}>
+                  <p className="font-semibold">{cat.code} - {cat.description}</p>
+                  <div className="grid grid-cols-3 gap-2 mt-1 text-sm">
+                    <div>
+                      <span className="text-gray-600">Original:</span>
+                      <span className="ml-2">R{cat.originalBudget.toLocaleString("en-ZA", { minimumFractionDigits: 0 })}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">Anticipated:</span>
+                      <span className="ml-2">R{cat.anticipatedFinal.toLocaleString("en-ZA", { minimumFractionDigits: 0 })}</span>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">Variance:</span>
+                      <span className={`ml-2 ${cat.originalVariance < 0 ? 'text-green-600' : 'text-red-600'}`}>
+                        R{Math.abs(cat.originalVariance).toLocaleString("en-ZA", { minimumFractionDigits: 0 })}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+          </div>
+        );
+
+      case 'Detailed Line Items':
+        return (
+          <div className="space-y-4">
+            <p className="text-sm text-gray-600">Sample of line items (first 10 shown):</p>
+            <table className="w-full border-collapse text-xs">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left p-1">Description</th>
+                  <th className="text-right p-1">Qty</th>
+                  <th className="text-right p-1">Rate</th>
+                  <th className="text-right p-1">Total</th>
+                </tr>
+              </thead>
+              <tbody>
+                {lineItems.slice(0, 10).map((item: any, idx) => (
+                  <tr key={idx} className="border-b">
+                    <td className="p-1">{item.description}</td>
+                    <td className="text-right p-1">{item.quantity}</td>
+                    <td className="text-right p-1">R{item.rate?.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}</td>
+                    <td className="text-right p-1">R{((item.quantity || 0) * (item.rate || 0)).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {lineItems.length > 10 && (
+              <p className="text-sm text-gray-500 italic">+ {lineItems.length - 10} more items in full report...</p>
+            )}
+          </div>
+        );
+
+      case 'Variations':
+        return variations.length > 0 ? (
+          <div className="space-y-4">
+            <table className="w-full border-collapse text-sm">
+              <thead>
+                <tr className="border-b">
+                  <th className="text-left p-2">Description</th>
+                  <th className="text-right p-2">Amount</th>
+                  <th className="text-left p-2">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {variations.slice(0, 10).map((variation: any, idx) => (
+                  <tr key={idx} className="border-b">
+                    <td className="p-2">{variation.description}</td>
+                    <td className="text-right p-2">R{variation.amount?.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}</td>
+                    <td className="p-2">{variation.status || 'Pending'}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {variations.length > 10 && (
+              <p className="text-sm text-gray-500 italic">+ {variations.length - 10} more variations...</p>
+            )}
+          </div>
+        ) : (
+          <div className="text-center text-gray-500 py-8">
+            <p>No variations recorded for this report.</p>
+          </div>
+        );
+
+      case 'Table of Contents':
+        return (
+          <div className="space-y-2">
+            <p className="font-semibold mb-4">Contents:</p>
+            {pages.filter(p => p.visible).map((page, idx) => (
+              <div key={idx} className="flex justify-between border-b pb-2">
+                <span>{page.title}</span>
+                <span className="text-gray-500">Page {idx + 1}</span>
+              </div>
+            ))}
+          </div>
+        );
+
+      default:
+        return (
+          <div className="space-y-2 text-sm text-gray-500">
+            <p>• Content will be dynamically generated</p>
+            <p>• Charts and tables will be included</p>
+            <p>• Formatting will match your settings</p>
+          </div>
+        );
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[95vw] max-h-[95vh] h-[95vh] p-0 gap-0">
@@ -279,7 +552,7 @@ export const PDFPreviewDialog = ({
                   }}
                 >
                   {visiblePages[currentPage] && (
-                    <div className="h-full flex flex-col">
+                    <div className="h-full flex flex-col relative">
                       {/* Header */}
                       <div 
                         className="p-4 text-white rounded-t"
@@ -290,14 +563,9 @@ export const PDFPreviewDialog = ({
                       </div>
 
                       {/* Content */}
-                      <div className="flex-1 p-6">
+                      <div className="flex-1 p-6 overflow-auto">
                         <div className="text-gray-700" style={{ fontSize: `${settings.fontSize}pt` }}>
-                          <p className="mb-4">{visiblePages[currentPage].content}</p>
-                          <div className="space-y-2 text-sm text-gray-500">
-                            <p>• Content will be dynamically generated</p>
-                            <p>• Charts and tables will be included</p>
-                            <p>• Formatting will match your settings</p>
-                          </div>
+                          {renderPageContent(visiblePages[currentPage].title)}
                         </div>
                       </div>
 
