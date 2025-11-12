@@ -3,12 +3,14 @@ import jsPDF from "jspdf";
 export interface ElementPosition {
   x: number;
   y: number;
+  page?: number; // Which PDF page the element belongs to (1-indexed)
 }
 
 export interface ElementMetadata {
   visible: boolean;
   locked: boolean;
   zIndex: number;
+  page?: number; // Which page this element is on
 }
 
 export interface PDFStyleSettings {

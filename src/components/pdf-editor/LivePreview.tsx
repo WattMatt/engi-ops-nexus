@@ -9,6 +9,7 @@ interface LivePreviewProps {
   onPositionChange: (styleKey: string, x: number, y: number) => void;
   onGroupDrag: (deltaX: number, deltaY: number) => void;
   reportType: string;
+  currentPage: number;
 }
 
 // Define all available elements with their display names
@@ -30,6 +31,7 @@ export const LivePreview = ({
   onPositionChange,
   onGroupDrag,
   reportType,
+  currentPage,
 }: LivePreviewProps) => {
   const margins = settings.layout.margins;
   const gridSettings = settings.grid || { size: 10, enabled: true, visible: true };
@@ -47,11 +49,12 @@ export const LivePreview = ({
   };
 
   const handleDragging = (styleKey: string, bounds: ElementBounds) => {
-    // Get all other visible, unlocked elements' bounds
+    // Get all other visible, unlocked elements' bounds on the current page
     const otherElements = ELEMENT_DEFINITIONS
       .filter(el => {
-        const metadata = settings.elements?.[el.key] || { visible: true, locked: false, zIndex: 0 };
-        return el.key !== styleKey && metadata.visible && !metadata.locked;
+        const metadata = settings.elements?.[el.key] || { visible: true, locked: false, zIndex: 0, page: 1 };
+        const elementPage = metadata.page || 1;
+        return el.key !== styleKey && metadata.visible && !metadata.locked && elementPage === currentPage;
       })
       .map(el => {
         const pos = settings.positions?.[el.key] || { x: 0, y: 0 };
@@ -70,6 +73,13 @@ export const LivePreview = ({
     setDraggingElement(null);
     setActiveGuides({ guides: [], snapX: null, snapY: null });
   };
+
+  // Filter elements for current page
+  const visibleElements = ELEMENT_DEFINITIONS.filter(el => {
+    const metadata = settings.elements?.[el.key] || { visible: true, locked: false, zIndex: 0, page: 1 };
+    const elementPage = metadata.page || 1;
+    return elementPage === currentPage;
+  });
 
   // Generate grid pattern
   const generateGrid = () => {
@@ -142,43 +152,53 @@ export const LivePreview = ({
       
       {/* Alignment Guides Overlay */}
       <AlignmentGuides guides={activeGuides.guides} />
-      {/* Cover Page Preview */}
-      <div className="mb-8 relative">
-        <EditableElement
-          type="heading"
-          level={1}
-          styleKey="cover-title"
-          currentStyles={settings}
-          isSelected={selectedElements.length === 1 && selectedElements[0] === 'cover-title'}
-          isMultiSelected={selectedElements.length > 1 && selectedElements.includes('cover-title')}
-          onSelect={onSelectElement}
-          onPositionChange={onPositionChange}
-          onGroupDrag={onGroupDrag}
-          onDragStart={handleDragStart}
-          onDragging={handleDragging}
-          onDragEnd={handleDragEnd}
-          snapPosition={draggingElement === 'cover-title' ? { x: activeGuides.snapX, y: activeGuides.snapY } : undefined}
-        >
-          <div className="text-center mb-6" data-element-key="cover-title">PROJECT COST REPORT</div>
-        </EditableElement>
-        
-        <EditableElement
-          type="body"
-          styleKey="cover-subtitle"
-          currentStyles={settings}
-          isSelected={selectedElements.length === 1 && selectedElements[0] === 'cover-subtitle'}
-          isMultiSelected={selectedElements.length > 1 && selectedElements.includes('cover-subtitle')}
-          onSelect={onSelectElement}
-          onPositionChange={onPositionChange}
-          onGroupDrag={onGroupDrag}
-          onDragStart={handleDragStart}
-          onDragging={handleDragging}
-          onDragEnd={handleDragEnd}
-          snapPosition={draggingElement === 'cover-subtitle' ? { x: activeGuides.snapX, y: activeGuides.snapY } : undefined}
-        >
-          <div className="text-center" data-element-key="cover-subtitle">Sample Project Name</div>
-        </EditableElement>
-      </div>
+
+      {/* Cover Page Preview - Only show on page 1 */}
+      {currentPage === 1 && (
+        <div className="mb-8 relative">
+          <EditableElement
+            type="heading"
+            level={1}
+            styleKey="cover-title"
+            currentStyles={settings}
+            isSelected={selectedElements.length === 1 && selectedElements[0] === 'cover-title'}
+            isMultiSelected={selectedElements.length > 1 && selectedElements.includes('cover-title')}
+            onSelect={onSelectElement}
+            onPositionChange={onPositionChange}
+            onGroupDrag={onGroupDrag}
+            onDragStart={handleDragStart}
+            onDragging={handleDragging}
+            onDragEnd={handleDragEnd}
+            snapPosition={draggingElement === 'cover-title' ? { x: activeGuides.snapX, y: activeGuides.snapY } : undefined}
+          >
+            <div className="text-center mb-6" data-element-key="cover-title">PROJECT COST REPORT</div>
+          </EditableElement>
+          
+          <EditableElement
+            type="body"
+            styleKey="cover-subtitle"
+            currentStyles={settings}
+            isSelected={selectedElements.length === 1 && selectedElements[0] === 'cover-subtitle'}
+            isMultiSelected={selectedElements.length > 1 && selectedElements.includes('cover-subtitle')}
+            onSelect={onSelectElement}
+            onPositionChange={onPositionChange}
+            onGroupDrag={onGroupDrag}
+            onDragStart={handleDragStart}
+            onDragging={handleDragging}
+            onDragEnd={handleDragEnd}
+            snapPosition={draggingElement === 'cover-subtitle' ? { x: activeGuides.snapX, y: activeGuides.snapY } : undefined}
+          >
+            <div className="text-center" data-element-key="cover-subtitle">Sample Project Name</div>
+          </EditableElement>
+        </div>
+      )}
+
+      {/* Other pages content would be rendered based on currentPage */}
+      {currentPage > 1 && visibleElements.length === 0 && (
+        <div className="flex items-center justify-center h-full text-muted-foreground">
+          <p>No editable elements on this page yet</p>
+        </div>
+      )}
 
       {/* Executive Summary Section */}
       <div className="mb-8 relative">

@@ -8,12 +8,13 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Save, FileDown } from "lucide-react";
+import { Loader2, Save, FileDown, ChevronLeft, ChevronRight } from "lucide-react";
 import { LivePreview } from "./LivePreview";
 import { StylePanel } from "./StylePanel";
 import { TemplateSelector } from "./TemplateSelector";
 import { LayersPanel } from "./LayersPanel";
 import { AlignmentToolbar, AlignmentType } from "./AlignmentToolbar";
+import { PDFPagePreview } from "./PDFPagePreview";
 import { PDFStyleSettings } from "@/utils/pdfStyleManager";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -22,6 +23,7 @@ interface PDFTemplateEditorProps {
   onOpenChange: (open: boolean) => void;
   reportType: string;
   onApplyTemplate?: (templateId: string) => void;
+  reportPdfUrl?: string | null; // URL to the actual PDF report
 }
 
 export const PDFTemplateEditor = ({
@@ -29,6 +31,7 @@ export const PDFTemplateEditor = ({
   onOpenChange,
   reportType,
   onApplyTemplate,
+  reportPdfUrl,
 }: PDFTemplateEditorProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -41,6 +44,18 @@ export const PDFTemplateEditor = ({
   const [templateName, setTemplateName] = useState("");
   const [templateDescription, setTemplateDescription] = useState("");
   const [setAsDefault, setSetAsDefault] = useState(false);
+  
+  // PDF page navigation
+  const [currentPage, setCurrentPage] = useState(1);
+  const [numPages, setNumPages] = useState(0);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+
+  // Load PDF URL when dialog opens
+  useState(() => {
+    if (open && reportPdfUrl) {
+      setPdfUrl(reportPdfUrl);
+    }
+  });
 
   // Fetch templates
   const { data: templates, isLoading } = useQuery({
@@ -392,6 +407,30 @@ export const PDFTemplateEditor = ({
     }
   };
 
+  const handleDocumentLoadSuccess = (pages: number) => {
+    setNumPages(pages);
+    setCurrentPage(1);
+  };
+
+  const handleDocumentLoadError = (error: Error) => {
+    console.error("PDF load error:", error);
+    toast({
+      title: "Failed to load PDF",
+      description: "Could not load the PDF report for editing.",
+      variant: "destructive",
+    });
+  };
+
+  const filteredElementsForPage = (page: number) => {
+    // Filter elements that belong to the current page
+    // If no page is set, show on page 1 by default
+    return selectedElements.filter(key => {
+      const metadata = currentSettings?.elements?.[key];
+      const elementPage = metadata?.page || 1;
+      return elementPage === page;
+    });
+  };
+
   const handleApplyAndGenerate = () => {
     if (selectedTemplateId && onApplyTemplate) {
       onApplyTemplate(selectedTemplateId);
@@ -465,10 +504,37 @@ export const PDFTemplateEditor = ({
             {/* Preview Panel */}
             <ScrollArea className="flex-1 p-6 bg-muted/30">
               <div className="space-y-2 mb-4">
+                {/* Page Navigation */}
+                {numPages > 1 && (
+                  <div className="flex items-center justify-center gap-4 p-2 bg-background border rounded-lg">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
+                      disabled={currentPage <= 1}
+                    >
+                      <ChevronLeft className="h-4 w-4 mr-1" />
+                      Previous
+                    </Button>
+                    <span className="text-sm font-medium">
+                      Page {currentPage} of {numPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCurrentPage(Math.min(numPages, currentPage + 1))}
+                      disabled={currentPage >= numPages}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4 ml-1" />
+                    </Button>
+                  </div>
+                )}
+
                 <div className="p-3 bg-info/10 border border-info rounded-lg">
                   <p className="text-sm text-info-foreground flex items-center gap-2">
-                    <strong>Tip:</strong> Ctrl+Click to multi-select. Drag selected elements together.
-                    {currentSettings.grid?.enabled && (
+                    <strong>Tip:</strong> {pdfUrl ? "Edit elements on the actual PDF pages" : "Generate a report to see actual pages"}. Ctrl+Click to multi-select.
+                    {currentSettings?.grid?.enabled && (
                       <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary/10 rounded text-xs">
                         Snap-to-grid ({currentSettings.grid.size}px)
                       </span>
@@ -483,14 +549,32 @@ export const PDFTemplateEditor = ({
                 />
               </div>
               
-              <LivePreview
-                settings={currentSettings}
-                selectedElements={selectedElements}
-                onSelectElement={handleSelectElement}
-                onPositionChange={handlePositionChange}
-                onGroupDrag={handleGroupDrag}
-                reportType={reportType}
-              />
+              <div className="relative">
+                {/* PDF Background */}
+                {pdfUrl && (
+                  <PDFPagePreview
+                    pdfUrl={pdfUrl}
+                    currentPage={currentPage}
+                    onDocumentLoadSuccess={handleDocumentLoadSuccess}
+                    onDocumentLoadError={handleDocumentLoadError}
+                  />
+                )}
+
+                {/* Editable Elements Overlay */}
+                <div className="absolute inset-0 pointer-events-none">
+                  <div className="relative w-full h-full pointer-events-auto">
+                    <LivePreview
+                      settings={currentSettings}
+                      selectedElements={filteredElementsForPage(currentPage)}
+                      onSelectElement={handleSelectElement}
+                      onPositionChange={handlePositionChange}
+                      onGroupDrag={handleGroupDrag}
+                      reportType={reportType}
+                      currentPage={currentPage}
+                    />
+                  </div>
+                </div>
+              </div>
             </ScrollArea>
 
             {/* Style Editor Panel */}

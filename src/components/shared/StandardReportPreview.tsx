@@ -226,16 +226,17 @@ export const StandardReportPreview = ({
       </DialogContent>
     </Dialog>
 
-    <PDFTemplateEditor
-      open={editorOpen}
-      onOpenChange={setEditorOpen}
-      reportType={reportType}
-      onApplyTemplate={() => {
-        if (onRegeneratePDF) {
-          onRegeneratePDF();
-        }
-      }}
-    />
+      <PDFTemplateEditor
+        open={editorOpen}
+        onOpenChange={setEditorOpen}
+        reportType={reportType}
+        reportPdfUrl={pdfUrl}
+        onApplyTemplate={() => {
+          if (onRegeneratePDF) {
+            onRegeneratePDF();
+          }
+        }}
+      />
     </>
   );
 };
