@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Save, Download, Upload } from "lucide-react";
+import { Save, Download, Upload, RefreshCw } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -17,11 +17,15 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { ComponentLibraryPanel } from "./ComponentLibraryPanel";
+import { CapturedComponent } from "@/types/templateComponents";
+import { recaptureAllComponents } from "@/utils/componentCapture";
 
 interface PDFTemplateDesignerProps {
   templateId?: string;
   category: string;
   projectId: string;
+  reportId?: string;
   onSave?: (templateId: string) => void;
 }
 
@@ -46,6 +50,7 @@ export const PDFTemplateDesigner = ({
   templateId,
   category,
   projectId,
+  reportId,
   onSave,
 }: PDFTemplateDesignerProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -57,6 +62,8 @@ export const PDFTemplateDesigner = ({
   const [templateName, setTemplateName] = useState("");
   const [templateDescription, setTemplateDescription] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [capturedComponents, setCapturedComponents] = useState<CapturedComponent[]>([]);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Load existing template if templateId provided
   useEffect(() => {
@@ -82,6 +89,7 @@ export const PDFTemplateDesigner = ({
         setTemplate(data.template_json as Template);
         setTemplateName(data.name);
         setTemplateDescription(data.description || "");
+        setCapturedComponents((data.captured_components as any) || []);
       }
     };
 
@@ -141,6 +149,7 @@ export const PDFTemplateDesigner = ({
         name: templateName,
         description: templateDescription,
         template_json: template as any, // Cast to any for JSONB storage
+        captured_components: capturedComponents as any,
         category,
         project_id: projectId,
         created_by: user.id,
@@ -233,32 +242,119 @@ export const PDFTemplateDesigner = ({
     input.click();
   };
 
+  const handleComponentCaptured = (component: CapturedComponent) => {
+    setCapturedComponents(prev => [...prev, component]);
+    
+    // Add the captured image to the template
+    if (component.imageUrl && designerRef.current) {
+      const currentTemplate = designerRef.current.getTemplate();
+      const newSchemas = [...(currentTemplate.schemas || [])];
+      
+      if (newSchemas.length === 0) {
+        newSchemas.push([]);
+      }
+      
+      newSchemas[0].push({
+        type: 'image',
+        position: component.position,
+        width: component.size.width,
+        height: component.size.height,
+        name: component.id,
+      });
+      
+      const updatedTemplate = {
+        ...currentTemplate,
+        schemas: newSchemas,
+      };
+      
+      setTemplate(updatedTemplate);
+    }
+  };
+
+  const handleRefreshComponents = async () => {
+    if (capturedComponents.length === 0) {
+      toast({
+        title: "No Components",
+        description: "No captured components to refresh",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsRefreshing(true);
+    try {
+      const updatedUrls = await recaptureAllComponents(capturedComponents, projectId);
+      
+      const updatedComponents = capturedComponents.map(comp => ({
+        ...comp,
+        imageUrl: updatedUrls.get(comp.id) || comp.imageUrl,
+      }));
+      
+      setCapturedComponents(updatedComponents);
+      
+      toast({
+        title: "Components Refreshed",
+        description: `Updated ${updatedUrls.size} component(s) with latest data`,
+      });
+    } catch (error) {
+      console.error("Refresh error:", error);
+      toast({
+        title: "Refresh Failed",
+        description: "Failed to refresh components",
+        variant: "destructive",
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   return (
-    <div className="flex flex-col h-full">
-      <div className="flex items-center justify-between p-4 border-b bg-background">
-        <div>
-          <h2 className="text-xl font-semibold">PDF Template Designer</h2>
-          <p className="text-sm text-muted-foreground">
-            Drag and drop elements to design your PDF template
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={handleImportTemplate}>
-            <Upload className="h-4 w-4 mr-2" />
-            Import
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleExportTemplate}>
-            <Download className="h-4 w-4 mr-2" />
-            Export
-          </Button>
-          <Button size="sm" onClick={() => setShowSaveDialog(true)}>
-            <Save className="h-4 w-4 mr-2" />
-            Save Template
-          </Button>
-        </div>
+    <div className="flex h-full gap-4">
+      {/* Component Library Sidebar */}
+      <div className="w-72 flex-shrink-0">
+        <ComponentLibraryPanel
+          projectId={projectId}
+          reportId={reportId}
+          onComponentCaptured={handleComponentCaptured}
+        />
       </div>
 
-      <div ref={containerRef} className="flex-1 bg-muted/30" />
+      {/* Main Designer Area */}
+      <div className="flex-1 flex flex-col">
+        <div className="flex items-center justify-between p-4 border-b bg-background">
+          <div>
+            <h2 className="text-xl font-semibold">PDF Template Designer</h2>
+            <p className="text-sm text-muted-foreground">
+              Capture components from the library and position them on the canvas
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleRefreshComponents}
+              disabled={isRefreshing || capturedComponents.length === 0}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+              Refresh Components
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleImportTemplate}>
+              <Upload className="h-4 w-4 mr-2" />
+              Import
+            </Button>
+            <Button variant="outline" size="sm" onClick={handleExportTemplate}>
+              <Download className="h-4 w-4 mr-2" />
+              Export
+            </Button>
+            <Button size="sm" onClick={() => setShowSaveDialog(true)}>
+              <Save className="h-4 w-4 mr-2" />
+              Save Template
+            </Button>
+          </div>
+        </div>
+
+        <div ref={containerRef} className="flex-1 bg-muted/30" />
+      </div>
 
       <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>
         <DialogContent>

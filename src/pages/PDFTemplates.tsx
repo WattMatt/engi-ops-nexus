@@ -60,6 +60,7 @@ export default function PDFTemplates() {
             templateId={selectedTemplateId}
             category={selectedCategory}
             projectId={selectedProjectId}
+            reportId={undefined}
             onSave={handleSave}
           />
           ) : (

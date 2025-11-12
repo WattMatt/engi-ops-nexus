@@ -3493,6 +3493,7 @@ export type Database = {
       }
       pdf_templates: {
         Row: {
+          captured_components: Json | null
           category: string
           created_at: string
           created_by: string
@@ -3506,6 +3507,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          captured_components?: Json | null
           category: string
           created_at?: string
           created_by: string
@@ -3519,6 +3521,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          captured_components?: Json | null
           category?: string
           created_at?: string
           created_by?: string
