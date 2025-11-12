@@ -9,6 +9,7 @@ interface ConversionRequest {
   fileUrl: string;
   fileName: string;
   templateId?: string;
+  placeholderData?: Record<string, string>;
 }
 
 Deno.serve(async (req) => {
@@ -28,9 +29,49 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { fileUrl, fileName, templateId }: ConversionRequest = await req.json();
+    const { fileUrl, fileName, templateId, placeholderData }: ConversionRequest = await req.json();
 
-    console.log('Starting Word to PDF conversion:', { fileName, templateId });
+    console.log('Starting Word to PDF conversion:', { fileName, templateId, hasPlaceholderData: !!placeholderData });
+
+    // Build the CloudConvert job tasks
+    const tasks: any = {
+      'import-file': {
+        operation: 'import/url',
+        url: fileUrl,
+      },
+    };
+
+    // If placeholder data is provided, use merge operation
+    if (placeholderData && Object.keys(placeholderData).length > 0) {
+      console.log('Using merge operation with placeholder data');
+      tasks['merge-file'] = {
+        operation: 'merge',
+        input: 'import-file',
+        output_format: fileName.endsWith('.docx') || fileName.endsWith('.dotx') ? 'docx' : 'doc',
+        engine: 'office',
+        data: placeholderData,
+      };
+      tasks['convert-file'] = {
+        operation: 'convert',
+        input: 'merge-file',
+        output_format: 'pdf',
+        engine: 'office',
+      };
+    } else {
+      console.log('Using direct conversion without merge');
+      tasks['convert-file'] = {
+        operation: 'convert',
+        input: 'import-file',
+        output_format: 'pdf',
+        engine: 'office',
+        input_format: fileName.endsWith('.docx') || fileName.endsWith('.dotx') ? 'docx' : 'doc',
+      };
+    }
+
+    tasks['export-file'] = {
+      operation: 'export/url',
+      input: 'convert-file',
+    };
 
     // Step 1: Create a conversion job with CloudConvert
     const createJobResponse = await fetch('https://api.cloudconvert.com/v2/jobs', {
@@ -39,25 +80,7 @@ Deno.serve(async (req) => {
         'Authorization': `Bearer ${cloudConvertApiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        tasks: {
-          'import-file': {
-            operation: 'import/url',
-            url: fileUrl,
-          },
-          'convert-file': {
-            operation: 'convert',
-            input: 'import-file',
-            output_format: 'pdf',
-            engine: 'office',
-            input_format: fileName.endsWith('.docx') || fileName.endsWith('.dotx') ? 'docx' : 'doc',
-          },
-          'export-file': {
-            operation: 'export/url',
-            input: 'convert-file',
-          },
-        },
-      }),
+      body: JSON.stringify({ tasks }),
     });
 
     if (!createJobResponse.ok) {
