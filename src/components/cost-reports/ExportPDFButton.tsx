@@ -154,8 +154,8 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         doc.text("TABLE OF CONTENTS", pageWidth / 2, 22, { align: "center" });
       }
 
-      // We'll fill this in after generating all pages
-      const tocStartY = contentStartY + 20;
+      // Start TOC entries below the header (40px header + spacing)
+      const tocStartY = 55;
 
       // Use the already calculated totals
       const categoryTotals = pdfCategoryTotals.map(ct => ({
