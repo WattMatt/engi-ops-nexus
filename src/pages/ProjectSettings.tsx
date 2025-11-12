@@ -17,6 +17,7 @@ import { toast } from "sonner";
 import { ArrowLeft, Save } from "lucide-react";
 import { LogoUpload } from "@/components/LogoUpload";
 import { ProjectMembers } from "@/components/settings/ProjectMembers";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CoverPageUpload } from "@/components/settings/CoverPageUpload";
 
 export default function ProjectSettings() {
