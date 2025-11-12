@@ -513,21 +513,35 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
                       label={(props: any) => {
                         const { x, y, width, height, value } = props;
                         const isPositive = value >= 0;
-                        const yPosition = isPositive ? y - 5 : y + height + 15;
+                        const yPosition = isPositive ? y - 8 : y + height + 18;
+                        const formattedValue = Math.abs(value) >= 1000000 
+                          ? `${isPositive ? '+' : '-'}R${(Math.abs(value) / 1000000).toFixed(1)}M`
+                          : `${isPositive ? '+' : '-'}R${Math.abs(value).toLocaleString('en-ZA', { maximumFractionDigits: 0 })}`;
                         
                         return (
-                          <text 
-                            x={x + width / 2} 
-                            y={yPosition} 
-                            fill="#000" 
-                            textAnchor="middle" 
-                            fontSize={10}
-                          >
-                            {isPositive 
-                              ? `+R${value.toLocaleString('en-ZA', { maximumFractionDigits: 0 })}` 
-                              : `-R${Math.abs(value).toLocaleString('en-ZA', { maximumFractionDigits: 0 })}`
-                            }
-                          </text>
+                          <g>
+                            <rect
+                              x={x + width / 2 - 30}
+                              y={yPosition - 10}
+                              width={60}
+                              height={16}
+                              fill={isPositive ? '#fee2e2' : '#dcfce7'}
+                              stroke={isPositive ? '#ef4444' : '#22c55e'}
+                              strokeWidth={1}
+                              rx={4}
+                              opacity={0.9}
+                            />
+                            <text 
+                              x={x + width / 2} 
+                              y={yPosition} 
+                              fill={isPositive ? '#991b1b' : '#166534'}
+                              textAnchor="middle" 
+                              fontSize={11}
+                              fontWeight="600"
+                            >
+                              {formattedValue}
+                            </text>
+                          </g>
                         );
                       }}
                     >
