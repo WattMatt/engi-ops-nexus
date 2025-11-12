@@ -21,6 +21,7 @@ interface LivePreviewProps {
   onUndoRedoChange?: (canUndo: boolean, canRedo: boolean) => void;
   onColorChange?: (elementId: string, colorType: 'text' | 'stroke' | 'fill', color: string) => void;
   onElementsExtracted?: (elements: { text: any[]; images: any[]; shapes: any[] }) => void;
+  addedElements?: { text: any[]; images: any[]; shapes: any[] };
 }
 
 // Define all available elements with their display names and default positions
@@ -48,6 +49,7 @@ export const LivePreview = ({
   onUndoRedoChange,
   onColorChange,
   onElementsExtracted,
+  addedElements = { text: [], images: [], shapes: [] },
 }: LivePreviewProps) => {
   const margins = settings.layout.margins;
   const gridSettings = settings.grid || { size: 10, enabled: true, visible: true };
@@ -221,9 +223,9 @@ export const LivePreview = ({
     setExtractedImages(prev => prev.filter(img => img.id !== id));
   };
 
-  const handleShapePositionChange = (id: string, x: number, y: number) => {
+  const handleShapeSizeChange = (id: string, width: number, height: number) => {
     setExtractedShapes(prev =>
-      prev.map(shape => (shape.id === id ? { ...shape, x, y } : shape))
+      prev.map(shape => (shape.id === id ? { ...shape, width, height } : shape))
     );
   };
 
@@ -427,41 +429,87 @@ export const LivePreview = ({
         </div>
       )}
 
-      {/* Extracted PDF Text Elements */}
-      {enablePDFEditing && extractedText.map((textItem) => (
+      {/* Render extracted and added text elements */}
+      {extractedText.map((item) => (
         <EditablePDFText
-          key={textItem.id}
-          item={textItem}
-          isSelected={selectedElements.includes(textItem.id)}
+          key={item.id}
+          item={item}
+          isSelected={selectedElements.includes(item.id)}
           scale={1.0}
-          onSelect={onSelectElement}
+          onSelect={(id, isCtrlKey) => onSelectElement?.(id, isCtrlKey)}
           onTextChange={handlePDFTextChange}
           onPositionChange={handlePDFTextPosition}
+          onColorChange={(id, color) => handleElementColorChange(id, 'text', color)}
+        />
+      ))}
+      {addedElements.text.filter(el => el.page === currentPage).map((item) => (
+        <EditablePDFText
+          key={item.id}
+          item={item}
+          isSelected={selectedElements.includes(item.id)}
+          scale={1.0}
+          onSelect={(id, isCtrlKey) => onSelectElement?.(id, isCtrlKey)}
+          onTextChange={handlePDFTextChange}
+          onPositionChange={handlePDFTextPosition}
+          onColorChange={(id, color) => handleElementColorChange(id, 'text', color)}
         />
       ))}
 
-      {/* Extracted PDF Images */}
-      {enablePDFEditing && extractedImages.map((imageItem) => (
+      {/* Render extracted and added images */}
+      {extractedImages.map((image) => (
         <EditablePDFImage
-          key={imageItem.id}
-          item={imageItem}
-          isSelected={selectedElements.includes(imageItem.id)}
-          onSelect={onSelectElement}
+          key={image.id}
+          item={image}
+          isSelected={selectedElements.includes(image.id)}
+          onSelect={(id, isCtrlKey) => onSelectElement?.(id, isCtrlKey)}
+          onPositionChange={handleImagePositionChange}
+          onSizeChange={handleImageSizeChange}
+          onDelete={handleImageDelete}
+        />
+      ))}
+      {addedElements.images.filter(el => el.page === currentPage).map((image) => (
+        <EditablePDFImage
+          key={image.id}
+          item={image}
+          isSelected={selectedElements.includes(image.id)}
+          onSelect={(id, isCtrlKey) => onSelectElement?.(id, isCtrlKey)}
           onPositionChange={handleImagePositionChange}
           onSizeChange={handleImageSizeChange}
           onDelete={handleImageDelete}
         />
       ))}
 
-      {/* Extracted PDF Shapes */}
-      {enablePDFEditing && extractedShapes.map((shapeItem) => (
+      {/* Render extracted and added shapes */}
+      {extractedShapes.map((shape) => (
         <EditablePDFShape
-          key={shapeItem.id}
-          item={shapeItem}
-          isSelected={selectedElements.includes(shapeItem.id)}
-          onSelect={onSelectElement}
-          onPositionChange={handleShapePositionChange}
+          key={shape.id}
+          item={shape}
+          isSelected={selectedElements.includes(shape.id)}
+          onSelect={(id, isCtrlKey) => onSelectElement?.(id, isCtrlKey)}
+          onPositionChange={(id, x, y) => {
+            setExtractedShapes(prev =>
+              prev.map(s => (s.id === id ? { ...s, x, y } : s))
+            );
+          }}
           onDelete={handleShapeDelete}
+          onStrokeColorChange={(id, color) => handleElementColorChange(id, 'stroke', color)}
+          onFillColorChange={(id, color) => handleElementColorChange(id, 'fill', color)}
+        />
+      ))}
+      {addedElements.shapes.filter(el => el.page === currentPage).map((shape) => (
+        <EditablePDFShape
+          key={shape.id}
+          item={shape}
+          isSelected={selectedElements.includes(shape.id)}
+          onSelect={(id, isCtrlKey) => onSelectElement?.(id, isCtrlKey)}
+          onPositionChange={(id, x, y) => {
+            setExtractedShapes(prev =>
+              prev.map(s => (s.id === id ? { ...s, x, y } : s))
+            );
+          }}
+          onDelete={handleShapeDelete}
+          onStrokeColorChange={(id, color) => handleElementColorChange(id, 'stroke', color)}
+          onFillColorChange={(id, color) => handleElementColorChange(id, 'fill', color)}
         />
       ))}
 

@@ -8,7 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Save, FileDown, ChevronLeft, ChevronRight, Undo, Redo } from "lucide-react";
+import { Loader2, Save, FileDown, ChevronLeft, ChevronRight, Undo, Redo, Type, Square, Circle, Minus, ImageIcon } from "lucide-react";
 import { LivePreview } from "./LivePreview";
 import { StylePanel } from "./StylePanel";
 import { TemplateSelector } from "./TemplateSelector";
@@ -62,6 +62,13 @@ export const PDFTemplateEditor = ({
     shapes: any[];
   }>({ text: [], images: [], shapes: [] });
 
+  // Track user-added elements
+  const [addedElements, setAddedElements] = useState<{
+    text: any[];
+    images: any[];
+    shapes: any[];
+  }>({ text: [], images: [], shapes: [] });
+
   const handleUndoRedoChange = (undo: boolean, redo: boolean) => {
     setCanUndo(undo);
     setCanRedo(redo);
@@ -103,7 +110,7 @@ export const PDFTemplateEditor = ({
     
     const selectedId = selectedElements[0];
     
-    // Check if it's a text element
+    // Check extracted text elements
     const textElement = extractedElements.text.find(t => t.id === selectedId);
     if (textElement) {
       return {
@@ -112,7 +119,16 @@ export const PDFTemplateEditor = ({
       };
     }
     
-    // Check if it's a shape element
+    // Check added text elements
+    const addedTextElement = addedElements.text.find(t => t.id === selectedId);
+    if (addedTextElement) {
+      return {
+        type: 'text' as const,
+        color: addedTextElement.color || '#000000',
+      };
+    }
+    
+    // Check extracted shape elements
     const shapeElement = extractedElements.shapes.find(s => s.id === selectedId);
     if (shapeElement) {
       return {
@@ -122,7 +138,102 @@ export const PDFTemplateEditor = ({
       };
     }
     
+    // Check added shape elements
+    const addedShapeElement = addedElements.shapes.find(s => s.id === selectedId);
+    if (addedShapeElement) {
+      return {
+        type: 'shape' as const,
+        strokeColor: addedShapeElement.strokeColor || '#000000',
+        fillColor: addedShapeElement.fillColor || 'none',
+      };
+    }
+    
     return null;
+  };
+
+  // Handlers for adding new elements
+  const handleAddTextBox = () => {
+    const newTextBox = {
+      id: `added-text-${Date.now()}`,
+      text: 'New Text',
+      x: 100,
+      y: 100,
+      width: 200,
+      height: 40,
+      fontSize: 16,
+      fontFamily: 'Arial',
+      page: currentPage,
+      color: '#000000',
+      bold: false,
+    };
+    
+    setAddedElements(prev => ({
+      ...prev,
+      text: [...prev.text, newTextBox],
+    }));
+    setSelectedElements([newTextBox.id]);
+    toast({
+      title: "Text box added",
+      description: "You can now edit and position the text box",
+    });
+  };
+
+  const handleAddShape = (type: 'rectangle' | 'circle' | 'line') => {
+    const newShape = {
+      id: `added-shape-${Date.now()}`,
+      type,
+      x: 150,
+      y: 150,
+      width: type === 'line' ? 200 : 100,
+      height: type === 'line' ? 2 : 100,
+      page: currentPage,
+      strokeColor: '#000000',
+      fillColor: type === 'line' ? 'transparent' : '#cccccc',
+      strokeWidth: 2,
+    };
+    
+    setAddedElements(prev => ({
+      ...prev,
+      shapes: [...prev.shapes, newShape],
+    }));
+    setSelectedElements([newShape.id]);
+    toast({
+      title: `${type} added`,
+      description: "You can now resize and position the shape",
+    });
+  };
+
+  const handleAddImage = async (file: File) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const newImage = {
+        id: `added-image-${Date.now()}`,
+        dataUrl: e.target?.result as string,
+        x: 100,
+        y: 100,
+        width: 150,
+        height: 150,
+        page: currentPage,
+      };
+      
+      setAddedElements(prev => ({
+        ...prev,
+        images: [...prev.images, newImage],
+      }));
+      setSelectedElements([newImage.id]);
+      toast({
+        title: "Image added",
+        description: "You can now resize and position the image",
+      });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      handleAddImage(file);
+    }
   };
 
   // Element definitions with defaults (imported from LivePreview for consistency)
@@ -555,6 +666,16 @@ export const PDFTemplateEditor = ({
     });
   };
 
+  const allElementsForPage = (page: number) => {
+    // Combine template elements with added elements for the page
+    const templateElements = filteredElementsForPage(page);
+    const addedTextIds = addedElements.text.filter(el => el.page === page).map(el => el.id);
+    const addedImageIds = addedElements.images.filter(el => el.page === page).map(el => el.id);
+    const addedShapeIds = addedElements.shapes.filter(el => el.page === page).map(el => el.id);
+    
+    return [...templateElements, ...addedTextIds, ...addedImageIds, ...addedShapeIds];
+  };
+
   const handleApplyAndGenerate = () => {
     if (selectedTemplateId && onApplyTemplate) {
       onApplyTemplate(selectedTemplateId);
@@ -725,6 +846,62 @@ export const PDFTemplateEditor = ({
               </div>
               
               <div className="relative mx-auto" style={{ width: '793.7px' }}>
+                {/* Add Elements Toolbar */}
+                {pdfUrl && (
+                  <div className="absolute top-4 right-4 z-10 flex gap-2 bg-background/95 p-2 rounded-lg shadow-lg border">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={handleAddTextBox}
+                      title="Add Text Box"
+                    >
+                      <Type className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleAddShape('rectangle')}
+                      title="Add Rectangle"
+                    >
+                      <Square className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleAddShape('circle')}
+                      title="Add Circle"
+                    >
+                      <Circle className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleAddShape('line')}
+                      title="Add Line"
+                    >
+                      <Minus className="h-4 w-4" />
+                    </Button>
+                    <label>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        asChild
+                        title="Add Image"
+                      >
+                        <span className="cursor-pointer">
+                          <ImageIcon className="h-4 w-4" />
+                        </span>
+                      </Button>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleImageUpload}
+                      />
+                    </label>
+                  </div>
+                )}
+
                 {/* PDF Background */}
                 {pdfUrl && (
                   <div className="relative">
@@ -743,7 +920,7 @@ export const PDFTemplateEditor = ({
                     <div className="relative w-full h-full pointer-events-auto">
                       <LivePreview
                         settings={currentSettings}
-                        selectedElements={filteredElementsForPage(currentPage)}
+                        selectedElements={allElementsForPage(currentPage)}
                         onSelectElement={handleSelectElement}
                         onPositionChange={handlePositionChange}
                         onGroupDrag={handleGroupDrag}
@@ -754,6 +931,7 @@ export const PDFTemplateEditor = ({
                         onUndoRedoChange={handleUndoRedoChange}
                         onColorChange={handleColorChange}
                         onElementsExtracted={(elements) => setExtractedElements(elements)}
+                        addedElements={addedElements}
                       />
                     </div>
                   </div>
@@ -774,6 +952,7 @@ export const PDFTemplateEditor = ({
                     onUndoRedoChange={handleUndoRedoChange}
                     onColorChange={handleColorChange}
                     onElementsExtracted={(elements) => setExtractedElements(elements)}
+                    addedElements={addedElements}
                   />
                 )}
               </div>
