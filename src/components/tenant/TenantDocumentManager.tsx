@@ -21,7 +21,7 @@ const DOCUMENT_TYPES = [
   { 
     key: "lighting_quote_received", 
     label: "Lighting Quotation (Received)", 
-    allowMultiple: false,
+    allowMultiple: true,
     syncsToSchedule: false,
     description: "Reference document for quotation review"
   },
@@ -36,14 +36,14 @@ const DOCUMENT_TYPES = [
   { 
     key: "db_order_quote_received", 
     label: "DB Order Quote (Received)", 
-    allowMultiple: false,
+    allowMultiple: true,
     syncsToSchedule: false,
     description: "Reference document for quotation review"
   },
   { 
     key: "db_order_instruction", 
     label: "DB Order Instruction", 
-    allowMultiple: false,
+    allowMultiple: true,
     syncsToSchedule: true,
     scheduleField: "DB Ordered",
     description: "Automatically checks 'DB Ordered' in schedule"
