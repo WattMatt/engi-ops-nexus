@@ -153,6 +153,30 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         ? ((Math.abs(originalVariance) / totalOriginalBudget) * 100) 
         : 0;
 
+      // Define colors and utility functions for all visual elements
+      const cardColors = [
+        [59, 130, 246],   // Blue
+        [16, 185, 129],   // Green
+        [251, 191, 36],   // Yellow
+        [249, 115, 22],   // Orange
+        [139, 92, 246],   // Purple
+        [236, 72, 153],   // Pink
+        [134, 239, 172]   // Light green
+      ];
+
+      const createGradientCard = (x: number, y: number, width: number, height: number, color1: number[], color2: number[]) => {
+        const steps = 10;
+        const stepHeight = height / steps;
+        for (let i = 0; i < steps; i++) {
+          const ratio = i / steps;
+          const r = Math.round(color1[0] + (color2[0] - color1[0]) * ratio);
+          const g = Math.round(color1[1] + (color2[1] - color1[1]) * ratio);
+          const b = Math.round(color1[2] + (color2[2] - color1[2]) * ratio);
+          doc.setFillColor(r, g, b);
+          doc.rect(x, y + i * stepHeight, width, stepHeight, 'F');
+        }
+      };
+
       setCurrentSection("Generating executive summary...");
       // ========== EXECUTIVE SUMMARY PAGE ==========
       if (useSections.executiveSummary) {
@@ -212,17 +236,6 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         doc.addImage(kpiCardsImage, 'JPEG', contentStartX, kpiY, kpiImageWidth, kpiImageHeight, undefined, 'FAST');
         
         kpiY += kpiImageHeight + 5;
-
-        // Define colors for all visual elements
-        const cardColors = [
-          [59, 130, 246],   // Blue
-          [16, 185, 129],   // Green
-          [251, 191, 36],   // Yellow
-          [249, 115, 22],   // Orange
-          [139, 92, 246],   // Purple
-          [236, 72, 153],   // Pink
-          [134, 239, 172]   // Light green
-        ];
 
         // Category Distribution & Financial Variance Table
         doc.setTextColor(0, 0, 0);
@@ -369,30 +382,6 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           doc.addPage();
           cardY = contentStartY;
         }
-
-        // Define colors for visual elements  
-        const cardColors = [
-          [59, 130, 246],   // Blue
-          [16, 185, 129],   // Green
-          [251, 191, 36],   // Yellow
-          [249, 115, 22],   // Orange
-          [139, 92, 246],   // Purple
-          [236, 72, 153],   // Pink
-          [134, 239, 172]   // Light green
-        ];
-
-        const createGradientCard = (x: number, y: number, width: number, height: number, color1: number[], color2: number[]) => {
-          const steps = 10;
-          const stepHeight = height / steps;
-          for (let i = 0; i < steps; i++) {
-            const ratio = i / steps;
-            const r = Math.round(color1[0] + (color2[0] - color1[0]) * ratio);
-            const g = Math.round(color1[1] + (color2[1] - color1[1]) * ratio);
-            const b = Math.round(color1[2] + (color2[2] - color1[2]) * ratio);
-            doc.setFillColor(r, g, b);
-            doc.rect(x, y + i * stepHeight, width, stepHeight, 'F');
-          }
-        };
         
         categoryTotals.forEach((cat: any, index: number) => {
           const col = index % cardsPerRow;
@@ -524,9 +513,11 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         styles: { fontSize: 9, cellPadding: 3 },
         headStyles: { fillColor: [30, 58, 138], textColor: [255, 255, 255], fontStyle: 'bold' }
       });
+      }
 
       setCurrentSection("Adding project information...");
       // ========== PROJECT INFORMATION PAGE ==========
+      if (useSections.projectInfo) {
       doc.addPage();
       tocSections.push({ title: "Project Information", page: doc.getCurrentPageInfo().pageNumber });
       
@@ -588,9 +579,11 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         doc.text(`${c.label}: ${c.value}`, contentStartX, yPos);
         yPos += 5;
       });
+      }
 
       setCurrentSection("Creating cost summary...");
       // ========== COST SUMMARY PAGE ==========
+      if (useSections.costSummary) {
       doc.addPage();
       tocSections.push({ title: "Cost Summary", page: doc.getCurrentPageInfo().pageNumber });
       
@@ -837,9 +830,10 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           });
         }
       });
+      }
 
       // ========== VARIATIONS PAGE ==========
-      if (variations.length > 0) {
+      if (useSections.variations && variations.length > 0) {
         setCurrentSection("Adding variations...");
         doc.addPage();
         tocSections.push({ title: "Variations", page: doc.getCurrentPageInfo().pageNumber });
@@ -869,6 +863,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
 
       setCurrentSection("Finalizing table of contents...");
       // ========== FILL IN TABLE OF CONTENTS ==========
+      if (useSections.tableOfContents && tocPage > 0) {
       doc.setPage(tocPage);
       let tocY = tocStartY;
       doc.setFontSize(11);
@@ -896,6 +891,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         
         tocY += 7;
       });
+      }
 
       setCurrentSection("Adding page numbers...");
       // Add page numbers to all pages except cover
