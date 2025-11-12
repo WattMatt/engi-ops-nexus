@@ -300,18 +300,23 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           fillColor: [30, 58, 138], 
           textColor: [255, 255, 255], 
           fontStyle: 'bold',
-          fontSize: 7
+          fontSize: 6.5,
+          cellPadding: 2
         },
-        bodyStyles: { fontSize: 7 },
+        bodyStyles: { 
+          fontSize: 6.5,
+          cellPadding: 2,
+          minCellHeight: 8
+        },
         columnStyles: {
-          0: { cellWidth: 12, fontStyle: 'bold' },
-          1: { cellWidth: contentWidth * 0.20 },
-          2: { cellWidth: contentWidth * 0.12, halign: 'right' },
-          3: { cellWidth: contentWidth * 0.12, halign: 'right' },
-          4: { cellWidth: contentWidth * 0.12, halign: 'right' },
-          5: { cellWidth: contentWidth * 0.08, halign: 'center' },
-          6: { cellWidth: contentWidth * 0.12, halign: 'right' },
-          7: { cellWidth: contentWidth * 0.12, halign: 'right' }
+          0: { cellWidth: 10, fontStyle: 'bold', halign: 'center' },
+          1: { cellWidth: contentWidth * 0.18 },
+          2: { cellWidth: contentWidth * 0.135, halign: 'right' },
+          3: { cellWidth: contentWidth * 0.135, halign: 'right' },
+          4: { cellWidth: contentWidth * 0.135, halign: 'right' },
+          5: { cellWidth: contentWidth * 0.07, halign: 'center' },
+          6: { cellWidth: contentWidth * 0.135, halign: 'right' },
+          7: { cellWidth: contentWidth * 0.135, halign: 'right' }
         },
         didDrawCell: (data) => {
           // Add colored indicator bar on the left of each row (except totals row)
