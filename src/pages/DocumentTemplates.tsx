@@ -21,12 +21,12 @@ export default function DocumentTemplates() {
     queryKey: ["document-templates"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("document_templates")
+        .from("document_templates" as any)
         .select("*")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      return data;
+      return (data || []) as any[];
     },
   });
 
@@ -42,7 +42,7 @@ export default function DocumentTemplates() {
 
       // Delete database record
       const { error } = await supabase
-        .from("document_templates")
+        .from("document_templates" as any)
         .delete()
         .eq("id", templateId);
 
