@@ -1,0 +1,140 @@
+import { Template, Schema } from "@pdfme/common";
+import { BLANK_PDF } from "@pdfme/common";
+
+export const getCostReportStarterTemplate = (): Template => {
+  const schemas: Schema[] = [
+    {
+      report_name: {
+        type: "text",
+        position: { x: 20, y: 20 },
+        width: 170,
+        height: 12,
+        fontSize: 24,
+        fontColor: "#1a1a1a",
+        alignment: "left",
+        fontName: "NotoSerifJP-Regular",
+      },
+      report_number: {
+        type: "text",
+        position: { x: 20, y: 35 },
+        width: 80,
+        height: 8,
+        fontSize: 12,
+        fontColor: "#666666",
+        alignment: "left",
+        fontName: "NotoSerifJP-Regular",
+      },
+      report_date: {
+        type: "text",
+        position: { x: 110, y: 35 },
+        width: 80,
+        height: 8,
+        fontSize: 12,
+        fontColor: "#666666",
+        alignment: "right",
+        fontName: "NotoSerifJP-Regular",
+      },
+      project_name: {
+        type: "text",
+        position: { x: 20, y: 55 },
+        width: 170,
+        height: 10,
+        fontSize: 16,
+        fontColor: "#1a1a1a",
+        alignment: "left",
+        fontName: "NotoSerifJP-Regular",
+      },
+      project_number: {
+        type: "text",
+        position: { x: 20, y: 67 },
+        width: 80,
+        height: 8,
+        fontSize: 11,
+        fontColor: "#666666",
+        alignment: "left",
+        fontName: "NotoSerifJP-Regular",
+      },
+      client_name: {
+        type: "text",
+        position: { x: 20, y: 77 },
+        width: 170,
+        height: 8,
+        fontSize: 11,
+        fontColor: "#666666",
+        alignment: "left",
+        fontName: "NotoSerifJP-Regular",
+      },
+      electrical_contractor: {
+        type: "text",
+        position: { x: 20, y: 87 },
+        width: 170,
+        height: 8,
+        fontSize: 11,
+        fontColor: "#666666",
+        alignment: "left",
+        fontName: "NotoSerifJP-Regular",
+      },
+      category_1_name: {
+        type: "text",
+        position: { x: 20, y: 110 },
+        width: 90,
+        height: 8,
+        fontSize: 11,
+        fontColor: "#1a1a1a",
+        alignment: "left",
+        fontName: "NotoSerifJP-Regular",
+      },
+      category_1_budget: {
+        type: "text",
+        position: { x: 115, y: 110 },
+        width: 35,
+        height: 8,
+        fontSize: 11,
+        fontColor: "#666666",
+        alignment: "right",
+        fontName: "NotoSerifJP-Regular",
+      },
+      category_1_actual: {
+        type: "text",
+        position: { x: 155, y: 110 },
+        width: 35,
+        height: 8,
+        fontSize: 11,
+        fontColor: "#1a1a1a",
+        alignment: "right",
+        fontName: "NotoSerifJP-Regular",
+      },
+      date: {
+        type: "text",
+        position: { x: 20, y: 280 },
+        width: 80,
+        height: 8,
+        fontSize: 10,
+        fontColor: "#999999",
+        alignment: "left",
+        fontName: "NotoSerifJP-Regular",
+      },
+    } as any,
+  ];
+
+  return {
+    basePdf: BLANK_PDF,
+    schemas: schemas as any,
+  };
+};
+
+export const getFieldDescriptions = (): Record<string, string> => {
+  return {
+    report_name: "Cost Report Title - auto-filled with report name",
+    report_number: "Report Number - e.g., #3",
+    report_date: "Report Date - formatted as DD MMMM YYYY",
+    project_name: "Project Name - from report data",
+    project_number: "Project Number - from report data",
+    client_name: "Client Name - from report data",
+    electrical_contractor: "Electrical Contractor - from report data",
+    category_1_name: "First Category Description",
+    category_1_budget: "First Category Original Budget",
+    category_1_actual: "First Category Actual Cost",
+    date: "Current Date - auto-generated",
+  };
+};

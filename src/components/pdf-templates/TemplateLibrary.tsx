@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, FileText, Trash2, Edit, Star } from "lucide-react";
+import { Plus, FileText, Trash2, Edit, Star, Sparkles } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { getCostReportStarterTemplate } from "./StarterTemplates";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,6 +33,7 @@ export const TemplateLibrary = ({
   onCreateNew,
 }: TemplateLibraryProps) => {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [deleteTemplateId, setDeleteTemplateId] = useState<string | null>(null);
 
   const { data: templates, isLoading, refetch } = useQuery({
@@ -110,6 +112,45 @@ export const TemplateLibrary = ({
       toast({
         title: "Error",
         description: "Failed to set default template",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const createFromStarter = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const starterTemplate = getCostReportStarterTemplate();
+      
+      const { data, error } = await supabase
+        .from("pdf_templates")
+        .insert([{
+          project_id: projectId,
+          name: "Cost Report - Starter Template",
+          description: "Pre-configured fields that auto-fill with report data. Click fields to edit, drag to rearrange, or add new fields from toolbar.",
+          category: category || "cost_report",
+          template_json: starterTemplate as any,
+          created_by: user.id,
+        }])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      queryClient.invalidateQueries({ queryKey: ["pdf-templates"] });
+      onSelectTemplate(data.id);
+
+      toast({
+        title: "Success",
+        description: "Starter template created! Field names like 'report_name' will auto-fill with your data.",
+      });
+    } catch (error) {
+      console.error("Error creating starter template:", error);
+      toast({
+        title: "Error",
+        description: "Failed to create starter template",
         variant: "destructive",
       });
     }
@@ -215,14 +256,20 @@ export const TemplateLibrary = ({
             <FileText className="h-12 w-12 text-muted-foreground" />
             <div>
               <h3 className="font-semibold">No templates yet</h3>
-              <p className="text-sm text-muted-foreground">
-                Create your first PDF template to get started
+              <p className="text-sm text-muted-foreground max-w-md">
+                Start with a pre-configured template that auto-fills data, or create your own from scratch
               </p>
             </div>
-            <Button onClick={onCreateNew}>
-              <Plus className="h-4 w-4 mr-2" />
-              Create First Template
-            </Button>
+            <div className="flex gap-3">
+              <Button onClick={createFromStarter}>
+                <Sparkles className="h-4 w-4 mr-2" />
+                Create from Starter
+              </Button>
+              <Button onClick={onCreateNew} variant="outline">
+                <Plus className="h-4 w-4 mr-2" />
+                Create Blank Template
+              </Button>
+            </div>
           </div>
         </Card>
       )}

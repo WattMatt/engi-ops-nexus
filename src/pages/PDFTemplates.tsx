@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { PDFTemplateDesigner } from "@/components/pdf-templates/PDFTemplateDesigner";
 import { TemplateLibrary } from "@/components/pdf-templates/TemplateLibrary";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -65,7 +66,17 @@ export default function PDFTemplates() {
             onSave={handleSave}
           />
         ) : (
-          <div className="container mx-auto p-6">
+          <div className="container mx-auto p-6 space-y-4">
+            <Alert>
+              <Info className="h-4 w-4" />
+              <AlertDescription>
+                <strong>How field mapping works:</strong> Field names in your template automatically fill with report data. 
+                For example, <code className="bg-muted px-1 py-0.5 rounded text-xs">report_name</code>, <code className="bg-muted px-1 py-0.5 rounded text-xs">project_number</code>, 
+                and <code className="bg-muted px-1 py-0.5 rounded text-xs">category_1_budget</code> will auto-populate when you export. 
+                Use the starter template to see available fields.
+              </AlertDescription>
+            </Alert>
+            
             <Tabs value={selectedCategory} onValueChange={setSelectedCategory}>
               <TabsList>
                 <TabsTrigger value="cost_report">Cost Reports</TabsTrigger>
