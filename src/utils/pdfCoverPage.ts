@@ -338,30 +338,35 @@ export async function generateCoverPage(
     // Date and Revision section with modern cards
     yPos = 265;
     
+    const cardHeight = 22;
+    const cardGap = 8;
+    const cardWidth = (pageWidth - 50 - cardGap) / 2;
+    
     // Date card
     doc.setFillColor(...colors.primary);
-    doc.roundedRect(25, yPos - 4, (pageWidth - 60) / 2, 18, 2, 2, 'F');
+    doc.roundedRect(25, yPos - 5, cardWidth, cardHeight, 2, 2, 'F');
     
-    doc.setFontSize(10);
+    doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(...colors.white);
-    doc.text("DATE", 30, yPos);
-    doc.setFontSize(9);
+    doc.text("DATE", 30, yPos + 1);
+    doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
-    doc.text(format(new Date(), "EEEE, dd MMMM yyyy"), 30, yPos + 8);
+    const dateText = format(new Date(), "EEEE, dd MMMM yyyy");
+    doc.text(dateText, 30, yPos + 9);
     
     // Revision card
-    const revX = pageWidth / 2 + 5;
+    const revX = 25 + cardWidth + cardGap;
     doc.setFillColor(...colors.secondary);
-    doc.roundedRect(revX, yPos - 4, (pageWidth - 60) / 2, 18, 2, 2, 'F');
+    doc.roundedRect(revX, yPos - 5, cardWidth, cardHeight, 2, 2, 'F');
     
-    doc.setFontSize(10);
+    doc.setFontSize(9);
     doc.setFont("helvetica", "bold");
     doc.setTextColor(...colors.white);
-    doc.text("REVISION", revX + 5, yPos);
-    doc.setFontSize(9);
+    doc.text("REVISION", revX + 5, yPos + 1);
+    doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
-    doc.text(options.revision.replace("Rev.", "Rev "), revX + 5, yPos + 8);
+    doc.text(options.revision.replace("Rev.", "Rev "), revX + 5, yPos + 9);
     
     // Page number with modern styling
     doc.setFillColor(...colors.primary);
