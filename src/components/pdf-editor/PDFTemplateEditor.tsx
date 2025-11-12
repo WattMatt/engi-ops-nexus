@@ -632,6 +632,8 @@ export const PDFTemplateEditor = ({
                       onGroupDrag={handleGroupDrag}
                       reportType={reportType}
                       currentPage={currentPage}
+                      pdfUrl={pdfUrl}
+                      enablePDFEditing={true}
                     />
                   </div>
                 </div>

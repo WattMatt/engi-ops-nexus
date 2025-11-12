@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { EditableElement } from "./EditableElement";
 import { AlignmentGuides, calculateAlignmentGuides, getElementBounds, ElementBounds } from "./AlignmentGuides";
+import { PDFTextExtractor, ExtractedTextItem } from "./PDFTextExtractor";
+import { EditablePDFText } from "./EditablePDFText";
 
 interface LivePreviewProps {
   settings: any;
@@ -10,6 +12,8 @@ interface LivePreviewProps {
   onGroupDrag: (deltaX: number, deltaY: number) => void;
   reportType: string;
   currentPage: number;
+  pdfUrl?: string | null;
+  enablePDFEditing?: boolean;
 }
 
 // Define all available elements with their display names and default positions
@@ -32,6 +36,8 @@ export const LivePreview = ({
   onGroupDrag,
   reportType,
   currentPage,
+  pdfUrl,
+  enablePDFEditing = true,
 }: LivePreviewProps) => {
   const margins = settings.layout.margins;
   const gridSettings = settings.grid || { size: 10, enabled: true, visible: true };
@@ -43,6 +49,11 @@ export const LivePreview = ({
     snapY: null,
   });
   const [draggingElement, setDraggingElement] = useState<string | null>(null);
+  
+  // PDF text extraction state
+  const [extractedText, setExtractedText] = useState<ExtractedTextItem[]>([]);
+  const [editedTextItems, setEditedTextItems] = useState<Map<string, string>>(new Map());
+  const [scale] = useState(1.0); // Match PDF rendering scale
 
   const handleDragStart = (styleKey: string, bounds: ElementBounds) => {
     setDraggingElement(styleKey);
@@ -72,6 +83,27 @@ export const LivePreview = ({
   const handleDragEnd = () => {
     setDraggingElement(null);
     setActiveGuides({ guides: [], snapX: null, snapY: null });
+  };
+
+  const handleTextExtracted = (items: ExtractedTextItem[]) => {
+    setExtractedText(items);
+  };
+
+  const handlePDFTextChange = (id: string, newText: string) => {
+    const newMap = new Map(editedTextItems);
+    newMap.set(id, newText);
+    setEditedTextItems(newMap);
+    console.log('Text changed:', id, newText);
+  };
+
+  const handlePDFTextPosition = (id: string, x: number, y: number) => {
+    console.log('Text position changed:', id, x, y);
+    // Update position in extracted text
+    setExtractedText(prev =>
+      prev.map(item =>
+        item.id === id ? { ...item, x, y } : item
+      )
+    );
   };
 
   // Filter elements for current page and ensure they have positions
@@ -170,8 +202,30 @@ export const LivePreview = ({
     >
       {generateGrid()}
       
+      {/* PDF Text Extractor */}
+      {enablePDFEditing && pdfUrl && (
+        <PDFTextExtractor
+          pdfUrl={pdfUrl}
+          currentPage={currentPage}
+          onTextExtracted={handleTextExtracted}
+        />
+      )}
+
       {/* Alignment Guides Overlay */}
       <AlignmentGuides guides={activeGuides.guides} />
+
+      {/* Extracted PDF Text Elements - Editable */}
+      {enablePDFEditing && extractedText.map((textItem) => (
+        <EditablePDFText
+          key={textItem.id}
+          item={textItem}
+          isSelected={selectedElements.includes(textItem.id)}
+          scale={scale}
+          onSelect={onSelectElement}
+          onTextChange={handlePDFTextChange}
+          onPositionChange={handlePDFTextPosition}
+        />
+      ))}
 
       {/* Render all visible elements for current page */}
       {visibleElements.length === 0 && (
