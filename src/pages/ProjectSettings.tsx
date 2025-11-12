@@ -17,7 +17,7 @@ import { toast } from "sonner";
 import { ArrowLeft, Save } from "lucide-react";
 import { LogoUpload } from "@/components/LogoUpload";
 import { ProjectMembers } from "@/components/settings/ProjectMembers";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CoverPageUpload } from "@/components/settings/CoverPageUpload";
 
 export default function ProjectSettings() {
   const navigate = useNavigate();
@@ -175,6 +175,7 @@ export default function ProjectSettings() {
         <TabsList>
           <TabsTrigger value="settings">Project Settings</TabsTrigger>
           <TabsTrigger value="members">Team Members</TabsTrigger>
+          <TabsTrigger value="templates">PDF Templates</TabsTrigger>
         </TabsList>
 
         <TabsContent value="settings">
@@ -526,6 +527,10 @@ export default function ProjectSettings() {
 
         <TabsContent value="members">
           {projectId && <ProjectMembers projectId={projectId} />}
+        </TabsContent>
+
+        <TabsContent value="templates">
+          <CoverPageUpload />
         </TabsContent>
       </Tabs>
     </div>
