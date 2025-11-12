@@ -4,7 +4,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { RotateCcw } from "lucide-react";
+import { RotateCcw, Move } from "lucide-react";
 
 interface StylePanelProps {
   selectedElement: string | null;
@@ -12,6 +12,7 @@ interface StylePanelProps {
   level?: 1 | 2 | 3;
   currentStyles: any;
   onStyleChange: (path: string, value: any) => void;
+  onPositionChange: (elementKey: string, x: number, y: number) => void;
   onReset: () => void;
 }
 
@@ -21,8 +22,12 @@ export const StylePanel = ({
   level,
   currentStyles,
   onStyleChange,
+  onPositionChange,
   onReset,
 }: StylePanelProps) => {
+  const position = selectedElement && currentStyles.positions?.[selectedElement] 
+    ? currentStyles.positions[selectedElement] 
+    : { x: 0, y: 0 };
   if (!selectedElement || !elementType) {
     return (
       <div className="h-full flex items-center justify-center p-4">
@@ -69,6 +74,47 @@ export const StylePanel = ({
         </div>
         <Button variant="ghost" size="icon" onClick={onReset} title="Reset to default">
           <RotateCcw className="w-4 h-4" />
+        </Button>
+      </div>
+
+      <Separator />
+
+      {/* Position */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Move className="w-4 h-4" />
+          <h4 className="font-medium">Position</h4>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          Drag the element in the preview or use the controls below
+        </p>
+        
+        <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-2">
+            <Label>X Position</Label>
+            <Input
+              type="number"
+              value={Math.round(position.x)}
+              onChange={(e) => selectedElement && onPositionChange(selectedElement, Number(e.target.value), position.y)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label>Y Position</Label>
+            <Input
+              type="number"
+              value={Math.round(position.y)}
+              onChange={(e) => selectedElement && onPositionChange(selectedElement, position.x, Number(e.target.value))}
+            />
+          </div>
+        </div>
+
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full"
+          onClick={() => selectedElement && onPositionChange(selectedElement, 0, 0)}
+        >
+          Reset Position
         </Button>
       </div>
 

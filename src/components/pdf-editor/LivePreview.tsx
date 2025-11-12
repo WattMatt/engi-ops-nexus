@@ -4,6 +4,7 @@ interface LivePreviewProps {
   settings: any;
   selectedElement: string | null;
   onSelectElement: (key: string) => void;
+  onPositionChange: (styleKey: string, x: number, y: number) => void;
   reportType: string;
 }
 
@@ -11,13 +12,14 @@ export const LivePreview = ({
   settings,
   selectedElement,
   onSelectElement,
+  onPositionChange,
   reportType,
 }: LivePreviewProps) => {
   const margins = settings.layout.margins;
 
   return (
     <div 
-      className="bg-white shadow-lg mx-auto"
+      className="bg-white shadow-lg mx-auto relative"
       style={{
         width: '210mm',
         minHeight: '297mm',
@@ -25,7 +27,7 @@ export const LivePreview = ({
       }}
     >
       {/* Cover Page Preview */}
-      <div className="mb-8">
+      <div className="mb-8 relative">
         <EditableElement
           type="heading"
           level={1}
@@ -33,6 +35,7 @@ export const LivePreview = ({
           currentStyles={settings}
           isSelected={selectedElement === 'cover-title'}
           onSelect={onSelectElement}
+          onPositionChange={onPositionChange}
         >
           <div className="text-center mb-6">PROJECT COST REPORT</div>
         </EditableElement>
@@ -43,13 +46,14 @@ export const LivePreview = ({
           currentStyles={settings}
           isSelected={selectedElement === 'cover-subtitle'}
           onSelect={onSelectElement}
+          onPositionChange={onPositionChange}
         >
           <div className="text-center">Sample Project Name</div>
         </EditableElement>
       </div>
 
       {/* Executive Summary Section */}
-      <div className="mb-8">
+      <div className="mb-8 relative">
         <EditableElement
           type="heading"
           level={1}
@@ -57,6 +61,7 @@ export const LivePreview = ({
           currentStyles={settings}
           isSelected={selectedElement === 'section-heading'}
           onSelect={onSelectElement}
+          onPositionChange={onPositionChange}
         >
           <div className="mb-4">EXECUTIVE SUMMARY</div>
         </EditableElement>
@@ -67,6 +72,7 @@ export const LivePreview = ({
           currentStyles={settings}
           isSelected={selectedElement === 'section-body'}
           onSelect={onSelectElement}
+          onPositionChange={onPositionChange}
         >
           <div className="mb-4">
             This report provides a comprehensive overview of project costs, including detailed breakdowns
@@ -81,6 +87,7 @@ export const LivePreview = ({
           currentStyles={settings}
           isSelected={selectedElement === 'subsection-heading'}
           onSelect={onSelectElement}
+          onPositionChange={onPositionChange}
         >
           <div className="mb-3">Key Performance Indicators</div>
         </EditableElement>
@@ -91,6 +98,7 @@ export const LivePreview = ({
           currentStyles={settings}
           isSelected={selectedElement === 'kpi-text'}
           onSelect={onSelectElement}
+          onPositionChange={onPositionChange}
         >
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
@@ -106,7 +114,7 @@ export const LivePreview = ({
       </div>
 
       {/* Sample Table */}
-      <div className="mb-8">
+      <div className="mb-8 relative">
         <EditableElement
           type="heading"
           level={2}
@@ -114,6 +122,7 @@ export const LivePreview = ({
           currentStyles={settings}
           isSelected={selectedElement === 'table-heading'}
           onSelect={onSelectElement}
+          onPositionChange={onPositionChange}
         >
           <div className="mb-3">Cost Breakdown</div>
         </EditableElement>
@@ -124,6 +133,7 @@ export const LivePreview = ({
           currentStyles={settings}
           isSelected={selectedElement === 'sample-table'}
           onSelect={onSelectElement}
+          onPositionChange={onPositionChange}
         >
           <table 
             className="w-full border-collapse"

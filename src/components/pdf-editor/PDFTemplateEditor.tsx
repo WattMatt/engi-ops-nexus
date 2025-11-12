@@ -174,6 +174,22 @@ export const PDFTemplateEditor = ({
     });
   };
 
+  const handlePositionChange = (elementKey: string, x: number, y: number) => {
+    if (!currentSettings) return;
+
+    setCurrentSettings((prev) => {
+      if (!prev) return prev;
+      
+      return {
+        ...prev,
+        positions: {
+          ...prev.positions,
+          [elementKey]: { x, y }
+        }
+      };
+    });
+  };
+
   const handleLoadTemplate = (templateId: string) => {
     const template = templates?.find(t => t.id === templateId);
     if (template) {
@@ -249,10 +265,16 @@ export const PDFTemplateEditor = ({
           <div className="flex flex-1 overflow-hidden border-t">
             {/* Preview Panel */}
             <ScrollArea className="flex-1 p-6 bg-muted/30">
+              <div className="mb-4 p-3 bg-info/10 border border-info rounded-lg">
+                <p className="text-sm text-info-foreground">
+                  <strong>Tip:</strong> Select an element and drag it to reposition. Use the position controls in the style panel for precise placement.
+                </p>
+              </div>
               <LivePreview
                 settings={currentSettings}
                 selectedElement={selectedElement}
                 onSelectElement={handleSelectElement}
+                onPositionChange={handlePositionChange}
                 reportType={reportType}
               />
             </ScrollArea>
@@ -265,6 +287,7 @@ export const PDFTemplateEditor = ({
                 level={elementLevel}
                 currentStyles={currentSettings}
                 onStyleChange={handleStyleChange}
+                onPositionChange={handlePositionChange}
                 onReset={handleReset}
               />
             </div>

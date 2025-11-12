@@ -1,5 +1,10 @@
 import jsPDF from "jspdf";
 
+export interface ElementPosition {
+  x: number;
+  y: number;
+}
+
 export interface PDFStyleSettings {
   typography: {
     headingFont: 'helvetica' | 'times' | 'courier';
@@ -42,6 +47,9 @@ export interface PDFStyleSettings {
       left: number;
       right: number;
     };
+  };
+  positions?: {
+    [elementKey: string]: ElementPosition;
   };
 }
 
@@ -127,5 +135,16 @@ export class PDFStyleManager {
 
   getSectionSpacing() {
     return this.settings.spacing.sectionSpacing;
+  }
+
+  getElementPosition(elementKey: string): ElementPosition | null {
+    return this.settings.positions?.[elementKey] || null;
+  }
+
+  setElementPosition(elementKey: string, position: ElementPosition) {
+    if (!this.settings.positions) {
+      this.settings.positions = {};
+    }
+    this.settings.positions[elementKey] = position;
   }
 }

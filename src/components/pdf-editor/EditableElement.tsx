@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Edit2 } from "lucide-react";
+import { Edit2, Move } from "lucide-react";
+import Draggable, { DraggableData, DraggableEvent } from "react-draggable";
 
 interface EditableElementProps {
   type: 'heading' | 'body' | 'table' | 'section';
@@ -9,6 +10,7 @@ interface EditableElementProps {
   currentStyles: any;
   isSelected: boolean;
   onSelect: (styleKey: string) => void;
+  onPositionChange?: (styleKey: string, x: number, y: number) => void;
 }
 
 export const EditableElement = ({
@@ -19,8 +21,18 @@ export const EditableElement = ({
   currentStyles,
   isSelected,
   onSelect,
+  onPositionChange,
 }: EditableElementProps) => {
   const [isHovered, setIsHovered] = useState(false);
+  
+  // Get position from settings or default to 0,0
+  const position = currentStyles.positions?.[styleKey] || { x: 0, y: 0 };
+
+  const handleDrag = (e: DraggableEvent, data: DraggableData) => {
+    if (onPositionChange) {
+      onPositionChange(styleKey, data.x, data.y);
+    }
+  };
 
   const getStyles = () => {
     const baseStyles = {
@@ -55,23 +67,36 @@ export const EditableElement = ({
   };
 
   return (
-    <div
-      style={getStyles()}
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      onClick={(e) => {
-        e.stopPropagation();
-        onSelect(styleKey);
-      }}
-      className="group"
+    <Draggable
+      position={position}
+      onDrag={handleDrag}
+      disabled={!isSelected}
+      bounds="parent"
     >
-      {children}
-      {(isHovered || isSelected) && (
-        <div className="absolute -top-6 -right-2 bg-primary text-primary-foreground px-2 py-1 rounded text-xs flex items-center gap-1">
-          <Edit2 className="w-3 h-3" />
-          {type} {level && `H${level}`}
-        </div>
-      )}
-    </div>
+      <div
+        style={getStyles()}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
+        onClick={(e) => {
+          e.stopPropagation();
+          onSelect(styleKey);
+        }}
+        className="group"
+      >
+        {children}
+        {(isHovered || isSelected) && (
+          <div className="absolute -top-6 -right-2 bg-primary text-primary-foreground px-2 py-1 rounded text-xs flex items-center gap-1 pointer-events-none">
+            {isSelected && <Move className="w-3 h-3" />}
+            <Edit2 className="w-3 h-3" />
+            {type} {level && `H${level}`}
+          </div>
+        )}
+        {isSelected && (
+          <div className="absolute -bottom-6 left-0 bg-muted text-muted-foreground px-2 py-1 rounded text-xs pointer-events-none">
+            x: {Math.round(position.x)}, y: {Math.round(position.y)}
+          </div>
+        )}
+      </div>
+    </Draggable>
   );
 };
