@@ -107,7 +107,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       const companyDetails = await fetchCompanyDetails();
 
       setCurrentSection("Initializing PDF document...");
-      // Create PDF
+      // Create PDF with professional styling
       const doc = new jsPDF("portrait", "mm", "a4");
       const pageWidth = doc.internal.pageSize.width;
       const pageHeight = doc.internal.pageSize.height;
@@ -117,6 +117,20 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       const contentWidth = pageWidth - useMargins.left - useMargins.right;
       const contentStartX = useMargins.left;
       const contentStartY = useMargins.top;
+      
+      // Professional color palette
+      const colors = {
+        primary: [30, 58, 138] as [number, number, number],
+        secondary: [59, 130, 246] as [number, number, number],
+        accent: [99, 102, 241] as [number, number, number],
+        success: [16, 185, 129] as [number, number, number],
+        warning: [251, 191, 36] as [number, number, number],
+        danger: [239, 68, 68] as [number, number, number],
+        neutral: [71, 85, 105] as [number, number, number],
+        light: [241, 245, 249] as [number, number, number],
+        white: [255, 255, 255] as [number, number, number],
+        text: [15, 23, 42] as [number, number, number]
+      };
 
       setCurrentSection("Generating cover page...");
       // ========== COVER PAGE ==========
@@ -209,15 +223,25 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         doc.addPage();
         tocSections.push({ title: "Executive Summary", page: doc.getCurrentPageInfo().pageNumber });
         
-        doc.setFillColor(30, 58, 138);
-        doc.rect(0, 0, pageWidth, 40, 'F');
-        doc.setFontSize(20);
+        // Modern gradient header
+        const headerHeight = 50;
+        for (let i = 0; i < headerHeight; i++) {
+          const ratio = i / headerHeight;
+          const r = Math.round(colors.primary[0] + (colors.secondary[0] - colors.primary[0]) * ratio);
+          const g = Math.round(colors.primary[1] + (colors.secondary[1] - colors.primary[1]) * ratio);
+          const b = Math.round(colors.primary[2] + (colors.secondary[2] - colors.primary[2]) * ratio);
+          doc.setFillColor(r, g, b);
+          doc.rect(0, i, pageWidth, 1, 'F');
+        }
+        
+        // Header text with better typography
+        doc.setFontSize(24);
         doc.setFont("helvetica", "bold");
-        doc.setTextColor(255, 255, 255);
-        doc.text("EXECUTIVE SUMMARY", pageWidth / 2, 20, { align: "center" });
-        doc.setFontSize(10);
+        doc.setTextColor(...colors.white);
+        doc.text("EXECUTIVE SUMMARY", pageWidth / 2, 22, { align: "center" });
+        doc.setFontSize(11);
         doc.setFont("helvetica", "normal");
-        doc.text("Key Performance Indicators & Financial Overview", pageWidth / 2, 30, { align: "center" });
+        doc.text("Key Performance Indicators & Financial Overview", pageWidth / 2, 35, { align: "center" });
 
         // Helper function to create gradient background (used elsewhere in the PDF)
         const createGradientCard = (x: number, y: number, width: number, height: number, color1: number[], color2: number[]) => {
@@ -251,14 +275,18 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         
         kpiY += kpiImageHeight + 5;
 
-        // Category Distribution & Financial Variance Table
-        doc.setTextColor(0, 0, 0);
-        let tableY = kpiY + 15;
+        // Category Distribution & Financial Variance Table with improved styling
+        doc.setTextColor(...colors.text);
+        let tableY = kpiY + 20;
         
-        doc.setFontSize(12);
+        // Section header with accent line
+        doc.setFontSize(14);
         doc.setFont("helvetica", "bold");
         doc.text("Category Distribution & Financial Variance", contentStartX, tableY);
-        tableY += 10;
+        doc.setDrawColor(...colors.secondary);
+        doc.setLineWidth(0.8);
+        doc.line(contentStartX, tableY + 2, contentStartX + 90, tableY + 2);
+        tableY += 12;
 
         // Prepare table data matching the category summary structure
         const tableData = categoryTotals.map((cat: any, index: number) => {
@@ -304,18 +332,26 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
             'Original Variance'
           ]],
           body: tableData,
-          theme: 'grid',
+          theme: 'striped',
           headStyles: { 
-            fillColor: [30, 58, 138], 
-            textColor: [255, 255, 255], 
+            fillColor: colors.primary, 
+            textColor: colors.white, 
             fontStyle: 'bold',
-            fontSize: 6.5,
-            cellPadding: 2
+            fontSize: 7.5,
+            cellPadding: 3.5,
+            lineWidth: 0.1,
+            lineColor: colors.light
           },
           bodyStyles: { 
-            fontSize: 6.5,
-            cellPadding: 2,
-            minCellHeight: 8
+            fontSize: 7.5,
+            cellPadding: 3,
+            minCellHeight: 10,
+            textColor: colors.text,
+            lineWidth: 0.1,
+            lineColor: [226, 232, 240]
+          },
+          alternateRowStyles: {
+            fillColor: [248, 250, 252]
           },
           columnStyles: {
             0: { cellWidth: 10, fontStyle: 'bold', halign: 'center' },
@@ -335,48 +371,53 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
               doc.rect(data.cell.x - 3, data.cell.y, 3, data.cell.height, 'F');
             }
             
-            // Highlight the totals row
+            // Highlight the totals row with modern styling
             if (data.section === 'body' && data.row.index === tableData.length - 1) {
-              data.cell.styles.fillColor = [220, 230, 240];
+              data.cell.styles.fillColor = [226, 232, 240];
               data.cell.styles.fontStyle = 'bold';
-              data.cell.styles.fontSize = 8;
+              data.cell.styles.fontSize = 8.5;
+              data.cell.styles.textColor = colors.primary;
             }
             
             // Color the variance cells
             if (data.section === 'body' && data.row.index < categoryTotals.length) {
               const cat = categoryTotals[data.row.index];
-              // Current Variance column
+              // Current Variance column with professional colors
               if (data.column.index === 6) {
                 if (cat.currentVariance < 0) {
-                  data.cell.styles.textColor = [0, 150, 0];
+                  data.cell.styles.textColor = colors.success;
+                  data.cell.styles.fontStyle = 'bold';
                 } else if (cat.currentVariance > 0) {
-                  data.cell.styles.textColor = [255, 0, 0];
+                  data.cell.styles.textColor = colors.danger;
+                  data.cell.styles.fontStyle = 'bold';
                 }
               }
-              // Original Variance column
+              // Original Variance column with professional colors
               if (data.column.index === 7) {
                 if (cat.originalVariance < 0) {
-                  data.cell.styles.textColor = [0, 150, 0];
+                  data.cell.styles.textColor = colors.success;
+                  data.cell.styles.fontStyle = 'bold';
                 } else if (cat.originalVariance > 0) {
-                  data.cell.styles.textColor = [255, 0, 0];
+                  data.cell.styles.textColor = colors.danger;
+                  data.cell.styles.fontStyle = 'bold';
                 }
               }
             }
             
-            // Color totals row variance
+            // Color totals row variance with professional colors
             if (data.section === 'body' && data.row.index === tableData.length - 1) {
               if (data.column.index === 6) {
                 if (currentVariance < 0) {
-                  data.cell.styles.textColor = [0, 150, 0];
+                  data.cell.styles.textColor = colors.success;
                 } else if (currentVariance > 0) {
-                  data.cell.styles.textColor = [255, 0, 0];
+                  data.cell.styles.textColor = colors.danger;
                 }
               }
               if (data.column.index === 7) {
                 if (originalVariance < 0) {
-                  data.cell.styles.textColor = [0, 150, 0];
+                  data.cell.styles.textColor = colors.success;
                 } else if (originalVariance > 0) {
-                  data.cell.styles.textColor = [255, 0, 0];
+                  data.cell.styles.textColor = colors.danger;
                 }
               }
             }

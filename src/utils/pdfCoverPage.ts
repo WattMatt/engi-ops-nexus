@@ -209,72 +209,101 @@ export async function generateCoverPage(
     }
   }
 
-  // If no template or template failed, generate standard cover page
+  // If no template or template failed, generate modern professional cover page
   if (!defaultTemplate) {
     let yPos = 0;
 
-    // Color definitions matching Word template
-    const titleColor = [133, 163, 207]; // Light blue for titles
-    const cyanColor = [0, 191, 255]; // Cyan for date/revision values
+    // Modern color definitions
+    const colors = {
+      primary: [30, 58, 138] as [number, number, number],
+      secondary: [59, 130, 246] as [number, number, number],
+      accent: [99, 102, 241] as [number, number, number],
+      light: [241, 245, 249] as [number, number, number],
+      neutral: [71, 85, 105] as [number, number, number],
+      white: [255, 255, 255] as [number, number, number],
+      text: [15, 23, 42] as [number, number, number]
+    };
     
-    // Add left vertical accent bar with gradient effect (light blue)
-    const barWidth = 8;
-    for (let i = 0; i < pageHeight; i += 5) {
-      const blueShade = 220 - (i / pageHeight) * 40; // Gradient from light to darker
-      doc.setFillColor(blueShade, blueShade + 15, 250);
-      doc.rect(0, i, barWidth, 5, 'F');
+    // Modern gradient left accent bar
+    const barWidth = 12;
+    for (let i = 0; i < pageHeight; i += 3) {
+      const ratio = i / pageHeight;
+      const r = Math.round(colors.primary[0] + (colors.secondary[0] - colors.primary[0]) * ratio);
+      const g = Math.round(colors.primary[1] + (colors.secondary[1] - colors.primary[1]) * ratio);
+      const b = Math.round(colors.primary[2] + (colors.secondary[2] - colors.primary[2]) * ratio);
+      doc.setFillColor(r, g, b);
+      doc.rect(0, i, barWidth, 3, 'F');
     }
     
-    // Main titles - CENTERED on page
-    doc.setTextColor(titleColor[0], titleColor[1], titleColor[2]);
-    doc.setFontSize(16);
+    // Main title with modern styling
+    doc.setTextColor(...colors.primary);
+    doc.setFontSize(20);
     doc.setFont("helvetica", "bold");
-    doc.text(options.title, pageWidth / 2, 65, { align: "center" });
+    doc.text(options.title, pageWidth / 2, 70, { align: "center" });
     
-    // Project name - larger heading
-    yPos = 90;
-    doc.setFontSize(22);
+    // Subtle underline
+    doc.setDrawColor(...colors.secondary);
+    doc.setLineWidth(0.8);
+    const titleWidth = doc.getTextWidth(options.title);
+    doc.line(pageWidth / 2 - titleWidth / 2, 73, pageWidth / 2 + titleWidth / 2, 73);
+    
+    // Project name - larger, bold heading
+    yPos = 95;
+    doc.setFontSize(26);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...colors.text);
     doc.text(options.projectName, pageWidth / 2, yPos, { align: "center" });
     
-    // Subtitle
-    yPos += 30;
-    doc.setFontSize(18);
+    // Subtitle with accent color
+    yPos += 32;
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...colors.secondary);
     doc.text(options.subtitle, pageWidth / 2, yPos, { align: "center" });
     
-    // First horizontal divider line
-    yPos = 180;
-    doc.setDrawColor(0, 0, 0);
-    doc.setLineWidth(1);
-    doc.line(20, yPos, pageWidth - 20, yPos);
+    // Modern divider with shadow effect
+    yPos = 185;
+    doc.setDrawColor(...colors.light);
+    doc.setLineWidth(0.3);
+    doc.line(25, yPos, pageWidth - 25, yPos);
+    doc.setDrawColor(...colors.primary);
+    doc.setLineWidth(1.2);
+    doc.line(25, yPos + 1, pageWidth - 25, yPos + 1);
     
-    // Company details section
-    yPos = 192;
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(10);
+    // Company details section with modern card-like appearance
+    yPos = 198;
+    
+    // Light background card
+    doc.setFillColor(...colors.light);
+    doc.roundedRect(22, 194, pageWidth - 44, 50, 3, 3, 'F');
+    
+    doc.setTextColor(...colors.primary);
+    doc.setFontSize(11);
     doc.setFont("helvetica", "bold");
-    doc.text("PREPARED BY:", 20, yPos);
+    doc.text("PREPARED BY", 28, yPos);
     
     yPos += 8;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...colors.text);
+    doc.text(companyDetails.companyName.toUpperCase(), 28, yPos);
+    
+    yPos += 7;
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
-    doc.text(companyDetails.companyName.toUpperCase(), 20, yPos);
+    doc.setTextColor(...colors.neutral);
+    doc.text("141 Which Hazel ave,", 28, yPos);
     
     yPos += 6;
-    doc.text("141 Which Hazel ave,", 20, yPos);
+    doc.text("Highveld Techno Park, Building 1A", 28, yPos);
     
     yPos += 6;
-    doc.text("Highveld Techno Park", 20, yPos);
+    doc.text(`Tel: ${companyDetails.contactPhone}`, 28, yPos);
     
     yPos += 6;
-    doc.text("Building 1A", 20, yPos);
+    doc.text(`Contact: ${companyDetails.contactName}`, 28, yPos);
     
-    yPos += 6;
-    doc.text(`Tel: ${companyDetails.contactPhone}`, 20, yPos);
-    
-    yPos += 6;
-    doc.text(`Contact: ${companyDetails.contactName}`, 20, yPos);
-    
-    // Add company logo to the right of company name line
+    // Add company logo with modern positioning
     if (companyDetails.logoUrl) {
       try {
         const logoResponse = await fetch(companyDetails.logoUrl);
@@ -285,66 +314,95 @@ export async function generateCoverPage(
           reader.readAsDataURL(logoBlob);
         });
         
-        // Position logo on the right side, aligned with company name
-        const logoWidth = 30;
-        const logoHeight = 22;
-        const logoX = pageWidth - logoWidth - 25;
-        const logoY = 198;
+        // Position logo on the right side with shadow effect
+        const logoWidth = 35;
+        const logoHeight = 26;
+        const logoX = pageWidth - logoWidth - 30;
+        const logoY = 200;
+        
+        // Subtle shadow
+        doc.setFillColor(200, 200, 200);
+        doc.roundedRect(logoX + 1, logoY + 1, logoWidth, logoHeight, 2, 2, 'F');
+        
         doc.addImage(logoDataUrl, 'PNG', logoX, logoY, logoWidth, logoHeight);
       } catch (error) {
         console.error("Failed to add logo to PDF:", error);
       }
     }
     
-    // Second horizontal divider line
-    yPos = 240;
-    doc.setLineWidth(1);
-    doc.line(20, yPos, pageWidth - 20, yPos);
+    // Modern divider
+    yPos = 252;
+    doc.setDrawColor(...colors.light);
+    doc.setLineWidth(0.3);
+    doc.line(25, yPos, pageWidth - 25, yPos);
+    doc.setDrawColor(...colors.primary);
+    doc.setLineWidth(1.2);
+    doc.line(25, yPos + 1, pageWidth - 25, yPos + 1);
     
-    // Date and Revision section
-    yPos = 258;
+    // Date and Revision section with modern cards
+    yPos = 265;
+    
+    // Date card
+    doc.setFillColor(...colors.primary);
+    doc.roundedRect(25, yPos - 4, (pageWidth - 60) / 2, 18, 2, 2, 'F');
+    
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...colors.white);
+    doc.text("DATE", 30, yPos);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text(format(new Date(), "EEEE, dd MMMM yyyy"), 30, yPos + 8);
+    
+    // Revision card
+    const revX = pageWidth / 2 + 5;
+    doc.setFillColor(...colors.secondary);
+    doc.roundedRect(revX, yPos - 4, (pageWidth - 60) / 2, 18, 2, 2, 'F');
+    
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...colors.white);
+    doc.text("REVISION", revX + 5, yPos);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text(options.revision.replace("Rev.", "Rev "), revX + 5, yPos + 8);
+    
+    // Page number with modern styling
+    doc.setFillColor(...colors.primary);
+    doc.circle(pageWidth / 2, pageHeight - 18, 6, 'F');
+    doc.setTextColor(...colors.white);
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(0, 0, 0);
-    doc.text("DATE:", 20, yPos);
-    
-    yPos += 12;
-    doc.text("REVISION:", 20, yPos);
-    
-    // Values in cyan, right-aligned
-    doc.setTextColor(cyanColor[0], cyanColor[1], cyanColor[2]);
-    doc.setFont("helvetica", "normal");
-    doc.text(format(new Date(), "EEEE, dd MMMM yyyy"), pageWidth - 20, 258, { align: "right" });
-    doc.text(options.revision.replace("Rev.", "Rev "), pageWidth - 20, 270, { align: "right" });
-    
-    // Page number at bottom center
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(11);
     doc.text("1", pageWidth / 2, pageHeight - 15, { align: "center" });
   }
   
   // Overlay text on template (if template exists)
-  // This allows dynamic data to be placed on the template
   if (defaultTemplate) {
-    const titleColor = [133, 163, 207];
-    const cyanColor = [0, 191, 255];
+    const colors = {
+      primary: [30, 58, 138] as [number, number, number],
+      secondary: [59, 130, 246] as [number, number, number],
+      white: [255, 255, 255] as [number, number, number],
+      text: [15, 23, 42] as [number, number, number]
+    };
     
-    doc.setTextColor(titleColor[0], titleColor[1], titleColor[2]);
-    doc.setFontSize(16);
+    doc.setTextColor(...colors.primary);
+    doc.setFontSize(20);
     doc.setFont("helvetica", "bold");
-    doc.text(options.title, pageWidth / 2, 65, { align: "center" });
+    doc.text(options.title, pageWidth / 2, 70, { align: "center" });
     
-    doc.setFontSize(22);
-    doc.text(options.projectName, pageWidth / 2, 90, { align: "center" });
+    doc.setFontSize(26);
+    doc.setTextColor(...colors.text);
+    doc.text(options.projectName, pageWidth / 2, 95, { align: "center" });
     
-    doc.setFontSize(18);
-    doc.text(options.subtitle, pageWidth / 2, 120, { align: "center" });
+    doc.setFontSize(16);
+    doc.setTextColor(...colors.secondary);
+    doc.text(options.subtitle, pageWidth / 2, 127, { align: "center" });
     
-    // Date and revision
-    doc.setTextColor(cyanColor[0], cyanColor[1], cyanColor[2]);
-    doc.setFontSize(12);
+    // Date and revision in cards
+    doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
-    doc.text(format(new Date(), "EEEE, dd MMMM yyyy"), pageWidth - 20, 258, { align: "right" });
-    doc.text(options.revision.replace("Rev.", "Rev "), pageWidth - 20, 270, { align: "right" });
+    doc.setTextColor(...colors.white);
+    doc.text(format(new Date(), "EEEE, dd MMMM yyyy"), 30, 273);
+    doc.text(options.revision.replace("Rev.", "Rev "), pageWidth / 2 + 10, 273);
   }
 }
