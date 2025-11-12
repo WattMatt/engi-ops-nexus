@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { DollarSign, TrendingDown, TrendingUp } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
+import { calculateCategoryTotals, calculateGrandTotals } from "@/utils/costReportCalculations";
 
 interface CostReportOverviewProps {
   report: any;
@@ -47,55 +48,18 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
     },
   });
 
-  // Calculate category totals
-  const categoryTotals = categories.map(category => {
-    const isVariationsCategory = category.description?.toUpperCase().includes("VARIATION");
-    
-    if (isVariationsCategory) {
-      // For variations category, sum from variations table
-      const anticipatedFinal = variations.reduce(
-        (sum, v) => sum + Number(v.amount || 0),
-        0
-      );
-      
-      return {
-        ...category,
-        originalBudget: 0,
-        previousReport: 0,
-        anticipatedFinal,
-        currentVariance: anticipatedFinal,
-        originalVariance: anticipatedFinal
-      };
-    } else {
-      // For regular categories, sum line items
-      const items = lineItems.filter(item => item.category_id === category.id);
-      const originalBudget = items.reduce((sum, item) => sum + Number(item.original_budget || 0), 0);
-      const previousReport = items.reduce((sum, item) => sum + Number(item.previous_report || 0), 0);
-      const anticipatedFinal = items.reduce((sum, item) => sum + Number(item.anticipated_final || 0), 0);
-      
-      return {
-        ...category,
-        originalBudget,
-        previousReport,
-        anticipatedFinal,
-        currentVariance: anticipatedFinal - previousReport,
-        originalVariance: anticipatedFinal - originalBudget
-      };
-    }
-  });
-
-  const totalOriginalBudget = categoryTotals.reduce(
-    (sum, cat) => sum + cat.originalBudget,
-    0
-  );
+  // Calculate category totals using shared utility
+  const categoryTotals = calculateCategoryTotals(categories, lineItems, variations);
+  const grandTotals = calculateGrandTotals(categoryTotals);
   
-  const categoriesAnticipatedTotal = categoryTotals.reduce(
-    (sum, cat) => sum + cat.anticipatedFinal,
-    0
-  );
+  const totalOriginalBudget = grandTotals.originalBudget;
+  const totalAnticipatedFinal = grandTotals.anticipatedFinal;
+  const totalVariance = grandTotals.originalVariance;
   
-  const totalAnticipatedFinal = categoriesAnticipatedTotal; // Variations already included in categories
-  const totalVariance = totalAnticipatedFinal - totalOriginalBudget;
+  // Calculate variance percentage
+  const variancePercentage = totalOriginalBudget > 0 
+    ? ((Math.abs(totalVariance) / totalOriginalBudget) * 100).toFixed(2)
+    : "0.00";
 
   // Prepare chart data
   const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D', '#FFC658', '#FF6B9D'];
@@ -160,7 +124,7 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
               R{Math.abs(totalVariance).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
             </div>
             <p className="text-xs text-muted-foreground">
-              {((Math.abs(totalVariance) / totalOriginalBudget) * 100).toFixed(2)}% variance
+              {variancePercentage}% variance
             </p>
           </CardContent>
         </Card>
