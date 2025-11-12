@@ -342,10 +342,17 @@ export async function generateCoverPage(
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(...colors.neutral);
-    doc.text("Date:", 28, yPos);
+    const dateLabel = "Date:";
+    const dateValue = format(new Date(), "dd MMMM yyyy");
+    doc.text(dateLabel, 28, yPos);
+    doc.text(dateValue, 28 + doc.getTextWidth(dateLabel) + 2, yPos);
     
-    // Revision label and value  
-    doc.text("Page No:", pageWidth - 60, yPos);
+    // Page number label and value  
+    const pageLabel = "Page No:";
+    const pageValue = "1";
+    const pageLabelX = pageWidth - 60;
+    doc.text(pageLabel, pageLabelX, yPos);
+    doc.text(pageValue, pageLabelX + doc.getTextWidth(pageLabel) + 2, yPos);
     
     // Page number - simple text
     doc.setFontSize(9);
