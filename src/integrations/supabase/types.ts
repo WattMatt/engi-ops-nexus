@@ -3491,59 +3491,6 @@ export type Database = {
           },
         ]
       }
-      pdf_templates: {
-        Row: {
-          captured_components: Json | null
-          category: string
-          created_at: string
-          created_by: string
-          description: string | null
-          id: string
-          is_default: boolean | null
-          name: string
-          project_id: string | null
-          template_json: Json
-          thumbnail: string | null
-          updated_at: string
-        }
-        Insert: {
-          captured_components?: Json | null
-          category: string
-          created_at?: string
-          created_by: string
-          description?: string | null
-          id?: string
-          is_default?: boolean | null
-          name: string
-          project_id?: string | null
-          template_json: Json
-          thumbnail?: string | null
-          updated_at?: string
-        }
-        Update: {
-          captured_components?: Json | null
-          category?: string
-          created_at?: string
-          created_by?: string
-          description?: string | null
-          id?: string
-          is_default?: boolean | null
-          name?: string
-          project_id?: string | null
-          template_json?: Json
-          thumbnail?: string | null
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "pdf_templates_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       performance_goals: {
         Row: {
           created_at: string

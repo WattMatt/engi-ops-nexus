@@ -39,7 +39,6 @@ import BulkServices from "./pages/BulkServices";
 import HandoverDocuments from "./pages/HandoverDocuments";
 import HandoverClient from "./pages/HandoverClient";
 import HandoverClientManagement from "./pages/HandoverClientManagement";
-import PDFTemplates from "./pages/PDFTemplates";
 import NotFound from "./pages/NotFound";
 import { HelpButton } from "./components/feedback/HelpButton";
 
@@ -74,7 +73,6 @@ const App = () => (
             <Route path="backup" element={<BackupManagement />} />
             <Route path="feedback" element={<FeedbackManagement />} />
             <Route path="feedback-analytics" element={<FeedbackAnalytics />} />
-            <Route path="pdf-templates" element={<PDFTemplates />} />
             <Route path="settings" element={<Settings />} />
           </Route>
 

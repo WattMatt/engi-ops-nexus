@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Download, Loader2, Settings, FileText } from "lucide-react";
+import { Download, Loader2, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import jsPDF from "jspdf";
@@ -11,13 +11,6 @@ import { PDFExportSettings, DEFAULT_MARGINS, type PDFMargins } from "./PDFExport
 import { calculateCategoryTotals, calculateGrandTotals, validateTotals } from "@/utils/costReportCalculations";
 import { ValidationWarningDialog } from "./ValidationWarningDialog";
 import { captureKPICards, prepareElementForCapture, canvasToDataURL } from "@/utils/captureUIForPDF";
-import { TemplateExportDialog } from "./TemplateExportDialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 
 interface ExportPDFButtonProps {
   report: any;
@@ -34,7 +27,6 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
   const [validationMismatches, setValidationMismatches] = useState<string[]>([]);
   const [pendingExport, setPendingExport] = useState(false);
-  const [showTemplateDialog, setShowTemplateDialog] = useState(false);
 
   const handleExport = async (useMargins: PDFMargins = margins, skipValidation: boolean = false) => {
     setLoading(true);
@@ -155,67 +147,11 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         ? ((Math.abs(originalVariance) / totalOriginalBudget) * 100) 
         : 0;
 
-      setCurrentSection("Preparing for capture...");
-      
-      // Try multiple methods to switch to Overview tab
-      console.log("Attempting to switch to Overview tab...");
-      
-      // Method 1: Click the trigger button directly
-      const overviewTrigger = document.querySelector('[value="overview"]') as HTMLElement;
-      if (overviewTrigger) {
-        console.log("Found overview trigger, clicking...");
-        overviewTrigger.click();
-        await new Promise(resolve => setTimeout(resolve, 1500));
-      }
-      
-      // Method 2: Try finding by text content
-      if (!overviewTrigger) {
-        const triggers = Array.from(document.querySelectorAll('button[role="tab"]'));
-        const overviewButton = triggers.find(btn => btn.textContent?.includes('Overview')) as HTMLElement;
-        if (overviewButton) {
-          console.log("Found overview button by text, clicking...");
-          overviewButton.click();
-          await new Promise(resolve => setTimeout(resolve, 1500));
-        }
-      }
-      
-      // Check if element exists now
-      const kpiElement = document.getElementById("cost-report-kpi-cards");
-      console.log("KPI element after tab switch:", kpiElement ? "Found" : "Not found");
-      console.log("KPI element visible:", kpiElement?.offsetParent !== null);
-      
       setCurrentSection("Capturing UI components...");
       // Capture the KPI cards from the actual rendered UI
-      let kpiCardsCanvas;
-      let kpiCardsImage;
-      try {
-        await prepareElementForCapture("cost-report-kpi-cards");
-        kpiCardsCanvas = await captureKPICards("cost-report-kpi-cards", { scale: 2, timeout: 15000 });
-        kpiCardsImage = canvasToDataURL(kpiCardsCanvas, 'JPEG', 0.9);
-      } catch (error) {
-        console.error("Error capturing KPI cards:", error);
-        const errorMessage = error instanceof Error ? error.message : "Unknown error";
-        console.error("Full error details:", errorMessage);
-        
-        toast({
-          title: "Export Failed",
-          description: (
-            <div className="space-y-2">
-              <p>Unable to capture report visuals.</p>
-              <p className="text-sm font-semibold">Quick Fix:</p>
-              <ol className="text-sm list-decimal list-inside space-y-1">
-                <li>Click on the "Overview" tab above</li>
-                <li>Wait 2 seconds for it to load</li>
-                <li>Click "Export PDF" again</li>
-              </ol>
-            </div>
-          ),
-          variant: "destructive",
-          duration: 10000,
-        });
-        setLoading(false);
-        return;
-      }
+      await prepareElementForCapture("cost-report-kpi-cards");
+      const kpiCardsCanvas = await captureKPICards("cost-report-kpi-cards", { scale: 2 });
+      const kpiCardsImage = canvasToDataURL(kpiCardsCanvas, 'JPEG', 0.9);
       
       setCurrentSection("Generating executive summary...");
       // ========== EXECUTIVE SUMMARY PAGE ==========
@@ -971,33 +907,19 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
   return (
     <>
       <div className="flex gap-2">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button disabled={loading}>
-              {loading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {currentSection || "Generating..."}
-                </>
-              ) : (
-                <>
-                  <Download className="mr-2 h-4 w-4" />
-                  Export PDF
-                </>
-              )}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={() => handleExport()}>
+        <Button onClick={() => handleExport()} disabled={loading}>
+          {loading ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              {currentSection || "Generating..."}
+            </>
+          ) : (
+            <>
               <Download className="mr-2 h-4 w-4" />
-              Quick Export
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setShowTemplateDialog(true)}>
-              <FileText className="mr-2 h-4 w-4" />
-              Export with Template
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+              Export PDF
+            </>
+          )}
+        </Button>
         
         <Button 
           variant="outline" 
@@ -1033,13 +955,6 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           storageBucket="cost-report-pdfs"
         />
       )}
-
-      <TemplateExportDialog
-        open={showTemplateDialog}
-        onOpenChange={setShowTemplateDialog}
-        report={report}
-        projectId={report.project_id}
-      />
       
     </>
   );
