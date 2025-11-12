@@ -1482,6 +1482,48 @@ export type Database = {
           },
         ]
       }
+      document_templates: {
+        Row: {
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          file_name: string
+          file_url: string
+          id: string
+          is_active: boolean | null
+          name: string
+          placeholder_schema: Json | null
+          template_type: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          file_name: string
+          file_url: string
+          id?: string
+          is_active?: boolean | null
+          name: string
+          placeholder_schema?: Json | null
+          template_type?: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          file_name?: string
+          file_url?: string
+          id?: string
+          is_active?: boolean | null
+          name?: string
+          placeholder_schema?: Json | null
+          template_type?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       electrical_budgets: {
         Row: {
           budget_date: string
@@ -5459,6 +5501,47 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      template_test_runs: {
+        Row: {
+          created_at: string | null
+          error_message: string | null
+          id: string
+          output_file_url: string | null
+          run_by: string | null
+          status: string | null
+          template_id: string | null
+          test_data: Json
+        }
+        Insert: {
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          output_file_url?: string | null
+          run_by?: string | null
+          status?: string | null
+          template_id?: string | null
+          test_data: Json
+        }
+        Update: {
+          created_at?: string | null
+          error_message?: string | null
+          id?: string
+          output_file_url?: string | null
+          run_by?: string | null
+          status?: string | null
+          template_id?: string | null
+          test_data?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "template_test_runs_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "document_templates"
             referencedColumns: ["id"]
           },
         ]
