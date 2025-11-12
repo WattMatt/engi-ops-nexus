@@ -74,6 +74,11 @@ export interface PDFGenerationSettings {
     detailedLineItems: boolean;
     variations: boolean;
   };
+  editedContent?: {
+    projectName: string;
+    reportName: string;
+    description: string;
+  };
 }
 
 export const PDFPreviewDialog = ({
@@ -88,6 +93,14 @@ export const PDFPreviewDialog = ({
   const [zoom, setZoom] = useState(100);
   const [settings, setSettings] = useState<PDFGenerationSettings>(initialSettings);
   const [activeTab, setActiveTab] = useState<'preview' | 'settings'>('preview');
+  
+  // Editable content state
+  const [editedContent, setEditedContent] = useState({
+    projectName: report.project_name || '',
+    reportName: report.name || '',
+    description: report.description || '',
+  });
+  const [editingField, setEditingField] = useState<string | null>(null);
 
   // Fetch actual report data
   const { data: categories = [] } = useQuery({
@@ -226,11 +239,19 @@ export const PDFPreviewDialog = ({
   const handleGenerate = async () => {
     setLoading(true);
     try {
-      await onGenerate(settings);
+      // Pass both settings and edited content to the generate function
+      await onGenerate({ ...settings, editedContent });
       onOpenChange(false);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleContentEdit = (field: string, value: string) => {
+    setEditedContent(prev => ({
+      ...prev,
+      [field]: value
+    }));
   };
 
   const togglePageVisibility = (index: number) => {
@@ -243,14 +264,62 @@ export const PDFPreviewDialog = ({
   const totalPages = visiblePages.length;
 
   const renderPageContent = (pageTitle: string) => {
+    const EditableText = ({ 
+      field, 
+      value, 
+      className = "", 
+      multiline = false 
+    }: { 
+      field: string; 
+      value: string; 
+      className?: string; 
+      multiline?: boolean;
+    }) => {
+      const isEditing = editingField === field;
+      
+      return isEditing ? (
+        multiline ? (
+          <textarea
+            value={value}
+            onChange={(e) => handleContentEdit(field, e.target.value)}
+            onBlur={() => setEditingField(null)}
+            className={`border-2 border-blue-500 rounded px-2 py-1 w-full ${className}`}
+            autoFocus
+            rows={3}
+          />
+        ) : (
+          <input
+            type="text"
+            value={value}
+            onChange={(e) => handleContentEdit(field, e.target.value)}
+            onBlur={() => setEditingField(null)}
+            className={`border-2 border-blue-500 rounded px-2 py-1 w-full ${className}`}
+            autoFocus
+          />
+        )
+      ) : (
+        <span
+          onClick={() => setEditingField(field)}
+          className={`cursor-pointer hover:bg-blue-50 hover:border hover:border-blue-300 rounded px-2 py-1 transition-colors ${className}`}
+          title="Click to edit"
+        >
+          {value}
+        </span>
+      );
+    };
+
     switch (pageTitle) {
       case 'Cover Page':
         return (
           <div className="flex flex-col items-center justify-center h-full space-y-6">
-            <h1 className="text-4xl font-bold text-center">{report.project_name}</h1>
+            <h1 className="text-4xl font-bold text-center">
+              <EditableText field="projectName" value={editedContent.projectName} className="text-4xl font-bold" />
+            </h1>
             <h2 className="text-2xl">Cost Report</h2>
             <div className="text-lg space-y-2 text-center">
-              <p>Report Name: {report.name}</p>
+              <p>
+                Report Name: <EditableText field="reportName" value={editedContent.reportName} className="text-lg" />
+              </p>
               {report.report_date && <p>Date: {new Date(report.report_date).toLocaleDateString()}</p>}
             </div>
           </div>
@@ -262,11 +331,11 @@ export const PDFPreviewDialog = ({
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="font-semibold">Project Name:</p>
-                <p>{report.project_name}</p>
+                <EditableText field="projectName" value={editedContent.projectName} />
               </div>
               <div>
                 <p className="font-semibold">Report Name:</p>
-                <p>{report.name}</p>
+                <EditableText field="reportName" value={editedContent.reportName} />
               </div>
               {report.report_date && (
                 <div>
@@ -274,12 +343,14 @@ export const PDFPreviewDialog = ({
                   <p>{new Date(report.report_date).toLocaleDateString()}</p>
                 </div>
               )}
-              {report.description && (
-                <div className="col-span-2">
-                  <p className="font-semibold">Description:</p>
-                  <p>{report.description}</p>
-                </div>
-              )}
+              <div className="col-span-2">
+                <p className="font-semibold">Description:</p>
+                <EditableText 
+                  field="description" 
+                  value={editedContent.description} 
+                  multiline 
+                />
+              </div>
             </div>
           </div>
         );
@@ -497,6 +568,12 @@ export const PDFPreviewDialog = ({
           {/* Preview Tab */}
           <TabsContent value="preview" className="flex-1 flex flex-col min-h-0 m-0 mt-4 px-6">
             <div className="flex items-center justify-between mb-4">
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className="gap-1 text-xs">
+                  <Eye className="h-3 w-3" />
+                  Click text to edit
+                </Badge>
+              </div>
               <div className="flex items-center gap-2">
                 <Button
                   size="sm"
