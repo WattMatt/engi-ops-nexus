@@ -40,21 +40,53 @@ export const CostCategoriesManager = ({ reportId, projectId }: CostCategoriesMan
     },
   });
 
+  const { data: variations = [] } = useQuery({
+    queryKey: ["cost-variations-summary", reportId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("cost_variations")
+        .select("*")
+        .eq("cost_report_id", reportId);
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   // Calculate totals for each category
   const categoryTotals = categories.map(category => {
-    const items = lineItems.filter(item => item.category_id === category.id);
-    const originalBudget = items.reduce((sum, item) => sum + Number(item.original_budget || 0), 0);
-    const previousReport = items.reduce((sum, item) => sum + Number(item.previous_report || 0), 0);
-    const anticipatedFinal = items.reduce((sum, item) => sum + Number(item.anticipated_final || 0), 0);
+    const isVariationsCategory = category.description?.toUpperCase().includes("VARIATION");
     
-    return {
-      ...category,
-      originalBudget,
-      previousReport,
-      anticipatedFinal,
-      currentVariance: anticipatedFinal - previousReport,
-      originalVariance: anticipatedFinal - originalBudget
-    };
+    if (isVariationsCategory) {
+      // For variations category, sum from variations table
+      const anticipatedFinal = variations.reduce(
+        (sum, v) => sum + Number(v.amount || 0),
+        0
+      );
+      
+      return {
+        ...category,
+        originalBudget: 0,
+        previousReport: 0,
+        anticipatedFinal,
+        currentVariance: anticipatedFinal,
+        originalVariance: anticipatedFinal
+      };
+    } else {
+      // For regular categories, sum line items
+      const items = lineItems.filter(item => item.category_id === category.id);
+      const originalBudget = items.reduce((sum, item) => sum + Number(item.original_budget || 0), 0);
+      const previousReport = items.reduce((sum, item) => sum + Number(item.previous_report || 0), 0);
+      const anticipatedFinal = items.reduce((sum, item) => sum + Number(item.anticipated_final || 0), 0);
+      
+      return {
+        ...category,
+        originalBudget,
+        previousReport,
+        anticipatedFinal,
+        currentVariance: anticipatedFinal - previousReport,
+        originalVariance: anticipatedFinal - originalBudget
+      };
+    }
   });
 
   // Calculate grand totals
