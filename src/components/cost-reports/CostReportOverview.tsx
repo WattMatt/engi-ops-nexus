@@ -297,7 +297,7 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
               </div>
             </CardHeader>
           <CardContent>
-            <div id="budget-comparison-chart">
+            <div id="cost-report-budget-comparison-chart">
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={topCategoriesData}>
                   <CartesianGrid strokeDasharray="3 3" />
@@ -350,7 +350,7 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
               </div>
             </CardHeader>
             <CardContent>
-              <div id="distribution-chart" className="space-y-4">
+              <div id="cost-report-distribution-chart" className="space-y-4">
                 {/* Pie Chart */}
                 <ResponsiveContainer width="100%" height={250}>
                   <PieChart>
@@ -433,7 +433,7 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
               </div>
             </CardHeader>
             <CardContent>
-              <div id="variance-chart">
+              <div id="cost-report-variance-chart">
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={varianceChartData}>
                     <CartesianGrid strokeDasharray="3 3" />
@@ -520,7 +520,7 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
 
       {/* Category Breakdown - add id for PDF capture */}
       {categoryTotals.length > 0 && (
-        <Card id="cost-report-category-cards">
+        <Card id="cost-report-category-table">
           <CardHeader className="pb-4">
             <CardTitle className="text-xl">Category Breakdown</CardTitle>
           </CardHeader>
