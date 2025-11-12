@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Download, Loader2, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,6 +10,8 @@ import { StandardReportPreview } from "@/components/shared/StandardReportPreview
 import { PDFExportSettings, DEFAULT_MARGINS, type PDFMargins } from "./PDFExportSettings";
 import { calculateCategoryTotals, calculateGrandTotals, validateTotals } from "@/utils/costReportCalculations";
 import { ValidationWarningDialog } from "./ValidationWarningDialog";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import html2canvas from "html2canvas";
 
 interface ExportPDFButtonProps {
   report: any;
@@ -25,6 +27,15 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
   const [validationMismatches, setValidationMismatches] = useState<string[]>([]);
   const [pendingExport, setPendingExport] = useState(false);
+  const chartRef = useRef<HTMLDivElement>(null);
+  const [chartData, setChartData] = useState([
+    {
+      name: 'Budget Comparison',
+      'Original Budget': 0,
+      'Previous Report': 0,
+      'Anticipated Final': 0
+    }
+  ]);
 
   const handleExport = async (useMargins: PDFMargins = margins, skipValidation: boolean = false) => {
     setLoading(true);
@@ -131,6 +142,19 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       const currentVariance = pdfGrandTotals.currentVariance;
       const originalVariance = pdfGrandTotals.originalVariance;
       
+      // Update chart data for rendering
+      setChartData([
+        {
+          name: 'Budget Comparison',
+          'Original Budget': totalOriginalBudget,
+          'Previous Report': totalPreviousReport,
+          'Anticipated Final': totalAnticipatedFinal
+        }
+      ]);
+      
+      // Wait a bit for chart to render
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
       const currentVariancePercentage = totalPreviousReport > 0 
         ? ((Math.abs(currentVariance) / totalPreviousReport) * 100) 
         : 0;
@@ -233,9 +257,42 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         [134, 239, 172]   // Light green
       ];
 
+      // ========== BUDGET COMPARISON CHART ==========
+      let chartY = kpiY + kpiCardHeight + 15;
+      
+      // Check if chart will fit on page
+      if (chartY + 120 > pageHeight - useMargins.bottom) {
+        doc.addPage();
+        chartY = contentStartY;
+      }
+      
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("Budget Comparison", contentStartX, chartY);
+      chartY += 5;
+      
+      // Capture chart as image if it exists
+      if (chartRef.current) {
+        try {
+          const canvas = await html2canvas(chartRef.current, {
+            backgroundColor: '#ffffff',
+            scale: 2
+          });
+          const imgData = canvas.toDataURL('image/png');
+          const imgWidth = contentWidth;
+          const imgHeight = (canvas.height * imgWidth) / canvas.width;
+          
+          doc.addImage(imgData, 'PNG', contentStartX, chartY, imgWidth, Math.min(imgHeight, 100));
+          chartY += Math.min(imgHeight, 100) + 10;
+        } catch (error) {
+          console.error('Error capturing chart:', error);
+        }
+      }
+
       // Category Distribution & Financial Variance Table
       doc.setTextColor(0, 0, 0);
-      let tableY = kpiY + kpiCardHeight + 15;
+      let tableY = chartY;
       
       doc.setFontSize(12);
       doc.setFont("helvetica", "bold");
@@ -775,6 +832,32 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           storageBucket="cost-report-pdfs"
         />
       )}
+      
+      {/* Hidden chart for PDF export */}
+      <div style={{ position: 'absolute', left: '-9999px', width: '800px', height: '400px' }}>
+        <div ref={chartRef} style={{ width: '100%', height: '100%', backgroundColor: 'white', padding: '20px' }}>
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart
+              data={chartData}
+              margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+            >
+              <CartesianGrid strokeDasharray="3 3" />
+              <XAxis dataKey="name" />
+              <YAxis 
+                label={{ value: 'Amount (R)', angle: -90, position: 'insideLeft' }}
+                tickFormatter={(value) => `R${(value / 1000000).toFixed(1)}M`}
+              />
+              <Tooltip 
+                formatter={(value: number) => `R${value.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`}
+              />
+              <Legend wrapperStyle={{ paddingTop: '20px' }} />
+              <Bar dataKey="Original Budget" fill="#3b82f6" />
+              <Bar dataKey="Previous Report" fill="#10b981" />
+              <Bar dataKey="Anticipated Final" fill="#f59e0b" />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
     </>
   );
 };
