@@ -107,7 +107,7 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">
-              {totalVariance < 0 ? "Saving" : "Extra"}
+              {totalVariance < 0 ? "Total Saving" : "Total Extra"}
             </CardTitle>
             {totalVariance < 0 ? (
               <TrendingDown className="h-4 w-4 text-green-600" />
@@ -124,7 +124,7 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
               R{Math.abs(totalVariance).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
             </div>
             <p className="text-xs text-muted-foreground">
-              {variancePercentage}% variance
+              {variancePercentage}% vs Original Budget
             </p>
           </CardContent>
         </Card>
