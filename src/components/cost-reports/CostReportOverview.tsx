@@ -88,10 +88,11 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
     color: COLORS[index % COLORS.length]
   }));
 
-  const varianceChartData = categoryTotals.map((cat) => ({
+  const varianceChartData = categoryTotals.map((cat, index) => ({
     name: cat.code,
-    saving: cat.originalVariance < 0 ? Math.abs(cat.originalVariance) : 0,
-    extra: cat.originalVariance >= 0 ? cat.originalVariance : 0,
+    variance: cat.originalVariance,
+    color: COLORS[index % COLORS.length],
+    fill: COLORS[index % COLORS.length]
   }));
 
   const budgetComparisonData = [
@@ -491,17 +492,51 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
               <div id="variance-chart">
                 <ResponsiveContainer width="100%" height={300}>
                   <BarChart data={varianceChartData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="name" />
-                  <YAxis />
-                  <Tooltip 
-                    formatter={(value: number) => `R${value.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`}
-                  />
-                  <Legend />
-                  <Bar dataKey="saving" fill="#22c55e" name="Savings" />
-                  <Bar dataKey="extra" fill="#ef4444" name="Extras" />
-                </BarChart>
-              </ResponsiveContainer>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis 
+                      tickFormatter={(value) => `R${(Math.abs(value) / 1000000).toFixed(1)}M`}
+                    />
+                    <Tooltip 
+                      formatter={(value: number) => [
+                        `R${Math.abs(value).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+                        value < 0 ? 'Saving' : 'Extra'
+                      ]}
+                      contentStyle={{ 
+                        backgroundColor: 'hsl(var(--card))',
+                        border: '1px solid hsl(var(--border))',
+                        borderRadius: '6px'
+                      }}
+                    />
+                    <Bar 
+                      dataKey="variance" 
+                      label={(props: any) => {
+                        const { x, y, width, height, value } = props;
+                        const isPositive = value >= 0;
+                        const yPosition = isPositive ? y - 5 : y + height + 15;
+                        
+                        return (
+                          <text 
+                            x={x + width / 2} 
+                            y={yPosition} 
+                            fill="#000" 
+                            textAnchor="middle" 
+                            fontSize={10}
+                          >
+                            {isPositive 
+                              ? `+R${value.toLocaleString('en-ZA', { maximumFractionDigits: 0 })}` 
+                              : `-R${Math.abs(value).toLocaleString('en-ZA', { maximumFractionDigits: 0 })}`
+                            }
+                          </text>
+                        );
+                      }}
+                    >
+                      {varianceChartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             </CardContent>
           </Card>
