@@ -722,118 +722,41 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         doc.addPage();
         tocSections.push({ title: `Detailed Line Items - ${category.description}`, page: doc.getCurrentPageInfo().pageNumber });
         
-        // Get the category color from the same palette used in executive summary
-        const categoryColor = cardColors[index % cardColors.length];
-        
-        // Add colored header bar
-        doc.setFillColor(categoryColor[0], categoryColor[1], categoryColor[2]);
-        doc.rect(0, 0, pageWidth, 25, 'F');
-        
-        // Add category badge circle
-        doc.setFillColor(255, 255, 255);
-        doc.circle(contentStartX + 8, 12, 5, 'F');
-        doc.setFillColor(categoryColor[0], categoryColor[1], categoryColor[2]);
-        doc.circle(contentStartX + 8, 12, 4, 'F');
-        doc.setFontSize(10);
+        // Simple professional header
+        doc.setFontSize(14);
         doc.setFont("helvetica", "bold");
-        doc.setTextColor(255, 255, 255);
-        doc.text(category.code, contentStartX + 8, 14, { align: "center" });
+        doc.setTextColor(0, 0, 0);
+        doc.text(`${category.code} - ${category.description}`, contentStartX, contentStartY + 5);
         
-        // Category title
-        doc.setFontSize(16);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(255, 255, 255);
-        doc.text(`${category.description}`, contentStartX + 20, 15);
+        // Add a subtle line under the header
+        doc.setDrawColor(200, 200, 200);
+        doc.setLineWidth(0.5);
+        doc.line(contentStartX, contentStartY + 8, pageWidth - useMargins.right, contentStartY + 8);
 
         // Find the corresponding category totals for this category
         const catTotals = categoryTotals.find((ct: any) => ct.code === category.code);
         
+        let summaryY = contentStartY + 15;
+        
         if (catTotals) {
-          // Add category summary cards
-          let summaryY = 35;
-          const cardWidth = (contentWidth - 12) / 3; // 3 cards per row
-          const cardHeight = 22;
-          const cardSpacing = 6;
-          
-          // Row 1: Original Budget, Previous Report, Anticipated Final
-          doc.setLineWidth(0.5);
-          
-          // Original Budget
-          createGradientCard(contentStartX, summaryY, cardWidth, cardHeight, [20, 184, 166], [13, 148, 136]);
-          doc.setDrawColor(20, 184, 166);
-          doc.rect(contentStartX, summaryY, cardWidth, cardHeight);
-          doc.setFontSize(7);
-          doc.setFont("helvetica", "normal");
-          doc.setTextColor(255, 255, 255);
-          doc.text("Original Budget", contentStartX + 2, summaryY + 4);
+          // Add simple summary text
           doc.setFontSize(9);
-          doc.setFont("helvetica", "bold");
-          doc.text(`R${catTotals.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, contentStartX + 2, summaryY + 12);
-          
-          // Previous Report
-          createGradientCard(contentStartX + cardWidth + cardSpacing, summaryY, cardWidth, cardHeight, [59, 130, 246], [37, 99, 235]);
-          doc.setDrawColor(59, 130, 246);
-          doc.rect(contentStartX + cardWidth + cardSpacing, summaryY, cardWidth, cardHeight);
-          doc.setFontSize(7);
           doc.setFont("helvetica", "normal");
-          doc.setTextColor(255, 255, 255);
-          doc.text("Previous Report", contentStartX + cardWidth + cardSpacing + 2, summaryY + 4);
-          doc.setFontSize(9);
-          doc.setFont("helvetica", "bold");
-          doc.text(`R${catTotals.previousReport.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, contentStartX + cardWidth + cardSpacing + 2, summaryY + 12);
+          doc.setTextColor(60, 60, 60);
           
-          // Anticipated Final
-          createGradientCard(contentStartX + (cardWidth + cardSpacing) * 2, summaryY, cardWidth, cardHeight, [139, 92, 246], [124, 58, 237]);
-          doc.setDrawColor(139, 92, 246);
-          doc.rect(contentStartX + (cardWidth + cardSpacing) * 2, summaryY, cardWidth, cardHeight);
-          doc.setFontSize(7);
-          doc.setFont("helvetica", "normal");
-          doc.setTextColor(255, 255, 255);
-          doc.text("Anticipated Final", contentStartX + (cardWidth + cardSpacing) * 2 + 2, summaryY + 4);
-          doc.setFontSize(9);
-          doc.setFont("helvetica", "bold");
-          doc.text(`R${catTotals.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, contentStartX + (cardWidth + cardSpacing) * 2 + 2, summaryY + 12);
+          const summaryText = [
+            `Original Budget: R${catTotals.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+            `Previous Report: R${catTotals.previousReport.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+            `Anticipated Final: R${catTotals.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+            `Current Variance: ${catTotals.currentVariance >= 0 ? '+' : ''}R${Math.abs(catTotals.currentVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+            `Original Variance: ${catTotals.originalVariance >= 0 ? '+' : ''}R${Math.abs(catTotals.originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`
+          ];
           
-          // Row 2: Current Variance, Original Variance (centered)
-          summaryY += cardHeight + cardSpacing;
-          const twoCardWidth = (contentWidth - cardSpacing) / 2;
-          const twoCardStartX = contentStartX + (contentWidth - (twoCardWidth * 2 + cardSpacing)) / 2;
+          summaryText.forEach((text, idx) => {
+            doc.text(text, contentStartX, summaryY + (idx * 5));
+          });
           
-          // Current Variance
-          const catCurrentVarianceColors = catTotals.currentVariance < 0 
-            ? [[34, 197, 94], [22, 163, 74]] 
-            : [[239, 68, 68], [220, 38, 38]];
-          createGradientCard(twoCardStartX, summaryY, twoCardWidth, cardHeight, catCurrentVarianceColors[0], catCurrentVarianceColors[1]);
-          doc.setDrawColor(catCurrentVarianceColors[0][0], catCurrentVarianceColors[0][1], catCurrentVarianceColors[0][2]);
-          doc.setTextColor(0, 0, 0);
-          doc.rect(twoCardStartX, summaryY, twoCardWidth, cardHeight);
-          doc.setFontSize(7);
-          doc.setFont("helvetica", "normal");
-          doc.setTextColor(255, 255, 255);
-          doc.text(`Current ${catTotals.currentVariance < 0 ? '(Saving)' : 'Extra'}`, twoCardStartX + 2, summaryY + 4);
-          doc.setFontSize(9);
-          doc.setFont("helvetica", "bold");
-          doc.setTextColor(255, 255, 255);
-          doc.text(`${catTotals.currentVariance >= 0 ? '+' : ''}R${Math.abs(catTotals.currentVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, twoCardStartX + 2, summaryY + 12);
-          
-          // Original Variance
-          const catOriginalVarianceColors = catTotals.originalVariance < 0 
-            ? [[34, 197, 94], [22, 163, 74]] 
-            : [[239, 68, 68], [220, 38, 38]];
-          createGradientCard(twoCardStartX + twoCardWidth + cardSpacing, summaryY, twoCardWidth, cardHeight, catOriginalVarianceColors[0], catOriginalVarianceColors[1]);
-          doc.setDrawColor(catOriginalVarianceColors[0][0], catOriginalVarianceColors[0][1], catOriginalVarianceColors[0][2]);
-          doc.setTextColor(0, 0, 0);
-          doc.rect(twoCardStartX + twoCardWidth + cardSpacing, summaryY, twoCardWidth, cardHeight);
-          doc.setFontSize(7);
-          doc.setFont("helvetica", "normal");
-          doc.setTextColor(255, 255, 255);
-          doc.text(`${catTotals.originalVariance < 0 ? '(Saving)' : 'Extra'} vs Original`, twoCardStartX + twoCardWidth + cardSpacing + 2, summaryY + 4);
-          doc.setFontSize(9);
-          doc.setFont("helvetica", "bold");
-          doc.setTextColor(255, 255, 255);
-          doc.text(`${catTotals.originalVariance >= 0 ? '+' : ''}R${Math.abs(catTotals.originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, twoCardStartX + twoCardWidth + cardSpacing + 2, summaryY + 12);
-          
-          summaryY += cardHeight + 10;
+          summaryY += 30;
           
           autoTable(doc, {
             startY: summaryY,
@@ -861,7 +784,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
               overflow: 'linebreak'
             },
             headStyles: { 
-              fillColor: [categoryColor[0], categoryColor[1], categoryColor[2]], 
+              fillColor: [30, 58, 138], 
               textColor: [255, 255, 255], 
               fontStyle: 'bold', 
               fontSize: 8,
@@ -880,12 +803,6 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
               6: { cellWidth: 20, halign: 'right', cellPadding: { right: 4 } }
             },
             didDrawCell: (data) => {
-              // Add colored bar on the left side of each row
-              if (data.section === 'body' && data.column.index === 0) {
-                doc.setFillColor(categoryColor[0], categoryColor[1], categoryColor[2]);
-                doc.rect(data.cell.x - 3, data.cell.y, 3, data.cell.height, 'F');
-              }
-              
               // Color variance cells
               if (data.section === 'body') {
                 const item = lineItems[data.row.index];
