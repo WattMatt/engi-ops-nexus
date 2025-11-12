@@ -906,30 +906,46 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
 
   return (
     <>
-      <div className="flex gap-2">
-        <Button onClick={() => handleExport()} disabled={loading}>
-          {loading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              {currentSection || "Generating..."}
-            </>
-          ) : (
-            <>
-              <Download className="mr-2 h-4 w-4" />
-              Export PDF
-            </>
-          )}
-        </Button>
+      <div className="space-y-3">
+        <div className="flex gap-2">
+          <Button onClick={() => handleExport()} disabled={loading}>
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Generating PDF...
+              </>
+            ) : (
+              <>
+                <Download className="mr-2 h-4 w-4" />
+                Export PDF
+              </>
+            )}
+          </Button>
+          
+          <Button 
+            variant="outline" 
+            size="icon"
+            onClick={() => setSettingsOpen(true)}
+            disabled={loading}
+            title="PDF Export Settings"
+          >
+            <Settings className="h-4 w-4" />
+          </Button>
+        </div>
         
-        <Button 
-          variant="outline" 
-          size="icon"
-          onClick={() => setSettingsOpen(true)}
-          disabled={loading}
-          title="PDF Export Settings"
-        >
-          <Settings className="h-4 w-4" />
-        </Button>
+        {loading && currentSection && (
+          <div className="flex items-center gap-3 px-4 py-2.5 bg-muted/50 rounded-lg border border-border/50 animate-in fade-in slide-in-from-left-2 duration-300">
+            <div className="flex items-center gap-2.5">
+              <div className="relative">
+                <div className="h-2 w-2 bg-primary rounded-full animate-pulse" />
+                <div className="absolute inset-0 h-2 w-2 bg-primary rounded-full animate-ping opacity-75" />
+              </div>
+              <span className="text-sm font-medium text-foreground">
+                {currentSection}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
       
       <PDFExportSettings
