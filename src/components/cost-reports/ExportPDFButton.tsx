@@ -165,110 +165,87 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         [134, 239, 172]   // Light green
       ];
 
-      // Draw Pie Chart - Category Breakdown
-      const pieX = pageWidth - 60;
-      const pieY = 100;
-      const pieRadius = 25;
-      let currentAngle = -Math.PI / 2;
-      
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "bold");
+      // Category Distribution & Financial Variance Table
       doc.setTextColor(0, 0, 0);
-      doc.text("Category Breakdown", pieX, pieY - pieRadius - 10, { align: "center" });
+      let tableY = kpiY + kpiCardHeight + 15;
       
-      categoryTotals.forEach((cat: any, index: number) => {
-        const percentage = (cat.anticipatedFinal / totalAnticipatedFinal) * 100;
-        const sliceAngle = (percentage / 100) * 2 * Math.PI;
-        const color = cardColors[index % cardColors.length];
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("Category Distribution & Financial Variance", 20, tableY);
+      tableY += 10;
+
+      // Prepare table data with color indicators
+      const tableData = categoryTotals.map((cat: any, index: number) => {
+        const percentage = totalAnticipatedFinal > 0 
+          ? ((cat.anticipatedFinal / totalAnticipatedFinal) * 100).toFixed(1)
+          : '0.0';
         
-        doc.setFillColor(color[0], color[1], color[2]);
+        const variance = cat.anticipatedFinal - cat.originalBudget;
         
-        // Draw pie slice
-        doc.setDrawColor(255, 255, 255);
-        doc.setLineWidth(0.5);
-        
-        const startAngle = currentAngle;
-        const endAngle = currentAngle + sliceAngle;
-        
-        if (percentage > 0.5) {
-          const path: any = [];
-          path.push({ op: 'moveTo', x: pieX, y: pieY });
-          
-          for (let a = startAngle; a < endAngle; a += 0.1) {
-            path.push({ 
-              op: 'lineTo', 
-              x: pieX + pieRadius * Math.cos(a), 
-              y: pieY + pieRadius * Math.sin(a) 
-            });
-          }
-          
-          path.push({ 
-            op: 'lineTo', 
-            x: pieX + pieRadius * Math.cos(endAngle), 
-            y: pieY + pieRadius * Math.sin(endAngle) 
-          });
-          path.push({ op: 'close' });
-          
-          doc.path(path as any).fillStroke();
-        }
-        
-        currentAngle += sliceAngle;
-      });
-      
-      // Draw legend below pie chart
-      let legendY = pieY + pieRadius + 10;
-      doc.setFontSize(7);
-      categoryTotals.forEach((cat: any, index: number) => {
-        const color = cardColors[index % cardColors.length];
-        doc.setFillColor(color[0], color[1], color[2]);
-        doc.rect(pieX - 25, legendY - 3, 3, 3, 'F');
-        doc.setTextColor(0, 0, 0);
-        doc.setFont("helvetica", "normal");
-        doc.text(cat.code, pieX - 20, legendY);
-        legendY += 5;
+        return [
+          cat.code,
+          cat.description,
+          `R${cat.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+          `R${cat.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+          `${percentage}%`,
+          `${variance >= 0 ? '+' : ''}R${Math.abs(variance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+          variance < 0 ? 'Saving' : 'Extra'
+        ];
       });
 
-      // Draw Bar Chart - Variance Comparison
-      const barChartX = 20;
-      const barChartY = 180;
-      const barChartWidth = pageWidth - 100;
-      const barChartHeight = 60;
-      const maxVariance = Math.max(...categoryTotals.map((c: any) => Math.abs(c.variance)));
-      
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "bold");
-      doc.text("Variance by Category", barChartX, barChartY - 10);
-      
-      // Draw axes
-      doc.setDrawColor(200, 200, 200);
-      doc.setLineWidth(0.3);
-      doc.line(barChartX, barChartY + barChartHeight / 2, barChartX + barChartWidth, barChartY + barChartHeight / 2); // X-axis
-      doc.line(barChartX, barChartY, barChartX, barChartY + barChartHeight); // Y-axis
-      
-      const barWidth = barChartWidth / categoryTotals.length - 2;
-      
-      categoryTotals.forEach((cat: any, index: number) => {
-        const color = cardColors[index % cardColors.length];
-        const variance = cat.variance;
-        const barHeight = (Math.abs(variance) / maxVariance) * (barChartHeight / 2 - 5);
-        const x = barChartX + (index * (barChartWidth / categoryTotals.length)) + 1;
-        const y = variance < 0 
-          ? barChartY + barChartHeight / 2 - barHeight
-          : barChartY + barChartHeight / 2;
-        
-        // Draw bar
-        doc.setFillColor(variance < 0 ? 16 : 239, variance < 0 ? 185 : 68, variance < 0 ? 129 : 68);
-        doc.rect(x, y, barWidth, barHeight, 'F');
-        
-        // Category label
-        doc.setFontSize(6);
-        doc.setTextColor(0, 0, 0);
-        doc.text(cat.code, x + barWidth / 2, barChartY + barChartHeight + 5, { align: "center" });
+      autoTable(doc, {
+        startY: tableY,
+        head: [[
+          'Code',
+          'Category',
+          'Original Budget',
+          'Anticipated Final',
+          '% of Total',
+          'Variance',
+          'Status'
+        ]],
+        body: tableData,
+        theme: 'grid',
+        headStyles: { 
+          fillColor: [30, 58, 138], 
+          textColor: [255, 255, 255], 
+          fontStyle: 'bold',
+          fontSize: 9
+        },
+        bodyStyles: { fontSize: 8 },
+        columnStyles: {
+          0: { cellWidth: 15, fontStyle: 'bold' },
+          1: { cellWidth: 45 },
+          2: { cellWidth: 30, halign: 'right' },
+          3: { cellWidth: 30, halign: 'right' },
+          4: { cellWidth: 18, halign: 'center' },
+          5: { cellWidth: 30, halign: 'right' },
+          6: { cellWidth: 20, halign: 'center' }
+        },
+        didDrawCell: (data) => {
+          // Add colored indicator bar on the left of each row
+          if (data.section === 'body' && data.column.index === 0) {
+            const color = cardColors[data.row.index % cardColors.length];
+            doc.setFillColor(color[0], color[1], color[2]);
+            doc.rect(data.cell.x - 3, data.cell.y, 3, data.cell.height, 'F');
+          }
+          
+          // Color the variance and status cells
+          if (data.section === 'body') {
+            const cat = categoryTotals[data.row.index];
+            const variance = cat.anticipatedFinal - cat.originalBudget;
+            if (data.column.index === 5 || data.column.index === 6) {
+              if (variance < 0) {
+                data.cell.styles.textColor = [0, 150, 0];
+              } else {
+                data.cell.styles.textColor = [255, 0, 0];
+              }
+            }
+          }
+        }
       });
-      
-      // Category Cards
-      doc.setTextColor(0, 0, 0);
-      let cardY = barChartY + barChartHeight + 20;
+
+      let cardY = (doc as any).lastAutoTable.finalY + 15;
       const cardWidth = 85;
       const cardHeight = 45;
       const cardsPerRow = 2;
