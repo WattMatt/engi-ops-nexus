@@ -15,20 +15,21 @@ export interface CaptureOptions {
 /**
  * Wait for an element to be fully rendered
  */
-const waitForElement = async (selector: string, timeout = 5000): Promise<HTMLElement> => {
+const waitForElement = async (selector: string, timeout = 10000): Promise<HTMLElement> => {
   const startTime = Date.now();
   
   while (Date.now() - startTime < timeout) {
     const element = document.getElementById(selector);
-    if (element) {
+    if (element && element.offsetParent !== null) {
+      // Element is visible in DOM
       // Additional wait to ensure full rendering
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 1000));
       return element;
     }
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise(resolve => setTimeout(resolve, 200));
   }
   
-  throw new Error(`Element with id "${selector}" not found within ${timeout}ms`);
+  throw new Error(`Element with id "${selector}" not found or not visible within ${timeout}ms`);
 };
 
 /**
