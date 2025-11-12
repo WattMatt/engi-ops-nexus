@@ -92,7 +92,7 @@ export function CoverPageUpload() {
             <CheckCircle2 className="h-5 w-5 text-green-600" />
             <div className="flex-1">
               <p className="text-sm font-medium text-green-900">Active Template</p>
-              <p className="text-xs text-green-700">{currentTemplate.name}</p>
+              <p className="text-xs text-green-700">{(currentTemplate as any)?.name}</p>
             </div>
           </div>
         )}
