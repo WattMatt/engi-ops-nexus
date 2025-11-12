@@ -836,16 +836,32 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
 
       setCurrentSection("Finalizing table of contents...");
       // ========== FILL IN TABLE OF CONTENTS ==========
-      const tocPageRef = doc.setPage(tocPage);
+      doc.setPage(tocPage);
       let tocY = tocStartY;
-      doc.setFontSize(10);
+      doc.setFontSize(11);
       doc.setFont("helvetica", "normal");
+      doc.setTextColor(0, 0, 0);
       
-      tocSections.forEach((section) => {
-        const maxWidth = contentWidth - 4;
-        const dots = '.'.repeat(Math.floor((maxWidth - doc.getTextWidth(section.title) - doc.getTextWidth(String(section.page))) / doc.getTextWidth('.')));
-        doc.text(`${section.title} ${dots} ${section.page}`, contentStartX, tocY);
-        tocY += 8;
+      tocSections.forEach((section, index) => {
+        // Add some spacing between sections
+        if (index > 0) tocY += 2;
+        
+        // Calculate dots for leader
+        const titleWidth = doc.getTextWidth(section.title);
+        const pageNumWidth = doc.getTextWidth(String(section.page));
+        const availableSpace = contentWidth - titleWidth - pageNumWidth - 10; // 10mm spacing
+        const dotWidth = doc.getTextWidth('.');
+        const numDots = Math.max(3, Math.floor(availableSpace / dotWidth));
+        const dots = '.'.repeat(numDots);
+        
+        // Draw the line
+        doc.text(section.title, contentStartX, tocY);
+        doc.setTextColor(150, 150, 150);
+        doc.text(dots, contentStartX + titleWidth + 2, tocY);
+        doc.setTextColor(0, 0, 0);
+        doc.text(String(section.page), pageWidth - useMargins.right - pageNumWidth, tocY);
+        
+        tocY += 7;
       });
 
       setCurrentSection("Adding page numbers...");
