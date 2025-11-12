@@ -5,13 +5,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Download, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Download, Loader2, ChevronLeft, ChevronRight, Edit } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Document, Page, pdfjs } from "react-pdf";
 import "react-pdf/dist/Page/AnnotationLayer.css";
 import "react-pdf/dist/Page/TextLayer.css";
+import { PDFTemplateEditor } from "@/components/pdf-editor/PDFTemplateEditor";
 
 // Configure PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -21,19 +22,24 @@ interface StandardReportPreviewProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   storageBucket?: string;
+  reportType?: string;
+  onRegeneratePDF?: () => void;
 }
 
 export const StandardReportPreview = ({ 
   report, 
   open, 
   onOpenChange,
-  storageBucket = "tenant-tracker-reports"
+  storageBucket = "tenant-tracker-reports",
+  reportType = "cost_report",
+  onRegeneratePDF
 }: StandardReportPreviewProps) => {
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [numPages, setNumPages] = useState<number>(0);
   const [pageNumber, setPageNumber] = useState<number>(1);
+  const [editorOpen, setEditorOpen] = useState(false);
 
   useEffect(() => {
     if (open && report) {
@@ -113,32 +119,43 @@ export const StandardReportPreview = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl h-[90vh] flex flex-col">
-        <DialogHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex-1">
-              <DialogTitle>{report?.report_name}</DialogTitle>
-              {numPages > 0 && (
-                <p className="text-sm text-muted-foreground mt-1">
-                  Page {pageNumber} of {numPages}
-                </p>
-              )}
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-5xl h-[90vh] flex flex-col">
+          <DialogHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex-1">
+                <DialogTitle>{report?.report_name}</DialogTitle>
+                {numPages > 0 && (
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Page {pageNumber} of {numPages}
+                  </p>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setEditorOpen(true)}
+                  size="sm"
+                >
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit Template
+                </Button>
+                <Button 
+                  onClick={handleDownload}
+                  disabled={downloading || loading}
+                  size="sm"
+                >
+                  {downloading ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Download className="h-4 w-4 mr-2" />
+                  )}
+                  Download
+                </Button>
+              </div>
             </div>
-            <Button 
-              onClick={handleDownload}
-              disabled={downloading || loading}
-              size="sm"
-            >
-              {downloading ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <Download className="h-4 w-4 mr-2" />
-              )}
-              Download
-            </Button>
-          </div>
-        </DialogHeader>
+          </DialogHeader>
         
         <div className="flex-1 overflow-auto flex flex-col items-center bg-muted rounded-lg">
           {loading ? (
@@ -208,5 +225,17 @@ export const StandardReportPreview = ({
         </div>
       </DialogContent>
     </Dialog>
+
+    <PDFTemplateEditor
+      open={editorOpen}
+      onOpenChange={setEditorOpen}
+      reportType={reportType}
+      onApplyTemplate={() => {
+        if (onRegeneratePDF) {
+          onRegeneratePDF();
+        }
+      }}
+    />
+    </>
   );
 };

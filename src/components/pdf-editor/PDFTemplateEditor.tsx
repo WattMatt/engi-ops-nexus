@@ -1,0 +1,329 @@
+import { useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Loader2, Save, FileDown } from "lucide-react";
+import { LivePreview } from "./LivePreview";
+import { StylePanel } from "./StylePanel";
+import { TemplateSelector } from "./TemplateSelector";
+import { PDFStyleSettings } from "@/utils/pdfStyleManager";
+import { Checkbox } from "@/components/ui/checkbox";
+
+interface PDFTemplateEditorProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  reportType: string;
+  onApplyTemplate?: (templateId: string) => void;
+}
+
+export const PDFTemplateEditor = ({
+  open,
+  onOpenChange,
+  reportType,
+  onApplyTemplate,
+}: PDFTemplateEditorProps) => {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [selectedElement, setSelectedElement] = useState<string | null>(null);
+  const [elementType, setElementType] = useState<'heading' | 'body' | 'table' | 'section' | null>(null);
+  const [elementLevel, setElementLevel] = useState<1 | 2 | 3 | undefined>();
+  const [currentSettings, setCurrentSettings] = useState<PDFStyleSettings | null>(null);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [templateName, setTemplateName] = useState("");
+  const [templateDescription, setTemplateDescription] = useState("");
+  const [setAsDefault, setSetAsDefault] = useState(false);
+
+  // Fetch templates
+  const { data: templates, isLoading } = useQuery({
+    queryKey: ['pdf-templates', reportType],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('pdf_style_templates')
+        .select('*')
+        .eq('report_type', reportType)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Load default template on initial load
+      const defaultTemplate = data?.find(t => t.is_default);
+      if (defaultTemplate && !currentSettings) {
+        setCurrentSettings(defaultTemplate.settings as unknown as PDFStyleSettings);
+        setSelectedTemplateId(defaultTemplate.id);
+      }
+
+      return data;
+    },
+  });
+
+  // Save template mutation
+  const saveTemplateMutation = useMutation({
+    mutationFn: async () => {
+      if (!currentSettings) throw new Error("No settings to save");
+
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      // If setting as default, unset other defaults first
+      if (setAsDefault) {
+        await supabase
+          .from('pdf_style_templates')
+          .update({ is_default: false })
+          .eq('report_type', reportType);
+      }
+
+      const { error } = await supabase
+        .from('pdf_style_templates')
+        .insert({
+          report_type: reportType,
+          is_default: setAsDefault,
+          created_by: user.id,
+          settings: currentSettings as any,
+          name: templateName,
+          description: templateDescription || null,
+        });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pdf-templates', reportType] });
+      toast({
+        title: "Template saved",
+        description: "Your template has been saved successfully.",
+      });
+      setSaveDialogOpen(false);
+      setTemplateName("");
+      setTemplateDescription("");
+      setSetAsDefault(false);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: `Failed to save template: ${error.message}`,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Delete template mutation
+  const deleteTemplateMutation = useMutation({
+    mutationFn: async (templateId: string) => {
+      const { error } = await supabase
+        .from('pdf_style_templates')
+        .delete()
+        .eq('id', templateId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pdf-templates', reportType] });
+      toast({
+        title: "Template deleted",
+        description: "The template has been deleted successfully.",
+      });
+      setSelectedTemplateId(null);
+    },
+  });
+
+  const handleSelectElement = (key: string) => {
+    setSelectedElement(key);
+    
+    // Parse element type and level from key
+    if (key.includes('heading')) {
+      setElementType('heading');
+      if (key.includes('h1') || key.includes('title') || key.includes('section-heading')) {
+        setElementLevel(1);
+      } else if (key.includes('h2') || key.includes('subsection')) {
+        setElementLevel(2);
+      } else {
+        setElementLevel(3);
+      }
+    } else if (key.includes('table')) {
+      setElementType('table');
+      setElementLevel(undefined);
+    } else {
+      setElementType('body');
+      setElementLevel(undefined);
+    }
+  };
+
+  const handleStyleChange = (path: string, value: any) => {
+    if (!currentSettings) return;
+
+    setCurrentSettings((prev) => {
+      if (!prev) return prev;
+      
+      const newSettings = { ...prev };
+      const keys = path.split('.');
+      let current: any = newSettings;
+      
+      for (let i = 0; i < keys.length - 1; i++) {
+        current[keys[i]] = { ...current[keys[i]] };
+        current = current[keys[i]];
+      }
+      
+      current[keys[keys.length - 1]] = value;
+      return newSettings;
+    });
+  };
+
+  const handleLoadTemplate = (templateId: string) => {
+    const template = templates?.find(t => t.id === templateId);
+    if (template) {
+      setCurrentSettings(template.settings as unknown as PDFStyleSettings);
+      setSelectedTemplateId(templateId);
+    }
+  };
+
+  const handleReset = () => {
+    const defaultTemplate = templates?.find(t => t.is_default);
+    if (defaultTemplate) {
+      setCurrentSettings(defaultTemplate.settings as unknown as PDFStyleSettings);
+    }
+  };
+
+  const handleApplyAndGenerate = () => {
+    if (selectedTemplateId && onApplyTemplate) {
+      onApplyTemplate(selectedTemplateId);
+    }
+    onOpenChange(false);
+  };
+
+  if (isLoading || !currentSettings) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-6xl h-[90vh]">
+          <div className="flex items-center justify-center h-full">
+            <Loader2 className="w-8 h-8 animate-spin" />
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
+
+  return (
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-7xl h-[90vh] flex flex-col gap-0 p-0">
+          <DialogHeader className="p-6 pb-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <DialogTitle>PDF Template Editor</DialogTitle>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Click on any element to customize its style
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setSaveDialogOpen(true)}
+                  disabled={saveTemplateMutation.isPending}
+                >
+                  <Save className="w-4 h-4 mr-2" />
+                  Save Template
+                </Button>
+                <Button onClick={handleApplyAndGenerate}>
+                  <FileDown className="w-4 h-4 mr-2" />
+                  Apply & Generate PDF
+                </Button>
+              </div>
+            </div>
+            <div className="mt-4">
+              <Label className="mb-2 block">Load Template</Label>
+              <TemplateSelector
+                templates={templates || []}
+                selectedTemplateId={selectedTemplateId}
+                onSelectTemplate={handleLoadTemplate}
+                onDeleteTemplate={(id) => deleteTemplateMutation.mutate(id)}
+              />
+            </div>
+          </DialogHeader>
+
+          <div className="flex flex-1 overflow-hidden border-t">
+            {/* Preview Panel */}
+            <ScrollArea className="flex-1 p-6 bg-muted/30">
+              <LivePreview
+                settings={currentSettings}
+                selectedElement={selectedElement}
+                onSelectElement={handleSelectElement}
+                reportType={reportType}
+              />
+            </ScrollArea>
+
+            {/* Style Editor Panel */}
+            <div className="w-80 border-l bg-background">
+              <StylePanel
+                selectedElement={selectedElement}
+                elementType={elementType}
+                level={elementLevel}
+                currentStyles={currentSettings}
+                onStyleChange={handleStyleChange}
+                onReset={handleReset}
+              />
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Save Template Dialog */}
+      <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Save Template</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="template-name">Template Name *</Label>
+              <Input
+                id="template-name"
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                placeholder="e.g., Company Branding 2024"
+              />
+            </div>
+            <div>
+              <Label htmlFor="template-description">Description</Label>
+              <Textarea
+                id="template-description"
+                value={templateDescription}
+                onChange={(e) => setTemplateDescription(e.target.value)}
+                placeholder="Optional description of this template"
+              />
+            </div>
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="set-default"
+                checked={setAsDefault}
+                onCheckedChange={(checked) => setSetAsDefault(checked as boolean)}
+              />
+              <Label htmlFor="set-default" className="cursor-pointer">
+                Set as default template
+              </Label>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2 mt-4">
+            <Button variant="outline" onClick={() => setSaveDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={() => saveTemplateMutation.mutate()}
+              disabled={!templateName || saveTemplateMutation.isPending}
+            >
+              {saveTemplateMutation.isPending && (
+                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+              )}
+              Save
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+};
