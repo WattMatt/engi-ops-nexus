@@ -63,7 +63,7 @@ export function UploadTemplateDialog({
       if (!user) throw new Error("User not authenticated");
 
       const { error: insertError } = await supabase
-        .from("document_templates")
+        .from("document_templates" as any)
         .insert({
           name: name.trim(),
           description: description.trim() || null,
