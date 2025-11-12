@@ -169,30 +169,52 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       const kpiSpacing = 8;
       
       // First Row: Original Budget, Previous Report, Anticipated Final
+      // Helper function to create gradient background
+      const createGradientCard = (x: number, y: number, width: number, height: number, color1: number[], color2: number[]) => {
+        const steps = 10;
+        const stepHeight = height / steps;
+        for (let i = 0; i < steps; i++) {
+          const ratio = i / steps;
+          const r = Math.round(color1[0] + (color2[0] - color1[0]) * ratio);
+          const g = Math.round(color1[1] + (color2[1] - color1[1]) * ratio);
+          const b = Math.round(color1[2] + (color2[2] - color1[2]) * ratio);
+          doc.setFillColor(r, g, b);
+          doc.rect(x, y + i * stepHeight, width, stepHeight, 'F');
+        }
+      };
+      
       // Original Budget Card
-      doc.setDrawColor(0, 200, 200);
+      createGradientCard(contentStartX, kpiY, kpiCardWidth, kpiCardHeight, [20, 184, 166], [13, 148, 136]);
+      doc.setDrawColor(20, 184, 166);
       doc.setLineWidth(0.5);
       doc.rect(contentStartX, kpiY, kpiCardWidth, kpiCardHeight);
       doc.setFontSize(7);
       doc.setFont("helvetica", "normal");
+      doc.setTextColor(255, 255, 255);
       doc.text("Original Budget", contentStartX + 2, kpiY + 4);
       doc.setFontSize(10);
       doc.setFont("helvetica", "bold");
       doc.text(`R${totalOriginalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, contentStartX + 2, kpiY + 12);
       
       // Previous Report Card
+      createGradientCard(contentStartX + kpiCardWidth + kpiSpacing, kpiY, kpiCardWidth, kpiCardHeight, [59, 130, 246], [37, 99, 235]);
+      doc.setDrawColor(59, 130, 246);
       doc.rect(contentStartX + kpiCardWidth + kpiSpacing, kpiY, kpiCardWidth, kpiCardHeight);
       doc.setFontSize(7);
       doc.setFont("helvetica", "normal");
+      doc.setTextColor(255, 255, 255);
       doc.text("Previous Report", contentStartX + kpiCardWidth + kpiSpacing + 2, kpiY + 4);
       doc.setFontSize(10);
       doc.setFont("helvetica", "bold");
       doc.text(`R${totalPreviousReport.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, contentStartX + kpiCardWidth + kpiSpacing + 2, kpiY + 12);
       
       // Anticipated Final Card
+      createGradientCard(contentStartX + (kpiCardWidth + kpiSpacing) * 2, kpiY, kpiCardWidth, kpiCardHeight, [139, 92, 246], [124, 58, 237]);
+      doc.setDrawColor(139, 92, 246);
       doc.rect(contentStartX + (kpiCardWidth + kpiSpacing) * 2, kpiY, kpiCardWidth, kpiCardHeight);
       doc.setFontSize(7);
       doc.setFont("helvetica", "normal");
+      doc.setTextColor(255, 255, 255);
       doc.text("Anticipated Final", contentStartX + (kpiCardWidth + kpiSpacing) * 2 + 2, kpiY + 4);
       doc.setFontSize(10);
       doc.setFont("helvetica", "bold");
@@ -204,29 +226,35 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       const cardStartX = contentStartX + (contentWidth - (twoCardWidth * 2 + kpiSpacing)) / 2;
       
       // Current Variance Card
-      doc.setDrawColor(currentVariance < 0 ? 0 : 255, currentVariance < 0 ? 200 : 100, currentVariance < 0 ? 0 : 0);
+      const currentVarianceColors = currentVariance < 0 
+        ? [[34, 197, 94], [22, 163, 74]] // Green gradient for saving
+        : [[239, 68, 68], [220, 38, 38]]; // Red gradient for extra
+      createGradientCard(cardStartX, kpiY, twoCardWidth, kpiCardHeight, currentVarianceColors[0], currentVarianceColors[1]);
+      doc.setDrawColor(currentVarianceColors[0][0], currentVarianceColors[0][1], currentVarianceColors[0][2]);
       doc.rect(cardStartX, kpiY, twoCardWidth, kpiCardHeight);
       doc.setFontSize(7);
       doc.setFont("helvetica", "normal");
-      doc.setTextColor(0, 0, 0);
+      doc.setTextColor(255, 255, 255);
       doc.text(`Current ${currentVariance < 0 ? '(Saving)' : 'Extra'}`, cardStartX + 2, kpiY + 4);
       doc.setFontSize(10);
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(currentVariance < 0 ? 0 : 255, currentVariance < 0 ? 150 : 0, 0);
       doc.text(`R${Math.abs(currentVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, cardStartX + 2, kpiY + 12);
       doc.setFontSize(6);
       doc.text(`${currentVariancePercentage.toFixed(2)}% vs Previous`, cardStartX + 2, kpiY + 18);
       
       // Original Variance Card
-      doc.setDrawColor(originalVariance < 0 ? 0 : 255, originalVariance < 0 ? 200 : 100, originalVariance < 0 ? 0 : 0);
+      const originalVarianceColors = originalVariance < 0 
+        ? [[34, 197, 94], [22, 163, 74]] // Green gradient for saving
+        : [[239, 68, 68], [220, 38, 38]]; // Red gradient for extra
+      createGradientCard(cardStartX + twoCardWidth + kpiSpacing, kpiY, twoCardWidth, kpiCardHeight, originalVarianceColors[0], originalVarianceColors[1]);
+      doc.setDrawColor(originalVarianceColors[0][0], originalVarianceColors[0][1], originalVarianceColors[0][2]);
       doc.rect(cardStartX + twoCardWidth + kpiSpacing, kpiY, twoCardWidth, kpiCardHeight);
       doc.setFontSize(7);
       doc.setFont("helvetica", "normal");
-      doc.setTextColor(0, 0, 0);
+      doc.setTextColor(255, 255, 255);
       doc.text(`${originalVariance < 0 ? '(Saving)' : 'Extra'} vs Original`, cardStartX + twoCardWidth + kpiSpacing + 2, kpiY + 4);
       doc.setFontSize(10);
       doc.setFont("helvetica", "bold");
-      doc.setTextColor(originalVariance < 0 ? 0 : 255, originalVariance < 0 ? 150 : 0, 0);
       doc.text(`R${Math.abs(originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, cardStartX + twoCardWidth + kpiSpacing + 2, kpiY + 12);
       doc.setFontSize(6);
       doc.text(`${originalVariancePercentage.toFixed(2)}% vs Original`, cardStartX + twoCardWidth + kpiSpacing + 2, kpiY + 18);
@@ -643,33 +671,39 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           const cardSpacing = 6;
           
           // Row 1: Original Budget, Previous Report, Anticipated Final
-          doc.setDrawColor(categoryColor[0], categoryColor[1], categoryColor[2]);
           doc.setLineWidth(0.5);
-          doc.setTextColor(0, 0, 0);
           
           // Original Budget
+          createGradientCard(contentStartX, summaryY, cardWidth, cardHeight, [20, 184, 166], [13, 148, 136]);
+          doc.setDrawColor(20, 184, 166);
           doc.rect(contentStartX, summaryY, cardWidth, cardHeight);
           doc.setFontSize(7);
           doc.setFont("helvetica", "normal");
-          doc.setTextColor(0, 0, 0);
+          doc.setTextColor(255, 255, 255);
           doc.text("Original Budget", contentStartX + 2, summaryY + 4);
           doc.setFontSize(9);
           doc.setFont("helvetica", "bold");
           doc.text(`R${catTotals.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, contentStartX + 2, summaryY + 12);
           
           // Previous Report
+          createGradientCard(contentStartX + cardWidth + cardSpacing, summaryY, cardWidth, cardHeight, [59, 130, 246], [37, 99, 235]);
+          doc.setDrawColor(59, 130, 246);
           doc.rect(contentStartX + cardWidth + cardSpacing, summaryY, cardWidth, cardHeight);
           doc.setFontSize(7);
           doc.setFont("helvetica", "normal");
+          doc.setTextColor(255, 255, 255);
           doc.text("Previous Report", contentStartX + cardWidth + cardSpacing + 2, summaryY + 4);
           doc.setFontSize(9);
           doc.setFont("helvetica", "bold");
           doc.text(`R${catTotals.previousReport.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, contentStartX + cardWidth + cardSpacing + 2, summaryY + 12);
           
           // Anticipated Final
+          createGradientCard(contentStartX + (cardWidth + cardSpacing) * 2, summaryY, cardWidth, cardHeight, [139, 92, 246], [124, 58, 237]);
+          doc.setDrawColor(139, 92, 246);
           doc.rect(contentStartX + (cardWidth + cardSpacing) * 2, summaryY, cardWidth, cardHeight);
           doc.setFontSize(7);
           doc.setFont("helvetica", "normal");
+          doc.setTextColor(255, 255, 255);
           doc.text("Anticipated Final", contentStartX + (cardWidth + cardSpacing) * 2 + 2, summaryY + 4);
           doc.setFontSize(9);
           doc.setFont("helvetica", "bold");
@@ -681,29 +715,37 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           const twoCardStartX = contentStartX + (contentWidth - (twoCardWidth * 2 + cardSpacing)) / 2;
           
           // Current Variance
-          doc.setDrawColor(catTotals.currentVariance < 0 ? 0 : 255, catTotals.currentVariance < 0 ? 200 : 100, catTotals.currentVariance < 0 ? 0 : 0);
+          const catCurrentVarianceColors = catTotals.currentVariance < 0 
+            ? [[34, 197, 94], [22, 163, 74]] 
+            : [[239, 68, 68], [220, 38, 38]];
+          createGradientCard(twoCardStartX, summaryY, twoCardWidth, cardHeight, catCurrentVarianceColors[0], catCurrentVarianceColors[1]);
+          doc.setDrawColor(catCurrentVarianceColors[0][0], catCurrentVarianceColors[0][1], catCurrentVarianceColors[0][2]);
           doc.setTextColor(0, 0, 0);
           doc.rect(twoCardStartX, summaryY, twoCardWidth, cardHeight);
           doc.setFontSize(7);
           doc.setFont("helvetica", "normal");
-          doc.setTextColor(0, 0, 0);
+          doc.setTextColor(255, 255, 255);
           doc.text(`Current ${catTotals.currentVariance < 0 ? '(Saving)' : 'Extra'}`, twoCardStartX + 2, summaryY + 4);
           doc.setFontSize(9);
           doc.setFont("helvetica", "bold");
-          doc.setTextColor(catTotals.currentVariance < 0 ? 0 : 255, catTotals.currentVariance < 0 ? 150 : 0, 0);
+          doc.setTextColor(255, 255, 255);
           doc.text(`${catTotals.currentVariance >= 0 ? '+' : ''}R${Math.abs(catTotals.currentVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, twoCardStartX + 2, summaryY + 12);
           
           // Original Variance
-          doc.setDrawColor(catTotals.originalVariance < 0 ? 0 : 255, catTotals.originalVariance < 0 ? 200 : 100, catTotals.originalVariance < 0 ? 0 : 0);
+          const catOriginalVarianceColors = catTotals.originalVariance < 0 
+            ? [[34, 197, 94], [22, 163, 74]] 
+            : [[239, 68, 68], [220, 38, 38]];
+          createGradientCard(twoCardStartX + twoCardWidth + cardSpacing, summaryY, twoCardWidth, cardHeight, catOriginalVarianceColors[0], catOriginalVarianceColors[1]);
+          doc.setDrawColor(catOriginalVarianceColors[0][0], catOriginalVarianceColors[0][1], catOriginalVarianceColors[0][2]);
           doc.setTextColor(0, 0, 0);
           doc.rect(twoCardStartX + twoCardWidth + cardSpacing, summaryY, twoCardWidth, cardHeight);
           doc.setFontSize(7);
           doc.setFont("helvetica", "normal");
-          doc.setTextColor(0, 0, 0);
+          doc.setTextColor(255, 255, 255);
           doc.text(`${catTotals.originalVariance < 0 ? '(Saving)' : 'Extra'} vs Original`, twoCardStartX + twoCardWidth + cardSpacing + 2, summaryY + 4);
           doc.setFontSize(9);
           doc.setFont("helvetica", "bold");
-          doc.setTextColor(catTotals.originalVariance < 0 ? 0 : 255, catTotals.originalVariance < 0 ? 150 : 0, 0);
+          doc.setTextColor(255, 255, 255);
           doc.text(`${catTotals.originalVariance >= 0 ? '+' : ''}R${Math.abs(catTotals.originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, twoCardStartX + twoCardWidth + cardSpacing + 2, summaryY + 12);
           
           summaryY += cardHeight + 10;
