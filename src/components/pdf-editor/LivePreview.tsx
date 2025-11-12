@@ -160,6 +160,13 @@ export const LivePreview = ({
 
   const handleTextExtracted = (items: ExtractedTextItem[]) => {
     console.log(`[LivePreview] Received ${items.length} extracted text items`);
+    
+    if (items.length === 0) {
+      console.warn('[LivePreview] No text items extracted from PDF');
+    } else {
+      console.log('[LivePreview] First text item:', items[0]);
+    }
+    
     setExtractedText(items);
     
     if (items.length > 0) {
@@ -181,6 +188,11 @@ export const LivePreview = ({
 
   const handleImagesExtracted = (images: ExtractedImage[]) => {
     console.log(`[LivePreview] Received ${images.length} extracted images`);
+    
+    if (images.length === 0) {
+      console.warn('[LivePreview] No images extracted from PDF');
+    }
+    
     setExtractedImages(images);
     
     // Notify parent
@@ -195,6 +207,11 @@ export const LivePreview = ({
 
   const handleShapesExtracted = (shapes: ExtractedShape[]) => {
     console.log(`[LivePreview] Received ${shapes.length} extracted shapes`);
+    
+    if (shapes.length === 0) {
+      console.warn('[LivePreview] No shapes extracted from PDF');
+    }
+    
     setExtractedShapes(shapes);
     
     // Notify parent
@@ -397,6 +414,7 @@ export const LivePreview = ({
       {/* PDF Text Extractor */}
       {enablePDFEditing && pdfUrl && (
         <>
+          {console.log('[LivePreview] Rendering extractors for PDF:', pdfUrl, 'Page:', currentPage)}
           <PDFTextExtractor
             pdfUrl={pdfUrl}
             currentPage={currentPage}

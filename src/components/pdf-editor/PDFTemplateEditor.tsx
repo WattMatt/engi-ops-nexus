@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -91,14 +91,30 @@ export const PDFTemplateEditor = ({
 
   // Handle elements extracted callback
   const handleElementsExtracted = (elements: { text: any[]; images: any[]; shapes: any[] }) => {
+    console.log('[PDF Editor] Elements extracted:', {
+      text: elements.text.length,
+      images: elements.images.length,
+      shapes: elements.shapes.length,
+    });
+    
     setExtractedText(elements.text);
     setExtractedImages(elements.images);
     setExtractedShapes(elements.shapes);
     
-    toast({
-      title: "Elements extracted",
-      description: `Found ${elements.text.length} text, ${elements.images.length} images, ${elements.shapes.length} shapes`,
-    });
+    const totalCount = elements.text.length + elements.images.length + elements.shapes.length;
+    
+    if (totalCount > 0) {
+      toast({
+        title: "Elements extracted",
+        description: `Found ${elements.text.length} text, ${elements.images.length} images, ${elements.shapes.length} shapes`,
+      });
+    } else {
+      toast({
+        title: "No elements found",
+        description: "The PDF might be image-based or have no extractable content",
+        variant: "destructive",
+      });
+    }
   };
 
   // Get data for selected element
@@ -279,11 +295,12 @@ export const PDFTemplateEditor = ({
   };
 
   // Load PDF URL when dialog opens
-  useState(() => {
+  useEffect(() => {
     if (open && reportPdfUrl) {
+      console.log('[PDF Editor] Loading PDF URL:', reportPdfUrl);
       setPdfUrl(reportPdfUrl);
     }
-  });
+  }, [open, reportPdfUrl]);
 
   // Fetch templates
   const { data: templates, isLoading } = useQuery({
