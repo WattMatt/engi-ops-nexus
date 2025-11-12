@@ -5,9 +5,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { ArrowLeft, Zap, FileText, Settings, Download, Sparkles } from "lucide-react";
+import { ArrowLeft, Zap, FileText, Settings, Download, Sparkles, Wand2 } from "lucide-react";
 import { TemplateLibrary } from "@/components/pdf-templates/TemplateLibrary";
 import { PDFTemplateDesigner } from "@/components/pdf-templates/PDFTemplateDesigner";
+import { SmartTemplateBuilder, TemplateConfig } from "@/components/pdf-templates/SmartTemplateBuilder";
 import {
   Select,
   SelectContent,
@@ -24,6 +25,7 @@ const PDFTemplates = () => {
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [selectedReportId, setSelectedReportId] = useState<string>("");
   const [advancedMode, setAdvancedMode] = useState(false);
+  const [smartBuilderMode, setSmartBuilderMode] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>();
 
   // Fetch projects
@@ -100,6 +102,63 @@ const PDFTemplates = () => {
       default: return "";
     }
   };
+
+  const handleSmartGenerate = (config: TemplateConfig) => {
+    // For now, navigate to the report page with the config
+    // In a full implementation, this would generate a custom PDF based on the config
+    console.log("Smart template config:", config);
+    handleQuickExport();
+  };
+
+  if (smartBuilderMode) {
+    return (
+      <div className="min-h-screen bg-background">
+        <div className="border-b bg-card">
+          <div className="container mx-auto px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <Button variant="ghost" size="sm" onClick={() => setSmartBuilderMode(false)}>
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back
+                </Button>
+                <div>
+                  <h2 className="text-xl font-semibold">Smart Template Builder</h2>
+                  <p className="text-sm text-muted-foreground">
+                    Customize your PDF template with easy-to-use options
+                  </p>
+                </div>
+              </div>
+              <Badge variant="secondary">Smart Mode</Badge>
+            </div>
+          </div>
+        </div>
+        <div className="container mx-auto px-6 py-8">
+          {selectedProjectId && selectedReportId ? (
+            <SmartTemplateBuilder
+              category={category}
+              projectId={selectedProjectId}
+              reportId={selectedReportId}
+              onGenerate={handleSmartGenerate}
+            />
+          ) : (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <p className="text-muted-foreground">
+                  Please select a project and report first
+                </p>
+                <Button
+                  className="mt-4"
+                  onClick={() => setSmartBuilderMode(false)}
+                >
+                  Go Back
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (advancedMode) {
     return (
@@ -211,6 +270,38 @@ const PDFTemplates = () => {
                   <Download className="h-4 w-4 mr-2" />
                   Export {getCategoryLabel()} PDF
                 </Button>
+              </CardContent>
+            </Card>
+
+            <Separator />
+
+            {/* Smart Template Builder Section */}
+            <Card className="border-primary/20 bg-gradient-to-br from-accent/5 to-accent/10">
+              <CardHeader>
+                <div className="flex items-center gap-2">
+                  <Wand2 className="h-5 w-5 text-accent-foreground" />
+                  <CardTitle>Smart Template Builder</CardTitle>
+                  <Badge>Easy Customization</Badge>
+                </div>
+                <CardDescription>
+                  Customize which sections to include with simple checkboxes and layout options
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button 
+                  size="lg"
+                  variant="default"
+                  onClick={() => setSmartBuilderMode(true)}
+                  disabled={!selectedProjectId || !selectedReportId}
+                >
+                  <Wand2 className="h-4 w-4 mr-2" />
+                  Build Custom Template
+                </Button>
+                {(!selectedProjectId || !selectedReportId) && (
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Please select a project and report first
+                  </p>
+                )}
               </CardContent>
             </Card>
 
