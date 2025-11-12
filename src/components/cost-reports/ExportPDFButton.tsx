@@ -321,31 +321,34 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
             fillColor: colors.primary, 
             textColor: colors.white, 
             fontStyle: 'bold',
-            fontSize: 7.5,
-            cellPadding: 3.5,
+            fontSize: 8,
+            cellPadding: 4,
             lineWidth: 0.1,
-            lineColor: colors.light
+            lineColor: colors.light,
+            valign: 'middle',
+            halign: 'center'
           },
           bodyStyles: { 
-            fontSize: 7.5,
-            cellPadding: 3,
-            minCellHeight: 10,
+            fontSize: 8,
+            cellPadding: 4,
+            minCellHeight: 12,
             textColor: colors.text,
             lineWidth: 0.1,
-            lineColor: [226, 232, 240]
+            lineColor: [226, 232, 240],
+            valign: 'middle'
           },
           alternateRowStyles: {
             fillColor: [248, 250, 252]
           },
           columnStyles: {
-            0: { cellWidth: 10, fontStyle: 'bold', halign: 'center' },
-            1: { cellWidth: contentWidth * 0.18 },
-            2: { cellWidth: contentWidth * 0.135, halign: 'right' },
-            3: { cellWidth: contentWidth * 0.135, halign: 'right' },
-            4: { cellWidth: contentWidth * 0.135, halign: 'right' },
-            5: { cellWidth: contentWidth * 0.07, halign: 'center' },
-            6: { cellWidth: contentWidth * 0.135, halign: 'right' },
-            7: { cellWidth: contentWidth * 0.135, halign: 'right' }
+            0: { cellWidth: 12, fontStyle: 'bold', halign: 'center' },
+            1: { cellWidth: 45, halign: 'left', cellPadding: { left: 5, right: 3, top: 4, bottom: 4 } },
+            2: { cellWidth: 26, halign: 'right', cellPadding: { right: 5 } },
+            3: { cellWidth: 26, halign: 'right', cellPadding: { right: 5 } },
+            4: { cellWidth: 26, halign: 'right', cellPadding: { right: 5 } },
+            5: { cellWidth: 12, halign: 'center' },
+            6: { cellWidth: 26, halign: 'right', cellPadding: { right: 5 } },
+            7: { cellWidth: 26, halign: 'right', cellPadding: { right: 5 } }
           },
           didDrawCell: (data) => {
             // Add colored indicator bar on the left of each row (except totals row)
@@ -667,8 +670,28 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           `${cat.originalVariance >= 0 ? '+' : ''}R ${Math.abs(cat.originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`
         ]),
         theme: 'grid',
-        styles: { fontSize: 8, cellPadding: 3 },
-        headStyles: { fillColor: [30, 58, 138], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7 }
+        styles: { 
+          fontSize: 8, 
+          cellPadding: 4,
+          valign: 'middle' 
+        },
+        headStyles: { 
+          fillColor: [30, 58, 138], 
+          textColor: [255, 255, 255], 
+          fontStyle: 'bold', 
+          fontSize: 8,
+          halign: 'center',
+          valign: 'middle'
+        },
+        columnStyles: {
+          0: { cellWidth: 12, halign: 'center' },
+          1: { cellWidth: 45, halign: 'left' },
+          2: { halign: 'right' },
+          3: { halign: 'right' },
+          4: { halign: 'right' },
+          5: { halign: 'right' },
+          6: { halign: 'right' }
+        }
       });
 
       // ========== DETAILED LINE ITEMS PAGES ==========
@@ -811,16 +834,29 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
               ];
             }),
             theme: 'grid',
-            styles: { fontSize: 8, cellPadding: 2 },
-            headStyles: { fillColor: [categoryColor[0], categoryColor[1], categoryColor[2]], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7 },
+            styles: { 
+              fontSize: 8, 
+              cellPadding: 4,
+              valign: 'middle',
+              minCellHeight: 10
+            },
+            headStyles: { 
+              fillColor: [categoryColor[0], categoryColor[1], categoryColor[2]], 
+              textColor: [255, 255, 255], 
+              fontStyle: 'bold', 
+              fontSize: 8,
+              halign: 'center',
+              valign: 'middle',
+              cellPadding: 4
+            },
             columnStyles: {
-              0: { cellWidth: 12 },
-              1: { cellWidth: contentWidth * 0.30 },
-              2: { cellWidth: contentWidth * 0.12, halign: 'right' },
-              3: { cellWidth: contentWidth * 0.12, halign: 'right' },
-              4: { cellWidth: contentWidth * 0.12, halign: 'right' },
-              5: { cellWidth: contentWidth * 0.12, halign: 'right' },
-              6: { cellWidth: contentWidth * 0.12, halign: 'right' }
+              0: { cellWidth: 15, halign: 'center' },
+              1: { cellWidth: 52, halign: 'left', cellPadding: { left: 4, right: 3 } },
+              2: { cellWidth: 24, halign: 'right', cellPadding: { right: 4 } },
+              3: { cellWidth: 24, halign: 'right', cellPadding: { right: 4 } },
+              4: { cellWidth: 24, halign: 'right', cellPadding: { right: 4 } },
+              5: { cellWidth: 24, halign: 'right', cellPadding: { right: 4 } },
+              6: { cellWidth: 24, halign: 'right', cellPadding: { right: 4 } }
             },
             didDrawCell: (data) => {
               // Add colored bar on the left side of each row
@@ -892,10 +928,26 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
             v.is_credit ? 'Credit' : 'Debit'
           ]),
           theme: 'grid',
-          styles: { fontSize: 9, cellPadding: 3 },
-          headStyles: { fillColor: [30, 58, 138], textColor: [255, 255, 255], fontStyle: 'bold' },
+          styles: { 
+            fontSize: 9, 
+            cellPadding: 4,
+            valign: 'middle',
+            minCellHeight: 10
+          },
+          headStyles: { 
+            fillColor: [30, 58, 138], 
+            textColor: [255, 255, 255], 
+            fontStyle: 'bold',
+            fontSize: 9,
+            halign: 'center',
+            valign: 'middle',
+            cellPadding: 4
+          },
           columnStyles: {
-            1: { cellWidth: contentWidth * 0.5 }
+            0: { cellWidth: 15, halign: 'center' },
+            1: { cellWidth: 95, halign: 'left', cellPadding: { left: 4, right: 3 } },
+            2: { cellWidth: 30, halign: 'right', cellPadding: { right: 4 } },
+            3: { cellWidth: 20, halign: 'center' }
           }
         });
       }
