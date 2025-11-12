@@ -7,7 +7,7 @@ import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchCompanyDetails, generateCoverPage } from "@/utils/pdfCoverPage";
 import { StandardReportPreview } from "@/components/shared/StandardReportPreview";
-import { PDFExportSettings, DEFAULT_MARGINS, type PDFMargins } from "./PDFExportSettings";
+import { PDFExportSettings, DEFAULT_MARGINS, DEFAULT_SECTIONS, type PDFMargins, type PDFSectionOptions } from "./PDFExportSettings";
 import { calculateCategoryTotals, calculateGrandTotals, validateTotals } from "@/utils/costReportCalculations";
 import { ValidationWarningDialog } from "./ValidationWarningDialog";
 import { captureKPICards, prepareElementForCapture, canvasToDataURL } from "@/utils/captureUIForPDF";
@@ -24,11 +24,12 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
   const [previewReport, setPreviewReport] = useState<any>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [margins, setMargins] = useState<PDFMargins>(DEFAULT_MARGINS);
+  const [sections, setSections] = useState<PDFSectionOptions>(DEFAULT_SECTIONS);
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
   const [validationMismatches, setValidationMismatches] = useState<string[]>([]);
   const [pendingExport, setPendingExport] = useState(false);
 
-  const handleExport = async (useMargins: PDFMargins = margins, skipValidation: boolean = false) => {
+  const handleExport = async (useMargins: PDFMargins = margins, useSections: PDFSectionOptions = sections, skipValidation: boolean = false) => {
     setLoading(true);
     setCurrentSection("Fetching data...");
     try {
@@ -105,20 +106,25 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
 
       setCurrentSection("Generating cover page...");
       // ========== COVER PAGE ==========
-      await generateCoverPage(doc, {
-        title: "Cost Report",
-        projectName: report.project_name,
-        subtitle: `Report #${report.report_number}`,
-        revision: `Report ${report.report_number}`,
-      }, companyDetails);
+      if (useSections.coverPage) {
+        await generateCoverPage(doc, {
+          title: "Cost Report",
+          projectName: report.project_name,
+          subtitle: `Report #${report.report_number}`,
+          revision: `Report ${report.report_number}`,
+        }, companyDetails);
+      }
 
       setCurrentSection("Creating table of contents...");
       // ========== TABLE OF CONTENTS ==========
-      doc.addPage();
-      const tocPage = doc.getCurrentPageInfo().pageNumber;
-      doc.setFontSize(24);
-      doc.setFont("helvetica", "bold");
-      doc.text("TABLE OF CONTENTS", pageWidth / 2, contentStartY + 10, { align: "center" });
+      let tocPage = 0;
+      if (useSections.tableOfContents) {
+        doc.addPage();
+        tocPage = doc.getCurrentPageInfo().pageNumber;
+        doc.setFontSize(24);
+        doc.setFont("helvetica", "bold");
+        doc.text("TABLE OF CONTENTS", pageWidth / 2, contentStartY + 10, { align: "center" });
+      }
 
       // We'll fill this in after generating all pages
       const tocStartY = contentStartY + 30;
@@ -147,326 +153,353 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         ? ((Math.abs(originalVariance) / totalOriginalBudget) * 100) 
         : 0;
 
-      setCurrentSection("Capturing UI components...");
-      // Capture the KPI cards from the actual rendered UI
-      await prepareElementForCapture("cost-report-kpi-cards");
-      const kpiCardsCanvas = await captureKPICards("cost-report-kpi-cards", { scale: 2 });
-      
-      // Validate canvas dimensions before proceeding
-      if (!kpiCardsCanvas || kpiCardsCanvas.width === 0 || kpiCardsCanvas.height === 0) {
-        throw new Error("Failed to capture KPI cards - invalid canvas dimensions");
-      }
-      
-      const kpiCardsImage = canvasToDataURL(kpiCardsCanvas, 'JPEG', 0.9);
-      
       setCurrentSection("Generating executive summary...");
       // ========== EXECUTIVE SUMMARY PAGE ==========
-      doc.addPage();
-      tocSections.push({ title: "Executive Summary", page: doc.getCurrentPageInfo().pageNumber });
-      
-      doc.setFillColor(30, 58, 138);
-      doc.rect(0, 0, pageWidth, 40, 'F');
-      doc.setFontSize(20);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(255, 255, 255);
-      doc.text("EXECUTIVE SUMMARY", pageWidth / 2, 20, { align: "center" });
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "normal");
-      doc.text("Key Performance Indicators & Financial Overview", pageWidth / 2, 30, { align: "center" });
-
-      // Helper function to create gradient background (used elsewhere in the PDF)
-      const createGradientCard = (x: number, y: number, width: number, height: number, color1: number[], color2: number[]) => {
-        const steps = 10;
-        const stepHeight = height / steps;
-        for (let i = 0; i < steps; i++) {
-          const ratio = i / steps;
-          const r = Math.round(color1[0] + (color2[0] - color1[0]) * ratio);
-          const g = Math.round(color1[1] + (color2[1] - color1[1]) * ratio);
-          const b = Math.round(color1[2] + (color2[2] - color1[2]) * ratio);
-          doc.setFillColor(r, g, b);
-          doc.rect(x, y + i * stepHeight, width, stepHeight, 'F');
-        }
-      };
-
-      // Add captured KPI cards image
-      doc.setTextColor(0, 0, 0);
-      let kpiY = contentStartY + 35;
-      
-      // Calculate dimensions to fit the captured image - validate to prevent NaN/Infinity
-      const kpiImageAspectRatio = kpiCardsCanvas.width / kpiCardsCanvas.height;
-      const kpiImageWidth = contentWidth;
-      const kpiImageHeight = kpiImageWidth / kpiImageAspectRatio;
-      
-      // Final validation before adding image
-      if (!isFinite(kpiImageHeight) || kpiImageHeight <= 0) {
-        throw new Error("Invalid image dimensions calculated");
-      }
-      
-      doc.addImage(kpiCardsImage, 'JPEG', contentStartX, kpiY, kpiImageWidth, kpiImageHeight, undefined, 'FAST');
-      
-      kpiY += kpiImageHeight + 5;
-
-      // Define colors for all visual elements
-      const cardColors = [
-        [59, 130, 246],   // Blue
-        [16, 185, 129],   // Green
-        [251, 191, 36],   // Yellow
-        [249, 115, 22],   // Orange
-        [139, 92, 246],   // Purple
-        [236, 72, 153],   // Pink
-        [134, 239, 172]   // Light green
-      ];
-
-      // Category Distribution & Financial Variance Table
-      doc.setTextColor(0, 0, 0);
-      let tableY = kpiY + 15;
-      
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "bold");
-      doc.text("Category Distribution & Financial Variance", contentStartX, tableY);
-      tableY += 10;
-
-      // Prepare table data matching the category summary structure
-      const tableData = categoryTotals.map((cat: any, index: number) => {
-        const percentage = totalAnticipatedFinal > 0 
-          ? ((cat.anticipatedFinal / totalAnticipatedFinal) * 100).toFixed(1)
-          : '0.0';
+      if (useSections.executiveSummary) {
+        // Capture the KPI cards from the actual rendered UI
+        setCurrentSection("Capturing UI components...");
+        await prepareElementForCapture("cost-report-kpi-cards");
+        const kpiCardsCanvas = await captureKPICards("cost-report-kpi-cards", { scale: 2 });
         
-        return [
-          cat.code,
-          cat.description,
-          `R${cat.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-          `R${cat.previousReport.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-          `R${cat.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-          `${percentage}%`,
-          `${cat.currentVariance >= 0 ? '+' : ''}R${Math.abs(cat.currentVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-          `${cat.originalVariance >= 0 ? '+' : ''}R${Math.abs(cat.originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`
-        ];
-      });
-
-      // Add totals row
-      tableData.push([
-        '',
-        'GRAND TOTAL',
-        `R${totalOriginalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-        `R${totalPreviousReport.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-        `R${totalAnticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-        '100%',
-        `${currentVariance >= 0 ? '+' : ''}R${Math.abs(currentVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-        `${originalVariance >= 0 ? '+' : ''}R${Math.abs(originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`
-      ]);
-
-      autoTable(doc, {
-        startY: tableY,
-        margin: { left: contentStartX, right: useMargins.right },
-        head: [[
-          'Code',
-          'Category',
-          'Original Budget',
-          'Previous Report',
-          'Anticipated Final',
-          '% of Total',
-          'Current Variance',
-          'Original Variance'
-        ]],
-        body: tableData,
-        theme: 'grid',
-        headStyles: { 
-          fillColor: [30, 58, 138], 
-          textColor: [255, 255, 255], 
-          fontStyle: 'bold',
-          fontSize: 6.5,
-          cellPadding: 2
-        },
-        bodyStyles: { 
-          fontSize: 6.5,
-          cellPadding: 2,
-          minCellHeight: 8
-        },
-        columnStyles: {
-          0: { cellWidth: 10, fontStyle: 'bold', halign: 'center' },
-          1: { cellWidth: contentWidth * 0.18 },
-          2: { cellWidth: contentWidth * 0.135, halign: 'right' },
-          3: { cellWidth: contentWidth * 0.135, halign: 'right' },
-          4: { cellWidth: contentWidth * 0.135, halign: 'right' },
-          5: { cellWidth: contentWidth * 0.07, halign: 'center' },
-          6: { cellWidth: contentWidth * 0.135, halign: 'right' },
-          7: { cellWidth: contentWidth * 0.135, halign: 'right' }
-        },
-        didDrawCell: (data) => {
-          // Add colored indicator bar on the left of each row (except totals row)
-          if (data.section === 'body' && data.column.index === 0 && data.row.index < categoryTotals.length) {
-            const color = cardColors[data.row.index % cardColors.length];
-            doc.setFillColor(color[0], color[1], color[2]);
-            doc.rect(data.cell.x - 3, data.cell.y, 3, data.cell.height, 'F');
-          }
-          
-          // Highlight the totals row
-          if (data.section === 'body' && data.row.index === tableData.length - 1) {
-            data.cell.styles.fillColor = [220, 230, 240];
-            data.cell.styles.fontStyle = 'bold';
-            data.cell.styles.fontSize = 8;
-          }
-          
-          // Color the variance cells
-          if (data.section === 'body' && data.row.index < categoryTotals.length) {
-            const cat = categoryTotals[data.row.index];
-            // Current Variance column
-            if (data.column.index === 6) {
-              if (cat.currentVariance < 0) {
-                data.cell.styles.textColor = [0, 150, 0];
-              } else if (cat.currentVariance > 0) {
-                data.cell.styles.textColor = [255, 0, 0];
-              }
-            }
-            // Original Variance column
-            if (data.column.index === 7) {
-              if (cat.originalVariance < 0) {
-                data.cell.styles.textColor = [0, 150, 0];
-              } else if (cat.originalVariance > 0) {
-                data.cell.styles.textColor = [255, 0, 0];
-              }
-            }
-          }
-          
-          // Color totals row variance
-          if (data.section === 'body' && data.row.index === tableData.length - 1) {
-            if (data.column.index === 6) {
-              if (currentVariance < 0) {
-                data.cell.styles.textColor = [0, 150, 0];
-              } else if (currentVariance > 0) {
-                data.cell.styles.textColor = [255, 0, 0];
-              }
-            }
-            if (data.column.index === 7) {
-              if (originalVariance < 0) {
-                data.cell.styles.textColor = [0, 150, 0];
-              } else if (originalVariance > 0) {
-                data.cell.styles.textColor = [255, 0, 0];
-              }
-            }
-          }
+        // Validate canvas dimensions before proceeding
+        if (!kpiCardsCanvas || kpiCardsCanvas.width === 0 || kpiCardsCanvas.height === 0) {
+          throw new Error("Failed to capture KPI cards - invalid canvas dimensions");
         }
-      });
-
-      let cardY = (doc as any).lastAutoTable.finalY + 15;
-      const cardWidth = (contentWidth - 8) / 2; // Two cards per row
-      const cardHeight = 45;
-      const cardsPerRow = 2;
-      
-      // Check if we need a new page for the cards
-      const totalRows = Math.ceil(categoryTotals.length / cardsPerRow);
-      const totalCardsHeight = totalRows * (cardHeight + 8);
-      
-      if (cardY + totalCardsHeight > pageHeight - useMargins.bottom) {
+        
+        const kpiCardsImage = canvasToDataURL(kpiCardsCanvas, 'JPEG', 0.9);
+        
         doc.addPage();
-        cardY = contentStartY;
-      }
-      
-      categoryTotals.forEach((cat: any, index: number) => {
-        const col = index % cardsPerRow;
-        const row = Math.floor(index / cardsPerRow);
-        const x = contentStartX + col * (cardWidth + 8);
-        const y = cardY + row * (cardHeight + 8);
+        tocSections.push({ title: "Executive Summary", page: doc.getCurrentPageInfo().pageNumber });
         
-        if (y > pageHeight - useMargins.bottom - 60) {
+        doc.setFillColor(30, 58, 138);
+        doc.rect(0, 0, pageWidth, 40, 'F');
+        doc.setFontSize(20);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(255, 255, 255);
+        doc.text("EXECUTIVE SUMMARY", pageWidth / 2, 20, { align: "center" });
+        doc.setFontSize(10);
+        doc.setFont("helvetica", "normal");
+        doc.text("Key Performance Indicators & Financial Overview", pageWidth / 2, 30, { align: "center" });
+
+        // Helper function to create gradient background (used elsewhere in the PDF)
+        const createGradientCard = (x: number, y: number, width: number, height: number, color1: number[], color2: number[]) => {
+          const steps = 10;
+          const stepHeight = height / steps;
+          for (let i = 0; i < steps; i++) {
+            const ratio = i / steps;
+            const r = Math.round(color1[0] + (color2[0] - color1[0]) * ratio);
+            const g = Math.round(color1[1] + (color2[1] - color1[1]) * ratio);
+            const b = Math.round(color1[2] + (color2[2] - color1[2]) * ratio);
+            doc.setFillColor(r, g, b);
+            doc.rect(x, y + i * stepHeight, width, stepHeight, 'F');
+          }
+        };
+
+        // Add captured KPI cards image
+        doc.setTextColor(0, 0, 0);
+        let kpiY = contentStartY + 35;
+        
+        // Calculate dimensions to fit the captured image - validate to prevent NaN/Infinity
+        const kpiImageAspectRatio = kpiCardsCanvas.width / kpiCardsCanvas.height;
+        const kpiImageWidth = contentWidth;
+        const kpiImageHeight = kpiImageWidth / kpiImageAspectRatio;
+        
+        // Final validation before adding image
+        if (!isFinite(kpiImageHeight) || kpiImageHeight <= 0) {
+          throw new Error("Invalid image dimensions calculated");
+        }
+        
+        doc.addImage(kpiCardsImage, 'JPEG', contentStartX, kpiY, kpiImageWidth, kpiImageHeight, undefined, 'FAST');
+        
+        kpiY += kpiImageHeight + 5;
+
+        // Define colors for all visual elements
+        const cardColors = [
+          [59, 130, 246],   // Blue
+          [16, 185, 129],   // Green
+          [251, 191, 36],   // Yellow
+          [249, 115, 22],   // Orange
+          [139, 92, 246],   // Purple
+          [236, 72, 153],   // Pink
+          [134, 239, 172]   // Light green
+        ];
+
+        // Category Distribution & Financial Variance Table
+        doc.setTextColor(0, 0, 0);
+        let tableY = kpiY + 15;
+        
+        doc.setFontSize(12);
+        doc.setFont("helvetica", "bold");
+        doc.text("Category Distribution & Financial Variance", contentStartX, tableY);
+        tableY += 10;
+
+        // Prepare table data matching the category summary structure
+        const tableData = categoryTotals.map((cat: any, index: number) => {
+          const percentage = totalAnticipatedFinal > 0 
+            ? ((cat.anticipatedFinal / totalAnticipatedFinal) * 100).toFixed(1)
+            : '0.0';
+          
+          return [
+            cat.code,
+            cat.description,
+            `R${cat.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+            `R${cat.previousReport.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+            `R${cat.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+            `${percentage}%`,
+            `${cat.currentVariance >= 0 ? '+' : ''}R${Math.abs(cat.currentVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+            `${cat.originalVariance >= 0 ? '+' : ''}R${Math.abs(cat.originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`
+          ];
+        });
+
+        // Add totals row
+        tableData.push([
+          '',
+          'GRAND TOTAL',
+          `R${totalOriginalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+          `R${totalPreviousReport.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+          `R${totalAnticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+          '100%',
+          `${currentVariance >= 0 ? '+' : ''}R${Math.abs(currentVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+          `${originalVariance >= 0 ? '+' : ''}R${Math.abs(originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`
+        ]);
+
+        autoTable(doc, {
+          startY: tableY,
+          margin: { left: contentStartX, right: useMargins.right },
+          head: [[
+            'Code',
+            'Category',
+            'Original Budget',
+            'Previous Report',
+            'Anticipated Final',
+            '% of Total',
+            'Current Variance',
+            'Original Variance'
+          ]],
+          body: tableData,
+          theme: 'grid',
+          headStyles: { 
+            fillColor: [30, 58, 138], 
+            textColor: [255, 255, 255], 
+            fontStyle: 'bold',
+            fontSize: 6.5,
+            cellPadding: 2
+          },
+          bodyStyles: { 
+            fontSize: 6.5,
+            cellPadding: 2,
+            minCellHeight: 8
+          },
+          columnStyles: {
+            0: { cellWidth: 10, fontStyle: 'bold', halign: 'center' },
+            1: { cellWidth: contentWidth * 0.18 },
+            2: { cellWidth: contentWidth * 0.135, halign: 'right' },
+            3: { cellWidth: contentWidth * 0.135, halign: 'right' },
+            4: { cellWidth: contentWidth * 0.135, halign: 'right' },
+            5: { cellWidth: contentWidth * 0.07, halign: 'center' },
+            6: { cellWidth: contentWidth * 0.135, halign: 'right' },
+            7: { cellWidth: contentWidth * 0.135, halign: 'right' }
+          },
+          didDrawCell: (data) => {
+            // Add colored indicator bar on the left of each row (except totals row)
+            if (data.section === 'body' && data.column.index === 0 && data.row.index < categoryTotals.length) {
+              const color = cardColors[data.row.index % cardColors.length];
+              doc.setFillColor(color[0], color[1], color[2]);
+              doc.rect(data.cell.x - 3, data.cell.y, 3, data.cell.height, 'F');
+            }
+            
+            // Highlight the totals row
+            if (data.section === 'body' && data.row.index === tableData.length - 1) {
+              data.cell.styles.fillColor = [220, 230, 240];
+              data.cell.styles.fontStyle = 'bold';
+              data.cell.styles.fontSize = 8;
+            }
+            
+            // Color the variance cells
+            if (data.section === 'body' && data.row.index < categoryTotals.length) {
+              const cat = categoryTotals[data.row.index];
+              // Current Variance column
+              if (data.column.index === 6) {
+                if (cat.currentVariance < 0) {
+                  data.cell.styles.textColor = [0, 150, 0];
+                } else if (cat.currentVariance > 0) {
+                  data.cell.styles.textColor = [255, 0, 0];
+                }
+              }
+              // Original Variance column
+              if (data.column.index === 7) {
+                if (cat.originalVariance < 0) {
+                  data.cell.styles.textColor = [0, 150, 0];
+                } else if (cat.originalVariance > 0) {
+                  data.cell.styles.textColor = [255, 0, 0];
+                }
+              }
+            }
+            
+            // Color totals row variance
+            if (data.section === 'body' && data.row.index === tableData.length - 1) {
+              if (data.column.index === 6) {
+                if (currentVariance < 0) {
+                  data.cell.styles.textColor = [0, 150, 0];
+                } else if (currentVariance > 0) {
+                  data.cell.styles.textColor = [255, 0, 0];
+                }
+              }
+              if (data.column.index === 7) {
+                if (originalVariance < 0) {
+                  data.cell.styles.textColor = [0, 150, 0];
+                } else if (originalVariance > 0) {
+                  data.cell.styles.textColor = [255, 0, 0];
+                }
+              }
+            }
+          }
+        });
+
+        let cardY = (doc as any).lastAutoTable.finalY + 15;
+        const cardWidth = (contentWidth - 8) / 2; // Two cards per row
+        const cardHeight = 45;
+        const cardsPerRow = 2;
+        
+        // Check if we need a new page for the cards
+        const totalRows = Math.ceil(categoryTotals.length / cardsPerRow);
+        const totalCardsHeight = totalRows * (cardHeight + 8);
+        
+        if (cardY + totalCardsHeight > pageHeight - useMargins.bottom) {
           doc.addPage();
           cardY = contentStartY;
         }
+
+        // Define colors for visual elements  
+        const cardColors = [
+          [59, 130, 246],   // Blue
+          [16, 185, 129],   // Green
+          [251, 191, 36],   // Yellow
+          [249, 115, 22],   // Orange
+          [139, 92, 246],   // Purple
+          [236, 72, 153],   // Pink
+          [134, 239, 172]   // Light green
+        ];
+
+        const createGradientCard = (x: number, y: number, width: number, height: number, color1: number[], color2: number[]) => {
+          const steps = 10;
+          const stepHeight = height / steps;
+          for (let i = 0; i < steps; i++) {
+            const ratio = i / steps;
+            const r = Math.round(color1[0] + (color2[0] - color1[0]) * ratio);
+            const g = Math.round(color1[1] + (color2[1] - color1[1]) * ratio);
+            const b = Math.round(color1[2] + (color2[2] - color1[2]) * ratio);
+            doc.setFillColor(r, g, b);
+            doc.rect(x, y + i * stepHeight, width, stepHeight, 'F');
+          }
+        };
         
-        const finalY = row === 0 ? cardY : cardY + row * (cardHeight + 8);
-        const color = cardColors[index % cardColors.length];
-        
-        // Card background with subtle gradient
-        createGradientCard(x, finalY, cardWidth, cardHeight, [250, 250, 250], [255, 255, 255]);
-        
-        // Card border
-        doc.setDrawColor(220, 220, 220);
-        doc.setLineWidth(0.3);
-        doc.rect(x, finalY, cardWidth, cardHeight);
-        
-        // Left colored border (thicker, like border-l-[6px])
-        doc.setFillColor(color[0], color[1], color[2]);
-        doc.rect(x, finalY, 3, cardHeight, 'F');
-        
-        // Badge with rounded corners
-        const badgeX = x + 6;
-        const badgeY = finalY + 6;
-        const badgeSize = 11;
-        
-        doc.setFillColor(color[0], color[1], color[2]);
-        doc.roundedRect(badgeX, badgeY, badgeSize, badgeSize, 2, 2, 'F');
-        
-        // Badge text
-        doc.setFontSize(9);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(255, 255, 255);
-        doc.text(cat.code, badgeX + badgeSize / 2, badgeY + badgeSize / 2 + 2, { align: "center" });
-        
-        // Category name
-        doc.setTextColor(0, 0, 0);
-        doc.setFontSize(9);
-        doc.setFont("helvetica", "bold");
-        const catName = doc.splitTextToSize(cat.description, cardWidth - 25);
-        doc.text(catName, badgeX + badgeSize + 3, finalY + 8);
-        
-        // Original Budget
-        doc.setFontSize(6);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(120, 120, 120);
-        doc.text("ORIGINAL BUDGET", x + 5, finalY + 20);
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(0, 0, 0);
-        doc.text(`R${cat.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, x + 5, finalY + 26);
-        
-        // Anticipated Final
-        doc.setFontSize(6);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(120, 120, 120);
-        doc.text("ANTICIPATED FINAL", x + 5, finalY + 31);
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(0, 0, 0);
-        doc.text(`R${cat.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, x + 5, finalY + 37);
-        
-        // Border separator
-        doc.setDrawColor(220, 220, 220);
-        doc.setLineWidth(0.5);
-        doc.line(x + 5, finalY + 39, x + cardWidth - 5, finalY + 39);
-        
-        // Variance label
-        doc.setFontSize(6);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(120, 120, 120);
-        doc.text("VARIANCE", x + 5, finalY + 43);
-        
-        // Variance value
-        doc.setFontSize(9);
-        doc.setFont("helvetica", "bold");
-        const isExtra = cat.originalVariance > 0;
-        doc.setTextColor(isExtra ? 220 : 22, isExtra ? 38 : 163, isExtra ? 38 : 74);
-        const varianceText = `${cat.originalVariance >= 0 ? '+' : ''}R${Math.abs(cat.originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`;
-        doc.text(varianceText, x + 5, finalY + 49);
-        
-        // Status badge pill
-        const badgeText = isExtra ? 'EXTRA' : 'SAVING';
-        const badgeWidth = doc.getTextWidth(badgeText) + 5;
-        const pillX = x + cardWidth - badgeWidth - 5;
-        const pillY = finalY + 43;
-        
-        // Badge pill background
-        doc.setFillColor(isExtra ? 254 : 220, isExtra ? 226 : 252, isExtra ? 226 : 231);
-        doc.roundedRect(pillX, pillY, badgeWidth, 6, 3, 3, 'F');
-        
-        // Badge pill text
-        doc.setFontSize(5.5);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(isExtra ? 185 : 21, isExtra ? 28 : 128, isExtra ? 28 : 61);
-        doc.text(badgeText, pillX + badgeWidth / 2, pillY + 4.5, { align: "center" });
-      });
+        categoryTotals.forEach((cat: any, index: number) => {
+          const col = index % cardsPerRow;
+          const row = Math.floor(index / cardsPerRow);
+          const x = contentStartX + col * (cardWidth + 8);
+          const y = cardY + row * (cardHeight + 8);
+          
+          if (y > pageHeight - useMargins.bottom - 60) {
+            doc.addPage();
+            cardY = contentStartY;
+          }
+          
+          const finalY = row === 0 ? cardY : cardY + row * (cardHeight + 8);
+          const color = cardColors[index % cardColors.length];
+          
+          // Card background with subtle gradient
+          createGradientCard(x, finalY, cardWidth, cardHeight, [250, 250, 250], [255, 255, 255]);
+          
+          // Card border
+          doc.setDrawColor(220, 220, 220);
+          doc.setLineWidth(0.3);
+          doc.rect(x, finalY, cardWidth, cardHeight);
+          
+          // Left colored border (thicker, like border-l-[6px])
+          doc.setFillColor(color[0], color[1], color[2]);
+          doc.rect(x, finalY, 3, cardHeight, 'F');
+          
+          // Badge with rounded corners
+          const badgeX = x + 6;
+          const badgeY = finalY + 6;
+          const badgeSize = 11;
+          
+          doc.setFillColor(color[0], color[1], color[2]);
+          doc.roundedRect(badgeX, badgeY, badgeSize, badgeSize, 2, 2, 'F');
+          
+          // Badge text
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(255, 255, 255);
+          doc.text(cat.code, badgeX + badgeSize / 2, badgeY + badgeSize / 2 + 2, { align: "center" });
+          
+          // Category name
+          doc.setTextColor(0, 0, 0);
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "bold");
+          const catName = doc.splitTextToSize(cat.description, cardWidth - 25);
+          doc.text(catName, badgeX + badgeSize + 3, finalY + 8);
+          
+          // Original Budget
+          doc.setFontSize(6);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(120, 120, 120);
+          doc.text("ORIGINAL BUDGET", x + 5, finalY + 20);
+          doc.setFontSize(8);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(0, 0, 0);
+          doc.text(`R${cat.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, x + 5, finalY + 26);
+          
+          // Anticipated Final
+          doc.setFontSize(6);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(120, 120, 120);
+          doc.text("ANTICIPATED FINAL", x + 5, finalY + 31);
+          doc.setFontSize(8);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(0, 0, 0);
+          doc.text(`R${cat.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, x + 5, finalY + 37);
+          
+          // Border separator
+          doc.setDrawColor(220, 220, 220);
+          doc.setLineWidth(0.5);
+          doc.line(x + 5, finalY + 39, x + cardWidth - 5, finalY + 39);
+          
+          // Variance label
+          doc.setFontSize(6);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(120, 120, 120);
+          doc.text("VARIANCE", x + 5, finalY + 43);
+          
+          // Variance value
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "bold");
+          const isExtra = cat.originalVariance > 0;
+          doc.setTextColor(isExtra ? 220 : 22, isExtra ? 38 : 163, isExtra ? 38 : 74);
+          const varianceText = `${cat.originalVariance >= 0 ? '+' : ''}R${Math.abs(cat.originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`;
+          doc.text(varianceText, x + 5, finalY + 49);
+          
+          // Status badge pill
+          const badgeText = isExtra ? 'EXTRA' : 'SAVING';
+          const badgeWidth = doc.getTextWidth(badgeText) + 5;
+          const pillX = x + cardWidth - badgeWidth - 5;
+          const pillY = finalY + 43;
+          
+          // Badge pill background
+          doc.setFillColor(isExtra ? 254 : 220, isExtra ? 226 : 252, isExtra ? 226 : 231);
+          doc.roundedRect(pillX, pillY, badgeWidth, 6, 3, 3, 'F');
+          
+          // Badge pill text
+          doc.setFontSize(5.5);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(isExtra ? 185 : 21, isExtra ? 28 : 128, isExtra ? 28 : 61);
+          doc.text(badgeText, pillX + badgeWidth / 2, pillY + 4.5, { align: "center" });
+        });
+      }
 
       // ========== CATEGORY PERFORMANCE DETAILS PAGE ==========
+      if (useSections.categoryDetails) {
       doc.addPage();
       tocSections.push({ title: "Category Performance Details", page: doc.getCurrentPageInfo().pageNumber });
       
@@ -928,7 +961,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
   const handleValidationProceed = () => {
     setValidationDialogOpen(false);
     // Re-run export with validation skipped
-    handleExport(margins, true);
+    handleExport(margins, sections, true);
   };
 
   return (
@@ -980,6 +1013,8 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         onOpenChange={setSettingsOpen}
         margins={margins}
         onMarginsChange={setMargins}
+        sections={sections}
+        onSectionsChange={setSections}
         onApply={() => handleExport()}
       />
       

@@ -9,9 +9,11 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Settings } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
+import { Separator } from "@/components/ui/separator";
 
 export interface PDFMargins {
   top: number;
@@ -20,11 +22,24 @@ export interface PDFMargins {
   right: number;
 }
 
+export interface PDFSectionOptions {
+  coverPage: boolean;
+  tableOfContents: boolean;
+  executiveSummary: boolean;
+  categoryDetails: boolean;
+  projectInfo: boolean;
+  costSummary: boolean;
+  detailedLineItems: boolean;
+  variations: boolean;
+}
+
 interface PDFExportSettingsProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   margins: PDFMargins;
   onMarginsChange: (margins: PDFMargins) => void;
+  sections: PDFSectionOptions;
+  onSectionsChange: (sections: PDFSectionOptions) => void;
   onApply: () => void;
 }
 
@@ -53,14 +68,28 @@ const MARGIN_PRESETS: Record<Exclude<MarginPreset, 'custom'>, PDFMargins> = {
 
 const DEFAULT_MARGINS: PDFMargins = MARGIN_PRESETS.normal;
 
+export const DEFAULT_SECTIONS: PDFSectionOptions = {
+  coverPage: true,
+  tableOfContents: true,
+  executiveSummary: true,
+  categoryDetails: true,
+  projectInfo: true,
+  costSummary: true,
+  detailedLineItems: true,
+  variations: true,
+};
+
 export const PDFExportSettings = ({
   open,
   onOpenChange,
   margins,
   onMarginsChange,
+  sections,
+  onSectionsChange,
   onApply,
 }: PDFExportSettingsProps) => {
   const [localMargins, setLocalMargins] = useState<PDFMargins>(margins);
+  const [localSections, setLocalSections] = useState<PDFSectionOptions>(sections);
   const [selectedPreset, setSelectedPreset] = useState<MarginPreset>('custom');
 
   // Detect which preset is currently selected
@@ -99,26 +128,191 @@ export const PDFExportSettings = ({
 
   const handleApply = () => {
     onMarginsChange(localMargins);
+    onSectionsChange(localSections);
     onApply();
     onOpenChange(false);
   };
 
   const handleReset = () => {
     setLocalMargins(DEFAULT_MARGINS);
+    setLocalSections(DEFAULT_SECTIONS);
     setSelectedPreset('normal');
+  };
+
+  const handleSectionToggle = (section: keyof PDFSectionOptions) => {
+    setLocalSections({ ...localSections, [section]: !localSections[section] });
+  };
+
+  const handleSelectAll = () => {
+    setLocalSections(DEFAULT_SECTIONS);
+  };
+
+  const handleDeselectAll = () => {
+    setLocalSections({
+      coverPage: false,
+      tableOfContents: false,
+      executiveSummary: false,
+      categoryDetails: false,
+      projectInfo: false,
+      costSummary: false,
+      detailedLineItems: false,
+      variations: false,
+    });
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>PDF Export Settings</DialogTitle>
           <DialogDescription>
-            Configure page margins for the PDF export. Values are in millimeters (mm).
+            Choose which sections to include and configure page margins for the PDF export.
           </DialogDescription>
         </DialogHeader>
         
         <div className="grid gap-6 py-4">
+          {/* Section Selection */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <Label className="text-base font-semibold">Include Sections</Label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleSelectAll}
+                  className="h-8 text-xs"
+                >
+                  Select All
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDeselectAll}
+                  className="h-8 text-xs"
+                >
+                  Deselect All
+                </Button>
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="cover-page"
+                  checked={localSections.coverPage}
+                  onCheckedChange={() => handleSectionToggle('coverPage')}
+                />
+                <label
+                  htmlFor="cover-page"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                >
+                  Cover Page
+                </label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="toc"
+                  checked={localSections.tableOfContents}
+                  onCheckedChange={() => handleSectionToggle('tableOfContents')}
+                />
+                <label
+                  htmlFor="toc"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                >
+                  Table of Contents
+                </label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="exec-summary"
+                  checked={localSections.executiveSummary}
+                  onCheckedChange={() => handleSectionToggle('executiveSummary')}
+                />
+                <label
+                  htmlFor="exec-summary"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                >
+                  Executive Summary
+                </label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="category-details"
+                  checked={localSections.categoryDetails}
+                  onCheckedChange={() => handleSectionToggle('categoryDetails')}
+                />
+                <label
+                  htmlFor="category-details"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                >
+                  Category Performance
+                </label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="project-info"
+                  checked={localSections.projectInfo}
+                  onCheckedChange={() => handleSectionToggle('projectInfo')}
+                />
+                <label
+                  htmlFor="project-info"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                >
+                  Project Information
+                </label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="cost-summary"
+                  checked={localSections.costSummary}
+                  onCheckedChange={() => handleSectionToggle('costSummary')}
+                />
+                <label
+                  htmlFor="cost-summary"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                >
+                  Cost Summary
+                </label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="line-items"
+                  checked={localSections.detailedLineItems}
+                  onCheckedChange={() => handleSectionToggle('detailedLineItems')}
+                />
+                <label
+                  htmlFor="line-items"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                >
+                  Detailed Line Items
+                </label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="variations"
+                  checked={localSections.variations}
+                  onCheckedChange={() => handleSectionToggle('variations')}
+                />
+                <label
+                  htmlFor="variations"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                >
+                  Variations
+                </label>
+              </div>
+            </div>
+          </div>
+          
+          <Separator />
           {/* Preset Selection */}
           <div className="space-y-3">
             <Label>Margin Presets</Label>
