@@ -9,6 +9,7 @@ import { ArrowLeft, Zap, FileText, Settings, Download, Sparkles, Wand2 } from "l
 import { TemplateLibrary } from "@/components/pdf-templates/TemplateLibrary";
 import { PDFTemplateDesigner } from "@/components/pdf-templates/PDFTemplateDesigner";
 import { SmartTemplateBuilder, TemplateConfig } from "@/components/pdf-templates/SmartTemplateBuilder";
+import { useToast } from "@/hooks/use-toast";
 import {
   Select,
   SelectContent,
@@ -21,6 +22,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 const PDFTemplates = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [category, setCategory] = useState<"cost_report" | "cable_schedule" | "final_account">("cost_report");
   const [selectedProjectId, setSelectedProjectId] = useState<string>("");
   const [selectedReportId, setSelectedReportId] = useState<string>("");
@@ -86,11 +88,11 @@ const PDFTemplates = () => {
 
     // Navigate to the report detail page where they can use the existing export button
     if (category === "cost_report") {
-      navigate(`/cost-reports/${selectedReportId}`);
+      navigate(`/dashboard/cost-reports/${selectedReportId}`);
     } else if (category === "cable_schedule") {
-      navigate(`/cable-schedules/${selectedReportId}`);
+      navigate(`/dashboard/cable-schedules/${selectedReportId}`);
     } else if (category === "final_account") {
-      navigate(`/final-accounts/${selectedReportId}`);
+      navigate(`/dashboard/final-accounts/${selectedReportId}`);
     }
   };
 
@@ -103,11 +105,50 @@ const PDFTemplates = () => {
     }
   };
 
-  const handleSmartGenerate = (config: TemplateConfig) => {
-    // For now, navigate to the report page with the config
-    // In a full implementation, this would generate a custom PDF based on the config
-    console.log("Smart template config:", config);
-    handleQuickExport();
+  const handleSmartGenerate = async (config: TemplateConfig) => {
+    if (!selectedReportId || !selectedProjectId) {
+      toast({
+        title: "Error",
+        description: "Please select a project and report first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { generateSmartTemplatePDF } = await import("@/utils/exportSmartTemplatePDF");
+      
+      const reportTypeMap: Record<string, "cost-report" | "cable-schedule" | "final-account"> = {
+        "cost_report": "cost-report",
+        "cable_schedule": "cable-schedule",
+        "final_account": "final-account",
+      };
+      
+      const result = await generateSmartTemplatePDF({
+        config,
+        reportType: reportTypeMap[category],
+        reportId: selectedReportId,
+        projectId: selectedProjectId,
+      });
+      
+      toast({
+        title: "PDF Generated Successfully",
+        description: `Your custom template has been created: ${result.fileName}`,
+      });
+      
+      // Open the PDF in a new tab
+      window.open(result.url, '_blank');
+      
+      // Exit smart builder mode
+      setSmartBuilderMode(false);
+    } catch (error) {
+      console.error("Smart template generation error:", error);
+      toast({
+        title: "Generation Failed",
+        description: error instanceof Error ? error.message : "Failed to generate PDF template",
+        variant: "destructive",
+      });
+    }
   };
 
   if (smartBuilderMode) {

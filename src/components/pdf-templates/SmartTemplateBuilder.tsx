@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { FileText, Download, Settings2, Eye, BarChart3, FileBarChart, StickyNote } from "lucide-react";
+import { FileText, Download, Settings2, Eye, BarChart3, FileBarChart, StickyNote, Loader2 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
@@ -22,7 +22,7 @@ interface SmartTemplateBuilderProps {
   category: "cost_report" | "cable_schedule" | "final_account";
   projectId: string;
   reportId: string;
-  onGenerate: (config: TemplateConfig) => void;
+  onGenerate: (config: TemplateConfig) => Promise<void>;
 }
 
 export interface TemplateConfig {
@@ -87,6 +87,7 @@ export const SmartTemplateBuilder = ({
 }: SmartTemplateBuilderProps) => {
   const { toast } = useToast();
   const [config, setConfig] = useState<TemplateConfig>(DEFAULT_CONFIG);
+  const [generating, setGenerating] = useState(false);
 
   const handleSectionToggle = (section: keyof TemplateConfig["sections"]) => {
     setConfig((prev) => ({
@@ -98,7 +99,7 @@ export const SmartTemplateBuilder = ({
     }));
   };
 
-  const handleGenerate = () => {
+  const handleGenerate = async () => {
     // Validate that at least one section is selected
     const hasAtLeastOneSection = Object.values(config.sections).some((v) => v);
     
@@ -111,12 +112,12 @@ export const SmartTemplateBuilder = ({
       return;
     }
 
-    onGenerate(config);
-    
-    toast({
-      title: "Template Generated",
-      description: "Your custom PDF template is being generated...",
-    });
+    setGenerating(true);
+    try {
+      await onGenerate(config);
+    } finally {
+      setGenerating(false);
+    }
   };
 
   const getCategoryLabel = () => {
@@ -472,9 +473,18 @@ export const SmartTemplateBuilder = ({
         <div className="text-sm text-muted-foreground">
           {Object.values(config.sections).filter(Boolean).length} section(s) selected
         </div>
-        <Button size="lg" onClick={handleGenerate}>
-          <Download className="h-4 w-4 mr-2" />
-          Generate PDF Template
+        <Button size="lg" onClick={handleGenerate} disabled={generating}>
+          {generating ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Generating PDF...
+            </>
+          ) : (
+            <>
+              <Download className="h-4 w-4 mr-2" />
+              Generate PDF Template
+            </>
+          )}
         </Button>
       </div>
       </div>
