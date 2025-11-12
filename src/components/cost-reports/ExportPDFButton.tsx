@@ -613,27 +613,148 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         doc.setFont("helvetica", "bold");
         doc.text(`${category.code} - ${category.description}`, contentStartX, contentStartY + 10);
 
-        autoTable(doc, {
-          startY: contentStartY + 20,
-          margin: { left: contentStartX, right: useMargins.right },
-          head: [['Code', 'Description', 'Original Budget', 'Anticipated Final', 'Variance']],
-          body: lineItems.map((item: any) => {
-            const variance = Number(item.anticipated_final || 0) - Number(item.original_budget || 0);
-            return [
-              item.code,
-              item.description,
-              `R ${Number(item.original_budget || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-              `R ${Number(item.anticipated_final || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-              `${variance >= 0 ? '+' : ''}R ${variance.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`
-            ];
-          }),
-          theme: 'grid',
-          styles: { fontSize: 9, cellPadding: 3 },
-          headStyles: { fillColor: [30, 58, 138], textColor: [255, 255, 255], fontStyle: 'bold' },
-          columnStyles: {
-            1: { cellWidth: contentWidth * 0.4 }
-          }
-        });
+        // Find the corresponding category totals for this category
+        const catTotals = categoryTotals.find((ct: any) => ct.code === category.code);
+        
+        if (catTotals) {
+          // Add category summary cards
+          let summaryY = contentStartY + 25;
+          const cardWidth = (contentWidth - 12) / 3; // 3 cards per row
+          const cardHeight = 22;
+          const cardSpacing = 6;
+          
+          // Row 1: Original Budget, Previous Report, Anticipated Final
+          doc.setDrawColor(0, 200, 200);
+          doc.setLineWidth(0.5);
+          
+          // Original Budget
+          doc.rect(contentStartX, summaryY, cardWidth, cardHeight);
+          doc.setFontSize(7);
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(0, 0, 0);
+          doc.text("Original Budget", contentStartX + 2, summaryY + 4);
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "bold");
+          doc.text(`R${catTotals.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, contentStartX + 2, summaryY + 12);
+          
+          // Previous Report
+          doc.rect(contentStartX + cardWidth + cardSpacing, summaryY, cardWidth, cardHeight);
+          doc.setFontSize(7);
+          doc.setFont("helvetica", "normal");
+          doc.text("Previous Report", contentStartX + cardWidth + cardSpacing + 2, summaryY + 4);
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "bold");
+          doc.text(`R${catTotals.previousReport.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, contentStartX + cardWidth + cardSpacing + 2, summaryY + 12);
+          
+          // Anticipated Final
+          doc.rect(contentStartX + (cardWidth + cardSpacing) * 2, summaryY, cardWidth, cardHeight);
+          doc.setFontSize(7);
+          doc.setFont("helvetica", "normal");
+          doc.text("Anticipated Final", contentStartX + (cardWidth + cardSpacing) * 2 + 2, summaryY + 4);
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "bold");
+          doc.text(`R${catTotals.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, contentStartX + (cardWidth + cardSpacing) * 2 + 2, summaryY + 12);
+          
+          // Row 2: Current Variance, Original Variance (centered)
+          summaryY += cardHeight + cardSpacing;
+          const twoCardWidth = (contentWidth - cardSpacing) / 2;
+          const twoCardStartX = contentStartX + (contentWidth - (twoCardWidth * 2 + cardSpacing)) / 2;
+          
+          // Current Variance
+          doc.setDrawColor(catTotals.currentVariance < 0 ? 0 : 255, catTotals.currentVariance < 0 ? 200 : 100, catTotals.currentVariance < 0 ? 0 : 0);
+          doc.rect(twoCardStartX, summaryY, twoCardWidth, cardHeight);
+          doc.setFontSize(7);
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(0, 0, 0);
+          doc.text(`Current ${catTotals.currentVariance < 0 ? '(Saving)' : 'Extra'}`, twoCardStartX + 2, summaryY + 4);
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(catTotals.currentVariance < 0 ? 0 : 255, catTotals.currentVariance < 0 ? 150 : 0, 0);
+          doc.text(`${catTotals.currentVariance >= 0 ? '+' : ''}R${Math.abs(catTotals.currentVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, twoCardStartX + 2, summaryY + 12);
+          
+          // Original Variance
+          doc.setDrawColor(catTotals.originalVariance < 0 ? 0 : 255, catTotals.originalVariance < 0 ? 200 : 100, catTotals.originalVariance < 0 ? 0 : 0);
+          doc.rect(twoCardStartX + twoCardWidth + cardSpacing, summaryY, twoCardWidth, cardHeight);
+          doc.setFontSize(7);
+          doc.setFont("helvetica", "normal");
+          doc.setTextColor(0, 0, 0);
+          doc.text(`${catTotals.originalVariance < 0 ? '(Saving)' : 'Extra'} vs Original`, twoCardStartX + twoCardWidth + cardSpacing + 2, summaryY + 4);
+          doc.setFontSize(9);
+          doc.setFont("helvetica", "bold");
+          doc.setTextColor(catTotals.originalVariance < 0 ? 0 : 255, catTotals.originalVariance < 0 ? 150 : 0, 0);
+          doc.text(`${catTotals.originalVariance >= 0 ? '+' : ''}R${Math.abs(catTotals.originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, twoCardStartX + twoCardWidth + cardSpacing + 2, summaryY + 12);
+          
+          summaryY += cardHeight + 10;
+          
+          autoTable(doc, {
+            startY: summaryY,
+            margin: { left: contentStartX, right: useMargins.right },
+            head: [['Code', 'Description', 'Original Budget', 'Previous Report', 'Anticipated Final', 'Current Variance', 'Original Variance']],
+            body: lineItems.map((item: any) => {
+              const currentVar = Number(item.anticipated_final || 0) - Number(item.previous_report || 0);
+              const originalVar = Number(item.anticipated_final || 0) - Number(item.original_budget || 0);
+              return [
+                item.code,
+                item.description,
+                `R ${Number(item.original_budget || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+                `R ${Number(item.previous_report || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+                `R ${Number(item.anticipated_final || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+                `${currentVar >= 0 ? '+' : ''}R ${Math.abs(currentVar).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+                `${originalVar >= 0 ? '+' : ''}R ${Math.abs(originalVar).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`
+              ];
+            }),
+            theme: 'grid',
+            styles: { fontSize: 8, cellPadding: 2 },
+            headStyles: { fillColor: [30, 58, 138], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7 },
+            columnStyles: {
+              0: { cellWidth: 12 },
+              1: { cellWidth: contentWidth * 0.30 },
+              2: { cellWidth: contentWidth * 0.12, halign: 'right' },
+              3: { cellWidth: contentWidth * 0.12, halign: 'right' },
+              4: { cellWidth: contentWidth * 0.12, halign: 'right' },
+              5: { cellWidth: contentWidth * 0.12, halign: 'right' },
+              6: { cellWidth: contentWidth * 0.12, halign: 'right' }
+            },
+            didDrawCell: (data) => {
+              // Color variance cells
+              if (data.section === 'body') {
+                const item = lineItems[data.row.index];
+                const currentVar = Number(item.anticipated_final || 0) - Number(item.previous_report || 0);
+                const originalVar = Number(item.anticipated_final || 0) - Number(item.original_budget || 0);
+                
+                if (data.column.index === 5) {
+                  data.cell.styles.textColor = currentVar < 0 ? [0, 150, 0] : currentVar > 0 ? [255, 0, 0] : [0, 0, 0];
+                }
+                if (data.column.index === 6) {
+                  data.cell.styles.textColor = originalVar < 0 ? [0, 150, 0] : originalVar > 0 ? [255, 0, 0] : [0, 0, 0];
+                }
+              }
+            }
+          });
+        } else {
+          // Fallback to old table if no totals found
+          autoTable(doc, {
+            startY: contentStartY + 20,
+            margin: { left: contentStartX, right: useMargins.right },
+            head: [['Code', 'Description', 'Original Budget', 'Anticipated Final', 'Variance']],
+            body: lineItems.map((item: any) => {
+              const variance = Number(item.anticipated_final || 0) - Number(item.original_budget || 0);
+              return [
+                item.code,
+                item.description,
+                `R ${Number(item.original_budget || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+                `R ${Number(item.anticipated_final || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+                `${variance >= 0 ? '+' : ''}R ${variance.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`
+              ];
+            }),
+            theme: 'grid',
+            styles: { fontSize: 9, cellPadding: 3 },
+            headStyles: { fillColor: [30, 58, 138], textColor: [255, 255, 255], fontStyle: 'bold' },
+            columnStyles: {
+              1: { cellWidth: contentWidth * 0.4 }
+            }
+          });
+        }
       });
 
       // ========== VARIATIONS PAGE ==========
