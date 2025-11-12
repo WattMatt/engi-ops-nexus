@@ -417,7 +417,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
 
         let cardY = (doc as any).lastAutoTable.finalY + 15;
         const cardWidth = (contentWidth - 8) / 2; // Two cards per row
-        const cardHeight = 45;
+        const cardHeight = 52;
         const cardsPerRow = 2;
         
         // Check if we need a new page for the cards
@@ -480,32 +480,32 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           doc.setFontSize(6);
           doc.setFont("helvetica", "bold");
           doc.setTextColor(120, 120, 120);
-          doc.text("ORIGINAL BUDGET", x + 5, finalY + 20);
+          doc.text("ORIGINAL BUDGET", x + 5, finalY + 21);
           doc.setFontSize(8);
           doc.setFont("helvetica", "bold");
           doc.setTextColor(0, 0, 0);
-          doc.text(`R${cat.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, x + 5, finalY + 26);
+          doc.text(`R${cat.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, x + 5, finalY + 27);
           
           // Anticipated Final
           doc.setFontSize(6);
           doc.setFont("helvetica", "bold");
           doc.setTextColor(120, 120, 120);
-          doc.text("ANTICIPATED FINAL", x + 5, finalY + 31);
+          doc.text("ANTICIPATED FINAL", x + 5, finalY + 33);
           doc.setFontSize(8);
           doc.setFont("helvetica", "bold");
           doc.setTextColor(0, 0, 0);
-          doc.text(`R${cat.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, x + 5, finalY + 37);
+          doc.text(`R${cat.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, x + 5, finalY + 39);
           
           // Border separator
           doc.setDrawColor(220, 220, 220);
           doc.setLineWidth(0.5);
-          doc.line(x + 5, finalY + 39, x + cardWidth - 5, finalY + 39);
+          doc.line(x + 5, finalY + 42, x + cardWidth - 5, finalY + 42);
           
           // Variance label
           doc.setFontSize(6);
           doc.setFont("helvetica", "bold");
           doc.setTextColor(120, 120, 120);
-          doc.text("VARIANCE", x + 5, finalY + 43);
+          doc.text("VARIANCE", x + 5, finalY + 46);
           
           // Variance value
           doc.setFontSize(9);
@@ -513,23 +513,23 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           const isExtra = cat.originalVariance > 0;
           doc.setTextColor(isExtra ? 220 : 22, isExtra ? 38 : 163, isExtra ? 38 : 74);
           const varianceText = `${cat.originalVariance >= 0 ? '+' : ''}R${Math.abs(cat.originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`;
-          doc.text(varianceText, x + 5, finalY + 49);
+          doc.text(varianceText, x + 5, finalY + 50);
           
           // Status badge pill
           const badgeText = isExtra ? 'EXTRA' : 'SAVING';
           const badgeWidth = doc.getTextWidth(badgeText) + 5;
           const pillX = x + cardWidth - badgeWidth - 5;
-          const pillY = finalY + 43;
+          const pillY = finalY + 45;
           
           // Badge pill background
           doc.setFillColor(isExtra ? 254 : 220, isExtra ? 226 : 252, isExtra ? 226 : 231);
-          doc.roundedRect(pillX, pillY, badgeWidth, 6, 3, 3, 'F');
+          doc.roundedRect(pillX, pillY, badgeWidth, 7, 3, 3, 'F');
           
           // Badge pill text
           doc.setFontSize(5.5);
           doc.setFont("helvetica", "bold");
           doc.setTextColor(isExtra ? 185 : 21, isExtra ? 28 : 128, isExtra ? 28 : 61);
-          doc.text(badgeText, pillX + badgeWidth / 2, pillY + 4.5, { align: "center" });
+          doc.text(badgeText, pillX + badgeWidth / 2, pillY + 4.8, { align: "center" });
         });
       }
 
