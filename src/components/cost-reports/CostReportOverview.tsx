@@ -82,6 +82,26 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
     extra: cat.originalVariance >= 0 ? cat.originalVariance : 0,
   }));
 
+  const budgetComparisonData = [
+    {
+      name: 'Budget Comparison',
+      'Original Budget': totalOriginalBudget,
+      'Previous Report': totalPreviousReport,
+      'Anticipated Final': totalAnticipatedFinal
+    }
+  ];
+
+  // Top 5 categories by value for detailed comparison
+  const topCategoriesData = [...categoryTotals]
+    .sort((a, b) => b.anticipatedFinal - a.anticipatedFinal)
+    .slice(0, 5)
+    .map(cat => ({
+      name: cat.code,
+      'Original Budget': cat.originalBudget,
+      'Previous Report': cat.previousReport,
+      'Anticipated Final': cat.anticipatedFinal
+    }));
+
   return (
     <div className="space-y-4">
       {/* KPI Cards - add id for PDF capture */}
@@ -173,9 +193,74 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
         </Card>
       </div>
 
+      {/* Budget Comparison Chart */}
+      {categoryTotals.length > 0 && (
+        <Card id="cost-report-budget-comparison" className="col-span-full">
+          <CardHeader>
+            <CardTitle>Budget Comparison Overview</CardTitle>
+            <p className="text-sm text-muted-foreground">Original Budget vs Previous Report vs Anticipated Final</p>
+          </CardHeader>
+          <CardContent>
+            <ResponsiveContainer width="100%" height={300}>
+              <BarChart data={budgetComparisonData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis 
+                  label={{ value: 'Amount (R)', angle: -90, position: 'insideLeft' }}
+                  tickFormatter={(value) => `R${(value / 1000000).toFixed(1)}M`}
+                />
+                <Tooltip 
+                  formatter={(value: number) => `R${value.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`}
+                  contentStyle={{ 
+                    backgroundColor: 'hsl(var(--card))',
+                    border: '1px solid hsl(var(--border))',
+                    borderRadius: '6px'
+                  }}
+                />
+                <Legend wrapperStyle={{ paddingTop: '20px' }} />
+                <Bar dataKey="Original Budget" fill="#3b82f6" />
+                <Bar dataKey="Previous Report" fill="#10b981" />
+                <Bar dataKey="Anticipated Final" fill="#f59e0b" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Visual Charts - add id for PDF capture */}
       {categoryTotals.length > 0 && (
-        <div id="cost-report-charts" className="grid gap-4 md:grid-cols-2">
+        <div id="cost-report-charts" className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {/* Top Categories Comparison Chart */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Top 5 Categories Comparison</CardTitle>
+              <p className="text-sm text-muted-foreground">Budget Evolution by Category</p>
+            </CardHeader>
+            <CardContent>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={topCategoriesData}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis 
+                    tickFormatter={(value) => `R${(value / 1000000).toFixed(1)}M`}
+                  />
+                  <Tooltip 
+                    formatter={(value: number) => `R${value.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`}
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(var(--card))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '6px'
+                    }}
+                  />
+                  <Legend />
+                  <Bar dataKey="Original Budget" fill="#3b82f6" />
+                  <Bar dataKey="Previous Report" fill="#10b981" />
+                  <Bar dataKey="Anticipated Final" fill="#f59e0b" />
+                </BarChart>
+              </ResponsiveContainer>
+            </CardContent>
+          </Card>
+
           {/* Category Distribution Chart */}
           <Card>
             <CardHeader>
@@ -243,6 +328,7 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
           <Card>
             <CardHeader>
               <CardTitle>Variance by Category</CardTitle>
+              <p className="text-sm text-muted-foreground">Savings vs Extras Analysis</p>
             </CardHeader>
             <CardContent>
               <ResponsiveContainer width="100%" height={300}>
