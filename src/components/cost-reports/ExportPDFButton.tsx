@@ -918,8 +918,20 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
               ];
             }),
             theme: 'grid',
-            styles: { fontSize: 9, cellPadding: 3 },
-            headStyles: { fillColor: [30, 58, 138], textColor: [255, 255, 255], fontStyle: 'bold' },
+            styles: { 
+              fontSize: 9, 
+              cellPadding: 3,
+              overflow: 'linebreak',
+              valign: 'middle'
+            },
+            headStyles: { 
+              fillColor: [30, 58, 138], 
+              textColor: [255, 255, 255], 
+              fontStyle: 'bold',
+              overflow: 'linebreak',
+              valign: 'middle',
+              halign: 'center'
+            },
             columnStyles: {
               1: { cellWidth: contentWidth * 0.4 }
             }
