@@ -428,64 +428,95 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         }
         
         const finalY = row === 0 ? cardY : cardY + row * (cardHeight + 8);
+        const color = cardColors[index % cardColors.length];
+        
+        // Card background with subtle gradient
+        createGradientCard(x, finalY, cardWidth, cardHeight, [250, 250, 250], [255, 255, 255]);
         
         // Card border
-        const color = cardColors[index % cardColors.length];
-        doc.setDrawColor(color[0], color[1], color[2]);
-        doc.setLineWidth(1);
+        doc.setDrawColor(220, 220, 220);
+        doc.setLineWidth(0.3);
         doc.rect(x, finalY, cardWidth, cardHeight);
         
-        // Badge circle
+        // Left colored border (thicker, like border-l-[6px])
         doc.setFillColor(color[0], color[1], color[2]);
-        doc.circle(x + 8, finalY + 8, 4, 'F');
+        doc.rect(x, finalY, 3, cardHeight, 'F');
+        
+        // Badge with rounded corners
+        const badgeX = x + 6;
+        const badgeY = finalY + 6;
+        const badgeSize = 11;
+        
+        doc.setFillColor(color[0], color[1], color[2]);
+        doc.roundedRect(badgeX, badgeY, badgeSize, badgeSize, 2, 2, 'F');
+        
+        // Badge text
         doc.setFontSize(9);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(255, 255, 255);
-        doc.text(cat.code, x + 8, finalY + 10, { align: "center" });
+        doc.text(cat.code, badgeX + badgeSize / 2, badgeY + badgeSize / 2 + 2, { align: "center" });
         
         // Category name
         doc.setTextColor(0, 0, 0);
-        doc.setFontSize(8);
+        doc.setFontSize(9);
         doc.setFont("helvetica", "bold");
-        const catName = doc.splitTextToSize(cat.description, cardWidth - 20);
-        doc.text(catName, x + 15, finalY + 7);
+        const catName = doc.splitTextToSize(cat.description, cardWidth - 25);
+        doc.text(catName, badgeX + badgeSize + 3, finalY + 8);
         
         // Original Budget
-        doc.setFontSize(7);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(100, 100, 100);
+        doc.setFontSize(6);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(120, 120, 120);
         doc.text("ORIGINAL BUDGET", x + 5, finalY + 20);
-        doc.setFontSize(9);
+        doc.setFontSize(8);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(0, 0, 0);
         doc.text(`R${cat.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, x + 5, finalY + 26);
         
         // Anticipated Final
-        doc.setFontSize(7);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(100, 100, 100);
-        doc.text("ANTICIPATED FINAL", x + 5, finalY + 32);
-        doc.setFontSize(9);
+        doc.setFontSize(6);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(120, 120, 120);
+        doc.text("ANTICIPATED FINAL", x + 5, finalY + 31);
+        doc.setFontSize(8);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(0, 0, 0);
-        doc.text(`R${cat.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, x + 5, finalY + 38);
+        doc.text(`R${cat.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, x + 5, finalY + 37);
         
-        // Variance
-        doc.setFontSize(7);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(100, 100, 100);
-        doc.text("VARIANCE", x + 5, finalY + 44);
+        // Border separator
+        doc.setDrawColor(220, 220, 220);
+        doc.setLineWidth(0.5);
+        doc.line(x + 5, finalY + 39, x + cardWidth - 5, finalY + 39);
+        
+        // Variance label
+        doc.setFontSize(6);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(120, 120, 120);
+        doc.text("VARIANCE", x + 5, finalY + 43);
+        
+        // Variance value
         doc.setFontSize(9);
         doc.setFont("helvetica", "bold");
         const isExtra = cat.originalVariance > 0;
-        doc.setTextColor(isExtra ? 255 : 0, isExtra ? 0 : 150, 0);
-        doc.text(`${cat.originalVariance >= 0 ? '+' : ''}R${Math.abs(cat.originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, x + 5, finalY + 50);
+        doc.setTextColor(isExtra ? 220 : 22, isExtra ? 38 : 163, isExtra ? 38 : 74);
+        const varianceText = `${cat.originalVariance >= 0 ? '+' : ''}R${Math.abs(cat.originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`;
+        doc.text(varianceText, x + 5, finalY + 49);
         
-        // Status badge
-        doc.setFontSize(6);
+        // Status badge pill
+        const badgeText = isExtra ? 'EXTRA' : 'SAVING';
+        const badgeWidth = doc.getTextWidth(badgeText) + 5;
+        const pillX = x + cardWidth - badgeWidth - 5;
+        const pillY = finalY + 43;
+        
+        // Badge pill background
+        doc.setFillColor(isExtra ? 254 : 220, isExtra ? 226 : 252, isExtra ? 226 : 231);
+        doc.roundedRect(pillX, pillY, badgeWidth, 6, 3, 3, 'F');
+        
+        // Badge pill text
+        doc.setFontSize(5.5);
         doc.setFont("helvetica", "bold");
-        doc.setTextColor(isExtra ? 255 : 0, isExtra ? 0 : 150, 0);
-        doc.text(isExtra ? "EXTRA" : "SAVING", x + cardWidth - 18, finalY + 50);
+        doc.setTextColor(isExtra ? 185 : 21, isExtra ? 28 : 128, isExtra ? 28 : 61);
+        doc.text(badgeText, pillX + badgeWidth / 2, pillY + 4.5, { align: "center" });
       });
 
       // ========== CATEGORY PERFORMANCE DETAILS PAGE ==========
