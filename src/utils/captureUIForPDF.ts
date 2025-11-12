@@ -1,10 +1,5 @@
-/**
- * Utility for capturing UI elements as high-quality images for PDF export
- * This provides a much better visual match than manually recreating UI with jsPDF primitives
- */
-
 import html2canvas from "html2canvas";
-import { HIGH_QUALITY_CANVAS_OPTIONS, CHART_QUALITY_CANVAS_OPTIONS } from "./pdfQualitySettings";
+import { HIGH_QUALITY_CANVAS_OPTIONS } from "./pdfQualitySettings";
 
 export interface CaptureOptions {
   scale?: number;
@@ -13,22 +8,23 @@ export interface CaptureOptions {
 }
 
 /**
- * Wait for an element to be fully rendered
+ * Wait for an element to be present and visible in the DOM
  */
-const waitForElement = async (selector: string, timeout = 5000): Promise<HTMLElement> => {
+const waitForElement = async (selector: string, timeout: number = 10000): Promise<HTMLElement> => {
   const startTime = Date.now();
+  const checkInterval = 100;
   
   while (Date.now() - startTime < timeout) {
     const element = document.getElementById(selector);
-    if (element) {
-      // Additional wait to ensure full rendering
-      await new Promise(resolve => setTimeout(resolve, 500));
+    if (element && element.offsetParent !== null) {
+      // Element exists and is visible
+      await new Promise(resolve => setTimeout(resolve, 500)); // Additional wait for rendering
       return element;
     }
-    await new Promise(resolve => setTimeout(resolve, 100));
+    await new Promise(resolve => setTimeout(resolve, checkInterval));
   }
   
-  throw new Error(`Element with id "${selector}" not found within ${timeout}ms`);
+  throw new Error(`Element with id "${selector}" not found or not visible within ${timeout}ms. Please make sure you're on the Overview tab before exporting the PDF.`);
 };
 
 /**
@@ -38,7 +34,7 @@ export const captureKPICards = async (
   elementId: string = "cost-report-kpi-cards",
   options: CaptureOptions = {}
 ): Promise<HTMLCanvasElement> => {
-  const element = await waitForElement(elementId);
+  const element = await waitForElement(elementId, options.timeout);
   
   return await html2canvas(element, {
     ...HIGH_QUALITY_CANVAS_OPTIONS,
@@ -48,13 +44,13 @@ export const captureKPICards = async (
 };
 
 /**
- * Capture a single category summary card
+ * Capture a category summary card
  */
 export const captureCategorySummaryCard = async (
   categoryId: string,
   options: CaptureOptions = {}
 ): Promise<HTMLCanvasElement> => {
-  const element = await waitForElement(`category-card-${categoryId}`);
+  const element = await waitForElement(`category-summary-${categoryId}`, options.timeout);
   
   return await html2canvas(element, {
     ...HIGH_QUALITY_CANVAS_OPTIONS,
@@ -64,53 +60,53 @@ export const captureCategorySummaryCard = async (
 };
 
 /**
- * Capture all category summary cards
+ * Capture multiple category cards and return them in a Map
  */
 export const captureAllCategoryCards = async (
   categoryIds: string[],
   options: CaptureOptions = {}
 ): Promise<Map<string, HTMLCanvasElement>> => {
-  const captures = new Map<string, HTMLCanvasElement>();
+  const canvasMap = new Map<string, HTMLCanvasElement>();
   
   for (const categoryId of categoryIds) {
     try {
       const canvas = await captureCategorySummaryCard(categoryId, options);
-      captures.set(categoryId, canvas);
+      canvasMap.set(categoryId, canvas);
     } catch (error) {
-      console.error(`Failed to capture category card ${categoryId}:`, error);
+      console.warn(`Failed to capture category ${categoryId}:`, error);
     }
   }
   
-  return captures;
+  return canvasMap;
 };
 
 /**
- * Capture charts section
+ * Capture a charts section
  */
 export const captureCharts = async (
   elementId: string = "cost-report-charts",
   options: CaptureOptions = {}
 ): Promise<HTMLCanvasElement> => {
-  const element = await waitForElement(elementId);
+  const element = await waitForElement(elementId, options.timeout);
   
   return await html2canvas(element, {
-    ...CHART_QUALITY_CANVAS_OPTIONS,
+    ...HIGH_QUALITY_CANVAS_OPTIONS,
     scale: options.scale || 2,
     backgroundColor: options.backgroundColor || '#ffffff',
   });
 };
 
 /**
- * Capture a specific chart by ID
+ * Capture a specific chart
  */
 export const captureChart = async (
   chartId: string,
   options: CaptureOptions = {}
 ): Promise<HTMLCanvasElement> => {
-  const element = await waitForElement(chartId);
+  const element = await waitForElement(chartId, options.timeout);
   
   return await html2canvas(element, {
-    ...CHART_QUALITY_CANVAS_OPTIONS,
+    ...HIGH_QUALITY_CANVAS_OPTIONS,
     scale: options.scale || 2,
     backgroundColor: options.backgroundColor || '#ffffff',
   });

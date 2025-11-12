@@ -30,14 +30,17 @@ export const bindReportDataToTemplate = async (
   projectId: string,
   category: "cost_report" | "cable_schedule" | "final_account"
 ): Promise<any[]> => {
+  console.log("bindReportDataToTemplate called with:", { reportId, projectId, category });
   const inputs: any[] = [];
 
-  // Fetch company details
-  const companyQuery = await supabase
-    .from("company_settings")
-    .select("company_name, company_logo_url")
-    .maybeSingle();
-  const companyData = companyQuery.data;
+  try {
+    // Fetch company details
+    const companyQuery = await supabase
+      .from("company_settings")
+      .select("company_name, company_logo_url")
+      .maybeSingle();
+    const companyData = companyQuery.data;
+    console.log("Fetched company data:", companyData);
 
   // Fetch report data based on category
   let reportData: any = null;
@@ -80,10 +83,13 @@ export const bindReportDataToTemplate = async (
   );
 
   // Generate chart and table images
+  console.log("Generating charts and tables...");
   const chartImages = await generateChartImages(categories, lineItems);
   const tableImages = await generateTableImages(categories, lineItems);
+  console.log("Charts and tables generated");
 
   // Process each page's schema
+  console.log("Processing template schemas, page count:", template.schemas.length);
   for (const pageSchema of template.schemas) {
     const pageInput: Record<string, any> = {};
 
@@ -149,5 +155,10 @@ export const bindReportDataToTemplate = async (
     inputs.push(pageInput);
   }
 
+  console.log("Successfully created inputs for all pages:", inputs.length);
   return inputs;
+  } catch (error) {
+    console.error("Error in bindReportDataToTemplate:", error);
+    throw error;
+  }
 };

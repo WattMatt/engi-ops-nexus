@@ -157,9 +157,22 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
 
       setCurrentSection("Capturing UI components...");
       // Capture the KPI cards from the actual rendered UI
-      await prepareElementForCapture("cost-report-kpi-cards");
-      const kpiCardsCanvas = await captureKPICards("cost-report-kpi-cards", { scale: 2 });
-      const kpiCardsImage = canvasToDataURL(kpiCardsCanvas, 'JPEG', 0.9);
+      let kpiCardsCanvas;
+      let kpiCardsImage;
+      try {
+        await prepareElementForCapture("cost-report-kpi-cards");
+        kpiCardsCanvas = await captureKPICards("cost-report-kpi-cards", { scale: 2 });
+        kpiCardsImage = canvasToDataURL(kpiCardsCanvas, 'JPEG', 0.9);
+      } catch (error) {
+        console.error("Error capturing KPI cards:", error);
+        toast({
+          title: "Unable to capture KPI cards",
+          description: error instanceof Error ? error.message : "Make sure you're on the Overview tab",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
       
       setCurrentSection("Generating executive summary...");
       // ========== EXECUTIVE SUMMARY PAGE ==========

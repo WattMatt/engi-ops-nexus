@@ -48,18 +48,20 @@ export const PDFPreviewDialog = ({
       
       setIsLoading(true);
       try {
+        console.log("Loading report data for preview:", { reportId, projectId, category });
         const boundInputs = await bindReportDataToTemplate(
           template,
           reportId,
           projectId,
           category
         );
+        console.log("Successfully bound inputs:", boundInputs);
         setInputs(boundInputs);
       } catch (error) {
         console.error("Failed to load report data:", error);
         toast({
           title: "Error",
-          description: "Failed to load report data for preview",
+          description: error instanceof Error ? error.message : "Failed to load report data for preview",
           variant: "destructive",
         });
       } finally {
