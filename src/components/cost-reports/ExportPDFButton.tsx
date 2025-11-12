@@ -119,16 +119,23 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         code: ct.code,
         description: ct.description,
         originalBudget: ct.originalBudget,
+        previousReport: ct.previousReport,
         anticipatedFinal: ct.anticipatedFinal,
-        variance: ct.originalVariance
+        currentVariance: ct.currentVariance,
+        originalVariance: ct.originalVariance
       }));
 
       const totalOriginalBudget = pdfGrandTotals.originalBudget;
+      const totalPreviousReport = pdfGrandTotals.previousReport;
       const totalAnticipatedFinal = pdfGrandTotals.anticipatedFinal;
-      const finalTotal = totalAnticipatedFinal;
-      const totalVariance = pdfGrandTotals.originalVariance;
-      const variancePercentage = totalOriginalBudget > 0 
-        ? ((Math.abs(totalVariance) / totalOriginalBudget) * 100) 
+      const currentVariance = pdfGrandTotals.currentVariance;
+      const originalVariance = pdfGrandTotals.originalVariance;
+      
+      const currentVariancePercentage = totalPreviousReport > 0 
+        ? ((Math.abs(currentVariance) / totalPreviousReport) * 100) 
+        : 0;
+      const originalVariancePercentage = totalOriginalBudget > 0 
+        ? ((Math.abs(originalVariance) / totalOriginalBudget) * 100) 
         : 0;
 
       // ========== EXECUTIVE SUMMARY PAGE ==========
@@ -145,44 +152,75 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       doc.setFont("helvetica", "normal");
       doc.text("Key Performance Indicators & Financial Overview", pageWidth / 2, 30, { align: "center" });
 
-      // Top KPI Cards
+      // Top KPI Cards - Now 5 cards in two rows
       doc.setTextColor(0, 0, 0);
       let kpiY = contentStartY + 35;
-      const kpiCardWidth = (contentWidth - 16) / 3; // Distribute width based on content area
-      const kpiCardHeight = 25;
+      const kpiCardWidth = (contentWidth - 16) / 3; // 3 cards per row
+      const kpiCardHeight = 22;
       const kpiSpacing = 8;
       
+      // First Row: Original Budget, Previous Report, Anticipated Final
       // Original Budget Card
       doc.setDrawColor(0, 200, 200);
       doc.setLineWidth(0.5);
       doc.rect(contentStartX, kpiY, kpiCardWidth, kpiCardHeight);
-      doc.setFontSize(8);
+      doc.setFontSize(7);
       doc.setFont("helvetica", "normal");
-      doc.text("Original Budget", contentStartX + 2, kpiY + 5);
-      doc.setFontSize(12);
+      doc.text("Original Budget", contentStartX + 2, kpiY + 4);
+      doc.setFontSize(10);
       doc.setFont("helvetica", "bold");
-      doc.text(`R${totalOriginalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, contentStartX + 2, kpiY + 15);
+      doc.text(`R${totalOriginalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, contentStartX + 2, kpiY + 12);
+      
+      // Previous Report Card
+      doc.rect(contentStartX + kpiCardWidth + kpiSpacing, kpiY, kpiCardWidth, kpiCardHeight);
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "normal");
+      doc.text("Previous Report", contentStartX + kpiCardWidth + kpiSpacing + 2, kpiY + 4);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text(`R${totalPreviousReport.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, contentStartX + kpiCardWidth + kpiSpacing + 2, kpiY + 12);
       
       // Anticipated Final Card
-      doc.rect(contentStartX + kpiCardWidth + kpiSpacing, kpiY, kpiCardWidth, kpiCardHeight);
-      doc.setFontSize(8);
-      doc.setFont("helvetica", "normal");
-      doc.text("Anticipated Final", contentStartX + kpiCardWidth + kpiSpacing + 2, kpiY + 5);
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "bold");
-      doc.text(`R${finalTotal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, contentStartX + kpiCardWidth + kpiSpacing + 2, kpiY + 15);
-      
-      // Saving Card
       doc.rect(contentStartX + (kpiCardWidth + kpiSpacing) * 2, kpiY, kpiCardWidth, kpiCardHeight);
-      doc.setFontSize(8);
-      doc.setFont("helvetica", "normal");
-      doc.text(totalVariance < 0 ? "Saving" : "Extra", contentStartX + (kpiCardWidth + kpiSpacing) * 2 + 2, kpiY + 5);
-      doc.setFontSize(12);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(totalVariance < 0 ? 0 : 255, totalVariance < 0 ? 150 : 0, 0);
-      doc.text(`R${Math.abs(totalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, contentStartX + (kpiCardWidth + kpiSpacing) * 2 + 2, kpiY + 15);
       doc.setFontSize(7);
-      doc.text(`${variancePercentage.toFixed(2)}% variance`, contentStartX + (kpiCardWidth + kpiSpacing) * 2 + 2, kpiY + 20);
+      doc.setFont("helvetica", "normal");
+      doc.text("Anticipated Final", contentStartX + (kpiCardWidth + kpiSpacing) * 2 + 2, kpiY + 4);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.text(`R${totalAnticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, contentStartX + (kpiCardWidth + kpiSpacing) * 2 + 2, kpiY + 12);
+      
+      // Second Row: Current Variance, Original Variance (centered, 2 cards)
+      kpiY += kpiCardHeight + kpiSpacing;
+      const twoCardWidth = (contentWidth - kpiSpacing) / 2;
+      const cardStartX = contentStartX + (contentWidth - (twoCardWidth * 2 + kpiSpacing)) / 2;
+      
+      // Current Variance Card
+      doc.setDrawColor(currentVariance < 0 ? 0 : 255, currentVariance < 0 ? 200 : 100, currentVariance < 0 ? 0 : 0);
+      doc.rect(cardStartX, kpiY, twoCardWidth, kpiCardHeight);
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(0, 0, 0);
+      doc.text(`Current ${currentVariance < 0 ? '(Saving)' : 'Extra'}`, cardStartX + 2, kpiY + 4);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(currentVariance < 0 ? 0 : 255, currentVariance < 0 ? 150 : 0, 0);
+      doc.text(`R${Math.abs(currentVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, cardStartX + 2, kpiY + 12);
+      doc.setFontSize(6);
+      doc.text(`${currentVariancePercentage.toFixed(2)}% vs Previous`, cardStartX + 2, kpiY + 18);
+      
+      // Original Variance Card
+      doc.setDrawColor(originalVariance < 0 ? 0 : 255, originalVariance < 0 ? 200 : 100, originalVariance < 0 ? 0 : 0);
+      doc.rect(cardStartX + twoCardWidth + kpiSpacing, kpiY, twoCardWidth, kpiCardHeight);
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(0, 0, 0);
+      doc.text(`${originalVariance < 0 ? '(Saving)' : 'Extra'} vs Original`, cardStartX + twoCardWidth + kpiSpacing + 2, kpiY + 4);
+      doc.setFontSize(10);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(originalVariance < 0 ? 0 : 255, originalVariance < 0 ? 150 : 0, 0);
+      doc.text(`R${Math.abs(originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, cardStartX + twoCardWidth + kpiSpacing + 2, kpiY + 12);
+      doc.setFontSize(6);
+      doc.text(`${originalVariancePercentage.toFixed(2)}% vs Original`, cardStartX + twoCardWidth + kpiSpacing + 2, kpiY + 18);
 
       // Define colors for all visual elements
       const cardColors = [
@@ -204,35 +242,34 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       doc.text("Category Distribution & Financial Variance", contentStartX, tableY);
       tableY += 10;
 
-      // Prepare table data with color indicators
+      // Prepare table data matching the category summary structure
       const tableData = categoryTotals.map((cat: any, index: number) => {
         const percentage = totalAnticipatedFinal > 0 
           ? ((cat.anticipatedFinal / totalAnticipatedFinal) * 100).toFixed(1)
           : '0.0';
         
-        const variance = cat.anticipatedFinal - cat.originalBudget;
-        
         return [
           cat.code,
           cat.description,
           `R${cat.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+          `R${cat.previousReport.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
           `R${cat.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
           `${percentage}%`,
-          `${variance >= 0 ? '+' : ''}R${Math.abs(variance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-          variance < 0 ? 'Saving' : 'Extra'
+          `${cat.currentVariance >= 0 ? '+' : ''}R${Math.abs(cat.currentVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+          `${cat.originalVariance >= 0 ? '+' : ''}R${Math.abs(cat.originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`
         ];
       });
 
       // Add totals row
-      const totalVarianceValue = totalAnticipatedFinal - totalOriginalBudget;
       tableData.push([
         '',
-        'TOTAL',
+        'GRAND TOTAL',
         `R${totalOriginalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+        `R${totalPreviousReport.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
         `R${totalAnticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
         '100%',
-        `${totalVarianceValue >= 0 ? '+' : ''}R${Math.abs(totalVarianceValue).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-        totalVarianceValue < 0 ? 'Saving' : 'Extra'
+        `${currentVariance >= 0 ? '+' : ''}R${Math.abs(currentVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+        `${originalVariance >= 0 ? '+' : ''}R${Math.abs(originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`
       ]);
 
       autoTable(doc, {
@@ -242,10 +279,11 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           'Code',
           'Category',
           'Original Budget',
+          'Previous Report',
           'Anticipated Final',
           '% of Total',
-          'Variance',
-          'Status'
+          'Current Variance',
+          'Original Variance'
         ]],
         body: tableData,
         theme: 'grid',
@@ -253,17 +291,18 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           fillColor: [30, 58, 138], 
           textColor: [255, 255, 255], 
           fontStyle: 'bold',
-          fontSize: 9
+          fontSize: 7
         },
-        bodyStyles: { fontSize: 8 },
+        bodyStyles: { fontSize: 7 },
         columnStyles: {
-          0: { cellWidth: 15, fontStyle: 'bold' },
-          1: { cellWidth: contentWidth * 0.26 },
-          2: { cellWidth: contentWidth * 0.17, halign: 'right' },
-          3: { cellWidth: contentWidth * 0.17, halign: 'right' },
-          4: { cellWidth: contentWidth * 0.10, halign: 'center' },
-          5: { cellWidth: contentWidth * 0.17, halign: 'right' },
-          6: { cellWidth: contentWidth * 0.13, halign: 'center' }
+          0: { cellWidth: 12, fontStyle: 'bold' },
+          1: { cellWidth: contentWidth * 0.20 },
+          2: { cellWidth: contentWidth * 0.12, halign: 'right' },
+          3: { cellWidth: contentWidth * 0.12, halign: 'right' },
+          4: { cellWidth: contentWidth * 0.12, halign: 'right' },
+          5: { cellWidth: contentWidth * 0.08, halign: 'center' },
+          6: { cellWidth: contentWidth * 0.12, halign: 'right' },
+          7: { cellWidth: contentWidth * 0.12, halign: 'right' }
         },
         didDrawCell: (data) => {
           // Add colored indicator bar on the left of each row (except totals row)
@@ -277,17 +316,25 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           if (data.section === 'body' && data.row.index === tableData.length - 1) {
             data.cell.styles.fillColor = [220, 230, 240];
             data.cell.styles.fontStyle = 'bold';
-            data.cell.styles.fontSize = 9;
+            data.cell.styles.fontSize = 8;
           }
           
-          // Color the variance and status cells
+          // Color the variance cells
           if (data.section === 'body' && data.row.index < categoryTotals.length) {
             const cat = categoryTotals[data.row.index];
-            const variance = cat.anticipatedFinal - cat.originalBudget;
-            if (data.column.index === 5 || data.column.index === 6) {
-              if (variance < 0) {
+            // Current Variance column
+            if (data.column.index === 6) {
+              if (cat.currentVariance < 0) {
                 data.cell.styles.textColor = [0, 150, 0];
-              } else {
+              } else if (cat.currentVariance > 0) {
+                data.cell.styles.textColor = [255, 0, 0];
+              }
+            }
+            // Original Variance column
+            if (data.column.index === 7) {
+              if (cat.originalVariance < 0) {
+                data.cell.styles.textColor = [0, 150, 0];
+              } else if (cat.originalVariance > 0) {
                 data.cell.styles.textColor = [255, 0, 0];
               }
             }
@@ -295,10 +342,17 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           
           // Color totals row variance
           if (data.section === 'body' && data.row.index === tableData.length - 1) {
-            if (data.column.index === 5 || data.column.index === 6) {
-              if (totalVarianceValue < 0) {
+            if (data.column.index === 6) {
+              if (currentVariance < 0) {
                 data.cell.styles.textColor = [0, 150, 0];
-              } else {
+              } else if (currentVariance > 0) {
+                data.cell.styles.textColor = [255, 0, 0];
+              }
+            }
+            if (data.column.index === 7) {
+              if (originalVariance < 0) {
+                data.cell.styles.textColor = [0, 150, 0];
+              } else if (originalVariance > 0) {
                 data.cell.styles.textColor = [255, 0, 0];
               }
             }
@@ -496,8 +550,10 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         head: [['Metric', 'Value']],
         body: [
           ['Original Budget', `R ${totalOriginalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`],
-          ['Anticipated Final', `R ${finalTotal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`],
-          ['Total Saving', `R ${Math.abs(totalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })} (${variancePercentage.toFixed(2)}%)`]
+          ['Previous Report', `R ${totalPreviousReport.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`],
+          ['Anticipated Final', `R ${totalAnticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`],
+          ['Current Variance', `R ${Math.abs(currentVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })} (${currentVariancePercentage.toFixed(2)}%)`],
+          ['Original Variance', `R ${Math.abs(originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })} (${originalVariancePercentage.toFixed(2)}%)`]
         ],
         theme: 'grid',
         styles: { fontSize: 10, cellPadding: 5 },
@@ -513,18 +569,19 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       autoTable(doc, {
         startY: lastY + 5,
         margin: { left: contentStartX, right: useMargins.right },
-        head: [['Code', 'Category', 'Original Budget', 'Anticipated Final', 'Variance', 'Status']],
+        head: [['Code', 'Category', 'Original Budget', 'Previous Report', 'Anticipated Final', 'Current Variance', 'Original Variance']],
         body: categoryTotals.map((cat: any) => [
           cat.code,
           cat.description,
           `R ${cat.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+          `R ${cat.previousReport.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
           `R ${cat.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-          `${cat.variance >= 0 ? '+' : ''}R ${cat.variance.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-          cat.variance < 0 ? 'Saving' : 'Extra'
+          `${cat.currentVariance >= 0 ? '+' : ''}R ${Math.abs(cat.currentVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+          `${cat.originalVariance >= 0 ? '+' : ''}R ${Math.abs(cat.originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`
         ]),
         theme: 'grid',
-        styles: { fontSize: 9, cellPadding: 3 },
-        headStyles: { fillColor: [30, 58, 138], textColor: [255, 255, 255], fontStyle: 'bold' }
+        styles: { fontSize: 8, cellPadding: 3 },
+        headStyles: { fillColor: [30, 58, 138], textColor: [255, 255, 255], fontStyle: 'bold', fontSize: 7 }
       });
 
       // ========== DETAILED LINE ITEMS PAGES ==========
