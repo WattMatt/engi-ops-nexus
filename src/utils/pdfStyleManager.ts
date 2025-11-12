@@ -51,6 +51,11 @@ export interface PDFStyleSettings {
   positions?: {
     [elementKey: string]: ElementPosition;
   };
+  grid?: {
+    size: number;
+    enabled: boolean;
+    visible: boolean;
+  };
 }
 
 export class PDFStyleManager {
@@ -146,5 +151,15 @@ export class PDFStyleManager {
       this.settings.positions = {};
     }
     this.settings.positions[elementKey] = position;
+  }
+
+  getGridSettings() {
+    return this.settings.grid || { size: 10, enabled: true, visible: true };
+  }
+
+  snapToGrid(value: number): number {
+    const grid = this.getGridSettings();
+    if (!grid.enabled) return value;
+    return Math.round(value / grid.size) * grid.size;
   }
 }

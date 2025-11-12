@@ -266,8 +266,13 @@ export const PDFTemplateEditor = ({
             {/* Preview Panel */}
             <ScrollArea className="flex-1 p-6 bg-muted/30">
               <div className="mb-4 p-3 bg-info/10 border border-info rounded-lg">
-                <p className="text-sm text-info-foreground">
-                  <strong>Tip:</strong> Select an element and drag it to reposition. Use the position controls in the style panel for precise placement.
+                <p className="text-sm text-info-foreground flex items-center gap-2">
+                  <strong>Tip:</strong> Select an element and drag it to reposition. 
+                  {currentSettings.grid?.enabled && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary/10 rounded text-xs">
+                      Snap-to-grid enabled ({currentSettings.grid.size}px)
+                    </span>
+                  )}
                 </p>
               </div>
               <LivePreview

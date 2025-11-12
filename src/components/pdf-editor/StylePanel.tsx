@@ -4,7 +4,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { RotateCcw, Move } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { RotateCcw, Move, Grid3x3 } from "lucide-react";
 
 interface StylePanelProps {
   selectedElement: string | null;
@@ -28,6 +29,8 @@ export const StylePanel = ({
   const position = selectedElement && currentStyles.positions?.[selectedElement] 
     ? currentStyles.positions[selectedElement] 
     : { x: 0, y: 0 };
+  
+  const gridSettings = currentStyles.grid || { size: 10, enabled: true, visible: true };
   if (!selectedElement || !elementType) {
     return (
       <div className="h-full flex items-center justify-center p-4">
@@ -79,6 +82,48 @@ export const StylePanel = ({
 
       <Separator />
 
+      {/* Grid Settings */}
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <Grid3x3 className="w-4 h-4" />
+          <h4 className="font-medium">Grid & Snapping</h4>
+        </div>
+
+        <div className="flex items-center justify-between">
+          <Label htmlFor="snap-to-grid" className="cursor-pointer">Enable Snap to Grid</Label>
+          <Switch
+            id="snap-to-grid"
+            checked={gridSettings.enabled}
+            onCheckedChange={(checked) => onStyleChange('grid.enabled', checked)}
+          />
+        </div>
+
+        <div className="flex items-center justify-between">
+          <Label htmlFor="show-grid" className="cursor-pointer">Show Grid Lines</Label>
+          <Switch
+            id="show-grid"
+            checked={gridSettings.visible}
+            onCheckedChange={(checked) => onStyleChange('grid.visible', checked)}
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label>Grid Size: {gridSettings.size}px</Label>
+          <Slider
+            value={[gridSettings.size]}
+            onValueChange={(value) => onStyleChange('grid.size', value[0])}
+            min={5}
+            max={50}
+            step={5}
+          />
+          <p className="text-xs text-muted-foreground">
+            Adjust the spacing between grid lines
+          </p>
+        </div>
+      </div>
+
+      <Separator />
+
       {/* Position */}
       <div className="space-y-4">
         <div className="flex items-center gap-2">
@@ -96,6 +141,7 @@ export const StylePanel = ({
               type="number"
               value={Math.round(position.x)}
               onChange={(e) => selectedElement && onPositionChange(selectedElement, Number(e.target.value), position.y)}
+              step={gridSettings.enabled ? gridSettings.size : 1}
             />
           </div>
           <div className="space-y-2">
@@ -104,6 +150,7 @@ export const StylePanel = ({
               type="number"
               value={Math.round(position.y)}
               onChange={(e) => selectedElement && onPositionChange(selectedElement, position.x, Number(e.target.value))}
+              step={gridSettings.enabled ? gridSettings.size : 1}
             />
           </div>
         </div>

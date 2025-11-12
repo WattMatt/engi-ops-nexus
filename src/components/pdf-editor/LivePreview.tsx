@@ -16,6 +16,65 @@ export const LivePreview = ({
   reportType,
 }: LivePreviewProps) => {
   const margins = settings.layout.margins;
+  const gridSettings = settings.grid || { size: 10, enabled: true, visible: true };
+
+  // Generate grid pattern
+  const generateGrid = () => {
+    if (!gridSettings.visible) return null;
+
+    const gridSize = gridSettings.size;
+    const width = 210; // A4 width in mm
+    const height = 297; // A4 height in mm
+    
+    // Convert mm to pixels (assuming 96 DPI)
+    const mmToPx = 3.7795275591;
+    const widthPx = width * mmToPx;
+    const heightPx = height * mmToPx;
+
+    const lines = [];
+    
+    // Vertical lines
+    for (let x = 0; x <= widthPx; x += gridSize) {
+      lines.push(
+        <line
+          key={`v-${x}`}
+          x1={x}
+          y1={0}
+          x2={x}
+          y2={heightPx}
+          stroke="rgba(200, 200, 200, 0.3)"
+          strokeWidth="0.5"
+        />
+      );
+    }
+    
+    // Horizontal lines
+    for (let y = 0; y <= heightPx; y += gridSize) {
+      lines.push(
+        <line
+          key={`h-${y}`}
+          x1={0}
+          y1={y}
+          x2={widthPx}
+          y2={y}
+          stroke="rgba(200, 200, 200, 0.3)"
+          strokeWidth="0.5"
+        />
+      );
+    }
+
+    return (
+      <svg
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          width: '100%',
+          height: '100%',
+        }}
+      >
+        {lines}
+      </svg>
+    );
+  };
 
   return (
     <div 
@@ -26,6 +85,7 @@ export const LivePreview = ({
         padding: `${margins.top}mm ${margins.right}mm ${margins.bottom}mm ${margins.left}mm`,
       }}
     >
+      {generateGrid()}
       {/* Cover Page Preview */}
       <div className="mb-8 relative">
         <EditableElement
