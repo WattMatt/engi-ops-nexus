@@ -105,6 +105,8 @@ const PDFTemplates = () => {
     }
   };
 
+  const [generatedTemplate, setGeneratedTemplate] = useState<any>(null);
+
   const handleSmartGenerate = async (config: TemplateConfig) => {
     if (!selectedReportId || !selectedProjectId) {
       toast({
@@ -116,36 +118,25 @@ const PDFTemplates = () => {
     }
 
     try {
-      const { generateSmartTemplatePDF } = await import("@/utils/exportSmartTemplatePDF");
+      const { createTemplateFromConfig } = await import("@/utils/createTemplateFromConfig");
       
-      const reportTypeMap: Record<string, "cost-report" | "cable-schedule" | "final-account"> = {
-        "cost_report": "cost-report",
-        "cable_schedule": "cable-schedule",
-        "final_account": "final-account",
-      };
-      
-      const result = await generateSmartTemplatePDF({
-        config,
-        reportType: reportTypeMap[category],
-        reportId: selectedReportId,
-        projectId: selectedProjectId,
-      });
+      // Generate the template structure from the config
+      const template = createTemplateFromConfig(config);
       
       toast({
-        title: "PDF Generated Successfully",
-        description: `Your custom template has been created: ${result.fileName}`,
+        title: "Template Generated",
+        description: "Now you can drag items, change colors, or delete elements",
       });
       
-      // Open the PDF in a new tab
-      window.open(result.url, '_blank');
-      
-      // Exit smart builder mode
+      // Store the generated template and switch to designer mode
+      setGeneratedTemplate(template);
       setSmartBuilderMode(false);
+      setAdvancedMode(true);
     } catch (error) {
       console.error("Smart template generation error:", error);
       toast({
         title: "Generation Failed",
-        description: error instanceof Error ? error.message : "Failed to generate PDF template",
+        description: error instanceof Error ? error.message : "Failed to generate template",
         variant: "destructive",
       });
     }
@@ -209,9 +200,11 @@ const PDFTemplates = () => {
           reportId={selectedReportId}
           category={category}
           projectId={selectedProjectId}
+          initialTemplate={generatedTemplate}
           onBack={() => {
             setAdvancedMode(false);
             setSelectedTemplateId(undefined);
+            setGeneratedTemplate(null);
           }}
         />
       </div>

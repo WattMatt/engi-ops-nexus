@@ -30,6 +30,7 @@ interface PDFTemplateDesignerProps {
   category: string;
   projectId: string;
   reportId?: string;
+  initialTemplate?: Template;
   onSave?: (templateId: string) => void;
   onBack?: () => void;
 }
@@ -56,6 +57,7 @@ export const PDFTemplateDesigner = ({
   category,
   projectId,
   reportId,
+  initialTemplate,
   onSave,
   onBack,
 }: PDFTemplateDesignerProps) => {
@@ -90,9 +92,22 @@ export const PDFTemplateDesigner = ({
     enabled: !!reportId && category === "cost_report",
   });
 
-  // Load existing template if templateId provided
+  // Load initial template from Smart Builder or existing template from DB
   useEffect(() => {
     const loadTemplate = async () => {
+      // If initialTemplate provided (from Smart Builder), use it
+      if (initialTemplate) {
+        setTemplate(initialTemplate);
+        setTemplateName("AI Generated Template");
+        setTemplateDescription("Generated from Smart Template Builder - drag to reposition, click to edit colors, or delete unwanted elements");
+        toast({
+          title: "Template Ready",
+          description: "Drag items to reposition, click to edit properties, or delete unwanted elements",
+        });
+        return;
+      }
+
+      // Otherwise, load from database if templateId provided
       if (!templateId) return;
 
       const { data, error } = await supabase
@@ -119,7 +134,7 @@ export const PDFTemplateDesigner = ({
     };
 
     loadTemplate();
-  }, [templateId, toast]);
+  }, [templateId, initialTemplate, toast]);
 
   // Initialize pdfme designer
   useEffect(() => {
