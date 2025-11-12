@@ -3,15 +3,13 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Upload, FileText, Trash2, TestTube } from "lucide-react";
+import { Upload, FileText, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { UploadTemplateDialog } from "@/components/document-templates/UploadTemplateDialog";
-import { TestTemplateDialog } from "@/components/document-templates/TestTemplateDialog";
 import { FillTemplateDialog } from "@/components/document-templates/FillTemplateDialog";
 
 export default function DocumentTemplates() {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
-  const [testDialogOpen, setTestDialogOpen] = useState(false);
   const [fillDialogOpen, setFillDialogOpen] = useState(false);
   const [selectedTemplate, setSelectedTemplate] = useState<any>(null);
   const queryClient = useQueryClient();
@@ -56,11 +54,6 @@ export default function DocumentTemplates() {
       toast.error("Failed to delete template: " + error.message);
     },
   });
-
-  const handleTest = (template: any) => {
-    setSelectedTemplate(template);
-    setTestDialogOpen(true);
-  };
 
   const handleFill = (template: any) => {
     setSelectedTemplate(template);
@@ -140,13 +133,6 @@ export default function DocumentTemplates() {
                     Fill & Convert
                   </Button>
                   <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => handleTest(template)}
-                  >
-                    <TestTube className="h-4 w-4" />
-                  </Button>
-                  <Button
                     variant="destructive"
                     size="icon"
                     onClick={() => deleteMutation.mutate(template.id)}
@@ -163,12 +149,6 @@ export default function DocumentTemplates() {
       <UploadTemplateDialog
         open={uploadDialogOpen}
         onOpenChange={setUploadDialogOpen}
-      />
-
-      <TestTemplateDialog
-        open={testDialogOpen}
-        onOpenChange={setTestDialogOpen}
-        template={selectedTemplate}
       />
 
       <FillTemplateDialog
