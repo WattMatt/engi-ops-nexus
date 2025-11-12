@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { EditableElement } from "./EditableElement";
 import { AlignmentGuides, calculateAlignmentGuides, getElementBounds, ElementBounds } from "./AlignmentGuides";
 import { PDFTextExtractor, ExtractedTextItem } from "./PDFTextExtractor";
 import { EditablePDFText } from "./EditablePDFText";
+import { usePDFEditorHistory } from "@/hooks/usePDFEditorHistory";
 
 interface LivePreviewProps {
   settings: any;
@@ -14,6 +15,7 @@ interface LivePreviewProps {
   currentPage: number;
   pdfUrl?: string | null;
   enablePDFEditing?: boolean;
+  onUndoRedoChange?: (canUndo: boolean, canRedo: boolean) => void;
 }
 
 // Define all available elements with their display names and default positions
@@ -38,6 +40,7 @@ export const LivePreview = ({
   currentPage,
   pdfUrl,
   enablePDFEditing = true,
+  onUndoRedoChange,
 }: LivePreviewProps) => {
   const margins = settings.layout.margins;
   const gridSettings = settings.grid || { size: 10, enabled: true, visible: true };
@@ -54,6 +57,51 @@ export const LivePreview = ({
   const [extractedText, setExtractedText] = useState<ExtractedTextItem[]>([]);
   const [editedTextItems, setEditedTextItems] = useState<Map<string, string>>(new Map());
   const [scale] = useState(1.0); // Match PDF rendering scale
+
+  // History management for undo/redo
+  const history = usePDFEditorHistory({
+    extractedText: [],
+    editedTextItems: new Map(),
+  });
+
+  // Notify parent of undo/redo state changes
+  useEffect(() => {
+    if (onUndoRedoChange) {
+      onUndoRedoChange(history.canUndo, history.canRedo);
+    }
+  }, [history.canUndo, history.canRedo, onUndoRedoChange]);
+
+  // Expose undo/redo to parent
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+        e.preventDefault();
+        handleUndo();
+      } else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+        e.preventDefault();
+        handleRedo();
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [history]);
+
+  const handleUndo = () => {
+    const previousState = history.undo();
+    if (previousState) {
+      setExtractedText(previousState.extractedText);
+      setEditedTextItems(previousState.editedTextItems);
+    }
+  };
+
+  const handleRedo = () => {
+    const nextState = history.redo();
+    if (nextState) {
+      setExtractedText(nextState.extractedText);
+      setEditedTextItems(nextState.editedTextItems);
+    }
+  };
 
   const handleDragStart = (styleKey: string, bounds: ElementBounds) => {
     setDraggingElement(styleKey);
@@ -93,17 +141,30 @@ export const LivePreview = ({
     const newMap = new Map(editedTextItems);
     newMap.set(id, newText);
     setEditedTextItems(newMap);
+    
+    // Push to history
+    history.pushState({
+      extractedText: [...extractedText],
+      editedTextItems: new Map(newMap),
+    });
+    
     console.log('Text changed:', id, newText);
   };
 
   const handlePDFTextPosition = (id: string, x: number, y: number) => {
     console.log('Text position changed:', id, x, y);
+    
     // Update position in extracted text
-    setExtractedText(prev =>
-      prev.map(item =>
-        item.id === id ? { ...item, x, y } : item
-      )
+    const newExtractedText = extractedText.map(item =>
+      item.id === id ? { ...item, x, y } : item
     );
+    setExtractedText(newExtractedText);
+    
+    // Push to history
+    history.pushState({
+      extractedText: newExtractedText,
+      editedTextItems: new Map(editedTextItems),
+    });
   };
 
   // Filter elements for current page and ensure they have positions

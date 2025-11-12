@@ -8,7 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Save, FileDown, ChevronLeft, ChevronRight } from "lucide-react";
+import { Loader2, Save, FileDown, ChevronLeft, ChevronRight, Undo, Redo } from "lucide-react";
 import { LivePreview } from "./LivePreview";
 import { StylePanel } from "./StylePanel";
 import { TemplateSelector } from "./TemplateSelector";
@@ -50,6 +50,15 @@ export const PDFTemplateEditor = ({
   const [currentPage, setCurrentPage] = useState(1);
   const [numPages, setNumPages] = useState(0);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
+  
+  // Undo/Redo state
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+
+  const handleUndoRedoChange = (undo: boolean, redo: boolean) => {
+    setCanUndo(undo);
+    setCanRedo(redo);
+  };
 
   // Element definitions with defaults (imported from LivePreview for consistency)
   const ELEMENT_DEFAULTS = [
@@ -565,6 +574,46 @@ export const PDFTemplateEditor = ({
             {/* Preview Panel */}
             <ScrollArea className="flex-1 p-6 bg-muted/30">
               <div className="space-y-2 mb-4">
+                {/* Undo/Redo Controls */}
+                <div className="flex items-center justify-center gap-2 p-2 bg-background border rounded-lg">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      // Trigger undo via keyboard event
+                      const event = new KeyboardEvent('keydown', {
+                        key: 'z',
+                        ctrlKey: true,
+                        bubbles: true
+                      });
+                      window.dispatchEvent(event);
+                    }}
+                    disabled={!canUndo}
+                    title="Undo (Ctrl+Z)"
+                  >
+                    <Undo className="h-4 w-4 mr-1" />
+                    Undo
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      // Trigger redo via keyboard event
+                      const event = new KeyboardEvent('keydown', {
+                        key: 'y',
+                        ctrlKey: true,
+                        bubbles: true
+                      });
+                      window.dispatchEvent(event);
+                    }}
+                    disabled={!canRedo}
+                    title="Redo (Ctrl+Y)"
+                  >
+                    <Redo className="h-4 w-4 mr-1" />
+                    Redo
+                  </Button>
+                </div>
+
                 {/* Page Navigation */}
                 {numPages > 1 && (
                   <div className="flex items-center justify-center gap-4 p-2 bg-background border rounded-lg">
@@ -634,6 +683,7 @@ export const PDFTemplateEditor = ({
                       currentPage={currentPage}
                       pdfUrl={pdfUrl}
                       enablePDFEditing={true}
+                      onUndoRedoChange={handleUndoRedoChange}
                     />
                   </div>
                 </div>
