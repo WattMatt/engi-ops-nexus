@@ -58,18 +58,75 @@ export const TemplateExportDialog = ({
     enabled: open,
   });
 
-  const mapReportDataToTemplate = (template: Template): any[] => {
-    // Map cost report data to template inputs
-    // This is a simple mapping - you can extend this based on your template fields
-    return [
-      {
-        title: report.report_name || "Cost Report",
-        report_number: report.report_number || "",
-        project_name: report.projects?.name || "",
-        date: format(new Date(), "dd MMMM yyyy"),
-        // Add more mappings based on your template schema
-      },
-    ];
+  const { data: reportData } = useQuery({
+    queryKey: ["cost-report-full-data", report?.id],
+    queryFn: async () => {
+      if (!report?.id) return null;
+
+      const [categoriesRes, lineItemsRes, variationsRes] = await Promise.all([
+        supabase
+          .from("cost_categories")
+          .select("*")
+          .eq("cost_report_id", report.id)
+          .order("display_order"),
+        supabase
+          .from("cost_line_items")
+          .select("*, cost_categories!inner(cost_report_id)")
+          .eq("cost_categories.cost_report_id", report.id),
+        supabase
+          .from("cost_variations")
+          .select("*")
+          .eq("cost_report_id", report.id),
+      ]);
+
+      if (categoriesRes.error) throw categoriesRes.error;
+      if (lineItemsRes.error) throw lineItemsRes.error;
+      if (variationsRes.error) throw variationsRes.error;
+
+      return {
+        categories: categoriesRes.data || [],
+        lineItems: lineItemsRes.data || [],
+        variations: variationsRes.data || [],
+      };
+    },
+    enabled: open && !!report?.id,
+  });
+
+  const mapReportDataToTemplate = (templateJson: any): any[] => {
+    const schemas = templateJson?.schemas || [];
+    if (schemas.length === 0) return [{}];
+
+    // Get all field names from the template
+    const fieldNames = Object.keys(schemas[0] || {});
+
+    // Create comprehensive data object
+    const dataObject: any = {
+      report_name: report?.report_name || "",
+      report_number: report?.report_number?.toString() || "",
+      report_date: report?.report_date ? format(new Date(report.report_date), "dd MMMM yyyy") : "",
+      project_number: report?.project_number || "",
+      project_name: report?.project_name || "",
+      client_name: report?.client_name || "",
+      electrical_contractor: report?.electrical_contractor || "",
+      date: format(new Date(), "dd MMMM yyyy"),
+    };
+
+    // Add category totals if available
+    if (reportData?.categories) {
+      reportData.categories.forEach((cat: any, idx: number) => {
+        dataObject[`category_${idx + 1}_name`] = cat.description || "";
+        dataObject[`category_${idx + 1}_budget`] = cat.original_budget?.toLocaleString() || "0";
+        dataObject[`category_${idx + 1}_actual`] = cat.anticipated_final?.toLocaleString() || "0";
+      });
+    }
+
+    // Only include fields that exist in the template
+    const mappedData: any = {};
+    fieldNames.forEach(fieldName => {
+      mappedData[fieldName] = dataObject[fieldName] || "";
+    });
+
+    return [mappedData];
   };
 
   const handleExport = async () => {
@@ -86,8 +143,10 @@ export const TemplateExportDialog = ({
     try {
       const template = templates?.find((t) => t.id === selectedTemplate);
       if (!template) throw new Error("Template not found");
+      
+      if (!template.template_json) throw new Error("Template has no design data");
 
-      const inputs = mapReportDataToTemplate(template.template_json as Template);
+      const inputs = mapReportDataToTemplate(template.template_json);
 
       const pdf = await generate({
         template: template.template_json as Template,
@@ -104,7 +163,7 @@ export const TemplateExportDialog = ({
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `${report.report_name}_${Date.now()}.pdf`;
+      link.download = `${report?.report_name || "report"}_${Date.now()}.pdf`;
       link.click();
       window.URL.revokeObjectURL(url);
 
@@ -116,9 +175,10 @@ export const TemplateExportDialog = ({
       onOpenChange(false);
     } catch (error) {
       console.error("Export error:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to generate PDF";
       toast({
         title: "Error",
-        description: "Failed to generate PDF",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
