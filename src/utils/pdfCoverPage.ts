@@ -335,46 +335,23 @@ export async function generateCoverPage(
     doc.setLineWidth(1.2);
     doc.line(25, yPos + 1, pageWidth - 25, yPos + 1);
     
-    // Date and Revision section with modern cards
-    yPos = 250;
+    // Date and Revision section - simple text labels
+    yPos = 255;
     
-    const cardHeight = 26;
-    const cardGap = 8;
-    const cardWidth = (pageWidth - 50 - cardGap) / 2;
-    
-    // Date card
-    doc.setFillColor(...colors.primary);
-    doc.roundedRect(25, yPos - 5, cardWidth, cardHeight, 2, 2, 'F');
-    
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(...colors.white);
-    doc.text("DATE", 30, yPos + 1);
-    doc.setFontSize(8);
+    // Date label and value
+    doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
-    const dateText = format(new Date(), "EEEE, dd MMMM yyyy");
-    doc.text(dateText, 30, yPos + 10);
+    doc.setTextColor(...colors.neutral);
+    doc.text("Date:", 28, yPos);
     
-    // Revision card
-    const revX = 25 + cardWidth + cardGap;
-    doc.setFillColor(...colors.secondary);
-    doc.roundedRect(revX, yPos - 5, cardWidth, cardHeight, 2, 2, 'F');
+    // Revision label and value  
+    doc.text("Page No:", pageWidth - 60, yPos);
     
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(...colors.white);
-    doc.text("REVISION", revX + 5, yPos + 1);
-    doc.setFontSize(8);
+    // Page number - simple text
+    doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
-    doc.text(options.revision.replace("Rev.", "Rev "), revX + 5, yPos + 10);
-    
-    // Page number with modern styling
-    doc.setFillColor(...colors.primary);
-    doc.circle(pageWidth / 2, pageHeight - 18, 6, 'F');
-    doc.setTextColor(...colors.white);
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.text("1", pageWidth / 2, pageHeight - 15, { align: "center" });
+    doc.setTextColor(...colors.neutral);
+    doc.text("1", pageWidth / 2, pageHeight - 10, { align: "center" });
   }
   
   // Overlay text on template (if template exists)
