@@ -342,14 +342,14 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
             fillColor: [248, 250, 252]
           },
           columnStyles: {
-            0: { cellWidth: 12, fontStyle: 'bold', halign: 'center' },
-            1: { cellWidth: 45, halign: 'left', cellPadding: { left: 5, right: 3, top: 4, bottom: 4 } },
-            2: { cellWidth: 26, halign: 'right', cellPadding: { right: 5 } },
-            3: { cellWidth: 26, halign: 'right', cellPadding: { right: 5 } },
-            4: { cellWidth: 26, halign: 'right', cellPadding: { right: 5 } },
-            5: { cellWidth: 12, halign: 'center' },
-            6: { cellWidth: 26, halign: 'right', cellPadding: { right: 5 } },
-            7: { cellWidth: 26, halign: 'right', cellPadding: { right: 5 } }
+            0: { cellWidth: 10, fontStyle: 'bold', halign: 'center' },
+            1: { cellWidth: 38, halign: 'left', cellPadding: { left: 5, right: 3, top: 4, bottom: 4 } },
+            2: { cellWidth: 22, halign: 'right', cellPadding: { right: 5 } },
+            3: { cellWidth: 22, halign: 'right', cellPadding: { right: 5 } },
+            4: { cellWidth: 22, halign: 'right', cellPadding: { right: 5 } },
+            5: { cellWidth: 10, halign: 'center' },
+            6: { cellWidth: 22, halign: 'right', cellPadding: { right: 5 } },
+            7: { cellWidth: 22, halign: 'right', cellPadding: { right: 5 } }
           },
           didDrawCell: (data) => {
             // Add colored indicator bar on the left of each row (except totals row)
@@ -685,13 +685,13 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           valign: 'middle'
         },
         columnStyles: {
-          0: { cellWidth: 12, halign: 'center' },
-          1: { cellWidth: 45, halign: 'left' },
-          2: { halign: 'right' },
-          3: { halign: 'right' },
-          4: { halign: 'right' },
-          5: { halign: 'right' },
-          6: { halign: 'right' }
+          0: { cellWidth: 10, halign: 'center' },
+          1: { cellWidth: 38, halign: 'left' },
+          2: { halign: 'right', cellWidth: 22 },
+          3: { halign: 'right', cellWidth: 22 },
+          4: { halign: 'right', cellWidth: 22 },
+          5: { halign: 'right', cellWidth: 22 },
+          6: { halign: 'right', cellWidth: 22 }
         }
       });
 
@@ -851,13 +851,13 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
               cellPadding: 4
             },
             columnStyles: {
-              0: { cellWidth: 15, halign: 'center' },
-              1: { cellWidth: 52, halign: 'left', cellPadding: { left: 4, right: 3 } },
-              2: { cellWidth: 24, halign: 'right', cellPadding: { right: 4 } },
-              3: { cellWidth: 24, halign: 'right', cellPadding: { right: 4 } },
-              4: { cellWidth: 24, halign: 'right', cellPadding: { right: 4 } },
-              5: { cellWidth: 24, halign: 'right', cellPadding: { right: 4 } },
-              6: { cellWidth: 24, halign: 'right', cellPadding: { right: 4 } }
+              0: { cellWidth: 12, halign: 'center' },
+              1: { cellWidth: 46, halign: 'left', cellPadding: { left: 4, right: 3 } },
+              2: { cellWidth: 20, halign: 'right', cellPadding: { right: 4 } },
+              3: { cellWidth: 20, halign: 'right', cellPadding: { right: 4 } },
+              4: { cellWidth: 20, halign: 'right', cellPadding: { right: 4 } },
+              5: { cellWidth: 20, halign: 'right', cellPadding: { right: 4 } },
+              6: { cellWidth: 20, halign: 'right', cellPadding: { right: 4 } }
             },
             didDrawCell: (data) => {
               // Add colored bar on the left side of each row
@@ -960,10 +960,10 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
             cellPadding: 4
           },
           columnStyles: {
-            0: { cellWidth: 15, halign: 'center' },
-            1: { cellWidth: 95, halign: 'left', cellPadding: { left: 4, right: 3 } },
-            2: { cellWidth: 30, halign: 'right', cellPadding: { right: 4 } },
-            3: { cellWidth: 20, halign: 'center' }
+            0: { cellWidth: 12, halign: 'center' },
+            1: { cellWidth: 88, halign: 'left', cellPadding: { left: 4, right: 3 } },
+            2: { cellWidth: 28, halign: 'right', cellPadding: { right: 4 } },
+            3: { cellWidth: 18, halign: 'center' }
           }
         });
         
