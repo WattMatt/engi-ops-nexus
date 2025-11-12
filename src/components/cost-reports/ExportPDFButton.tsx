@@ -149,13 +149,26 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       if (useSections.tableOfContents) {
         doc.addPage();
         tocPage = doc.getCurrentPageInfo().pageNumber;
+        
+        // Modern TOC header with gradient
+        const headerHeight = 40;
+        for (let i = 0; i < headerHeight; i++) {
+          const ratio = i / headerHeight;
+          const r = Math.round(colors.primary[0] + (colors.secondary[0] - colors.primary[0]) * ratio);
+          const g = Math.round(colors.primary[1] + (colors.secondary[1] - colors.primary[1]) * ratio);
+          const b = Math.round(colors.primary[2] + (colors.secondary[2] - colors.primary[2]) * ratio);
+          doc.setFillColor(r, g, b);
+          doc.rect(0, i, pageWidth, 1, 'F');
+        }
+        
         doc.setFontSize(24);
         doc.setFont("helvetica", "bold");
-        doc.text("TABLE OF CONTENTS", pageWidth / 2, contentStartY + 10, { align: "center" });
+        doc.setTextColor(...colors.white);
+        doc.text("TABLE OF CONTENTS", pageWidth / 2, 22, { align: "center" });
       }
 
       // We'll fill this in after generating all pages
-      const tocStartY = contentStartY + 30;
+      const tocStartY = contentStartY + 20;
 
       // Use the already calculated totals
       const categoryTotals = pdfCategoryTotals.map(ct => ({
@@ -917,35 +930,44 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       }
 
       setCurrentSection("Finalizing table of contents...");
-      // ========== FILL IN TABLE OF CONTENTS ==========
+      // ========== FILL IN TABLE OF CONTENTS WITH CLICKABLE LINKS ==========
       if (useSections.tableOfContents && tocPage > 0) {
-      doc.setPage(tocPage);
-      let tocY = tocStartY;
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "normal");
-      doc.setTextColor(0, 0, 0);
-      
-      tocSections.forEach((section, index) => {
-        // Add some spacing between sections
-        if (index > 0) tocY += 2;
+        doc.setPage(tocPage);
+        let tocY = tocStartY;
+        doc.setTextColor(...colors.text);
         
-        // Calculate dots for leader
-        const titleWidth = doc.getTextWidth(section.title);
-        const pageNumWidth = doc.getTextWidth(String(section.page));
-        const availableSpace = contentWidth - titleWidth - pageNumWidth - 10; // 10mm spacing
-        const dotWidth = doc.getTextWidth('.');
-        const numDots = Math.max(3, Math.floor(availableSpace / dotWidth));
-        const dots = '.'.repeat(numDots);
-        
-        // Draw the line
-        doc.text(section.title, contentStartX, tocY);
-        doc.setTextColor(150, 150, 150);
-        doc.text(dots, contentStartX + titleWidth + 2, tocY);
-        doc.setTextColor(0, 0, 0);
-        doc.text(String(section.page), pageWidth - useMargins.right - pageNumWidth, tocY);
-        
-        tocY += 7;
-      });
+        tocSections.forEach((section, index) => {
+          // Add some spacing between sections
+          if (index > 0) tocY += 2;
+          
+          // Calculate dots for leader
+          doc.setFontSize(12);
+          doc.setFont("helvetica", "normal");
+          const titleWidth = doc.getTextWidth(section.title);
+          const pageNumWidth = doc.getTextWidth(String(section.page));
+          const availableSpace = contentWidth - titleWidth - pageNumWidth - 10; // 10mm spacing
+          const dotWidth = doc.getTextWidth('.');
+          const numDots = Math.max(3, Math.floor(availableSpace / dotWidth));
+          const dots = '.'.repeat(numDots);
+          
+          // Draw section title with clickable link
+          doc.setTextColor(...colors.primary);
+          doc.textWithLink(section.title, contentStartX, tocY, { 
+            pageNumber: section.page 
+          });
+          
+          // Draw dots
+          doc.setTextColor(...colors.neutral);
+          doc.setFontSize(10);
+          doc.text(dots, contentStartX + titleWidth + 2, tocY);
+          
+          // Draw page number
+          doc.setFontSize(12);
+          doc.setTextColor(...colors.text);
+          doc.text(String(section.page), pageWidth - useMargins.right - pageNumWidth, tocY);
+          
+          tocY += 10;
+        });
       }
 
       setCurrentSection("Adding page numbers...");
