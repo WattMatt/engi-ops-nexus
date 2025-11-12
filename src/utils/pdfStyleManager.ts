@@ -5,6 +5,12 @@ export interface ElementPosition {
   y: number;
 }
 
+export interface ElementMetadata {
+  visible: boolean;
+  locked: boolean;
+  zIndex: number;
+}
+
 export interface PDFStyleSettings {
   typography: {
     headingFont: 'helvetica' | 'times' | 'courier';
@@ -55,6 +61,9 @@ export interface PDFStyleSettings {
     size: number;
     enabled: boolean;
     visible: boolean;
+  };
+  elements?: {
+    [elementKey: string]: ElementMetadata;
   };
 }
 
@@ -161,5 +170,29 @@ export class PDFStyleManager {
     const grid = this.getGridSettings();
     if (!grid.enabled) return value;
     return Math.round(value / grid.size) * grid.size;
+  }
+
+  getElementMetadata(elementKey: string): ElementMetadata {
+    return this.settings.elements?.[elementKey] || { 
+      visible: true, 
+      locked: false, 
+      zIndex: 0 
+    };
+  }
+
+  setElementMetadata(elementKey: string, metadata: Partial<ElementMetadata>) {
+    if (!this.settings.elements) {
+      this.settings.elements = {};
+    }
+    this.settings.elements[elementKey] = {
+      ...this.getElementMetadata(elementKey),
+      ...metadata
+    };
+  }
+
+  getAllElements(): string[] {
+    const positionKeys = Object.keys(this.settings.positions || {});
+    const metadataKeys = Object.keys(this.settings.elements || {});
+    return Array.from(new Set([...positionKeys, ...metadataKeys]));
   }
 }

@@ -12,6 +12,7 @@ import { Loader2, Save, FileDown } from "lucide-react";
 import { LivePreview } from "./LivePreview";
 import { StylePanel } from "./StylePanel";
 import { TemplateSelector } from "./TemplateSelector";
+import { LayersPanel } from "./LayersPanel";
 import { PDFStyleSettings } from "@/utils/pdfStyleManager";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -190,6 +191,70 @@ export const PDFTemplateEditor = ({
     });
   };
 
+  const handleToggleVisibility = (elementKey: string) => {
+    if (!currentSettings) return;
+
+    setCurrentSettings((prev) => {
+      if (!prev) return prev;
+      
+      const currentMetadata = prev.elements?.[elementKey] || { visible: true, locked: false, zIndex: 0 };
+      
+      return {
+        ...prev,
+        elements: {
+          ...prev.elements,
+          [elementKey]: {
+            ...currentMetadata,
+            visible: !currentMetadata.visible
+          }
+        }
+      };
+    });
+  };
+
+  const handleToggleLocked = (elementKey: string) => {
+    if (!currentSettings) return;
+
+    setCurrentSettings((prev) => {
+      if (!prev) return prev;
+      
+      const currentMetadata = prev.elements?.[elementKey] || { visible: true, locked: false, zIndex: 0 };
+      
+      return {
+        ...prev,
+        elements: {
+          ...prev.elements,
+          [elementKey]: {
+            ...currentMetadata,
+            locked: !currentMetadata.locked
+          }
+        }
+      };
+    });
+  };
+
+  const handleChangeZIndex = (elementKey: string, direction: 'up' | 'down') => {
+    if (!currentSettings) return;
+
+    setCurrentSettings((prev) => {
+      if (!prev) return prev;
+      
+      const currentMetadata = prev.elements?.[elementKey] || { visible: true, locked: false, zIndex: 0 };
+      const newZIndex = direction === 'up' ? currentMetadata.zIndex + 1 : currentMetadata.zIndex - 1;
+      
+      return {
+        ...prev,
+        elements: {
+          ...prev.elements,
+          [elementKey]: {
+            ...currentMetadata,
+            zIndex: newZIndex
+          }
+        }
+      };
+    });
+  };
+
   const handleLoadTemplate = (templateId: string) => {
     const template = templates?.find(t => t.id === templateId);
     if (template) {
@@ -263,6 +328,18 @@ export const PDFTemplateEditor = ({
           </DialogHeader>
 
           <div className="flex flex-1 overflow-hidden border-t">
+            {/* Layers Panel */}
+            <div className="w-64 border-r bg-background">
+              <LayersPanel
+                settings={currentSettings}
+                selectedElement={selectedElement}
+                onSelectElement={handleSelectElement}
+                onToggleVisibility={handleToggleVisibility}
+                onToggleLocked={handleToggleLocked}
+                onChangeZIndex={handleChangeZIndex}
+              />
+            </div>
+
             {/* Preview Panel */}
             <ScrollArea className="flex-1 p-6 bg-muted/30">
               <div className="mb-4 p-3 bg-info/10 border border-info rounded-lg">
