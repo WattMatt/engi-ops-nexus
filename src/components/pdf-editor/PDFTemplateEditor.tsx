@@ -13,6 +13,7 @@ import { LivePreview } from "./LivePreview";
 import { StylePanel } from "./StylePanel";
 import { TemplateSelector } from "./TemplateSelector";
 import { LayersPanel } from "./LayersPanel";
+import { AlignmentToolbar, AlignmentType } from "./AlignmentToolbar";
 import { PDFStyleSettings } from "@/utils/pdfStyleManager";
 import { Checkbox } from "@/components/ui/checkbox";
 
@@ -31,7 +32,7 @@ export const PDFTemplateEditor = ({
 }: PDFTemplateEditorProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const [selectedElement, setSelectedElement] = useState<string | null>(null);
+  const [selectedElements, setSelectedElements] = useState<string[]>([]);
   const [elementType, setElementType] = useState<'heading' | 'body' | 'table' | 'section' | null>(null);
   const [elementLevel, setElementLevel] = useState<1 | 2 | 3 | undefined>();
   const [currentSettings, setCurrentSettings] = useState<PDFStyleSettings | null>(null);
@@ -133,25 +134,37 @@ export const PDFTemplateEditor = ({
     },
   });
 
-  const handleSelectElement = (key: string) => {
-    setSelectedElement(key);
-    
-    // Parse element type and level from key
-    if (key.includes('heading')) {
-      setElementType('heading');
-      if (key.includes('h1') || key.includes('title') || key.includes('section-heading')) {
-        setElementLevel(1);
-      } else if (key.includes('h2') || key.includes('subsection')) {
-        setElementLevel(2);
-      } else {
-        setElementLevel(3);
-      }
-    } else if (key.includes('table')) {
-      setElementType('table');
-      setElementLevel(undefined);
+  const handleSelectElement = (key: string, isCtrlKey: boolean) => {
+    if (isCtrlKey) {
+      // Multi-select with Ctrl/Cmd
+      setSelectedElements(prev => 
+        prev.includes(key) 
+          ? prev.filter(k => k !== key) 
+          : [...prev, key]
+      );
     } else {
-      setElementType('body');
-      setElementLevel(undefined);
+      // Single select
+      setSelectedElements([key]);
+    }
+    
+    // Parse element type and level from key (for single selection)
+    if (!isCtrlKey) {
+      if (key.includes('heading')) {
+        setElementType('heading');
+        if (key.includes('section-heading')) {
+          setElementLevel(1);
+        } else if (key.includes('subsection')) {
+          setElementLevel(2);
+        } else {
+          setElementLevel(3);
+        }
+      } else if (key.includes('table')) {
+        setElementType('table');
+        setElementLevel(undefined);
+      } else {
+        setElementType('body');
+        setElementLevel(undefined);
+      }
     }
   };
 
@@ -255,11 +268,120 @@ export const PDFTemplateEditor = ({
     });
   };
 
+  const handleGroupDrag = (deltaX: number, deltaY: number) => {
+    if (!currentSettings || selectedElements.length === 0) return;
+
+    setCurrentSettings((prev) => {
+      if (!prev) return prev;
+      
+      const newPositions = { ...prev.positions };
+      
+      selectedElements.forEach((key) => {
+        const currentPos = newPositions[key] || { x: 0, y: 0 };
+        newPositions[key] = {
+          x: currentPos.x + deltaX,
+          y: currentPos.y + deltaY
+        };
+      });
+      
+      return {
+        ...prev,
+        positions: newPositions
+      };
+    });
+  };
+
+  const handleAlign = (type: AlignmentType) => {
+    if (!currentSettings || selectedElements.length < 2) return;
+
+    setCurrentSettings((prev) => {
+      if (!prev) return prev;
+      
+      const positions = selectedElements.map(key => ({
+        key,
+        pos: prev.positions?.[key] || { x: 0, y: 0 }
+      }));
+
+      const newPositions = { ...prev.positions };
+
+      switch (type) {
+        case 'left': {
+          const minX = Math.min(...positions.map(p => p.pos.x));
+          positions.forEach(({ key }) => {
+            newPositions[key] = { ...newPositions[key], x: minX };
+          });
+          break;
+        }
+        case 'center-h': {
+          const avgX = positions.reduce((sum, p) => sum + p.pos.x, 0) / positions.length;
+          positions.forEach(({ key }) => {
+            newPositions[key] = { ...newPositions[key], x: avgX };
+          });
+          break;
+        }
+        case 'right': {
+          const maxX = Math.max(...positions.map(p => p.pos.x));
+          positions.forEach(({ key }) => {
+            newPositions[key] = { ...newPositions[key], x: maxX };
+          });
+          break;
+        }
+        case 'top': {
+          const minY = Math.min(...positions.map(p => p.pos.y));
+          positions.forEach(({ key }) => {
+            newPositions[key] = { ...newPositions[key], y: minY };
+          });
+          break;
+        }
+        case 'center-v': {
+          const avgY = positions.reduce((sum, p) => sum + p.pos.y, 0) / positions.length;
+          positions.forEach(({ key }) => {
+            newPositions[key] = { ...newPositions[key], y: avgY };
+          });
+          break;
+        }
+        case 'bottom': {
+          const maxY = Math.max(...positions.map(p => p.pos.y));
+          positions.forEach(({ key }) => {
+            newPositions[key] = { ...newPositions[key], y: maxY };
+          });
+          break;
+        }
+        case 'distribute-h': {
+          const sorted = [...positions].sort((a, b) => a.pos.x - b.pos.x);
+          const minX = sorted[0].pos.x;
+          const maxX = sorted[sorted.length - 1].pos.x;
+          const spacing = (maxX - minX) / (sorted.length - 1);
+          sorted.forEach(({ key }, i) => {
+            newPositions[key] = { ...newPositions[key], x: minX + spacing * i };
+          });
+          break;
+        }
+        case 'distribute-v': {
+          const sorted = [...positions].sort((a, b) => a.pos.y - b.pos.y);
+          const minY = sorted[0].pos.y;
+          const maxY = sorted[sorted.length - 1].pos.y;
+          const spacing = (maxY - minY) / (sorted.length - 1);
+          sorted.forEach(({ key }, i) => {
+            newPositions[key] = { ...newPositions[key], y: minY + spacing * i };
+          });
+          break;
+        }
+      }
+
+      return {
+        ...prev,
+        positions: newPositions
+      };
+    });
+  };
+
   const handleLoadTemplate = (templateId: string) => {
     const template = templates?.find(t => t.id === templateId);
     if (template) {
       setCurrentSettings(template.settings as unknown as PDFStyleSettings);
       setSelectedTemplateId(templateId);
+      setSelectedElements([]); // Clear selection when loading template
     }
   };
 
@@ -332,7 +454,7 @@ export const PDFTemplateEditor = ({
             <div className="w-64 border-r bg-background">
               <LayersPanel
                 settings={currentSettings}
-                selectedElement={selectedElement}
+                selectedElements={selectedElements}
                 onSelectElement={handleSelectElement}
                 onToggleVisibility={handleToggleVisibility}
                 onToggleLocked={handleToggleLocked}
@@ -342,21 +464,31 @@ export const PDFTemplateEditor = ({
 
             {/* Preview Panel */}
             <ScrollArea className="flex-1 p-6 bg-muted/30">
-              <div className="mb-4 p-3 bg-info/10 border border-info rounded-lg">
-                <p className="text-sm text-info-foreground flex items-center gap-2">
-                  <strong>Tip:</strong> Select an element and drag it to reposition. 
-                  {currentSettings.grid?.enabled && (
-                    <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary/10 rounded text-xs">
-                      Snap-to-grid enabled ({currentSettings.grid.size}px)
-                    </span>
-                  )}
-                </p>
+              <div className="space-y-2 mb-4">
+                <div className="p-3 bg-info/10 border border-info rounded-lg">
+                  <p className="text-sm text-info-foreground flex items-center gap-2">
+                    <strong>Tip:</strong> Ctrl+Click to multi-select. Drag selected elements together.
+                    {currentSettings.grid?.enabled && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 bg-primary/10 rounded text-xs">
+                        Snap-to-grid ({currentSettings.grid.size}px)
+                      </span>
+                    )}
+                  </p>
+                </div>
+                
+                {/* Alignment Toolbar */}
+                <AlignmentToolbar
+                  selectedCount={selectedElements.length}
+                  onAlign={handleAlign}
+                />
               </div>
+              
               <LivePreview
                 settings={currentSettings}
-                selectedElement={selectedElement}
+                selectedElements={selectedElements}
                 onSelectElement={handleSelectElement}
                 onPositionChange={handlePositionChange}
+                onGroupDrag={handleGroupDrag}
                 reportType={reportType}
               />
             </ScrollArea>
@@ -364,7 +496,7 @@ export const PDFTemplateEditor = ({
             {/* Style Editor Panel */}
             <div className="w-80 border-l bg-background">
               <StylePanel
-                selectedElement={selectedElement}
+                selectedElement={selectedElements.length === 1 ? selectedElements[0] : null}
                 elementType={elementType}
                 level={elementLevel}
                 currentStyles={currentSettings}

@@ -2,17 +2,19 @@ import { EditableElement } from "./EditableElement";
 
 interface LivePreviewProps {
   settings: any;
-  selectedElement: string | null;
-  onSelectElement: (key: string) => void;
+  selectedElements: string[];
+  onSelectElement: (key: string, isCtrlKey: boolean) => void;
   onPositionChange: (styleKey: string, x: number, y: number) => void;
+  onGroupDrag: (deltaX: number, deltaY: number) => void;
   reportType: string;
 }
 
 export const LivePreview = ({
   settings,
-  selectedElement,
+  selectedElements,
   onSelectElement,
   onPositionChange,
+  onGroupDrag,
   reportType,
 }: LivePreviewProps) => {
   const margins = settings.layout.margins;
@@ -93,9 +95,11 @@ export const LivePreview = ({
           level={1}
           styleKey="cover-title"
           currentStyles={settings}
-          isSelected={selectedElement === 'cover-title'}
+          isSelected={selectedElements.length === 1 && selectedElements[0] === 'cover-title'}
+          isMultiSelected={selectedElements.length > 1 && selectedElements.includes('cover-title')}
           onSelect={onSelectElement}
           onPositionChange={onPositionChange}
+          onGroupDrag={onGroupDrag}
         >
           <div className="text-center mb-6">PROJECT COST REPORT</div>
         </EditableElement>
@@ -104,9 +108,11 @@ export const LivePreview = ({
           type="body"
           styleKey="cover-subtitle"
           currentStyles={settings}
-          isSelected={selectedElement === 'cover-subtitle'}
+          isSelected={selectedElements.length === 1 && selectedElements[0] === 'cover-subtitle'}
+          isMultiSelected={selectedElements.length > 1 && selectedElements.includes('cover-subtitle')}
           onSelect={onSelectElement}
           onPositionChange={onPositionChange}
+          onGroupDrag={onGroupDrag}
         >
           <div className="text-center">Sample Project Name</div>
         </EditableElement>
@@ -119,9 +125,11 @@ export const LivePreview = ({
           level={1}
           styleKey="section-heading"
           currentStyles={settings}
-          isSelected={selectedElement === 'section-heading'}
+          isSelected={selectedElements.length === 1 && selectedElements[0] === 'section-heading'}
+          isMultiSelected={selectedElements.length > 1 && selectedElements.includes('section-heading')}
           onSelect={onSelectElement}
           onPositionChange={onPositionChange}
+          onGroupDrag={onGroupDrag}
         >
           <div className="mb-4">EXECUTIVE SUMMARY</div>
         </EditableElement>
@@ -130,9 +138,11 @@ export const LivePreview = ({
           type="body"
           styleKey="section-body"
           currentStyles={settings}
-          isSelected={selectedElement === 'section-body'}
+          isSelected={selectedElements.length === 1 && selectedElements[0] === 'section-body'}
+          isMultiSelected={selectedElements.length > 1 && selectedElements.includes('section-body')}
           onSelect={onSelectElement}
           onPositionChange={onPositionChange}
+          onGroupDrag={onGroupDrag}
         >
           <div className="mb-4">
             This report provides a comprehensive overview of project costs, including detailed breakdowns
@@ -145,9 +155,11 @@ export const LivePreview = ({
           level={2}
           styleKey="subsection-heading"
           currentStyles={settings}
-          isSelected={selectedElement === 'subsection-heading'}
+          isSelected={selectedElements.length === 1 && selectedElements[0] === 'subsection-heading'}
+          isMultiSelected={selectedElements.length > 1 && selectedElements.includes('subsection-heading')}
           onSelect={onSelectElement}
           onPositionChange={onPositionChange}
+          onGroupDrag={onGroupDrag}
         >
           <div className="mb-3">Key Performance Indicators</div>
         </EditableElement>
@@ -156,9 +168,11 @@ export const LivePreview = ({
           type="body"
           styleKey="kpi-text"
           currentStyles={settings}
-          isSelected={selectedElement === 'kpi-text'}
+          isSelected={selectedElements.length === 1 && selectedElements[0] === 'kpi-text'}
+          isMultiSelected={selectedElements.length > 1 && selectedElements.includes('kpi-text')}
           onSelect={onSelectElement}
           onPositionChange={onPositionChange}
+          onGroupDrag={onGroupDrag}
         >
           <div className="grid grid-cols-2 gap-4 mb-4">
             <div>
@@ -180,9 +194,11 @@ export const LivePreview = ({
           level={2}
           styleKey="table-heading"
           currentStyles={settings}
-          isSelected={selectedElement === 'table-heading'}
+          isSelected={selectedElements.length === 1 && selectedElements[0] === 'table-heading'}
+          isMultiSelected={selectedElements.length > 1 && selectedElements.includes('table-heading')}
           onSelect={onSelectElement}
           onPositionChange={onPositionChange}
+          onGroupDrag={onGroupDrag}
         >
           <div className="mb-3">Cost Breakdown</div>
         </EditableElement>
@@ -191,9 +207,11 @@ export const LivePreview = ({
           type="table"
           styleKey="sample-table"
           currentStyles={settings}
-          isSelected={selectedElement === 'sample-table'}
+          isSelected={selectedElements.length === 1 && selectedElements[0] === 'sample-table'}
+          isMultiSelected={selectedElements.length > 1 && selectedElements.includes('sample-table')}
           onSelect={onSelectElement}
           onPositionChange={onPositionChange}
+          onGroupDrag={onGroupDrag}
         >
           <table 
             className="w-full border-collapse"

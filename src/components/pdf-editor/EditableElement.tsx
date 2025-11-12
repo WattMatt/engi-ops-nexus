@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Edit2, Move, Lock } from "lucide-react";
+import { Edit2, Move, Lock, Square } from "lucide-react";
 import Draggable, { DraggableData, DraggableEvent } from "react-draggable";
 
 interface EditableElementProps {
@@ -9,8 +9,10 @@ interface EditableElementProps {
   children: React.ReactNode;
   currentStyles: any;
   isSelected: boolean;
-  onSelect: (styleKey: string) => void;
+  isMultiSelected?: boolean;
+  onSelect: (styleKey: string, isCtrlKey: boolean) => void;
   onPositionChange?: (styleKey: string, x: number, y: number) => void;
+  onGroupDrag?: (deltaX: number, deltaY: number) => void;
 }
 
 export const EditableElement = ({
@@ -20,10 +22,13 @@ export const EditableElement = ({
   children,
   currentStyles,
   isSelected,
+  isMultiSelected,
   onSelect,
   onPositionChange,
+  onGroupDrag,
 }: EditableElementProps) => {
   const [isHovered, setIsHovered] = useState(false);
+  const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
   
   // Get position from settings or default to 0,0
   const position = currentStyles.positions?.[styleKey] || { x: 0, y: 0 };
@@ -35,12 +40,31 @@ export const EditableElement = ({
     return Math.round(value / gridSettings.size) * gridSettings.size;
   };
 
+  const handleDragStart = (e: DraggableEvent) => {
+    if (!metadata.locked) {
+      setDragStart({ x: position.x, y: position.y });
+    }
+  };
+
   const handleDrag = (e: DraggableEvent, data: DraggableData) => {
-    if (onPositionChange && !metadata.locked) {
-      const snappedX = snapToGrid(data.x);
-      const snappedY = snapToGrid(data.y);
+    if (metadata.locked || !dragStart) return;
+
+    const snappedX = snapToGrid(data.x);
+    const snappedY = snapToGrid(data.y);
+
+    // If multi-selected, use group drag
+    if (isMultiSelected && onGroupDrag) {
+      const deltaX = snappedX - dragStart.x;
+      const deltaY = snappedY - dragStart.y;
+      onGroupDrag(deltaX, deltaY);
+      setDragStart({ x: snappedX, y: snappedY });
+    } else if (onPositionChange) {
       onPositionChange(styleKey, snappedX, snappedY);
     }
+  };
+
+  const handleDragStop = () => {
+    setDragStart(null);
   };
 
   // Don't render if hidden
@@ -53,10 +77,11 @@ export const EditableElement = ({
       position: 'relative' as const,
       cursor: metadata.locked ? 'not-allowed' : 'pointer',
       transition: 'all 0.2s',
-      outline: isSelected ? '2px solid hsl(var(--primary))' : isHovered ? '1px dashed hsl(var(--primary) / 0.5)' : 'none',
+      outline: isSelected || isMultiSelected ? '2px solid hsl(var(--primary))' : isHovered ? '1px dashed hsl(var(--primary) / 0.5)' : 'none',
       outlineOffset: '2px',
       opacity: metadata.locked ? 0.7 : 1,
       zIndex: metadata.zIndex,
+      backgroundColor: isMultiSelected ? 'hsla(var(--primary) / 0.05)' : 'transparent',
     };
 
     if (type === 'heading') {
@@ -85,7 +110,9 @@ export const EditableElement = ({
   return (
     <Draggable
       position={position}
+      onStart={handleDragStart}
       onDrag={handleDrag}
+      onStop={handleDragStop}
       disabled={!isSelected || metadata.locked}
       bounds="parent"
     >
@@ -96,7 +123,7 @@ export const EditableElement = ({
         onClick={(e) => {
           e.stopPropagation();
           if (!metadata.locked) {
-            onSelect(styleKey);
+            onSelect(styleKey, e.ctrlKey || e.metaKey);
           }
         }}
         className="group"
@@ -104,6 +131,7 @@ export const EditableElement = ({
         {children}
         {(isHovered || isSelected) && !metadata.locked && (
           <div className="absolute -top-6 -right-2 bg-primary text-primary-foreground px-2 py-1 rounded text-xs flex items-center gap-1 pointer-events-none z-50">
+            {isMultiSelected && <Square className="w-3 h-3 fill-current" />}
             {isSelected && <Move className="w-3 h-3" />}
             <Edit2 className="w-3 h-3" />
             {type} {level && `H${level}`}

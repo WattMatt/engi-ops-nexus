@@ -5,8 +5,8 @@ import { cn } from "@/lib/utils";
 
 interface LayersPanelProps {
   settings: any;
-  selectedElement: string | null;
-  onSelectElement: (key: string) => void;
+  selectedElements: string[];
+  onSelectElement: (key: string, isCtrlKey: boolean) => void;
   onToggleVisibility: (key: string) => void;
   onToggleLocked: (key: string) => void;
   onChangeZIndex: (key: string, direction: 'up' | 'down') => void;
@@ -26,7 +26,7 @@ const ELEMENT_DEFINITIONS = [
 
 export const LayersPanel = ({
   settings,
-  selectedElement,
+  selectedElements,
   onSelectElement,
   onToggleVisibility,
   onToggleLocked,
@@ -62,9 +62,16 @@ export const LayersPanel = ({
         <div className="flex items-center gap-2">
           <Layers className="w-4 h-4" />
           <h3 className="font-semibold">Layers</h3>
+          {selectedElements.length > 1 && (
+            <span className="ml-auto text-xs bg-primary/10 text-primary px-2 py-1 rounded">
+              {selectedElements.length} selected
+            </span>
+          )}
         </div>
         <p className="text-xs text-muted-foreground mt-1">
-          Manage element visibility and stacking order
+          {selectedElements.length > 1 
+            ? "Ctrl+Click to multi-select • Drag to move all together"
+            : "Ctrl+Click to multi-select elements"}
         </p>
       </div>
 
@@ -72,7 +79,7 @@ export const LayersPanel = ({
         <div className="p-2 space-y-1">
           {sortedElements.map((element) => {
             const metadata = getElementMetadata(element.key);
-            const isSelected = selectedElement === element.key;
+            const isSelected = selectedElements.includes(element.key);
 
             return (
               <div
@@ -83,7 +90,7 @@ export const LayersPanel = ({
                   !isSelected && "hover:bg-muted/50",
                   !metadata.visible && "opacity-50"
                 )}
-                onClick={() => !metadata.locked && onSelectElement(element.key)}
+                onClick={(e) => !metadata.locked && onSelectElement(element.key, e.ctrlKey || e.metaKey)}
               >
                 {/* Type indicator */}
                 <div className="w-6 h-6 flex items-center justify-center bg-muted rounded text-xs font-mono">
@@ -173,7 +180,7 @@ export const LayersPanel = ({
 
       <div className="p-3 border-t bg-muted/30">
         <p className="text-xs text-muted-foreground">
-          💡 Click to select • Drag in preview to reposition
+          💡 Ctrl+Click to select multiple • Drag to move together
         </p>
       </div>
     </div>
