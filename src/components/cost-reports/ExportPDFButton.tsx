@@ -327,7 +327,9 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
             lineWidth: 0.1,
             lineColor: colors.light,
             valign: 'middle',
-            halign: 'center'
+            halign: 'center',
+            overflow: 'linebreak',
+            minCellWidth: 10
           },
           bodyStyles: { 
             fontSize: 8,
@@ -336,7 +338,8 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
             textColor: colors.text,
             lineWidth: 0.1,
             lineColor: [226, 232, 240],
-            valign: 'middle'
+            valign: 'middle',
+            overflow: 'linebreak'
           },
           alternateRowStyles: {
             fillColor: [248, 250, 252]
@@ -553,8 +556,15 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           cat.originalVariance < 0 ? 'Saving' : 'Extra'
         ]),
         theme: 'grid',
-        styles: { fontSize: 9, cellPadding: 3 },
-        headStyles: { fillColor: [30, 58, 138], textColor: [255, 255, 255], fontStyle: 'bold' }
+        styles: { fontSize: 9, cellPadding: 3, overflow: 'linebreak', valign: 'middle' },
+        headStyles: { 
+          fillColor: [30, 58, 138], 
+          textColor: [255, 255, 255], 
+          fontStyle: 'bold',
+          overflow: 'linebreak',
+          valign: 'middle',
+          halign: 'center'
+        }
       });
       }
 
@@ -647,8 +657,14 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           ['Original Variance', `R ${Math.abs(originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })} (${originalVariancePercentage.toFixed(2)}%)`]
         ],
         theme: 'grid',
-        styles: { fontSize: 10, cellPadding: 5 },
-        headStyles: { fillColor: [30, 58, 138], textColor: [255, 255, 255], fontStyle: 'bold' }
+        styles: { fontSize: 10, cellPadding: 5, overflow: 'linebreak', valign: 'middle' },
+        headStyles: { 
+          fillColor: [30, 58, 138], 
+          textColor: [255, 255, 255], 
+          fontStyle: 'bold',
+          overflow: 'linebreak',
+          valign: 'middle'
+        }
       });
 
       // Category breakdown table
@@ -674,7 +690,8 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         styles: { 
           fontSize: 8, 
           cellPadding: 4,
-          valign: 'middle' 
+          valign: 'middle',
+          overflow: 'linebreak'
         },
         headStyles: { 
           fillColor: [30, 58, 138], 
@@ -682,7 +699,8 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           fontStyle: 'bold', 
           fontSize: 8,
           halign: 'center',
-          valign: 'middle'
+          valign: 'middle',
+          overflow: 'linebreak'
         },
         columnStyles: {
           0: { cellWidth: 10, halign: 'center' },
@@ -839,7 +857,8 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
               fontSize: 8, 
               cellPadding: 4,
               valign: 'middle',
-              minCellHeight: 10
+              minCellHeight: 10,
+              overflow: 'linebreak'
             },
             headStyles: { 
               fillColor: [categoryColor[0], categoryColor[1], categoryColor[2]], 
@@ -848,7 +867,8 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
               fontSize: 8,
               halign: 'center',
               valign: 'middle',
-              cellPadding: 4
+              cellPadding: 4,
+              overflow: 'linebreak'
             },
             columnStyles: {
               0: { cellWidth: 12, halign: 'center' },
@@ -948,7 +968,8 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
             fontSize: 9, 
             cellPadding: 4,
             valign: 'middle',
-            minCellHeight: 10
+            minCellHeight: 10,
+            overflow: 'linebreak'
           },
           headStyles: { 
             fillColor: [30, 58, 138], 
@@ -957,7 +978,8 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
             fontSize: 9,
             halign: 'center',
             valign: 'middle',
-            cellPadding: 4
+            cellPadding: 4,
+            overflow: 'linebreak'
           },
           columnStyles: {
             0: { cellWidth: 12, halign: 'center' },
