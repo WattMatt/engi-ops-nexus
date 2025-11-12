@@ -73,14 +73,16 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       const details = detailsResult.data || [];
       const allLineItems = allLineItemsResult.data || [];
       
-      // Calculate totals using shared utility
-      const pdfCategoryTotals = calculateCategoryTotals(categories, allLineItems, variations);
+      // Calculate totals using shared utility and sort alphabetically
+      const pdfCategoryTotals = calculateCategoryTotals(categories, allLineItems, variations)
+        .sort((a, b) => a.code.localeCompare(b.code));
       const pdfGrandTotals = calculateGrandTotals(pdfCategoryTotals);
       
       // Validate totals if not skipping validation
       if (!skipValidation) {
-        // Calculate UI totals from flat line items list
-        const uiCategoryTotals = calculateCategoryTotals(categories, allLineItems, variations);
+        // Calculate UI totals from flat line items list and sort alphabetically
+        const uiCategoryTotals = calculateCategoryTotals(categories, allLineItems, variations)
+          .sort((a, b) => a.code.localeCompare(b.code));
         const uiGrandTotals = calculateGrandTotals(uiCategoryTotals);
         
         const validation = validateTotals(uiGrandTotals, pdfGrandTotals);

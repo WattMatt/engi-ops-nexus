@@ -53,8 +53,9 @@ export const CostCategoriesManager = ({ reportId, projectId }: CostCategoriesMan
     },
   });
 
-  // Calculate totals using shared utility
-  const categoryTotals = calculateCategoryTotals(categories, lineItems, variations);
+  // Calculate totals using shared utility and sort alphabetically
+  const categoryTotals = calculateCategoryTotals(categories, lineItems, variations)
+    .sort((a, b) => a.code.localeCompare(b.code));
   const grandTotals = calculateGrandTotals(categoryTotals);
 
   return (

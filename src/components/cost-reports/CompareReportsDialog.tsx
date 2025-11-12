@@ -42,7 +42,7 @@ export const CompareReportsDialog = ({
         .from("cost_categories")
         .select("*")
         .eq("cost_report_id", currentReportId)
-        .order("display_order");
+        .order("code");
       if (error) throw error;
       return data || [];
     },
@@ -56,7 +56,7 @@ export const CompareReportsDialog = ({
         .from("cost_categories")
         .select("*")
         .eq("cost_report_id", selectedReportId)
-        .order("display_order");
+        .order("code");
       if (error) throw error;
       return data || [];
     },
