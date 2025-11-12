@@ -303,7 +303,7 @@ export async function generateCoverPage(
     yPos += 6;
     doc.text(`Contact: ${companyDetails.contactName}`, 28, yPos);
     
-    // Add company logo with modern positioning
+    // Add company logo with clean positioning
     if (companyDetails.logoUrl) {
       try {
         const logoResponse = await fetch(companyDetails.logoUrl);
@@ -314,15 +314,11 @@ export async function generateCoverPage(
           reader.readAsDataURL(logoBlob);
         });
         
-        // Position logo on the right side with shadow effect
+        // Position logo on the right side with proper spacing
         const logoWidth = 35;
         const logoHeight = 26;
-        const logoX = pageWidth - logoWidth - 30;
-        const logoY = 200;
-        
-        // Subtle shadow
-        doc.setFillColor(200, 200, 200);
-        doc.roundedRect(logoX + 1, logoY + 1, logoWidth, logoHeight, 2, 2, 'F');
+        const logoX = pageWidth - logoWidth - 28;
+        const logoY = 205;
         
         doc.addImage(logoDataUrl, 'PNG', logoX, logoY, logoWidth, logoHeight);
       } catch (error) {
