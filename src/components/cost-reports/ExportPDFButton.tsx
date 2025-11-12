@@ -964,7 +964,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
     <>
       <div className="space-y-3">
         <div className="flex gap-2">
-          <Button onClick={() => handleExport()} disabled={loading}>
+          <Button onClick={() => setSettingsOpen(true)} disabled={loading}>
             {loading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -976,16 +976,6 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
                 Export PDF
               </>
             )}
-          </Button>
-          
-          <Button 
-            variant="outline" 
-            size="icon"
-            onClick={() => setSettingsOpen(true)}
-            disabled={loading}
-            title="PDF Export Settings"
-          >
-            <Settings className="h-4 w-4" />
           </Button>
         </div>
         
