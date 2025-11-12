@@ -157,13 +157,32 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
 
       setCurrentSection("Preparing for capture...");
       
-      // Find and click the Overview tab to ensure KPI cards are rendered
-      const overviewTab = document.querySelector('[data-state="inactive"][value="overview"]') as HTMLElement;
-      if (overviewTab) {
-        overviewTab.click();
-        // Wait for tab switch and render
-        await new Promise(resolve => setTimeout(resolve, 1000));
+      // Try multiple methods to switch to Overview tab
+      console.log("Attempting to switch to Overview tab...");
+      
+      // Method 1: Click the trigger button directly
+      const overviewTrigger = document.querySelector('[value="overview"]') as HTMLElement;
+      if (overviewTrigger) {
+        console.log("Found overview trigger, clicking...");
+        overviewTrigger.click();
+        await new Promise(resolve => setTimeout(resolve, 1500));
       }
+      
+      // Method 2: Try finding by text content
+      if (!overviewTrigger) {
+        const triggers = Array.from(document.querySelectorAll('button[role="tab"]'));
+        const overviewButton = triggers.find(btn => btn.textContent?.includes('Overview')) as HTMLElement;
+        if (overviewButton) {
+          console.log("Found overview button by text, clicking...");
+          overviewButton.click();
+          await new Promise(resolve => setTimeout(resolve, 1500));
+        }
+      }
+      
+      // Check if element exists now
+      const kpiElement = document.getElementById("cost-report-kpi-cards");
+      console.log("KPI element after tab switch:", kpiElement ? "Found" : "Not found");
+      console.log("KPI element visible:", kpiElement?.offsetParent !== null);
       
       setCurrentSection("Capturing UI components...");
       // Capture the KPI cards from the actual rendered UI
@@ -175,10 +194,24 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         kpiCardsImage = canvasToDataURL(kpiCardsCanvas, 'JPEG', 0.9);
       } catch (error) {
         console.error("Error capturing KPI cards:", error);
+        const errorMessage = error instanceof Error ? error.message : "Unknown error";
+        console.error("Full error details:", errorMessage);
+        
         toast({
-          title: "Unable to capture KPI cards",
-          description: error instanceof Error ? error.message : "Make sure you're on the Overview tab",
+          title: "Export Failed",
+          description: (
+            <div className="space-y-2">
+              <p>Unable to capture report visuals.</p>
+              <p className="text-sm font-semibold">Quick Fix:</p>
+              <ol className="text-sm list-decimal list-inside space-y-1">
+                <li>Click on the "Overview" tab above</li>
+                <li>Wait 2 seconds for it to load</li>
+                <li>Click "Export PDF" again</li>
+              </ol>
+            </div>
+          ),
           variant: "destructive",
+          duration: 10000,
         });
         setLoading(false);
         return;
