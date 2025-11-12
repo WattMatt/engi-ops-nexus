@@ -207,18 +207,6 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       setCurrentSection("Generating executive summary...");
       // ========== EXECUTIVE SUMMARY PAGE ==========
       if (useSections.executiveSummary) {
-        // Capture the KPI cards from the actual rendered UI
-        setCurrentSection("Capturing UI components...");
-        await prepareElementForCapture("cost-report-kpi-cards");
-        const kpiCardsCanvas = await captureKPICards("cost-report-kpi-cards", { scale: 2 });
-        
-        // Validate canvas dimensions before proceeding
-        if (!kpiCardsCanvas || kpiCardsCanvas.width === 0 || kpiCardsCanvas.height === 0) {
-          throw new Error("Failed to capture KPI cards - invalid canvas dimensions");
-        }
-        
-        const kpiCardsImage = canvasToDataURL(kpiCardsCanvas, 'JPEG', 0.9);
-        
         doc.addPage();
         tocSections.push({ title: "Executive Summary", page: doc.getCurrentPageInfo().pageNumber });
         
@@ -242,37 +230,34 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         doc.setFont("helvetica", "normal");
         doc.text("Key Performance Indicators & Financial Overview", pageWidth / 2, 35, { align: "center" });
 
-        // Helper function to create gradient background (used elsewhere in the PDF)
-        const createGradientCard = (x: number, y: number, width: number, height: number, color1: number[], color2: number[]) => {
-          const steps = 10;
-          const stepHeight = height / steps;
-          for (let i = 0; i < steps; i++) {
-            const ratio = i / steps;
-            const r = Math.round(color1[0] + (color2[0] - color1[0]) * ratio);
-            const g = Math.round(color1[1] + (color2[1] - color1[1]) * ratio);
-            const b = Math.round(color1[2] + (color2[2] - color1[2]) * ratio);
-            doc.setFillColor(r, g, b);
-            doc.rect(x, y + i * stepHeight, width, stepHeight, 'F');
-          }
-        };
-
-        // Add captured KPI cards image
-        doc.setTextColor(0, 0, 0);
+        doc.setTextColor(...colors.text);
         let kpiY = contentStartY + 35;
         
-        // Calculate dimensions to fit the captured image - validate to prevent NaN/Infinity
-        const kpiImageAspectRatio = kpiCardsCanvas.width / kpiCardsCanvas.height;
-        const kpiImageWidth = contentWidth;
-        const kpiImageHeight = kpiImageWidth / kpiImageAspectRatio;
-        
-        // Final validation before adding image
-        if (!isFinite(kpiImageHeight) || kpiImageHeight <= 0) {
-          throw new Error("Invalid image dimensions calculated");
+        // Try to capture KPI cards, but fall back to manual rendering if not available
+        try {
+          setCurrentSection("Capturing UI components...");
+          await prepareElementForCapture("cost-report-kpi-cards");
+          const kpiCardsCanvas = await captureKPICards("cost-report-kpi-cards", { scale: 2 });
+          
+          // Validate canvas dimensions before proceeding
+          if (kpiCardsCanvas && kpiCardsCanvas.width > 0 && kpiCardsCanvas.height > 0) {
+            const kpiCardsImage = canvasToDataURL(kpiCardsCanvas, 'JPEG', 0.9);
+            
+            // Calculate dimensions to fit the captured image - validate to prevent NaN/Infinity
+            const kpiImageAspectRatio = kpiCardsCanvas.width / kpiCardsCanvas.height;
+            const kpiImageWidth = contentWidth;
+            const kpiImageHeight = kpiImageWidth / kpiImageAspectRatio;
+            
+            // Final validation before adding image
+            if (isFinite(kpiImageHeight) && kpiImageHeight > 0) {
+              doc.addImage(kpiCardsImage, 'JPEG', contentStartX, kpiY, kpiImageWidth, kpiImageHeight, undefined, 'FAST');
+              kpiY += kpiImageHeight + 5;
+            }
+          }
+        } catch (error) {
+          console.log("Could not capture KPI cards, will render manually:", error);
+          // Continue with manual rendering if capture fails
         }
-        
-        doc.addImage(kpiCardsImage, 'JPEG', contentStartX, kpiY, kpiImageWidth, kpiImageHeight, undefined, 'FAST');
-        
-        kpiY += kpiImageHeight + 5;
 
         // Category Distribution & Financial Variance Table with improved styling
         doc.setTextColor(...colors.text);
