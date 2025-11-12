@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { EditableElement } from "./EditableElement";
+import { AlignmentGuides, calculateAlignmentGuides, getElementBounds, ElementBounds } from "./AlignmentGuides";
 
 interface LivePreviewProps {
   settings: any;
@@ -8,6 +10,18 @@ interface LivePreviewProps {
   onGroupDrag: (deltaX: number, deltaY: number) => void;
   reportType: string;
 }
+
+// Define all available elements with their display names
+const ELEMENT_DEFINITIONS = [
+  { key: 'cover-title', name: 'Cover Title', type: 'heading' },
+  { key: 'cover-subtitle', name: 'Cover Subtitle', type: 'body' },
+  { key: 'section-heading', name: 'Section Heading', type: 'heading' },
+  { key: 'section-body', name: 'Section Body', type: 'body' },
+  { key: 'subsection-heading', name: 'Subsection Heading', type: 'heading' },
+  { key: 'kpi-text', name: 'KPI Text', type: 'body' },
+  { key: 'table-heading', name: 'Table Heading', type: 'heading' },
+  { key: 'sample-table', name: 'Sample Table', type: 'table' },
+];
 
 export const LivePreview = ({
   settings,
@@ -19,6 +33,43 @@ export const LivePreview = ({
 }: LivePreviewProps) => {
   const margins = settings.layout.margins;
   const gridSettings = settings.grid || { size: 10, enabled: true, visible: true };
+  
+  // Smart alignment guides state
+  const [activeGuides, setActiveGuides] = useState<ReturnType<typeof calculateAlignmentGuides>>({
+    guides: [],
+    snapX: null,
+    snapY: null,
+  });
+  const [draggingElement, setDraggingElement] = useState<string | null>(null);
+
+  const handleDragStart = (styleKey: string, bounds: ElementBounds) => {
+    setDraggingElement(styleKey);
+  };
+
+  const handleDragging = (styleKey: string, bounds: ElementBounds) => {
+    // Get all other visible, unlocked elements' bounds
+    const otherElements = ELEMENT_DEFINITIONS
+      .filter(el => {
+        const metadata = settings.elements?.[el.key] || { visible: true, locked: false, zIndex: 0 };
+        return el.key !== styleKey && metadata.visible && !metadata.locked;
+      })
+      .map(el => {
+        const pos = settings.positions?.[el.key] || { x: 0, y: 0 };
+        const elementNode = document.querySelector(`[data-element-key="${el.key}"]`) as HTMLElement;
+        const elementBounds = getElementBounds(pos, elementNode);
+        return elementBounds ? { key: el.key, bounds: elementBounds } : null;
+      })
+      .filter((item): item is { key: string; bounds: ElementBounds } => item !== null);
+
+    // Calculate guides and snap positions
+    const result = calculateAlignmentGuides(bounds, otherElements);
+    setActiveGuides(result);
+  };
+
+  const handleDragEnd = () => {
+    setDraggingElement(null);
+    setActiveGuides({ guides: [], snapX: null, snapY: null });
+  };
 
   // Generate grid pattern
   const generateGrid = () => {
@@ -88,6 +139,9 @@ export const LivePreview = ({
       }}
     >
       {generateGrid()}
+      
+      {/* Alignment Guides Overlay */}
+      <AlignmentGuides guides={activeGuides.guides} />
       {/* Cover Page Preview */}
       <div className="mb-8 relative">
         <EditableElement
@@ -100,8 +154,12 @@ export const LivePreview = ({
           onSelect={onSelectElement}
           onPositionChange={onPositionChange}
           onGroupDrag={onGroupDrag}
+          onDragStart={handleDragStart}
+          onDragging={handleDragging}
+          onDragEnd={handleDragEnd}
+          snapPosition={draggingElement === 'cover-title' ? { x: activeGuides.snapX, y: activeGuides.snapY } : undefined}
         >
-          <div className="text-center mb-6">PROJECT COST REPORT</div>
+          <div className="text-center mb-6" data-element-key="cover-title">PROJECT COST REPORT</div>
         </EditableElement>
         
         <EditableElement
@@ -113,8 +171,12 @@ export const LivePreview = ({
           onSelect={onSelectElement}
           onPositionChange={onPositionChange}
           onGroupDrag={onGroupDrag}
+          onDragStart={handleDragStart}
+          onDragging={handleDragging}
+          onDragEnd={handleDragEnd}
+          snapPosition={draggingElement === 'cover-subtitle' ? { x: activeGuides.snapX, y: activeGuides.snapY } : undefined}
         >
-          <div className="text-center">Sample Project Name</div>
+          <div className="text-center" data-element-key="cover-subtitle">Sample Project Name</div>
         </EditableElement>
       </div>
 
@@ -130,8 +192,12 @@ export const LivePreview = ({
           onSelect={onSelectElement}
           onPositionChange={onPositionChange}
           onGroupDrag={onGroupDrag}
+          onDragStart={handleDragStart}
+          onDragging={handleDragging}
+          onDragEnd={handleDragEnd}
+          snapPosition={draggingElement === 'section-heading' ? { x: activeGuides.snapX, y: activeGuides.snapY } : undefined}
         >
-          <div className="mb-4">EXECUTIVE SUMMARY</div>
+          <div className="mb-4" data-element-key="section-heading">EXECUTIVE SUMMARY</div>
         </EditableElement>
 
         <EditableElement
@@ -143,8 +209,12 @@ export const LivePreview = ({
           onSelect={onSelectElement}
           onPositionChange={onPositionChange}
           onGroupDrag={onGroupDrag}
+          onDragStart={handleDragStart}
+          onDragging={handleDragging}
+          onDragEnd={handleDragEnd}
+          snapPosition={draggingElement === 'section-body' ? { x: activeGuides.snapX, y: activeGuides.snapY } : undefined}
         >
-          <div className="mb-4">
+          <div className="mb-4" data-element-key="section-body">
             This report provides a comprehensive overview of project costs, including detailed breakdowns
             by category and line items. All values are calculated based on current quantities and rates.
           </div>
@@ -160,8 +230,12 @@ export const LivePreview = ({
           onSelect={onSelectElement}
           onPositionChange={onPositionChange}
           onGroupDrag={onGroupDrag}
+          onDragStart={handleDragStart}
+          onDragging={handleDragging}
+          onDragEnd={handleDragEnd}
+          snapPosition={draggingElement === 'subsection-heading' ? { x: activeGuides.snapX, y: activeGuides.snapY } : undefined}
         >
-          <div className="mb-3">Key Performance Indicators</div>
+          <div className="mb-3" data-element-key="subsection-heading">Key Performance Indicators</div>
         </EditableElement>
 
         <EditableElement
@@ -173,8 +247,12 @@ export const LivePreview = ({
           onSelect={onSelectElement}
           onPositionChange={onPositionChange}
           onGroupDrag={onGroupDrag}
+          onDragStart={handleDragStart}
+          onDragging={handleDragging}
+          onDragEnd={handleDragEnd}
+          snapPosition={draggingElement === 'kpi-text' ? { x: activeGuides.snapX, y: activeGuides.snapY } : undefined}
         >
-          <div className="grid grid-cols-2 gap-4 mb-4">
+          <div className="grid grid-cols-2 gap-4 mb-4" data-element-key="kpi-text">
             <div>
               <div className="font-semibold">Total Project Value:</div>
               <div>R 1,234,567.89</div>
@@ -199,8 +277,12 @@ export const LivePreview = ({
           onSelect={onSelectElement}
           onPositionChange={onPositionChange}
           onGroupDrag={onGroupDrag}
+          onDragStart={handleDragStart}
+          onDragging={handleDragging}
+          onDragEnd={handleDragEnd}
+          snapPosition={draggingElement === 'table-heading' ? { x: activeGuides.snapX, y: activeGuides.snapY } : undefined}
         >
-          <div className="mb-3">Cost Breakdown</div>
+          <div className="mb-3" data-element-key="table-heading">Cost Breakdown</div>
         </EditableElement>
 
         <EditableElement
@@ -212,6 +294,10 @@ export const LivePreview = ({
           onSelect={onSelectElement}
           onPositionChange={onPositionChange}
           onGroupDrag={onGroupDrag}
+          onDragStart={handleDragStart}
+          onDragging={handleDragging}
+          onDragEnd={handleDragEnd}
+          snapPosition={draggingElement === 'sample-table' ? { x: activeGuides.snapX, y: activeGuides.snapY } : undefined}
         >
           <table 
             className="w-full border-collapse"
@@ -219,6 +305,7 @@ export const LivePreview = ({
               fontSize: `${settings.tables.fontSize}px`,
               fontFamily: settings.typography.bodyFont,
             }}
+            data-element-key="sample-table"
           >
             <thead>
               <tr style={{ 

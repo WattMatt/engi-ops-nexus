@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Edit2, Move, Lock, Square } from "lucide-react";
 import Draggable, { DraggableData, DraggableEvent } from "react-draggable";
+import { ElementBounds } from "./AlignmentGuides";
 
 interface EditableElementProps {
   type: 'heading' | 'body' | 'table' | 'section';
@@ -13,6 +14,10 @@ interface EditableElementProps {
   onSelect: (styleKey: string, isCtrlKey: boolean) => void;
   onPositionChange?: (styleKey: string, x: number, y: number) => void;
   onGroupDrag?: (deltaX: number, deltaY: number) => void;
+  onDragStart?: (styleKey: string, bounds: ElementBounds) => void;
+  onDragging?: (styleKey: string, bounds: ElementBounds) => void;
+  onDragEnd?: () => void;
+  snapPosition?: { x: number | null; y: number | null };
 }
 
 export const EditableElement = ({
@@ -26,9 +31,14 @@ export const EditableElement = ({
   onSelect,
   onPositionChange,
   onGroupDrag,
+  onDragStart,
+  onDragging,
+  onDragEnd,
+  snapPosition,
 }: EditableElementProps) => {
   const [isHovered, setIsHovered] = useState(false);
   const [dragStart, setDragStart] = useState<{ x: number; y: number } | null>(null);
+  const elementRef = useRef<HTMLDivElement>(null);
   
   // Get position from settings or default to 0,0
   const position = currentStyles.positions?.[styleKey] || { x: 0, y: 0 };
@@ -40,17 +50,57 @@ export const EditableElement = ({
     return Math.round(value / gridSettings.size) * gridSettings.size;
   };
 
+  const getElementBounds = (pos: { x: number; y: number }): ElementBounds | null => {
+    if (!elementRef.current) return null;
+    
+    const rect = elementRef.current.getBoundingClientRect();
+    const width = rect.width;
+    const height = rect.height;
+
+    return {
+      left: pos.x,
+      right: pos.x + width,
+      top: pos.y,
+      bottom: pos.y + height,
+      centerX: pos.x + width / 2,
+      centerY: pos.y + height / 2,
+      width,
+      height,
+    };
+  };
+
   const handleDragStart = (e: DraggableEvent) => {
     if (!metadata.locked) {
       setDragStart({ x: position.x, y: position.y });
+      
+      if (onDragStart && !isMultiSelected) {
+        const bounds = getElementBounds(position);
+        if (bounds) {
+          onDragStart(styleKey, bounds);
+        }
+      }
     }
   };
 
   const handleDrag = (e: DraggableEvent, data: DraggableData) => {
     if (metadata.locked || !dragStart) return;
 
-    const snappedX = snapToGrid(data.x);
-    const snappedY = snapToGrid(data.y);
+    let snappedX = snapToGrid(data.x);
+    let snappedY = snapToGrid(data.y);
+
+    // Apply smart guide snapping if available (overrides grid snap)
+    if (snapPosition) {
+      if (snapPosition.x !== null) snappedX = snapPosition.x;
+      if (snapPosition.y !== null) snappedY = snapPosition.y;
+    }
+
+    // Update guides during drag
+    if (onDragging && !isMultiSelected) {
+      const bounds = getElementBounds({ x: snappedX, y: snappedY });
+      if (bounds) {
+        onDragging(styleKey, bounds);
+      }
+    }
 
     // If multi-selected, use group drag
     if (isMultiSelected && onGroupDrag) {
@@ -65,6 +115,9 @@ export const EditableElement = ({
 
   const handleDragStop = () => {
     setDragStart(null);
+    if (onDragEnd) {
+      onDragEnd();
+    }
   };
 
   // Don't render if hidden
@@ -117,6 +170,7 @@ export const EditableElement = ({
       bounds="parent"
     >
       <div
+        ref={elementRef}
         style={getStyles()}
         onMouseEnter={() => !metadata.locked && setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
