@@ -19,6 +19,7 @@ interface ExportPDFButtonProps {
 export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonProps) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [currentSection, setCurrentSection] = useState<string>("");
   const [previewReport, setPreviewReport] = useState<any>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [margins, setMargins] = useState<PDFMargins>(DEFAULT_MARGINS);
@@ -28,6 +29,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
 
   const handleExport = async (useMargins: PDFMargins = margins, skipValidation: boolean = false) => {
     setLoading(true);
+    setCurrentSection("Fetching data...");
     try {
       // Fetch all data
       const [categoriesResult, variationsResult, detailsResult, allLineItemsResult] = await Promise.all([
@@ -85,8 +87,10 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         }
       }
       
+      setCurrentSection("Preparing company details...");
       const companyDetails = await fetchCompanyDetails();
 
+      setCurrentSection("Initializing PDF document...");
       // Create PDF
       const doc = new jsPDF("portrait", "mm", "a4");
       const pageWidth = doc.internal.pageSize.width;
@@ -98,6 +102,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       const contentStartX = useMargins.left;
       const contentStartY = useMargins.top;
 
+      setCurrentSection("Generating cover page...");
       // ========== COVER PAGE ==========
       await generateCoverPage(doc, {
         title: "Cost Report",
@@ -106,6 +111,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         revision: `Report ${report.report_number}`,
       }, companyDetails);
 
+      setCurrentSection("Creating table of contents...");
       // ========== TABLE OF CONTENTS ==========
       doc.addPage();
       const tocPage = doc.getCurrentPageInfo().pageNumber;
@@ -140,6 +146,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         ? ((Math.abs(originalVariance) / totalOriginalBudget) * 100) 
         : 0;
 
+      setCurrentSection("Generating executive summary...");
       // ========== EXECUTIVE SUMMARY PAGE ==========
       doc.addPage();
       tocSections.push({ title: "Executive Summary", page: doc.getCurrentPageInfo().pageNumber });
@@ -474,6 +481,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         headStyles: { fillColor: [30, 58, 138], textColor: [255, 255, 255], fontStyle: 'bold' }
       });
 
+      setCurrentSection("Adding project information...");
       // ========== PROJECT INFORMATION PAGE ==========
       doc.addPage();
       tocSections.push({ title: "Project Information", page: doc.getCurrentPageInfo().pageNumber });
@@ -537,6 +545,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         yPos += 5;
       });
 
+      setCurrentSection("Creating cost summary...");
       // ========== COST SUMMARY PAGE ==========
       doc.addPage();
       tocSections.push({ title: "Cost Summary", page: doc.getCurrentPageInfo().pageNumber });
@@ -587,7 +596,8 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       });
 
       // ========== DETAILED LINE ITEMS PAGES ==========
-      categories.forEach((category: any) => {
+      categories.forEach((category: any, index: number) => {
+        setCurrentSection(`Adding detailed line items (${index + 1}/${categories.length})...`);
         const lineItems = category.cost_line_items || [];
         if (lineItems.length === 0) return;
 
@@ -623,6 +633,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
 
       // ========== VARIATIONS PAGE ==========
       if (variations.length > 0) {
+        setCurrentSection("Adding variations...");
         doc.addPage();
         tocSections.push({ title: "Variations", page: doc.getCurrentPageInfo().pageNumber });
         
@@ -649,6 +660,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         });
       }
 
+      setCurrentSection("Finalizing table of contents...");
       // ========== FILL IN TABLE OF CONTENTS ==========
       const tocPageRef = doc.setPage(tocPage);
       let tocY = tocStartY;
@@ -662,6 +674,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         tocY += 8;
       });
 
+      setCurrentSection("Adding page numbers...");
       // Add page numbers to all pages except cover
       const totalPages = doc.getNumberOfPages();
       for (let i = 2; i <= totalPages; i++) {
@@ -671,6 +684,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         doc.text(`Page ${i} of ${totalPages}`, pageWidth / 2, pageHeight - useMargins.bottom + 5, { align: "center" });
       }
 
+      setCurrentSection("Saving PDF...");
       // Save PDF
       const pdfBlob = doc.output("blob");
       const fileName = `Cost_Report_${report.report_number}_${Date.now()}.pdf`;
@@ -717,6 +731,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       });
     } finally {
       setLoading(false);
+      setCurrentSection("");
     }
   };
   
@@ -733,7 +748,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           {loading ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Generating PDF...
+              {currentSection || "Generating..."}
             </>
           ) : (
             <>
