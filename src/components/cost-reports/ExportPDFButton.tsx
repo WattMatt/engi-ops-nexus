@@ -193,6 +193,18 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         ];
       });
 
+      // Add totals row
+      const totalVarianceValue = totalAnticipatedFinal - totalOriginalBudget;
+      tableData.push([
+        '',
+        'TOTAL',
+        `R${totalOriginalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+        `R${totalAnticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+        '100%',
+        `${totalVarianceValue >= 0 ? '+' : ''}R${Math.abs(totalVarianceValue).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+        totalVarianceValue < 0 ? 'Saving' : 'Extra'
+      ]);
+
       autoTable(doc, {
         startY: tableY,
         head: [[
@@ -223,19 +235,37 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           6: { cellWidth: 20, halign: 'center' }
         },
         didDrawCell: (data) => {
-          // Add colored indicator bar on the left of each row
-          if (data.section === 'body' && data.column.index === 0) {
+          // Add colored indicator bar on the left of each row (except totals row)
+          if (data.section === 'body' && data.column.index === 0 && data.row.index < categoryTotals.length) {
             const color = cardColors[data.row.index % cardColors.length];
             doc.setFillColor(color[0], color[1], color[2]);
             doc.rect(data.cell.x - 3, data.cell.y, 3, data.cell.height, 'F');
           }
           
+          // Highlight the totals row
+          if (data.section === 'body' && data.row.index === tableData.length - 1) {
+            data.cell.styles.fillColor = [220, 230, 240];
+            data.cell.styles.fontStyle = 'bold';
+            data.cell.styles.fontSize = 9;
+          }
+          
           // Color the variance and status cells
-          if (data.section === 'body') {
+          if (data.section === 'body' && data.row.index < categoryTotals.length) {
             const cat = categoryTotals[data.row.index];
             const variance = cat.anticipatedFinal - cat.originalBudget;
             if (data.column.index === 5 || data.column.index === 6) {
               if (variance < 0) {
+                data.cell.styles.textColor = [0, 150, 0];
+              } else {
+                data.cell.styles.textColor = [255, 0, 0];
+              }
+            }
+          }
+          
+          // Color totals row variance
+          if (data.section === 'body' && data.row.index === tableData.length - 1) {
+            if (data.column.index === 5 || data.column.index === 6) {
+              if (totalVarianceValue < 0) {
                 data.cell.styles.textColor = [0, 150, 0];
               } else {
                 data.cell.styles.textColor = [255, 0, 0];
