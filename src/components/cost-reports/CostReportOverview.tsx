@@ -1,16 +1,27 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { DollarSign, TrendingDown, TrendingUp } from "lucide-react";
+import { DollarSign, TrendingDown, TrendingUp, Download } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
 import { calculateCategoryTotals, calculateGrandTotals } from "@/utils/costReportCalculations";
+import html2canvas from "html2canvas";
+import { useToast } from "@/hooks/use-toast";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface CostReportOverviewProps {
   report: any;
 }
 
 export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
+  const { toast } = useToast();
+  
   const { data: categories = [] } = useQuery({
     queryKey: ["cost-categories", report.id],
     queryFn: async () => {
@@ -101,6 +112,67 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
       'Previous Report': cat.previousReport,
       'Anticipated Final': cat.anticipatedFinal
     }));
+
+  const handleExportChart = async (elementId: string, chartName: string, format: 'png' | 'svg') => {
+    try {
+      const element = document.getElementById(elementId);
+      if (!element) {
+        toast({
+          title: "Error",
+          description: "Chart not found",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (format === 'png') {
+        const canvas = await html2canvas(element, {
+          backgroundColor: '#ffffff',
+          scale: 2,
+        });
+        
+        const link = document.createElement('a');
+        link.download = `${chartName}_${Date.now()}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      } else if (format === 'svg') {
+        // For SVG export, we'll capture the chart container and convert to SVG
+        // Note: This is a simplified approach - recharts doesn't provide direct SVG export
+        const svgElement = element.querySelector('svg');
+        if (!svgElement) {
+          toast({
+            title: "Error",
+            description: "SVG element not found",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        const serializer = new XMLSerializer();
+        const svgString = serializer.serializeToString(svgElement);
+        const blob = new Blob([svgString], { type: 'image/svg+xml' });
+        const url = URL.createObjectURL(blob);
+        
+        const link = document.createElement('a');
+        link.download = `${chartName}_${Date.now()}.svg`;
+        link.href = url;
+        link.click();
+        URL.revokeObjectURL(url);
+      }
+
+      toast({
+        title: "Success",
+        description: `Chart exported as ${format.toUpperCase()}`,
+      });
+    } catch (error) {
+      console.error('Export error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to export chart",
+        variant: "destructive",
+      });
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -195,34 +267,56 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
 
       {/* Budget Comparison Chart */}
       {categoryTotals.length > 0 && (
-        <Card id="cost-report-budget-comparison" className="col-span-full">
+        <Card className="col-span-full">
           <CardHeader>
-            <CardTitle>Budget Comparison Overview</CardTitle>
-            <p className="text-sm text-muted-foreground">Original Budget vs Previous Report vs Anticipated Final</p>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Budget Comparison Overview</CardTitle>
+                <p className="text-sm text-muted-foreground">Original Budget vs Previous Report vs Anticipated Final</p>
+              </div>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Download className="h-4 w-4 mr-2" />
+                    Export
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={() => handleExportChart('budget-comparison-chart', 'Budget_Comparison', 'png')}>
+                    Export as PNG
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => handleExportChart('budget-comparison-chart', 'Budget_Comparison', 'svg')}>
+                    Export as SVG
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </CardHeader>
           <CardContent>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={budgetComparisonData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis dataKey="name" />
-                <YAxis 
-                  label={{ value: 'Amount (R)', angle: -90, position: 'insideLeft' }}
-                  tickFormatter={(value) => `R${(value / 1000000).toFixed(1)}M`}
-                />
-                <Tooltip 
-                  formatter={(value: number) => `R${value.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`}
-                  contentStyle={{ 
-                    backgroundColor: 'hsl(var(--card))',
-                    border: '1px solid hsl(var(--border))',
-                    borderRadius: '6px'
-                  }}
-                />
-                <Legend wrapperStyle={{ paddingTop: '20px' }} />
-                <Bar dataKey="Original Budget" fill="#3b82f6" />
-                <Bar dataKey="Previous Report" fill="#10b981" />
-                <Bar dataKey="Anticipated Final" fill="#f59e0b" />
-              </BarChart>
-            </ResponsiveContainer>
+            <div id="budget-comparison-chart">
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={budgetComparisonData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="name" />
+                  <YAxis 
+                    label={{ value: 'Amount (R)', angle: -90, position: 'insideLeft' }}
+                    tickFormatter={(value) => `R${(value / 1000000).toFixed(1)}M`}
+                  />
+                  <Tooltip 
+                    formatter={(value: number) => `R${value.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`}
+                    contentStyle={{ 
+                      backgroundColor: 'hsl(var(--card))',
+                      border: '1px solid hsl(var(--border))',
+                      borderRadius: '6px'
+                    }}
+                  />
+                  <Legend wrapperStyle={{ paddingTop: '20px' }} />
+                  <Bar dataKey="Original Budget" fill="#3b82f6" />
+                  <Bar dataKey="Previous Report" fill="#10b981" />
+                  <Bar dataKey="Anticipated Final" fill="#f59e0b" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
           </CardContent>
         </Card>
       )}
@@ -233,10 +327,31 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
           {/* Top Categories Comparison Chart */}
           <Card>
             <CardHeader>
-              <CardTitle>Top 5 Categories Comparison</CardTitle>
-              <p className="text-sm text-muted-foreground">Budget Evolution by Category</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Top 5 Categories Comparison</CardTitle>
+                  <p className="text-sm text-muted-foreground">Budget Evolution by Category</p>
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <Download className="h-4 w-4 mr-2" />
+                      Export
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => handleExportChart('top-categories-chart', 'Top_Categories_Comparison', 'png')}>
+                      Export as PNG
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleExportChart('top-categories-chart', 'Top_Categories_Comparison', 'svg')}>
+                      Export as SVG
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </CardHeader>
-            <CardContent>
+          <CardContent>
+            <div id="budget-comparison-chart">
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={topCategoriesData}>
                   <CartesianGrid strokeDasharray="3 3" />
@@ -256,19 +371,40 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
                   <Bar dataKey="Original Budget" fill="#3b82f6" />
                   <Bar dataKey="Previous Report" fill="#10b981" />
                   <Bar dataKey="Anticipated Final" fill="#f59e0b" />
-                </BarChart>
-              </ResponsiveContainer>
-            </CardContent>
+              </BarChart>
+            </ResponsiveContainer>
+            </div>
+          </CardContent>
           </Card>
 
           {/* Category Distribution Chart */}
           <Card>
             <CardHeader>
-              <CardTitle>Category Distribution</CardTitle>
-              <p className="text-sm text-muted-foreground">Anticipated Final Cost Breakdown</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Category Distribution</CardTitle>
+                  <p className="text-sm text-muted-foreground">Anticipated Final Cost Breakdown</p>
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <Download className="h-4 w-4 mr-2" />
+                      Export
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => handleExportChart('distribution-chart', 'Category_Distribution', 'png')}>
+                      Export as PNG
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleExportChart('distribution-chart', 'Category_Distribution', 'svg')}>
+                      Export as SVG
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </CardHeader>
             <CardContent>
-              <div className="space-y-4">
+              <div id="distribution-chart" className="space-y-4">
                 {/* Pie Chart */}
                 <ResponsiveContainer width="100%" height={250}>
                   <PieChart>
@@ -327,12 +463,33 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
           {/* Variance Trends Chart */}
           <Card>
             <CardHeader>
-              <CardTitle>Variance by Category</CardTitle>
-              <p className="text-sm text-muted-foreground">Savings vs Extras Analysis</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Variance by Category</CardTitle>
+                  <p className="text-sm text-muted-foreground">Savings vs Extras Analysis</p>
+                </div>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <Download className="h-4 w-4 mr-2" />
+                      Export
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => handleExportChart('variance-chart', 'Variance_by_Category', 'png')}>
+                      Export as PNG
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleExportChart('variance-chart', 'Variance_by_Category', 'svg')}>
+                      Export as SVG
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             </CardHeader>
             <CardContent>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={varianceChartData}>
+              <div id="variance-chart">
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={varianceChartData}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" />
                   <YAxis />
@@ -344,6 +501,7 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
                   <Bar dataKey="extra" fill="#ef4444" name="Extras" />
                 </BarChart>
               </ResponsiveContainer>
+              </div>
             </CardContent>
           </Card>
         </div>
