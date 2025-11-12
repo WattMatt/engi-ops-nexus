@@ -81,29 +81,48 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       // We'll fill this in after generating all pages
       const tocStartY = contentStartY + 30;
 
-      // Calculate totals
+      // Calculate totals - handle variations category specially
       const categoryTotals = categories.map((cat: any) => {
-        const lineItems = cat.cost_line_items || [];
-        const originalBudget = lineItems.reduce((sum: number, item: any) => 
-          sum + Number(item.original_budget || 0), 0);
-        const anticipatedFinal = lineItems.reduce((sum: number, item: any) => 
-          sum + Number(item.anticipated_final || 0), 0);
-        return {
-          code: cat.code,
-          description: cat.description,
-          originalBudget,
-          anticipatedFinal,
-          variance: anticipatedFinal - originalBudget
-        };
+        const isVariationsCategory = cat.description?.toUpperCase().includes("VARIATION");
+        
+        if (isVariationsCategory) {
+          // For variations category, sum from variations table
+          const anticipatedFinal = variations.reduce(
+            (sum: number, v: any) => sum + Number(v.amount || 0),
+            0
+          );
+          
+          return {
+            code: cat.code,
+            description: cat.description,
+            originalBudget: 0,
+            anticipatedFinal,
+            variance: anticipatedFinal
+          };
+        } else {
+          // For regular categories, sum line items
+          const lineItems = cat.cost_line_items || [];
+          const originalBudget = lineItems.reduce((sum: number, item: any) => 
+            sum + Number(item.original_budget || 0), 0);
+          const anticipatedFinal = lineItems.reduce((sum: number, item: any) => 
+            sum + Number(item.anticipated_final || 0), 0);
+          return {
+            code: cat.code,
+            description: cat.description,
+            originalBudget,
+            anticipatedFinal,
+            variance: anticipatedFinal - originalBudget
+          };
+        }
       });
 
       const totalOriginalBudget = categoryTotals.reduce((sum: number, cat: any) => 
         sum + cat.originalBudget, 0);
       const totalAnticipatedFinal = categoryTotals.reduce((sum: number, cat: any) => 
         sum + cat.anticipatedFinal, 0);
-      const variationsTotal = variations.reduce((sum: number, v: any) => 
-        sum + (v.is_credit ? -Number(v.amount || 0) : Number(v.amount || 0)), 0);
-      const finalTotal = totalAnticipatedFinal + variationsTotal;
+      
+      // No longer need to add variations separately since it's included in categoryTotals
+      const finalTotal = totalAnticipatedFinal;
       const totalVariance = finalTotal - totalOriginalBudget;
       const variancePercentage = totalOriginalBudget > 0 
         ? ((Math.abs(totalVariance) / totalOriginalBudget) * 100) 
