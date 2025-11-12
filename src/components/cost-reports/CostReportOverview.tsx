@@ -551,6 +551,23 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
                     </Bar>
                   </BarChart>
                 </ResponsiveContainer>
+                
+                {/* Custom Category Color Legend */}
+                <div className="mt-6 pt-4 border-t">
+                  <p className="text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wide">Category Colors</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+                    {categoryTotals.map((cat, index) => (
+                      <div key={cat.id} className="flex items-center gap-2">
+                        <div 
+                          className="w-4 h-4 rounded flex-shrink-0" 
+                          style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                        />
+                        <span className="text-sm font-medium">{cat.code}</span>
+                        <span className="text-xs text-muted-foreground truncate">- {cat.description}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
