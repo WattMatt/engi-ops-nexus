@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import Draggable, { DraggableData, DraggableEvent } from 'react-draggable';
 import { ExtractedTextItem } from './PDFTextExtractor';
+import { Edit2 } from 'lucide-react';
 
 interface EditablePDFTextProps {
   item: ExtractedTextItem;
@@ -21,7 +22,7 @@ export const EditablePDFText: React.FC<EditablePDFTextProps> = ({
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [text, setText] = useState(item.text);
-  const [position, setPosition] = useState({ x: item.x * scale, y: item.y * scale });
+  const [isHovered, setIsHovered] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -36,7 +37,8 @@ export const EditablePDFText: React.FC<EditablePDFTextProps> = ({
     const isCtrlKey = e.ctrlKey || e.metaKey;
     onSelect(item.id, isCtrlKey);
     
-    if (isSelected && !isCtrlKey) {
+    if (isSelected && !isCtrlKey && e.detail === 2) {
+      // Double click to edit
       setIsEditing(true);
     }
   };
@@ -65,34 +67,36 @@ export const EditablePDFText: React.FC<EditablePDFTextProps> = ({
   };
 
   const handleDragStop = (e: DraggableEvent, data: DraggableData) => {
-    const newX = data.x / scale;
-    const newY = data.y / scale;
-    setPosition({ x: data.x, y: data.y });
-    onPositionChange(item.id, newX, newY);
+    onPositionChange(item.id, data.x, data.y);
   };
 
   return (
     <Draggable
-      position={position}
+      position={{ x: item.x, y: item.y }}
       onStop={handleDragStop}
       disabled={isEditing}
-      handle=".drag-handle"
+      cancel="input"
     >
       <div
-        className="absolute cursor-move group drag-handle"
+        className="absolute cursor-pointer group"
         style={{
-          minWidth: `${item.width * scale}px`,
-          minHeight: `${item.height * scale}px`,
+          minWidth: `${item.width}px`,
+          minHeight: `${item.height}px`,
         }}
         onClick={handleClick}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => setIsHovered(false)}
       >
         {/* Selection/Hover Border */}
         <div
           className={`absolute inset-0 pointer-events-none transition-all ${
             isSelected
               ? 'ring-2 ring-primary bg-primary/10'
-              : 'group-hover:ring-1 group-hover:ring-primary/50 group-hover:bg-primary/5'
+              : isHovered
+              ? 'ring-1 ring-primary/50 bg-primary/5'
+              : ''
           }`}
+          style={{ margin: '-2px' }}
         />
 
         {/* Text Content */}
@@ -104,31 +108,33 @@ export const EditablePDFText: React.FC<EditablePDFTextProps> = ({
             onChange={handleTextChange}
             onBlur={handleBlur}
             onKeyDown={handleKeyDown}
-            className="absolute inset-0 bg-white border-2 border-primary outline-none px-1 z-10"
+            className="absolute inset-0 bg-white border-2 border-primary outline-none px-1 z-50"
             style={{
-              fontSize: `${item.fontSize * scale}px`,
+              fontSize: `${item.fontSize}px`,
               fontFamily: item.fontFamily,
+              fontWeight: item.bold ? 'bold' : 'normal',
             }}
             onClick={(e) => e.stopPropagation()}
           />
         ) : (
           <div
-            className="absolute inset-0 px-1 whitespace-nowrap overflow-hidden"
+            className="absolute inset-0 px-1 whitespace-nowrap select-none"
             style={{
-              fontSize: `${item.fontSize * scale}px`,
+              fontSize: `${item.fontSize}px`,
               fontFamily: item.fontFamily,
-              color: 'transparent',
-              textShadow: '0 0 0 #000',
+              fontWeight: item.bold ? 'bold' : 'normal',
+              color: '#000',
             }}
           >
             {text}
           </div>
         )}
 
-        {/* Edit indicator when selected */}
-        {isSelected && !isEditing && (
-          <div className="absolute -top-6 left-0 text-xs bg-primary text-primary-foreground px-2 py-0.5 rounded pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity">
-            Click to edit
+        {/* Edit indicator */}
+        {(isSelected || isHovered) && !isEditing && (
+          <div className="absolute -top-7 -right-1 flex items-center gap-1 bg-primary text-primary-foreground px-2 py-1 rounded text-xs opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+            <Edit2 className="h-3 w-3" />
+            Double-click to edit
           </div>
         )}
       </div>

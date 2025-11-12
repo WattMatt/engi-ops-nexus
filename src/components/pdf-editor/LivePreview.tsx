@@ -134,7 +134,16 @@ export const LivePreview = ({
   };
 
   const handleTextExtracted = (items: ExtractedTextItem[]) => {
+    console.log(`[LivePreview] Received ${items.length} extracted text items`);
     setExtractedText(items);
+    
+    // Initialize history with extracted text
+    if (items.length > 0) {
+      history.pushState({
+        extractedText: items,
+        editedTextItems: new Map(),
+      });
+    }
   };
 
   const handlePDFTextChange = (id: string, newText: string) => {
@@ -269,11 +278,20 @@ export const LivePreview = ({
           pdfUrl={pdfUrl}
           currentPage={currentPage}
           onTextExtracted={handleTextExtracted}
+          scale={1.0}
         />
       )}
 
       {/* Alignment Guides Overlay */}
       <AlignmentGuides guides={activeGuides.guides} />
+
+      {/* Debug info */}
+      {enablePDFEditing && extractedText.length > 0 && (
+        <div className="absolute top-2 right-2 bg-background/90 border rounded p-2 text-xs z-50 pointer-events-none">
+          <div className="font-semibold">PDF Text Elements: {extractedText.length}</div>
+          <div className="text-muted-foreground">Double-click text to edit</div>
+        </div>
+      )}
 
       {/* Extracted PDF Text Elements - Editable */}
       {enablePDFEditing && extractedText.map((textItem) => (
@@ -281,7 +299,7 @@ export const LivePreview = ({
           key={textItem.id}
           item={textItem}
           isSelected={selectedElements.includes(textItem.id)}
-          scale={scale}
+          scale={1.0}
           onSelect={onSelectElement}
           onTextChange={handlePDFTextChange}
           onPositionChange={handlePDFTextPosition}

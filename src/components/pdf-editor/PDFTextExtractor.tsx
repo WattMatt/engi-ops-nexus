@@ -11,18 +11,22 @@ export interface ExtractedTextItem {
   fontSize: number;
   fontFamily: string;
   page: number;
+  color?: string;
+  bold?: boolean;
 }
 
 interface PDFTextExtractorProps {
   pdfUrl: string;
   currentPage: number;
   onTextExtracted: (items: ExtractedTextItem[]) => void;
+  scale?: number;
 }
 
 export const PDFTextExtractor: React.FC<PDFTextExtractorProps> = ({
   pdfUrl,
   currentPage,
   onTextExtracted,
+  scale = 1.0,
 }) => {
   const [isExtracting, setIsExtracting] = useState(false);
 
@@ -41,29 +45,35 @@ export const PDFTextExtractor: React.FC<PDFTextExtractorProps> = ({
       
       // Get text content with positions
       const textContent = await page.getTextContent();
-      const viewport = page.getViewport({ scale: 1.0 });
+      const viewport = page.getViewport({ scale });
       
-      const extractedItems: ExtractedTextItem[] = textContent.items.map((item: any, index: number) => {
-        const tx = item.transform;
-        const x = tx[4];
-        const y = viewport.height - tx[5]; // Flip Y coordinate
-        const width = item.width;
-        const height = item.height;
-        const fontSize = Math.abs(tx[0]); // Font size from transform matrix
-        
-        return {
-          id: `text-${currentPage}-${index}`,
-          text: item.str,
-          x,
-          y,
-          width,
-          height,
-          fontSize,
-          fontFamily: item.fontName || 'sans-serif',
-          page: currentPage,
-        };
-      }).filter((item: ExtractedTextItem) => item.text.trim().length > 0);
+      console.log(`[PDF Extract] Extracting ${textContent.items.length} items from page ${currentPage}`);
+      
+      const extractedItems: ExtractedTextItem[] = textContent.items
+        .filter((item: any) => item.str && item.str.trim().length > 0)
+        .map((item: any, index: number) => {
+          const tx = item.transform;
+          const x = tx[4] * scale;
+          const y = (viewport.height - tx[5]) * scale; // Flip Y coordinate
+          const fontSize = Math.abs(tx[0]) * scale;
+          const width = item.width * scale;
+          const height = item.height * scale;
+          
+          return {
+            id: `pdf-text-${currentPage}-${index}`,
+            text: item.str,
+            x,
+            y: y - fontSize, // Adjust Y to top of text
+            width,
+            height: fontSize * 1.2,
+            fontSize,
+            fontFamily: item.fontName || 'sans-serif',
+            page: currentPage,
+            bold: item.fontName?.toLowerCase().includes('bold'),
+          } as ExtractedTextItem;
+        });
 
+      console.log(`[PDF Extract] Successfully extracted ${extractedItems.length} text elements`);
       onTextExtracted(extractedItems);
     } catch (error) {
       console.error('Error extracting text from PDF:', error);
@@ -73,5 +83,5 @@ export const PDFTextExtractor: React.FC<PDFTextExtractorProps> = ({
     }
   };
 
-  return null; // This is a utility component, no UI
+  return null;
 };
