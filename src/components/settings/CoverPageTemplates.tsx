@@ -51,17 +51,24 @@ export const CoverPageTemplates = () => {
   // Upload template mutation
   const uploadMutation = useMutation({
     mutationFn: async () => {
+      console.log("Starting template upload...");
       if (!selectedFile || !templateName.trim()) {
         throw new Error("Please provide a template name and select a file");
       }
 
+      console.log("File selected:", selectedFile.name, selectedFile.type);
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
+      
+      console.log("User authenticated:", user.id);
 
       // Upload file to storage
       const fileExt = selectedFile.name.split(".").pop();
       const fileName = `${Date.now()}_${templateName.replace(/\s+/g, "_")}.${fileExt}`;
       const filePath = `templates/${fileName}`;
+
+      console.log("Uploading to storage:", filePath);
 
       const { error: uploadError } = await supabase.storage
         .from("cover-page-templates")
@@ -70,7 +77,12 @@ export const CoverPageTemplates = () => {
           upsert: false,
         });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error("Storage upload error:", uploadError);
+        throw uploadError;
+      }
+
+      console.log("Storage upload successful, saving to database...");
 
       // Save to database
       const { error: dbError } = await supabase
@@ -82,7 +94,12 @@ export const CoverPageTemplates = () => {
           created_by: user.id,
         });
 
-      if (dbError) throw dbError;
+      if (dbError) {
+        console.error("Database insert error:", dbError);
+        throw dbError;
+      }
+
+      console.log("Template saved successfully!");
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cover-page-templates"] });
