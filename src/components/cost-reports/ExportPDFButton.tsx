@@ -8,6 +8,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { fetchCompanyDetails, generateCoverPage } from "@/utils/pdfCoverPage";
 import { StandardReportPreview } from "@/components/shared/StandardReportPreview";
 import { PDFExportSettings, DEFAULT_MARGINS, type PDFMargins } from "./PDFExportSettings";
+import { calculateCategoryTotals, calculateGrandTotals, validateTotals } from "@/utils/costReportCalculations";
+import { ValidationWarningDialog } from "./ValidationWarningDialog";
 
 interface ExportPDFButtonProps {
   report: any;
@@ -20,12 +22,15 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
   const [previewReport, setPreviewReport] = useState<any>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [margins, setMargins] = useState<PDFMargins>(DEFAULT_MARGINS);
+  const [validationDialogOpen, setValidationDialogOpen] = useState(false);
+  const [validationMismatches, setValidationMismatches] = useState<string[]>([]);
+  const [pendingExport, setPendingExport] = useState(false);
 
-  const handleExport = async (useMargins: PDFMargins = margins) => {
+  const handleExport = async (useMargins: PDFMargins = margins, skipValidation: boolean = false) => {
     setLoading(true);
     try {
       // Fetch all data
-      const [categoriesResult, variationsResult, detailsResult] = await Promise.all([
+      const [categoriesResult, variationsResult, detailsResult, allLineItemsResult] = await Promise.all([
         supabase
           .from("cost_categories")
           .select(`*, cost_line_items (*)`)
@@ -40,16 +45,44 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           .from("cost_report_details")
           .select("*")
           .eq("cost_report_id", report.id)
-          .order("display_order")
+          .order("display_order"),
+        supabase
+          .from("cost_line_items")
+          .select("*, cost_categories!inner(cost_report_id)")
+          .eq("cost_categories.cost_report_id", report.id)
       ]);
 
       if (categoriesResult.error) throw categoriesResult.error;
       if (variationsResult.error) throw variationsResult.error;
       if (detailsResult.error) throw detailsResult.error;
+      if (allLineItemsResult.error) throw allLineItemsResult.error;
 
       const categories = categoriesResult.data || [];
       const variations = variationsResult.data || [];
       const details = detailsResult.data || [];
+      const allLineItems = allLineItemsResult.data || [];
+      
+      // Calculate totals using shared utility
+      const pdfCategoryTotals = calculateCategoryTotals(categories, allLineItems, variations);
+      const pdfGrandTotals = calculateGrandTotals(pdfCategoryTotals);
+      
+      // Validate totals if not skipping validation
+      if (!skipValidation) {
+        // Calculate UI totals from flat line items list
+        const uiCategoryTotals = calculateCategoryTotals(categories, allLineItems, variations);
+        const uiGrandTotals = calculateGrandTotals(uiCategoryTotals);
+        
+        const validation = validateTotals(uiGrandTotals, pdfGrandTotals);
+        
+        if (!validation.isValid) {
+          setValidationMismatches(validation.mismatches);
+          setValidationDialogOpen(true);
+          setPendingExport(true);
+          setLoading(false);
+          return;
+        }
+      }
+      
       const companyDetails = await fetchCompanyDetails();
 
       // Create PDF
@@ -81,49 +114,19 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       // We'll fill this in after generating all pages
       const tocStartY = contentStartY + 30;
 
-      // Calculate totals - handle variations category specially
-      const categoryTotals = categories.map((cat: any) => {
-        const isVariationsCategory = cat.description?.toUpperCase().includes("VARIATION");
-        
-        if (isVariationsCategory) {
-          // For variations category, sum from variations table
-          const anticipatedFinal = variations.reduce(
-            (sum: number, v: any) => sum + Number(v.amount || 0),
-            0
-          );
-          
-          return {
-            code: cat.code,
-            description: cat.description,
-            originalBudget: 0,
-            anticipatedFinal,
-            variance: anticipatedFinal
-          };
-        } else {
-          // For regular categories, sum line items
-          const lineItems = cat.cost_line_items || [];
-          const originalBudget = lineItems.reduce((sum: number, item: any) => 
-            sum + Number(item.original_budget || 0), 0);
-          const anticipatedFinal = lineItems.reduce((sum: number, item: any) => 
-            sum + Number(item.anticipated_final || 0), 0);
-          return {
-            code: cat.code,
-            description: cat.description,
-            originalBudget,
-            anticipatedFinal,
-            variance: anticipatedFinal - originalBudget
-          };
-        }
-      });
+      // Use the already calculated totals
+      const categoryTotals = pdfCategoryTotals.map(ct => ({
+        code: ct.code,
+        description: ct.description,
+        originalBudget: ct.originalBudget,
+        anticipatedFinal: ct.anticipatedFinal,
+        variance: ct.originalVariance
+      }));
 
-      const totalOriginalBudget = categoryTotals.reduce((sum: number, cat: any) => 
-        sum + cat.originalBudget, 0);
-      const totalAnticipatedFinal = categoryTotals.reduce((sum: number, cat: any) => 
-        sum + cat.anticipatedFinal, 0);
-      
-      // No longer need to add variations separately since it's included in categoryTotals
+      const totalOriginalBudget = pdfGrandTotals.originalBudget;
+      const totalAnticipatedFinal = pdfGrandTotals.anticipatedFinal;
       const finalTotal = totalAnticipatedFinal;
-      const totalVariance = finalTotal - totalOriginalBudget;
+      const totalVariance = pdfGrandTotals.originalVariance;
       const variancePercentage = totalOriginalBudget > 0 
         ? ((Math.abs(totalVariance) / totalOriginalBudget) * 100) 
         : 0;
@@ -644,6 +647,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
 
       setPreviewReport(pdfRecord);
       onReportGenerated?.();
+      setPendingExport(false);
 
     } catch (error: any) {
       console.error('Error generating PDF:', error);
@@ -655,6 +659,12 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
     } finally {
       setLoading(false);
     }
+  };
+  
+  const handleValidationProceed = () => {
+    setValidationDialogOpen(false);
+    // Re-run export with validation skipped
+    handleExport(margins, true);
   };
 
   return (
@@ -691,6 +701,13 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         margins={margins}
         onMarginsChange={setMargins}
         onApply={() => handleExport()}
+      />
+      
+      <ValidationWarningDialog
+        open={validationDialogOpen}
+        onOpenChange={setValidationDialogOpen}
+        mismatches={validationMismatches}
+        onProceed={handleValidationProceed}
       />
       
       {previewReport && (

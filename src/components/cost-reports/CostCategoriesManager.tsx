@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { AddCategoryDialog } from "./AddCategoryDialog";
 import { CategoryCard } from "./CategoryCard";
+import { calculateCategoryTotals, calculateGrandTotals } from "@/utils/costReportCalculations";
 
 interface CostCategoriesManagerProps {
   reportId: string;
@@ -52,57 +53,9 @@ export const CostCategoriesManager = ({ reportId, projectId }: CostCategoriesMan
     },
   });
 
-  // Calculate totals for each category
-  const categoryTotals = categories.map(category => {
-    const isVariationsCategory = category.description?.toUpperCase().includes("VARIATION");
-    
-    if (isVariationsCategory) {
-      // For variations category, sum from variations table
-      const anticipatedFinal = variations.reduce(
-        (sum, v) => sum + Number(v.amount || 0),
-        0
-      );
-      
-      return {
-        ...category,
-        originalBudget: 0,
-        previousReport: 0,
-        anticipatedFinal,
-        currentVariance: anticipatedFinal,
-        originalVariance: anticipatedFinal
-      };
-    } else {
-      // For regular categories, sum line items
-      const items = lineItems.filter(item => item.category_id === category.id);
-      const originalBudget = items.reduce((sum, item) => sum + Number(item.original_budget || 0), 0);
-      const previousReport = items.reduce((sum, item) => sum + Number(item.previous_report || 0), 0);
-      const anticipatedFinal = items.reduce((sum, item) => sum + Number(item.anticipated_final || 0), 0);
-      
-      return {
-        ...category,
-        originalBudget,
-        previousReport,
-        anticipatedFinal,
-        currentVariance: anticipatedFinal - previousReport,
-        originalVariance: anticipatedFinal - originalBudget
-      };
-    }
-  });
-
-  // Calculate grand totals
-  const grandTotals = categoryTotals.reduce((acc, cat) => ({
-    originalBudget: acc.originalBudget + cat.originalBudget,
-    previousReport: acc.previousReport + cat.previousReport,
-    anticipatedFinal: acc.anticipatedFinal + cat.anticipatedFinal,
-    currentVariance: acc.currentVariance + cat.currentVariance,
-    originalVariance: acc.originalVariance + cat.originalVariance
-  }), {
-    originalBudget: 0,
-    previousReport: 0,
-    anticipatedFinal: 0,
-    currentVariance: 0,
-    originalVariance: 0
-  });
+  // Calculate totals using shared utility
+  const categoryTotals = calculateCategoryTotals(categories, lineItems, variations);
+  const grandTotals = calculateGrandTotals(categoryTotals);
 
   return (
     <div className="space-y-4">
