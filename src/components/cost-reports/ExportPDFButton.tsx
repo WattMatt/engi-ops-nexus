@@ -115,18 +115,132 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       doc.setFont("helvetica", "normal");
       doc.text("Key Performance Indicators & Financial Overview", pageWidth / 2, 30, { align: "center" });
 
-      // KPIs Table
-      autoTable(doc, {
-        startY: 50,
-        head: [['Metric', 'Value']],
-        body: [
-          ['Original Budget', `R ${totalOriginalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`],
-          ['Anticipated Final', `R ${finalTotal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`],
-          ['Total Saving', `R ${Math.abs(totalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })} (${variancePercentage.toFixed(2)}%)`]
-        ],
-        theme: 'grid',
-        styles: { fontSize: 10, cellPadding: 5 },
-        headStyles: { fillColor: [30, 58, 138], textColor: [255, 255, 255], fontStyle: 'bold' }
+      // Top KPI Cards
+      doc.setTextColor(0, 0, 0);
+      let kpiY = 55;
+      const kpiCardWidth = 55;
+      const kpiCardHeight = 25;
+      const kpiSpacing = 8;
+      
+      // Original Budget Card
+      doc.setDrawColor(0, 200, 200);
+      doc.setLineWidth(0.5);
+      doc.rect(20, kpiY, kpiCardWidth, kpiCardHeight);
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.text("Original Budget", 22, kpiY + 5);
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text(`R${totalOriginalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, 22, kpiY + 15);
+      
+      // Anticipated Final Card
+      doc.rect(20 + kpiCardWidth + kpiSpacing, kpiY, kpiCardWidth, kpiCardHeight);
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.text("Anticipated Final", 22 + kpiCardWidth + kpiSpacing, kpiY + 5);
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text(`R${finalTotal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, 22 + kpiCardWidth + kpiSpacing, kpiY + 15);
+      
+      // Saving Card
+      doc.rect(20 + (kpiCardWidth + kpiSpacing) * 2, kpiY, kpiCardWidth, kpiCardHeight);
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.text(totalVariance < 0 ? "Saving" : "Extra", 22 + (kpiCardWidth + kpiSpacing) * 2, kpiY + 5);
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(totalVariance < 0 ? 0 : 255, totalVariance < 0 ? 150 : 0, 0);
+      doc.text(`R${Math.abs(totalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, 22 + (kpiCardWidth + kpiSpacing) * 2, kpiY + 15);
+      doc.setFontSize(7);
+      doc.text(`${variancePercentage.toFixed(2)}% variance`, 22 + (kpiCardWidth + kpiSpacing) * 2, kpiY + 20);
+
+      // Category Cards
+      doc.setTextColor(0, 0, 0);
+      const cardColors = [
+        [59, 130, 246],   // Blue
+        [16, 185, 129],   // Green
+        [251, 191, 36],   // Yellow
+        [249, 115, 22],   // Orange
+        [139, 92, 246],   // Purple
+        [236, 72, 153],   // Pink
+        [134, 239, 172]   // Light green
+      ];
+      
+      let cardY = kpiY + kpiCardHeight + 15;
+      const cardWidth = 85;
+      const cardHeight = 45;
+      const cardsPerRow = 2;
+      
+      categoryTotals.forEach((cat: any, index: number) => {
+        const col = index % cardsPerRow;
+        const row = Math.floor(index / cardsPerRow);
+        const x = 20 + col * (cardWidth + 8);
+        const y = cardY + row * (cardHeight + 8);
+        
+        if (y > pageHeight - 60) {
+          doc.addPage();
+          cardY = 20;
+        }
+        
+        const finalY = row === 0 ? cardY : cardY + row * (cardHeight + 8);
+        
+        // Card border
+        const color = cardColors[index % cardColors.length];
+        doc.setDrawColor(color[0], color[1], color[2]);
+        doc.setLineWidth(1);
+        doc.rect(x, finalY, cardWidth, cardHeight);
+        
+        // Badge circle
+        doc.setFillColor(color[0], color[1], color[2]);
+        doc.circle(x + 8, finalY + 8, 4, 'F');
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(255, 255, 255);
+        doc.text(cat.code, x + 8, finalY + 10, { align: "center" });
+        
+        // Category name
+        doc.setTextColor(0, 0, 0);
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "bold");
+        const catName = doc.splitTextToSize(cat.description, cardWidth - 20);
+        doc.text(catName, x + 15, finalY + 7);
+        
+        // Original Budget
+        doc.setFontSize(7);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(100, 100, 100);
+        doc.text("ORIGINAL BUDGET", x + 5, finalY + 20);
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0, 0, 0);
+        doc.text(`R${cat.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, x + 5, finalY + 26);
+        
+        // Anticipated Final
+        doc.setFontSize(7);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(100, 100, 100);
+        doc.text("ANTICIPATED FINAL", x + 5, finalY + 32);
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0, 0, 0);
+        doc.text(`R${cat.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, x + 5, finalY + 38);
+        
+        // Variance
+        doc.setFontSize(7);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(100, 100, 100);
+        doc.text("VARIANCE", x + 5, finalY + 44);
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        const isExtra = cat.variance > 0;
+        doc.setTextColor(isExtra ? 255 : 0, isExtra ? 0 : 150, 0);
+        doc.text(`${cat.variance >= 0 ? '+' : ''}R${cat.variance.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, x + 5, finalY + 50);
+        
+        // Status badge
+        doc.setFontSize(6);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(isExtra ? 255 : 0, isExtra ? 0 : 150, 0);
+        doc.text(isExtra ? "EXTRA" : "SAVING", x + cardWidth - 18, finalY + 50);
       });
 
       // ========== CATEGORY PERFORMANCE DETAILS PAGE ==========
