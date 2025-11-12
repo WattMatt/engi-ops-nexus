@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Download, Loader2, Settings } from "lucide-react";
+import { Download, Loader2, Settings, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import jsPDF from "jspdf";
@@ -11,6 +11,13 @@ import { PDFExportSettings, DEFAULT_MARGINS, type PDFMargins } from "./PDFExport
 import { calculateCategoryTotals, calculateGrandTotals, validateTotals } from "@/utils/costReportCalculations";
 import { ValidationWarningDialog } from "./ValidationWarningDialog";
 import { captureKPICards, prepareElementForCapture, canvasToDataURL } from "@/utils/captureUIForPDF";
+import { TemplateExportDialog } from "./TemplateExportDialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface ExportPDFButtonProps {
   report: any;
@@ -27,6 +34,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
   const [validationMismatches, setValidationMismatches] = useState<string[]>([]);
   const [pendingExport, setPendingExport] = useState(false);
+  const [showTemplateDialog, setShowTemplateDialog] = useState(false);
 
   const handleExport = async (useMargins: PDFMargins = margins, skipValidation: boolean = false) => {
     setLoading(true);
@@ -907,19 +915,33 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
   return (
     <>
       <div className="flex gap-2">
-        <Button onClick={() => handleExport()} disabled={loading}>
-          {loading ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              {currentSection || "Generating..."}
-            </>
-          ) : (
-            <>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button disabled={loading}>
+              {loading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {currentSection || "Generating..."}
+                </>
+              ) : (
+                <>
+                  <Download className="mr-2 h-4 w-4" />
+                  Export PDF
+                </>
+              )}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => handleExport()}>
               <Download className="mr-2 h-4 w-4" />
-              Export PDF
-            </>
-          )}
-        </Button>
+              Quick Export
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setShowTemplateDialog(true)}>
+              <FileText className="mr-2 h-4 w-4" />
+              Export with Template
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         
         <Button 
           variant="outline" 
@@ -955,6 +977,13 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           storageBucket="cost-report-pdfs"
         />
       )}
+
+      <TemplateExportDialog
+        open={showTemplateDialog}
+        onOpenChange={setShowTemplateDialog}
+        report={report}
+        projectId={report.project_id}
+      />
       
     </>
   );

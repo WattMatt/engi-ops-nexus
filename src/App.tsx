@@ -39,6 +39,7 @@ import BulkServices from "./pages/BulkServices";
 import HandoverDocuments from "./pages/HandoverDocuments";
 import HandoverClient from "./pages/HandoverClient";
 import HandoverClientManagement from "./pages/HandoverClientManagement";
+import PDFTemplates from "./pages/PDFTemplates";
 import NotFound from "./pages/NotFound";
 import { HelpButton } from "./components/feedback/HelpButton";
 
@@ -99,6 +100,7 @@ const App = () => (
             <Route path="projects-report/outline" element={<ProjectOutline />} />
             <Route path="projects-report/handover" element={<HandoverDocuments />} />
             <Route path="bulk-services" element={<BulkServices />} />
+            <Route path="pdf-templates/:projectId" element={<PDFTemplates />} />
           </Route>
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

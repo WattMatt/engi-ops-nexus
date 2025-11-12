@@ -13,6 +13,10 @@
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
     "@mapbox/mapbox-gl-geocoder": "^5.1.2",
+    "@pdfme/common": "^5.4.7",
+    "@pdfme/generator": "^5.4.7",
+    "@pdfme/schemas": "^5.4.7",
+    "@pdfme/ui": "^5.4.7",
     "@radix-ui/react-accordion": "^1.2.11",
     "@radix-ui/react-alert-dialog": "^1.1.14",
     "@radix-ui/react-aspect-ratio": "^1.1.7",
