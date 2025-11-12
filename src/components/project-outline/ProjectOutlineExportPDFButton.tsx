@@ -4,6 +4,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import jsPDF from "jspdf";
 import { format } from "date-fns";
+import { fetchCompanyDetails, generateCoverPage } from "@/utils/pdfCoverPage";
 
 interface ProjectOutlineExportPDFButtonProps {
   outline: any;
@@ -22,68 +23,20 @@ export const ProjectOutlineExportPDFButton = ({ outline, sections }: ProjectOutl
       const pageHeight = doc.internal.pageSize.height;
       const margin = 20;
 
-      // ========== CUSTOM COVER PAGE (matching baseline document format) ==========
-      let yPos = 60;
-      
-      // Document title
-      doc.setFontSize(16);
-      doc.setFont("helvetica", "bold");
-      doc.text(outline.document_title || "BASELINE DOCUMENT", pageWidth / 2, yPos, { align: "center" });
-      yPos += 15;
+      // Fetch company details for cover page
+      const companyDetails = await fetchCompanyDetails();
 
-      // Project name (larger)
-      doc.setFontSize(22);
-      doc.text(outline.project_name, pageWidth / 2, yPos, { align: "center" });
-      yPos += 30;
-
-      // Prepared by section
-      doc.setFontSize(11);
-      doc.setFont("helvetica", "normal");
-      doc.text("PREPARED BY:", margin, yPos);
-      yPos += 8;
-
-      doc.setFont("helvetica", "bold");
-      if (outline.prepared_by) {
-        doc.text(outline.prepared_by, margin, yPos);
-        yPos += 8;
-      }
-
-      doc.setFont("helvetica", "normal");
-      if (outline.address_line1) {
-        doc.text(outline.address_line1, margin, yPos);
-        yPos += 6;
-      }
-      if (outline.address_line2) {
-        doc.text(outline.address_line2, margin, yPos);
-        yPos += 6;
-      }
-      if (outline.address_line3) {
-        doc.text(outline.address_line3, margin, yPos);
-        yPos += 6;
-      }
-
-      yPos += 3;
-      if (outline.telephone) {
-        doc.text(`Tel: ${outline.telephone}`, margin, yPos);
-        yPos += 6;
-      }
-      if (outline.contact_person) {
-        doc.text(`Contact: ${outline.contact_person}`, margin, yPos);
-        yPos += 6;
-      }
-
-      yPos += 10;
-      doc.text(`DATE: ${format(new Date(outline.date), "EEEE, dd MMMM yyyy")}`, margin, yPos);
-      yPos += 8;
-      doc.text(`REVISION: ${outline.revision}`, margin, yPos);
-
-      // Page number at bottom
-      doc.setFontSize(11);
-      doc.text("1", pageWidth / 2, pageHeight - 15, { align: "center" });
+      // ========== COVER PAGE ==========
+      await generateCoverPage(doc, {
+        title: outline.document_title || "Baseline Document",
+        projectName: outline.project_name,
+        subtitle: outline.prepared_by || "",
+        revision: outline.revision,
+      }, companyDetails);
 
       // ========== PAGE 2: INDEX ==========
       doc.addPage();
-      yPos = 30;
+      let yPos = 30;
 
       doc.setFontSize(18);
       doc.setFont("helvetica", "bold");
