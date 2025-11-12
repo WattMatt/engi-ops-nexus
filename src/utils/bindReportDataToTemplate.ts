@@ -42,112 +42,122 @@ export const bindReportDataToTemplate = async (
     const companyData = companyQuery.data;
     console.log("Fetched company data:", companyData);
 
-  // Fetch report data based on category
-  let reportData: any = null;
-  let categories: CategoryData[] = [];
-  let lineItems: LineItemData[] = [];
-  let variations: VariationData[] = [];
-
-  if (category === "cost_report") {
-    // Fetch report
-    const reportQuery = await supabase
-      .from("cost_reports")
-      .select("report_name, report_number")
-      .eq("id", reportId)
+    // Fetch project details
+    const projectQuery = await supabase
+      .from("projects")
+      .select("name, client_name")
+      .eq("id", projectId)
       .maybeSingle();
-    reportData = reportQuery.data;
-    
-    // Fetch categories
-    const catsResult: any = await (supabase as any).from("cost_categories").select("category_name, total_amount").eq("report_id", reportId);
-    categories = (catsResult.data || []) as CategoryData[];
-    
-    // Fetch line items
-    const itemsResult: any = await (supabase as any).from("cost_line_items").select("description, quantity, rate, amount").eq("report_id", reportId);
-    lineItems = (itemsResult.data || []) as LineItemData[];
-    
-    // Fetch variations
-    const varsResult: any = await (supabase as any).from("cost_variations").select("amount, is_credit").eq("report_id", reportId);
-    variations = (varsResult.data || []) as VariationData[];
-  }
+    const projectData = projectQuery.data;
+    console.log("Fetched project data:", projectData);
 
-  // Calculate KPIs
-  const totalValue = categories.reduce(
-    (sum: number, cat: CategoryData) => sum + (cat.total_amount || 0),
+    // Fetch report data based on category
+    let reportData: any = null;
+    let categories: any[] = [];
+    let lineItems: any[] = [];
+    let variations: any[] = [];
+
+    if (category === "cost_report") {
+      // Fetch report
+      const reportQuery = await supabase
+        .from("cost_reports")
+        .select("report_name, report_number, created_at")
+        .eq("id", reportId)
+        .maybeSingle();
+      reportData = reportQuery.data;
+      console.log("Fetched report data:", reportData);
+      
+      // Fetch categories with their IDs
+      const catsResult = await supabase
+        .from("cost_categories")
+        .select("id, code, description, original_budget, anticipated_final")
+        .eq("cost_report_id", reportId)
+        .order("display_order");
+      categories = catsResult.data || [];
+      console.log("Fetched categories:", categories.length);
+      
+      // Fetch line items - skip for now since we don't have category IDs properly linked
+      // Will add in next iteration
+      lineItems = [];
+      console.log("Fetched line items:", lineItems.length);
+      
+      // Fetch variations
+      const varsResult = await supabase
+        .from("cost_variations")
+        .select("code, description, amount, is_credit")
+        .eq("cost_report_id", reportId);
+      variations = varsResult.data || [];
+      console.log("Fetched variations:", variations.length);
+    }
+
+  // Calculate totals
+  const totalBudget = categories.reduce(
+    (sum, cat) => sum + (cat.original_budget || 0),
     0
   );
-  const categoryCount = categories.length;
-  const lineItemCount = lineItems.length;
-  const variationTotal = variations.reduce(
-    (sum: number, v: VariationData) => sum + (v.is_credit ? -v.amount : v.amount),
+  const totalActual = categories.reduce(
+    (sum, cat) => sum + (cat.anticipated_final || 0),
     0
   );
-
-  // Generate chart and table images
-  console.log("Generating charts and tables...");
-  const chartImages = await generateChartImages(categories, lineItems);
-  const tableImages = await generateTableImages(categories, lineItems);
-  console.log("Charts and tables generated");
 
   // Process each page's schema
   console.log("Processing template schemas, page count:", template.schemas.length);
   for (const pageSchema of template.schemas) {
     const pageInput: Record<string, any> = {};
 
-    for (const field of pageSchema) {
-      const fieldName = field.name || "";
-
+    for (const [fieldName, field] of Object.entries(pageSchema)) {
       // Map field names to actual data
-      if (fieldName === "company_logo" && companyData?.company_logo_url) {
-        pageInput[fieldName] = companyData.company_logo_url;
-      } else if (fieldName === "company_name") {
-        pageInput[fieldName] = companyData?.company_name || "";
-      } else if (fieldName === "report_title") {
+      if (fieldName === "date") {
+        pageInput[fieldName] = reportData?.created_at 
+          ? new Date(reportData.created_at).toLocaleDateString("en-ZA", {
+              weekday: "long",
+              year: "numeric", 
+              month: "long",
+              day: "numeric"
+            })
+          : new Date().toLocaleDateString("en-ZA", {
+              weekday: "long",
+              year: "numeric",
+              month: "long", 
+              day: "numeric"
+            });
+      } else if (fieldName === "client_name") {
+        pageInput[fieldName] = projectData?.client_name || "";
+      } else if (fieldName === "report_name") {
         pageInput[fieldName] = reportData?.report_name || "Cost Report";
+      } else if (fieldName === "project_name") {
+        pageInput[fieldName] = projectData?.name || "";
       } else if (fieldName === "report_number") {
-        pageInput[fieldName] = reportData?.report_number || "";
-      } else if (fieldName === "report_date") {
-        pageInput[fieldName] = new Date().toLocaleDateString();
-      } else if (fieldName === "kpi_total_value") {
-        pageInput[fieldName] = `R ${totalValue.toLocaleString("en-ZA", {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })}`;
-      } else if (fieldName === "kpi_category_count") {
-        pageInput[fieldName] = categoryCount.toString();
-      } else if (fieldName === "kpi_line_item_count") {
-        pageInput[fieldName] = lineItemCount.toString();
-      } else if (fieldName === "kpi_variation_total") {
-        pageInput[fieldName] = `R ${variationTotal.toLocaleString("en-ZA", {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })}`;
-      } else if (fieldName === "distribution_chart") {
-        pageInput[fieldName] = chartImages.distribution || "";
-      } else if (fieldName === "variance_chart") {
-        pageInput[fieldName] = chartImages.variance || "";
-      } else if (fieldName === "category_table") {
-        pageInput[fieldName] = tableImages.categories || "";
-      } else if (fieldName === "line_items_table") {
-        pageInput[fieldName] = tableImages.lineItems || "";
+        pageInput[fieldName] = `Report #${reportData?.report_number || ""}`;
       } else if (fieldName.startsWith("category_") && fieldName.includes("_name")) {
-        // Extract category index from field name
         const match = fieldName.match(/category_(\d+)_name/);
         if (match) {
-          const index = parseInt(match[1]);
-          pageInput[fieldName] = categories[index]?.category_name || "";
+          const index = parseInt(match[1]) - 1;
+          pageInput[fieldName] = categories[index] 
+            ? `${categories[index].code} - ${categories[index].description}`
+            : "";
         }
-      } else if (fieldName.startsWith("category_") && fieldName.includes("_total")) {
-        const match = fieldName.match(/category_(\d+)_total/);
+      } else if (fieldName.startsWith("category_") && fieldName.includes("_budget")) {
+        const match = fieldName.match(/category_(\d+)_budget/);
         if (match) {
-          const index = parseInt(match[1]);
-          const total = categories[index]?.total_amount || 0;
-          pageInput[fieldName] = `R ${total.toLocaleString("en-ZA", {
+          const index = parseInt(match[1]) - 1;
+          const budget = categories[index]?.original_budget || 0;
+          pageInput[fieldName] = `R ${budget.toLocaleString("en-ZA", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          })}`;
+        }
+      } else if (fieldName.startsWith("category_") && fieldName.includes("_actual")) {
+        const match = fieldName.match(/category_(\d+)_actual/);
+        if (match) {
+          const index = parseInt(match[1]) - 1;
+          const actual = categories[index]?.anticipated_final || 0;
+          pageInput[fieldName] = `R ${actual.toLocaleString("en-ZA", {
             minimumFractionDigits: 2,
             maximumFractionDigits: 2,
           })}`;
         }
       } else {
-        // Default empty value for unmatched fields
         pageInput[fieldName] = "";
       }
     }
