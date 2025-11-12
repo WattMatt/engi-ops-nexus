@@ -968,13 +968,11 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         });
         
         // ========== INDIVIDUAL VARIATION DETAIL SHEETS ==========
+        const variationSheetsStartPage = doc.getCurrentPageInfo().pageNumber + 1;
         variations.forEach((variation: any, index: number) => {
           setCurrentSection(`Adding variation sheet ${index + 1}/${variations.length}...`);
           doc.addPage();
-          tocSections.push({ 
-            title: `Variation Sheet - ${variation.code}`, 
-            page: doc.getCurrentPageInfo().pageNumber 
-          });
+          // Don't add individual sheets to TOC - we'll add a summary instead
           
           // Header with variation type color
           const variationColor = variation.is_credit ? colors.success : colors.danger;
@@ -1152,6 +1150,15 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           doc.setFontSize(7);
           doc.text("Signature & Date", contentStartX + (approvalWidth * 2) + 10, yPos + 16);
         });
+        
+        // Add summary entry to TOC for all variation sheets
+        if (variations.length > 0) {
+          const variationSheetsEndPage = doc.getCurrentPageInfo().pageNumber;
+          tocSections.push({ 
+            title: `Variation Order Sheets (${variations.length} sheets)`, 
+            page: variationSheetsStartPage 
+          });
+        }
       }
 
       setCurrentSection("Finalizing table of contents...");
