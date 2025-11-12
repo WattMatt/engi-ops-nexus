@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { Save, Download, Upload, RefreshCw } from "lucide-react";
+import { Save, Download, Upload, RefreshCw, Eye, EyeOff } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -20,6 +20,9 @@ import {
 import { ComponentLibraryPanel } from "./ComponentLibraryPanel";
 import { CapturedComponent } from "@/types/templateComponents";
 import { recaptureAllComponents } from "@/utils/componentCapture";
+import { CostReportOverview } from "@/components/cost-reports/CostReportOverview";
+import { useQuery } from "@tanstack/react-query";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface PDFTemplateDesignerProps {
   templateId?: string;
@@ -64,6 +67,25 @@ export const PDFTemplateDesigner = ({
   const [isSaving, setIsSaving] = useState(false);
   const [capturedComponents, setCapturedComponents] = useState<CapturedComponent[]>([]);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [showPreview, setShowPreview] = useState(true);
+
+  // Fetch report data for preview
+  const { data: reportData } = useQuery({
+    queryKey: ["cost-report-for-preview", reportId],
+    queryFn: async () => {
+      if (!reportId || category !== "cost_report") return null;
+      
+      const { data, error } = await supabase
+        .from("cost_reports")
+        .select("*")
+        .eq("id", reportId)
+        .single();
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!reportId && category === "cost_report",
+  });
 
   // Load existing template if templateId provided
   useEffect(() => {
@@ -320,16 +342,52 @@ export const PDFTemplateDesigner = ({
         />
       </div>
 
+      {/* Report Preview Pane (if cost report selected) */}
+      {reportId && category === "cost_report" && reportData && showPreview && (
+        <div className="w-96 flex-shrink-0 border-r">
+          <div className="h-full flex flex-col">
+            <div className="p-3 border-b bg-background flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-sm">Report Preview</h3>
+                <p className="text-xs text-muted-foreground">Live components to capture</p>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowPreview(false)}
+              >
+                <EyeOff className="h-4 w-4" />
+              </Button>
+            </div>
+            <ScrollArea className="flex-1">
+              <div className="p-4">
+                <CostReportOverview report={reportData} />
+              </div>
+            </ScrollArea>
+          </div>
+        </div>
+      )}
+
       {/* Main Designer Area */}
       <div className="flex-1 flex flex-col">
         <div className="flex items-center justify-between p-4 border-b bg-background">
           <div>
             <h2 className="text-xl font-semibold">PDF Template Designer</h2>
             <p className="text-sm text-muted-foreground">
-              Capture components from the library and position them on the canvas
+              {showPreview ? "Capture components from the preview and position them on the canvas" : "Design your PDF template layout"}
             </p>
           </div>
           <div className="flex gap-2">
+            {reportId && category === "cost_report" && !showPreview && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowPreview(true)}
+              >
+                <Eye className="h-4 w-4 mr-2" />
+                Show Preview
+              </Button>
+            )}
             <Button 
               variant="outline" 
               size="sm" 
