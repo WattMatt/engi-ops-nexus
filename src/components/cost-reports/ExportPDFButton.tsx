@@ -155,13 +155,23 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         ? ((Math.abs(originalVariance) / totalOriginalBudget) * 100) 
         : 0;
 
+      setCurrentSection("Preparing for capture...");
+      
+      // Find and click the Overview tab to ensure KPI cards are rendered
+      const overviewTab = document.querySelector('[data-state="inactive"][value="overview"]') as HTMLElement;
+      if (overviewTab) {
+        overviewTab.click();
+        // Wait for tab switch and render
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+      
       setCurrentSection("Capturing UI components...");
       // Capture the KPI cards from the actual rendered UI
       let kpiCardsCanvas;
       let kpiCardsImage;
       try {
         await prepareElementForCapture("cost-report-kpi-cards");
-        kpiCardsCanvas = await captureKPICards("cost-report-kpi-cards", { scale: 2 });
+        kpiCardsCanvas = await captureKPICards("cost-report-kpi-cards", { scale: 2, timeout: 15000 });
         kpiCardsImage = canvasToDataURL(kpiCardsCanvas, 'JPEG', 0.9);
       } catch (error) {
         console.error("Error capturing KPI cards:", error);
