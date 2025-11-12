@@ -28,7 +28,7 @@ const DOCUMENT_TYPES = [
   { 
     key: "lighting_quote_instruction", 
     label: "Lighting Quotation Instruction", 
-    allowMultiple: false,
+    allowMultiple: true,
     syncsToSchedule: true,
     scheduleField: "Lighting Ordered",
     description: "Automatically checks 'Lighting Ordered' in schedule"
