@@ -403,7 +403,7 @@ export const PDFPreviewDialog = ({
                 </tr>
               </thead>
               <tbody>
-                {categoryTotals.slice(0, 8).map((cat, idx) => (
+                {categoryTotals.map((cat, idx) => (
                   <tr key={idx} className="border-b">
                     <td className="p-2">{cat.code} - {cat.description}</td>
                     <td className="text-right p-2">R{cat.originalBudget.toLocaleString("en-ZA", { minimumFractionDigits: 0 })}</td>
@@ -414,21 +414,26 @@ export const PDFPreviewDialog = ({
                     </td>
                   </tr>
                 ))}
+                <tr className="border-t-2 font-bold">
+                  <td className="p-2">TOTAL</td>
+                  <td className="text-right p-2">R{grandTotals.originalBudget.toLocaleString("en-ZA", { minimumFractionDigits: 0 })}</td>
+                  <td className="text-right p-2">R{grandTotals.previousReport.toLocaleString("en-ZA", { minimumFractionDigits: 0 })}</td>
+                  <td className="text-right p-2">R{grandTotals.anticipatedFinal.toLocaleString("en-ZA", { minimumFractionDigits: 0 })}</td>
+                  <td className={`text-right p-2 ${grandTotals.originalVariance < 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    R{Math.abs(grandTotals.originalVariance).toLocaleString("en-ZA", { minimumFractionDigits: 0 })}
+                  </td>
+                </tr>
               </tbody>
             </table>
-            {categoryTotals.length > 8 && (
-              <p className="text-sm text-gray-500 italic">+ {categoryTotals.length - 8} more categories...</p>
-            )}
           </div>
         );
 
       case 'Category Performance':
         return (
           <div className="space-y-4">
-            <p className="font-semibold">Top Categories by Value:</p>
+            <p className="font-semibold">All Categories by Value:</p>
             {categoryTotals
               .sort((a, b) => b.anticipatedFinal - a.anticipatedFinal)
-              .slice(0, 5)
               .map((cat, idx) => (
                 <div key={idx} className="border-l-4 pl-4 py-2" style={{ borderColor: settings.accentColor }}>
                   <p className="font-semibold">{cat.code} - {cat.description}</p>
@@ -456,57 +461,70 @@ export const PDFPreviewDialog = ({
       case 'Detailed Line Items':
         return (
           <div className="space-y-4">
-            <p className="text-sm text-gray-600">Sample of line items (first 10 shown):</p>
-            <table className="w-full border-collapse text-xs">
-              <thead>
-                <tr className="border-b">
-                  <th className="text-left p-1">Description</th>
-                  <th className="text-right p-1">Qty</th>
-                  <th className="text-right p-1">Rate</th>
-                  <th className="text-right p-1">Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {lineItems.slice(0, 10).map((item: any, idx) => (
-                  <tr key={idx} className="border-b">
-                    <td className="p-1">{item.description}</td>
-                    <td className="text-right p-1">{item.quantity}</td>
-                    <td className="text-right p-1">R{item.rate?.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}</td>
-                    <td className="text-right p-1">R{((item.quantity || 0) * (item.rate || 0)).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {lineItems.length > 10 && (
-              <p className="text-sm text-gray-500 italic">+ {lineItems.length - 10} more items in full report...</p>
-            )}
+            <p className="font-semibold mb-2">All Line Items ({lineItems.length} total):</p>
+            <div className="space-y-3">
+              {categories.map((category: any) => {
+                const categoryItems = lineItems.filter((item: any) => item.category_id === category.id);
+                if (categoryItems.length === 0) return null;
+                
+                return (
+                  <div key={category.id} className="border rounded p-3">
+                    <h4 className="font-semibold mb-2 text-sm" style={{ color: settings.accentColor }}>
+                      {category.code} - {category.description}
+                    </h4>
+                    <table className="w-full border-collapse text-xs">
+                      <thead>
+                        <tr className="border-b">
+                          <th className="text-left p-1">Description</th>
+                          <th className="text-right p-1">Qty</th>
+                          <th className="text-right p-1">Rate</th>
+                          <th className="text-right p-1">Total</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {categoryItems.map((item: any, idx) => (
+                          <tr key={idx} className="border-b">
+                            <td className="p-1">{item.description}</td>
+                            <td className="text-right p-1">{item.quantity}</td>
+                            <td className="text-right p-1">R{item.rate?.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}</td>
+                            <td className="text-right p-1">R{((item.quantity || 0) * (item.rate || 0)).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         );
 
       case 'Variations':
         return variations.length > 0 ? (
           <div className="space-y-4">
+            <p className="font-semibold mb-2">All Variations ({variations.length} total):</p>
             <table className="w-full border-collapse text-sm">
               <thead>
                 <tr className="border-b">
+                  <th className="text-left p-2">Code</th>
                   <th className="text-left p-2">Description</th>
                   <th className="text-right p-2">Amount</th>
+                  <th className="text-left p-2">Type</th>
                   <th className="text-left p-2">Status</th>
                 </tr>
               </thead>
               <tbody>
-                {variations.slice(0, 10).map((variation: any, idx) => (
+                {variations.map((variation: any, idx) => (
                   <tr key={idx} className="border-b">
+                    <td className="p-2">{variation.code}</td>
                     <td className="p-2">{variation.description}</td>
                     <td className="text-right p-2">R{variation.amount?.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}</td>
+                    <td className="p-2">{variation.is_credit ? 'Credit' : 'Extra'}</td>
                     <td className="p-2">{variation.status || 'Pending'}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
-            {variations.length > 10 && (
-              <p className="text-sm text-gray-500 italic">+ {variations.length - 10} more variations...</p>
-            )}
           </div>
         ) : (
           <div className="text-center text-gray-500 py-8">
