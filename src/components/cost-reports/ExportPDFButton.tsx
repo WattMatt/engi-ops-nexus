@@ -280,6 +280,15 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       const cardHeight = 45;
       const cardsPerRow = 2;
       
+      // Check if we need a new page for the cards
+      const totalRows = Math.ceil(categoryTotals.length / cardsPerRow);
+      const totalCardsHeight = totalRows * (cardHeight + 8);
+      
+      if (cardY + totalCardsHeight > pageHeight - 30) {
+        doc.addPage();
+        cardY = 20;
+      }
+      
       categoryTotals.forEach((cat: any, index: number) => {
         const col = index % cardsPerRow;
         const row = Math.floor(index / cardsPerRow);
