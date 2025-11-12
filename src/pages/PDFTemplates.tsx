@@ -9,6 +9,7 @@ import { ArrowLeft, Zap, FileText, Settings, Download, Sparkles, Wand2 } from "l
 import { TemplateLibrary } from "@/components/pdf-templates/TemplateLibrary";
 import { PDFTemplateDesigner } from "@/components/pdf-templates/PDFTemplateDesigner";
 import { SmartTemplateBuilder, TemplateConfig } from "@/components/pdf-templates/SmartTemplateBuilder";
+import { PDFPreviewDialog } from "@/components/pdf-templates/PDFPreviewDialog";
 import { useToast } from "@/hooks/use-toast";
 import {
   Select,
@@ -106,6 +107,7 @@ const PDFTemplates = () => {
   };
 
   const [generatedTemplate, setGeneratedTemplate] = useState<any>(null);
+  const [showPreviewDialog, setShowPreviewDialog] = useState(false);
 
   const handleSmartGenerate = async (config: TemplateConfig) => {
     if (!selectedReportId || !selectedProjectId) {
@@ -125,13 +127,13 @@ const PDFTemplates = () => {
       
       toast({
         title: "Template Generated",
-        description: "Now you can drag items, change colors, or delete elements",
+        description: "Review your PDF with real data",
       });
       
-      // Store the generated template and switch to designer mode
+      // Store the generated template and show preview
       setGeneratedTemplate(template);
       setSmartBuilderMode(false);
-      setAdvancedMode(true);
+      setShowPreviewDialog(true);
     } catch (error) {
       console.error("Smart template generation error:", error);
       toast({
@@ -212,25 +214,42 @@ const PDFTemplates = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="border-b bg-card">
-        <div className="container mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Back
-              </Button>
-              <div>
-                <h1 className="text-2xl font-bold">PDF Templates</h1>
-                <p className="text-sm text-muted-foreground">
-                  Export reports quickly or customize your PDF templates
-                </p>
+    <>
+      {/* PDF Preview Dialog */}
+      {generatedTemplate && (
+        <PDFPreviewDialog
+          open={showPreviewDialog}
+          onOpenChange={setShowPreviewDialog}
+          template={generatedTemplate}
+          reportId={selectedReportId}
+          projectId={selectedProjectId}
+          category={category}
+          onCustomize={() => {
+            setShowPreviewDialog(false);
+            setAdvancedMode(true);
+          }}
+        />
+      )}
+
+      <div className="min-h-screen bg-background">
+        <div className="border-b bg-card">
+          <div className="container mx-auto px-6 py-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Back
+                </Button>
+                <div>
+                  <h1 className="text-2xl font-bold">PDF Templates</h1>
+                  <p className="text-sm text-muted-foreground">
+                    Export reports quickly or customize your PDF templates
+                  </p>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
 
       <div className="container mx-auto px-6 py-8">
         <Tabs value={category} onValueChange={(v) => setCategory(v as any)}>
@@ -398,6 +417,7 @@ const PDFTemplates = () => {
         </Tabs>
       </div>
     </div>
+    </>
   );
 };
 
