@@ -1,14 +1,13 @@
 import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, ChevronDown, ChevronUp, Pencil, Trash2, FileText } from "lucide-react";
+import { Plus, ChevronDown, ChevronUp, Pencil, Trash2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { AddLineItemDialog } from "./AddLineItemDialog";
 import { AddVariationDialog } from "./AddVariationDialog";
 import { LineItemRow } from "./LineItemRow";
 import { EditCategoryDialog } from "./EditCategoryDialog";
-import { VariationSheetDialog } from "./VariationSheetDialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   AlertDialog,
@@ -35,8 +34,6 @@ export const CategoryCard = ({ category, onUpdate }: CategoryCardProps) => {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [isOpen, setIsOpen] = useState(true);
   const [deleting, setDeleting] = useState(false);
-  const [sheetDialogOpen, setSheetDialogOpen] = useState(false);
-  const [selectedVariationId, setSelectedVariationId] = useState<string | null>(null);
 
   // Check if this is the Variations category
   const isVariationsCategory = category.description?.toUpperCase().includes("VARIATION");
@@ -256,23 +253,9 @@ export const CategoryCard = ({ category, onUpdate }: CategoryCardProps) => {
                             {variation.is_credit ? "-" : "+"}R
                             {Number(variation.amount).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
                           </div>
-                          <div className="col-span-4 text-right flex items-center justify-end gap-2">
-                            <span>
-                              {variation.is_credit ? "-" : "+"}R
-                              {Number(variation.amount).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
-                            </span>
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => {
-                                setSelectedVariationId(variation.id);
-                                setSheetDialogOpen(true);
-                              }}
-                              className="h-7 opacity-0 group-hover:opacity-100 transition-opacity"
-                            >
-                              <FileText className="h-3 w-3 mr-1" />
-                              Sheet
-                            </Button>
+                          <div className="col-span-4 text-right">
+                            {variation.is_credit ? "-" : "+"}R
+                            {Number(variation.amount).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
                           </div>
                         </div>
                       ))}
@@ -373,20 +356,6 @@ export const CategoryCard = ({ category, onUpdate }: CategoryCardProps) => {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {selectedVariationId && (
-        <VariationSheetDialog
-          open={sheetDialogOpen}
-          onOpenChange={setSheetDialogOpen}
-          variationId={selectedVariationId}
-          costReportId={category.cost_report_id}
-          projectId={category.project_id}
-          onSuccess={() => {
-            refetchVariations();
-            onUpdate();
-          }}
-        />
-      )}
     </Collapsible>
   );
 };
