@@ -24,7 +24,7 @@ export interface GrandTotals {
 
 /**
  * Calculate category totals from categories, line items, and variations
- * Variations show the same value in all columns to reflect full contract value
+ * Variations show R0 in Original Budget and Previous Report, full amount in Anticipated Final
  */
 export function calculateCategoryTotals(
   categories: any[],
@@ -36,21 +36,20 @@ export function calculateCategoryTotals(
     
     if (isVariationsCategory) {
       // For variations category, sum from variations table
-      const variationsTotal = variations.reduce(
+      const anticipatedFinal = variations.reduce(
         (sum, v) => sum + Number(v.amount || 0),
         0
       );
       
-      // Show variations in ALL columns to reflect full contract value
       return {
         id: category.id,
         code: category.code,
         description: category.description,
-        originalBudget: variationsTotal, // Part of contract from start
-        previousReport: variationsTotal, // Part of contract in previous
-        anticipatedFinal: variationsTotal, // Part of contract now
-        currentVariance: 0, // No variance - same across all periods
-        originalVariance: 0 // No variance - same across all periods
+        originalBudget: 0, // Variations show R0 in original budget
+        previousReport: 0, // Variations show R0 in previous report
+        anticipatedFinal, // Full variations amount in anticipated final
+        currentVariance: anticipatedFinal, // Variance = full amount (since previous was 0)
+        originalVariance: anticipatedFinal // Variance = full amount (since original was 0)
       };
     } else {
       // For regular categories, sum line items
