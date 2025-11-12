@@ -1,15 +1,17 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { LayoutGrid, PieChart, BarChart3, TrendingUp, Table, ImagePlus } from "lucide-react";
+import { LayoutGrid, PieChart, BarChart3, TrendingUp, Table, ImagePlus, ExternalLink } from "lucide-react";
 import { AVAILABLE_COMPONENTS, ComponentLibraryItem } from "@/types/templateComponents";
 import { useToast } from "@/hooks/use-toast";
 import { captureAndUploadComponent } from "@/utils/componentCapture";
+import { useNavigate } from "react-router-dom";
 
 interface ComponentLibraryPanelProps {
   projectId: string;
   onComponentCaptured: (component: any) => void;
   reportId?: string;
+  category?: string;
 }
 
 const iconMap: Record<string, any> = {
@@ -24,15 +26,60 @@ export const ComponentLibraryPanel = ({
   projectId,
   onComponentCaptured,
   reportId,
+  category,
 }: ComponentLibraryPanelProps) => {
   const { toast } = useToast();
+  const navigate = useNavigate();
+
+  const handleOpenReport = () => {
+    if (!reportId || !category) {
+      toast({
+        title: "No Report Selected",
+        description: "Please select a report first",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Navigate to the appropriate report detail page
+    const routeMap: Record<string, string> = {
+      cost_report: `/cost-reports/${reportId}`,
+      cable_schedule: `/cable-schedules/${reportId}`,
+      final_account: `/final-accounts/${reportId}`,
+    };
+
+    const route = routeMap[category];
+    if (route) {
+      window.open(route, '_blank');
+      toast({
+        title: "Report Opened",
+        description: "The report has been opened in a new tab. You can now capture components from there.",
+      });
+    }
+  };
 
   const handleCaptureComponent = async (item: ComponentLibraryItem) => {
     if (!reportId) {
       toast({
         title: "No Report Selected",
-        description: "Please select or create a cost report to capture components",
+        description: "Please select or create a report to capture components",
         variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if element exists on current page
+    const element = document.getElementById(item.elementId);
+    if (!element) {
+      toast({
+        title: "Component Not Found",
+        description: "Please open the report detail page first to capture this component. Click 'Open Report' below.",
+        variant: "destructive",
+        action: (
+          <Button variant="outline" size="sm" onClick={handleOpenReport}>
+            Open Report
+          </Button>
+        ),
       });
       return;
     }
@@ -82,9 +129,20 @@ export const ComponentLibraryPanel = ({
         <CardDescription className="text-xs">
           Click to capture and add components to your PDF
         </CardDescription>
+        {reportId && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full mt-2"
+            onClick={handleOpenReport}
+          >
+            <ExternalLink className="h-4 w-4 mr-2" />
+            Open Report to Capture
+          </Button>
+        )}
       </CardHeader>
       <CardContent className="p-0">
-        <ScrollArea className="h-[calc(100vh-280px)]">
+        <ScrollArea className="h-[calc(100vh-320px)]">
           <div className="space-y-2 p-4">
             {AVAILABLE_COMPONENTS.map((item) => {
               const Icon = iconMap[item.icon] || ImagePlus;

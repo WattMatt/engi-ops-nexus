@@ -315,6 +315,7 @@ export const PDFTemplateDesigner = ({
         <ComponentLibraryPanel
           projectId={projectId}
           reportId={reportId}
+          category={category}
           onComponentCaptured={handleComponentCaptured}
         />
       </div>
