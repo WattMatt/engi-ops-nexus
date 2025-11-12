@@ -4,7 +4,7 @@ import { format } from "date-fns";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { DollarSign, TrendingDown, TrendingUp, Download } from "lucide-react";
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from "recharts";
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts";
 import { calculateCategoryTotals, calculateGrandTotals } from "@/utils/costReportCalculations";
 import html2canvas from "html2canvas";
 import { useToast } from "@/hooks/use-toast";
@@ -297,7 +297,7 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
           <CardContent>
             <div id="budget-comparison-chart">
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={budgetComparisonData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
+                <LineChart data={budgetComparisonData} margin={{ top: 20, right: 30, left: 20, bottom: 60 }}>
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis dataKey="name" />
                   <YAxis 
@@ -313,10 +313,31 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
                     }}
                   />
                   <Legend wrapperStyle={{ paddingTop: '20px' }} />
-                  <Bar dataKey="Original Budget" fill="#3b82f6" />
-                  <Bar dataKey="Previous Report" fill="#10b981" />
-                  <Bar dataKey="Anticipated Final" fill="#f59e0b" />
-                </BarChart>
+                  <Line 
+                    type="monotone" 
+                    dataKey="Original Budget" 
+                    stroke="#3b82f6" 
+                    strokeWidth={3}
+                    dot={{ fill: '#3b82f6', r: 6 }}
+                    activeDot={{ r: 8 }}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="Previous Report" 
+                    stroke="#10b981" 
+                    strokeWidth={3}
+                    dot={{ fill: '#10b981', r: 6 }}
+                    activeDot={{ r: 8 }}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="Anticipated Final" 
+                    stroke="#f59e0b" 
+                    strokeWidth={3}
+                    dot={{ fill: '#f59e0b', r: 6 }}
+                    activeDot={{ r: 8 }}
+                  />
+                </LineChart>
               </ResponsiveContainer>
             </div>
           </CardContent>
