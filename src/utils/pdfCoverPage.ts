@@ -405,17 +405,24 @@ export async function generateCoverPage(
   if (defaultTemplate) {
     try {
       const template = defaultTemplate as any;
-      console.log("Loading template:", template.name || "Unknown");
+      console.log("🎨 Loading cover template:", {
+        name: template.name,
+        file_name: template.file_name,
+        file_path: template.file_path,
+        is_url: template.is_url
+      });
       
       let templateUrl: string;
       
       if (template.is_url || template.file_path?.startsWith('http')) {
         templateUrl = template.file_path;
+        console.log("📍 Using direct URL:", templateUrl);
       } else {
         const { data } = supabase.storage
           .from("cover-page-templates")
           .getPublicUrl(template.file_path);
         templateUrl = data.publicUrl;
+        console.log("📍 Generated public URL:", templateUrl);
       }
       
       if (templateUrl) {
@@ -425,11 +432,21 @@ export async function generateCoverPage(
         const isImage = fileName.endsWith('.jpg') || fileName.endsWith('.jpeg') || 
                        fileName.endsWith('.png') || fileName.endsWith('.webp');
         
+        console.log("📄 File detection:", {
+          fileName,
+          isWordDoc,
+          isPdf,
+          isImage
+        });
+        
         if (isWordDoc) {
           // Word template: Fill placeholders and convert to PDF
-          console.log('Detected Word template, filling placeholders...');
+          console.log('✏️ Detected Word template, filling placeholders...');
           const placeholderData = createPlaceholderData(options, companyDetails);
+          console.log('📝 Placeholder data:', placeholderData);
+          
           const convertedPdfUrl = await convertWordTemplateToPDF(templateUrl, placeholderData);
+          console.log('✅ Word template converted to PDF:', convertedPdfUrl);
           
           // Load the converted PDF
           const response = await fetch(convertedPdfUrl);
@@ -437,6 +454,8 @@ export async function generateCoverPage(
             throw new Error(`Failed to fetch converted PDF: ${response.statusText}`);
           }
           const blob = await response.blob();
+          console.log('📦 Converted PDF blob size:', blob.size, 'bytes');
+          
           const dataUrl = await new Promise<string>((resolve) => {
             const reader = new FileReader();
             reader.onloadend = () => resolve(reader.result as string);
@@ -444,7 +463,7 @@ export async function generateCoverPage(
           });
           
           doc.addImage(dataUrl, "PDF", 0, 0, pageWidth, pageHeight);
-          console.log('Word template converted and loaded successfully');
+          console.log('🎉 Word template converted and loaded successfully');
           return;
           
         } else if (isPdf || isImage) {

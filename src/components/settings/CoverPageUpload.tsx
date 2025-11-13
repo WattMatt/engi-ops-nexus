@@ -55,11 +55,12 @@ export function CoverPageUpload() {
         .update({ is_default: false })
         .eq("is_default", true);
 
-      // Insert new template record
+      // Insert new template record with file_name for extension detection
       const { error: insertError } = await supabase
         .from("cover_page_templates" as any)
         .insert({
           name: file.name,
+          file_name: file.name, // Important: Store original filename for extension detection
           file_path: filePath,
           file_type: file.type,
           is_default: true,
@@ -81,9 +82,10 @@ export function CoverPageUpload() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>PDF Cover Page Template</CardTitle>
+        <CardTitle>Cover Page Template</CardTitle>
         <CardDescription>
-          Upload a custom cover page template for all PDF exports (Cost Reports, Cable Schedules, etc.)
+          Upload a Word template (.docx) with placeholders, or use a static PDF/image for all PDF exports.
+          Word templates support dynamic data like project names, dates, and company details.
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -103,7 +105,7 @@ export function CoverPageUpload() {
             <Input
               id="cover-template"
               type="file"
-              accept="image/*,.pdf"
+              accept=".docx,.doc,.pdf,image/*"
               onChange={(e) => setFile(e.target.files?.[0] || null)}
               className="flex-1"
             />
@@ -120,18 +122,33 @@ export function CoverPageUpload() {
             </Button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Accepts images (PNG, JPG) or PDF files. This will be used as the background for PDF cover pages.
+            Accepts Word (.docx), PDF, or image files (PNG, JPG)
           </p>
         </div>
 
-        <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <h4 className="text-sm font-semibold text-blue-900 mb-2">Template Guidelines:</h4>
-          <ul className="text-xs text-blue-800 space-y-1 list-disc list-inside">
-            <li>Use A4 portrait size (210mm × 297mm)</li>
-            <li>Leave space for text overlay (title, project name, subtitle)</li>
-            <li>Text will be centered at specific positions</li>
-            <li>Company logo and details will be added programmatically</li>
-          </ul>
+        <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg space-y-3">
+          <div>
+            <h4 className="text-sm font-semibold text-blue-900 mb-2">📄 Word Template (.docx) - Dynamic</h4>
+            <p className="text-xs text-blue-800 mb-2">
+              Word documents support placeholders that auto-fill with real project data:
+            </p>
+            <ul className="text-xs text-blue-800 space-y-1 list-disc list-inside ml-2">
+              <li><code className="bg-blue-100 px-1 rounded">{"{{project_name}}"}</code> - Project name</li>
+              <li><code className="bg-blue-100 px-1 rounded">{"{{report_title}}"}</code> - Type of report (e.g., "Cost Report")</li>
+              <li><code className="bg-blue-100 px-1 rounded">{"{{report_date}}"}</code> - Current date</li>
+              <li><code className="bg-blue-100 px-1 rounded">{"{{company_name}}"}</code> - Your company name</li>
+              <li><code className="bg-blue-100 px-1 rounded">{"{{contact_name}}"}</code> - Contact person</li>
+              <li><code className="bg-blue-100 px-1 rounded">{"{{revision}}"}</code> - Report revision</li>
+            </ul>
+          </div>
+          <div className="pt-2 border-t border-blue-300">
+            <h4 className="text-sm font-semibold text-blue-900 mb-2">🖼️ PDF/Image Template - Static</h4>
+            <ul className="text-xs text-blue-800 space-y-1 list-disc list-inside ml-2">
+              <li>A4 portrait size (210mm × 297mm) recommended</li>
+              <li>Text will be overlaid at fixed positions</li>
+              <li>Use for branded backgrounds with consistent layout</li>
+            </ul>
+          </div>
         </div>
       </CardContent>
     </Card>
