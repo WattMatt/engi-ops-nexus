@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Upload, FileText, Trash2 } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Upload, FileText, Trash2, Star } from "lucide-react";
 import { toast } from "sonner";
 import { UploadTemplateDialog } from "@/components/document-templates/UploadTemplateDialog";
 import { FillTemplateDialog } from "@/components/document-templates/FillTemplateDialog";
@@ -56,6 +57,25 @@ export default function DocumentTemplates() {
     },
   });
 
+  // Toggle default cover mutation
+  const toggleDefaultMutation = useMutation({
+    mutationFn: async ({ templateId, isDefault }: { templateId: string; isDefault: boolean }) => {
+      const { error } = await supabase
+        .from("document_templates" as any)
+        .update({ is_default_cover: !isDefault })
+        .eq("id", templateId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["document-templates"] });
+      toast.success("Default cover page updated");
+    },
+    onError: (error) => {
+      toast.error("Failed to update default: " + error.message);
+    },
+  });
+
   const handleFill = (template: any) => {
     setSelectedTemplate(template);
     setFillDialogOpen(true);
@@ -97,11 +117,17 @@ export default function DocumentTemplates() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {templates?.map((template) => (
-            <Card key={template.id}>
+            <Card key={template.id} className={template.is_default_cover ? "ring-2 ring-primary" : ""}>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <FileText className="h-5 w-5" />
                   {template.name}
+                  {template.is_default_cover && (
+                    <Badge variant="default" className="ml-auto">
+                      <Star className="h-3 w-3 mr-1 fill-current" />
+                      Default Cover
+                    </Badge>
+                  )}
                 </CardTitle>
                 {template.description && (
                   <CardDescription>{template.description}</CardDescription>
@@ -126,21 +152,35 @@ export default function DocumentTemplates() {
                     </span>
                   </div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-col gap-2">
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => handleFill(template)}
+                    >
+                      <FileText className="mr-2 h-4 w-4" />
+                      Fill & Convert
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      onClick={() => deleteMutation.mutate(template.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
                   <Button
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => handleFill(template)}
+                    variant={template.is_default_cover ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => toggleDefaultMutation.mutate({ 
+                      templateId: template.id, 
+                      isDefault: template.is_default_cover 
+                    })}
+                    disabled={toggleDefaultMutation.isPending}
                   >
-                    <FileText className="mr-2 h-4 w-4" />
-                    Fill & Convert
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="icon"
-                    onClick={() => deleteMutation.mutate(template.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
+                    <Star className={`mr-2 h-4 w-4 ${template.is_default_cover ? 'fill-current' : ''}`} />
+                    {template.is_default_cover ? "Default Cover Page" : "Set as Default Cover"}
                   </Button>
                 </div>
               </CardContent>

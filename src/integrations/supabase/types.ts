@@ -1491,6 +1491,7 @@ export type Database = {
           file_url: string
           id: string
           is_active: boolean | null
+          is_default_cover: boolean | null
           name: string
           placeholder_schema: Json | null
           template_type: string
@@ -1504,6 +1505,7 @@ export type Database = {
           file_url: string
           id?: string
           is_active?: boolean | null
+          is_default_cover?: boolean | null
           name: string
           placeholder_schema?: Json | null
           template_type?: string
@@ -1517,6 +1519,7 @@ export type Database = {
           file_url?: string
           id?: string
           is_active?: boolean | null
+          is_default_cover?: boolean | null
           name?: string
           placeholder_schema?: Json | null
           template_type?: string

@@ -185,13 +185,26 @@ export async function generateCoverPage(
   // If no template in cover_page_templates, check document_templates
   if (!defaultTemplate) {
     console.log("No template in cover_page_templates, checking document_templates...");
-    const { data: docTemplate } = await supabase
+    
+    // First try to find a template marked as default cover
+    let { data: docTemplate } = await supabase
       .from("document_templates" as any)
       .select("*")
-      .or('template_type.eq.cover_page,template_type.eq.custom')
-      .order('created_at', { ascending: false })
-      .limit(1)
+      .eq('is_default_cover', true)
       .maybeSingle();
+    
+    // If no default is set, fallback to any cover_page or custom template
+    if (!docTemplate) {
+      console.log("No default cover template, checking for any cover_page/custom template...");
+      const { data: fallbackTemplate } = await supabase
+        .from("document_templates" as any)
+        .select("*")
+        .or('template_type.eq.cover_page,template_type.eq.custom')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      docTemplate = fallbackTemplate;
+    }
     
     if (docTemplate && typeof docTemplate === 'object' && !Array.isArray(docTemplate) && 'name' in docTemplate) {
       console.log("Found template in document_templates:", (docTemplate as any).name);
