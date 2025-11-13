@@ -118,6 +118,7 @@ function createPlaceholderData(
     client_name: companyDetails.companyName || 'Client Name',
     report_title: options.title || 'Report',
     report_date: reportDate,
+    date: reportDate, // Also send 'date' for templates that use {{date}}
     revision: options.revision || 'Rev. 1.0',
     contact_name: companyDetails.contactName || '',
     contact_phone: companyDetails.contactPhone || '',
