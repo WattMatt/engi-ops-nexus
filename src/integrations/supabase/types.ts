@@ -949,6 +949,11 @@ export type Database = {
       }
       company_settings: {
         Row: {
+          client_address_line1: string | null
+          client_address_line2: string | null
+          client_logo_url: string | null
+          client_name: string | null
+          client_phone: string | null
           company_logo_url: string | null
           company_name: string
           company_tagline: string | null
@@ -957,6 +962,11 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          client_address_line1?: string | null
+          client_address_line2?: string | null
+          client_logo_url?: string | null
+          client_name?: string | null
+          client_phone?: string | null
           company_logo_url?: string | null
           company_name?: string
           company_tagline?: string | null
@@ -965,6 +975,11 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          client_address_line1?: string | null
+          client_address_line2?: string | null
+          client_logo_url?: string | null
+          client_name?: string | null
+          client_phone?: string | null
           company_logo_url?: string | null
           company_name?: string
           company_tagline?: string | null

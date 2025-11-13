@@ -55,6 +55,16 @@ export interface CompanyDetails {
   contactName: string;
   /** Contact phone number from employee record or default */
   contactPhone: string;
+  /** Client/recipient name for "Prepared For" section */
+  clientName?: string;
+  /** Client logo URL for cover pages */
+  clientLogoUrl?: string;
+  /** Client address line 1 */
+  clientAddressLine1?: string;
+  /** Client address line 2 */
+  clientAddressLine2?: string;
+  /** Client phone number */
+  clientPhone?: string;
 }
 
 /**
@@ -70,6 +80,11 @@ export async function fetchCompanyDetails(): Promise<CompanyDetails> {
 
   const logoUrl = companySettings?.company_logo_url;
   const companyName = companySettings?.company_name || "WATSON MATTHEUS CONSULTING ELECTRICAL ENGINEERS (PTY) LTD";
+  const clientName = companySettings?.client_name;
+  const clientLogoUrl = companySettings?.client_logo_url;
+  const clientAddressLine1 = companySettings?.client_address_line1;
+  const clientAddressLine2 = companySettings?.client_address_line2;
+  const clientPhone = companySettings?.client_phone;
 
   // Fetch current user details
   const { data: { user: currentUser } } = await supabase.auth.getUser();
@@ -96,6 +111,11 @@ export async function fetchCompanyDetails(): Promise<CompanyDetails> {
     logoUrl,
     contactName,
     contactPhone,
+    clientName,
+    clientLogoUrl,
+    clientAddressLine1,
+    clientAddressLine2,
+    clientPhone,
   };
 }
 
@@ -115,7 +135,7 @@ function createPlaceholderData(
 
   return {
     project_name: options.projectName || 'Untitled Project',
-    client_name: companyDetails.companyName || 'Client Name',
+    client_name: companyDetails.clientName || 'Client Name',
     report_title: options.title || 'Report',
     report_date: reportDate,
     date: reportDate, // Also send 'date' for templates that use {{date}}
@@ -123,7 +143,12 @@ function createPlaceholderData(
     contact_name: companyDetails.contactName || '',
     contact_phone: companyDetails.contactPhone || '',
     company_name: companyDetails.companyName || '',
-    subtitle: options.subtitle || ''
+    subtitle: options.subtitle || '',
+    // Client/recipient information for "Prepared For" section
+    prepared_for_name: companyDetails.clientName || '',
+    prepared_for_address1: companyDetails.clientAddressLine1 || '',
+    prepared_for_address2: companyDetails.clientAddressLine2 || '',
+    prepared_for_phone: companyDetails.clientPhone || '',
   };
 }
 
