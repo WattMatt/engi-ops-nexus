@@ -39,48 +39,21 @@ Deno.serve(async (req) => {
     console.log('Starting Word to PDF conversion:', { fileName, templateId, hasPlaceholderData: !!placeholderData });
     console.log('Template URL:', templateUrl);
 
-    // Download the file from Supabase using service role (since bucket is private)
-    const templateStoragePath = templateUrl.split('/document-templates/')[1];
-    console.log('Storage path:', templateStoragePath);
-    
-    const { data: fileData, error: downloadError } = await supabase.storage
-      .from('document-templates')
-      .download(templateStoragePath);
-    
-    if (downloadError || !fileData) {
-      console.error('Storage download error:', downloadError);
-      throw new Error('Failed to download template file from storage');
-    }
-    
-    const fileArrayBuffer = await fileData.arrayBuffer();
-    console.log('Template file downloaded, size:', fileArrayBuffer.byteLength);
-
-    // Upload directly to CloudConvert
-    const uploadResponse = await fetch('https://api.cloudconvert.com/v2/import/upload', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${cloudConvertApiKey}`,
+    // Build the CloudConvert job tasks using direct URL import (bucket is now public)
+    const tasks: any = {
+      'import-file': {
+        operation: 'import/url',
+        url: templateUrl,
+        filename: fileName,
       },
-      body: fileArrayBuffer,
-    });
-
-    if (!uploadResponse.ok) {
-      throw new Error('Failed to upload file to CloudConvert');
-    }
-
-    const cloudConvertUpload = await uploadResponse.json();
-    const uploadedTaskId = cloudConvertUpload.data.id;
-    console.log('File uploaded to CloudConvert, task ID:', uploadedTaskId);
-
-    // Build the CloudConvert job tasks
-    const tasks: any = {};
+    };
 
     // If placeholder data is provided, use merge operation
     if (placeholderData && Object.keys(placeholderData).length > 0) {
       console.log('Using merge operation with placeholder data');
       tasks['merge-file'] = {
         operation: 'merge',
-        input: uploadedTaskId,
+        input: 'import-file',
         output_format: fileName.endsWith('.docx') || fileName.endsWith('.dotx') ? 'docx' : 'doc',
         engine: 'office',
         data: placeholderData,
@@ -95,7 +68,7 @@ Deno.serve(async (req) => {
       console.log('Using direct conversion without merge');
       tasks['convert-file'] = {
         operation: 'convert',
-        input: uploadedTaskId,
+        input: 'import-file',
         output_format: 'pdf',
         engine: 'office',
         input_format: fileName.endsWith('.docx') || fileName.endsWith('.dotx') ? 'docx' : 'doc',
