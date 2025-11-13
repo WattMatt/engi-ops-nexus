@@ -107,6 +107,14 @@ export function FillTemplateDialog({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    console.log("Submitting with placeholder data:", placeholderData);
+    
+    // Validate that we have at least some data
+    if (Object.keys(placeholderData).length === 0) {
+      toast.error("Please fill in at least one field before generating the PDF");
+      return;
+    }
+    
     fillMutation.mutate(placeholderData);
   };
 
