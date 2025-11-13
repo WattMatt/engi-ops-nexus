@@ -1,50 +1,37 @@
+/**
+ * Generates a cover page for PDF exports.
+ * 
+ * Supports three modes:
+ * 1. Word Template (.docx): Fills placeholders and converts to PDF via edge function
+ * 2. PDF/Image Template: Loads existing file and overlays dynamic text
+ * 3. Default Modern: Generates a default modern cover page with gradient accent
+ * 
+ * Word Template Placeholders:
+ * - {{project_name}} - Project name
+ * - {{client_name}} - Client/company name
+ * - {{report_title}} - Type of report
+ * - {{report_date}} - Current date
+ * - {{revision}} - Report revision/version
+ * - {{contact_name}} - Contact person name
+ * - {{contact_phone}} - Contact phone number
+ * - {{company_name}} - Company name
+ * 
+ * Usage:
+ * ```typescript
+ * const doc = new jsPDF();
+ * const companyDetails = await fetchCompanyDetails();
+ * await generateCoverPage(doc, {
+ *   title: "Cost Report",
+ *   projectName: "Main Building",
+ *   subtitle: "Electrical Installation",
+ *   revision: "Rev. 1.0"
+ * }, companyDetails);
+ * ```
+ */
+
 import jsPDF from "jspdf";
 import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
-
-/**
- * STANDARD PDF COVER PAGE UTILITY
- * ================================
- * This utility provides a standardized cover page format for ALL PDF exports in the application.
- * 
- * MANDATORY USAGE:
- * All new PDF export features MUST use this utility to maintain consistent branding across all reports.
- * 
- * USAGE EXAMPLE:
- * ```typescript
- * import { fetchCompanyDetails, generateCoverPage } from "@/utils/pdfCoverPage";
- * 
- * const handleExport = async () => {
- *   const doc = new jsPDF("portrait"); // or "landscape"
- *   
- *   // Fetch company details once
- *   const companyDetails = await fetchCompanyDetails();
- *   
- *   // Generate standardized cover page
- *   await generateCoverPage(doc, {
- *     title: "Your Report Type",           // e.g., "Financial Evaluation", "Cable Schedule"
- *     projectName: project.name,            // The main project/report name
- *     subtitle: "Your Subtitle",            // e.g., "Centre Standby Plant", "Schedule #123"
- *     revision: "Rev 1",                    // Revision information
- *   }, companyDetails);
- *   
- *   // Add your report content starting from page 2
- *   doc.addPage();
- *   // ... your report content here
- * };
- * ```
- * 
- * COVER PAGE FEATURES:
- * - Gradient blue accent bar on the left
- * - Centered titles in light blue
- * - Company name from company_settings table
- * - Contact person from logged-in user's employee record
- * - Company logo (if configured)
- * - Current date and revision in cyan
- * - Page number "1" at bottom
- * 
- * @module pdfCoverPage
- */
 
 export interface CoverPageOptions {
   /** Main title at top of page (e.g., "Financial Evaluation", "Cable Schedule") */
@@ -70,16 +57,6 @@ export interface CompanyDetails {
 
 /**
  * Fetches company settings and current user details for the cover page.
- * This function retrieves:
- * - Company name and logo from company_settings table
- * - Logged-in user's details from employees table
- * 
- * @returns {Promise<CompanyDetails>} Company and contact information
- * 
- * @example
- * const companyDetails = await fetchCompanyDetails();
- * console.log(companyDetails.companyName); // "WATSON MATTHEUS..."
- * console.log(companyDetails.contactName); // "John Doe"
  */
 export async function fetchCompanyDetails(): Promise<CompanyDetails> {
   // Fetch company settings
@@ -121,48 +98,260 @@ export async function fetchCompanyDetails(): Promise<CompanyDetails> {
 }
 
 /**
- * Generates a standardized cover page for ALL PDF reports.
- * 
- * This is the REQUIRED method for creating cover pages in all PDF exports.
- * The cover page includes:
- * - Gradient blue accent bar on left edge
- * - Centered titles in company branding colors
- * - Company details and logo
- * - Date and revision information
- * - Page number
- * 
- * IMPORTANT: Always call this on page 1, then add your content starting from page 2.
- * 
- * @param {jsPDF} doc - The jsPDF document instance
- * @param {CoverPageOptions} options - Cover page content options
- * @param {CompanyDetails} companyDetails - Company and contact information from fetchCompanyDetails()
- * 
- * @example
- * // For a generator report
- * await generateCoverPage(doc, {
- *   title: "Financial Evaluation",
- *   projectName: "Segonyana Mall",
- *   subtitle: "Centre Standby Plant",
- *   revision: "Rev 3",
- * }, companyDetails);
- * 
- * @example
- * // For a cable schedule
- * await generateCoverPage(doc, {
- *   title: "Cable Schedule",
- *   projectName: schedule.schedule_name,
- *   subtitle: `Schedule #${schedule.schedule_number}`,
- *   revision: schedule.revision,
- * }, companyDetails);
- * 
- * @example
- * // For a cost report
- * await generateCoverPage(doc, {
- *   title: "Cost Report",
- *   projectName: report.project_name,
- *   subtitle: `Report #${report.report_number}`,
- *   revision: `Report ${report.report_number}`,
- * }, companyDetails);
+ * Create placeholder data from report options and company details
+ */
+function createPlaceholderData(
+  options: CoverPageOptions,
+  companyDetails: CompanyDetails
+): Record<string, string> {
+  const currentDate = new Date().toLocaleDateString('en-ZA', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+
+  return {
+    project_name: options.projectName || 'Untitled Project',
+    client_name: companyDetails.companyName || 'Client Name',
+    report_title: options.title || 'Report',
+    report_date: currentDate,
+    revision: options.revision || 'Rev. 1.0',
+    contact_name: companyDetails.contactName || '',
+    contact_phone: companyDetails.contactPhone || '',
+    company_name: companyDetails.companyName || '',
+    subtitle: options.subtitle || ''
+  };
+}
+
+/**
+ * Convert Word template to PDF with filled placeholders
+ */
+async function convertWordTemplateToPDF(
+  templateUrl: string,
+  placeholderData: Record<string, string>
+): Promise<string> {
+  console.log('Converting Word template to PDF with placeholders:', placeholderData);
+  
+  const { data, error } = await supabase.functions.invoke('convert-word-to-pdf', {
+    body: {
+      templateUrl,
+      placeholderData
+    }
+  });
+
+  if (error) {
+    throw new Error(`Word to PDF conversion failed: ${error.message}`);
+  }
+
+  if (!data?.pdfUrl) {
+    throw new Error('No PDF URL returned from conversion');
+  }
+
+  console.log('Word template converted successfully:', data.pdfUrl);
+  return data.pdfUrl;
+}
+
+/**
+ * Add overlay text on template-based cover pages
+ */
+function addOverlayText(
+  doc: jsPDF,
+  options: CoverPageOptions,
+  companyDetails: CompanyDetails
+): void {
+  const pageWidth = doc.internal.pageSize.width;
+  
+  const colors = {
+    primary: [30, 58, 138] as [number, number, number],
+    secondary: [59, 130, 246] as [number, number, number],
+    white: [255, 255, 255] as [number, number, number],
+    text: [15, 23, 42] as [number, number, number]
+  };
+  
+  doc.setTextColor(...colors.primary);
+  doc.setFontSize(20);
+  doc.setFont("helvetica", "bold");
+  doc.text(options.title, pageWidth / 2, 70, { align: "center" });
+  
+  doc.setFontSize(26);
+  doc.setTextColor(...colors.text);
+  doc.text(options.projectName, pageWidth / 2, 95, { align: "center" });
+  
+  doc.setFontSize(16);
+  doc.setTextColor(...colors.secondary);
+  doc.text(options.subtitle, pageWidth / 2, 127, { align: "center" });
+  
+  // Date and revision
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(...colors.white);
+  doc.text(format(new Date(), "EEEE, dd MMMM yyyy"), 30, 273);
+  doc.text(options.revision.replace("Rev.", "Rev "), pageWidth / 2 + 10, 273);
+}
+
+/**
+ * Generate default modern cover page (fallback)
+ */
+async function generateDefaultCoverPage(
+  doc: jsPDF,
+  options: CoverPageOptions,
+  companyDetails: CompanyDetails
+): Promise<void> {
+  const pageWidth = doc.internal.pageSize.width;
+  const pageHeight = doc.internal.pageSize.height;
+  let yPos = 0;
+
+  // Modern color definitions
+  const colors = {
+    primary: [30, 58, 138] as [number, number, number],
+    secondary: [59, 130, 246] as [number, number, number],
+    accent: [99, 102, 241] as [number, number, number],
+    light: [241, 245, 249] as [number, number, number],
+    neutral: [71, 85, 105] as [number, number, number],
+    white: [255, 255, 255] as [number, number, number],
+    text: [15, 23, 42] as [number, number, number]
+  };
+  
+  // Modern gradient left accent bar
+  const barWidth = 12;
+  for (let i = 0; i < pageHeight; i += 3) {
+    const ratio = i / pageHeight;
+    const r = Math.round(colors.primary[0] + (colors.secondary[0] - colors.primary[0]) * ratio);
+    const g = Math.round(colors.primary[1] + (colors.secondary[1] - colors.primary[1]) * ratio);
+    const b = Math.round(colors.primary[2] + (colors.secondary[2] - colors.primary[2]) * ratio);
+    doc.setFillColor(r, g, b);
+    doc.rect(0, i, barWidth, 3, 'F');
+  }
+  
+  // Main title with modern styling
+  doc.setTextColor(...colors.primary);
+  doc.setFontSize(20);
+  doc.setFont("helvetica", "bold");
+  doc.text(options.title, pageWidth / 2, 70, { align: "center" });
+  
+  // Subtle underline
+  doc.setDrawColor(...colors.secondary);
+  doc.setLineWidth(0.8);
+  const titleWidth = doc.getTextWidth(options.title);
+  doc.line(pageWidth / 2 - titleWidth / 2, 73, pageWidth / 2 + titleWidth / 2, 73);
+  
+  // Project name - larger, bold heading
+  yPos = 95;
+  doc.setFontSize(26);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...colors.text);
+  doc.text(options.projectName, pageWidth / 2, yPos, { align: "center" });
+  
+  // Subtitle with accent color
+  yPos += 32;
+  doc.setFontSize(16);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(...colors.secondary);
+  doc.text(options.subtitle, pageWidth / 2, yPos, { align: "center" });
+  
+  // Modern divider with shadow effect
+  yPos = 185;
+  doc.setDrawColor(...colors.light);
+  doc.setLineWidth(0.3);
+  doc.line(25, yPos, pageWidth - 25, yPos);
+  doc.setDrawColor(...colors.primary);
+  doc.setLineWidth(1.2);
+  doc.line(25, yPos + 1, pageWidth - 25, yPos + 1);
+  
+  // Company details section with modern card-like appearance
+  yPos = 198;
+  
+  // Light background card
+  doc.setFillColor(...colors.light);
+  doc.roundedRect(22, 194, pageWidth - 44, 50, 3, 3, 'F');
+  
+  doc.setTextColor(...colors.primary);
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.text("PREPARED BY", 28, yPos);
+  
+  yPos += 8;
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...colors.text);
+  doc.text(companyDetails.companyName.toUpperCase(), 28, yPos);
+  
+  yPos += 7;
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(...colors.neutral);
+  doc.text("141 Which Hazel ave,", 28, yPos);
+  
+  yPos += 6;
+  doc.text("Highveld Techno Park, Building 1A", 28, yPos);
+  
+  yPos += 6;
+  doc.text(`Tel: ${companyDetails.contactPhone}`, 28, yPos);
+  
+  yPos += 6;
+  doc.text(`Contact: ${companyDetails.contactName}`, 28, yPos);
+  
+  // Add company logo with clean positioning
+  if (companyDetails.logoUrl) {
+    try {
+      const logoResponse = await fetch(companyDetails.logoUrl);
+      const logoBlob = await logoResponse.blob();
+      const logoDataUrl = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(logoBlob);
+      });
+      
+      // Position logo on the right side with proper spacing
+      const logoWidth = 35;
+      const logoHeight = 26;
+      const logoX = pageWidth - logoWidth - 28;
+      const logoY = 205;
+      
+      doc.addImage(logoDataUrl, 'PNG', logoX, logoY, logoWidth, logoHeight);
+    } catch (error) {
+      console.error("Failed to add logo to PDF:", error);
+    }
+  }
+  
+  // Modern divider
+  yPos = 237;
+  doc.setDrawColor(...colors.light);
+  doc.setLineWidth(0.3);
+  doc.line(25, yPos, pageWidth - 25, yPos);
+  doc.setDrawColor(...colors.primary);
+  doc.setLineWidth(1.2);
+  doc.line(25, yPos + 1, pageWidth - 25, yPos + 1);
+  
+  // Date and Revision section - simple text labels
+  yPos = 255;
+  
+  // Date label and value
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(...colors.neutral);
+  const dateLabel = "Date:";
+  const dateValue = format(new Date(), "dd MMMM yyyy");
+  doc.text(dateLabel, 28, yPos);
+  doc.text(dateValue, 28 + doc.getTextWidth(dateLabel) + 2, yPos);
+  
+  // Page number label and value  
+  const pageLabel = "Page No:";
+  const pageValue = "1";
+  const pageLabelX = pageWidth - 60;
+  doc.text(pageLabel, pageLabelX, yPos);
+  doc.text(pageValue, pageLabelX + doc.getTextWidth(pageLabel) + 2, yPos);
+  
+  // Page number - simple text
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(...colors.neutral);
+  doc.text("1", pageWidth / 2, pageHeight - 10, { align: "center" });
+}
+
+/**
+ * Main function to generate a cover page.
+ * Handles Word templates, PDF templates, image templates, and default generation.
  */
 export async function generateCoverPage(
   doc: jsPDF,
@@ -172,11 +361,10 @@ export async function generateCoverPage(
   const pageWidth = doc.internal.pageSize.width;
   const pageHeight = doc.internal.pageSize.height;
   
-  // Check if there's a default cover page template
   console.log("Fetching default cover page template...");
   
   // First, try the dedicated cover_page_templates table
-  let { data: defaultTemplate, error: templateError } = await supabase
+  let { data: defaultTemplate } = await supabase
     .from("cover_page_templates" as any)
     .select("*")
     .eq("is_default", true)
@@ -186,16 +374,13 @@ export async function generateCoverPage(
   if (!defaultTemplate) {
     console.log("No template in cover_page_templates, checking document_templates...");
     
-    // First try to find a template marked as default cover
     let { data: docTemplate } = await supabase
       .from("document_templates" as any)
       .select("*")
       .eq('is_default_cover', true)
       .maybeSingle();
     
-    // If no default is set, fallback to any cover_page or custom template
     if (!docTemplate) {
-      console.log("No default cover template, checking for any cover_page/custom template...");
       const { data: fallbackTemplate } = await supabase
         .from("document_templates" as any)
         .select("*")
@@ -207,24 +392,16 @@ export async function generateCoverPage(
     }
     
     if (docTemplate && typeof docTemplate === 'object' && !Array.isArray(docTemplate) && 'name' in docTemplate) {
-      console.log("Found template in document_templates:", (docTemplate as any).name);
-      console.log("Template data from DB:", JSON.stringify(docTemplate, null, 2));
-      
-      // Convert document_template format to cover_page_template format
       defaultTemplate = {
-        file_path: (docTemplate as any).file_url, // Use URL directly instead of path
-        file_name: (docTemplate as any).file_name, // Include file_name for extension detection
+        file_path: (docTemplate as any).file_url,
+        file_name: (docTemplate as any).file_name,
         name: (docTemplate as any).name,
-        is_url: true, // Flag to use URL directly
+        is_url: true,
       } as any;
-      
-      console.log("Converted template:", JSON.stringify(defaultTemplate, null, 2));
     }
   }
-  
-  console.log("Template fetch result:", { defaultTemplate, templateError });
 
-  // If a template exists, use it as the background
+  // If a template exists, process it
   if (defaultTemplate) {
     try {
       const template = defaultTemplate as any;
@@ -232,244 +409,77 @@ export async function generateCoverPage(
       
       let templateUrl: string;
       
-      // Check if we should use URL directly or get from storage
       if (template.is_url || template.file_path?.startsWith('http')) {
         templateUrl = template.file_path;
-        console.log("Using direct URL:", templateUrl);
       } else {
-        // Get from storage bucket
-        console.log("Loading template from storage:", template.file_path);
         const { data } = supabase.storage
           .from("cover-page-templates")
           .getPublicUrl(template.file_path);
         templateUrl = data.publicUrl;
-        console.log("Template public URL:", templateUrl);
       }
       
       if (templateUrl) {
-        console.log("Found template with file_name:", template.file_name);
-        
-        // Only support PDF and image files (no Word conversion)
         const fileName = template.file_name?.toLowerCase() || '';
+        const isWordDoc = fileName.endsWith('.docx') || fileName.endsWith('.doc');
         const isPdf = fileName.endsWith('.pdf');
         const isImage = fileName.endsWith('.jpg') || fileName.endsWith('.jpeg') || 
                        fileName.endsWith('.png') || fileName.endsWith('.webp');
         
-        if (!isPdf && !isImage) {
-          console.error(`Unsupported template format: ${fileName}. Please use PDF, JPG, or PNG files.`);
-          throw new Error(`Template must be PDF or image format. Found: ${fileName}`);
-        }
-        
-        // Fetch the template file
-        const response = await fetch(templateUrl);
-        if (!response.ok) {
-          throw new Error(`Failed to fetch template: ${response.statusText}`);
-        }
-        
-        const blob = await response.blob();
-        console.log(`Template loaded successfully: ${fileName}, size: ${blob.size} bytes`);
-        
-        // Convert to base64
-        const dataUrl = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.readAsDataURL(blob);
-        });
+        if (isWordDoc) {
+          // Word template: Fill placeholders and convert to PDF
+          console.log('Detected Word template, filling placeholders...');
+          const placeholderData = createPlaceholderData(options, companyDetails);
+          const convertedPdfUrl = await convertWordTemplateToPDF(templateUrl, placeholderData);
+          
+          // Load the converted PDF
+          const response = await fetch(convertedPdfUrl);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch converted PDF: ${response.statusText}`);
+          }
+          const blob = await response.blob();
+          const dataUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+          });
+          
+          doc.addImage(dataUrl, "PDF", 0, 0, pageWidth, pageHeight);
+          console.log('Word template converted and loaded successfully');
+          return;
+          
+        } else if (isPdf || isImage) {
+          // PDF or image template: Load directly
+          console.log(`Detected ${isPdf ? 'PDF' : 'image'} template, loading directly...`);
+          const response = await fetch(templateUrl);
+          if (!response.ok) {
+            throw new Error(`Failed to fetch template: ${response.statusText}`);
+          }
+          
+          const blob = await response.blob();
+          const dataUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+          });
 
-        // Determine image type for jsPDF
-        const imageType = isPdf ? "PDF" : "JPEG";
-        
-        console.log(`Adding ${imageType} template as full-page background`);
-        doc.addImage(dataUrl, imageType, 0, 0, pageWidth, pageHeight);
-        console.log("Template added successfully!");
+          const imageType = isPdf ? "PDF" : "JPEG";
+          doc.addImage(dataUrl, imageType, 0, 0, pageWidth, pageHeight);
+          
+          // Add overlay text on PDF/image templates
+          addOverlayText(doc, options, companyDetails);
+          console.log(`${isPdf ? 'PDF' : 'Image'} template loaded successfully`);
+          return;
+          
+        } else {
+          console.error(`Unsupported template format: ${fileName}`);
+          throw new Error(`Template must be Word, PDF, or image format. Found: ${fileName}`);
+        }
       }
     } catch (error) {
-      console.error("Failed to load cover page template:", error);
-      // Fall through to generate default cover page
+      console.error('Error loading custom template, falling back to default:', error);
     }
-  } else {
-    console.log("No default template found, generating standard cover page");
   }
 
-  // If no template or template failed, generate modern professional cover page
-  if (!defaultTemplate) {
-    let yPos = 0;
-
-    // Modern color definitions
-    const colors = {
-      primary: [30, 58, 138] as [number, number, number],
-      secondary: [59, 130, 246] as [number, number, number],
-      accent: [99, 102, 241] as [number, number, number],
-      light: [241, 245, 249] as [number, number, number],
-      neutral: [71, 85, 105] as [number, number, number],
-      white: [255, 255, 255] as [number, number, number],
-      text: [15, 23, 42] as [number, number, number]
-    };
-    
-    // Modern gradient left accent bar
-    const barWidth = 12;
-    for (let i = 0; i < pageHeight; i += 3) {
-      const ratio = i / pageHeight;
-      const r = Math.round(colors.primary[0] + (colors.secondary[0] - colors.primary[0]) * ratio);
-      const g = Math.round(colors.primary[1] + (colors.secondary[1] - colors.primary[1]) * ratio);
-      const b = Math.round(colors.primary[2] + (colors.secondary[2] - colors.primary[2]) * ratio);
-      doc.setFillColor(r, g, b);
-      doc.rect(0, i, barWidth, 3, 'F');
-    }
-    
-    // Main title with modern styling
-    doc.setTextColor(...colors.primary);
-    doc.setFontSize(20);
-    doc.setFont("helvetica", "bold");
-    doc.text(options.title, pageWidth / 2, 70, { align: "center" });
-    
-    // Subtle underline
-    doc.setDrawColor(...colors.secondary);
-    doc.setLineWidth(0.8);
-    const titleWidth = doc.getTextWidth(options.title);
-    doc.line(pageWidth / 2 - titleWidth / 2, 73, pageWidth / 2 + titleWidth / 2, 73);
-    
-    // Project name - larger, bold heading
-    yPos = 95;
-    doc.setFontSize(26);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(...colors.text);
-    doc.text(options.projectName, pageWidth / 2, yPos, { align: "center" });
-    
-    // Subtitle with accent color
-    yPos += 32;
-    doc.setFontSize(16);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(...colors.secondary);
-    doc.text(options.subtitle, pageWidth / 2, yPos, { align: "center" });
-    
-    // Modern divider with shadow effect
-    yPos = 185;
-    doc.setDrawColor(...colors.light);
-    doc.setLineWidth(0.3);
-    doc.line(25, yPos, pageWidth - 25, yPos);
-    doc.setDrawColor(...colors.primary);
-    doc.setLineWidth(1.2);
-    doc.line(25, yPos + 1, pageWidth - 25, yPos + 1);
-    
-    // Company details section with modern card-like appearance
-    yPos = 198;
-    
-    // Light background card
-    doc.setFillColor(...colors.light);
-    doc.roundedRect(22, 194, pageWidth - 44, 50, 3, 3, 'F');
-    
-    doc.setTextColor(...colors.primary);
-    doc.setFontSize(11);
-    doc.setFont("helvetica", "bold");
-    doc.text("PREPARED BY", 28, yPos);
-    
-    yPos += 8;
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(...colors.text);
-    doc.text(companyDetails.companyName.toUpperCase(), 28, yPos);
-    
-    yPos += 7;
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(...colors.neutral);
-    doc.text("141 Which Hazel ave,", 28, yPos);
-    
-    yPos += 6;
-    doc.text("Highveld Techno Park, Building 1A", 28, yPos);
-    
-    yPos += 6;
-    doc.text(`Tel: ${companyDetails.contactPhone}`, 28, yPos);
-    
-    yPos += 6;
-    doc.text(`Contact: ${companyDetails.contactName}`, 28, yPos);
-    
-    // Add company logo with clean positioning
-    if (companyDetails.logoUrl) {
-      try {
-        const logoResponse = await fetch(companyDetails.logoUrl);
-        const logoBlob = await logoResponse.blob();
-        const logoDataUrl = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.readAsDataURL(logoBlob);
-        });
-        
-        // Position logo on the right side with proper spacing
-        const logoWidth = 35;
-        const logoHeight = 26;
-        const logoX = pageWidth - logoWidth - 28;
-        const logoY = 205;
-        
-        doc.addImage(logoDataUrl, 'PNG', logoX, logoY, logoWidth, logoHeight);
-      } catch (error) {
-        console.error("Failed to add logo to PDF:", error);
-      }
-    }
-    
-    // Modern divider
-    yPos = 237;
-    doc.setDrawColor(...colors.light);
-    doc.setLineWidth(0.3);
-    doc.line(25, yPos, pageWidth - 25, yPos);
-    doc.setDrawColor(...colors.primary);
-    doc.setLineWidth(1.2);
-    doc.line(25, yPos + 1, pageWidth - 25, yPos + 1);
-    
-    // Date and Revision section - simple text labels
-    yPos = 255;
-    
-    // Date label and value
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(...colors.neutral);
-    const dateLabel = "Date:";
-    const dateValue = format(new Date(), "dd MMMM yyyy");
-    doc.text(dateLabel, 28, yPos);
-    doc.text(dateValue, 28 + doc.getTextWidth(dateLabel) + 2, yPos);
-    
-    // Page number label and value  
-    const pageLabel = "Page No:";
-    const pageValue = "1";
-    const pageLabelX = pageWidth - 60;
-    doc.text(pageLabel, pageLabelX, yPos);
-    doc.text(pageValue, pageLabelX + doc.getTextWidth(pageLabel) + 2, yPos);
-    
-    // Page number - simple text
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(...colors.neutral);
-    doc.text("1", pageWidth / 2, pageHeight - 10, { align: "center" });
-  }
-  
-  // Overlay text on template (if template exists)
-  if (defaultTemplate) {
-    const colors = {
-      primary: [30, 58, 138] as [number, number, number],
-      secondary: [59, 130, 246] as [number, number, number],
-      white: [255, 255, 255] as [number, number, number],
-      text: [15, 23, 42] as [number, number, number]
-    };
-    
-    doc.setTextColor(...colors.primary);
-    doc.setFontSize(20);
-    doc.setFont("helvetica", "bold");
-    doc.text(options.title, pageWidth / 2, 70, { align: "center" });
-    
-    doc.setFontSize(26);
-    doc.setTextColor(...colors.text);
-    doc.text(options.projectName, pageWidth / 2, 95, { align: "center" });
-    
-    doc.setFontSize(16);
-    doc.setTextColor(...colors.secondary);
-    doc.text(options.subtitle, pageWidth / 2, 127, { align: "center" });
-    
-    // Date and revision in cards
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(...colors.white);
-    doc.text(format(new Date(), "EEEE, dd MMMM yyyy"), 30, 273);
-    doc.text(options.revision.replace("Rev.", "Rev "), pageWidth / 2 + 10, 273);
-  }
+  // Fallback to default modern cover page
+  await generateDefaultCoverPage(doc, options, companyDetails);
 }

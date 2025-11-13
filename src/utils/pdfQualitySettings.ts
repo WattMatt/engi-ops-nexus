@@ -3,10 +3,59 @@
  * 
  * This utility provides consistent, high-quality settings for all PDF exports
  * to ensure the final PDF matches the UI quality as closely as possible.
+ * 
+ * QUALITY PRESETS:
+ * - DRAFT: Fast rendering, smaller files (scale 1.5, JPEG 0.75)
+ * - STANDARD: Balanced quality (scale 2, JPEG 0.85) - DEFAULT
+ * - HIGH: Best quality, larger files (scale 3, JPEG 0.95)
  */
 
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+
+export type QualityPreset = 'draft' | 'standard' | 'high';
+
+export interface QualitySettings {
+  scale: number;
+  compression: number;
+  format: 'PNG' | 'JPEG';
+  fontSize: {
+    table: number;
+    body: number;
+    heading: number;
+  };
+}
+
+/**
+ * Quality preset configurations
+ */
+export const QUALITY_PRESETS: Record<QualityPreset, QualitySettings> = {
+  draft: {
+    scale: 1.5,
+    compression: 0.75,
+    format: 'JPEG',
+    fontSize: { table: 8, body: 10, heading: 14 }
+  },
+  standard: {
+    scale: 2,
+    compression: 0.85,
+    format: 'JPEG',
+    fontSize: { table: 9, body: 11, heading: 16 }
+  },
+  high: {
+    scale: 3,
+    compression: 0.95,
+    format: 'JPEG',
+    fontSize: { table: 10, body: 12, heading: 18 }
+  }
+};
+
+/**
+ * Get quality settings for current preset (default: standard)
+ */
+export const getQualitySettings = (preset: QualityPreset = 'standard'): QualitySettings => {
+  return QUALITY_PRESETS[preset];
+};
 
 /**
  * High-quality html2canvas settings
