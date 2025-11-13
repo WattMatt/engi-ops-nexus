@@ -29,6 +29,7 @@ import Invoicing from "./pages/Invoicing";
 import FloorPlan from "./pages/FloorPlan";
 import Messages from "./pages/Messages";
 import BackupManagement from "./pages/BackupManagement";
+import DocumentTemplates from "./pages/DocumentTemplates";
 import TenantTracker from "./pages/TenantTracker";
 import FinalAccounts from "./pages/FinalAccounts";
 import FinalAccountDetail from "./pages/FinalAccountDetail";
@@ -71,6 +72,7 @@ const App = () => (
             <Route path="staff" element={<StaffManagement />} />
             <Route path="users" element={<UserManagement />} />
             <Route path="backup" element={<BackupManagement />} />
+            <Route path="document-templates" element={<DocumentTemplates />} />
             <Route path="feedback" element={<FeedbackManagement />} />
             <Route path="feedback-analytics" element={<FeedbackAnalytics />} />
             <Route path="settings" element={<Settings />} />
