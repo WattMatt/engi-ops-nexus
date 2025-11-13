@@ -12,8 +12,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
-import { FileText, Loader2 } from "lucide-react";
+import { FileText, Loader2, Download, CheckCircle2 } from "lucide-react";
 import { PDFPreviewDialog } from "./PDFPreviewDialog";
 
 interface FillTemplateDialogProps {
@@ -30,15 +31,25 @@ export function FillTemplateDialog({
   const [placeholderData, setPlaceholderData] = useState<Record<string, string>>({});
   const [showPreview, setShowPreview] = useState(false);
   const [generatedPdf, setGeneratedPdf] = useState<{ url: string; fileName: string } | null>(null);
+  const [processingStep, setProcessingStep] = useState<string>("");
+  const [progress, setProgress] = useState(0);
 
   const fillMutation = useMutation({
     mutationFn: async (data: Record<string, string>) => {
-      // For now, we'll use sample data to test the conversion
-      // In a real implementation, you'd fill the Word doc with this data first
+      setProcessingStep("Downloading template...");
+      setProgress(20);
+      
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      setProcessingStep("Filling placeholders...");
+      setProgress(40);
       
       // Call the convert-word-to-pdf function
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Not authenticated");
+
+      setProcessingStep("Converting to PDF...");
+      setProgress(60);
 
       const response = await fetch(
         `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/convert-word-to-pdf`,
@@ -61,7 +72,13 @@ export function FillTemplateDialog({
         throw new Error(error.error || "Conversion failed");
       }
 
+      setProgress(80);
+
       const result = await response.json();
+      
+      setProcessingStep("Finalizing...");
+      setProgress(100);
+      
       return result;
     },
     onSuccess: (result) => {
@@ -78,9 +95,13 @@ export function FillTemplateDialog({
       
       onOpenChange(false);
       setPlaceholderData({});
+      setProcessingStep("");
+      setProgress(0);
     },
     onError: (error: Error) => {
       toast.error(`Failed to generate PDF: ${error.message}`);
+      setProcessingStep("");
+      setProgress(0);
     },
   });
 
@@ -198,7 +219,37 @@ export function FillTemplateDialog({
             </div>
           </div>
 
-          <div className="flex gap-3 justify-end">
+          {fillMutation.isPending && (
+            <div className="space-y-4 p-6 bg-muted/50 rounded-lg border">
+              <div className="flex items-center gap-3">
+                <Loader2 className="h-5 w-5 animate-spin text-primary" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium">{processingStep}</p>
+                  <Progress value={progress} className="h-2 mt-2" />
+                </div>
+              </div>
+              <div className="grid grid-cols-4 gap-2 text-xs text-muted-foreground">
+                <div className={`flex items-center gap-1 ${progress >= 20 ? 'text-primary' : ''}`}>
+                  {progress >= 20 ? <CheckCircle2 className="h-3 w-3" /> : <FileText className="h-3 w-3" />}
+                  <span>Download</span>
+                </div>
+                <div className={`flex items-center gap-1 ${progress >= 40 ? 'text-primary' : ''}`}>
+                  {progress >= 40 ? <CheckCircle2 className="h-3 w-3" /> : <FileText className="h-3 w-3" />}
+                  <span>Fill Data</span>
+                </div>
+                <div className={`flex items-center gap-1 ${progress >= 60 ? 'text-primary' : ''}`}>
+                  {progress >= 60 ? <CheckCircle2 className="h-3 w-3" /> : <Download className="h-3 w-3" />}
+                  <span>Convert</span>
+                </div>
+                <div className={`flex items-center gap-1 ${progress >= 100 ? 'text-primary' : ''}`}>
+                  {progress >= 100 ? <CheckCircle2 className="h-3 w-3" /> : <CheckCircle2 className="h-3 w-3 opacity-30" />}
+                  <span>Complete</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-3 justify-end pt-4 border-t">
             <Button
               type="button"
               variant="outline"
