@@ -291,8 +291,75 @@ async function generateDefaultCoverPage(
   doc.setTextColor(...colors.secondary);
   doc.text(options.subtitle, pageWidth / 2, yPos, { align: "center" });
   
+  // PREPARED FOR section (if contact is selected)
+  if (contactDetails) {
+    yPos = 145;
+    
+    // Light background card for "Prepared For"
+    doc.setFillColor(...colors.light);
+    doc.roundedRect(22, 141, pageWidth - 44, 40, 3, 3, 'F');
+    
+    doc.setTextColor(...colors.primary);
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text("PREPARED FOR:", 28, yPos);
+    
+    yPos += 8;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor(...colors.text);
+    doc.text(contactDetails.organization_name?.toUpperCase() || '', 28, yPos);
+    
+    yPos += 7;
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(...colors.neutral);
+    
+    if (contactDetails.contact_person_name) {
+      doc.text(`Attn: ${contactDetails.contact_person_name}`, 28, yPos);
+      yPos += 6;
+    }
+    
+    if (contactDetails.address_line1) {
+      doc.text(contactDetails.address_line1, 28, yPos);
+      yPos += 6;
+    }
+    
+    if (contactDetails.address_line2) {
+      doc.text(contactDetails.address_line2, 28, yPos);
+      yPos += 6;
+    }
+    
+    if (contactDetails.phone) {
+      doc.text(`Tel: ${contactDetails.phone}`, 28, yPos);
+    }
+    
+    // Add contact logo if available
+    if (contactDetails.logo_url) {
+      try {
+        const contactLogoResponse = await fetch(contactDetails.logo_url);
+        const contactLogoBlob = await contactLogoResponse.blob();
+        const contactLogoDataUrl = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(contactLogoBlob);
+        });
+        
+        // Position contact logo on the right side
+        const contactLogoWidth = 35;
+        const contactLogoHeight = 26;
+        const contactLogoX = pageWidth - contactLogoWidth - 28;
+        const contactLogoY = 151;
+        
+        doc.addImage(contactLogoDataUrl, 'PNG', contactLogoX, contactLogoY, contactLogoWidth, contactLogoHeight);
+      } catch (error) {
+        console.error("Failed to add contact logo to PDF:", error);
+      }
+    }
+  }
+  
   // Modern divider with shadow effect
-  yPos = 185;
+  yPos = contactDetails ? 195 : 185;
   doc.setDrawColor(...colors.light);
   doc.setLineWidth(0.3);
   doc.line(25, yPos, pageWidth - 25, yPos);
@@ -301,16 +368,16 @@ async function generateDefaultCoverPage(
   doc.line(25, yPos + 1, pageWidth - 25, yPos + 1);
   
   // Company details section with modern card-like appearance
-  yPos = 198;
+  yPos = contactDetails ? 208 : 198;
   
   // Light background card
   doc.setFillColor(...colors.light);
-  doc.roundedRect(22, 194, pageWidth - 44, 50, 3, 3, 'F');
+  doc.roundedRect(22, yPos - 4, pageWidth - 44, 50, 3, 3, 'F');
   
   doc.setTextColor(...colors.primary);
   doc.setFontSize(11);
   doc.setFont("helvetica", "bold");
-  doc.text("PREPARED BY", 28, yPos);
+  doc.text("PREPARED BY:", 28, yPos);
   
   yPos += 8;
   doc.setFontSize(10);
@@ -348,7 +415,7 @@ async function generateDefaultCoverPage(
       const logoWidth = 35;
       const logoHeight = 26;
       const logoX = pageWidth - logoWidth - 28;
-      const logoY = 205;
+      const logoY = contactDetails ? 215 : 205;
       
       doc.addImage(logoDataUrl, 'PNG', logoX, logoY, logoWidth, logoHeight);
     } catch (error) {
@@ -357,7 +424,7 @@ async function generateDefaultCoverPage(
   }
   
   // Modern divider
-  yPos = 237;
+  yPos = contactDetails ? 257 : 247;
   doc.setDrawColor(...colors.light);
   doc.setLineWidth(0.3);
   doc.line(25, yPos, pageWidth - 25, yPos);
@@ -366,7 +433,7 @@ async function generateDefaultCoverPage(
   doc.line(25, yPos + 1, pageWidth - 25, yPos + 1);
   
   // Date and Revision section - simple text labels
-  yPos = 255;
+  yPos = contactDetails ? 275 : 265;
   
   // Date label and value
   doc.setFontSize(9);
