@@ -14,6 +14,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { FileText, Loader2 } from "lucide-react";
+import { PDFPreviewDialog } from "./PDFPreviewDialog";
 
 interface FillTemplateDialogProps {
   open: boolean;
@@ -27,6 +28,8 @@ export function FillTemplateDialog({
   template,
 }: FillTemplateDialogProps) {
   const [placeholderData, setPlaceholderData] = useState<Record<string, string>>({});
+  const [showPreview, setShowPreview] = useState(false);
+  const [generatedPdf, setGeneratedPdf] = useState<{ url: string; fileName: string } | null>(null);
 
   const fillMutation = useMutation({
     mutationFn: async (data: Record<string, string>) => {
@@ -64,9 +67,13 @@ export function FillTemplateDialog({
     onSuccess: (result) => {
       toast.success("PDF generated successfully!");
       
-      // Download the PDF
+      // Show preview dialog
       if (result.pdfUrl) {
-        window.open(result.pdfUrl, "_blank");
+        setGeneratedPdf({
+          url: result.pdfUrl,
+          fileName: result.fileName || "document.pdf",
+        });
+        setShowPreview(true);
       }
       
       onOpenChange(false);
@@ -93,7 +100,8 @@ export function FillTemplateDialog({
   ];
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -185,5 +193,15 @@ export function FillTemplateDialog({
         </form>
       </DialogContent>
     </Dialog>
+
+    {generatedPdf && (
+      <PDFPreviewDialog
+        open={showPreview}
+        onOpenChange={setShowPreview}
+        pdfUrl={generatedPdf.url}
+        fileName={generatedPdf.fileName}
+      />
+    )}
+    </>
   );
 }
