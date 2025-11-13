@@ -208,14 +208,17 @@ export async function generateCoverPage(
     
     if (docTemplate && typeof docTemplate === 'object' && !Array.isArray(docTemplate) && 'name' in docTemplate) {
       console.log("Found template in document_templates:", (docTemplate as any).name);
+      console.log("Template data from DB:", JSON.stringify(docTemplate, null, 2));
+      
       // Convert document_template format to cover_page_template format
       defaultTemplate = {
         file_path: (docTemplate as any).file_url, // Use URL directly instead of path
-        file_type: (docTemplate as any).file_type || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         file_name: (docTemplate as any).file_name, // Include file_name for extension detection
         name: (docTemplate as any).name,
         is_url: true, // Flag to use URL directly
       } as any;
+      
+      console.log("Converted template:", JSON.stringify(defaultTemplate, null, 2));
     }
   }
   
