@@ -99,23 +99,42 @@ All migrated exports now use:
 
 ## 🚀 NEXT STEPS
 
-1. **Update Remaining Critical Exports** (Week 2)
+1. ✅ **Quality Preset Selector in Settings** - COMPLETED
+   - Users can now choose Draft/Standard/High quality
+   - Settings automatically apply to all exports
+   - Visual comparison table shows differences
+
+2. **Update Remaining Critical Exports** (Week 2)
    - AI Prediction Reports
    - Tenant Reports  
    - Floor Plan Reports
 
-2. **Add Table Standardization** (Week 3)
+3. **Add Table Standardization** (Week 3)
    - Replace manual `autoTable` styling with `getStandardTableStyles()`
    - Ensure consistent table appearance across all reports
 
-3. **Implement Quality Selector** (Week 4)
-   - Add Settings UI for quality preset selection
-   - Let users choose draft/standard/high for exports
-
-4. **Testing & Validation** (Week 5)
+4. **Testing & Validation** (Week 4)
    - Compare old vs new exports
    - Validate file sizes
    - User acceptance testing
+
+---
+
+## 🎯 NEW FEATURE: USER QUALITY PREFERENCES
+
+**Location**: Settings → PDF Quality tab
+
+**Features**:
+- **Quality Presets**: Draft (fast), Standard (balanced), High (best quality)
+- **Visual Comparison**: Side-by-side comparison table
+- **Automatic Application**: All exports use selected quality automatically
+- **Detailed Info**: Shows scale, compression, font sizes, file sizes
+- **Persistent Storage**: User preference saved in localStorage
+
+**Technical Implementation**:
+- `src/components/settings/PDFExportSettings.tsx` - Settings UI component
+- `src/utils/pdfUserPreferences.ts` - Preference management utilities
+- All base utilities auto-detect user preference via `getUserQualityPreset()`
 
 ---
 

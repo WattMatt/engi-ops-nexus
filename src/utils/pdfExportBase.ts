@@ -6,6 +6,7 @@
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { getQualitySettings, QualityPreset, createHighQualityPDF } from "./pdfQualitySettings";
+import { getUserQualityPreset } from "./pdfUserPreferences";
 
 export interface PDFExportOptions {
   quality?: QualityPreset;
@@ -32,17 +33,24 @@ export const STANDARD_MARGINS: PageMargins = {
 
 /**
  * Initialize a PDF document with standardized settings
+ * Automatically uses user's quality preference from Settings
  */
 export const initializePDF = (options: PDFExportOptions = {}): jsPDF => {
-  const { quality = 'standard', orientation = 'portrait', compress = true } = options;
+  // Use user's preferred quality if not explicitly specified
+  const quality = options.quality || getUserQualityPreset();
+  const { orientation = 'portrait', compress = true } = options;
+  
   return createHighQualityPDF(orientation, compress);
 };
 
 /**
  * Get standardized table styles for autoTable
+ * Automatically uses user's quality preference from Settings
  */
-export const getStandardTableStyles = (quality: QualityPreset = 'standard') => {
-  const settings = getQualitySettings(quality);
+export const getStandardTableStyles = (quality?: QualityPreset) => {
+  // Use user's preferred quality if not explicitly specified
+  const effectiveQuality = quality || getUserQualityPreset();
+  const settings = getQualitySettings(effectiveQuality);
   
   return {
     theme: 'grid' as const,
@@ -74,14 +82,16 @@ export const getStandardTableStyles = (quality: QualityPreset = 'standard') => {
 
 /**
  * Add a standardized section header to the PDF
+ * Automatically uses user's quality preference from Settings
  */
 export const addSectionHeader = (
   doc: jsPDF,
   text: string,
   y: number,
-  quality: QualityPreset = 'standard'
+  quality?: QualityPreset
 ): number => {
-  const settings = getQualitySettings(quality);
+  const effectiveQuality = quality || getUserQualityPreset();
+  const settings = getQualitySettings(effectiveQuality);
   const pageWidth = doc.internal.pageSize.getWidth();
   
   doc.setFontSize(settings.fontSize.heading);
@@ -105,15 +115,17 @@ export const addSectionHeader = (
 
 /**
  * Add standardized body text to the PDF
+ * Automatically uses user's quality preference from Settings
  */
 export const addBodyText = (
   doc: jsPDF,
   text: string,
   x: number,
   y: number,
-  quality: QualityPreset = 'standard'
+  quality?: QualityPreset
 ): void => {
-  const settings = getQualitySettings(quality);
+  const effectiveQuality = quality || getUserQualityPreset();
+  const settings = getQualitySettings(effectiveQuality);
   doc.setFontSize(settings.fontSize.body);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(51, 65, 85); // slate-700
@@ -122,14 +134,16 @@ export const addBodyText = (
 
 /**
  * Add page numbers to all pages except cover
+ * Automatically uses user's quality preference from Settings
  */
 export const addPageNumbers = (
   doc: jsPDF,
   startPage: number = 2,
-  quality: QualityPreset = 'standard'
+  quality?: QualityPreset
 ): void => {
   const pageCount = doc.getNumberOfPages();
-  const settings = getQualitySettings(quality);
+  const effectiveQuality = quality || getUserQualityPreset();
+  const settings = getQualitySettings(effectiveQuality);
   
   for (let i = startPage; i <= pageCount; i++) {
     doc.setPage(i);
@@ -148,6 +162,7 @@ export const addPageNumbers = (
 
 /**
  * Add a key-value pair to the PDF
+ * Automatically uses user's quality preference from Settings
  */
 export const addKeyValue = (
   doc: jsPDF,
@@ -155,9 +170,10 @@ export const addKeyValue = (
   value: string,
   x: number,
   y: number,
-  quality: QualityPreset = 'standard'
+  quality?: QualityPreset
 ): number => {
-  const settings = getQualitySettings(quality);
+  const effectiveQuality = quality || getUserQualityPreset();
+  const settings = getQualitySettings(effectiveQuality);
   
   doc.setFontSize(settings.fontSize.body);
   doc.setFont('helvetica', 'bold');

@@ -3,6 +3,7 @@ import { CompanySettings } from "@/components/settings/CompanySettings";
 import { InvoiceSettings } from "@/components/settings/InvoiceSettings";
 import { CoverPageTemplates } from "@/components/settings/CoverPageTemplates";
 import { CoverPageUpload } from "@/components/settings/CoverPageUpload";
+import { PDFExportSettings } from "@/components/settings/PDFExportSettings";
 import { ComponentGenerator } from "@/components/ComponentGenerator";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AvatarUpload } from "@/components/settings/AvatarUpload";
@@ -49,6 +50,7 @@ const Settings = () => {
         <TabsList>
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="company">Company</TabsTrigger>
+          <TabsTrigger value="pdf">PDF Quality</TabsTrigger>
           <TabsTrigger value="templates">Cover Page Templates</TabsTrigger>
           <TabsTrigger value="invoice">Invoice Settings</TabsTrigger>
           <TabsTrigger value="tools">Developer Tools</TabsTrigger>
@@ -77,6 +79,10 @@ const Settings = () => {
 
         <TabsContent value="company">
           <CompanySettings />
+        </TabsContent>
+
+        <TabsContent value="pdf">
+          <PDFExportSettings />
         </TabsContent>
 
         <TabsContent value="templates" className="space-y-6">
