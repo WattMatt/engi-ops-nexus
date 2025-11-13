@@ -162,13 +162,40 @@ export const TemplateGuideView = ({ report }: TemplateGuideViewProps) => {
           </div>
         </div>
 
-        <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
-          <h4 className="text-sm font-semibold mb-2">💡 Quick Tip</h4>
-          <p className="text-xs text-muted-foreground">
-            Use single curly braces <code className="text-primary">{"{placeholder}"}</code> in your Word template. 
-            The system will automatically replace these with actual values when generating PDFs.
-          </p>
-        </div>
+          <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 space-y-3">
+            <div>
+              <h4 className="text-sm font-semibold mb-2">💡 Text Placeholders</h4>
+              <p className="text-xs text-muted-foreground">
+                Use single curly braces <code className="text-primary">{"{placeholder}"}</code> in your Word template. 
+                The system will automatically replace these with actual values when generating PDFs.
+              </p>
+            </div>
+            
+            <div className="border-t border-primary/20 pt-3">
+              <h4 className="text-sm font-semibold mb-2">🖼️ Logo Placeholders</h4>
+              <p className="text-xs text-muted-foreground mb-2">
+                To add logos in your Word template:
+              </p>
+              <ol className="text-xs text-muted-foreground space-y-1 ml-4 list-decimal">
+                <li>Insert any image in Word (as a placeholder)</li>
+                <li>Right-click the image → "Edit Alt Text" or "Format Picture"</li>
+                <li>Set the alt text to one of these exact values:</li>
+              </ol>
+              <div className="mt-2 space-y-1 ml-4">
+                <div className="flex items-center gap-2">
+                  <code className="text-xs font-mono text-primary bg-primary/10 px-2 py-1 rounded">company_logo</code>
+                  <span className="text-xs text-muted-foreground">→ Your company logo</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <code className="text-xs font-mono text-primary bg-primary/10 px-2 py-1 rounded">client_logo</code>
+                  <span className="text-xs text-muted-foreground">→ Client logo</span>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2">
+                The placeholder image size in Word determines the final logo size in the PDF.
+              </p>
+            </div>
+          </div>
       </div>
     </div>
   );

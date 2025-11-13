@@ -27,6 +27,10 @@ export const TEMPLATE_PLACEHOLDERS: PlaceholderInfo[] = [
   { key: 'prepared_for_tel', placeholder: '{prepared_for_tel}', description: 'Client phone number', category: 'Prepared For' },
   { key: 'prepared_for_email', placeholder: '{prepared_for_email}', description: 'Client email', category: 'Prepared For' },
   { key: 'prepared_for_name', placeholder: '{prepared_for_name}', description: 'Client name (legacy)', category: 'Prepared For' },
+  
+  // Logo Placeholders (use as image alt text in Word)
+  { key: 'company_logo', placeholder: 'company_logo', description: 'Your company logo (image alt text)', category: 'Logos' },
+  { key: 'client_logo', placeholder: 'client_logo', description: 'Client logo (image alt text)', category: 'Logos' },
 ];
 
 export function getPlaceholdersByCategory(): Record<string, PlaceholderInfo[]> {
