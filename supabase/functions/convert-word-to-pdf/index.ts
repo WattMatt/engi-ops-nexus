@@ -37,21 +37,42 @@ Deno.serve(async (req) => {
     const fileName = urlParts[urlParts.length - 1];
 
     console.log('Starting Word to PDF conversion:', { fileName, templateId, hasPlaceholderData: !!placeholderData });
+    console.log('Template URL:', templateUrl);
+
+    // Download the file from Supabase (since bucket is not public)
+    const fileResponse = await fetch(templateUrl);
+    if (!fileResponse.ok) {
+      throw new Error('Failed to download template file from storage');
+    }
+    const fileArrayBuffer = await fileResponse.arrayBuffer();
+    console.log('Template file downloaded, size:', fileArrayBuffer.byteLength);
+
+    // Upload directly to CloudConvert
+    const uploadResponse = await fetch('https://api.cloudconvert.com/v2/import/upload', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${cloudConvertApiKey}`,
+      },
+      body: fileArrayBuffer,
+    });
+
+    if (!uploadResponse.ok) {
+      throw new Error('Failed to upload file to CloudConvert');
+    }
+
+    const cloudConvertUpload = await uploadResponse.json();
+    const uploadedTaskId = cloudConvertUpload.data.id;
+    console.log('File uploaded to CloudConvert, task ID:', uploadedTaskId);
 
     // Build the CloudConvert job tasks
-    const tasks: any = {
-      'import-file': {
-        operation: 'import/url',
-        url: templateUrl,
-      },
-    };
+    const tasks: any = {};
 
     // If placeholder data is provided, use merge operation
     if (placeholderData && Object.keys(placeholderData).length > 0) {
       console.log('Using merge operation with placeholder data');
       tasks['merge-file'] = {
         operation: 'merge',
-        input: 'import-file',
+        input: uploadedTaskId,
         output_format: fileName.endsWith('.docx') || fileName.endsWith('.dotx') ? 'docx' : 'doc',
         engine: 'office',
         data: placeholderData,
@@ -66,7 +87,7 @@ Deno.serve(async (req) => {
       console.log('Using direct conversion without merge');
       tasks['convert-file'] = {
         operation: 'convert',
-        input: 'import-file',
+        input: uploadedTaskId,
         output_format: 'pdf',
         engine: 'office',
         input_format: fileName.endsWith('.docx') || fileName.endsWith('.dotx') ? 'docx' : 'doc',
