@@ -55,7 +55,6 @@ Deno.serve(async (req) => {
         operation: 'merge',
         input: 'import-file',
         output_format: fileName.endsWith('.docx') || fileName.endsWith('.dotx') ? 'docx' : 'doc',
-        engine: 'office',
         data: placeholderData,
       };
       tasks['convert-file'] = {
