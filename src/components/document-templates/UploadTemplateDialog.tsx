@@ -101,7 +101,7 @@ export function UploadTemplateDialog({
         <DialogHeader>
           <DialogTitle>Upload Document Template</DialogTitle>
           <DialogDescription>
-            Upload a Word document (.docx) with placeholders like {"{{"}project_name{"}}"}
+            Upload a cover page (PDF, JPG, PNG) or Word document (.docx) with placeholders like {"{{"}project_name{"}}"}
           </DialogDescription>
         </DialogHeader>
 
@@ -111,12 +111,12 @@ export function UploadTemplateDialog({
             <Input
               id="file"
               type="file"
-              accept=".dotx,.docx,.dot,.doc"
+              accept=".pdf,.jpg,.jpeg,.png,.webp,.dotx,.docx,.dot,.doc"
               onChange={(e) => setFile(e.target.files?.[0] || null)}
               required
             />
             <p className="text-xs text-muted-foreground">
-              Accepts Word templates (.dotx, .dot) and documents (.docx, .doc)
+              Cover pages: PDF, JPG, PNG | Templates: .dotx, .docx, .doc
             </p>
           </div>
 
@@ -150,6 +150,7 @@ export function UploadTemplateDialog({
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="custom">Custom</SelectItem>
+                <SelectItem value="cover_page">Cover Page</SelectItem>
                 <SelectItem value="cost_report">Cost Report</SelectItem>
                 <SelectItem value="cable_schedule">Cable Schedule</SelectItem>
                 <SelectItem value="tenant_report">Tenant Report</SelectItem>
