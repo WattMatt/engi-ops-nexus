@@ -104,6 +104,7 @@ export const CostReportHistory = ({ reportId }: CostReportHistoryProps) => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["cost-report-pdfs", reportId] });
+      queryClient.refetchQueries({ queryKey: ["cost-report-pdfs", reportId] });
       toast({
         title: "Success",
         description: "Report deleted successfully",
