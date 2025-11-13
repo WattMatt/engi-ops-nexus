@@ -212,6 +212,7 @@ export async function generateCoverPage(
       defaultTemplate = {
         file_path: (docTemplate as any).file_url, // Use URL directly instead of path
         file_type: (docTemplate as any).file_type || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        file_name: (docTemplate as any).file_name, // Include file_name for extension detection
         name: (docTemplate as any).name,
         is_url: true, // Flag to use URL directly
       } as any;
