@@ -243,24 +243,81 @@ export async function generateCoverPage(
       }
       
       if (templateUrl) {
-        const response = await fetch(templateUrl);
-        const blob = await response.blob();
-        console.log("Template loaded successfully, size:", blob.size);
+        // Check if template is a Word document that needs conversion
+        const isWordDoc = template.file_type?.includes('word') || 
+                         template.file_type?.includes('officedocument') ||
+                         templateUrl.endsWith('.docx') ||
+                         templateUrl.endsWith('.doc');
         
-        // Convert to base64
-        const dataUrl = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.readAsDataURL(blob);
-        });
+        if (isWordDoc) {
+          console.log("Template is a Word document, converting to PDF first...");
+          
+          // Call the convert-word-to-pdf edge function
+          const { data: { session } } = await supabase.auth.getSession();
+          if (!session) {
+            console.error("No session available for conversion");
+            throw new Error("Authentication required");
+          }
 
-        // Determine image type
-        const imageType = template.file_type?.includes("pdf") ? "PDF" : "JPEG";
-        
-        // Add template as background (full page)
-        console.log("Adding template to PDF as", imageType);
-        doc.addImage(dataUrl, imageType, 0, 0, pageWidth, pageHeight);
-        console.log("Template added successfully!");
+          const conversionResponse = await fetch(
+            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/convert-word-to-pdf`,
+            {
+              method: "POST",
+              headers: {
+                "Authorization": `Bearer ${session.access_token}`,
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                templateUrl: templateUrl,
+                placeholderData: {}, // No placeholders for cover page
+              }),
+            }
+          );
+
+          if (!conversionResponse.ok) {
+            const error = await conversionResponse.json();
+            console.error("Failed to convert Word template to PDF:", error);
+            throw new Error("Template conversion failed");
+          }
+
+          const conversionResult = await conversionResponse.json();
+          console.log("Template converted to PDF:", conversionResult.pdfUrl);
+          
+          // Now fetch the converted PDF
+          const pdfResponse = await fetch(conversionResult.pdfUrl);
+          const pdfBlob = await pdfResponse.blob();
+          
+          const pdfDataUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(pdfBlob);
+          });
+          
+          // Add the converted PDF as background
+          console.log("Adding converted PDF template to cover page");
+          doc.addImage(pdfDataUrl, "PDF", 0, 0, pageWidth, pageHeight);
+          console.log("Template added successfully!");
+        } else {
+          // Template is already PDF or image format
+          const response = await fetch(templateUrl);
+          const blob = await response.blob();
+          console.log("Template loaded successfully, size:", blob.size);
+          
+          // Convert to base64
+          const dataUrl = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () => resolve(reader.result as string);
+            reader.readAsDataURL(blob);
+          });
+
+          // Determine image type
+          const imageType = template.file_type?.includes("pdf") ? "PDF" : "JPEG";
+          
+          // Add template as background (full page)
+          console.log("Adding template to PDF as", imageType);
+          doc.addImage(dataUrl, imageType, 0, 0, pageWidth, pageHeight);
+          console.log("Template added successfully!");
+        }
       }
     } catch (error) {
       console.error("Failed to load cover page template:", error);
