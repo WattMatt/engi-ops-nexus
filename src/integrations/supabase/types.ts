@@ -3846,6 +3846,68 @@ export type Database = {
         }
         Relationships: []
       }
+      project_contacts: {
+        Row: {
+          address_line1: string | null
+          address_line2: string | null
+          contact_person_name: string | null
+          contact_type: string
+          created_at: string | null
+          created_by: string | null
+          email: string | null
+          id: string
+          is_primary: boolean | null
+          logo_url: string | null
+          notes: string | null
+          organization_name: string
+          phone: string | null
+          project_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          address_line1?: string | null
+          address_line2?: string | null
+          contact_person_name?: string | null
+          contact_type: string
+          created_at?: string | null
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          is_primary?: boolean | null
+          logo_url?: string | null
+          notes?: string | null
+          organization_name: string
+          phone?: string | null
+          project_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          address_line1?: string | null
+          address_line2?: string | null
+          contact_person_name?: string | null
+          contact_type?: string
+          created_at?: string | null
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          is_primary?: boolean | null
+          logo_url?: string | null
+          notes?: string | null
+          organization_name?: string
+          phone?: string | null
+          project_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_contacts_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_floor_plans: {
         Row: {
           base_pdf_url: string | null
