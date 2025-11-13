@@ -89,14 +89,34 @@ export function FillTemplateDialog({
     fillMutation.mutate(placeholderData);
   };
 
-  // Common placeholder fields for testing
-  const sampleFields = [
-    { key: "project_name", label: "Project Name", placeholder: "e.g., Segonyana Mall" },
-    { key: "client_name", label: "Client Name", placeholder: "e.g., ABC Properties" },
-    { key: "report_title", label: "Report Title", placeholder: "e.g., Electrical Design Report" },
-    { key: "date", label: "Date", placeholder: "e.g., 2025-01-15" },
-    { key: "revision", label: "Revision", placeholder: "e.g., Rev 1" },
-    { key: "description", label: "Description", placeholder: "Enter description..." },
+  // Common placeholder fields organized by section
+  const fieldSections = [
+    {
+      title: "Report Details",
+      fields: [
+        { key: "project_name", label: "Project Name", placeholder: "e.g., Segonyana Mall" },
+        { key: "client_name", label: "Client Name", placeholder: "e.g., ABC Properties" },
+        { key: "report_title", label: "Report Title", placeholder: "e.g., Electrical Design Report" },
+        { key: "date", label: "Date", placeholder: "e.g., Wednesday, November 12, 2025" },
+        { key: "revision", label: "Revision", placeholder: "e.g., Rev 0" },
+      ]
+    },
+    {
+      title: "Prepared For (Client)",
+      fields: [
+        { key: "prepared_for_company", label: "Company Name", placeholder: "e.g., Super Quality Properties (PTY) LTD" },
+        { key: "prepared_for_address", label: "Address", placeholder: "e.g., 1st Avenue 122, Germiston Glen\nTel: 011 826 3400" },
+        { key: "prepared_for_contact", label: "Contact Person", placeholder: "e.g., Contact: Mr. Kosatha Meyer" },
+      ]
+    },
+    {
+      title: "Prepared By (Your Company)",
+      fields: [
+        { key: "prepared_by_company", label: "Company Name", placeholder: "e.g., WM ELECTRICAL CONSULTING ELECTRICAL ENGINEERS (PTY) LTD" },
+        { key: "prepared_by_address", label: "Address", placeholder: "e.g., Reg No: 2016/034799/07\nBuilding 14\nTel: 087 700 2560" },
+        { key: "prepared_by_contact", label: "Contact Person", placeholder: "e.g., Email: support@wmeng.co.za" },
+      ]
+    }
   ];
 
   return (
@@ -123,49 +143,56 @@ export function FillTemplateDialog({
               </div>
             </div>
 
-            <div className="space-y-4">
-              <h4 className="text-sm font-medium">Placeholder Values</h4>
-              <p className="text-sm text-muted-foreground">
-                Fill in the values that will replace placeholders in the template. 
-                Placeholders in your Word doc should be formatted as: {"{"}placeholder_name{"}"}
-              </p>
+            <div className="space-y-6">
+              <div>
+                <h4 className="text-sm font-medium mb-2">Placeholder Values</h4>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Fill in the values that will replace placeholders in the template. 
+                  Placeholders in your Word doc should be formatted as: {"{"}placeholder_name{"}"}
+                </p>
+              </div>
               
-              {sampleFields.map((field) => (
-                <div key={field.key} className="space-y-2">
-                  <Label htmlFor={field.key}>
-                    {field.label}
-                    <span className="text-muted-foreground ml-2 text-xs">
-                      ({"{"}
-                      {field.key}
-                      {"}"})
-                    </span>
-                  </Label>
-                  {field.key === "description" ? (
-                    <Textarea
-                      id={field.key}
-                      placeholder={field.placeholder}
-                      value={placeholderData[field.key] || ""}
-                      onChange={(e) =>
-                        setPlaceholderData((prev) => ({
-                          ...prev,
-                          [field.key]: e.target.value,
-                        }))
-                      }
-                      rows={3}
-                    />
-                  ) : (
-                    <Input
-                      id={field.key}
-                      placeholder={field.placeholder}
-                      value={placeholderData[field.key] || ""}
-                      onChange={(e) =>
-                        setPlaceholderData((prev) => ({
-                          ...prev,
-                          [field.key]: e.target.value,
-                        }))
-                      }
-                    />
-                  )}
+              {fieldSections.map((section) => (
+                <div key={section.title} className="space-y-4">
+                  <h5 className="text-sm font-semibold border-b pb-2">{section.title}</h5>
+                  {section.fields.map((field) => (
+                    <div key={field.key} className="space-y-2">
+                      <Label htmlFor={field.key}>
+                        {field.label}
+                        <span className="text-muted-foreground ml-2 text-xs">
+                          ({"{"}
+                          {field.key}
+                          {"}"})
+                        </span>
+                      </Label>
+                      {field.key.includes("address") || field.key.includes("contact") ? (
+                        <Textarea
+                          id={field.key}
+                          placeholder={field.placeholder}
+                          value={placeholderData[field.key] || ""}
+                          onChange={(e) =>
+                            setPlaceholderData((prev) => ({
+                              ...prev,
+                              [field.key]: e.target.value,
+                            }))
+                          }
+                          rows={3}
+                        />
+                      ) : (
+                        <Input
+                          id={field.key}
+                          placeholder={field.placeholder}
+                          value={placeholderData[field.key] || ""}
+                          onChange={(e) =>
+                            setPlaceholderData((prev) => ({
+                              ...prev,
+                              [field.key]: e.target.value,
+                            }))
+                          }
+                        />
+                      )}
+                    </div>
+                  ))}
                 </div>
               ))}
             </div>

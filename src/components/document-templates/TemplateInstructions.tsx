@@ -42,23 +42,55 @@ export function TemplateInstructions() {
               <code className="bg-muted px-2 py-1 rounded text-xs">{"{"}revision{"}"}</code>
               <span className="text-muted-foreground">- Revision number</span>
             </div>
+          </div>
+
+          <h4 className="text-sm font-semibold mt-4">Prepared For Section:</h4>
+          <div className="grid gap-2 text-sm">
             <div className="flex items-start gap-2">
-              <code className="bg-muted px-2 py-1 rounded text-xs">{"{"}description{"}"}</code>
-              <span className="text-muted-foreground">- Description text</span>
+              <code className="bg-muted px-2 py-1 rounded text-xs">{"{"}prepared_for_company{"}"}</code>
+              <span className="text-muted-foreground">- Client company name</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <code className="bg-muted px-2 py-1 rounded text-xs">{"{"}prepared_for_address{"}"}</code>
+              <span className="text-muted-foreground">- Client address</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <code className="bg-muted px-2 py-1 rounded text-xs">{"{"}prepared_for_contact{"}"}</code>
+              <span className="text-muted-foreground">- Client contact person</span>
+            </div>
+          </div>
+
+          <h4 className="text-sm font-semibold mt-4">Prepared By Section:</h4>
+          <div className="grid gap-2 text-sm">
+            <div className="flex items-start gap-2">
+              <code className="bg-muted px-2 py-1 rounded text-xs">{"{"}prepared_by_company{"}"}</code>
+              <span className="text-muted-foreground">- Your company name</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <code className="bg-muted px-2 py-1 rounded text-xs">{"{"}prepared_by_address{"}"}</code>
+              <span className="text-muted-foreground">- Your company address</span>
+            </div>
+            <div className="flex items-start gap-2">
+              <code className="bg-muted px-2 py-1 rounded text-xs">{"{"}prepared_by_contact{"}"}</code>
+              <span className="text-muted-foreground">- Your contact person</span>
             </div>
           </div>
         </div>
 
         <div className="space-y-2 pt-4 border-t">
-          <h4 className="text-sm font-semibold">Example:</h4>
+          <h4 className="text-sm font-semibold">Example Usage:</h4>
           <div className="bg-muted p-3 rounded text-sm space-y-1">
-            <p>Project Name: <code className="text-primary">{"{"}project_name{"}"}</code></p>
-            <p>Client: <code className="text-primary">{"{"}client_name{"}"}</code></p>
-            <p>Date: <code className="text-primary">{"{"}date{"}"}</code></p>
+            <p className="font-medium mb-2">In your Word document:</p>
+            <p className="mb-1">PREPARED FOR:</p>
+            <p><code className="text-primary">{"{"}prepared_for_company{"}"}</code></p>
+            <p><code className="text-primary">{"{"}prepared_for_address{"}"}</code></p>
+            <p className="mt-2 mb-1">PREPARED BY:</p>
+            <p><code className="text-primary">{"{"}prepared_by_company{"}"}</code></p>
+            <p><code className="text-primary">{"{"}prepared_by_address{"}"}</code></p>
           </div>
-          <p className="text-xs text-muted-foreground">
-            When you fill the template with "Segonyana Mall", "ABC Properties", and "2025-01-15", 
-            these placeholders will be replaced with your actual values in the generated PDF.
+          <p className="text-xs text-muted-foreground mt-2">
+            Note: For logos/images, you'll need to manually place them in your Word template. 
+            Dynamic image replacement is not currently supported.
           </p>
         </div>
       </CardContent>
