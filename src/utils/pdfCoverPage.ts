@@ -42,6 +42,8 @@ export interface CoverPageOptions {
   subtitle: string;
   /** Revision information (e.g., "Rev 0", "Rev 1") */
   revision: string;
+  /** Optional date override (defaults to current date if not provided) */
+  date?: string;
 }
 
 export interface CompanyDetails {
@@ -104,7 +106,8 @@ function createPlaceholderData(
   options: CoverPageOptions,
   companyDetails: CompanyDetails
 ): Record<string, string> {
-  const currentDate = new Date().toLocaleDateString('en-ZA', {
+  // Use provided date or default to current date
+  const reportDate = options.date || new Date().toLocaleDateString('en-ZA', {
     year: 'numeric',
     month: 'long',
     day: 'numeric'
@@ -114,7 +117,7 @@ function createPlaceholderData(
     project_name: options.projectName || 'Untitled Project',
     client_name: companyDetails.companyName || 'Client Name',
     report_title: options.title || 'Report',
-    report_date: currentDate,
+    report_date: reportDate,
     revision: options.revision || 'Rev. 1.0',
     contact_name: companyDetails.contactName || '',
     contact_phone: companyDetails.contactPhone || '',

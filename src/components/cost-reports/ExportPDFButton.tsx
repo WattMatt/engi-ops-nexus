@@ -143,6 +143,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           projectName: report.project_name,
           subtitle: `Report #${report.report_number}`,
           revision: `Report ${report.report_number}`,
+          date: format(new Date(), "dd MMMM yyyy"), // Current date
         }, companyDetails);
       }
 
