@@ -11,9 +11,10 @@ All migrated exports now use:
 
 ### 1. **Cost Reports** ✅
 **File**: `src/components/cost-reports/ExportPDFButton.tsx`
-- **Status**: Fully migrated
-- **Quality**: Standard preset (scale 2, JPEG 0.85)
-- **Features**: Dynamic cover pages, standardized page numbering, ready for table standardization
+- **Status**: Fully migrated + Word template fix applied
+- **Quality**: User-selected preset (Draft/Standard/High)
+- **Features**: Dynamic Word template cover pages with PDF.js rendering, standardized page numbering, automatic quality preset detection
+- **Recent Fix**: Word templates now render correctly using PDF.js canvas conversion instead of direct PDF embedding
 
 ### 2. **Cable Schedules** ✅  
 **File**: `src/components/cable-schedules/CableScheduleExportPDFButton.tsx`

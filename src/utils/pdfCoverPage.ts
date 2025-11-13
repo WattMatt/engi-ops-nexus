@@ -448,7 +448,7 @@ export async function generateCoverPage(
           const convertedPdfUrl = await convertWordTemplateToPDF(templateUrl, placeholderData);
           console.log('✅ Word template converted to PDF:', convertedPdfUrl);
           
-          // Load the converted PDF
+          // Load the converted PDF and render it as a canvas
           const response = await fetch(convertedPdfUrl);
           if (!response.ok) {
             throw new Error(`Failed to fetch converted PDF: ${response.statusText}`);
@@ -456,13 +456,30 @@ export async function generateCoverPage(
           const blob = await response.blob();
           console.log('📦 Converted PDF blob size:', blob.size, 'bytes');
           
-          const dataUrl = await new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.readAsDataURL(blob);
-          });
+          // Use PDF.js to render the PDF to a canvas
+          const arrayBuffer = await blob.arrayBuffer();
+          const { getDocument } = await import('pdfjs-dist');
+          const pdfDoc = await getDocument({ data: arrayBuffer }).promise;
+          const page = await pdfDoc.getPage(1);
           
-          doc.addImage(dataUrl, "PDF", 0, 0, pageWidth, pageHeight);
+          // Scale to A4 size at high quality
+          const viewport = page.getViewport({ scale: 3 });
+          const canvas = document.createElement('canvas');
+          const context = canvas.getContext('2d');
+          if (!context) throw new Error('Could not get canvas context');
+          
+          canvas.width = viewport.width;
+          canvas.height = viewport.height;
+          
+          await page.render({
+            canvasContext: context,
+            viewport: viewport,
+            canvas: canvas
+          }).promise;
+          
+          // Convert canvas to image and add to PDF
+          const imageData = canvas.toDataURL('image/jpeg', 0.95);
+          doc.addImage(imageData, "JPEG", 0, 0, pageWidth, pageHeight);
           console.log('🎉 Word template converted and loaded successfully');
           return;
           
