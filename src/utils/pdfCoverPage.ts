@@ -243,11 +243,12 @@ export async function generateCoverPage(
       }
       
       if (templateUrl) {
+        console.log("Found template with file_name:", template.file_name);
+        
         // Check if template is a Word document that needs conversion
-        const isWordDoc = template.file_type?.includes('word') || 
-                         template.file_type?.includes('officedocument') ||
-                         templateUrl.endsWith('.docx') ||
-                         templateUrl.endsWith('.doc');
+        const isWordDoc = template.file_name?.endsWith('.docx') || 
+                         template.file_name?.endsWith('.doc') ||
+                         template.file_name?.endsWith('.dotx');
         
         if (isWordDoc) {
           console.log("Template is a Word document, converting to PDF first...");
@@ -310,8 +311,9 @@ export async function generateCoverPage(
             reader.readAsDataURL(blob);
           });
 
-          // Determine image type
-          const imageType = template.file_type?.includes("pdf") ? "PDF" : "JPEG";
+          // Determine image type based on file extension
+          const imageType = template.file_name?.endsWith('.pdf') ? "PDF" : "JPEG";
+          console.log("Loading template as", imageType, "file:", template.file_name);
           
           // Add template as background (full page)
           console.log("Adding template to PDF as", imageType);
