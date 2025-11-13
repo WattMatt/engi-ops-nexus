@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Plus, Pencil, Trash2, Building2, Upload, Star } from "lucide-react";
+import { Loader2, Plus, Pencil, Trash2, Building2, Upload, Star, FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 interface ProjectContactsProps {
@@ -440,7 +440,32 @@ export function ProjectContacts({ projectId }: ProjectContactsProps) {
           </Dialog>
         </div>
       </CardHeader>
-      <CardContent>
+      <CardContent className="space-y-4">
+        {/* Placeholder Guide */}
+        <div className="rounded-lg bg-muted/50 p-4 border border-border/50">
+          <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            Word Template Placeholders
+          </h4>
+          <p className="text-xs text-muted-foreground mb-2">
+            When using Word templates, contact information will be available using these placeholders:
+          </p>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs font-mono">
+            <code className="text-primary">{"{prepared_for_company}"}</code>
+            <span className="text-muted-foreground">Organization name</span>
+            <code className="text-primary">{"{prepared_for_contact}"}</code>
+            <span className="text-muted-foreground">Contact person</span>
+            <code className="text-primary">{"{prepared_for_address}"}</code>
+            <span className="text-muted-foreground">Address line 1</span>
+            <code className="text-primary">{"{prepared_for_address2}"}</code>
+            <span className="text-muted-foreground">Address line 2</span>
+            <code className="text-primary">{"{prepared_for_tel}"}</code>
+            <span className="text-muted-foreground">Phone number</span>
+            <code className="text-primary">{"{prepared_for_email}"}</code>
+            <span className="text-muted-foreground">Email address</span>
+          </div>
+        </div>
+        
         {!contacts || contacts.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <Building2 className="h-12 w-12 mx-auto mb-4 opacity-50" />

@@ -153,11 +153,14 @@ function createPlaceholderData(
     contact_phone: companyDetails.contactPhone || '',
     company_name: companyDetails.companyName || '',
     subtitle: options.subtitle || '',
-    // Client/recipient information for "Prepared For" section
+    // Client/recipient information for "Prepared For" section (multiple naming conventions for compatibility)
     prepared_for_name: preparedForName,
+    prepared_for_company: preparedForName, // Alternative naming
     prepared_for_address1: preparedForAddress1,
+    prepared_for_address: preparedForAddress1, // Alternative naming
     prepared_for_address2: preparedForAddress2,
     prepared_for_phone: preparedForPhone,
+    prepared_for_tel: preparedForPhone, // Alternative naming
     prepared_for_email: preparedForEmail,
     prepared_for_contact: preparedForContact,
   };
