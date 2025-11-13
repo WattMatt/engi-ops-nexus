@@ -12,6 +12,21 @@ import { calculateCategoryTotals, calculateGrandTotals, validateTotals } from "@
 import { ValidationWarningDialog } from "./ValidationWarningDialog";
 import { captureKPICards, prepareElementForCapture, canvasToDataURL } from "@/utils/captureUIForPDF";
 import { format } from "date-fns";
+import {
+  initializePDF,
+  getStandardTableStyles,
+  addSectionHeader,
+  addPageNumbers,
+  addKeyValue,
+  checkPageBreak,
+  STANDARD_MARGINS,
+  type PDFExportOptions
+} from "@/utils/pdfExportBase";
+import {
+  captureElementAsCanvas,
+  captureChartAsCanvas,
+  addHighQualityImage
+} from "@/utils/pdfQualitySettings";
 
 interface ExportPDFButtonProps {
   report: any;
@@ -94,8 +109,9 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       const companyDetails = await fetchCompanyDetails();
 
       setCurrentSection("Initializing PDF document...");
-      // Create PDF with professional styling
-      const doc = new jsPDF("portrait", "mm", "a4");
+      // Create PDF with standardized quality settings
+      const exportOptions: PDFExportOptions = { quality: 'standard', orientation: 'portrait' };
+      const doc = initializePDF(exportOptions);
       const pageWidth = doc.internal.pageSize.width;
       const pageHeight = doc.internal.pageSize.height;
       const tocSections: { title: string; page: number }[] = [];
@@ -1145,14 +1161,8 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       }
 
       setCurrentSection("Adding page numbers...");
-      // Add page numbers to all pages except cover
-      const totalPages = doc.getNumberOfPages();
-      for (let i = 2; i <= totalPages; i++) {
-        doc.setPage(i);
-        doc.setFontSize(9);
-        doc.setTextColor(100);
-        doc.text(`Page ${i} of ${totalPages}`, pageWidth / 2, pageHeight - useMargins.bottom + 5, { align: "center" });
-      }
+      // Add standardized page numbers
+      addPageNumbers(doc, 2, exportOptions.quality);
 
       setCurrentSection("Saving PDF...");
       // Save PDF
