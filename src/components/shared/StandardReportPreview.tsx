@@ -1,18 +1,15 @@
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Download, Loader2, ChevronLeft, ChevronRight, Edit } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Download, ChevronLeft, ChevronRight, Loader2, FileText, LayoutTemplate } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Document, Page, pdfjs } from "react-pdf";
-import "react-pdf/dist/Page/AnnotationLayer.css";
-import "react-pdf/dist/Page/TextLayer.css";
-import { PDFTemplateEditor } from "@/components/pdf-editor/PDFTemplateEditor";
+import { Document, Page, pdfjs } from 'react-pdf';
+import 'react-pdf/dist/Page/AnnotationLayer.css';
+import 'react-pdf/dist/Page/TextLayer.css';
+import { PlaceholderQuickCopy } from "./PlaceholderQuickCopy";
+import { TemplateGuideView } from "./TemplateGuideView";
 
 // Configure PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -39,7 +36,7 @@ export const StandardReportPreview = ({
   const [downloading, setDownloading] = useState(false);
   const [numPages, setNumPages] = useState<number>(0);
   const [pageNumber, setPageNumber] = useState<number>(1);
-  const [editorOpen, setEditorOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<"pdf" | "guide">("pdf");
 
   useEffect(() => {
     if (open && report) {
@@ -119,124 +116,122 @@ export const StandardReportPreview = ({
   };
 
   return (
-    <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-5xl h-[90vh] flex flex-col">
-          <DialogHeader>
-            <div className="flex items-center justify-between">
-              <div className="flex-1">
-                <DialogTitle>{report?.report_name}</DialogTitle>
-                {numPages > 0 && (
-                  <p className="text-sm text-muted-foreground mt-1">
-                    Page {pageNumber} of {numPages}
-                  </p>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  onClick={() => setEditorOpen(true)}
-                  size="sm"
-                >
-                  <Edit className="h-4 w-4 mr-2" />
-                  Edit Template
-                </Button>
-                <Button 
-                  onClick={handleDownload}
-                  disabled={downloading || loading}
-                  size="sm"
-                >
-                  {downloading ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  ) : (
-                    <Download className="h-4 w-4 mr-2" />
-                  )}
-                  Download
-                </Button>
-              </div>
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-7xl h-[90vh] p-0 gap-0">
+        <div className="flex flex-col h-full">
+          {/* Header */}
+          <div className="flex items-center justify-between p-4 border-b border-border">
+            <div>
+              <h2 className="text-lg font-semibold">{report?.report_name || 'Report Preview'}</h2>
+              <p className="text-sm text-muted-foreground">
+                {report?.projects?.name}
+              </p>
             </div>
-          </DialogHeader>
-        
-        <div className="flex-1 overflow-auto flex flex-col items-center bg-muted rounded-lg">
-          {loading ? (
-            <div className="flex items-center justify-center h-full">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          ) : pdfUrl ? (
-            <div className="w-full h-full flex flex-col">
-              <Document
-                file={pdfUrl}
-                onLoadSuccess={onDocumentLoadSuccess}
-                onLoadError={onDocumentLoadError}
-                loading={
-                  <div className="flex items-center justify-center h-full">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                  </div>
-                }
-                className="flex-1 flex justify-center items-center"
-              >
-                <Page
-                  pageNumber={pageNumber}
-                  renderTextLayer={true}
-                  renderAnnotationLayer={true}
-                  width={700}
-                  className="shadow-lg"
-                />
-              </Document>
-              
-              {numPages > 1 && (
-                <div className="flex items-center justify-center gap-4 py-4 bg-background border-t">
+            <div className="flex items-center gap-2">
+              {activeTab === "pdf" && numPages > 1 && (
+                <div className="flex items-center gap-2 mr-4">
                   <Button
-                    onClick={() => setPageNumber(Math.max(1, pageNumber - 1))}
-                    disabled={pageNumber <= 1}
                     variant="outline"
                     size="sm"
+                    onClick={() => setPageNumber(page => Math.max(1, page - 1))}
+                    disabled={pageNumber <= 1}
                   >
-                    <ChevronLeft className="h-4 w-4 mr-1" />
-                    Previous
+                    <ChevronLeft className="h-4 w-4" />
                   </Button>
-                  <span className="text-sm font-medium">
+                  <span className="text-sm">
                     Page {pageNumber} of {numPages}
                   </span>
                   <Button
-                    onClick={() => setPageNumber(Math.min(numPages, pageNumber + 1))}
-                    disabled={pageNumber >= numPages}
                     variant="outline"
                     size="sm"
+                    onClick={() => setPageNumber(page => Math.min(numPages, page + 1))}
+                    disabled={pageNumber >= numPages}
                   >
-                    Next
-                    <ChevronRight className="h-4 w-4 ml-1" />
+                    <ChevronRight className="h-4 w-4" />
                   </Button>
                 </div>
               )}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-full gap-4 text-muted-foreground">
-              <p>Failed to load PDF preview</p>
               <Button
-                onClick={handleDownload}
                 variant="outline"
+                size="sm"
+                onClick={handleDownload}
+                disabled={downloading}
               >
-                <Download className="h-4 w-4 mr-2" />
-                Download PDF Instead
+                {downloading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Downloading...
+                  </>
+                ) : (
+                  <>
+                    <Download className="mr-2 h-4 w-4" />
+                    Download
+                  </>
+                )}
               </Button>
             </div>
-          )}
+          </div>
+
+          {/* Tabs */}
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "pdf" | "guide")} className="flex-1 flex flex-col overflow-hidden">
+            <TabsList className="mx-4 mt-2 w-fit">
+              <TabsTrigger value="pdf" className="gap-2">
+                <FileText className="h-4 w-4" />
+                PDF View
+              </TabsTrigger>
+              <TabsTrigger value="guide" className="gap-2">
+                <LayoutTemplate className="h-4 w-4" />
+                Template Guide
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="pdf" className="flex-1 mt-0 overflow-hidden">
+              <div className="h-full overflow-auto bg-muted/30 p-4">
+                <div className="flex justify-center">
+                  {loading ? (
+                    <div className="flex items-center justify-center h-full">
+                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                    </div>
+                  ) : pdfUrl ? (
+                    <Document
+                      file={pdfUrl}
+                      onLoadSuccess={onDocumentLoadSuccess}
+                      onLoadError={onDocumentLoadError}
+                      loading={
+                        <div className="flex items-center justify-center p-8">
+                          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                        </div>
+                      }
+                    >
+                      <Page 
+                        pageNumber={pageNumber}
+                        renderTextLayer={true}
+                        renderAnnotationLayer={true}
+                        className="shadow-lg"
+                      />
+                    </Document>
+                  ) : (
+                    <div className="text-center text-muted-foreground p-8">
+                      No PDF available to preview
+                    </div>
+                  )}
+                </div>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="guide" className="flex-1 mt-0 overflow-hidden">
+              <div className="h-full flex">
+                <div className="flex-1 overflow-hidden">
+                  <TemplateGuideView report={report} />
+                </div>
+                <div className="w-80">
+                  <PlaceholderQuickCopy />
+                </div>
+              </div>
+            </TabsContent>
+          </Tabs>
         </div>
       </DialogContent>
     </Dialog>
-
-      <PDFTemplateEditor
-        open={editorOpen}
-        onOpenChange={setEditorOpen}
-        reportType={reportType}
-        reportPdfUrl={pdfUrl}
-        onApplyTemplate={() => {
-          if (onRegeneratePDF) {
-            onRegeneratePDF();
-          }
-        }}
-      />
-    </>
   );
 };
