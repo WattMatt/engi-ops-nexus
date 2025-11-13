@@ -154,14 +154,17 @@ export default function DocumentTemplates() {
                 </div>
                 <div className="flex flex-col gap-2">
                   <div className="flex gap-2">
-                    <Button
-                      variant="outline"
-                      className="flex-1"
-                      onClick={() => handleFill(template)}
-                    >
-                      <FileText className="mr-2 h-4 w-4" />
-                      Fill & Convert
-                    </Button>
+                    {/* Only show Fill & Convert for Word documents */}
+                    {!template.file_name?.toLowerCase().endsWith('.pdf') && (
+                      <Button
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => handleFill(template)}
+                      >
+                        <FileText className="mr-2 h-4 w-4" />
+                        Fill & Convert
+                      </Button>
+                    )}
                     <Button
                       variant="destructive"
                       size="icon"
