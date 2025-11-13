@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/button";
 import { Download, Loader2, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
@@ -45,6 +46,30 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
   const [validationMismatches, setValidationMismatches] = useState<string[]>([]);
   const [pendingExport, setPendingExport] = useState(false);
   const [selectedContactId, setSelectedContactId] = useState<string>('');
+
+  // Fetch project contacts and set primary contact as default
+  const { data: contacts } = useQuery({
+    queryKey: ["project-contacts", report.project_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_contacts")
+        .select("*")
+        .eq("project_id", report.project_id)
+        .order("is_primary", { ascending: false })
+        .order("contact_type");
+      
+      if (error) throw error;
+      
+      // Automatically select the primary contact if available
+      if (data && data.length > 0 && !selectedContactId) {
+        const primaryContact = data.find(c => c.is_primary);
+        setSelectedContactId(primaryContact?.id || data[0].id);
+      }
+      
+      return data;
+    },
+    enabled: !!report.project_id,
+  });
 
   const handleExport = async (useMargins: PDFMargins = margins, useSections: PDFSectionOptions = sections, skipValidation: boolean = false, contactId: string = selectedContactId) => {
     setLoading(true);
@@ -145,7 +170,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           subtitle: `Report #${report.report_number}`,
           revision: `Report ${report.report_number}`,
           date: format(new Date(), "dd MMMM yyyy"), // Current date
-        }, companyDetails, contactId);
+        }, companyDetails, contactId || undefined);
       }
 
       setCurrentSection("Creating table of contents...");
