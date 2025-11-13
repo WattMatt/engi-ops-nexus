@@ -1,4 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.75.1';
+import Docxtemplater from 'https://esm.sh/docxtemplater@3.50.0';
+import PizZip from 'https://esm.sh/pizzip@3.1.7';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -40,41 +42,87 @@ Deno.serve(async (req) => {
     console.log('Template URL:', templateUrl);
     console.log('Placeholder data:', placeholderData);
 
-    // Build the CloudConvert job tasks using direct URL import (bucket is now public)
+    let finalTemplateUrl = templateUrl;
+    let tempFilePath: string | null = null;
+
+    // If placeholderData is provided, use docxtemplater to fill the template
+    if (placeholderData && Object.keys(placeholderData).length > 0) {
+      console.log('Processing template with docxtemplater');
+      
+      // Step 1: Download the original template
+      const templateResponse = await fetch(templateUrl);
+      if (!templateResponse.ok) {
+        throw new Error('Failed to download template');
+      }
+      const templateArrayBuffer = await templateResponse.arrayBuffer();
+      
+      // Step 2: Process with docxtemplater
+      const zip = new PizZip(templateArrayBuffer);
+      const doc = new Docxtemplater(zip, {
+        paragraphLoop: true,
+        linebreaks: true,
+      });
+      
+      // Set the data for replacement
+      doc.setData(placeholderData);
+      
+      try {
+        doc.render();
+      } catch (error) {
+        console.error('Error rendering template:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+        throw new Error(`Template rendering failed: ${errorMessage}`);
+      }
+      
+      // Step 3: Generate the filled document
+      const filledDocBuffer = doc.getZip().generate({
+        type: 'nodebuffer',
+        compression: 'DEFLATE',
+      });
+      
+      // Step 4: Upload the filled document to temporary storage
+      const timestamp = Date.now();
+      tempFilePath = `temp/${timestamp}-filled-${fileName}`;
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('document-templates')
+        .upload(tempFilePath, filledDocBuffer, {
+          contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          upsert: false,
+        });
+      
+      if (uploadError) {
+        console.error('Failed to upload filled template:', uploadError);
+        throw new Error(`Failed to upload filled template: ${uploadError.message}`);
+      }
+      
+      // Get public URL of the filled template
+      const { data: { publicUrl } } = supabase.storage
+        .from('document-templates')
+        .getPublicUrl(tempFilePath);
+      
+      finalTemplateUrl = publicUrl;
+      console.log('Filled template uploaded to:', finalTemplateUrl);
+    }
+
+    // Build the CloudConvert job tasks using the final template URL
     const tasks: any = {
       'import-file': {
         operation: 'import/url',
-        url: templateUrl,
+        url: finalTemplateUrl,
         filename: fileName,
       },
-    };
-
-    // If placeholderData is provided, try to use CloudConvert's merge capabilities
-    if (placeholderData && Object.keys(placeholderData).length > 0) {
-      console.log('Using merge conversion with placeholder data');
-      tasks['convert-file'] = {
-        operation: 'convert',
-        input: 'import-file',
-        output_format: 'pdf',
-        input_format: fileName.endsWith('.docx') || fileName.endsWith('.dotx') ? 'docx' : 'doc',
-        merge: placeholderData,
-        // Use Word field merge - template should have fields like {project_name}
-        merge_field_format: '{%s}',
-      };
-    } else {
-      console.log('Using direct conversion to PDF (no placeholders)');
-      tasks['convert-file'] = {
+      'convert-file': {
         operation: 'convert',
         input: 'import-file',
         output_format: 'pdf',
         engine: 'office',
         input_format: fileName.endsWith('.docx') || fileName.endsWith('.dotx') ? 'docx' : 'doc',
-      };
-    }
-
-    tasks['export-file'] = {
-      operation: 'export/url',
-      input: 'convert-file',
+      },
+      'export-file': {
+        operation: 'export/url',
+        input: 'convert-file',
+      },
     };
 
     // Step 1: Create a conversion job with CloudConvert
@@ -182,7 +230,21 @@ Deno.serve(async (req) => {
 
     console.log('PDF uploaded successfully:', publicUrl);
 
-    // Step 5: Update database if templateId provided
+    // Step 5: Clean up temporary filled template if it exists
+    if (tempFilePath) {
+      const { error: deleteError } = await supabase.storage
+        .from('document-templates')
+        .remove([tempFilePath]);
+      
+      if (deleteError) {
+        console.error('Failed to delete temporary file:', deleteError);
+        // Don't throw - PDF was created successfully
+      } else {
+        console.log('Temporary file cleaned up:', tempFilePath);
+      }
+    }
+
+    // Step 6: Update database if templateId provided
     if (templateId) {
       const { error: updateError } = await supabase
         .from('document_templates')
