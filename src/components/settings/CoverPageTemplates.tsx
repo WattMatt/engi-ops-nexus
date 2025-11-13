@@ -233,9 +233,9 @@ export const CoverPageTemplates = () => {
     <>
       <Card>
         <CardHeader>
-          <CardTitle>Cover Page Templates</CardTitle>
+          <CardTitle>PDF Templates</CardTitle>
           <CardDescription>
-            Upload and manage cover page templates for your reports. Templates can be PDF or image files (JPG, PNG) that will be used as backgrounds for report covers.
+            Manage PDF and image templates for report cover pages. These templates are used across all reports in the application.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">

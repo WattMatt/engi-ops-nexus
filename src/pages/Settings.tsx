@@ -51,7 +51,7 @@ const Settings = () => {
           <TabsTrigger value="profile">Profile</TabsTrigger>
           <TabsTrigger value="company">Company</TabsTrigger>
           <TabsTrigger value="pdf">PDF Quality</TabsTrigger>
-          <TabsTrigger value="templates">Cover Page Templates</TabsTrigger>
+          <TabsTrigger value="templates">PDF Templates</TabsTrigger>
           <TabsTrigger value="invoice">Invoice Settings</TabsTrigger>
           <TabsTrigger value="tools">Developer Tools</TabsTrigger>
         </TabsList>

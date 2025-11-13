@@ -39,7 +39,6 @@ import BulkServices from "./pages/BulkServices";
 import HandoverDocuments from "./pages/HandoverDocuments";
 import HandoverClient from "./pages/HandoverClient";
 import HandoverClientManagement from "./pages/HandoverClientManagement";
-import DocumentTemplates from "./pages/DocumentTemplates";
 import NotFound from "./pages/NotFound";
 import { HelpButton } from "./components/feedback/HelpButton";
 
@@ -72,7 +71,6 @@ const App = () => (
             <Route path="staff" element={<StaffManagement />} />
             <Route path="users" element={<UserManagement />} />
             <Route path="backup" element={<BackupManagement />} />
-            <Route path="document-templates" element={<DocumentTemplates />} />
             <Route path="feedback" element={<FeedbackManagement />} />
             <Route path="feedback-analytics" element={<FeedbackAnalytics />} />
             <Route path="settings" element={<Settings />} />
