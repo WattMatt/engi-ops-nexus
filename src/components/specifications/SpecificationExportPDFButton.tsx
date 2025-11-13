@@ -6,6 +6,12 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { fetchCompanyDetails, generateCoverPage } from "@/utils/pdfCoverPage";
 import { format } from "date-fns";
+import { 
+  initializePDF, 
+  getStandardTableStyles, 
+  addPageNumbers,
+  type PDFExportOptions 
+} from "@/utils/pdfExportBase";
 
 interface SpecificationExportPDFButtonProps {
   specification: any;
@@ -18,8 +24,9 @@ export const SpecificationExportPDFButton = ({ specification }: SpecificationExp
   const handleExport = async () => {
     setLoading(true);
     try {
-      // Create PDF
-      const doc = new jsPDF("portrait");
+      // Create PDF with standardized settings
+      const exportOptions: PDFExportOptions = { quality: 'standard', orientation: 'portrait' };
+      const doc = initializePDF(exportOptions);
       const pageWidth = doc.internal.pageSize.width;
       const pageHeight = doc.internal.pageSize.height;
 
@@ -99,19 +106,8 @@ export const SpecificationExportPDFButton = ({ specification }: SpecificationExp
         }
       }
 
-      // Add page numbers to all pages except cover
-      const totalPages = doc.getNumberOfPages();
-      for (let i = 2; i <= totalPages; i++) {
-        doc.setPage(i);
-        doc.setFontSize(9);
-        doc.setTextColor(100);
-        doc.text(
-          `Page ${i} of ${totalPages}`,
-          pageWidth / 2,
-          pageHeight - 10,
-          { align: "center" }
-        );
-      }
+      // Add standardized page numbers
+      addPageNumbers(doc, 2, exportOptions.quality);
 
       // Save the PDF
       doc.save(`Specification_${specification.spec_number || specification.specification_name.replace(/\s+/g, '_')}_${Date.now()}.pdf`);

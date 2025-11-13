@@ -5,6 +5,12 @@ import { useToast } from "@/hooks/use-toast";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { generateCoverPage, fetchCompanyDetails } from "@/utils/pdfCoverPage";
+import { 
+  initializePDF, 
+  getStandardTableStyles,
+  addPageNumbers,
+  type PDFExportOptions 
+} from "@/utils/pdfExportBase";
 
 interface TenantData {
   id: string;
@@ -75,7 +81,8 @@ export const TenantCompletionExportPDFButton = ({
   const exportToPDF = async () => {
     setIsExporting(true);
     try {
-      const doc = new jsPDF();
+      const exportOptions: PDFExportOptions = { quality: 'standard', orientation: 'portrait' };
+      const doc = initializePDF(exportOptions);
       const pageWidth = doc.internal.pageSize.getWidth();
       const pageHeight = doc.internal.pageSize.getHeight();
 
@@ -439,18 +446,15 @@ export const TenantCompletionExportPDFButton = ({
         });
       }
 
-      // Add footer to all pages
+      // Add standardized page numbers  
+      addPageNumbers(doc, 1, exportOptions.quality); // Include cover page in numbering
+      
+      // Add generation timestamp on all pages
       const totalPages = doc.getNumberOfPages();
       for (let i = 1; i <= totalPages; i++) {
         doc.setPage(i);
         doc.setFontSize(8);
         doc.setTextColor(128, 128, 128);
-        doc.text(
-          `Page ${i} of ${totalPages}`,
-          pageWidth / 2,
-          pageHeight - 10,
-          { align: "center" }
-        );
         doc.text(
           `Generated: ${new Date().toLocaleString()}`,
           pageWidth - 14,

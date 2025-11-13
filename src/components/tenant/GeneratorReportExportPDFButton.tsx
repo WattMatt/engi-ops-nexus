@@ -7,8 +7,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { captureChartAsCanvas, createHighQualityPDF, addHighQualityImage, waitForElementRender } from "@/utils/pdfQualitySettings";
+import { captureChartAsCanvas, addHighQualityImage, waitForElementRender } from "@/utils/pdfQualitySettings";
 import { fetchCompanyDetails, generateCoverPage } from "@/utils/pdfCoverPage";
+import { 
+  initializePDF, 
+  getStandardTableStyles, 
+  addPageNumbers, 
+  STANDARD_MARGINS,
+  type PDFExportOptions 
+} from "@/utils/pdfExportBase";
 import { LoadDistributionChart } from "./charts/LoadDistributionChart";
 import { CostBreakdownChart } from "./charts/CostBreakdownChart";
 import { RecoveryProjectionChart } from "./charts/RecoveryProjectionChart";
@@ -157,7 +164,8 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
     setIsGenerating(true);
 
     try {
-      const doc = createHighQualityPDF("portrait", true);
+      const exportOptions: PDFExportOptions = { quality: 'standard', orientation: 'portrait' };
+      const doc = initializePDF(exportOptions);
       const pageWidth = doc.internal.pageSize.width;
       const pageHeight = doc.internal.pageSize.height;
       let yPos = 20;

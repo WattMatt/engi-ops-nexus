@@ -7,6 +7,12 @@ import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
 import { fetchCompanyDetails, generateCoverPage } from "@/utils/pdfCoverPage";
 import { format } from "date-fns";
+import { 
+  initializePDF, 
+  getStandardTableStyles, 
+  addPageNumbers,
+  type PDFExportOptions 
+} from "@/utils/pdfExportBase";
 
 interface FinalAccountExportPDFButtonProps {
   account: any;
@@ -28,8 +34,9 @@ export const FinalAccountExportPDFButton = ({ account }: FinalAccountExportPDFBu
 
       if (error) throw error;
 
-      // Create PDF
-      const doc = new jsPDF("portrait");
+      // Create PDF with standardized settings
+      const exportOptions: PDFExportOptions = { quality: 'standard', orientation: 'portrait' };
+      const doc = initializePDF(exportOptions);
       const pageWidth = doc.internal.pageSize.width;
       const pageHeight = doc.internal.pageSize.height;
 
@@ -162,19 +169,8 @@ export const FinalAccountExportPDFButton = ({ account }: FinalAccountExportPDFBu
         });
       }
 
-      // Add page numbers to all pages except cover
-      const totalPages = doc.getNumberOfPages();
-      for (let i = 2; i <= totalPages; i++) {
-        doc.setPage(i);
-        doc.setFontSize(9);
-        doc.setTextColor(100);
-        doc.text(
-          `Page ${i} of ${totalPages}`,
-          pageWidth / 2,
-          pageHeight - 10,
-          { align: "center" }
-        );
-      }
+      // Add standardized page numbers
+      addPageNumbers(doc, 2, exportOptions.quality);
 
       // Save the PDF
       doc.save(`Final_Account_${account.account_number}_${Date.now()}.pdf`);

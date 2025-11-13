@@ -9,7 +9,13 @@ import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
 import { fetchCompanyDetails, generateCoverPage } from "@/utils/pdfCoverPage";
 import { StandardReportPreview } from "@/components/shared/StandardReportPreview";
-import { captureChartAsCanvas, createHighQualityPDF, addHighQualityImage, waitForElementRender } from "@/utils/pdfQualitySettings";
+import { captureChartAsCanvas, addHighQualityImage, waitForElementRender } from "@/utils/pdfQualitySettings";
+import { 
+  initializePDF, 
+  getStandardTableStyles, 
+  addPageNumbers,
+  type PDFExportOptions 
+} from "@/utils/pdfExportBase";
 import { COPPER_CABLE_TABLE } from "@/utils/cableSizing";
 
 interface BulkServicesExportPDFButtonProps {
@@ -62,7 +68,8 @@ export function BulkServicesExportPDFButton({ documentId, onReportSaved }: BulkS
     setIsGenerating(true);
 
     try {
-      const doc = createHighQualityPDF("portrait", true);
+      const exportOptions: PDFExportOptions = { quality: 'standard', orientation: 'portrait' };
+      const doc = initializePDF(exportOptions);
       let yPos = 20;
 
       // Get the latest revision

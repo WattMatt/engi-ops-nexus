@@ -5,6 +5,11 @@ import { useState } from "react";
 import jsPDF from "jspdf";
 import { format } from "date-fns";
 import { fetchCompanyDetails, generateCoverPage } from "@/utils/pdfCoverPage";
+import { 
+  initializePDF, 
+  addPageNumbers,
+  type PDFExportOptions 
+} from "@/utils/pdfExportBase";
 
 interface ProjectOutlineExportPDFButtonProps {
   outline: any;
@@ -18,7 +23,8 @@ export const ProjectOutlineExportPDFButton = ({ outline, sections }: ProjectOutl
   const handleExport = async () => {
     setLoading(true);
     try {
-      const doc = new jsPDF("portrait");
+      const exportOptions: PDFExportOptions = { quality: 'standard', orientation: 'portrait' };
+      const doc = initializePDF(exportOptions);
       const pageWidth = doc.internal.pageSize.width;
       const pageHeight = doc.internal.pageSize.height;
       const margin = 20;
@@ -99,19 +105,8 @@ export const ProjectOutlineExportPDFButton = ({ outline, sections }: ProjectOutl
         doc.text(`Representing: ${outline.prepared_by || ""}`, margin, yPos);
       });
 
-      // Add page numbers (skip cover page)
-      const totalPages = doc.getNumberOfPages();
-      for (let i = 2; i <= totalPages; i++) {
-        doc.setPage(i);
-        doc.setFontSize(9);
-        doc.setTextColor(100);
-        doc.text(
-          `${i - 1}`,
-          pageWidth / 2,
-          pageHeight - 10,
-          { align: "center" }
-        );
-      }
+      // Add standardized page numbers
+      addPageNumbers(doc, 2, exportOptions.quality);
 
       // Save PDF
       const fileName = `${outline.project_name.replace(/[^a-z0-9]/gi, '_')}_Baseline_Document_${Date.now()}.pdf`;
