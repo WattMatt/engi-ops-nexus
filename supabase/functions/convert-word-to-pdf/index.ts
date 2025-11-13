@@ -131,6 +131,13 @@ Deno.serve(async (req) => {
         // Find the export task
         exportTask = statusData.data.tasks.find((task: any) => task.name === 'export-file');
       } else if (status === 'error') {
+        // Log detailed error information
+        console.error('CloudConvert job failed. Full job data:', JSON.stringify(statusData, null, 2));
+        const failedTask = statusData.data.tasks.find((task: any) => task.status === 'error');
+        if (failedTask) {
+          console.error('Failed task:', JSON.stringify(failedTask, null, 2));
+          throw new Error(`Conversion failed: ${failedTask.message || 'Unknown error'}`);
+        }
         throw new Error('Conversion job failed');
       }
     }
