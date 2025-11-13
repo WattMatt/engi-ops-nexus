@@ -26,6 +26,8 @@ Deno.serve(async (req) => {
       throw new Error('CLOUDCONVERT_API_KEY environment variable is not set. Please add it in the Lovable Cloud secrets.');
     }
 
+    console.log('CloudConvert API key found, length:', cloudConvertApiKey.length);
+
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     const { templateUrl, templateId, placeholderData }: ConversionRequest = await req.json();
@@ -89,6 +91,8 @@ Deno.serve(async (req) => {
     if (!createJobResponse.ok) {
       const errorText = await createJobResponse.text();
       console.error('CloudConvert job creation failed:', errorText);
+      console.error('Response status:', createJobResponse.status);
+      console.error('API key (first 10 chars):', cloudConvertApiKey.substring(0, 10) + '...');
       throw new Error(`Failed to create conversion job: ${errorText}`);
     }
 
