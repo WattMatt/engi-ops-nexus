@@ -38,6 +38,7 @@ Deno.serve(async (req) => {
 
     console.log('Starting Word to PDF conversion:', { fileName, templateId, hasPlaceholderData: !!placeholderData });
     console.log('Template URL:', templateUrl);
+    console.log('Placeholder data:', placeholderData);
 
     // Build the CloudConvert job tasks using direct URL import (bucket is now public)
     const tasks: any = {
@@ -48,15 +49,28 @@ Deno.serve(async (req) => {
       },
     };
 
-    // Build conversion task (skip merge operation - not supported in CloudConvert API)
-    console.log('Using direct conversion to PDF');
-    tasks['convert-file'] = {
-      operation: 'convert',
-      input: 'import-file',
-      output_format: 'pdf',
-      engine: 'office',
-      input_format: fileName.endsWith('.docx') || fileName.endsWith('.dotx') ? 'docx' : 'doc',
-    };
+    // If placeholderData is provided, try to use CloudConvert's merge capabilities
+    if (placeholderData && Object.keys(placeholderData).length > 0) {
+      console.log('Using merge conversion with placeholder data');
+      tasks['convert-file'] = {
+        operation: 'convert',
+        input: 'import-file',
+        output_format: 'pdf',
+        input_format: fileName.endsWith('.docx') || fileName.endsWith('.dotx') ? 'docx' : 'doc',
+        merge: placeholderData,
+        // Use Word field merge - template should have fields like {project_name}
+        merge_field_format: '{%s}',
+      };
+    } else {
+      console.log('Using direct conversion to PDF (no placeholders)');
+      tasks['convert-file'] = {
+        operation: 'convert',
+        input: 'import-file',
+        output_format: 'pdf',
+        engine: 'office',
+        input_format: fileName.endsWith('.docx') || fileName.endsWith('.dotx') ? 'docx' : 'doc',
+      };
+    }
 
     tasks['export-file'] = {
       operation: 'export/url',

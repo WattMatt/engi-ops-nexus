@@ -7,6 +7,7 @@ import { Upload, FileText, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { UploadTemplateDialog } from "@/components/document-templates/UploadTemplateDialog";
 import { FillTemplateDialog } from "@/components/document-templates/FillTemplateDialog";
+import { TemplateInstructions } from "@/components/document-templates/TemplateInstructions";
 
 export default function DocumentTemplates() {
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
@@ -74,6 +75,8 @@ export default function DocumentTemplates() {
           Upload Template
         </Button>
       </div>
+
+      <TemplateInstructions />
 
       {isLoading ? (
         <div className="text-center py-12">Loading templates...</div>
