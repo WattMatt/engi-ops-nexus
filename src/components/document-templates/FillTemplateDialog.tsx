@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
@@ -14,8 +14,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
-import { FileText, Loader2, Download, CheckCircle2 } from "lucide-react";
+import { FileText, Loader2, Download, CheckCircle2, RotateCcw } from "lucide-react";
 import { PDFPreviewDialog } from "./PDFPreviewDialog";
+import { format } from "date-fns";
 
 interface FillTemplateDialogProps {
   open: boolean;
@@ -33,6 +34,97 @@ export function FillTemplateDialog({
   const [generatedPdf, setGeneratedPdf] = useState<{ url: string; fileName: string } | null>(null);
   const [processingStep, setProcessingStep] = useState<string>("");
   const [progress, setProgress] = useState(0);
+
+  // Fetch selected project
+  const selectedProjectId = localStorage.getItem("selectedProjectId");
+  const { data: project } = useQuery({
+    queryKey: ["project", selectedProjectId],
+    queryFn: async () => {
+      if (!selectedProjectId) return null;
+      const { data, error } = await supabase
+        .from("projects")
+        .select("*")
+        .eq("id", selectedProjectId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!selectedProjectId && open,
+  });
+
+  // Fetch company settings
+  const { data: companySettings } = useQuery({
+    queryKey: ["company-settings"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("company_settings")
+        .select("*")
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: open,
+  });
+
+  // Fetch current user profile
+  const { data: profile } = useQuery({
+    queryKey: ["current-user-profile"],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: open,
+  });
+
+  // Auto-populate placeholder data when dialog opens
+  useEffect(() => {
+    if (open && project && companySettings) {
+      const defaultData: Record<string, string> = {
+        project_name: project.name || "",
+        project_number: project.project_number || "",
+        client_name: project.client_name || "",
+        date: format(new Date(), "EEEE, MMMM d, yyyy"),
+        report_title: `${project.name} - Report`,
+        revision: "Rev 0",
+        prepared_for_company: project.client_name || "",
+        prepared_for_contact: "",
+        prepared_for_address: "",
+        prepared_by_company: companySettings.company_name || "",
+        prepared_by_contact: profile?.full_name || "",
+        prepared_by_address: "",
+      };
+      setPlaceholderData(defaultData);
+    }
+  }, [open, project, companySettings, profile]);
+
+  // Function to reset to default values
+  const resetToDefaults = () => {
+    if (project && companySettings) {
+      const defaultData: Record<string, string> = {
+        project_name: project.name || "",
+        project_number: project.project_number || "",
+        client_name: project.client_name || "",
+        date: format(new Date(), "EEEE, MMMM d, yyyy"),
+        report_title: `${project.name} - Report`,
+        revision: "Rev 0",
+        prepared_for_company: project.client_name || "",
+        prepared_for_contact: "",
+        prepared_for_address: "",
+        prepared_by_company: companySettings.company_name || "",
+        prepared_by_contact: profile?.full_name || "",
+        prepared_by_address: "",
+      };
+      setPlaceholderData(defaultData);
+      toast.success("Fields reset to default values");
+    }
+  };
 
   const fillMutation = useMutation({
     mutationFn: async (data: Record<string, string>) => {
@@ -153,13 +245,27 @@ export function FillTemplateDialog({
       <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Fill Template: {template?.name}
-          </DialogTitle>
-          <DialogDescription>
-            Enter values for the template placeholders. Use format: {"{"}placeholder_name{"}"} in your Word document.
-          </DialogDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <DialogTitle className="flex items-center gap-2">
+                <FileText className="h-5 w-5" />
+                Fill Template: {template?.name}
+              </DialogTitle>
+              <DialogDescription>
+                Values auto-populated from project data. Edit as needed.
+              </DialogDescription>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={resetToDefaults}
+              disabled={fillMutation.isPending}
+            >
+              <RotateCcw className="h-4 w-4 mr-2" />
+              Reset
+            </Button>
+          </div>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-6">
