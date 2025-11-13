@@ -6,8 +6,7 @@ const corsHeaders = {
 };
 
 interface ConversionRequest {
-  fileUrl: string;
-  fileName: string;
+  templateUrl: string;
   templateId?: string;
   placeholderData?: Record<string, string>;
 }
@@ -29,7 +28,11 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { fileUrl, fileName, templateId, placeholderData }: ConversionRequest = await req.json();
+    const { templateUrl, templateId, placeholderData }: ConversionRequest = await req.json();
+
+    // Extract fileName from URL
+    const urlParts = templateUrl.split('/');
+    const fileName = urlParts[urlParts.length - 1];
 
     console.log('Starting Word to PDF conversion:', { fileName, templateId, hasPlaceholderData: !!placeholderData });
 
@@ -37,7 +40,7 @@ Deno.serve(async (req) => {
     const tasks: any = {
       'import-file': {
         operation: 'import/url',
-        url: fileUrl,
+        url: templateUrl,
       },
     };
 
