@@ -64,14 +64,17 @@ Deno.serve(async (req) => {
       });
       
       // Set the data for replacement
+      console.log('Setting placeholder data:', JSON.stringify(placeholderData, null, 2));
       doc.setData(placeholderData);
       
       try {
         doc.render();
+        console.log('Template rendered successfully');
       } catch (error) {
         console.error('Error rendering template:', error);
+        console.error('Available placeholders in document:', doc.getFullText());
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        throw new Error(`Template rendering failed: ${errorMessage}`);
+        throw new Error(`Template rendering failed: ${errorMessage}. Check that your Word template contains the correct placeholders: ${Object.keys(placeholderData).map(k => `{{${k}}}`).join(', ')}`);
       }
       
       // Step 3: Generate the filled document
