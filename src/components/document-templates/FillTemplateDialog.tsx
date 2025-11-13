@@ -128,15 +128,26 @@ export function FillTemplateDialog({
 
   const fillMutation = useMutation({
     mutationFn: async (data: Record<string, string>) => {
-      setProcessingStep("Downloading template...");
+      setProcessingStep("Processing template...");
       setProgress(20);
       
       await new Promise(resolve => setTimeout(resolve, 500));
       
+      // Check if template is a PDF (no conversion needed)
+      const fileName = template.file_name?.toLowerCase() || '';
+      const isPdf = fileName.endsWith('.pdf');
+      
+      if (isPdf) {
+        // PDF templates don't support placeholders, just return the URL
+        setProgress(100);
+        return { pdfUrl: template.file_url };
+      }
+      
+      // Only convert Word documents
       setProcessingStep("Filling placeholders...");
       setProgress(40);
       
-      // Call the convert-word-to-pdf function
+      // Call the convert-word-to-pdf function for Word documents
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) throw new Error("Not authenticated");
 
