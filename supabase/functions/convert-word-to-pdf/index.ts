@@ -39,12 +39,20 @@ Deno.serve(async (req) => {
     console.log('Starting Word to PDF conversion:', { fileName, templateId, hasPlaceholderData: !!placeholderData });
     console.log('Template URL:', templateUrl);
 
-    // Download the file from Supabase (since bucket is not public)
-    const fileResponse = await fetch(templateUrl);
-    if (!fileResponse.ok) {
+    // Download the file from Supabase using service role (since bucket is private)
+    const templateStoragePath = templateUrl.split('/document-templates/')[1];
+    console.log('Storage path:', templateStoragePath);
+    
+    const { data: fileData, error: downloadError } = await supabase.storage
+      .from('document-templates')
+      .download(templateStoragePath);
+    
+    if (downloadError || !fileData) {
+      console.error('Storage download error:', downloadError);
       throw new Error('Failed to download template file from storage');
     }
-    const fileArrayBuffer = await fileResponse.arrayBuffer();
+    
+    const fileArrayBuffer = await fileData.arrayBuffer();
     console.log('Template file downloaded, size:', fileArrayBuffer.byteLength);
 
     // Upload directly to CloudConvert
