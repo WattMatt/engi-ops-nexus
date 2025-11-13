@@ -10,10 +10,13 @@ import {
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Settings, Download } from "lucide-react";
+import { Settings, Download, Building2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface PDFMargins {
   top: number;
@@ -41,6 +44,9 @@ interface PDFExportSettingsProps {
   sections: PDFSectionOptions;
   onSectionsChange: (sections: PDFSectionOptions) => void;
   onApply: () => void;
+  projectId: string;
+  selectedContactId?: string;
+  onContactChange?: (contactId: string) => void;
 }
 
 type MarginPreset = 'normal' | 'narrow' | 'wide' | 'custom';
@@ -87,10 +93,30 @@ export const PDFExportSettings = ({
   sections,
   onSectionsChange,
   onApply,
+  projectId,
+  selectedContactId,
+  onContactChange,
 }: PDFExportSettingsProps) => {
   const [localMargins, setLocalMargins] = useState<PDFMargins>(margins);
   const [localSections, setLocalSections] = useState<PDFSectionOptions>(sections);
   const [selectedPreset, setSelectedPreset] = useState<MarginPreset>('custom');
+  const [localContactId, setLocalContactId] = useState<string>(selectedContactId || '');
+
+  const { data: contacts } = useQuery({
+    queryKey: ["project-contacts", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("project_contacts")
+        .select("*")
+        .eq("project_id", projectId)
+        .order("is_primary", { ascending: false })
+        .order("contact_type");
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!projectId && open,
+  });
 
   // Detect which preset is currently selected
   useEffect(() => {
@@ -129,6 +155,9 @@ export const PDFExportSettings = ({
   const handleApply = () => {
     onMarginsChange(localMargins);
     onSectionsChange(localSections);
+    if (onContactChange && localContactId) {
+      onContactChange(localContactId);
+    }
     onApply();
     onOpenChange(false);
   };
@@ -171,6 +200,41 @@ export const PDFExportSettings = ({
         </DialogHeader>
         
         <div className="grid gap-6 py-4">
+          {/* Prepared For Contact Selection */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <Building2 className="h-4 w-4 text-muted-foreground" />
+              <Label className="text-base font-semibold">Prepared For</Label>
+            </div>
+            <Select value={localContactId} onValueChange={setLocalContactId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select contact for cover page" />
+              </SelectTrigger>
+              <SelectContent>
+                {contacts?.map((contact) => (
+                  <SelectItem key={contact.id} value={contact.id}>
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">{contact.organization_name}</span>
+                      <span className="text-xs text-muted-foreground">
+                        ({contact.contact_type.replace(/_/g, ' ')})
+                      </span>
+                      {contact.is_primary && (
+                        <span className="text-xs text-primary">★</span>
+                      )}
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {localContactId && contacts && (
+              <p className="text-xs text-muted-foreground">
+                This contact's information will appear in the "Prepared For" section on the cover page
+              </p>
+            )}
+          </div>
+
+          <Separator />
+          
           {/* Section Selection */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">

@@ -44,8 +44,9 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
   const [validationDialogOpen, setValidationDialogOpen] = useState(false);
   const [validationMismatches, setValidationMismatches] = useState<string[]>([]);
   const [pendingExport, setPendingExport] = useState(false);
+  const [selectedContactId, setSelectedContactId] = useState<string>('');
 
-  const handleExport = async (useMargins: PDFMargins = margins, useSections: PDFSectionOptions = sections, skipValidation: boolean = false) => {
+  const handleExport = async (useMargins: PDFMargins = margins, useSections: PDFSectionOptions = sections, skipValidation: boolean = false, contactId: string = selectedContactId) => {
     setLoading(true);
     setCurrentSection("Fetching data...");
     try {
@@ -144,7 +145,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           subtitle: `Report #${report.report_number}`,
           revision: `Report ${report.report_number}`,
           date: format(new Date(), "dd MMMM yyyy"), // Current date
-        }, companyDetails);
+        }, companyDetails, contactId);
       }
 
       setCurrentSection("Creating table of contents...");
@@ -1267,6 +1268,9 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         sections={sections}
         onSectionsChange={setSections}
         onApply={() => handleExport()}
+        projectId={report.project_id}
+        selectedContactId={selectedContactId}
+        onContactChange={setSelectedContactId}
       />
       
       <ValidationWarningDialog

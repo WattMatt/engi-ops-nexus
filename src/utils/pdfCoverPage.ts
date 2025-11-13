@@ -124,7 +124,8 @@ export async function fetchCompanyDetails(): Promise<CompanyDetails> {
  */
 function createPlaceholderData(
   options: CoverPageOptions,
-  companyDetails: CompanyDetails
+  companyDetails: CompanyDetails,
+  contactDetails?: any
 ): Record<string, string> {
   // Use provided date or default to current date
   const reportDate = options.date || new Date().toLocaleDateString('en-ZA', {
@@ -132,6 +133,14 @@ function createPlaceholderData(
     month: 'long',
     day: 'numeric'
   });
+  
+  // Use contact details if provided, otherwise fall back to company defaults
+  const preparedForName = contactDetails?.organization_name || companyDetails.clientName;
+  const preparedForAddress1 = contactDetails?.address_line1 || companyDetails.clientAddressLine1;
+  const preparedForAddress2 = contactDetails?.address_line2 || companyDetails.clientAddressLine2;
+  const preparedForPhone = contactDetails?.phone || companyDetails.clientPhone;
+  const preparedForEmail = contactDetails?.email || '';
+  const preparedForContact = contactDetails?.contact_person_name || '';
 
   return {
     project_name: options.projectName || 'Untitled Project',
@@ -145,10 +154,12 @@ function createPlaceholderData(
     company_name: companyDetails.companyName || '',
     subtitle: options.subtitle || '',
     // Client/recipient information for "Prepared For" section
-    prepared_for_name: companyDetails.clientName || '',
-    prepared_for_address1: companyDetails.clientAddressLine1 || '',
-    prepared_for_address2: companyDetails.clientAddressLine2 || '',
-    prepared_for_phone: companyDetails.clientPhone || '',
+    prepared_for_name: preparedForName,
+    prepared_for_address1: preparedForAddress1,
+    prepared_for_address2: preparedForAddress2,
+    prepared_for_phone: preparedForPhone,
+    prepared_for_email: preparedForEmail,
+    prepared_for_contact: preparedForContact,
   };
 }
 
@@ -186,7 +197,8 @@ async function convertWordTemplateToPDF(
 function addOverlayText(
   doc: jsPDF,
   options: CoverPageOptions,
-  companyDetails: CompanyDetails
+  companyDetails: CompanyDetails,
+  contactDetails?: any
 ): void {
   const pageWidth = doc.internal.pageSize.width;
   
@@ -224,7 +236,8 @@ function addOverlayText(
 async function generateDefaultCoverPage(
   doc: jsPDF,
   options: CoverPageOptions,
-  companyDetails: CompanyDetails
+  companyDetails: CompanyDetails,
+  contactDetails?: any
 ): Promise<void> {
   const pageWidth = doc.internal.pageSize.width;
   const pageHeight = doc.internal.pageSize.height;
@@ -385,10 +398,26 @@ async function generateDefaultCoverPage(
 export async function generateCoverPage(
   doc: jsPDF,
   options: CoverPageOptions,
-  companyDetails: CompanyDetails
+  companyDetails: CompanyDetails,
+  contactId?: string
 ): Promise<void> {
   const pageWidth = doc.internal.pageSize.width;
   const pageHeight = doc.internal.pageSize.height;
+  
+  // Fetch contact information if contactId is provided
+  let contactDetails = null;
+  if (contactId) {
+    const { data, error } = await supabase
+      .from("project_contacts")
+      .select("*")
+      .eq("id", contactId)
+      .single();
+    
+    if (!error && data) {
+      contactDetails = data;
+      console.log("📞 Using project contact for 'Prepared For':", contactDetails);
+    }
+  }
   
   console.log("Fetching default cover page template...");
   
@@ -471,7 +500,7 @@ export async function generateCoverPage(
         if (isWordDoc) {
           // Word template: Fill placeholders and convert to PDF
           console.log('✏️ Detected Word template, filling placeholders...');
-          const placeholderData = createPlaceholderData(options, companyDetails);
+          const placeholderData = createPlaceholderData(options, companyDetails, contactDetails);
           console.log('📝 Placeholder data:', placeholderData);
           
           const convertedPdfUrl = await convertWordTemplateToPDF(templateUrl, placeholderData);
@@ -531,7 +560,7 @@ export async function generateCoverPage(
           doc.addImage(dataUrl, imageType, 0, 0, pageWidth, pageHeight);
           
           // Add overlay text on PDF/image templates
-          addOverlayText(doc, options, companyDetails);
+          addOverlayText(doc, options, companyDetails, contactDetails);
           console.log(`${isPdf ? 'PDF' : 'Image'} template loaded successfully`);
           return;
           
@@ -546,5 +575,5 @@ export async function generateCoverPage(
   }
 
   // Fallback to default modern cover page
-  await generateDefaultCoverPage(doc, options, companyDetails);
+  await generateDefaultCoverPage(doc, options, companyDetails, contactDetails);
 }
