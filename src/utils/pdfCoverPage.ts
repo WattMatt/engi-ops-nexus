@@ -249,81 +249,39 @@ export async function generateCoverPage(
       if (templateUrl) {
         console.log("Found template with file_name:", template.file_name);
         
-        // Check if template is a Word document that needs conversion
-        const isWordDoc = template.file_name?.endsWith('.docx') || 
-                         template.file_name?.endsWith('.doc') ||
-                         template.file_name?.endsWith('.dotx');
+        // Only support PDF and image files (no Word conversion)
+        const fileName = template.file_name?.toLowerCase() || '';
+        const isPdf = fileName.endsWith('.pdf');
+        const isImage = fileName.endsWith('.jpg') || fileName.endsWith('.jpeg') || 
+                       fileName.endsWith('.png') || fileName.endsWith('.webp');
         
-        if (isWordDoc) {
-          console.log("Template is a Word document, converting to PDF first...");
-          
-          // Call the convert-word-to-pdf edge function
-          const { data: { session } } = await supabase.auth.getSession();
-          if (!session) {
-            console.error("No session available for conversion");
-            throw new Error("Authentication required");
-          }
-
-          const conversionResponse = await fetch(
-            `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/convert-word-to-pdf`,
-            {
-              method: "POST",
-              headers: {
-                "Authorization": `Bearer ${session.access_token}`,
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                templateUrl: templateUrl,
-                placeholderData: {}, // No placeholders for cover page
-              }),
-            }
-          );
-
-          if (!conversionResponse.ok) {
-            const error = await conversionResponse.json();
-            console.error("Failed to convert Word template to PDF:", error);
-            throw new Error("Template conversion failed");
-          }
-
-          const conversionResult = await conversionResponse.json();
-          console.log("Template converted to PDF:", conversionResult.pdfUrl);
-          
-          // Now fetch the converted PDF
-          const pdfResponse = await fetch(conversionResult.pdfUrl);
-          const pdfBlob = await pdfResponse.blob();
-          
-          const pdfDataUrl = await new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.readAsDataURL(pdfBlob);
-          });
-          
-          // Add the converted PDF as background
-          console.log("Adding converted PDF template to cover page");
-          doc.addImage(pdfDataUrl, "PDF", 0, 0, pageWidth, pageHeight);
-          console.log("Template added successfully!");
-        } else {
-          // Template is already PDF or image format
-          const response = await fetch(templateUrl);
-          const blob = await response.blob();
-          console.log("Template loaded successfully, size:", blob.size);
-          
-          // Convert to base64
-          const dataUrl = await new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.readAsDataURL(blob);
-          });
-
-          // Determine image type based on file extension
-          const imageType = template.file_name?.endsWith('.pdf') ? "PDF" : "JPEG";
-          console.log("Loading template as", imageType, "file:", template.file_name);
-          
-          // Add template as background (full page)
-          console.log("Adding template to PDF as", imageType);
-          doc.addImage(dataUrl, imageType, 0, 0, pageWidth, pageHeight);
-          console.log("Template added successfully!");
+        if (!isPdf && !isImage) {
+          console.error(`Unsupported template format: ${fileName}. Please use PDF, JPG, or PNG files.`);
+          throw new Error(`Template must be PDF or image format. Found: ${fileName}`);
         }
+        
+        // Fetch the template file
+        const response = await fetch(templateUrl);
+        if (!response.ok) {
+          throw new Error(`Failed to fetch template: ${response.statusText}`);
+        }
+        
+        const blob = await response.blob();
+        console.log(`Template loaded successfully: ${fileName}, size: ${blob.size} bytes`);
+        
+        // Convert to base64
+        const dataUrl = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onloadend = () => resolve(reader.result as string);
+          reader.readAsDataURL(blob);
+        });
+
+        // Determine image type for jsPDF
+        const imageType = isPdf ? "PDF" : "JPEG";
+        
+        console.log(`Adding ${imageType} template as full-page background`);
+        doc.addImage(dataUrl, imageType, 0, 0, pageWidth, pageHeight);
+        console.log("Template added successfully!");
       }
     } catch (error) {
       console.error("Failed to load cover page template:", error);
