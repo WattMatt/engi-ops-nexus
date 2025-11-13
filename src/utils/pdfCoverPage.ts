@@ -174,11 +174,36 @@ export async function generateCoverPage(
   
   // Check if there's a default cover page template
   console.log("Fetching default cover page template...");
-  const { data: defaultTemplate, error: templateError } = await supabase
+  
+  // First, try the dedicated cover_page_templates table
+  let { data: defaultTemplate, error: templateError } = await supabase
     .from("cover_page_templates" as any)
     .select("*")
     .eq("is_default", true)
     .maybeSingle();
+  
+  // If no template in cover_page_templates, check document_templates
+  if (!defaultTemplate) {
+    console.log("No template in cover_page_templates, checking document_templates...");
+    const { data: docTemplate } = await supabase
+      .from("document_templates" as any)
+      .select("*")
+      .or('template_type.eq.cover_page,template_type.eq.custom')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    
+    if (docTemplate && typeof docTemplate === 'object' && !Array.isArray(docTemplate) && 'name' in docTemplate) {
+      console.log("Found template in document_templates:", (docTemplate as any).name);
+      // Convert document_template format to cover_page_template format
+      defaultTemplate = {
+        file_path: (docTemplate as any).file_url, // Use URL directly instead of path
+        file_type: (docTemplate as any).file_type || 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        name: (docTemplate as any).name,
+        is_url: true, // Flag to use URL directly
+      } as any;
+    }
+  }
   
   console.log("Template fetch result:", { defaultTemplate, templateError });
 
@@ -186,15 +211,26 @@ export async function generateCoverPage(
   if (defaultTemplate) {
     try {
       const template = defaultTemplate as any;
-      console.log("Loading template from storage:", template.file_path);
-      const { data } = supabase.storage
-        .from("cover-page-templates")
-        .getPublicUrl(template.file_path);
-
-      console.log("Template public URL:", data.publicUrl);
+      console.log("Loading template:", template.name || "Unknown");
       
-      if (data.publicUrl) {
-        const response = await fetch(data.publicUrl);
+      let templateUrl: string;
+      
+      // Check if we should use URL directly or get from storage
+      if (template.is_url || template.file_path?.startsWith('http')) {
+        templateUrl = template.file_path;
+        console.log("Using direct URL:", templateUrl);
+      } else {
+        // Get from storage bucket
+        console.log("Loading template from storage:", template.file_path);
+        const { data } = supabase.storage
+          .from("cover-page-templates")
+          .getPublicUrl(template.file_path);
+        templateUrl = data.publicUrl;
+        console.log("Template public URL:", templateUrl);
+      }
+      
+      if (templateUrl) {
+        const response = await fetch(templateUrl);
         const blob = await response.blob();
         console.log("Template loaded successfully, size:", blob.size);
         
