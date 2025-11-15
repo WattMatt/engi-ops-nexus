@@ -39,7 +39,7 @@ export const PlaceholderQuickCopy = ({
 }: PlaceholderQuickCopyProps) => {
   const [search, setSearch] = useState("");
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
-    new Set(["Current Page Content"])
+    new Set(Object.keys(getPlaceholdersByCategory(templateType)))
   );
   const [numPages, setNumPages] = useState<number>(0);
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -107,51 +107,47 @@ export const PlaceholderQuickCopy = ({
     setExtractedTextItems(items);
   };
 
-  // Use database content if available, otherwise fall back to PDF extraction
-  let pageContentPlaceholders: any[] = [];
+  // Combine static template placeholders with page context
+  const allCategories: Record<string, any[]> = {
+    ...placeholdersByCategory
+  };
+
+  // Add current page values as a separate "Current Page Values" section for reference only
+  let currentPageValues: any[] = [];
   
   if (pageContentFromDB[currentPage] && pageContentFromDB[currentPage].length > 0) {
-    // Use content from database
-    console.log(`[PlaceholderQuickCopy] Using ${pageContentFromDB[currentPage].length} items from DB for page ${currentPage}`);
-    pageContentPlaceholders = pageContentFromDB[currentPage].map((text, index) => ({
-      key: `page-${currentPage}-db-${index}`,
-      placeholder: text,
-      description: `Line ${index + 1} from page ${currentPage}`,
-      category: "Current Page Content"
-    }));
+    console.log(`[PlaceholderQuickCopy] Found ${pageContentFromDB[currentPage].length} values from DB for page ${currentPage}`);
+    currentPageValues = pageContentFromDB[currentPage]
+      .filter(text => text.trim().length >= 3)
+      .map((text, index) => ({
+        key: `page-${currentPage}-value-${index}`,
+        placeholder: text,
+        description: `Current value on page ${currentPage}`,
+        category: "Current Page Values (Read-only)"
+      }));
   } else if (extractedTextItems.length > 0) {
-    // Use PDF extraction - filter to meaningful text only (3+ characters)
-    pageContentPlaceholders = extractedTextItems
-      .filter(item => item.text.trim().length >= 3) // Only show meaningful text fragments
+    currentPageValues = extractedTextItems
+      .filter(item => item.text.trim().length >= 3)
       .map((item, index) => ({
         key: `page-${currentPage}-text-${index}`,
         placeholder: item.text.trim(),
-        description: `Text at Y: ${Math.round(item.y)}px, X: ${Math.round(item.x)}px`,
-        category: "Current Page Content",
+        description: `Current value at Y: ${Math.round(item.y)}px`,
+        category: "Current Page Values (Read-only)",
         y: item.y,
         x: item.x
       }))
       .sort((a, b) => {
-        // Sort by Y position first, then X position
         const yDiff = a.y - b.y;
         return Math.abs(yDiff) < 5 ? a.x - b.x : yDiff;
       });
-
-    console.log(`[PlaceholderQuickCopy] Showing ${pageContentPlaceholders.length} text items from PDF for page ${currentPage}`);
   }
 
-  console.log(`[PlaceholderQuickCopy] Total placeholders: ${pageContentPlaceholders.length}`);
+  if (currentPageValues.length > 0) {
+    allCategories["Current Page Values (Read-only)"] = currentPageValues;
+  }
 
-  // Filter by search
-  const filteredPageContent = pageContentPlaceholders.filter(item =>
-    search.length === 0 || item.placeholder.toLowerCase().includes(search.toLowerCase())
-  );
-
-  // Combine static placeholders with extracted page content
-  const allCategories: Record<string, any[]> = {
-    ...(filteredPageContent.length > 0 ? { "Current Page Content": filteredPageContent } : {}),
-    ...placeholdersByCategory
-  };
+  console.log(`[PlaceholderQuickCopy] Template placeholders: ${Object.keys(placeholdersByCategory).length} categories`);
+  console.log(`[PlaceholderQuickCopy] Current page values: ${currentPageValues.length} items`);
 
   const filteredCategories = Object.entries(allCategories).map(([category, placeholders]) => {
     const filtered = Array.isArray(placeholders) ? placeholders.filter(
