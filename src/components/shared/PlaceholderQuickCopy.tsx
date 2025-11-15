@@ -76,60 +76,56 @@ export const PlaceholderQuickCopy = ({
     setExtractedTextItems(items);
   };
 
-  // Group text items by Y position (same line), then sort by X and concatenate
+  // Group text items by Y position (same line), then merge into complete text
   const lineGroups: Record<number, ExtractedTextItem[]> = {};
   
   extractedTextItems.forEach(item => {
-    const lineKey = Math.round(item.y / 2) * 2; // Group items within 2px vertically
+    // Group by 1px precision to catch same-line text
+    const lineKey = Math.round(item.y);
     if (!lineGroups[lineKey]) {
       lineGroups[lineKey] = [];
     }
     lineGroups[lineKey].push(item);
   });
 
-  // Convert line groups to text strings
+  // Convert line groups to complete text strings
   const pageContentPlaceholders = Object.entries(lineGroups)
     .map(([yPos, items]) => {
-      // Sort items left to right
+      // Sort items left to right by X position
       const sortedItems = items.sort((a, b) => a.x - b.x);
       
-      // Concatenate text with smart spacing
-      let fullText = '';
-      let lastEndX = 0;
+      // Build the complete line text
+      let lineText = '';
+      let prevX = -Infinity;
+      let prevWidth = 0;
       
-      sortedItems.forEach((item, index) => {
-        if (index === 0) {
-          fullText = item.text;
-          lastEndX = item.x + item.width;
-        } else {
-          // Calculate gap from end of last character to start of this one
-          const gap = item.x - lastEndX;
-          const avgCharWidth = item.width / item.text.length;
-          
-          // If gap is more than half a character width, add a space
-          if (gap > avgCharWidth * 0.5) {
-            fullText += ' ';
-          }
-          
-          fullText += item.text;
-          lastEndX = item.x + item.width;
+      sortedItems.forEach((item) => {
+        const gap = item.x - (prevX + prevWidth);
+        
+        // Add space if there's a noticeable gap (more than 3px)
+        if (lineText.length > 0 && gap > 3) {
+          lineText += ' ';
         }
+        
+        lineText += item.text;
+        prevX = item.x;
+        prevWidth = item.width;
       });
       
       return {
-        key: `page-${currentPage}-y-${yPos}`,
-        placeholder: fullText.trim(),
+        key: `page-${currentPage}-line-${yPos}`,
+        placeholder: lineText.trim(),
         description: `Line at ${Math.round(parseFloat(yPos))}px from top`,
         category: "Current Page Content",
         y: parseFloat(yPos)
       };
     })
-    .filter(item => item.placeholder.length > 0)
+    .filter(item => item.placeholder.length > 0) // Remove empty lines
     .sort((a, b) => a.y - b.y); // Sort top to bottom
 
   console.log(`[PlaceholderQuickCopy] Created ${pageContentPlaceholders.length} text lines for page ${currentPage}`);
   if (pageContentPlaceholders.length > 0) {
-    console.log('[PlaceholderQuickCopy] Sample lines:', pageContentPlaceholders.slice(0, 5).map(p => p.placeholder));
+    console.log('[PlaceholderQuickCopy] First 5 lines:', pageContentPlaceholders.slice(0, 5).map(p => ({ y: p.y, text: p.placeholder })));
   }
 
   // Filter by search
