@@ -33,13 +33,22 @@ export const PDFTextExtractor: React.FC<PDFTextExtractorProps> = ({
   useEffect(() => {
     if (!pdfUrl || isExtracting) return;
 
-    extractTextFromPage();
+    // Add a small delay to avoid race conditions with PDF viewer
+    const timer = setTimeout(() => {
+      extractTextFromPage();
+    }, 300);
+
+    return () => clearTimeout(timer);
   }, [pdfUrl, currentPage]);
 
   const extractTextFromPage = async () => {
     setIsExtracting(true);
     try {
-      const loadingTask = pdfjs.getDocument(pdfUrl);
+      const loadingTask = pdfjs.getDocument({
+        url: pdfUrl,
+        cMapUrl: `//unpkg.com/pdfjs-dist@${pdfjs.version}/cmaps/`,
+        cMapPacked: true,
+      });
       const pdf = await loadingTask.promise;
       const page = await pdf.getPage(currentPage);
       
@@ -75,6 +84,10 @@ export const PDFTextExtractor: React.FC<PDFTextExtractorProps> = ({
 
       console.log(`[PDF Extract] Successfully extracted ${extractedItems.length} text elements`);
       onTextExtracted(extractedItems);
+      
+      // Clean up
+      await page.cleanup();
+      await pdf.cleanup();
     } catch (error) {
       console.error('Error extracting text from PDF:', error);
       onTextExtracted([]);

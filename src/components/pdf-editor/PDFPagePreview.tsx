@@ -84,13 +84,24 @@ export const PDFPagePreview = ({
           standardFontDataUrl: `//unpkg.com/pdfjs-dist@${pdfjs.version}/standard_fonts/`,
         }}
       >
-        {documentLoaded && (
+        {documentLoaded && !loadError && (
           <Page
+            key={`page-${currentPage}`}
             pageNumber={currentPage}
             renderTextLayer={false}
             renderAnnotationLayer={false}
             width={793.7} // A4 width in pixels at 96 DPI (210mm)
             className="shadow-lg"
+            loading={
+              <div className="flex items-center justify-center p-8">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              </div>
+            }
+            error={
+              <div className="flex items-center justify-center p-8 text-destructive">
+                <p>Failed to load page</p>
+              </div>
+            }
           />
         )}
       </Document>
