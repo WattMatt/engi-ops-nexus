@@ -78,6 +78,18 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
     // Initialize page content map to track what goes on each page
     const pageContentMap: Record<number, string[]> = {};
     
+    // Helper to add content to pageContentMap
+    const trackPageContent = (docInstance: jsPDF, content: string) => {
+      const currentPage = docInstance.getCurrentPageInfo().pageNumber;
+      if (!pageContentMap[currentPage]) {
+        pageContentMap[currentPage] = [];
+      }
+      const trimmed = content.trim();
+      if (trimmed.length > 0) {
+        pageContentMap[currentPage].push(trimmed);
+      }
+    };
+    
     try {
       // Fetch all data
       const [categoriesResult, variationsResult, detailsResult, allLineItemsResult] = await Promise.all([
@@ -142,6 +154,16 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       // Create PDF with standardized quality settings
       const exportOptions: PDFExportOptions = { quality: 'standard', orientation: 'portrait' };
       const doc = initializePDF(exportOptions);
+      
+      // Wrap doc.text to capture all content
+      const originalText = doc.text.bind(doc);
+      (doc as any).text = function(...args: any[]) {
+        const textContent = typeof args[0] === 'string' ? args[0] : 
+                           Array.isArray(args[0]) ? args[0].join(' ') : '';
+        trackPageContent(doc, textContent);
+        return originalText(...args);
+      };
+      
       const pageWidth = doc.internal.pageSize.width;
       const pageHeight = doc.internal.pageSize.height;
       const tocSections: { title: string; page: number }[] = [];
