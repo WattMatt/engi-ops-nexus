@@ -4,10 +4,11 @@ import { Download, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { PDFPagePreview } from "@/components/pdf-editor/PDFPagePreview";
+import { Document, Page, pdfjs } from 'react-pdf';
+import 'react-pdf/dist/Page/AnnotationLayer.css';
+import 'react-pdf/dist/Page/TextLayer.css';
 
 // Configure PDF.js worker
-import { pdfjs } from 'react-pdf';
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 interface StandardReportPreviewProps {
@@ -31,7 +32,6 @@ export const StandardReportPreview = ({
   const [loading, setLoading] = useState(false);
   const [downloading, setDownloading] = useState(false);
   const [numPages, setNumPages] = useState<number>(0);
-  const [pageNumber, setPageNumber] = useState<number>(1);
 
   useEffect(() => {
     if (open && report) {
@@ -39,14 +39,12 @@ export const StandardReportPreview = ({
     } else if (!open) {
       // Clear PDF URL when dialog closes
       setPdfUrl(null);
-      setPageNumber(1);
       setNumPages(0);
     }
-  }, [open, report?.id, report?.file_path]); // Only re-run if these specific values change
+  }, [open, report?.id, report?.file_path]);
 
   const loadPdfUrl = async () => {
     setLoading(true);
-    setPageNumber(1);
     setNumPages(0);
     
     try {
@@ -66,7 +64,6 @@ export const StandardReportPreview = ({
     } catch (error) {
       console.error('Preview error:', error);
       toast.error('Failed to load PDF preview');
-    } finally {
       setLoading(false);
     }
   };
@@ -98,9 +95,9 @@ export const StandardReportPreview = ({
     }
   };
 
-  const onDocumentLoadSuccess = (pages: number) => {
-    setNumPages(pages);
-    setPageNumber(1);
+  const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
+    console.log('[PDF PREVIEW] Document loaded with', numPages, 'pages');
+    setNumPages(numPages);
     setLoading(false);
   };
 
@@ -119,7 +116,7 @@ export const StandardReportPreview = ({
           <div>
             <h2 className="text-lg font-semibold">{report?.report_name || 'Report Preview'}</h2>
             <p className="text-sm text-muted-foreground">
-              {report?.projects?.name || `Page ${pageNumber} of ${numPages || '...'}`}
+              {report?.projects?.name || (numPages > 0 ? `${numPages} pages` : 'Loading...')}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -144,7 +141,7 @@ export const StandardReportPreview = ({
           </div>
         </div>
 
-        {/* Content - Scrollable area */}
+        {/* Content - Scrollable area with all pages */}
         <div className="flex-1 overflow-auto bg-muted/30 p-4">
           <div className="flex flex-col items-center gap-4">
             {loading && (
@@ -154,37 +151,40 @@ export const StandardReportPreview = ({
             )}
             
             {!loading && pdfUrl && (
-              <PDFPagePreview
-                pdfUrl={pdfUrl}
-                currentPage={pageNumber}
-                onDocumentLoadSuccess={onDocumentLoadSuccess}
-                onDocumentLoadError={onDocumentLoadError}
-              />
+              <Document
+                file={pdfUrl}
+                onLoadSuccess={onDocumentLoadSuccess}
+                onLoadError={onDocumentLoadError}
+                loading={
+                  <div className="flex items-center justify-center p-8">
+                    <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                  </div>
+                }
+                options={{
+                  cMapUrl: `//unpkg.com/pdfjs-dist@${pdfjs.version}/cmaps/`,
+                  cMapPacked: true,
+                  standardFontDataUrl: `//unpkg.com/pdfjs-dist@${pdfjs.version}/standard_fonts/`,
+                }}
+              >
+                {Array.from(new Array(numPages), (el, index) => (
+                  <div key={`page_${index + 1}`} className="mb-4">
+                    <Page
+                      pageNumber={index + 1}
+                      renderTextLayer={true}
+                      renderAnnotationLayer={false}
+                      width={793.7}
+                      className="shadow-lg bg-white"
+                      loading={
+                        <div className="flex items-center justify-center p-8 bg-white shadow-lg" style={{ width: 793.7, height: 1122 }}>
+                          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                        </div>
+                      }
+                    />
+                  </div>
+                ))}
+              </Document>
             )}
           </div>
-        </div>
-
-        {/* Footer - Navigation */}
-        <div className="flex items-center justify-center gap-4 p-4 border-t border-border shrink-0">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPageNumber(Math.max(1, pageNumber - 1))}
-            disabled={pageNumber <= 1 || loading || !pdfUrl}
-          >
-            Previous
-          </Button>
-          <span className="text-sm text-muted-foreground min-w-[100px] text-center">
-            Page {pageNumber} of {numPages || '...'}
-          </span>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setPageNumber(Math.min(numPages, pageNumber + 1))}
-            disabled={pageNumber >= numPages || loading || !pdfUrl}
-          >
-            Next
-          </Button>
         </div>
       </DialogContent>
     </Dialog>
