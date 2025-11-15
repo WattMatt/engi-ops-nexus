@@ -1045,186 +1045,160 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         
         // ========== INDIVIDUAL VARIATION DETAIL SHEETS ==========
         const variationSheetsStartPage = doc.getCurrentPageInfo().pageNumber + 1;
+        
+        // Fetch line items for all variations
+        const variationLineItemsMap = new Map();
+        for (const variation of variations) {
+          const { data: lineItems } = await supabase
+            .from("variation_line_items")
+            .select("*")
+            .eq("variation_id", variation.id)
+            .order("line_number");
+          variationLineItemsMap.set(variation.id, lineItems || []);
+        }
+        
         variations.forEach((variation: any, index: number) => {
           setCurrentSection(`Adding variation sheet ${index + 1}/${variations.length}...`);
           doc.addPage();
-          // Don't add individual sheets to TOC - we'll add a summary instead
           
-          // Header with variation type color
-          const variationColor = variation.is_credit ? colors.success : colors.danger;
-          const headerHeight = 50;
-          for (let i = 0; i < headerHeight; i++) {
-            const ratio = i / headerHeight;
-            const r = Math.round(variationColor[0] + (variationColor[0] * 0.2) * ratio);
-            const g = Math.round(variationColor[1] + (variationColor[1] * 0.2) * ratio);
-            const b = Math.round(variationColor[2] + (variationColor[2] * 0.2) * ratio);
-            doc.setFillColor(r, g, b);
-            doc.rect(0, i, pageWidth, 1, 'F');
-          }
+          const lineItems = variationLineItemsMap.get(variation.id) || [];
           
-          // Variation badge
-          doc.setFillColor(...colors.white);
-          doc.circle(contentStartX + 10, 25, 8, 'F');
-          doc.setFillColor(...variationColor);
-          doc.circle(contentStartX + 10, 25, 7, 'F');
-          doc.setFontSize(11);
+          // Card-style header with border
+          const cardStartY = contentStartY;
+          const cardWidth = contentWidth;
+          const cardHeight = 75;
+          
+          // Draw card border
+          doc.setDrawColor(200, 200, 200);
+          doc.setLineWidth(0.5);
+          doc.rect(contentStartX, cardStartY, cardWidth, cardHeight, 'S');
+          
+          // Title section with background
+          doc.setFillColor(248, 250, 252);
+          doc.rect(contentStartX, cardStartY, cardWidth, 12, 'F');
+          doc.setFontSize(14);
           doc.setFont("helvetica", "bold");
-          doc.setTextColor(...colors.white);
-          doc.text(variation.code, contentStartX + 10, 27.5, { align: "center" });
+          doc.setTextColor(30, 58, 138);
+          const headerText = variation.is_credit 
+            ? (variation.tenants ? "TENANT CREDIT" : "CREDIT NOTE")
+            : (variation.tenants ? "TENANT VARIATION ORDER" : "VARIATION ORDER");
+          doc.text(headerText, contentStartX + cardWidth / 2, cardStartY + 8, { align: "center" });
           
-          // Title
-          doc.setFontSize(18);
-          doc.setFont("helvetica", "bold");
-          doc.setTextColor(...colors.white);
-          doc.text("VARIATION SHEET", contentStartX + 25, 23);
-          doc.setFontSize(12);
-          doc.setFont("helvetica", "normal");
-          doc.text(variation.is_credit ? "Credit Note" : "Extra Work", contentStartX + 25, 32);
+          // Project details section
+          let yPos = cardStartY + 20;
+          const labelX = contentStartX + 5;
+          const valueX = labelX + 55;
+          const lineHeight = 8;
           
-          let yPos = contentStartY + 35;
-          
-          // Variation details card
-          doc.setFillColor(...colors.light);
-          doc.roundedRect(contentStartX, yPos, contentWidth, 50, 3, 3, 'F');
-          
-          yPos += 8;
-          doc.setTextColor(...colors.primary);
-          doc.setFontSize(10);
-          doc.setFont("helvetica", "bold");
-          doc.text("VARIATION DETAILS", contentStartX + 5, yPos);
-          
-          yPos += 8;
-          doc.setTextColor(...colors.text);
           doc.setFontSize(9);
           doc.setFont("helvetica", "bold");
-          doc.text("Code:", contentStartX + 5, yPos);
-          doc.setFont("helvetica", "normal");
-          doc.text(variation.code, contentStartX + 25, yPos);
+          doc.setTextColor(0, 0, 0);
           
-          yPos += 7;
+          // PROJECT
+          doc.text("PROJECT:", labelX, yPos);
+          doc.setFont("helvetica", "normal");
+          doc.text(report.project_name, valueX, yPos);
+          
+          yPos += lineHeight;
           doc.setFont("helvetica", "bold");
-          doc.text("Description:", contentStartX + 5, yPos);
-          doc.setFont("helvetica", "normal");
-          const descLines = doc.splitTextToSize(variation.description || "N/A", contentWidth - 35);
-          doc.text(descLines, contentStartX + 25, yPos);
-          yPos += (descLines.length * 5);
           
-          yPos += 2;
+          // DATE
+          doc.text("DATE:", labelX, yPos);
+          doc.setFont("helvetica", "normal");
+          doc.text(format(new Date(report.report_date), "dd/MM/yyyy"), valueX, yPos);
+          
+          yPos += lineHeight;
           doc.setFont("helvetica", "bold");
-          doc.text("Amount:", contentStartX + 5, yPos);
-          doc.setFont("helvetica", "normal");
-          doc.setTextColor(...variationColor);
-          doc.setFontSize(11);
-          doc.text(
-            `R ${Math.abs(Number(variation.amount || 0)).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-            contentStartX + 25, 
-            yPos
-          );
           
-          yPos += 7;
-          doc.setTextColor(...colors.text);
-          doc.setFontSize(9);
+          // VARIATION ORDER NO
+          doc.text("VARIATION ORDER NO.:", labelX, yPos);
+          doc.setFont("helvetica", "normal");
+          doc.text(variation.code, valueX, yPos);
+          
+          yPos += lineHeight;
           doc.setFont("helvetica", "bold");
-          doc.text("Type:", contentStartX + 5, yPos);
+          
+          // REVISION
+          doc.text("REVISION:", labelX, yPos);
           doc.setFont("helvetica", "normal");
-          doc.text(variation.is_credit ? "Credit (Deduction)" : "Debit (Addition)", contentStartX + 25, yPos);
+          doc.text("0", valueX, yPos);
           
-          yPos += 10;
-          
-          // Additional details section
-          if (variation.notes || variation.category_id || variation.date_created) {
-            yPos += 5;
-            doc.setFillColor(...colors.white);
-            doc.roundedRect(contentStartX, yPos, contentWidth, 45, 3, 3, 'F');
-            doc.setDrawColor(...colors.light);
-            doc.setLineWidth(0.5);
-            doc.roundedRect(contentStartX, yPos, contentWidth, 45, 3, 3, 'S');
-            
-            yPos += 8;
-            doc.setTextColor(...colors.primary);
+          // TENANT section (if applicable) - full width black background
+          if (variation.tenants) {
+            yPos += lineHeight + 2;
+            doc.setFillColor(0, 0, 0);
+            doc.rect(contentStartX, yPos - 5, cardWidth, 10, 'F');
             doc.setFontSize(10);
             doc.setFont("helvetica", "bold");
-            doc.text("ADDITIONAL INFORMATION", contentStartX + 5, yPos);
-            
-            yPos += 8;
-            doc.setTextColor(...colors.text);
-            doc.setFontSize(9);
-            
-            if (variation.date_created) {
-              doc.setFont("helvetica", "bold");
-              doc.text("Date Created:", contentStartX + 5, yPos);
-              doc.setFont("helvetica", "normal");
-              doc.text(
-                format(new Date(variation.created_at), "dd MMMM yyyy"),
-                contentStartX + 30,
-                yPos
-              );
-              yPos += 7;
-            }
-            
-            if (variation.notes) {
-              doc.setFont("helvetica", "bold");
-              doc.text("Notes:", contentStartX + 5, yPos);
-              doc.setFont("helvetica", "normal");
-              const notesLines = doc.splitTextToSize(variation.notes, contentWidth - 35);
-              doc.text(notesLines, contentStartX + 30, yPos);
-              yPos += (notesLines.length * 5);
-            }
+            doc.setTextColor(255, 255, 255);
+            const tenantText = `TENANT: ${variation.tenants.shop_number} - ${variation.tenants.shop_name}`;
+            doc.text(tenantText, contentStartX + cardWidth / 2, yPos, { align: "center" });
           }
           
-          // Impact summary
-          yPos += 10;
-          doc.setFillColor(...variationColor);
-          doc.roundedRect(contentStartX, yPos, contentWidth, 35, 3, 3, 'F');
+          yPos = cardStartY + cardHeight + 10;
           
-          yPos += 10;
-          doc.setTextColor(...colors.white);
-          doc.setFontSize(11);
-          doc.setFont("helvetica", "bold");
-          doc.text("FINANCIAL IMPACT", pageWidth / 2, yPos, { align: "center" });
-          
-          yPos += 10;
-          doc.setFontSize(16);
-          const impactText = variation.is_credit 
-            ? `REDUCES CONTRACT VALUE BY R ${Math.abs(Number(variation.amount || 0)).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`
-            : `INCREASES CONTRACT VALUE BY R ${Math.abs(Number(variation.amount || 0)).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`;
-          doc.text(impactText, pageWidth / 2, yPos, { align: "center" });
-          
-          // Footer with approval section
-          yPos = pageHeight - 70;
-          doc.setDrawColor(...colors.neutral);
-          doc.setLineWidth(0.3);
-          doc.line(contentStartX, yPos, pageWidth - useMargins.right, yPos);
-          
-          yPos += 10;
-          doc.setTextColor(...colors.neutral);
-          doc.setFontSize(8);
-          doc.setFont("helvetica", "bold");
-          doc.text("APPROVALS", contentStartX, yPos);
-          
-          yPos += 10;
-          const approvalWidth = (contentWidth - 10) / 3;
-          
-          // Client approval
+          // Line Items Table
+          doc.setTextColor(0, 0, 0);
+          doc.setFontSize(10);
           doc.setFont("helvetica", "normal");
-          doc.text("Client Representative", contentStartX, yPos);
-          doc.line(contentStartX, yPos + 12, contentStartX + approvalWidth - 5, yPos + 12);
-          doc.setFontSize(7);
-          doc.text("Signature & Date", contentStartX, yPos + 16);
           
-          // Contractor approval
-          doc.setFontSize(8);
-          doc.text("Contractor Representative", contentStartX + approvalWidth + 5, yPos);
-          doc.line(contentStartX + approvalWidth + 5, yPos + 12, contentStartX + (approvalWidth * 2), yPos + 12);
-          doc.setFontSize(7);
-          doc.text("Signature & Date", contentStartX + approvalWidth + 5, yPos + 16);
+          if (lineItems.length > 0) {
+            const lineItemTotal = lineItems.reduce((sum, item) => sum + Number(item.amount || 0), 0);
+            
+            autoTable(doc, {
+              startY: yPos,
+              margin: { left: contentStartX, right: useMargins.right },
+              head: [['NO', 'DESCRIPTION', 'COMMENTS/DETAIL', 'QTY', 'RATE', 'AMOUNT']],
+              body: lineItems.map((item: any) => [
+                item.line_number.toString(),
+                item.description || '-',
+                item.comments || '-',
+                item.quantity.toString(),
+                `R ${Number(item.rate || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+                `R ${Number(item.amount || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`
+              ]),
+              foot: [[
+                '', '', '', '', 'TOTAL ADDITIONAL WORKS EXCLUSIVE OF VAT',
+                `${lineItemTotal >= 0 ? '+' : ''}R ${Math.abs(lineItemTotal).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`
+              ]],
+              theme: 'grid',
+              styles: { 
+                fontSize: 8, 
+                cellPadding: 3,
+                valign: 'middle',
+                minCellHeight: 8,
+                overflow: 'linebreak'
+              },
+              headStyles: { 
+                fillColor: [241, 245, 249],
+                textColor: [0, 0, 0], 
+                fontStyle: 'bold',
+                fontSize: 8,
+                halign: 'center',
+                valign: 'middle',
+                cellPadding: 3
+              },
+              footStyles: {
+                fillColor: [241, 245, 249],
+                textColor: [0, 0, 0],
+                fontStyle: 'bold',
+                fontSize: 9,
+                halign: 'right',
+                valign: 'middle',
+                cellPadding: 4
+              },
+              columnStyles: {
+                0: { cellWidth: 12, halign: 'center' },
+                1: { cellWidth: 45, halign: 'left' },
+                2: { cellWidth: 50, halign: 'left' },
+                3: { cellWidth: 15, halign: 'right' },
+                4: { cellWidth: 25, halign: 'right' },
+                5: { cellWidth: 28, halign: 'right' }
+              }
+            });
+          }
           
-          // Engineer approval
-          doc.setFontSize(8);
-          doc.text("Engineer's Approval", contentStartX + (approvalWidth * 2) + 10, yPos);
-          doc.line(contentStartX + (approvalWidth * 2) + 10, yPos + 12, pageWidth - useMargins.right, yPos + 12);
-          doc.setFontSize(7);
-          doc.text("Signature & Date", contentStartX + (approvalWidth * 2) + 10, yPos + 16);
+          trackPageContent(doc, `Variation Sheet: ${variation.code}`);
         });
         
         // Add summary entry to TOC for all variation sheets
