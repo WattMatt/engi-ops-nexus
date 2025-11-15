@@ -1063,83 +1063,77 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           
           const lineItems = variationLineItemsMap.get(variation.id) || [];
           
-          // Card-style header with border
-          const cardStartY = contentStartY;
-          const cardWidth = contentWidth;
-          const cardHeight = 75;
+          // Professional header matching Excel template
+          let yPos = contentStartY;
           
-          // Draw card border
-          doc.setDrawColor(200, 200, 200);
+          // Company header with border
+          doc.setDrawColor(0, 0, 0);
           doc.setLineWidth(0.5);
-          doc.rect(contentStartX, cardStartY, cardWidth, cardHeight, 'S');
+          doc.line(contentStartX, yPos + 10, contentStartX + contentWidth, yPos + 10);
           
-          // Title section with background
-          doc.setFillColor(248, 250, 252);
-          doc.rect(contentStartX, cardStartY, cardWidth, 12, 'F');
-          doc.setFontSize(14);
-          doc.setFont("helvetica", "bold");
-          doc.setTextColor(30, 58, 138);
-          const headerText = variation.is_credit 
-            ? (variation.tenants ? "TENANT CREDIT" : "CREDIT NOTE")
-            : (variation.tenants ? "TENANT VARIATION ORDER" : "VARIATION ORDER");
-          doc.text(headerText, contentStartX + cardWidth / 2, cardStartY + 8, { align: "center" });
-          
-          // Project details section
-          let yPos = cardStartY + 20;
-          const labelX = contentStartX + 5;
-          const valueX = labelX + 55;
-          const lineHeight = 8;
-          
-          doc.setFontSize(9);
+          doc.setFontSize(10);
           doc.setFont("helvetica", "bold");
           doc.setTextColor(0, 0, 0);
+          doc.text("WATSON MATTHEUS CONSULTING ELECTRICAL ENGINEERS (PTY) LTD", contentStartX + contentWidth / 2, yPos + 5, { align: "center" });
           
-          // PROJECT
-          doc.text("PROJECT:", labelX, yPos);
+          doc.setFontSize(8);
           doc.setFont("helvetica", "normal");
-          doc.text(report.project_name, valueX, yPos);
+          doc.text("CREATED BY: Arno Mattheus", contentStartX + contentWidth / 2, yPos + 15, { align: "center" });
           
-          yPos += lineHeight;
+          yPos += 25;
+          
+          // Title
+          doc.setFontSize(14);
+          doc.setFont("helvetica", "bold");
+          doc.text(variation.description || "TENANT ACCOUNT", contentStartX + contentWidth / 2, yPos, { align: "center" });
+          
+          yPos += 15;
+          
+          // Project details in 2 columns
+          doc.setFontSize(9);
           doc.setFont("helvetica", "bold");
           
-          // DATE
-          doc.text("DATE:", labelX, yPos);
-          doc.setFont("helvetica", "normal");
-          doc.text(format(new Date(report.report_date), "dd/MM/yyyy"), valueX, yPos);
+          const col1X = contentStartX;
+          const col2X = contentStartX + contentWidth / 2;
           
-          yPos += lineHeight;
+          // Row 1
+          doc.text("PROJECT: ", col1X, yPos);
+          doc.setFont("helvetica", "normal");
+          doc.text(report.project_name, col1X + 25, yPos);
+          
           doc.setFont("helvetica", "bold");
-          
-          // VARIATION ORDER NO
-          doc.text("VARIATION ORDER NO.:", labelX, yPos);
+          doc.text("DATE: ", col2X, yPos);
           doc.setFont("helvetica", "normal");
-          doc.text(variation.code, valueX, yPos);
+          doc.text(format(new Date(report.report_date), "dd-MMM-yy"), col2X + 15, yPos);
           
-          yPos += lineHeight;
+          yPos += 6;
+          
+          // Row 2
           doc.setFont("helvetica", "bold");
-          
-          // REVISION
-          doc.text("REVISION:", labelX, yPos);
+          doc.text("VARIATION ORDER NO.: ", col1X, yPos);
           doc.setFont("helvetica", "normal");
-          doc.text("0", valueX, yPos);
+          doc.text(variation.code, col1X + 50, yPos);
           
-          // TENANT section (if applicable) - full width black background
+          doc.setFont("helvetica", "bold");
+          doc.text("REVISION: ", col2X, yPos);
+          doc.setFont("helvetica", "normal");
+          doc.text("0", col2X + 25, yPos);
+          
+          yPos += 10;
+          
+          // Tenant name
           if (variation.tenants) {
-            yPos += lineHeight + 2;
-            doc.setFillColor(0, 0, 0);
-            doc.rect(contentStartX, yPos - 5, cardWidth, 10, 'F');
             doc.setFontSize(10);
             doc.setFont("helvetica", "bold");
-            doc.setTextColor(255, 255, 255);
-            const tenantText = `TENANT: ${variation.tenants.shop_number} - ${variation.tenants.shop_name}`;
-            doc.text(tenantText, contentStartX + cardWidth / 2, yPos, { align: "center" });
+            doc.text(`${variation.tenants.shop_number} - ${variation.tenants.shop_name}`, contentStartX + contentWidth / 2, yPos, { align: "center" });
+            yPos += 10;
           }
           
-          yPos = cardStartY + cardHeight + 10;
+          yPos += 5;
           
           // Line Items Table
           doc.setTextColor(0, 0, 0);
-          doc.setFontSize(10);
+          doc.setFontSize(9);
           doc.setFont("helvetica", "normal");
           
           if (lineItems.length > 0) {
@@ -1148,54 +1142,62 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
             autoTable(doc, {
               startY: yPos,
               margin: { left: contentStartX, right: useMargins.right },
-              head: [['NO', 'DESCRIPTION', 'COMMENTS/DETAIL', 'QTY', 'RATE', 'AMOUNT']],
+              head: [['NO', 'DESCRIPTION', 'COMMENTS/ DETAIL', 'QTY:', 'RATE:', 'AMOUNT:']],
               body: lineItems.map((item: any) => [
                 item.line_number.toString(),
                 item.description || '-',
-                item.comments || '-',
-                item.quantity.toString(),
-                `R ${Number(item.rate || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-                `R ${Number(item.amount || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`
+                item.comments || '',
+                item.quantity?.toString() || '0',
+                `R${Number(item.rate || 0).toFixed(2)}`,
+                `R${Number(item.amount || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
               ]),
-              foot: [[
-                '', '', '', '', 'TOTAL ADDITIONAL WORKS EXCLUSIVE OF VAT',
-                `${lineItemTotal >= 0 ? '+' : ''}R ${Math.abs(lineItemTotal).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`
-              ]],
               theme: 'grid',
-              styles: { 
-                fontSize: 8, 
-                cellPadding: 3,
-                valign: 'middle',
-                minCellHeight: 8,
-                overflow: 'linebreak'
-              },
-              headStyles: { 
-                fillColor: [241, 245, 249],
-                textColor: [0, 0, 0], 
-                fontStyle: 'bold',
+              styles: {
                 fontSize: 8,
-                halign: 'center',
-                valign: 'middle',
-                cellPadding: 3
+                cellPadding: 2,
+                lineColor: [0, 0, 0],
+                lineWidth: 0.1,
               },
-              footStyles: {
-                fillColor: [241, 245, 249],
+              headStyles: {
+                fillColor: [245, 245, 245],
                 textColor: [0, 0, 0],
                 fontStyle: 'bold',
-                fontSize: 9,
-                halign: 'right',
-                valign: 'middle',
-                cellPadding: 4
+                halign: 'left',
               },
               columnStyles: {
                 0: { cellWidth: 12, halign: 'center' },
-                1: { cellWidth: 45, halign: 'left' },
-                2: { cellWidth: 50, halign: 'left' },
+                1: { cellWidth: 'auto' },
+                2: { cellWidth: 'auto' },
                 3: { cellWidth: 15, halign: 'right' },
                 4: { cellWidth: 25, halign: 'right' },
-                5: { cellWidth: 28, halign: 'right' }
-              }
+                5: { cellWidth: 30, halign: 'right', fontStyle: 'bold' },
+              },
+              didDrawPage: (data) => {
+                // Add bottom border after table
+                const finalY = data.cursor?.y || yPos + 50;
+                yPos = finalY;
+              },
             });
+            
+            // Total section
+            yPos = (doc as any).lastAutoTable.finalY + 15;
+            
+            doc.setDrawColor(0, 0, 0);
+            doc.setLineWidth(0.5);
+            doc.line(contentStartX, yPos - 5, contentStartX + contentWidth, yPos - 5);
+            
+            doc.setFontSize(9);
+            doc.setFont("helvetica", "bold");
+            doc.text("TOTAL ADDITIONAL WORKS EXCLUSIVE OF VAT", contentStartX + contentWidth - 60, yPos);
+            doc.setFontSize(12);
+            doc.text(
+              `R${lineItemTotal.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+              contentStartX + contentWidth,
+              yPos + 6,
+              { align: 'right' }
+            );
+          } else {
+            doc.text("No line items for this variation", contentStartX, yPos);
           }
           
           trackPageContent(doc, `Variation Sheet: ${variation.code}`);
