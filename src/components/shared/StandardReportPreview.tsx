@@ -1,17 +1,13 @@
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Download, ChevronLeft, ChevronRight, Loader2, FileText, LayoutTemplate } from "lucide-react";
+import { Download, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Document, Page, pdfjs } from 'react-pdf';
-import 'react-pdf/dist/Page/AnnotationLayer.css';
-import 'react-pdf/dist/Page/TextLayer.css';
 import { PlaceholderQuickCopy } from "./PlaceholderQuickCopy";
-import { TemplateGuideView } from "./TemplateGuideView";
 
 // Configure PDF.js worker
+import { pdfjs } from 'react-pdf';
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 interface StandardReportPreviewProps {
@@ -36,7 +32,6 @@ export const StandardReportPreview = ({
   const [downloading, setDownloading] = useState(false);
   const [numPages, setNumPages] = useState<number>(0);
   const [pageNumber, setPageNumber] = useState<number>(1);
-  const [activeTab, setActiveTab] = useState<"pdf" | "guide">("pdf");
 
   useEffect(() => {
     if (open && report) {
@@ -103,8 +98,8 @@ export const StandardReportPreview = ({
     }
   };
 
-  const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
-    setNumPages(numPages);
+  const onDocumentLoadSuccess = (pages: number) => {
+    setNumPages(pages);
     setPageNumber(1);
     setLoading(false);
   };
@@ -115,9 +110,10 @@ export const StandardReportPreview = ({
     setLoading(false);
   };
 
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-7xl h-[90vh] p-0 gap-0">
+      <DialogContent className="max-w-[95vw] h-[90vh] p-0 gap-0">
         <div className="flex flex-col h-full">
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-border">
@@ -128,29 +124,6 @@ export const StandardReportPreview = ({
               </p>
             </div>
             <div className="flex items-center gap-2">
-              {activeTab === "pdf" && numPages > 1 && (
-                <div className="flex items-center gap-2 mr-4">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPageNumber(page => Math.max(1, page - 1))}
-                    disabled={pageNumber <= 1}
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <span className="text-sm">
-                    Page {pageNumber} of {numPages}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setPageNumber(page => Math.min(numPages, page + 1))}
-                    disabled={pageNumber >= numPages}
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
               <Button
                 variant="outline"
                 size="sm"
@@ -172,64 +145,16 @@ export const StandardReportPreview = ({
             </div>
           </div>
 
-          {/* Tabs */}
-          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "pdf" | "guide")} className="flex-1 flex flex-col overflow-hidden">
-            <TabsList className="mx-4 mt-2 w-fit">
-              <TabsTrigger value="pdf" className="gap-2">
-                <FileText className="h-4 w-4" />
-                PDF View
-              </TabsTrigger>
-              <TabsTrigger value="guide" className="gap-2">
-                <LayoutTemplate className="h-4 w-4" />
-                Template Guide
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="pdf" className="flex-1 mt-0 overflow-hidden">
-              <div className="h-full overflow-auto bg-muted/30 p-4">
-                <div className="flex justify-center">
-                  {loading ? (
-                    <div className="flex items-center justify-center h-full">
-                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                    </div>
-                  ) : pdfUrl ? (
-                    <Document
-                      file={pdfUrl}
-                      onLoadSuccess={onDocumentLoadSuccess}
-                      onLoadError={onDocumentLoadError}
-                      loading={
-                        <div className="flex items-center justify-center p-8">
-                          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                        </div>
-                      }
-                    >
-                      <Page 
-                        pageNumber={pageNumber}
-                        renderTextLayer={true}
-                        renderAnnotationLayer={true}
-                        className="shadow-lg"
-                      />
-                    </Document>
-                  ) : (
-                    <div className="text-center text-muted-foreground p-8">
-                      No PDF available to preview
-                    </div>
-                  )}
-                </div>
-              </div>
-            </TabsContent>
-
-            <TabsContent value="guide" className="flex-1 mt-0 overflow-hidden">
-              <div className="h-full flex">
-                <div className="flex-1 overflow-hidden">
-                  <TemplateGuideView report={report} />
-                </div>
-                <div className="w-80">
-                  <PlaceholderQuickCopy />
-                </div>
-              </div>
-            </TabsContent>
-          </Tabs>
+          {/* Content */}
+          <div className="flex-1 overflow-hidden">
+            <PlaceholderQuickCopy 
+              templateType={reportType as any}
+              pdfUrl={pdfUrl}
+              currentPage={pageNumber}
+              totalPages={numPages}
+              onPageChange={setPageNumber}
+            />
+          </div>
         </div>
       </DialogContent>
     </Dialog>
