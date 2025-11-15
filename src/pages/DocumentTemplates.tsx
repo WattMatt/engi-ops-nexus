@@ -29,13 +29,7 @@ export default function DocumentTemplates() {
   });
   const queryClient = useQueryClient();
 
-  // Restrict access
-  if (loading) return <div className="p-8">Loading...</div>;
-  if (!isAdmin) {
-    return <div className="p-8">You do not have permission to access this page.</div>;
-  }
-
-  // Fetch existing templates
+  // Fetch existing templates - MUST be called before any conditional returns
   const { data: templates = [], isLoading } = useQuery({
     queryKey: ['document_templates', filterType],
     queryFn: async () => {
@@ -54,6 +48,12 @@ export default function DocumentTemplates() {
       return data;
     },
   });
+
+  // Restrict access - check AFTER hooks
+  if (loading) return <div className="p-8">Loading...</div>;
+  if (!isAdmin) {
+    return <div className="p-8">You do not have permission to access this page.</div>;
+  }
 
   // File upload handler
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -92,8 +92,9 @@ export default function DocumentTemplates() {
         .from('document_templates')
         .getPublicUrl(fileName);
 
-      // Get placeholders for this template type
+      // Get placeholders for this template type and convert to Json
       const placeholders = getTemplatePlaceholders(newTemplate.template_type);
+      const placeholderJson = JSON.parse(JSON.stringify(placeholders));
 
       // Insert into database
       const { error: dbError } = await supabase
@@ -106,7 +107,7 @@ export default function DocumentTemplates() {
           template_type: newTemplate.template_type,
           is_active: true,
           is_default_cover: newTemplate.is_default,
-          placeholder_schema: placeholders,
+          placeholder_schema: placeholderJson,
         }]);
 
       if (dbError) throw dbError;
