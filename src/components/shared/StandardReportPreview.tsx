@@ -113,47 +113,78 @@ export const StandardReportPreview = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-[95vw] h-[90vh] p-0 gap-0">
-        <div className="flex flex-col h-full">
-          {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-border">
-            <div>
-              <h2 className="text-lg font-semibold">{report?.report_name || 'Report Preview'}</h2>
-              <p className="text-sm text-muted-foreground">
-                {report?.projects?.name}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleDownload}
-                disabled={downloading}
-              >
-                {downloading ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Downloading...
-                  </>
-                ) : (
-                  <>
-                    <Download className="mr-2 h-4 w-4" />
-                    Download
-                  </>
-                )}
-              </Button>
-            </div>
+      <DialogContent className="max-w-[95vw] h-[90vh] p-0 gap-0 flex flex-col">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-border shrink-0">
+          <div>
+            <h2 className="text-lg font-semibold">{report?.report_name || 'Report Preview'}</h2>
+            <p className="text-sm text-muted-foreground">
+              {report?.projects?.name || `Page ${pageNumber} of ${numPages || '...'}`}
+            </p>
           </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDownload}
+              disabled={downloading || !pdfUrl}
+            >
+              {downloading ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Downloading...
+                </>
+              ) : (
+                <>
+                  <Download className="mr-2 h-4 w-4" />
+                  Download
+                </>
+              )}
+            </Button>
+          </div>
+        </div>
 
-          {/* Content */}
-          <div className="flex-1 overflow-hidden flex items-center justify-center bg-muted/30">
-            <PDFPagePreview
-              pdfUrl={pdfUrl}
-              currentPage={pageNumber}
-              onDocumentLoadSuccess={onDocumentLoadSuccess}
-              onDocumentLoadError={onDocumentLoadError}
-            />
+        {/* Content - Scrollable area */}
+        <div className="flex-1 overflow-auto bg-muted/30 p-4">
+          <div className="flex flex-col items-center gap-4">
+            {loading && (
+              <div className="flex items-center justify-center h-64">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              </div>
+            )}
+            
+            {!loading && pdfUrl && (
+              <PDFPagePreview
+                pdfUrl={pdfUrl}
+                currentPage={pageNumber}
+                onDocumentLoadSuccess={onDocumentLoadSuccess}
+                onDocumentLoadError={onDocumentLoadError}
+              />
+            )}
           </div>
+        </div>
+
+        {/* Footer - Navigation */}
+        <div className="flex items-center justify-center gap-4 p-4 border-t border-border shrink-0">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPageNumber(Math.max(1, pageNumber - 1))}
+            disabled={pageNumber <= 1 || loading || !pdfUrl}
+          >
+            Previous
+          </Button>
+          <span className="text-sm text-muted-foreground min-w-[100px] text-center">
+            Page {pageNumber} of {numPages || '...'}
+          </span>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setPageNumber(Math.min(numPages, pageNumber + 1))}
+            disabled={pageNumber >= numPages || loading || !pdfUrl}
+          >
+            Next
+          </Button>
         </div>
       </DialogContent>
     </Dialog>
