@@ -7,7 +7,6 @@ import { ArrowLeft } from "lucide-react";
 import { CostReportOverview } from "@/components/cost-reports/CostReportOverview";
 import { CostCategoriesManager } from "@/components/cost-reports/CostCategoriesManager";
 import { CostVariationsManager } from "@/components/cost-reports/CostVariationsManager";
-import { CoverPageManager } from "@/components/cost-reports/CoverPageManager";
 import { ReportDetailsManager } from "@/components/cost-reports/ReportDetailsManager";
 import { ExportPDFButton } from "@/components/cost-reports/ExportPDFButton";
 import { CompareReportsDialog } from "@/components/cost-reports/CompareReportsDialog";
@@ -101,7 +100,6 @@ const CostReportDetail = () => {
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="cover">Cover Page</TabsTrigger>
           <TabsTrigger value="details">Report Details</TabsTrigger>
           <TabsTrigger value="categories">Categories & Line Items</TabsTrigger>
           <TabsTrigger value="variations">Variations</TabsTrigger>
@@ -112,10 +110,6 @@ const CostReportDetail = () => {
         <div className={activeTab !== "overview" ? "hidden" : ""}>
           <CostReportOverview report={report} />
         </div>
-
-        <TabsContent value="cover">
-          <CoverPageManager report={report} />
-        </TabsContent>
 
         <TabsContent value="details">
           <ReportDetailsManager report={report} />
