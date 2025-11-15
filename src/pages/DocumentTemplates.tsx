@@ -18,6 +18,9 @@ import { Textarea } from "@/components/ui/textarea";
 export default function DocumentTemplates() {
   const navigate = useNavigate();
   const { isAdmin, loading } = useUserRole();
+  const queryClient = useQueryClient();
+  
+  // ALL HOOKS MUST BE AT THE TOP - BEFORE ANY CONDITIONAL RETURNS
   const [uploading, setUploading] = useState(false);
   const [filterType, setFilterType] = useState<ReportTemplateType | 'all'>('all');
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
@@ -27,9 +30,8 @@ export default function DocumentTemplates() {
     template_type: 'cover_page' as ReportTemplateType,
     is_default: false,
   });
-  const queryClient = useQueryClient();
 
-  // Fetch existing templates - MUST be called before any conditional returns
+  // Fetch existing templates
   const { data: templates = [], isLoading } = useQuery({
     queryKey: ['document_templates', filterType],
     queryFn: async () => {
@@ -49,7 +51,26 @@ export default function DocumentTemplates() {
     },
   });
 
-  // Restrict access - check AFTER hooks
+  // Delete mutation
+  const deleteTemplate = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('document_templates')
+        .delete()
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Template deleted successfully');
+      queryClient.invalidateQueries({ queryKey: ['document_templates'] });
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to delete template');
+    },
+  });
+
+  // NOW check access - AFTER all hooks
   if (loading) return <div className="p-8">Loading...</div>;
   if (!isAdmin) {
     return <div className="p-8">You do not have permission to access this page.</div>;
@@ -149,24 +170,6 @@ export default function DocumentTemplates() {
     }
   };
 
-  // Delete mutation
-  const deleteTemplate = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('document_templates')
-        .delete()
-        .eq('id', id);
-      
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      toast.success('Template deleted successfully');
-      queryClient.invalidateQueries({ queryKey: ['document_templates'] });
-    },
-    onError: (error: any) => {
-      toast.error(error.message || 'Failed to delete template');
-    },
-  });
 
   return (
     <div className="min-h-screen bg-background p-8">
