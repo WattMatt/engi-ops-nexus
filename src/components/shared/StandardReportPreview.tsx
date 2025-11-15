@@ -36,13 +36,13 @@ export const StandardReportPreview = ({
   useEffect(() => {
     if (open && report) {
       loadPdfUrl();
+    } else if (!open) {
+      // Clear PDF URL when dialog closes
+      setPdfUrl(null);
+      setPageNumber(1);
+      setNumPages(0);
     }
-    return () => {
-      if (pdfUrl) {
-        setPdfUrl(null);
-      }
-    };
-  }, [open, report]);
+  }, [open, report?.id, report?.file_path]); // Only re-run if these specific values change
 
   const loadPdfUrl = async () => {
     setLoading(true);
