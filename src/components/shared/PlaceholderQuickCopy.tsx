@@ -7,6 +7,7 @@ import { Copy, ChevronDown, ChevronRight, Search, ChevronLeft, ChevronUp } from 
 import { ReportTemplateType, getPlaceholdersByCategory } from "@/utils/reportTemplateSchemas";
 import { useToast } from "@/hooks/use-toast";
 import { PDFPagePreview } from "@/components/pdf-editor/PDFPagePreview";
+import { PDFTextExtractor, ExtractedTextItem } from "@/components/pdf-editor/PDFTextExtractor";
 import { Card } from "@/components/ui/card";
 import { 
   Drawer,
@@ -33,10 +34,11 @@ export const PlaceholderQuickCopy = ({
 }: PlaceholderQuickCopyProps) => {
   const [search, setSearch] = useState("");
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
-    new Set(["Project Information", "Prepared For", "Prepared By"])
+    new Set(["Current Page Content"])
   );
   const [numPages, setNumPages] = useState<number>(0);
   const [isCollapsed, setIsCollapsed] = useState(false);
+  const [extractedTextItems, setExtractedTextItems] = useState<ExtractedTextItem[]>([]);
   const { toast } = useToast();
   const placeholdersByCategory = getPlaceholdersByCategory(templateType);
 
@@ -58,18 +60,6 @@ export const PlaceholderQuickCopy = ({
     setExpandedCategories(newExpanded);
   };
 
-  const filteredCategories = Object.entries(placeholdersByCategory).map(([category, placeholders]) => {
-    const filtered = placeholders.filter(
-      (p) =>
-        p.placeholder.toLowerCase().includes(search.toLowerCase()) ||
-        p.description.toLowerCase().includes(search.toLowerCase())
-    );
-    return { category, placeholders: filtered };
-  }).filter(({ placeholders }) => placeholders.length > 0);
-
-  // Show page indicator in the header
-  const pageIndicator = pdfUrl && numPages > 0 ? ` - Page ${currentPage} of ${numPages}` : '';
-
   const handleDocumentLoadSuccess = (pages: number) => {
     setNumPages(pages);
   };
@@ -77,6 +67,55 @@ export const PlaceholderQuickCopy = ({
   const handleDocumentLoadError = (error: Error) => {
     console.error('PDF load error:', error);
   };
+
+  const handleTextExtracted = (items: ExtractedTextItem[]) => {
+    setExtractedTextItems(items);
+  };
+
+  // Group extracted text items by visual proximity (same line/area)
+  const groupedTextItems = extractedTextItems.reduce((acc, item) => {
+    const yGroup = Math.floor(item.y / 20) * 20; // Group by 20px vertical proximity
+    const key = `line-${yGroup}`;
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(item);
+    return acc;
+  }, {} as Record<string, ExtractedTextItem[]>);
+
+  // Sort and format grouped items
+  const pageContentItems = Object.entries(groupedTextItems)
+    .map(([key, items]) => {
+      const sortedItems = items.sort((a, b) => a.x - b.x);
+      const combinedText = sortedItems.map(i => i.text).join(' ');
+      return {
+        id: key,
+        text: combinedText,
+        y: sortedItems[0].y,
+        items: sortedItems
+      };
+    })
+    .sort((a, b) => a.y - b.y);
+
+  // Combine static placeholders with extracted page content
+  const allCategories = {
+    "Current Page Content": pageContentItems.filter(item => 
+      item.text.toLowerCase().includes(search.toLowerCase())
+    ).map(item => ({
+      key: item.id,
+      placeholder: item.text,
+      description: `Text at position (${Math.round(item.y)}px)`,
+      category: "Current Page Content"
+    })),
+    ...placeholdersByCategory
+  };
+
+  const filteredCategories = Object.entries(allCategories).map(([category, placeholders]) => {
+    const filtered = Array.isArray(placeholders) ? placeholders.filter(
+      (p: any) =>
+        p.placeholder.toLowerCase().includes(search.toLowerCase()) ||
+        p.description.toLowerCase().includes(search.toLowerCase())
+    ) : [];
+    return { category, placeholders: filtered };
+  }).filter(({ placeholders }) => placeholders.length > 0);
 
   return (
     <div className="flex h-full gap-4 bg-background p-4">
@@ -117,6 +156,13 @@ export const PlaceholderQuickCopy = ({
                 onDocumentLoadSuccess={handleDocumentLoadSuccess}
                 onDocumentLoadError={handleDocumentLoadError}
               />
+              {pdfUrl && (
+                <PDFTextExtractor
+                  pdfUrl={pdfUrl}
+                  currentPage={currentPage}
+                  onTextExtracted={handleTextExtracted}
+                />
+              )}
             </div>
           </ScrollArea>
         </Card>
