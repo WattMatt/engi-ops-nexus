@@ -70,6 +70,7 @@ export const PDFPagePreview = ({
       )}
       
       <Document
+        key={pdfUrl} // Force new Document instance when URL changes
         file={pdfUrl}
         onLoadSuccess={handleLoadSuccess}
         onLoadError={handleLoadError}
