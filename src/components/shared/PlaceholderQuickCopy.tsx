@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -8,6 +8,7 @@ import { ReportTemplateType, getPlaceholdersByCategory } from "@/utils/reportTem
 import { useToast } from "@/hooks/use-toast";
 import { PDFPagePreview } from "@/components/pdf-editor/PDFPagePreview";
 import { PDFTextExtractor, ExtractedTextItem } from "@/components/pdf-editor/PDFTextExtractor";
+import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { 
   Drawer,
@@ -23,6 +24,8 @@ interface PlaceholderQuickCopyProps {
   currentPage?: number;
   totalPages?: number;
   onPageChange?: (page: number) => void;
+  reportId?: string; // Cost report PDF ID to fetch page content
+  storageBucket?: string; // Storage bucket name
 }
 
 export const PlaceholderQuickCopy = ({ 
@@ -30,7 +33,9 @@ export const PlaceholderQuickCopy = ({
   pdfUrl = null,
   currentPage = 1,
   totalPages = 1,
-  onPageChange
+  onPageChange,
+  reportId,
+  storageBucket = 'cost-report-pdfs'
 }: PlaceholderQuickCopyProps) => {
   const [search, setSearch] = useState("");
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
@@ -39,6 +44,7 @@ export const PlaceholderQuickCopy = ({
   const [numPages, setNumPages] = useState<number>(0);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [extractedTextItems, setExtractedTextItems] = useState<ExtractedTextItem[]>([]);
+  const [pageContentFromDB, setPageContentFromDB] = useState<Record<number, string[]>>({});
   const { toast } = useToast();
   const placeholdersByCategory = getPlaceholdersByCategory(templateType);
 
@@ -60,6 +66,31 @@ export const PlaceholderQuickCopy = ({
     setExpandedCategories(newExpanded);
   };
 
+  // Fetch page content from database if reportId is provided
+  useEffect(() => {
+    const fetchPageContent = async () => {
+      if (!reportId || storageBucket !== 'cost-report-pdfs') return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('cost_report_pdfs')
+          .select('page_content_map')
+          .eq('id', reportId)
+          .single();
+        
+        if (error) throw error;
+        if (data?.page_content_map) {
+          setPageContentFromDB(data.page_content_map as Record<number, string[]>);
+          console.log('[PlaceholderQuickCopy] Loaded page content from DB:', data.page_content_map);
+        }
+      } catch (error) {
+        console.error('[PlaceholderQuickCopy] Error fetching page content:', error);
+      }
+    };
+    
+    fetchPageContent();
+  }, [reportId, storageBucket]);
+
   const handleDocumentLoadSuccess = (pages: number) => {
     setNumPages(pages);
   };
@@ -76,57 +107,62 @@ export const PlaceholderQuickCopy = ({
     setExtractedTextItems(items);
   };
 
-  // Group text items by Y position (same line), then merge into complete text
-  const lineGroups: Record<number, ExtractedTextItem[]> = {};
+  // Use database content if available, otherwise fall back to PDF extraction
+  let pageContentPlaceholders: any[] = [];
   
-  extractedTextItems.forEach(item => {
-    // Group by 1px precision to catch same-line text
-    const lineKey = Math.round(item.y);
-    if (!lineGroups[lineKey]) {
-      lineGroups[lineKey] = [];
-    }
-    lineGroups[lineKey].push(item);
-  });
+  if (pageContentFromDB[currentPage] && pageContentFromDB[currentPage].length > 0) {
+    // Use content from database
+    console.log(`[PlaceholderQuickCopy] Using ${pageContentFromDB[currentPage].length} items from DB for page ${currentPage}`);
+    pageContentPlaceholders = pageContentFromDB[currentPage].map((text, index) => ({
+      key: `page-${currentPage}-db-${index}`,
+      placeholder: text,
+      description: `Line ${index + 1} from page ${currentPage}`,
+      category: "Current Page Content"
+    }));
+  } else if (extractedTextItems.length > 0) {
+    // Fall back to PDF extraction
+    const lineGroups: Record<number, ExtractedTextItem[]> = {};
+    
+    extractedTextItems.forEach(item => {
+      const lineKey = Math.round(item.y);
+      if (!lineGroups[lineKey]) {
+        lineGroups[lineKey] = [];
+      }
+      lineGroups[lineKey].push(item);
+    });
 
-  // Convert line groups to complete text strings
-  const pageContentPlaceholders = Object.entries(lineGroups)
-    .map(([yPos, items]) => {
-      // Sort items left to right by X position
-      const sortedItems = items.sort((a, b) => a.x - b.x);
-      
-      // Build the complete line text
-      let lineText = '';
-      let prevX = -Infinity;
-      let prevWidth = 0;
-      
-      sortedItems.forEach((item) => {
-        const gap = item.x - (prevX + prevWidth);
+    pageContentPlaceholders = Object.entries(lineGroups)
+      .map(([yPos, items]) => {
+        const sortedItems = items.sort((a, b) => a.x - b.x);
+        let lineText = '';
+        let prevX = -Infinity;
+        let prevWidth = 0;
         
-        // Add space if there's a noticeable gap (more than 3px)
-        if (lineText.length > 0 && gap > 3) {
-          lineText += ' ';
-        }
+        sortedItems.forEach((item) => {
+          const gap = item.x - (prevX + prevWidth);
+          if (lineText.length > 0 && gap > 3) {
+            lineText += ' ';
+          }
+          lineText += item.text;
+          prevX = item.x;
+          prevWidth = item.width;
+        });
         
-        lineText += item.text;
-        prevX = item.x;
-        prevWidth = item.width;
-      });
-      
-      return {
-        key: `page-${currentPage}-line-${yPos}`,
-        placeholder: lineText.trim(),
-        description: `Line at ${Math.round(parseFloat(yPos))}px from top`,
-        category: "Current Page Content",
-        y: parseFloat(yPos)
-      };
-    })
-    .filter(item => item.placeholder.length > 0) // Remove empty lines
-    .sort((a, b) => a.y - b.y); // Sort top to bottom
+        return {
+          key: `page-${currentPage}-line-${yPos}`,
+          placeholder: lineText.trim(),
+          description: `Line at ${Math.round(parseFloat(yPos))}px from top`,
+          category: "Current Page Content",
+          y: parseFloat(yPos)
+        };
+      })
+      .filter(item => item.placeholder.length > 0)
+      .sort((a, b) => a.y - b.y);
 
-  console.log(`[PlaceholderQuickCopy] Created ${pageContentPlaceholders.length} text lines for page ${currentPage}`);
-  if (pageContentPlaceholders.length > 0) {
-    console.log('[PlaceholderQuickCopy] First 5 lines:', pageContentPlaceholders.slice(0, 5).map(p => ({ y: p.y, text: p.placeholder })));
+    console.log(`[PlaceholderQuickCopy] Created ${pageContentPlaceholders.length} text lines from PDF extraction for page ${currentPage}`);
   }
+
+  console.log(`[PlaceholderQuickCopy] Showing ${pageContentPlaceholders.length} placeholders for page ${currentPage}`);
 
   // Filter by search
   const filteredPageContent = pageContentPlaceholders.filter(item =>

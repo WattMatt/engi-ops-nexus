@@ -610,24 +610,35 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       // ========== PROJECT INFORMATION PAGE ==========
       if (useSections.projectInfo) {
       doc.addPage();
-      tocSections.push({ title: "Project Information", page: doc.getCurrentPageInfo().pageNumber });
+      const projectInfoPage = doc.getCurrentPageInfo().pageNumber;
+      tocSections.push({ title: "Project Information", page: projectInfoPage });
+      
+      // Initialize page content array
+      if (!pageContentMap[projectInfoPage]) pageContentMap[projectInfoPage] = [];
       
       doc.setFillColor(41, 128, 185);
       doc.rect(0, 0, pageWidth, 35, 'F');
       doc.setFontSize(16);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(255, 255, 255);
-      doc.text("PROJECT INFORMATION", pageWidth / 2, 22, { align: "center" });
+      const headerText = "PROJECT INFORMATION";
+      doc.text(headerText, pageWidth / 2, 22, { align: "center" });
+      pageContentMap[projectInfoPage].push(headerText);
 
       let yPos = contentStartY + 30;
       doc.setTextColor(0, 0, 0);
       doc.setFontSize(12);
       doc.setFont("helvetica", "bold");
-      doc.text("REPORT DETAILS", contentStartX, yPos);
+      const reportDetailsHeader = "REPORT DETAILS";
+      doc.text(reportDetailsHeader, contentStartX, yPos);
+      pageContentMap[projectInfoPage].push(reportDetailsHeader);
       yPos += 10;
 
       // Add report details sections
       details.forEach((detail: any, index: number) => {
+        const currentPage = doc.getCurrentPageInfo().pageNumber;
+        if (!pageContentMap[currentPage]) pageContentMap[currentPage] = [];
+        
         if (yPos > pageHeight - useMargins.bottom - 10) {
           doc.addPage();
           yPos = contentStartY;
@@ -635,13 +646,16 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
 
         doc.setFontSize(10);
         doc.setFont("helvetica", "bold");
-        doc.text(`${detail.section_number}. ${detail.section_title}`, contentStartX, yPos);
+        const sectionTitle = `${detail.section_number}. ${detail.section_title}`;
+        doc.text(sectionTitle, contentStartX, yPos);
+        pageContentMap[currentPage].push(sectionTitle);
         yPos += 6;
 
         if (detail.section_content) {
           doc.setFont("helvetica", "normal");
           const lines = doc.splitTextToSize(detail.section_content, contentWidth - 4);
           doc.text(lines, contentStartX, yPos);
+          pageContentMap[currentPage].push(detail.section_content);
           yPos += lines.length * 5;
         }
         yPos += 5;
