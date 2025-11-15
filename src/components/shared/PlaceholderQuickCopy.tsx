@@ -120,49 +120,27 @@ export const PlaceholderQuickCopy = ({
       category: "Current Page Content"
     }));
   } else if (extractedTextItems.length > 0) {
-    // Fall back to PDF extraction
-    const lineGroups: Record<number, ExtractedTextItem[]> = {};
-    
-    extractedTextItems.forEach(item => {
-      const lineKey = Math.round(item.y);
-      if (!lineGroups[lineKey]) {
-        lineGroups[lineKey] = [];
-      }
-      lineGroups[lineKey].push(item);
-    });
+    // Use PDF extraction - filter to meaningful text only (3+ characters)
+    pageContentPlaceholders = extractedTextItems
+      .filter(item => item.text.trim().length >= 3) // Only show meaningful text fragments
+      .map((item, index) => ({
+        key: `page-${currentPage}-text-${index}`,
+        placeholder: item.text.trim(),
+        description: `Text at Y: ${Math.round(item.y)}px, X: ${Math.round(item.x)}px`,
+        category: "Current Page Content",
+        y: item.y,
+        x: item.x
+      }))
+      .sort((a, b) => {
+        // Sort by Y position first, then X position
+        const yDiff = a.y - b.y;
+        return Math.abs(yDiff) < 5 ? a.x - b.x : yDiff;
+      });
 
-    pageContentPlaceholders = Object.entries(lineGroups)
-      .map(([yPos, items]) => {
-        const sortedItems = items.sort((a, b) => a.x - b.x);
-        let lineText = '';
-        let prevX = -Infinity;
-        let prevWidth = 0;
-        
-        sortedItems.forEach((item) => {
-          const gap = item.x - (prevX + prevWidth);
-          if (lineText.length > 0 && gap > 3) {
-            lineText += ' ';
-          }
-          lineText += item.text;
-          prevX = item.x;
-          prevWidth = item.width;
-        });
-        
-        return {
-          key: `page-${currentPage}-line-${yPos}`,
-          placeholder: lineText.trim(),
-          description: `Line at ${Math.round(parseFloat(yPos))}px from top`,
-          category: "Current Page Content",
-          y: parseFloat(yPos)
-        };
-      })
-      .filter(item => item.placeholder.length > 0)
-      .sort((a, b) => a.y - b.y);
-
-    console.log(`[PlaceholderQuickCopy] Created ${pageContentPlaceholders.length} text lines from PDF extraction for page ${currentPage}`);
+    console.log(`[PlaceholderQuickCopy] Showing ${pageContentPlaceholders.length} text items from PDF for page ${currentPage}`);
   }
 
-  console.log(`[PlaceholderQuickCopy] Showing ${pageContentPlaceholders.length} placeholders for page ${currentPage}`);
+  console.log(`[PlaceholderQuickCopy] Total placeholders: ${pageContentPlaceholders.length}`);
 
   // Filter by search
   const filteredPageContent = pageContentPlaceholders.filter(item =>
