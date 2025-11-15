@@ -21,14 +21,20 @@ export const PDFPagePreview = ({
   onDocumentLoadError,
 }: PDFPagePreviewProps) => {
   const [loading, setLoading] = useState(true);
+  const [documentLoaded, setDocumentLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<Error | null>(null);
 
   const handleLoadSuccess = ({ numPages }: { numPages: number }) => {
     setLoading(false);
+    setDocumentLoaded(true);
+    setLoadError(null);
     onDocumentLoadSuccess(numPages);
   };
 
   const handleLoadError = (error: Error) => {
     setLoading(false);
+    setDocumentLoaded(false);
+    setLoadError(error);
     console.error('PDF load error:', error);
     onDocumentLoadError(error);
   };
@@ -39,6 +45,17 @@ export const PDFPagePreview = ({
         <div className="text-center">
           <p className="mb-2">No PDF report available</p>
           <p className="text-sm">Generate a report first to edit its template</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="w-full h-full bg-white shadow-lg mx-auto flex items-center justify-center text-muted-foreground">
+        <div className="text-center">
+          <p className="mb-2 text-destructive">Failed to load PDF</p>
+          <p className="text-sm">The PDF file could not be loaded. Please try regenerating the report.</p>
         </div>
       </div>
     );
@@ -67,13 +84,15 @@ export const PDFPagePreview = ({
           standardFontDataUrl: `//unpkg.com/pdfjs-dist@${pdfjs.version}/standard_fonts/`,
         }}
       >
-        <Page
-          pageNumber={currentPage}
-          renderTextLayer={false}
-          renderAnnotationLayer={false}
-          width={793.7} // A4 width in pixels at 96 DPI (210mm)
-          className="shadow-lg"
-        />
+        {documentLoaded && (
+          <Page
+            pageNumber={currentPage}
+            renderTextLayer={false}
+            renderAnnotationLayer={false}
+            width={793.7} // A4 width in pixels at 96 DPI (210mm)
+            className="shadow-lg"
+          />
+        )}
       </Document>
     </div>
   );
