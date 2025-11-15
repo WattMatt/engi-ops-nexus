@@ -67,6 +67,9 @@ export const PlaceholderQuickCopy = ({
     return { category, placeholders: filtered };
   }).filter(({ placeholders }) => placeholders.length > 0);
 
+  // Show page indicator in the header
+  const pageIndicator = pdfUrl && numPages > 0 ? ` - Page ${currentPage} of ${numPages}` : '';
+
   const handleDocumentLoadSuccess = (pages: number) => {
     setNumPages(pages);
   };
@@ -134,7 +137,14 @@ export const PlaceholderQuickCopy = ({
           <Card className="flex-1 flex flex-col overflow-hidden">
             <div className="p-4 border-b border-border space-y-3">
               <div className="flex items-center justify-between">
-                <h3 className="font-semibold text-sm">Placeholders - Page {currentPage}</h3>
+                <div className="flex flex-col">
+                  <h3 className="font-semibold text-sm">Placeholders</h3>
+                  {pdfUrl && numPages > 0 && (
+                    <span className="text-xs text-muted-foreground">
+                      Viewing page {currentPage} of {numPages}
+                    </span>
+                  )}
+                </div>
                 <Button
                   variant="ghost"
                   size="sm"
