@@ -102,8 +102,24 @@ export const CostVariationsManager = ({
         .eq("cost_report_id", reportId);
       if (error) throw error;
       
+      // Fetch line items for all variations
+      const variationsWithLineItems = await Promise.all(
+        (data || []).map(async (variation) => {
+          const { data: lineItems } = await supabase
+            .from("variation_line_items")
+            .select("*")
+            .eq("variation_id", variation.id)
+            .order("line_number");
+          
+          return {
+            ...variation,
+            line_items: lineItems || []
+          };
+        })
+      );
+      
       // Natural sort by code (handles G1, G2, G10 correctly)
-      return (data || []).sort((a, b) => {
+      return variationsWithLineItems.sort((a, b) => {
         const aMatch = a.code.match(/([A-Z]+)(\d+)/);
         const bMatch = b.code.match(/([A-Z]+)(\d+)/);
         
