@@ -96,15 +96,23 @@ export const StandardReportPreview = ({
   };
 
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
-    console.log('[PDF PREVIEW] Document loaded with', numPages, 'pages');
+    console.log('[PDF PREVIEW] Document loaded successfully with', numPages, 'pages');
     setNumPages(numPages);
     setLoading(false);
   };
 
   const onDocumentLoadError = (error: Error) => {
-    console.error("Error loading PDF:", error);
-    toast.error("Failed to load PDF preview");
+    console.error('[PDF PREVIEW] Error loading PDF:', error);
+    toast.error("Failed to load PDF preview. Please try downloading instead.");
     setLoading(false);
+  };
+
+  const onPageLoadSuccess = () => {
+    console.log('[PDF PREVIEW] Page loaded successfully');
+  };
+
+  const onPageLoadError = (error: Error) => {
+    console.error('[PDF PREVIEW] Error loading page:', error);
   };
 
 
@@ -158,6 +166,15 @@ export const StandardReportPreview = ({
                 loading={
                   <div className="flex items-center justify-center p-8">
                     <Loader2 className="w-8 h-8 animate-spin text-primary" />
+                    <p className="ml-2 text-muted-foreground">Loading document...</p>
+                  </div>
+                }
+                error={
+                  <div className="flex flex-col items-center justify-center p-8 text-center">
+                    <p className="text-destructive mb-4">Failed to load PDF preview</p>
+                    <Button onClick={handleDownload} variant="outline">
+                      Download PDF Instead
+                    </Button>
                   </div>
                 }
                 options={{
@@ -174,6 +191,8 @@ export const StandardReportPreview = ({
                       renderAnnotationLayer={false}
                       width={793.7}
                       className="shadow-lg bg-white"
+                      onLoadSuccess={onPageLoadSuccess}
+                      onLoadError={onPageLoadError}
                       loading={
                         <div className="flex items-center justify-center p-8 bg-white shadow-lg" style={{ width: 793.7, height: 1122 }}>
                           <Loader2 className="w-8 h-8 animate-spin text-primary" />
