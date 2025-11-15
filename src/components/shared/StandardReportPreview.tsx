@@ -153,6 +153,8 @@ export const StandardReportPreview = ({
               currentPage={pageNumber}
               totalPages={numPages}
               onPageChange={setPageNumber}
+              reportId={report.id}
+              storageBucket={storageBucket}
             />
           </div>
         </div>
