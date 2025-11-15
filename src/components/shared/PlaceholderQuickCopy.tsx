@@ -4,16 +4,20 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Copy, ChevronDown, ChevronRight, Search } from "lucide-react";
-import { getPlaceholdersByCategory } from "@/utils/templatePlaceholders";
+import { ReportTemplateType, getPlaceholdersByCategory } from "@/utils/reportTemplateSchemas";
 import { useToast } from "@/hooks/use-toast";
 
-export const PlaceholderQuickCopy = () => {
+interface PlaceholderQuickCopyProps {
+  templateType?: ReportTemplateType;
+}
+
+export const PlaceholderQuickCopy = ({ templateType = 'cover_page' }: PlaceholderQuickCopyProps) => {
   const [search, setSearch] = useState("");
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(
     new Set(["Project Information", "Prepared For", "Prepared By"])
   );
   const { toast } = useToast();
-  const placeholdersByCategory = getPlaceholdersByCategory();
+  const placeholdersByCategory = getPlaceholdersByCategory(templateType);
 
   const copyToClipboard = (placeholder: string, description: string) => {
     navigator.clipboard.writeText(placeholder);

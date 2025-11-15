@@ -1,13 +1,15 @@
 import { Button } from "@/components/ui/button";
 import { Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { TEMPLATE_PLACEHOLDERS } from "@/utils/templatePlaceholders";
+import { ReportTemplateType, getPlaceholdersByCategory } from "@/utils/reportTemplateSchemas";
 
 interface TemplateGuideViewProps {
   report: any;
+  templateType?: ReportTemplateType;
 }
 
-export const TemplateGuideView = ({ report }: TemplateGuideViewProps) => {
+export const TemplateGuideView = ({ report, templateType = 'cover_page' }: TemplateGuideViewProps) => {
+  const placeholdersByCategory = getPlaceholdersByCategory(templateType);
   const { toast } = useToast();
 
   const copyToClipboard = (placeholder: string) => {
@@ -59,143 +61,76 @@ export const TemplateGuideView = ({ report }: TemplateGuideViewProps) => {
       <div className="max-w-4xl mx-auto p-8 space-y-8">
         <div className="bg-card border border-border rounded-lg p-6 shadow-sm">
           <h2 className="text-lg font-semibold mb-4 pb-2 border-b border-border">
-            Cover Page Template Guide
+            Template Guide
           </h2>
           <p className="text-sm text-muted-foreground mb-6">
             Click any placeholder to copy it to your clipboard. Use these exact placeholders in your Word template.
           </p>
 
-          {/* Project Information */}
-          <div className="space-y-4 mb-6">
-            <h3 className="text-sm font-semibold text-foreground/80">Project Information</h3>
-            <div className="grid gap-3">
-              <PlaceholderField 
-                label="Project Name" 
-                placeholder="{project_name}"
-                value={report?.projects?.name}
-              />
-              <PlaceholderField 
-                label="Report Title" 
-                placeholder="{report_title}"
-                value={report?.report_name}
-              />
-              <PlaceholderField 
-                label="Report Date" 
-                placeholder="{report_date}"
-                value={new Date().toLocaleDateString()}
-              />
-              <PlaceholderField 
-                label="Current Date" 
-                placeholder="{date}"
-                value={new Date().toLocaleDateString()}
-              />
-              <PlaceholderField 
-                label="Revision Number" 
-                placeholder="{revision}"
-                value="1.0"
-              />
-              <PlaceholderField 
-                label="Subtitle" 
-                placeholder="{subtitle}"
-                value="Cost Report"
-              />
+          {/* Dynamic sections based on template type */}
+          {Object.entries(placeholdersByCategory).map(([category, placeholders]) => (
+            <div key={category} className="space-y-4 mb-6">
+              <h3 className="text-sm font-semibold text-foreground/80">{category}</h3>
+              <div className="grid gap-3">
+                {placeholders.map((placeholder) => (
+                  <PlaceholderField 
+                    key={placeholder.key}
+                    label={placeholder.description}
+                    value={report?.[placeholder.key] || `Example ${placeholder.description}`}
+                    placeholder={`{${placeholder.placeholder.replace(/[{}]/g, '')}}`}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
+          ))}
 
-          {/* Prepared By */}
-          <div className="space-y-4 mb-6">
-            <h3 className="text-sm font-semibold text-foreground/80">Prepared By (Your Company)</h3>
-            <div className="grid gap-3">
-              <PlaceholderField 
-                label="Company Name" 
-                placeholder="{company_name}"
-                value="Your Company"
-              />
-              <PlaceholderField 
-                label="Contact Name" 
-                placeholder="{contact_name}"
-                value="Contact Person"
-              />
-              <PlaceholderField 
-                label="Contact Phone" 
-                placeholder="{contact_phone}"
-                value="+27 123 456 789"
-              />
-            </div>
-          </div>
+          {/* Logo Placeholders Guide */}
+          <div className="mt-8 p-6 bg-primary/5 border border-primary/20 rounded-lg">
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                  💡 Text Placeholders
+                </h3>
+                <p className="text-xs text-muted-foreground">
+                  Use single curly braces <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded text-xs">
+                    {'{placeholder}'}
+                  </code> in your Word template. The system will automatically replace these with actual values when generating PDFs.
+                </p>
+              </div>
 
-          {/* Prepared For */}
-          <div className="space-y-4">
-            <h3 className="text-sm font-semibold text-foreground/80">Prepared For (Client Information)</h3>
-            <div className="grid gap-3">
-              <PlaceholderField 
-                label="Client Company Name" 
-                placeholder="{prepared_for_company}"
-                value="Client Organization"
-              />
-              <PlaceholderField 
-                label="Client Contact Person" 
-                placeholder="{prepared_for_contact}"
-                value="Client Contact"
-              />
-              <PlaceholderField 
-                label="Client Address Line 1" 
-                placeholder="{prepared_for_address}"
-                value="123 Main Street"
-              />
-              <PlaceholderField 
-                label="Client Address Line 2" 
-                placeholder="{prepared_for_address2}"
-                value="Suite 100"
-              />
-              <PlaceholderField 
-                label="Client Phone" 
-                placeholder="{prepared_for_tel}"
-                value="+27 987 654 321"
-              />
-              <PlaceholderField 
-                label="Client Email" 
-                placeholder="{prepared_for_email}"
-                value="client@example.com"
-              />
+              <div>
+                <h3 className="text-sm font-semibold mb-2 flex items-center gap-2">
+                  🖼️ Logo Placeholders
+                </h3>
+                <p className="text-xs text-muted-foreground mb-3">
+                  To add logos in your Word template:
+                </p>
+                <ol className="text-xs text-muted-foreground space-y-2 list-decimal list-inside">
+                  <li>Insert any image in Word (as a placeholder)</li>
+                  <li>Right-click the image → "Edit Alt Text" or "Format Picture"</li>
+                  <li>Set the alt text to one of these exact values:</li>
+                </ol>
+                <div className="mt-3 space-y-2 ml-6">
+                  <div className="flex items-center gap-2">
+                    <code className="text-xs font-mono text-primary bg-primary/10 px-2 py-1 rounded">
+                      company_logo
+                    </code>
+                    <span className="text-xs text-muted-foreground">→ Your company logo</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <code className="text-xs font-mono text-primary bg-primary/10 px-2 py-1 rounded">
+                      client_logo
+                    </code>
+                    <span className="text-xs text-muted-foreground">→ Client logo</span>
+                  </div>
+                </div>
+                <p className="text-xs text-muted-foreground mt-3 italic">
+                  Note: The placeholder image size in Word determines the final logo size in the PDF.
+                </p>
+              </div>
             </div>
           </div>
         </div>
-
-          <div className="bg-primary/5 border border-primary/20 rounded-lg p-4 space-y-3">
-            <div>
-              <h4 className="text-sm font-semibold mb-2">💡 Text Placeholders</h4>
-              <p className="text-xs text-muted-foreground">
-                Use single curly braces <code className="text-primary">{"{placeholder}"}</code> in your Word template. 
-                The system will automatically replace these with actual values when generating PDFs.
-              </p>
-            </div>
-            
-            <div className="border-t border-primary/20 pt-3">
-              <h4 className="text-sm font-semibold mb-2">🖼️ Logo Placeholders</h4>
-              <p className="text-xs text-muted-foreground mb-2">
-                To add logos in your Word template:
-              </p>
-              <ol className="text-xs text-muted-foreground space-y-1 ml-4 list-decimal">
-                <li>Insert any image in Word (as a placeholder)</li>
-                <li>Right-click the image → "Edit Alt Text" or "Format Picture"</li>
-                <li>Set the alt text to one of these exact values:</li>
-              </ol>
-              <div className="mt-2 space-y-1 ml-4">
-                <div className="flex items-center gap-2">
-                  <code className="text-xs font-mono text-primary bg-primary/10 px-2 py-1 rounded">company_logo</code>
-                  <span className="text-xs text-muted-foreground">→ Your company logo</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <code className="text-xs font-mono text-primary bg-primary/10 px-2 py-1 rounded">client_logo</code>
-                  <span className="text-xs text-muted-foreground">→ Client logo</span>
-                </div>
-              </div>
-              <p className="text-xs text-muted-foreground mt-2">
-                The placeholder image size in Word determines the final logo size in the PDF.
-              </p>
-            </div>
-          </div>
       </div>
     </div>
   );
