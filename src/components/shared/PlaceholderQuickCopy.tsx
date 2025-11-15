@@ -73,44 +73,24 @@ export const PlaceholderQuickCopy = ({
     setExtractedTextItems(items);
   };
 
-  // Group extracted text items by visual proximity (same line/area)
-  const groupedTextItems = extractedTextItems.reduce((acc, item) => {
-    const yGroup = Math.floor(item.y / 30) * 30; // Group by 30px vertical proximity
-    const key = `line-${yGroup}`;
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(item);
-    return acc;
-  }, {} as Record<string, ExtractedTextItem[]>);
-
-  // Sort and format grouped items - each line becomes a clickable placeholder
-  const pageContentItems = Object.entries(groupedTextItems)
-    .map(([key, items]) => {
-      const sortedItems = items.sort((a, b) => a.x - b.x);
-      const combinedText = sortedItems.map(i => i.text).join(' ').trim();
-      return {
-        id: key,
-        text: combinedText,
-        y: sortedItems[0].y,
-        items: sortedItems
-      };
-    })
-    .filter(item => item.text.length > 0) // Remove empty lines
-    .sort((a, b) => a.y - b.y);
-
-  console.log(`[PlaceholderQuickCopy] Grouped into ${pageContentItems.length} content items for page ${currentPage}`);
-
-  // Combine static placeholders with extracted page content
-  const currentPagePlaceholders = pageContentItems
-    .filter(item => item.text.toLowerCase().includes(search.toLowerCase()))
+  // Convert extracted text items to individual placeholders - don't group them
+  const pageContentPlaceholders = extractedTextItems
+    .filter(item => item.text.trim().length > 0) // Remove empty items
+    .filter(item => 
+      search.length === 0 || item.text.toLowerCase().includes(search.toLowerCase())
+    )
     .map((item, index) => ({
-      key: `page-${currentPage}-${item.id}`,
+      key: `page-${currentPage}-text-${index}`,
       placeholder: item.text,
-      description: `Line ${index + 1} from page ${currentPage}`,
+      description: `Position: (${Math.round(item.x)}, ${Math.round(item.y)}) - ${item.fontSize.toFixed(1)}pt`,
       category: "Current Page Content"
     }));
 
+  console.log(`[PlaceholderQuickCopy] Showing ${pageContentPlaceholders.length} individual text items for page ${currentPage}`);
+
+  // Combine static placeholders with extracted page content
   const allCategories: Record<string, any[]> = {
-    ...(currentPagePlaceholders.length > 0 ? { "Current Page Content": currentPagePlaceholders } : {}),
+    ...(pageContentPlaceholders.length > 0 ? { "Current Page Content": pageContentPlaceholders } : {}),
     ...placeholdersByCategory
   };
 
