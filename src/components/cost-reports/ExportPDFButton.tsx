@@ -691,13 +691,29 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           ['Original Variance', `R ${Math.abs(originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })} (${originalVariancePercentage.toFixed(2)}%)`]
         ],
         theme: 'grid',
-        styles: { fontSize: 10, cellPadding: 5, overflow: 'linebreak', valign: 'middle' },
+        styles: { 
+          fontSize: 10, 
+          cellPadding: 5, 
+          overflow: 'linebreak', 
+          valign: 'middle',
+          lineColor: [200, 200, 200],
+          lineWidth: 0.1
+        },
         headStyles: { 
           fillColor: [30, 58, 138], 
           textColor: [255, 255, 255], 
           fontStyle: 'bold',
           overflow: 'linebreak',
-          valign: 'middle'
+          valign: 'middle',
+          halign: 'left'
+        },
+        columnStyles: {
+          0: { cellWidth: 70, halign: 'left' },
+          1: { cellWidth: 'auto', halign: 'right' }
+        },
+        didParseCell: function(data) {
+          // Ensure text is rendered as single strings
+          data.cell.styles.cellPadding = 5;
         }
       });
 
