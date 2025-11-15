@@ -1,10 +1,10 @@
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Download, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { Download, Loader2 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { PlaceholderQuickCopy } from "./PlaceholderQuickCopy";
+import { PDFPagePreview } from "@/components/pdf-editor/PDFPagePreview";
 
 // Configure PDF.js worker
 import { pdfjs } from 'react-pdf';
@@ -146,15 +146,12 @@ export const StandardReportPreview = ({
           </div>
 
           {/* Content */}
-          <div className="flex-1 overflow-hidden">
-            <PlaceholderQuickCopy 
-              templateType={reportType as any}
+          <div className="flex-1 overflow-hidden flex items-center justify-center bg-muted/30">
+            <PDFPagePreview
               pdfUrl={pdfUrl}
               currentPage={pageNumber}
-              totalPages={numPages}
-              onPageChange={setPageNumber}
-              reportId={report.id}
-              storageBucket={storageBucket}
+              onDocumentLoadSuccess={onDocumentLoadSuccess}
+              onDocumentLoadError={onDocumentLoadError}
             />
           </div>
         </div>
