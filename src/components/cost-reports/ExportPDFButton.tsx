@@ -158,9 +158,16 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       // Wrap doc.text to capture all content
       const originalText = doc.text.bind(doc);
       (doc as any).text = function(...args: any[]) {
-        const textContent = typeof args[0] === 'string' ? args[0] : 
-                           Array.isArray(args[0]) ? args[0].join(' ') : '';
-        trackPageContent(doc, textContent);
+        let textContent = '';
+        if (typeof args[0] === 'string') {
+          textContent = args[0];
+        } else if (Array.isArray(args[0])) {
+          // Join array elements without adding spaces - preserve original formatting
+          textContent = args[0].join('');
+        }
+        if (textContent.trim()) {
+          trackPageContent(doc, textContent);
+        }
         return originalText(...args);
       };
       
