@@ -70,69 +70,65 @@ export const PlaceholderQuickCopy = ({
 
   const handleTextExtracted = (items: ExtractedTextItem[]) => {
     console.log(`[PlaceholderQuickCopy] Received ${items.length} extracted text items for page ${currentPage}`);
+    if (items.length > 0) {
+      console.log('[PlaceholderQuickCopy] Sample items:', items.slice(0, 5));
+    }
     setExtractedTextItems(items);
   };
 
-  // Group text items by line (same Y position) and then merge close X positions into words
-  const groupedByLine = extractedTextItems.reduce((acc, item) => {
-    const yGroup = Math.round(item.y / 5) * 5; // Group by 5px vertical proximity
-    const key = `line-${yGroup}`;
-    if (!acc[key]) acc[key] = [];
-    acc[key].push(item);
-    return acc;
-  }, {} as Record<string, ExtractedTextItem[]>);
-
-  // For each line, merge text items that are close together (same word)
-  const pageContentPlaceholders: any[] = [];
-  Object.entries(groupedByLine).forEach(([lineKey, items]) => {
-    // Sort by X position
-    const sortedItems = items.sort((a, b) => a.x - b.x);
-    
-    let currentWord = '';
-    let currentX = 0;
-    let currentY = sortedItems[0]?.y || 0;
-    let wordStartIndex = 0;
-    
-    sortedItems.forEach((item, index) => {
-      const gap = item.x - (currentX + (currentWord.length > 0 ? 10 : 0)); // Allow 10px gap within words
-      
-      if (currentWord === '' || gap < 15) {
-        // Continue building current word
-        currentWord += item.text;
-        currentX = item.x + item.width;
-      } else {
-        // Save current word and start new one
-        if (currentWord.trim().length > 0) {
-          pageContentPlaceholders.push({
-            key: `page-${currentPage}-${lineKey}-word-${wordStartIndex}`,
-            placeholder: currentWord.trim(),
-            description: `Position: (${Math.round(currentY)}px from top)`,
-            category: "Current Page Content"
-          });
-        }
-        currentWord = item.text;
-        currentX = item.x + item.width;
-        wordStartIndex = index;
-      }
-    });
-    
-    // Add last word
-    if (currentWord.trim().length > 0) {
-      pageContentPlaceholders.push({
-        key: `page-${currentPage}-${lineKey}-word-final`,
-        placeholder: currentWord.trim(),
-        description: `Position: (${Math.round(currentY)}px from top)`,
-        category: "Current Page Content"
-      });
+  // Group text items by Y position (same line), then sort by X and concatenate
+  const lineGroups: Record<number, ExtractedTextItem[]> = {};
+  
+  extractedTextItems.forEach(item => {
+    const lineKey = Math.round(item.y / 3) * 3; // Group items within 3px vertically
+    if (!lineGroups[lineKey]) {
+      lineGroups[lineKey] = [];
     }
+    lineGroups[lineKey].push(item);
   });
+
+  // Convert line groups to text strings
+  const pageContentPlaceholders = Object.entries(lineGroups)
+    .map(([yPos, items]) => {
+      // Sort items left to right
+      const sortedItems = items.sort((a, b) => a.x - b.x);
+      
+      // Concatenate text with smart spacing
+      let fullText = '';
+      let lastX = -1000;
+      
+      sortedItems.forEach(item => {
+        const gap = item.x - lastX;
+        
+        // Add space if gap is large enough (likely separate words)
+        if (fullText && gap > 5) {
+          fullText += ' ';
+        }
+        
+        fullText += item.text;
+        lastX = item.x + item.width;
+      });
+      
+      return {
+        key: `page-${currentPage}-y-${yPos}`,
+        placeholder: fullText.trim(),
+        description: `Line at ${Math.round(parseFloat(yPos))}px`,
+        category: "Current Page Content",
+        y: parseFloat(yPos)
+      };
+    })
+    .filter(item => item.placeholder.length > 0)
+    .sort((a, b) => a.y - b.y); // Sort top to bottom
+
+  console.log(`[PlaceholderQuickCopy] Created ${pageContentPlaceholders.length} text lines for page ${currentPage}`);
+  if (pageContentPlaceholders.length > 0) {
+    console.log('[PlaceholderQuickCopy] Sample lines:', pageContentPlaceholders.slice(0, 3));
+  }
 
   // Filter by search
   const filteredPageContent = pageContentPlaceholders.filter(item =>
     search.length === 0 || item.placeholder.toLowerCase().includes(search.toLowerCase())
   );
-
-  console.log(`[PlaceholderQuickCopy] Grouped into ${filteredPageContent.length} words for page ${currentPage}`);
 
   // Combine static placeholders with extracted page content
   const allCategories: Record<string, any[]> = {
