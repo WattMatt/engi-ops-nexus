@@ -1178,6 +1178,7 @@ export type Database = {
           generated_by: string | null
           id: string
           notes: string | null
+          page_content_map: Json | null
           project_id: string
           revision: string | null
         }
@@ -1190,6 +1191,7 @@ export type Database = {
           generated_by?: string | null
           id?: string
           notes?: string | null
+          page_content_map?: Json | null
           project_id: string
           revision?: string | null
         }
@@ -1202,6 +1204,7 @@ export type Database = {
           generated_by?: string | null
           id?: string
           notes?: string | null
+          page_content_map?: Json | null
           project_id?: string
           revision?: string | null
         }

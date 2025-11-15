@@ -74,6 +74,10 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
   const handleExport = async (useMargins: PDFMargins = margins, useSections: PDFSectionOptions = sections, skipValidation: boolean = false, contactId: string = selectedContactId) => {
     setLoading(true);
     setCurrentSection("Fetching data...");
+    
+    // Initialize page content map to track what goes on each page
+    const pageContentMap: Record<number, string[]> = {};
+    
     try {
       // Fetch all data
       const [categoriesResult, variationsResult, detailsResult, allLineItemsResult] = await Promise.all([
