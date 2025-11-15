@@ -121,6 +121,10 @@ export async function fetchCompanyDetails(): Promise<CompanyDetails> {
 
 /**
  * Create placeholder data from report options and company details
+ * 
+ * IMPORTANT: Image placeholders (logos) are NOT supported via text replacement.
+ * Your Word template must have actual logo images already embedded in the document.
+ * Only text placeholders like {{project_name}}, {{date}}, etc. will be replaced.
  */
 function createPlaceholderData(
   options: CoverPageOptions,
@@ -164,6 +168,9 @@ function createPlaceholderData(
     prepared_for_email: preparedForEmail,
     prepared_for_contact: preparedForContact,
   };
+  // NOTE: We do NOT include logo URLs here because docxtemplater cannot
+  // insert images from URLs without additional paid modules.
+  // Logos must be pre-embedded as actual images in the Word template.
 }
 
 /**
