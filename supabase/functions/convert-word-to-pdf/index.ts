@@ -104,7 +104,8 @@ Deno.serve(async (req) => {
         .from('document-templates')
         .getPublicUrl(tempFilePath);
       
-      finalTemplateUrl = publicUrl;
+      // Decode the URL to prevent double-encoding issues with CloudConvert
+      finalTemplateUrl = decodeURIComponent(publicUrl);
       console.log('Filled template uploaded to:', finalTemplateUrl);
     }
 
