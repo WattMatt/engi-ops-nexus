@@ -34,11 +34,17 @@ Deno.serve(async (req) => {
 
     const { templateUrl, templateId, placeholderData }: ConversionRequest = await req.json();
 
-    // Extract fileName from URL
+    // Extract fileName from URL and sanitize it (remove spaces and special chars)
     const urlParts = templateUrl.split('/');
-    const fileName = urlParts[urlParts.length - 1];
+    const originalFileName = decodeURIComponent(urlParts[urlParts.length - 1]);
+    const fileName = originalFileName.replace(/\s+/g, '_'); // Replace spaces with underscores
 
-    console.log('Starting Word to PDF conversion:', { fileName, templateId, hasPlaceholderData: !!placeholderData });
+    console.log('Starting Word to PDF conversion:', { 
+      originalFileName, 
+      sanitizedFileName: fileName, 
+      templateId, 
+      hasPlaceholderData: !!placeholderData 
+    });
     console.log('Template URL:', templateUrl);
     console.log('Placeholder data:', placeholderData);
 
@@ -83,9 +89,10 @@ Deno.serve(async (req) => {
         compression: 'DEFLATE',
       });
       
-      // Step 4: Upload the filled document to temporary storage
+      // Step 4: Upload the filled document to temporary storage with sanitized filename
       const timestamp = Date.now();
-      tempFilePath = `temp/${timestamp}-filled-${fileName}`;
+      const sanitizedFileName = fileName.replace(/\s+/g, '_');
+      tempFilePath = `temp/${timestamp}-filled-${sanitizedFileName}`;
       
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('document-templates')
@@ -104,8 +111,8 @@ Deno.serve(async (req) => {
         .from('document-templates')
         .getPublicUrl(tempFilePath);
       
-      // Decode the URL to prevent double-encoding issues with CloudConvert
-      finalTemplateUrl = decodeURIComponent(publicUrl);
+      // Use the URL as-is (it's already properly encoded by Supabase)
+      finalTemplateUrl = publicUrl;
       console.log('Filled template uploaded to:', finalTemplateUrl);
     }
 
