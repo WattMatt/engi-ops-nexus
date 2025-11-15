@@ -9,7 +9,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Plus, Trash2, Save, Edit, Trash } from "lucide-react";
+import { Plus, Trash2, Save, Edit, Trash, FileSpreadsheet } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
@@ -24,6 +24,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { EditVariationDialog } from "./EditVariationDialog";
+import * as XLSX from "xlsx";
 
 interface VariationSheetDialogProps {
   open: boolean;
@@ -287,9 +288,78 @@ export const VariationSheetDialog = ({
   };
 
   const total = lineItems.reduce((sum, item) => sum + item.amount, 0);
-  // Determine the actual sign based on the calculated total
   const isNegative = total < 0;
   const displayTotal = total;
+
+  const exportToExcel = () => {
+    const wb = XLSX.utils.book_new();
+    
+    // Create worksheet data matching your Excel format
+    const wsData: any[][] = [
+      ["TENANT ACCOUNT"],
+      [],
+      [],
+      [],
+      [],
+      ["PROJECT:", "", costReport?.project_name || "", "", "", "DATE:", "", costReport?.report_date ? new Date(costReport.report_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }) : ""],
+      [],
+      ["VARIATION ORDER NO.:", "", variation?.code || "", "", "", "REVISION:", "", "0"],
+      [],
+      [variation?.tenants ? `${variation.tenants.shop_number} - ${variation.tenants.shop_name}` : variation?.description || ""],
+      [],
+      [],
+      [],
+      ["NO", "DESCRIPTION", "COMMENTS/ DETAIL", "", "", "QTY:", "RATE:", "AMOUNT:"],
+      []
+    ];
+
+    // Add line items
+    lineItems.forEach(item => {
+      wsData.push([
+        item.line_number,
+        item.description,
+        item.comments,
+        "",
+        "",
+        item.quantity,
+        `R${parseFloat(item.rate).toFixed(2)}`,
+        `R${item.amount.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+      ]);
+      wsData.push([]); // Empty row after each item
+    });
+
+    // Add empty rows before total
+    for (let i = 0; i < 10; i++) {
+      wsData.push([]);
+    }
+
+    // Add total
+    wsData.push(["", "", "", "", "", "", "TOTAL ADDITIONAL WORKS EXCLUSIVE OF VAT", `R${displayTotal.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`]);
+
+    const ws = XLSX.utils.aoa_to_sheet(wsData);
+
+    // Set column widths
+    ws['!cols'] = [
+      { wch: 5 },   // NO
+      { wch: 40 },  // DESCRIPTION
+      { wch: 20 },  // COMMENTS
+      { wch: 3 },   // empty
+      { wch: 3 },   // empty
+      { wch: 10 },  // QTY
+      { wch: 12 },  // RATE
+      { wch: 15 }   // AMOUNT
+    ];
+
+    XLSX.utils.book_append_sheet(wb, ws, "Variation Sheet");
+    
+    const fileName = `${variation?.code || 'Variation'}_${variation?.tenants?.shop_name || 'Sheet'}.xlsx`;
+    XLSX.writeFile(wb, fileName);
+    
+    toast({
+      title: "Success",
+      description: "Excel file exported successfully",
+    });
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -298,6 +368,14 @@ export const VariationSheetDialog = ({
           <div className="flex items-center justify-between">
             <DialogTitle>Variation Sheet - {variation?.code}</DialogTitle>
             <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={exportToExcel}
+              >
+                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                Export Excel
+              </Button>
               <Button
                 size="sm"
                 variant="outline"
