@@ -80,7 +80,7 @@ export const PlaceholderQuickCopy = ({
   const lineGroups: Record<number, ExtractedTextItem[]> = {};
   
   extractedTextItems.forEach(item => {
-    const lineKey = Math.round(item.y / 3) * 3; // Group items within 3px vertically
+    const lineKey = Math.round(item.y / 2) * 2; // Group items within 2px vertically
     if (!lineGroups[lineKey]) {
       lineGroups[lineKey] = [];
     }
@@ -95,24 +95,31 @@ export const PlaceholderQuickCopy = ({
       
       // Concatenate text with smart spacing
       let fullText = '';
-      let lastX = -1000;
+      let lastEndX = 0;
       
-      sortedItems.forEach(item => {
-        const gap = item.x - lastX;
-        
-        // Add space if gap is large enough (likely separate words)
-        if (fullText && gap > 5) {
-          fullText += ' ';
+      sortedItems.forEach((item, index) => {
+        if (index === 0) {
+          fullText = item.text;
+          lastEndX = item.x + item.width;
+        } else {
+          // Calculate gap from end of last character to start of this one
+          const gap = item.x - lastEndX;
+          const avgCharWidth = item.width / item.text.length;
+          
+          // If gap is more than half a character width, add a space
+          if (gap > avgCharWidth * 0.5) {
+            fullText += ' ';
+          }
+          
+          fullText += item.text;
+          lastEndX = item.x + item.width;
         }
-        
-        fullText += item.text;
-        lastX = item.x + item.width;
       });
       
       return {
         key: `page-${currentPage}-y-${yPos}`,
         placeholder: fullText.trim(),
-        description: `Line at ${Math.round(parseFloat(yPos))}px`,
+        description: `Line at ${Math.round(parseFloat(yPos))}px from top`,
         category: "Current Page Content",
         y: parseFloat(yPos)
       };
@@ -122,7 +129,7 @@ export const PlaceholderQuickCopy = ({
 
   console.log(`[PlaceholderQuickCopy] Created ${pageContentPlaceholders.length} text lines for page ${currentPage}`);
   if (pageContentPlaceholders.length > 0) {
-    console.log('[PlaceholderQuickCopy] Sample lines:', pageContentPlaceholders.slice(0, 3));
+    console.log('[PlaceholderQuickCopy] Sample lines:', pageContentPlaceholders.slice(0, 5).map(p => p.placeholder));
   }
 
   // Filter by search
