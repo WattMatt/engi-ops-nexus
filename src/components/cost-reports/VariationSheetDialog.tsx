@@ -318,114 +318,116 @@ export const VariationSheetDialog = ({
           </div>
         </DialogHeader>
 
-        {/* Header Section */}
-        <Card className="p-6 bg-cyan-50 dark:bg-cyan-950/20">
-          <div className="space-y-4">
-            <div className="text-center">
-              <h2 className="text-2xl font-bold text-cyan-600">
-                {variation?.is_credit 
-                  ? (variation?.tenants ? "TENANT CREDIT" : "CREDIT NOTE")
-                  : (variation?.tenants ? "TENANT VARIATION ORDER" : "VARIATION ORDER")
-                }
-              </h2>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-sm font-semibold">PROJECT:</Label>
-                <p className="font-medium">{costReport?.project_name}</p>
-              </div>
-              <div>
-                <Label className="text-sm font-semibold">DATE:</Label>
-                <p className="font-medium">
-                  {costReport?.report_date
-                    ? new Date(costReport.report_date).toLocaleDateString()
-                    : ""}
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label className="text-sm font-semibold">VARIATION ORDER NO.:</Label>
-                <p className="font-medium">{variation?.code}</p>
-              </div>
-              <div>
-                <Label className="text-sm font-semibold">REVISION:</Label>
-                <p className="font-medium">0</p>
-              </div>
-            </div>
-
-            {variation?.tenants && (
-              <div className="bg-black text-white p-2 text-center font-bold">
-                TENANT: {variation.tenants.shop_number} - {variation.tenants.shop_name}
-              </div>
-            )}
+        {/* Professional Header Section */}
+        <div className="space-y-4 border-b pb-6">
+          <div className="text-center border-b-2 border-foreground pb-2">
+            <h2 className="text-lg font-bold uppercase">
+              WATSON MATTHEUS CONSULTING ELECTRICAL ENGINEERS (PTY) LTD
+            </h2>
+            <p className="text-sm text-muted-foreground">CREATED BY: Arno Mattheus</p>
           </div>
-        </Card>
+
+          <div className="text-center py-2">
+            <h3 className="text-xl font-bold uppercase">
+              {variation?.description || "TENANT ACCOUNT"}
+            </h3>
+          </div>
+
+          <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
+            <div>
+              <span className="font-bold">PROJECT: </span>
+              <span>{costReport?.project_name}</span>
+            </div>
+            <div>
+              <span className="font-bold">DATE: </span>
+              <span>
+                {costReport?.report_date
+                  ? new Date(costReport.report_date).toLocaleDateString('en-GB', {
+                      day: '2-digit',
+                      month: 'short',
+                      year: '2-digit'
+                    })
+                  : ""}
+              </span>
+            </div>
+            <div>
+              <span className="font-bold">VARIATION ORDER NO.: </span>
+              <span>{variation?.code}</span>
+            </div>
+            <div>
+              <span className="font-bold">REVISION: </span>
+              <span>0</span>
+            </div>
+          </div>
+
+          {variation?.tenants && (
+            <div className="text-center py-1">
+              <h4 className="text-base font-bold uppercase">
+                {variation.tenants.shop_number} - {variation.tenants.shop_name}
+              </h4>
+            </div>
+          )}
+        </div>
 
         {/* Line Items Table */}
         <div className="space-y-4">
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
+            <table className="w-full border-collapse border border-border">
               <thead>
-                <tr className="bg-muted">
-                  <th className="border p-2 text-left w-12">NO</th>
-                  <th className="border p-2 text-left">DESCRIPTION</th>
-                  <th className="border p-2 text-left">COMMENTS/DETAIL</th>
-                  <th className="border p-2 text-right w-24">QTY</th>
-                  <th className="border p-2 text-right w-32">RATE</th>
-                  <th className="border p-2 text-right w-40">AMOUNT</th>
-                  <th className="border p-2 w-12"></th>
+                <tr className="bg-muted/50">
+                  <th className="border border-border p-2 text-left font-bold text-sm w-12">NO</th>
+                  <th className="border border-border p-2 text-left font-bold text-sm">DESCRIPTION</th>
+                  <th className="border border-border p-2 text-left font-bold text-sm">COMMENTS/ DETAIL</th>
+                  <th className="border border-border p-2 text-right font-bold text-sm w-24">QTY:</th>
+                  <th className="border border-border p-2 text-right font-bold text-sm w-32">RATE:</th>
+                  <th className="border border-border p-2 text-right font-bold text-sm w-40">AMOUNT:</th>
+                  <th className="border border-border p-2 w-12"></th>
                 </tr>
               </thead>
               <tbody>
                 {lineItems.map((item, index) => (
-                  <tr key={index}>
-                    <td className="border p-2 text-center">{item.line_number}</td>
-                    <td className="border p-2">
+                  <tr key={index} className="hover:bg-muted/30">
+                    <td className="border border-border p-2 text-center font-medium">{item.line_number}</td>
+                    <td className="border border-border p-2">
                       <Input
                         value={item.description}
                         onChange={(e) => updateLineItem(index, "description", e.target.value)}
                         placeholder="Description"
-                        className="h-8"
+                        className="h-9 border-0 focus-visible:ring-0 bg-transparent"
                       />
                     </td>
-                    <td className="border p-2">
+                    <td className="border border-border p-2">
                       <Input
                         value={item.comments}
                         onChange={(e) => updateLineItem(index, "comments", e.target.value)}
                         placeholder="Comments"
-                        className="h-8"
+                        className="h-9 border-0 focus-visible:ring-0 bg-transparent"
                       />
                     </td>
-                    <td className="border p-2">
+                    <td className="border border-border p-2">
                       <Input
                         type="number"
                         value={item.quantity}
                         onChange={(e) => updateLineItem(index, "quantity", e.target.value)}
-                        className="h-8 text-right"
+                        className="h-9 text-right border-0 focus-visible:ring-0 bg-transparent"
                       />
                     </td>
-                    <td className="border p-2">
+                    <td className="border border-border p-2">
                       <Input
                         type="number"
                         step="0.01"
                         value={item.rate}
                         onChange={(e) => updateLineItem(index, "rate", e.target.value)}
-                        className="h-8 text-right"
+                        className="h-9 text-right border-0 focus-visible:ring-0 bg-transparent"
                       />
                     </td>
-                    <td className="border p-2 text-right font-medium">
-                      {item.amount < 0 ? "-" : ""}R
-                      {Math.abs(item.amount).toLocaleString("en-ZA", {
-                        minimumFractionDigits: 2,
-                      })}
+                    <td className="border border-border p-2 text-right font-medium">
+                      R{item.amount.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
-                    <td className="border p-2">
+                    <td className="border border-border p-2 text-center">
                       <Button
-                        size="sm"
                         variant="ghost"
+                        size="sm"
                         onClick={() => removeLineItem(index)}
                         disabled={lineItems.length === 1}
                         className="h-8 w-8 p-0"
@@ -445,20 +447,17 @@ export const VariationSheetDialog = ({
           </Button>
         </div>
 
-        {/* Total */}
-        <Card className="p-4 bg-cyan-400 dark:bg-cyan-600">
-          <div className="flex justify-between items-center">
-            <span className="font-bold text-black dark:text-white">
-              TOTAL ADDITIONAL WORKS EXCLUSIVE OF VAT
-            </span>
-            <span className="text-xl font-bold text-black dark:text-white">
-              {isNegative ? "-" : "+"}R
-              {Math.abs(displayTotal).toLocaleString("en-ZA", {
-                minimumFractionDigits: 2,
-              })}
-            </span>
+        {/* Total Section */}
+        <div className="flex justify-end pt-4 border-t-2 border-foreground">
+          <div className="text-right space-y-1">
+            <div className="text-sm font-bold uppercase">
+              Total Additional Works Exclusive of VAT
+            </div>
+            <div className="text-2xl font-bold">
+              R{displayTotal.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </div>
           </div>
-        </Card>
+        </div>
 
         {/* Actions */}
         <div className="flex justify-end gap-2">
