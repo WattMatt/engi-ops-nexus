@@ -69,23 +69,24 @@ export const PlaceholderQuickCopy = ({
   };
 
   const handleTextExtracted = (items: ExtractedTextItem[]) => {
+    console.log(`[PlaceholderQuickCopy] Received ${items.length} extracted text items for page ${currentPage}`);
     setExtractedTextItems(items);
   };
 
   // Group extracted text items by visual proximity (same line/area)
   const groupedTextItems = extractedTextItems.reduce((acc, item) => {
-    const yGroup = Math.floor(item.y / 20) * 20; // Group by 20px vertical proximity
+    const yGroup = Math.floor(item.y / 30) * 30; // Group by 30px vertical proximity
     const key = `line-${yGroup}`;
     if (!acc[key]) acc[key] = [];
     acc[key].push(item);
     return acc;
   }, {} as Record<string, ExtractedTextItem[]>);
 
-  // Sort and format grouped items
+  // Sort and format grouped items - each line becomes a clickable placeholder
   const pageContentItems = Object.entries(groupedTextItems)
     .map(([key, items]) => {
       const sortedItems = items.sort((a, b) => a.x - b.x);
-      const combinedText = sortedItems.map(i => i.text).join(' ');
+      const combinedText = sortedItems.map(i => i.text).join(' ').trim();
       return {
         id: key,
         text: combinedText,
@@ -93,26 +94,31 @@ export const PlaceholderQuickCopy = ({
         items: sortedItems
       };
     })
+    .filter(item => item.text.length > 0) // Remove empty lines
     .sort((a, b) => a.y - b.y);
 
+  console.log(`[PlaceholderQuickCopy] Grouped into ${pageContentItems.length} content items for page ${currentPage}`);
+
   // Combine static placeholders with extracted page content
-  const allCategories = {
-    "Current Page Content": pageContentItems.filter(item => 
-      item.text.toLowerCase().includes(search.toLowerCase())
-    ).map(item => ({
-      key: item.id,
+  const currentPagePlaceholders = pageContentItems
+    .filter(item => item.text.toLowerCase().includes(search.toLowerCase()))
+    .map((item, index) => ({
+      key: `page-${currentPage}-${item.id}`,
       placeholder: item.text,
-      description: `Text at position (${Math.round(item.y)}px)`,
+      description: `Line ${index + 1} from page ${currentPage}`,
       category: "Current Page Content"
-    })),
+    }));
+
+  const allCategories: Record<string, any[]> = {
+    ...(currentPagePlaceholders.length > 0 ? { "Current Page Content": currentPagePlaceholders } : {}),
     ...placeholdersByCategory
   };
 
   const filteredCategories = Object.entries(allCategories).map(([category, placeholders]) => {
     const filtered = Array.isArray(placeholders) ? placeholders.filter(
       (p: any) =>
-        p.placeholder.toLowerCase().includes(search.toLowerCase()) ||
-        p.description.toLowerCase().includes(search.toLowerCase())
+        p.placeholder?.toLowerCase().includes(search.toLowerCase()) ||
+        p.description?.toLowerCase().includes(search.toLowerCase())
     ) : [];
     return { category, placeholders: filtered };
   }).filter(({ placeholders }) => placeholders.length > 0);
