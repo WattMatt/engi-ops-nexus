@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Document, Page, pdfjs } from "react-pdf";
 import { Loader2 } from "lucide-react";
 import "react-pdf/dist/Page/AnnotationLayer.css";
@@ -23,8 +23,11 @@ export const PDFPagePreview = ({
   const [loading, setLoading] = useState(true);
   const [documentLoaded, setDocumentLoaded] = useState(false);
   const [loadError, setLoadError] = useState<Error | null>(null);
+  const [numPagesInternal, setNumPagesInternal] = useState<number>(0);
 
   const handleLoadSuccess = ({ numPages }: { numPages: number }) => {
+    console.log('[PDFPagePreview] Document loaded successfully with', numPages, 'pages');
+    setNumPagesInternal(numPages);
     setLoading(false);
     setDocumentLoaded(true);
     setLoadError(null);
@@ -32,12 +35,21 @@ export const PDFPagePreview = ({
   };
 
   const handleLoadError = (error: Error) => {
+    console.error('[PDFPagePreview] PDF load error:', error);
     setLoading(false);
     setDocumentLoaded(false);
     setLoadError(error);
-    console.error('PDF load error:', error);
+    setNumPagesInternal(0);
     onDocumentLoadError(error);
   };
+
+  // Reset state when URL changes
+  useEffect(() => {
+    setLoading(true);
+    setDocumentLoaded(false);
+    setLoadError(null);
+    setNumPagesInternal(0);
+  }, [pdfUrl]);
 
   if (!pdfUrl) {
     return (
@@ -85,9 +97,9 @@ export const PDFPagePreview = ({
           standardFontDataUrl: `//unpkg.com/pdfjs-dist@${pdfjs.version}/standard_fonts/`,
         }}
       >
-        {documentLoaded && !loadError && (
+        {documentLoaded && !loadError && numPagesInternal > 0 && currentPage <= numPagesInternal && (
           <Page
-            key={`page-${currentPage}`}
+            key={`page-${currentPage}-${pdfUrl}`}
             pageNumber={currentPage}
             renderTextLayer={false}
             renderAnnotationLayer={false}
@@ -103,6 +115,9 @@ export const PDFPagePreview = ({
                 <p>Failed to load page</p>
               </div>
             }
+            onLoadError={(error) => {
+              console.error('[PDFPagePreview] Page load error:', error);
+            }}
           />
         )}
       </Document>
