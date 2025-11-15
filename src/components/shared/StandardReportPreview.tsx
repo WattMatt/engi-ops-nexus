@@ -61,6 +61,7 @@ export const StandardReportPreview = ({
       const cacheBustedUrl = `${data.publicUrl}?t=${Date.now()}`;
       console.log('[PDF PREVIEW] Loading PDF with cache-busting:', cacheBustedUrl);
       setPdfUrl(cacheBustedUrl);
+      setLoading(false); // URL is ready, let Document component handle its own loading
     } catch (error) {
       console.error('Preview error:', error);
       toast.error('Failed to load PDF preview');
@@ -98,13 +99,11 @@ export const StandardReportPreview = ({
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
     console.log('[PDF PREVIEW] Document loaded successfully with', numPages, 'pages');
     setNumPages(numPages);
-    setLoading(false);
   };
 
   const onDocumentLoadError = (error: Error) => {
     console.error('[PDF PREVIEW] Error loading PDF:', error);
     toast.error("Failed to load PDF preview. Please try downloading instead.");
-    setLoading(false);
   };
 
   const onPageLoadSuccess = () => {
@@ -152,13 +151,7 @@ export const StandardReportPreview = ({
         {/* Content - Scrollable area with all pages */}
         <div className="flex-1 overflow-auto bg-muted/30 p-4">
           <div className="flex flex-col items-center gap-4">
-            {loading && (
-              <div className="flex items-center justify-center h-64">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
-              </div>
-            )}
-            
-            {!loading && pdfUrl && (
+            {pdfUrl && (
               <Document
                 file={pdfUrl}
                 onLoadSuccess={onDocumentLoadSuccess}
