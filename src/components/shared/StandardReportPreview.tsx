@@ -166,7 +166,7 @@ export const StandardReportPreview = ({
                   standardFontDataUrl: `//unpkg.com/pdfjs-dist@${pdfjs.version}/standard_fonts/`,
                 }}
               >
-                {Array.from(new Array(numPages), (el, index) => (
+                {numPages > 0 && Array.from(new Array(numPages), (el, index) => (
                   <div key={`page_${index + 1}`} className="mb-4">
                     <Page
                       pageNumber={index + 1}
