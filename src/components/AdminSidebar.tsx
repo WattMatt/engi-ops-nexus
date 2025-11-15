@@ -19,6 +19,7 @@ const adminItems = [
   { title: "User Management", url: "/admin/users", icon: Users },
   { title: "Backup & Recovery", url: "/admin/backup", icon: Database },
   { title: "Document Templates", url: "/admin/document-templates", icon: FileText },
+  { title: "Report Templates", url: "/admin/report-templates", icon: FileText },
   { title: "Feedback", url: "/admin/feedback", icon: MessageSquareWarning },
   { title: "Feedback Analytics", url: "/admin/feedback-analytics", icon: BarChart3 },
   { title: "Settings", url: "/admin/settings", icon: Settings },
