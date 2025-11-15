@@ -29,6 +29,7 @@ export const PDFPagePreview = ({
 
   const handleLoadError = (error: Error) => {
     setLoading(false);
+    console.error('PDF load error:', error);
     onDocumentLoadError(error);
   };
 
@@ -60,6 +61,11 @@ export const PDFPagePreview = ({
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
           </div>
         }
+        options={{
+          cMapUrl: `//unpkg.com/pdfjs-dist@${pdfjs.version}/cmaps/`,
+          cMapPacked: true,
+          standardFontDataUrl: `//unpkg.com/pdfjs-dist@${pdfjs.version}/standard_fonts/`,
+        }}
       >
         <Page
           pageNumber={currentPage}
