@@ -117,6 +117,14 @@ export default function DocumentTemplates() {
       const placeholders = getTemplatePlaceholders(newTemplate.template_type);
       const placeholderJson = JSON.parse(JSON.stringify(placeholders));
 
+      // If marking as default cover page, unset other defaults first
+      if (newTemplate.is_default && newTemplate.template_type === 'cover_page') {
+        await supabase
+          .from('document_templates')
+          .update({ is_default_cover: false })
+          .eq('template_type', 'cover_page');
+      }
+
       // Insert into database
       const { error: dbError } = await supabase
         .from('document_templates')
@@ -127,7 +135,7 @@ export default function DocumentTemplates() {
           file_url: publicUrl,
           template_type: newTemplate.template_type,
           is_active: true,
-          is_default_cover: newTemplate.is_default,
+          is_default_cover: newTemplate.is_default && newTemplate.template_type === 'cover_page',
           placeholder_schema: placeholderJson,
         }]);
 
