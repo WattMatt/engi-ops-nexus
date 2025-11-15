@@ -51,6 +51,14 @@ const ReportTemplates = () => {
     try {
       toast.info("Generating template PDF with placeholders...");
 
+      // Fetch company details for cover page
+      const { data: companyData, error: companyError } = await supabase
+        .from("company_settings")
+        .select("*")
+        .single();
+
+      if (companyError) throw companyError;
+
       // Call edge function to get template-ready data
       const { data, error } = await supabase.functions.invoke("generate-template-pdf", {
         body: {
@@ -65,7 +73,7 @@ const ReportTemplates = () => {
       const { exportTemplatePDF } = await import("@/utils/templatePDFExport");
       
       // Generate the PDF with placeholder values
-      await exportTemplatePDF(data.templateData);
+      await exportTemplatePDF(data.templateData, companyData);
       
       toast.success("Template PDF generated successfully!");
     } catch (error: any) {
