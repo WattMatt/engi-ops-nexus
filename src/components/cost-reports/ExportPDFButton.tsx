@@ -170,6 +170,34 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         }
         return originalText(...args);
       };
+
+      // Wrap autoTable to capture table content
+      const originalAutoTable = (doc as any).autoTable;
+      (doc as any).autoTable = function(options: any) {
+        const currentPage = doc.getCurrentPageInfo().pageNumber;
+        
+        // Capture header content
+        if (options.head && Array.isArray(options.head)) {
+          options.head.forEach((row: any[]) => {
+            row.forEach((cell: any) => {
+              const text = typeof cell === 'string' ? cell : cell?.content || '';
+              if (text.trim()) trackPageContent(doc, text);
+            });
+          });
+        }
+        
+        // Capture body content
+        if (options.body && Array.isArray(options.body)) {
+          options.body.forEach((row: any[]) => {
+            row.forEach((cell: any) => {
+              const text = typeof cell === 'string' ? cell : cell?.content || '';
+              if (text.trim()) trackPageContent(doc, text);
+            });
+          });
+        }
+        
+        return originalAutoTable.call(this, options);
+      };
       
       const pageWidth = doc.internal.pageSize.width;
       const pageHeight = doc.internal.pageSize.height;
