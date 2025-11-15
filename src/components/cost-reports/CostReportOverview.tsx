@@ -528,7 +528,8 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
             <div className="grid gap-6 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
               {categoryTotals.map((cat, index) => (
                 <Card 
-                  key={cat.id} 
+                  key={cat.id}
+                  id={`category-card-${cat.id}`}
                   className="border-l-[6px] shadow-sm hover:shadow-md transition-shadow" 
                   style={{ borderLeftColor: COLORS[index % COLORS.length] }}
                 >
@@ -546,6 +547,14 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
                             {cat.description}
                           </h4>
                         </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => handleExportChart(`category-card-${cat.id}`, `${cat.code}-${cat.description}`, 'png')}
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
                       </div>
                       
                       <div className="space-y-3 pt-2">
