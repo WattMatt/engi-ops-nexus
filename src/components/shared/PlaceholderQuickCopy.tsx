@@ -255,7 +255,7 @@ export const PlaceholderQuickCopy = ({
               </div>
             </div>
             
-            <ScrollArea className="flex-1">
+            <ScrollArea className="flex-1 h-0">
               <div className="p-4 space-y-2">
                 {filteredCategories.map(({ category, placeholders }) => (
                   <Collapsible
