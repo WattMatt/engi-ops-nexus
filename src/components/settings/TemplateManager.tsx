@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Upload, Trash2, Star, Eye, FileText, Edit, Sparkles } from "lucide-react";
+import { Upload, Trash2, Star, Eye, FileText, Edit, Download } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
@@ -186,60 +186,40 @@ export const TemplateManager = () => {
     }
   };
 
-  const handleMakeTemplateReady = async (template: any) => {
-    const fileExt = template.file_name.split(".").pop()?.toLowerCase();
-    if (fileExt !== "docx" && fileExt !== "doc") {
-      toast.error("Only Word documents (.docx, .doc) can be made template ready");
-      return;
-    }
-
-    if (!template.template_type) {
-      toast.error("Template type not specified");
-      return;
-    }
-
+  const handleGeneratePlaceholderGuide = async (template: any) => {
     setMakingReady(template.id);
     try {
-      // Generate placeholder document
       const placeholderDoc = generatePlaceholderDocument(template.template_type as TemplateType);
       const blob = await Packer.toBlob(placeholderDoc);
       
-      // Upload to storage
-      const fileName = `${crypto.randomUUID()}.${fileExt}`;
-      const filePath = `templates/${fileName}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("document_templates")
-        .upload(filePath, blob);
-
-      if (uploadError) throw uploadError;
-
-      const { data: { publicUrl } } = supabase.storage
-        .from("document_templates")
-        .getPublicUrl(filePath);
-
-      // Delete old file
-      const oldFilePath = template.file_url.split("/document_templates/")[1];
-      if (oldFilePath) {
-        await supabase.storage.from("document_templates").remove([oldFilePath]);
-      }
-
-      // Update database
-      const { error: dbError } = await supabase
-        .from("document_templates")
-        .update({ file_url: publicUrl })
-        .eq("id", template.id);
-
-      if (dbError) throw dbError;
-
-      await queryClient.invalidateQueries({ queryKey: ["document-templates"] });
-      toast.success("Template is now ready with all placeholders inserted!");
+      // Trigger download
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${template.name}_placeholders.docx`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      
+      toast.success("Placeholder guide downloaded successfully!");
     } catch (error) {
-      console.error("Error making template ready:", error);
-      toast.error("Failed to prepare template");
+      console.error("Error generating placeholder guide:", error);
+      toast.error("Failed to generate placeholder guide");
     } finally {
       setMakingReady(null);
     }
+  };
+
+  const handleDownloadTemplate = (template: any) => {
+    const link = document.createElement('a');
+    link.href = template.file_url;
+    link.download = template.file_name;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    
+    toast.success("Template downloaded successfully!");
   };
 
   const groupedTemplates = TEMPLATE_TYPES.reduce((acc, type) => {
@@ -382,6 +362,14 @@ export const TemplateManager = () => {
                               >
                                 <Eye className="h-4 w-4" />
                               </Button>
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleDownloadTemplate(template)}
+                                title="Download original template"
+                              >
+                                <Download className="h-4 w-4" />
+                              </Button>
                               {(template.file_name.endsWith('.docx') || template.file_name.endsWith('.doc')) && (
                                 <>
                                   <Button
@@ -395,12 +383,12 @@ export const TemplateManager = () => {
                                   <Button
                                     variant="outline"
                                     size="sm"
-                                    onClick={() => handleMakeTemplateReady(template)}
+                                    onClick={() => handleGeneratePlaceholderGuide(template)}
                                     disabled={makingReady === template.id}
-                                    title="Insert all placeholders automatically"
+                                    title="Download placeholder reference guide"
                                   >
-                                    <Sparkles className="h-4 w-4 mr-1" />
-                                    {makingReady === template.id ? "Processing..." : "Make Ready"}
+                                    <FileText className="h-4 w-4 mr-1" />
+                                    {makingReady === template.id ? "Generating..." : "Placeholder Guide"}
                                   </Button>
                                 </>
                               )}
