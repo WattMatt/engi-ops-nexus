@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, ChevronDown, ChevronUp, Pencil, Trash2 } from "lucide-react";
@@ -20,6 +20,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
+import { compareShopNumbers } from "@/utils/tenantSorting";
 
 interface CategoryCardProps {
   category: any;
@@ -39,7 +40,7 @@ export const CategoryCard = ({ category, onUpdate }: CategoryCardProps) => {
   const isVariationsCategory = category.description?.toUpperCase().includes("VARIATION");
 
   // Fetch variations if this is the Variations category
-  const { data: variations = [], refetch: refetchVariations } = useQuery({
+  const { data: variationsData = [], refetch: refetchVariations } = useQuery({
     queryKey: ["cost-variations-for-category", category.cost_report_id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -58,6 +59,11 @@ export const CategoryCard = ({ category, onUpdate }: CategoryCardProps) => {
     },
     enabled: isVariationsCategory,
   });
+
+  // Sort variations using natural sort order
+  const variations = useMemo(() => {
+    return [...variationsData].sort((a, b) => compareShopNumbers(a.code, b.code));
+  }, [variationsData]);
 
   const { data: lineItems = [], refetch: refetchLineItems } = useQuery({
     queryKey: ["cost-line-items", category.id],
