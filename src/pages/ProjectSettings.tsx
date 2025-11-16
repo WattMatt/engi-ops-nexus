@@ -14,7 +14,8 @@ import {
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { ArrowLeft, Save } from "lucide-react";
+import { ArrowLeft, Save, Info, Copy, Check } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { LogoUpload } from "@/components/LogoUpload";
 import { ProjectMembers } from "@/components/settings/ProjectMembers";
 import { ProjectContacts } from "@/components/settings/ProjectContacts";
@@ -25,6 +26,7 @@ export default function ProjectSettings() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [projectId, setProjectId] = useState<string | null>(null);
+  const [copiedField, setCopiedField] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     project_number: "",
     name: "",
@@ -156,11 +158,19 @@ export default function ProjectSettings() {
     }
   };
 
+  const handleCopyPlaceholder = (placeholder: string, fieldName: string) => {
+    navigator.clipboard.writeText(`{${placeholder}}`);
+    setCopiedField(fieldName);
+    toast.success("Placeholder copied to clipboard");
+    setTimeout(() => setCopiedField(null), 2000);
+  };
+
   const updateField = (field: string, value: string) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   return (
+    <TooltipProvider>
     <div className="container max-w-4xl py-8">
       <div className="mb-6">
         <Button variant="ghost" onClick={() => navigate("/dashboard")} className="mb-4">
@@ -257,7 +267,29 @@ export default function ProjectSettings() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="site_handover_date">Site Handover</Label>
+                    <Label htmlFor="site_handover_date" className="flex items-center gap-2">
+                      Site Handover
+                      <Tooltip delayDuration={300}>
+                        <TooltipTrigger asChild>
+                          <button type="button" className="inline-flex items-center">
+                            <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <button
+                            onClick={() => handleCopyPlaceholder("Site_Handover_Date", "site_handover_date")}
+                            className="flex items-center gap-2 hover:bg-accent px-2 py-1 rounded transition-colors"
+                          >
+                            <p className="font-mono text-xs">{`{Site_Handover_Date}`}</p>
+                            {copiedField === "site_handover_date" ? (
+                              <Check className="h-3 w-3 text-green-500" />
+                            ) : (
+                              <Copy className="h-3 w-3" />
+                            )}
+                          </button>
+                        </TooltipContent>
+                      </Tooltip>
+                    </Label>
                     <Input
                       id="site_handover_date"
                       type="date"
@@ -267,7 +299,29 @@ export default function ProjectSettings() {
                   </div>
 
                   <div className="grid gap-2">
-                    <Label htmlFor="practical_completion_date">Practical Completion</Label>
+                    <Label htmlFor="practical_completion_date" className="flex items-center gap-2">
+                      Practical Completion
+                      <Tooltip delayDuration={300}>
+                        <TooltipTrigger asChild>
+                          <button type="button" className="inline-flex items-center">
+                            <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <button
+                            onClick={() => handleCopyPlaceholder("Practical_Completion_Date", "practical_completion_date")}
+                            className="flex items-center gap-2 hover:bg-accent px-2 py-1 rounded transition-colors"
+                          >
+                            <p className="font-mono text-xs">{`{Practical_Completion_Date}`}</p>
+                            {copiedField === "practical_completion_date" ? (
+                              <Check className="h-3 w-3 text-green-500" />
+                            ) : (
+                              <Copy className="h-3 w-3" />
+                            )}
+                          </button>
+                        </TooltipContent>
+                      </Tooltip>
+                    </Label>
                     <Input
                       id="practical_completion_date"
                       type="date"
@@ -536,5 +590,6 @@ export default function ProjectSettings() {
         </TabsContent>
       </Tabs>
     </div>
+    </TooltipProvider>
   );
 }
