@@ -408,28 +408,71 @@ export async function generateIntelligentTemplate(
 }
 
 export function getPlaceholderSuggestions(
-  blankStructure: TemplateStructure
+  blankStructure: TemplateStructure,
+  completedStructure?: TemplateStructure
 ): {
   standardPlaceholders: string[];
   loopSyntax: Array<{ section: string; syntax: string }>;
   imagePlaceholders: string[];
+  detectedFromDocument: Array<{ field: string; source: string }>;
 } {
   const standardPlaceholders: string[] = [];
   const loopSyntax: Array<{ section: string; syntax: string }> = [];
   const imagePlaceholders: string[] = [];
+  const detectedFromDocument: Array<{ field: string; source: string }> = [];
 
-  // Add standard placeholders from schema
-  COST_REPORT_SCHEMA.forEach((mapping) => {
-    standardPlaceholders.push(...mapping.placeholders);
-    if (mapping.loopSyntax) {
-      loopSyntax.push({
-        section: mapping.section,
-        syntax: `${mapping.loopSyntax.start} ... ${mapping.loopSyntax.end}`,
+  // If we have a completed structure, use its detected fields
+  if (completedStructure && completedStructure.detectedFields) {
+    // Group by location type
+    const fieldsByLocation = completedStructure.detectedFields.reduce((acc, field) => {
+      if (!acc[field.location]) acc[field.location] = [];
+      acc[field.location].push(field);
+      return acc;
+    }, {} as Record<string, typeof completedStructure.detectedFields>);
+
+    // Add detected fields as suggestions
+    completedStructure.detectedFields.forEach(field => {
+      const placeholderName = field.fieldName;
+      if (!standardPlaceholders.includes(placeholderName)) {
+        standardPlaceholders.push(placeholderName);
+        detectedFromDocument.push({
+          field: `{{${placeholderName}}}`,
+          source: field.context
+        });
+      }
+    });
+
+    // Detect potential loops from tables
+    if (completedStructure.tables.length > 0) {
+      completedStructure.tables.forEach((table, index) => {
+        const nearbyHeading = completedStructure.headings.find(
+          h => Math.abs(h.position - table.position) <= 2
+        );
+        
+        const loopName = nearbyHeading 
+          ? nearbyHeading.text.toLowerCase().replace(/[^a-z0-9]+/g, "_")
+          : `table_${index + 1}`;
+          
+        loopSyntax.push({
+          section: nearbyHeading?.text || `Table ${index + 1}`,
+          syntax: `{#${loopName}} ... {/${loopName}}`
+        });
       });
     }
-  });
+  } else {
+    // Fallback to basic schema if no completed document provided
+    COST_REPORT_SCHEMA.forEach((mapping) => {
+      standardPlaceholders.push(...mapping.placeholders);
+      if (mapping.loopSyntax) {
+        loopSyntax.push({
+          section: mapping.section,
+          syntax: `${mapping.loopSyntax.start} ... ${mapping.loopSyntax.end}`,
+        });
+      }
+    });
+  }
 
-  // Add image placeholders based on detected images
+  // Add image placeholders based on detected images in blank template
   if (blankStructure.hasImages) {
     blankStructure.images.forEach((img) => {
       const placeholderName = `${img.context.toLowerCase().replace(/\s+/g, "_")}_image`;
@@ -441,5 +484,6 @@ export function getPlaceholderSuggestions(
     standardPlaceholders,
     loopSyntax,
     imagePlaceholders,
+    detectedFromDocument,
   };
 }
