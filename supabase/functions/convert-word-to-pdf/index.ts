@@ -68,8 +68,8 @@ Deno.serve(async (req) => {
         paragraphLoop: true,
         linebreaks: true,
         delimiters: {
-          start: '{',
-          end: '}'
+          start: '{{',
+          end: '}}'
         }
       });
       
@@ -103,7 +103,7 @@ Deno.serve(async (req) => {
         }
         
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        throw new Error(`Template rendering failed: ${errorMessage}. Check that your Word template contains the correct placeholders: ${Object.keys(placeholderData).map(k => `{${k}}`).join(', ')}`);
+        throw new Error(`Template rendering failed: ${errorMessage}. Check that your Word template contains the correct placeholders: ${Object.keys(placeholderData).map(k => `{{${k}}}`).join(', ')}`);
       }
       
       // Step 3: Generate the filled document
