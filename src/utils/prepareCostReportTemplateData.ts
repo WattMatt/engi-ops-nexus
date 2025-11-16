@@ -2,7 +2,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { format } from "date-fns";
 
 export interface CostReportTemplateData {
-  [key: string]: string | number | undefined;
+  placeholderData: Record<string, any>;
 }
 
 export async function prepareCostReportTemplateData(
@@ -40,21 +40,18 @@ export async function prepareCostReportTemplateData(
     .limit(1)
     .maybeSingle();
 
-  // Fetch categories and line items for financial totals
+  // Fetch categories with line items for tables
   const { data: categories } = await supabase
     .from("cost_categories")
-    .select("*")
-    .eq("cost_report_id", reportId);
-
-  const { data: lineItems } = await supabase
-    .from("cost_line_items")
-    .select("*")
-    .in("category_id", categories?.map(c => c.id) || []);
+    .select("*, cost_line_items(*)")
+    .eq("cost_report_id", reportId)
+    .order("display_order");
 
   const { data: variations } = await supabase
     .from("cost_variations")
     .select("*")
-    .eq("cost_report_id", reportId);
+    .eq("cost_report_id", reportId)
+    .order("display_order");
 
   // Calculate totals
   const totalOriginalBudget = (categories || []).reduce(
@@ -81,8 +78,31 @@ export async function prepareCostReportTemplateData(
     return format(new Date(date), "dd MMMM yyyy");
   };
 
+  // Prepare categories array for table loops
+  const categoriesData = (categories || []).map(cat => ({
+    code: cat.code,
+    description: cat.description,
+    original_budget: cat.original_budget?.toFixed(2) || "0.00",
+    anticipated_final: cat.anticipated_final?.toFixed(2) || "0.00",
+    variance: ((cat.anticipated_final || 0) - (cat.original_budget || 0)).toFixed(2),
+    line_items: (cat.cost_line_items || []).map((item: any) => ({
+      code: item.code,
+      description: item.description,
+      original_budget: item.original_budget?.toFixed(2) || "0.00",
+      anticipated_final: item.anticipated_final?.toFixed(2) || "0.00"
+    }))
+  }));
+
+  // Prepare variations array for table loops
+  const variationsData = (variations || []).map(v => ({
+    code: v.code,
+    description: v.description,
+    type: v.is_credit ? "Credit" : "Extra",
+    amount: Math.abs(v.amount || 0).toFixed(2)
+  }));
+
   // Prepare placeholder data
-  const templateData: CostReportTemplateData = {
+  const placeholderData: Record<string, any> = {
     // Project Information
     project_name: report.project_name || project?.name || "",
     project_number: report.project_number || project?.project_number || "",
@@ -124,7 +144,11 @@ export async function prepareCostReportTemplateData(
 
     // Notes
     notes: report.notes || "",
+
+    // Table Data Arrays (for docxtemplater loops)
+    categories: categoriesData,
+    variations: variationsData,
   };
 
-  return templateData;
+  return { placeholderData };
 }
