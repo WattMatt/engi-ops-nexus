@@ -196,19 +196,29 @@ export function TemplateWizard() {
     }
   };
 
-  const handleDownloadGenerated = () => {
-    if (!generatedBlob) return;
+  const handleDownloadGenerated = async () => {
+    if (!pdfPreviewUrl) {
+      toast.error("Please generate PDF preview first");
+      return;
+    }
 
-    const url = URL.createObjectURL(generatedBlob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = generatedFileName;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+    try {
+      const response = await fetch(pdfPreviewUrl);
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = generatedFileName.replace(".docx", ".pdf");
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
 
-    toast.success("Template downloaded");
+      toast.success("PDF downloaded");
+    } catch (error) {
+      console.error("Download error:", error);
+      toast.error("Failed to download PDF");
+    }
   };
 
   const handleSaveToDatabase = async () => {
