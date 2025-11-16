@@ -181,9 +181,16 @@ export function TemplateWizard() {
         },
       });
 
+      console.log("Preview response:", { data, error });
+
       if (error) throw error;
+      
+      if (!data?.pdfUrl) {
+        throw new Error("No PDF URL in response");
+      }
 
       setPdfPreviewUrl(data.pdfUrl);
+      console.log("PDF preview URL set:", data.pdfUrl);
       toast.success("PDF preview generated");
 
       // Clean up temp file
