@@ -5,9 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { Plus, Save, Edit2, X } from "lucide-react";
+import { Plus, Save, Edit2, X, Info } from "lucide-react";
 
 interface ReportDetailsManagerProps {
   report: any;
@@ -172,8 +173,18 @@ export const ReportDetailsManager = ({ report }: ReportDetailsManagerProps) => {
       {sections.map((section: any) => (
         <Card key={section.id}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-            <CardTitle className="text-base font-semibold">
+            <CardTitle className="text-base font-semibold flex items-center gap-2">
               {section.section_number}. {section.section_title}
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p className="font-mono text-xs">{`Detail_Section_${section.section_number}_Content`}</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </CardTitle>
             {editingSection === section.section_number ? (
               <div className="flex gap-2">
