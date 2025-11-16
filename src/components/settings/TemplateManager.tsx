@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Upload, Trash2, Star, Eye, FileText, Edit } from "lucide-react";
+import { Upload, Trash2, Star, Eye, FileText, Edit, Sparkles } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
@@ -16,6 +16,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { ChevronDown } from "lucide-react";
 import { PlaceholderQuickCopy } from "@/components/shared/PlaceholderQuickCopy";
 import { WordDocumentEditor } from "./WordDocumentEditor";
+import { generatePlaceholderDocument, TemplateType } from "@/utils/templatePlaceholderInsertion";
+import { Packer } from "docx";
 
 const TEMPLATE_TYPES = [
   { value: "cover_page", label: "📄 Cover Page" },
@@ -38,6 +40,7 @@ export const TemplateManager = () => {
   const [previewTemplate, setPreviewTemplate] = useState<any>(null);
   const [editTemplate, setEditTemplate] = useState<any>(null);
   const [deleteTemplate, setDeleteTemplate] = useState<any>(null);
+  const [makingReady, setMakingReady] = useState<string | null>(null);
 
   const { data: templates = [], isLoading } = useQuery({
     queryKey: ["document-templates"],
@@ -183,6 +186,62 @@ export const TemplateManager = () => {
     }
   };
 
+  const handleMakeTemplateReady = async (template: any) => {
+    const fileExt = template.file_name.split(".").pop()?.toLowerCase();
+    if (fileExt !== "docx" && fileExt !== "doc") {
+      toast.error("Only Word documents (.docx, .doc) can be made template ready");
+      return;
+    }
+
+    if (!template.template_type) {
+      toast.error("Template type not specified");
+      return;
+    }
+
+    setMakingReady(template.id);
+    try {
+      // Generate placeholder document
+      const placeholderDoc = generatePlaceholderDocument(template.template_type as TemplateType);
+      const blob = await Packer.toBlob(placeholderDoc);
+      
+      // Upload to storage
+      const fileName = `${crypto.randomUUID()}.${fileExt}`;
+      const filePath = `templates/${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("document_templates")
+        .upload(filePath, blob);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("document_templates")
+        .getPublicUrl(filePath);
+
+      // Delete old file
+      const oldFilePath = template.file_url.split("/document_templates/")[1];
+      if (oldFilePath) {
+        await supabase.storage.from("document_templates").remove([oldFilePath]);
+      }
+
+      // Update database
+      const { error: dbError } = await supabase
+        .from("document_templates")
+        .update({ file_url: publicUrl })
+        .eq("id", template.id);
+
+      if (dbError) throw dbError;
+
+      await queryClient.invalidateQueries({ queryKey: ["document-templates"] });
+      toast.success("Template is now ready with all placeholders inserted!");
+    } catch (error) {
+      console.error("Error making template ready:", error);
+      toast.error("Failed to prepare template");
+    } finally {
+      setMakingReady(null);
+    }
+  };
+
   const groupedTemplates = TEMPLATE_TYPES.reduce((acc, type) => {
     acc[type.value] = templates.filter(t => t.template_type === type.value);
     return acc;
@@ -324,13 +383,26 @@ export const TemplateManager = () => {
                                 <Eye className="h-4 w-4" />
                               </Button>
                               {(template.file_name.endsWith('.docx') || template.file_name.endsWith('.doc')) && (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleEdit(template)}
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
+                                <>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleEdit(template)}
+                                    title="Edit document"
+                                  >
+                                    <Edit className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleMakeTemplateReady(template)}
+                                    disabled={makingReady === template.id}
+                                    title="Insert all placeholders automatically"
+                                  >
+                                    <Sparkles className="h-4 w-4 mr-1" />
+                                    {makingReady === template.id ? "Processing..." : "Make Ready"}
+                                  </Button>
+                                </>
                               )}
                               {!template.is_default_cover && (
                                 <Button
