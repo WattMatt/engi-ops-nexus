@@ -175,12 +175,26 @@ Deno.serve(async (req) => {
           const relationshipXml = `<Relationship Id="${relId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${imageFileName}"/>`;
           relsXml = relsXml.replace('</Relationships>', `${relationshipXml}</Relationships>`);
           
-          // Replace placeholder with image XML (simple inline image, 150x150 pt)
-          const imageXml = `<w:p><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="1428750" cy="1428750"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${imageCounter}" name="Image ${imageCounter}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${imageCounter}" name="Image ${imageCounter}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${relId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="1428750" cy="1428750"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
+          // Replace placeholder with image XML (logo sized appropriately)
+          // Size: 1905000 EMUs = 2 inches width, maintain aspect ratio
+          const imageXml = `<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="1905000" cy="1905000"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${imageCounter}" name="Logo ${imageCounter}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${imageCounter}" name="Logo ${imageCounter}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${relId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="1905000" cy="1905000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
           
-          // Find and replace the placeholder text
-          const placeholderPattern = new RegExp(`{${placeholderKey}}`, 'g');
-          documentXml = documentXml.replace(placeholderPattern, imageXml);
+          // Find and replace the placeholder text (handles both {key} and {{key}} formats)
+          const placeholderPattern1 = new RegExp(`\\{${placeholderKey}\\}`, 'g');
+          const placeholderPattern2 = new RegExp(`\\{\\{${placeholderKey}\\}\\}`, 'g');
+          let replacements = 0;
+          
+          documentXml = documentXml.replace(placeholderPattern1, () => {
+            replacements++;
+            return imageXml;
+          });
+          
+          documentXml = documentXml.replace(placeholderPattern2, () => {
+            replacements++;
+            return imageXml;
+          });
+          
+          console.log(`Replaced ${replacements} occurrences of {${placeholderKey}}`);
           
           console.log(`Replaced {${placeholderKey}} with image XML`);
           
