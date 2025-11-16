@@ -254,7 +254,11 @@ export function TemplateWizard() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="blank-file">Blank Template</Label>
+                    <Label htmlFor="blank-file">Blank Template with Placeholders</Label>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Upload a template that already contains placeholder tags like {`{report_title}`}, {`{project_name}`}, etc.
+                      The placeholders should be in curly braces where you want dynamic content.
+                    </p>
                     <div className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
                       <Input
                         id="blank-file"
