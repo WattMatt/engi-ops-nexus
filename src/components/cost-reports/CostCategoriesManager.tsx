@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { AddCategoryDialog } from "./AddCategoryDialog";
 import { CategoryCard } from "./CategoryCard";
 import { calculateCategoryTotals, calculateGrandTotals } from "@/utils/costReportCalculations";
+import { generateExecutiveSummaryTableData, formatCurrency, formatVariance } from "@/utils/executiveSummaryTable";
 
 interface CostCategoriesManagerProps {
   reportId: string;
@@ -60,6 +61,9 @@ export const CostCategoriesManager = ({ reportId, projectId }: CostCategoriesMan
     .sort((a, b) => a.code.localeCompare(b.code));
   const grandTotals = calculateGrandTotals(categoryTotals);
 
+  // Generate table data using shared utility
+  const tableData = generateExecutiveSummaryTableData(categoryTotals, grandTotals);
+
   return (
     <div className="space-y-6">
       {/* Executive Summary */}
@@ -72,58 +76,60 @@ export const CostCategoriesManager = ({ reportId, projectId }: CostCategoriesMan
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b">
-                  <th className="text-left py-2 px-3 font-medium">CODE</th>
-                  <th className="text-left py-2 px-3 font-medium">CATEGORY</th>
-                  <th className="text-right py-2 px-3 font-medium">ORIGINAL BUDGET</th>
-                  <th className="text-right py-2 px-3 font-medium">PREVIOUS REPORT</th>
-                  <th className="text-right py-2 px-3 font-medium">ANTICIPATED FINAL</th>
-                  <th className="text-right py-2 px-3 font-medium">% OF TOTAL</th>
-                  <th className="text-right py-2 px-3 font-medium">CURRENT VARIANCE</th>
-                  <th className="text-right py-2 px-3 font-medium">ORIGINAL VARIANCE</th>
+                  {tableData.headers.map((header, index) => (
+                    <th
+                      key={index}
+                      className={`py-2 px-3 font-medium ${
+                        index < 2 ? 'text-left' : 'text-right'
+                      }`}
+                    >
+                      {header}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
-                {categoryTotals.map((cat) => (
-                  <tr key={cat.id} className="border-b hover:bg-muted/50">
-                    <td className="py-2 px-3 font-medium">{cat.code}</td>
-                    <td className="py-2 px-3">{cat.description}</td>
+                {tableData.categoryRows.map((row, index) => (
+                  <tr key={index} className="border-b hover:bg-muted/50">
+                    <td className="py-2 px-3 font-medium">{row.code}</td>
+                    <td className="py-2 px-3">{row.description}</td>
                     <td className="py-2 px-3 text-right font-mono">
-                      R{cat.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                      {formatCurrency(row.originalBudget)}
                     </td>
                     <td className="py-2 px-3 text-right font-mono">
-                      R{cat.previousReport.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                      {formatCurrency(row.previousReport)}
                     </td>
                     <td className="py-2 px-3 text-right font-mono">
-                      R{cat.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                      {formatCurrency(row.anticipatedFinal)}
                     </td>
                     <td className="py-2 px-3 text-right font-mono">
-                      {cat.percentageOfTotal.toFixed(1)}%
+                      {row.percentOfTotal}
                     </td>
                     <td className="py-2 px-3 text-right font-mono">
-                      R{cat.currentVariance.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                      {formatVariance(row.currentVariance)}
                     </td>
                     <td className="py-2 px-3 text-right font-mono">
-                      R{cat.originalVariance.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                      {formatVariance(row.originalVariance)}
                     </td>
                   </tr>
                 ))}
                 <tr className="font-bold bg-muted/50">
-                  <td className="py-3 px-3" colSpan={2}>GRAND TOTAL</td>
+                  <td className="py-3 px-3" colSpan={2}>{tableData.grandTotalRow.description}</td>
                   <td className="py-3 px-3 text-right font-mono">
-                    R{grandTotals.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                    {formatCurrency(tableData.grandTotalRow.originalBudget)}
                   </td>
                   <td className="py-3 px-3 text-right font-mono">
-                    R{grandTotals.previousReport.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                    {formatCurrency(tableData.grandTotalRow.previousReport)}
                   </td>
                   <td className="py-3 px-3 text-right font-mono">
-                    R{grandTotals.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                    {formatCurrency(tableData.grandTotalRow.anticipatedFinal)}
                   </td>
-                  <td className="py-3 px-3 text-right font-mono">100.0%</td>
+                  <td className="py-3 px-3 text-right font-mono">{tableData.grandTotalRow.percentOfTotal}</td>
                   <td className="py-3 px-3 text-right font-mono">
-                    R{grandTotals.currentVariance.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                    {formatVariance(tableData.grandTotalRow.currentVariance)}
                   </td>
                   <td className="py-3 px-3 text-right font-mono">
-                    R{grandTotals.originalVariance.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
+                    {formatVariance(tableData.grandTotalRow.originalVariance)}
                   </td>
                 </tr>
               </tbody>
