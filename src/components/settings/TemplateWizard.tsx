@@ -441,32 +441,38 @@ export function TemplateWizard() {
                   <CardTitle className="text-sm">Placeholder Suggestions</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  {getPlaceholderSuggestions(blankStructure).warnings.length > 0 && (
-                    <div className="space-y-2 mb-4">
-                      {getPlaceholderSuggestions(blankStructure).warnings.map((warning, index) => (
-                        <Alert key={index} variant="destructive">
-                          <AlertTriangle className="h-4 w-4" />
-                          <AlertDescription>{warning}</AlertDescription>
-                        </Alert>
+                  <div className="space-y-2">
+                    <div className="text-sm">
+                      <p className="font-medium">Standard Placeholders</p>
+                      <div className="flex flex-wrap gap-1 mt-1">
+                        {getPlaceholderSuggestions(blankStructure).standardPlaceholders.map((ph) => (
+                          <Badge key={ph} variant="secondary" className="text-xs">
+                            {`{{${ph}}}`}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="text-sm">
+                      <p className="font-medium mt-3">Loop Syntax</p>
+                      {getPlaceholderSuggestions(blankStructure).loopSyntax.map((loop, index) => (
+                        <div key={index} className="mt-1">
+                          <p className="text-muted-foreground text-xs">{loop.section}</p>
+                          <code className="bg-muted px-2 py-1 rounded text-xs block mt-1">{loop.syntax}</code>
+                        </div>
                       ))}
                     </div>
-                  )}
-                  <div className="space-y-2">
-                    {getPlaceholderSuggestions(blankStructure).suggestedPlacements.map((placement, index) => (
-                      <div key={index} className="text-sm">
-                        <p className="font-medium">{placement.section}</p>
-                        <p className="text-muted-foreground text-xs">{placement.reasoning}</p>
-                        {placement.placeholders.length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {placement.placeholders.map((ph) => (
-                              <Badge key={ph} variant="secondary" className="text-xs">
-                                {`{{${ph}}}`}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
+                    {getPlaceholderSuggestions(blankStructure).imagePlaceholders.length > 0 && (
+                      <div className="text-sm">
+                        <p className="font-medium mt-3">Image Placeholders</p>
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {getPlaceholderSuggestions(blankStructure).imagePlaceholders.map((ph) => (
+                            <Badge key={ph} variant="outline" className="text-xs">
+                              {ph}
+                            </Badge>
+                          ))}
+                        </div>
                       </div>
-                    ))}
+                    )}
                   </div>
                 </CardContent>
               </Card>

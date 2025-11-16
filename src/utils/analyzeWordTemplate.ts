@@ -4,9 +4,17 @@ export interface TemplateStructure {
   headings: Array<{ level: number; text: string; position: number }>;
   tables: Array<{ position: number; rows: number; columns: number }>;
   paragraphs: Array<{ text: string; position: number; isEmpty: boolean }>;
+  images: Array<{ 
+    position: number; 
+    altText?: string; 
+    context: string;
+    beforeText: string;
+    afterText: string;
+  }>;
   rawText: string;
   hasFinancialContent: boolean;
   hasTableStructure: boolean;
+  hasImages: boolean;
 }
 
 export async function analyzeWordTemplate(file: File): Promise<TemplateStructure> {
@@ -56,17 +64,58 @@ export async function analyzeWordTemplate(file: File): Promise<TemplateStructure
     });
   });
 
+  // Extract images
+  const images: TemplateStructure["images"] = [];
+  const imgElements = doc.querySelectorAll("img");
+  
+  imgElements.forEach((img, index) => {
+    const altText = img.getAttribute("alt") || undefined;
+    
+    // Get context from surrounding elements
+    const parent = img.parentElement;
+    const previousSibling = parent?.previousElementSibling;
+    const nextSibling = parent?.nextElementSibling;
+    
+    const beforeText = previousSibling?.textContent?.trim().slice(-50) || "";
+    const afterText = nextSibling?.textContent?.trim().slice(0, 50) || "";
+    
+    // Determine context based on surrounding content
+    let context = "Unknown";
+    if (beforeText.toLowerCase().includes("logo") || altText?.toLowerCase().includes("logo")) {
+      context = "Logo";
+    } else if (beforeText.toLowerCase().includes("signature")) {
+      context = "Signature";
+    } else if (parent?.closest("table")) {
+      context = "Table Image";
+    } else if (previousSibling?.tagName.match(/^H[1-6]$/)) {
+      context = "Section Image";
+    } else {
+      context = "Content Image";
+    }
+    
+    images.push({
+      position: index,
+      altText,
+      context,
+      beforeText,
+      afterText,
+    });
+  });
+
   // Analyze content characteristics
   const hasFinancialContent = /\b(budget|cost|amount|total|R\s*\d+|ZAR|rand)\b/i.test(rawText);
   const hasTableStructure = tables.length > 0;
+  const hasImages = images.length > 0;
 
   return {
     headings,
     tables,
     paragraphs,
+    images,
     rawText,
     hasFinancialContent,
     hasTableStructure,
+    hasImages,
   };
 }
 
@@ -101,12 +150,27 @@ export function compareTemplateStructures(
     suggestions.push("Blank template might be missing financial content areas.");
   }
 
+  // Compare images
+  const imageCountMatch = completed.images.length === blank.images.length;
+  if (!imageCountMatch) {
+    suggestions.push(
+      `Image count differs (completed: ${completed.images.length}, blank: ${blank.images.length}). Placeholders will be generated for ${blank.images.length} images.`
+    );
+  }
+
+  // Identify image contexts
+  if (blank.images.length > 0) {
+    const imageContexts = blank.images.map(img => img.context).join(", ");
+    suggestions.push(`Detected images: ${imageContexts}`);
+  }
+
   // Calculate simple similarity score
   let score = 0;
-  if (tableCountMatch) score += 40;
-  if (headingCountMatch) score += 30;
+  if (tableCountMatch) score += 30;
+  if (headingCountMatch) score += 25;
   if (blank.hasTableStructure) score += 20;
   if (blank.hasFinancialContent) score += 10;
+  if (imageCountMatch) score += 15;
 
   return {
     similarityScore: score,
