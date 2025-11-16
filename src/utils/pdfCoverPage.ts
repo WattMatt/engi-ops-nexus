@@ -450,16 +450,16 @@ async function generateDefaultCoverPage(
   doc.setFont("helvetica", "normal");
   doc.setTextColor(...colors.neutral);
   const dateLabel = "Date:";
-  const dateValue = format(new Date(), "dd MMMM yyyy");
+  const dateValue = options.date || format(new Date(), "dd MMMM yyyy");
   doc.text(dateLabel, 28, yPos);
   doc.text(dateValue, 28 + doc.getTextWidth(dateLabel) + 2, yPos);
   
-  // Page number label and value  
-  const pageLabel = "Page No:";
-  const pageValue = "1";
-  const pageLabelX = pageWidth - 60;
-  doc.text(pageLabel, pageLabelX, yPos);
-  doc.text(pageValue, pageLabelX + doc.getTextWidth(pageLabel) + 2, yPos);
+  // Revision label and value
+  const revisionLabel = "Revision:";
+  const revisionValue = options.revision;
+  const revisionLabelX = pageWidth / 2 - 20;
+  doc.text(revisionLabel, revisionLabelX, yPos);
+  doc.text(revisionValue, revisionLabelX + doc.getTextWidth(revisionLabel) + 2, yPos);
   
   // Page number - simple text
   doc.setFontSize(9);
@@ -476,7 +476,8 @@ export async function generateCoverPage(
   doc: jsPDF,
   options: CoverPageOptions,
   companyDetails: CompanyDetails,
-  contactId?: string
+  contactId?: string,
+  skipTemplate: boolean = false
 ): Promise<void> {
   const pageWidth = doc.internal.pageSize.width;
   const pageHeight = doc.internal.pageSize.height;
@@ -494,6 +495,13 @@ export async function generateCoverPage(
       contactDetails = data;
       console.log("📞 Using project contact for 'Prepared For':", contactDetails);
     }
+  }
+  
+  // Skip template lookup if skipTemplate flag is true
+  if (skipTemplate) {
+    console.log("⚡ Skipping template lookup, using default code-generated cover page");
+    await generateDefaultCoverPage(doc, options, companyDetails, contactDetails);
+    return;
   }
   
   console.log("Fetching default cover page template...");
