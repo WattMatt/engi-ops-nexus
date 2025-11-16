@@ -13,67 +13,75 @@ interface PreviewRequest {
   templateType: string;
 }
 
-// Generate sample data based on template type
-function generateSampleData(templateType: string): Record<string, any> {
-  const commonData = {
-    project_name: "Sample Project Name",
+// Generate comprehensive sample data that covers most common placeholders
+function generateComprehensiveSampleData(): Record<string, any> {
+  return {
+    // Project details
+    project_name: "Sample Shopping Center Renovation",
     project_number: "PRJ-2024-001",
-    client_name: "ABC Corporation",
+    project_description: "Electrical installation for retail development",
+    
+    // Client details
+    client_name: "ABC Corporation (Pty) Ltd",
+    client_address: "123 Business Park, Johannesburg, 2000",
+    client_contact: "John Smith",
+    client_email: "john.smith@abccorp.co.za",
+    client_phone: "+27 11 123 4567",
+    client_image: "[CLIENT LOGO]",
+    
+    // Document details
+    document_title: "Electrical Installation Report",
+    document_subtitle: "Load Schedule & Cost Analysis",
     document_date: new Date().toLocaleDateString('en-GB'),
-    prepared_by: "John Doe, P.Eng",
+    document_number: "DOC-2024-001",
+    
+    // Prepared by
+    prepared_by: "John Doe, Pr. Eng",
+    prepared_by_contact: "john.doe@engineering.co.za",
+    company_name: "Watson Mattheus Consulting Engineers",
+    company_address: "141 Witch Hazel Ave, Highveld Techno Park, Building 1A",
+    company_phone: "(012) 665 3487",
+    company_email: "info@wmeng.co.za",
+    
+    // Report details
+    report_number: "CR-001",
     revision: "Rev 01",
+    date: new Date().toLocaleDateString('en-GB'),
+    
+    // Cost report specific
+    total_budget: "R 1,250,000.00",
+    total_spent: "R 850,000.00",
+    variance: "R 400,000.00",
+    contingency: "R 125,000.00",
+    
+    // Dates
+    practical_completion_date: "31 December 2024",
+    site_handover_date: "15 January 2025",
+    
+    // Contractors
+    electrical_contractor: "ABC Electrical Contractors",
+    cctv_contractor: "SecureVision Systems",
+    earthing_contractor: "Earth Pro Solutions",
+    standby_plants_contractor: "Power Backup SA",
+    
+    // Categories (for loops)
+    categories: [
+      { code: "CAT-01", description: "Labour Costs", budget: "R 500,000", actual: "R 350,000", variance: "R 150,000" },
+      { code: "CAT-02", description: "Materials", budget: "R 750,000", actual: "R 500,000", variance: "R 250,000" }
+    ],
+    
+    // Line items (for loops)
+    line_items: [
+      { item: "Distribution Boards", quantity: "5", unit_price: "R 50,000", total: "R 250,000" },
+      { item: "Cable Installation", quantity: "500m", unit_price: "R 150", total: "R 75,000" }
+    ],
+    
+    // Specification sections
+    sections: [
+      { number: "1.0", title: "General Requirements", content: "Sample content for general requirements..." },
+      { number: "2.0", title: "Technical Specifications", content: "Sample content for technical specs..." }
+    ]
   };
-
-  switch (templateType) {
-    case 'cost_report':
-      return {
-        ...commonData,
-        report_number: "CR-001",
-        total_budget: "R 1,250,000.00",
-        total_spent: "R 850,000.00",
-        variance: "R 400,000.00",
-        categories: [
-          { code: "CAT-01", description: "Labour", budget: "R 500,000", actual: "R 350,000" },
-          { code: "CAT-02", description: "Materials", budget: "R 750,000", actual: "R 500,000" }
-        ]
-      };
-    
-    case 'cover_page':
-      return {
-        ...commonData,
-        document_title: "Electrical Installation Report",
-        document_subtitle: "Comprehensive Analysis & Documentation",
-        company_name: "Sample Engineering Consultants",
-        company_address: "123 Engineering Boulevard, Cape Town, 8001",
-        company_phone: "+27 21 123 4567",
-        company_email: "info@sampleengineering.co.za",
-      };
-    
-    case 'specification':
-      return {
-        ...commonData,
-        specification_number: "SPEC-2024-001",
-        specification_title: "Electrical Installation Specifications",
-        sections: [
-          { number: "1.0", title: "General Requirements", content: "Sample content..." },
-          { number: "2.0", title: "Technical Specifications", content: "Sample content..." }
-        ]
-      };
-    
-    case 'budget':
-      return {
-        ...commonData,
-        budget_number: "BUD-2024-001",
-        total_amount: "R 2,500,000.00",
-        line_items: [
-          { item: "Electrical Panels", quantity: "5", unit_price: "R 50,000", total: "R 250,000" },
-          { item: "Cable Installation", quantity: "500m", unit_price: "R 150", total: "R 75,000" }
-        ]
-      };
-    
-    default:
-      return commonData;
-  }
 }
 
 serve(async (req) => {
@@ -102,9 +110,9 @@ serve(async (req) => {
 
     console.log('Template downloaded, populating with sample data...');
 
-    // Generate sample data
-    const sampleData = generateSampleData(templateType);
-    console.log('Sample data generated:', Object.keys(sampleData));
+    // Generate comprehensive sample data
+    const sampleData = generateComprehensiveSampleData();
+    console.log('Sample data generated with keys:', Object.keys(sampleData));
 
     // Populate template with docxtemplater
     const zip = new PizZip(templateBuffer);
