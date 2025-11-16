@@ -644,40 +644,44 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           head: [tableData.headers],
           body: tableRows,
           theme: 'striped',
+          tableWidth: 'auto',
           styles: {
-            fontSize: 7,
-            cellPadding: 3,
-            overflow: 'linebreak',
-            halign: 'left'
+            fontSize: 6.5,
+            cellPadding: 2.5,
+            overflow: 'visible',
+            halign: 'left',
+            minCellHeight: 7
           },
           headStyles: { 
             fillColor: colors.primary, 
             textColor: colors.white, 
             fontStyle: 'bold',
-            fontSize: 7,
-            cellPadding: 3,
+            fontSize: 6.5,
+            cellPadding: 2.5,
             halign: 'left',
             valign: 'middle',
-            minCellHeight: 8
+            minCellHeight: 7,
+            overflow: 'visible'
           },
           bodyStyles: { 
-            fontSize: 7,
-            cellPadding: 3,
+            fontSize: 6.5,
+            cellPadding: 2.5,
             textColor: colors.text,
-            valign: 'middle'
+            valign: 'middle',
+            overflow: 'visible'
           },
           alternateRowStyles: {
             fillColor: [248, 250, 252]
           },
           columnStyles: {
-            0: { cellWidth: 12, fontStyle: 'bold', halign: 'left' },
-            1: { cellWidth: 42, halign: 'left' },
-            2: { cellWidth: 24, halign: 'right' },
-            3: { cellWidth: 24, halign: 'right' },
-            4: { cellWidth: 24, halign: 'right' },
-            5: { cellWidth: 14, halign: 'right' },
-            6: { cellWidth: 24, halign: 'right' },
-            7: { cellWidth: 24, halign: 'right' }
+            0: { cellWidth: 14, fontStyle: 'bold', halign: 'left', overflow: 'visible' },
+            1: { cellWidth: 45, halign: 'left', overflow: 'visible' },
+            2: { cellWidth: 26, halign: 'right', overflow: 'visible' },
+            3: { cellWidth: 26, halign: 'right', overflow: 'visible' },
+            4: { cellWidth: 26, halign: 'right', overflow: 'visible' },
+            5: { cellWidth: 15, halign: 'right', overflow: 'visible' },
+            6: { cellWidth: 26, halign: 'right', overflow: 'visible' },
+            7: { cellWidth: 26, halign: 'right', overflow: 'visible' }
           },
           didDrawCell: (data) => {
             // Set header alignment properly
