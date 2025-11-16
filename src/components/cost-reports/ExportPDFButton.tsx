@@ -75,86 +75,54 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
 
   const exportWithTemplate = async () => {
     setLoading(true);
-    setCurrentSection("Checking for template...");
+    setCurrentSection("Generating PDF from Word template...");
     
     try {
-      // Check if a default cost report template exists
-      const { data: template, error: templateError } = await supabase
-        .from("document_templates")
-        .select("*")
-        .eq("template_type", "cost_report")
-        .eq("is_default_cover", true)
-        .eq("is_active", true)
-        .maybeSingle();
-
-      if (templateError || !template) {
-        toast({
-          title: "No Template Found",
-          description: "Please upload and set a default cost report template in Settings → PDF Templates",
-          variant: "destructive",
-        });
-        setLoading(false);
-        return;
-      }
-
-      setCurrentSection("Preparing data...");
+      // Call the edge function to generate PDF from Word template
+      setCurrentSection("Processing template and data...");
       
-      // Prepare placeholder data
-      const placeholderData = await prepareCostReportTemplateData(report.id);
-
-      setCurrentSection("Converting to PDF...");
-
-      // Call the edge function to convert
-      const { data, error } = await supabase.functions.invoke('convert-word-to-pdf', {
+      const { data, error } = await supabase.functions.invoke('generate-cost-report-pdf', {
         body: {
-          templateUrl: template.file_url,
-          templateId: template.id,
-          placeholderData,
+          costReportId: report.id,
         },
       });
 
       if (error) {
         console.error('Edge function error:', error);
+        
+        // Handle specific error messages
+        if (error.message?.includes('No default cost report template')) {
+          toast({
+            title: "No Template Found",
+            description: "Please upload and set a default cost report template in Settings → PDF Templates",
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
+        
         throw new Error(error.message || 'Failed to generate PDF from template');
       }
 
-      if (!data?.pdfUrl) {
+      if (!data?.url) {
         throw new Error('No PDF URL returned from conversion');
       }
 
-      setCurrentSection("Saving to storage...");
-
-      // Save to cost_report_pdfs table
-      const fileName = `Cost_Report_${report.report_number}_${Date.now()}.pdf`;
-      const { error: saveError } = await supabase
-        .from("cost_report_pdfs")
-        .insert({
-          cost_report_id: report.id,
-          project_id: report.project_id,
-          file_name: fileName,
-          file_path: data.pdfUrl,
-          revision: report.report_number.toString(),
-          notes: `Generated from template: ${template.name}`,
-        });
-
-      if (saveError) {
-        console.error('Save error:', saveError);
-        throw saveError;
-      }
+      setCurrentSection("Downloading PDF...");
 
       // Download the PDF
-      const pdfResponse = await fetch(data.pdfUrl);
+      const pdfResponse = await fetch(data.url);
       const pdfBlob = await pdfResponse.blob();
       const url = URL.createObjectURL(pdfBlob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = fileName;
+      link.download = data.fileName || `Cost_Report_${report.report_number}.pdf`;
       link.click();
       URL.revokeObjectURL(url);
 
       toast({
         title: "Success",
-        description: "Cost report PDF generated successfully from template",
+        description: "Cost report PDF generated successfully from Word template",
       });
 
       if (onReportGenerated) {
