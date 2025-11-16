@@ -4,15 +4,14 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
-import { Upload, FileCheck, Wand2, Download, FileText } from "lucide-react";
-import { toast } from "sonner";
+import { Wand2, FileText, FileDown, CheckCircle2, AlertCircle, Loader2, RotateCw } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import * as XLSX from 'xlsx';
 
-type WizardStep = "upload" | "analysis" | "preview";
+type WizardStep = "upload" | "analysis" | "guide" | "validate";
 
 interface AIPlaceholder {
   placeholder: string;
@@ -22,41 +21,44 @@ interface AIPlaceholder {
   confidence: number;
 }
 
+interface ValidationResult {
+  isValid: boolean;
+  completeness: number;
+  total: number;
+  matched: number;
+  missing: string[];
+  extra: string[];
+  details: {
+    summary: string;
+    recommendations: string[];
+  };
+}
+
 export function TemplateWizard() {
   const [currentStep, setCurrentStep] = useState<WizardStep>("upload");
   const [progress, setProgress] = useState(0);
-  
-  const [templateType, setTemplateType] = useState<string>("cost_report");
   const [completedFile, setCompletedFile] = useState<File | null>(null);
   const [blankFile, setBlankFile] = useState<File | null>(null);
-  
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [updatedBlankFile, setUpdatedBlankFile] = useState<File | null>(null);
+  const [templateType, setTemplateType] = useState("cost_report");
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isGeneratingGuide, setIsGeneratingGuide] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
   const [aiPlaceholders, setAiPlaceholders] = useState<AIPlaceholder[]>([]);
-  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string>("");
-  const [generatedDocxUrl, setGeneratedDocxUrl] = useState<string>("");
+  const [guidePdfUrl, setGuidePdfUrl] = useState<string | null>(null);
+  const [excelData, setExcelData] = useState<any>(null);
+  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
 
   const resetWizard = () => {
     setCurrentStep("upload");
     setProgress(0);
     setCompletedFile(null);
     setBlankFile(null);
+    setUpdatedBlankFile(null);
     setAiPlaceholders([]);
-    setPdfPreviewUrl("");
-    setGeneratedDocxUrl("");
-  };
-
-  const getStepNumber = () => {
-    const steps = { upload: 1, analysis: 2, preview: 3 };
-    return steps[currentStep];
-  };
-
-  const templateTypeLabels: Record<string, string> = {
-    cost_report: "Cost Report",
-    cover_page: "Cover Page",
-    specification: "Specification",
-    budget: "Budget",
-    final_account: "Final Account",
-    other: "Other Document"
+    setGuidePdfUrl(null);
+    setExcelData(null);
+    setValidationResult(null);
   };
 
   const handleCompletedFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -83,352 +85,229 @@ export function TemplateWizard() {
       return;
     }
 
-    setIsProcessing(true);
+    setIsAnalyzing(true);
     setProgress(20);
 
     try {
-      // Upload both files to get URLs
-      const uploadPromises = [
+      const timestamp = Date.now();
+      
+      const [completedUpload, blankUpload] = await Promise.all([
         supabase.storage.from('document_templates').upload(
-          `temp-completed-${Date.now()}.docx`,
+          `temp-completed-${timestamp}.docx`,
           completedFile,
-          { contentType: completedFile.type, upsert: true }
+          { upsert: true }
         ),
         supabase.storage.from('document_templates').upload(
-          `temp-blank-${Date.now()}.docx`,
+          `temp-blank-${timestamp}.docx`,
           blankFile,
-          { contentType: blankFile.type, upsert: true }
+          { upsert: true }
         )
-      ];
-
-      const [completedUpload, blankUpload] = await Promise.all(uploadPromises);
+      ]);
 
       if (completedUpload.error || blankUpload.error) {
         throw new Error('Failed to upload templates');
       }
 
-      const completedUrl = supabase.storage.from('document_templates').getPublicUrl(completedUpload.data.path).data.publicUrl;
-      const blankUrl = supabase.storage.from('document_templates').getPublicUrl(blankUpload.data.path).data.publicUrl;
+      const { data: { publicUrl: completedUrl } } = supabase.storage
+        .from('document_templates')
+        .getPublicUrl(completedUpload.data.path);
+      
+      const { data: { publicUrl: blankUrl } } = supabase.storage
+        .from('document_templates')
+        .getPublicUrl(blankUpload.data.path);
 
       setProgress(40);
 
-      // Call AI analysis function
-      const { data: analysisData, error: analysisError } = await supabase.functions.invoke('ai-analyze-template-placeholders', {
-        body: { 
+      const { data, error } = await supabase.functions.invoke('ai-analyze-template-placeholders', {
+        body: {
           completedTemplateUrl: completedUrl,
-          blankTemplateUrl: blankUrl
-        }
+          blankTemplateUrl: blankUrl,
+        },
       });
 
-      if (analysisError) {
-        throw analysisError;
-      }
+      if (error) throw error;
 
-      setAiPlaceholders(analysisData.placeholders || []);
-      setProgress(100);
-
+      setAiPlaceholders(data.placeholders);
       setCurrentStep("analysis");
-      toast.success("AI analysis completed - review suggested placeholders");
+      setProgress(50);
+      toast.success("Analysis complete! Review the suggested placeholders.");
     } catch (error) {
       console.error("Analysis error:", error);
-      toast.error("Failed to analyze templates");
+      toast.error("Failed to analyze templates. Please try again.");
     } finally {
-      setIsProcessing(false);
+      setIsAnalyzing(false);
     }
   };
 
-  const handleGenerateTemplateWithPlaceholders = async () => {
-    if (!blankFile || aiPlaceholders.length === 0) {
-      toast.error("Please complete analysis first");
+  const handleGenerateGuide = async () => {
+    if (aiPlaceholders.length === 0) {
+      toast.error("No placeholder data available");
       return;
     }
 
-    setIsProcessing(true);
-    setProgress(20);
-
+    setIsGeneratingGuide(true);
     try {
-      // Upload blank template
-      const { data: blankUpload, error: uploadError } = await supabase.storage
+      const { data, error } = await supabase.functions.invoke('generate-placeholder-guide', {
+        body: {
+          placeholders: aiPlaceholders,
+          templateType,
+        },
+      });
+
+      if (error) throw error;
+
+      setGuidePdfUrl(data.pdfUrl);
+      setExcelData(data.excelData);
+      setCurrentStep("guide");
+      setProgress(75);
+      toast.success("Instruction guide generated!");
+    } catch (error) {
+      console.error("Guide generation error:", error);
+      toast.error("Failed to generate guide.");
+    } finally {
+      setIsGeneratingGuide(false);
+    }
+  };
+
+  const handleDownloadExcel = () => {
+    if (!excelData) return;
+    const ws = XLSX.utils.aoa_to_sheet([excelData.headers, ...excelData.rows]);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Placeholders");
+    XLSX.writeFile(wb, `placeholder-reference-${Date.now()}.xlsx`);
+    toast.success("Excel downloaded!");
+  };
+
+  const handleValidateTemplate = async () => {
+    if (!updatedBlankFile) {
+      toast.error("Please upload your updated template");
+      return;
+    }
+
+    setIsValidating(true);
+    try {
+      const timestamp = Date.now();
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from('document_templates')
-        .upload(`temp-blank-${Date.now()}.docx`, blankFile, {
-          contentType: blankFile.type,
-          upsert: true
-        });
+        .upload(`validate-${timestamp}.docx`, updatedBlankFile, { upsert: true });
 
       if (uploadError) throw uploadError;
 
-      const blankUrl = supabase.storage.from('document_templates').getPublicUrl(blankUpload.path).data.publicUrl;
-      setProgress(50);
+      const { data: { publicUrl: templateUrl } } = supabase.storage
+        .from('document_templates')
+        .getPublicUrl(uploadData.path);
 
-      // Insert placeholders
-      console.log('Calling insert-template-placeholders with:', { blankUrl, placeholders: aiPlaceholders });
-      
-      const { data: insertData, error: insertError } = await supabase.functions.invoke('insert-template-placeholders', {
-        body: {
-          blankTemplateUrl: blankUrl,
-          placeholders: aiPlaceholders
-        }
+      const { data, error } = await supabase.functions.invoke('validate-template-placeholders', {
+        body: { templateUrl, expectedPlaceholders: aiPlaceholders },
       });
 
-      console.log('Insert response:', { insertData, insertError });
+      if (error) throw error;
 
-      if (insertError) {
-        console.error('Insert error:', insertError);
-        throw insertError;
-      }
-
-      if (!insertData?.pdfUrl) {
-        console.error('No PDF URL in response:', insertData);
-        throw new Error('Failed to generate PDF - no URL returned');
-      }
-
-      console.log('Setting URLs:', { docxUrl: insertData.docxUrl, pdfUrl: insertData.pdfUrl });
-      setGeneratedDocxUrl(insertData.docxUrl);
-      setPdfPreviewUrl(insertData.pdfUrl);
+      setValidationResult(data);
+      setCurrentStep("validate");
       setProgress(100);
-      setCurrentStep("preview");
-
-      toast.success("Template with placeholders generated!");
+      
+      if (data.isValid) {
+        toast.success("✅ All placeholders validated!");
+      } else {
+        toast.warning(`⚠️ ${data.missing.length} placeholder(s) missing`);
+      }
     } catch (error) {
-      console.error("Generation error:", error);
-      toast.error("Failed to generate template");
+      console.error("Validation error:", error);
+      toast.error("Failed to validate template.");
     } finally {
-      setIsProcessing(false);
+      setIsValidating(false);
     }
   };
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-4xl mx-auto">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Wand2 className="w-5 h-5" />
             AI Template Wizard
           </CardTitle>
-              <CardDescription>
-                Upload a completed template and a blank template. AI will analyze them and suggest what placeholders you should add to your blank template and where they should go.
-              </CardDescription>
+          <CardDescription>
+            Upload completed and blank templates. AI analyzes them and provides a detailed guide for adding placeholders.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Progress Bar */}
           <div className="space-y-2">
-            <div className="flex justify-between text-sm text-muted-foreground">
-              <span>Step {getStepNumber()} of 3</span>
-              <span>{progress}%</span>
+            <div className="flex justify-between text-sm">
+              <span className="font-medium">Progress</span>
+              <span className="text-muted-foreground">{progress}%</span>
             </div>
             <Progress value={progress} className="h-2" />
+            <div className="flex justify-between text-xs text-muted-foreground">
+              <span className={currentStep === "upload" ? "text-primary font-medium" : ""}>Upload</span>
+              <span className={currentStep === "analysis" ? "text-primary font-medium" : ""}>Analyze</span>
+              <span className={currentStep === "guide" ? "text-primary font-medium" : ""}>Guide</span>
+              <span className={currentStep === "validate" ? "text-primary font-medium" : ""}>Validate</span>
+            </div>
           </div>
 
-          {/* Upload Step */}
           {currentStep === "upload" && (
             <div className="space-y-6">
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="template-type">Template Type</Label>
-                  <Select value={templateType} onValueChange={setTemplateType}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(templateTypeLabels).map(([value, label]) => (
-                        <SelectItem key={value} value={value}>
-                          {label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="completed-file">Completed Template (with data)</Label>
-                    <div className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
-                      <Input
-                        id="completed-file"
-                        type="file"
-                        accept=".docx"
-                        onChange={handleCompletedFileChange}
-                        className="hidden"
-                      />
-                      <label htmlFor="completed-file" className="cursor-pointer">
-                        {completedFile ? (
-                          <div className="flex items-center justify-center gap-2">
-                            <FileCheck className="w-5 h-5 text-green-500" />
-                            <span className="text-sm">{completedFile.name}</span>
-                          </div>
-                        ) : (
-                          <div className="space-y-2">
-                            <Upload className="w-8 h-8 mx-auto text-muted-foreground" />
-                            <p className="text-sm text-muted-foreground">Click to upload completed template</p>
-                          </div>
-                        )}
-                      </label>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="blank-file">Blank Template</Label>
-                    <p className="text-xs text-muted-foreground mb-2">
-                      Upload your blank template. AI will suggest where to add placeholders based on the completed version.
-                    </p>
-                    <div className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
-                      <Input
-                        id="blank-file"
-                        type="file"
-                        accept=".docx"
-                        onChange={handleBlankFileChange}
-                        className="hidden"
-                      />
-                      <label htmlFor="blank-file" className="cursor-pointer">
-                        {blankFile ? (
-                          <div className="flex items-center justify-center gap-2">
-                            <FileCheck className="w-5 h-5 text-green-500" />
-                            <span className="text-sm">{blankFile.name}</span>
-                          </div>
-                        ) : (
-                          <div className="space-y-2">
-                            <Upload className="w-8 h-8 mx-auto text-muted-foreground" />
-                            <p className="text-sm text-muted-foreground">Click to upload blank template</p>
-                          </div>
-                        )}
-                      </label>
-                    </div>
-                  </div>
-                </div>
+              <div className="space-y-2">
+                <Label>Template Type</Label>
+                <Select value={templateType} onValueChange={setTemplateType}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cost_report">Cost Report</SelectItem>
+                    <SelectItem value="cover_page">Cover Page</SelectItem>
+                    <SelectItem value="specification">Specification</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
-
-              <Alert>
-                <AlertDescription>
-                  Upload a completed template with real data and the same template without data. AI will identify placeholders and insert them into your blank template.
-                </AlertDescription>
-              </Alert>
-
-              <div className="flex justify-end">
-                <Button 
-                  onClick={handleAnalyze}
-                  disabled={!completedFile || !blankFile || isProcessing}
-                >
-                  <Wand2 className="w-4 h-4 mr-2" />
-                  {isProcessing ? "Analyzing..." : "Analyze with AI"}
-                </Button>
+              <div className="space-y-2">
+                <Label>Completed Template</Label>
+                <Input type="file" accept=".docx" onChange={handleCompletedFileChange} />
               </div>
+              <div className="space-y-2">
+                <Label>Blank Template</Label>
+                <Input type="file" accept=".docx" onChange={handleBlankFileChange} />
+              </div>
+              <Button onClick={handleAnalyze} disabled={!completedFile || !blankFile || isAnalyzing} className="w-full">
+                {isAnalyzing ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Analyzing...</> : <><Wand2 className="w-4 h-4 mr-2" />Analyze</>}
+              </Button>
             </div>
           )}
 
-          {/* Analysis Step */}
           {currentStep === "analysis" && (
-            <div className="space-y-6">
-              <Tabs defaultValue="placeholders" className="w-full">
-                <TabsList className="grid w-full grid-cols-1">
-                  <TabsTrigger value="placeholders">AI Suggested Placeholders</TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="placeholders" className="space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between mb-4">
-                      <h3 className="font-semibold">Review Placeholders ({aiPlaceholders.length})</h3>
-                      <Button 
-                        onClick={handleGenerateTemplateWithPlaceholders}
-                        disabled={isProcessing || aiPlaceholders.length === 0}
-                      >
-                        <FileText className="w-4 h-4 mr-2" />
-                        {isProcessing ? "Generating..." : "Insert Placeholders & Generate PDF"}
-                      </Button>
-                    </div>
-                    
-                    {aiPlaceholders.length > 0 ? (
-                      <div className="border rounded-lg overflow-hidden">
-                        <table className="w-full">
-                          <thead className="bg-muted">
-                            <tr>
-                              <th className="text-left p-3 text-sm font-medium">Placeholder</th>
-                              <th className="text-left p-3 text-sm font-medium">Example Value</th>
-                              <th className="text-left p-3 text-sm font-medium">Description</th>
-                              <th className="text-left p-3 text-sm font-medium">Confidence</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {aiPlaceholders.map((placeholder, idx) => (
-                              <tr key={idx} className="border-t">
-                                <td className="p-3 font-mono text-sm">{placeholder.placeholder}</td>
-                                <td className="p-3 text-sm text-muted-foreground">{placeholder.exampleValue}</td>
-                                <td className="p-3 text-sm">{placeholder.description}</td>
-                                <td className="p-3">
-                                  <Badge variant={placeholder.confidence > 80 ? "default" : "secondary"}>
-                                    {placeholder.confidence}%
-                                  </Badge>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    ) : (
-                      <div className="text-center p-8 text-muted-foreground">
-                        No placeholders detected. Try uploading different templates.
-                      </div>
-                    )}
-                  </div>
-                </TabsContent>
-              </Tabs>
-
-              <div className="flex justify-between">
-                <Button variant="outline" onClick={resetWizard}>
-                  Start Over
-                </Button>
-              </div>
+            <div className="space-y-4">
+              <p className="text-sm text-muted-foreground">Found {aiPlaceholders.length} placeholders</p>
+              <Button onClick={handleGenerateGuide} disabled={isGeneratingGuide} className="w-full">
+                {isGeneratingGuide ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Generating...</> : <><FileText className="w-4 h-4 mr-2" />Generate Guide</>}
+              </Button>
             </div>
           )}
 
-          {/* Preview Step */}
-          {currentStep === "preview" && (
-            <div className="space-y-6">
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-semibold">AI Analysis Results</h3>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Review the suggested placeholders below. You'll need to manually add these to your blank template in Word, then use it in your reports.
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    {generatedDocxUrl && (
-                      <Button variant="outline" onClick={() => window.open(generatedDocxUrl, '_blank')}>
-                        <Download className="w-4 h-4 mr-2" />
-                        Download DOCX
-                      </Button>
-                    )}
-                    {pdfPreviewUrl && (
-                      <Button variant="outline" onClick={() => window.open(pdfPreviewUrl, '_blank')}>
-                        <Download className="w-4 h-4 mr-2" />
-                        Download PDF
-                      </Button>
-                    )}
-                  </div>
-                </div>
-
-                {pdfPreviewUrl ? (
-                  <div className="border rounded-lg overflow-hidden" style={{ height: '600px' }}>
-                    <embed
-                      src={pdfPreviewUrl}
-                      type="application/pdf"
-                      width="100%"
-                      height="100%"
-                    />
-                  </div>
-                ) : (
-                  <div className="border rounded-lg p-8 text-center text-muted-foreground">
-                    <FileText className="w-12 h-12 mx-auto mb-4 opacity-50" />
-                    <p>Click "Insert Placeholders & Generate PDF" to see the preview</p>
-                  </div>
-                )}
+          {currentStep === "guide" && guidePdfUrl && (
+            <div className="space-y-4">
+              <div className="flex gap-2">
+                <Button asChild className="flex-1"><a href={guidePdfUrl} download><FileText className="w-4 h-4 mr-2" />Download PDF</a></Button>
+                <Button onClick={handleDownloadExcel} variant="outline" className="flex-1"><FileDown className="w-4 h-4 mr-2" />Download Excel</Button>
               </div>
-
-              <div className="flex justify-between">
-                <Button variant="outline" onClick={resetWizard}>
-                  Start Over
-                </Button>
+              <iframe src={guidePdfUrl} className="w-full border rounded" style={{height:'500px'}} />
+              <div className="space-y-2">
+                <Label>Upload Updated Template</Label>
+                <Input type="file" accept=".docx" onChange={(e) => setUpdatedBlankFile(e.target.files?.[0] || null)} />
               </div>
+              <Button onClick={handleValidateTemplate} disabled={!updatedBlankFile || isValidating} className="w-full">
+                {isValidating ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Validating...</> : <><CheckCircle2 className="w-4 h-4 mr-2" />Validate</>}
+              </Button>
+            </div>
+          )}
+
+          {currentStep === "validate" && validationResult && (
+            <div className="space-y-4">
+              <div className={validationResult.isValid ? "bg-green-50 dark:bg-green-950 p-4 rounded" : "bg-yellow-50 dark:bg-yellow-950 p-4 rounded"}>
+                <p className="font-semibold flex items-center gap-2">
+                  {validationResult.isValid ? <><CheckCircle2 />Success!</> : <><AlertCircle />Issues Found</>}
+                </p>
+              </div>
+              <Button onClick={resetWizard} variant="outline" className="w-full"><RotateCw className="w-4 h-4 mr-2" />Start Over</Button>
             </div>
           )}
         </CardContent>
