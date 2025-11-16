@@ -11,6 +11,7 @@ interface ConversionRequest {
   templateUrl: string;
   templateId?: string;
   placeholderData?: Record<string, string>;
+  imagePlaceholders?: Record<string, string>; // Map of placeholder names to image URLs
 }
 
 Deno.serve(async (req) => {
@@ -32,7 +33,7 @@ Deno.serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { templateUrl, templateId, placeholderData }: ConversionRequest = await req.json();
+    const { templateUrl, templateId, placeholderData, imagePlaceholders }: ConversionRequest = await req.json();
 
     // Extract fileName from URL and sanitize it (remove spaces and special chars)
     const urlParts = templateUrl.split('/');
@@ -43,16 +44,18 @@ Deno.serve(async (req) => {
       originalFileName, 
       sanitizedFileName: fileName, 
       templateId, 
-      hasPlaceholderData: !!placeholderData 
+      hasPlaceholderData: !!placeholderData,
+      hasImagePlaceholders: !!imagePlaceholders 
     });
     console.log('Template URL:', templateUrl);
     console.log('Placeholder data:', placeholderData);
+    console.log('Image placeholders:', imagePlaceholders);
 
     let finalTemplateUrl = templateUrl;
     let tempFilePath: string | null = null;
 
     // If placeholderData is provided, use docxtemplater to fill the template
-    if (placeholderData && Object.keys(placeholderData).length > 0) {
+    if ((placeholderData && Object.keys(placeholderData).length > 0) || (imagePlaceholders && Object.keys(imagePlaceholders).length > 0)) {
       console.log('Processing template with docxtemplater');
       
       // Step 1: Download the original template
@@ -62,7 +65,35 @@ Deno.serve(async (req) => {
       }
       const templateArrayBuffer = await templateResponse.arrayBuffer();
       
-      // Step 2: Process with docxtemplater
+      // Step 2: Fetch images if image placeholders are provided and convert to base64
+      const processedData: Record<string, any> = { ...placeholderData };
+      
+      if (imagePlaceholders && Object.keys(imagePlaceholders).length > 0) {
+        console.log('Processing images for placeholders...');
+        for (const [key, imageUrl] of Object.entries(imagePlaceholders)) {
+          if (imageUrl) {
+            try {
+              console.log(`Fetching image for ${key} from ${imageUrl}`);
+              const imageResponse = await fetch(imageUrl);
+              if (imageResponse.ok) {
+                const imageBuffer = await imageResponse.arrayBuffer();
+                const base64 = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
+                // Store as base64 data URL
+                processedData[key] = `data:image/png;base64,${base64}`;
+                console.log(`Image ${key} converted to base64, size: ${imageBuffer.byteLength} bytes`);
+              } else {
+                console.warn(`Failed to fetch image for ${key}: ${imageResponse.statusText}`);
+                processedData[key] = ''; // Empty string if image fetch fails
+              }
+            } catch (error) {
+              console.error(`Error fetching image for ${key}:`, error);
+              processedData[key] = ''; // Empty string if error
+            }
+          }
+        }
+      }
+      
+      // Step 3: Process with docxtemplater (basic text replacement only)
       const zip = new PizZip(templateArrayBuffer);
       const doc = new Docxtemplater(zip, {
         paragraphLoop: true,
@@ -75,7 +106,10 @@ Deno.serve(async (req) => {
       
       // Set the data for replacement
       console.log('Setting placeholder data:', JSON.stringify(placeholderData, null, 2));
-      doc.setData(placeholderData);
+      if (imagePlaceholders) {
+        console.log('Image placeholders will be replaced with empty strings (manual insertion required)');
+      }
+      doc.setData(processedData);
       
       try {
         doc.render();
