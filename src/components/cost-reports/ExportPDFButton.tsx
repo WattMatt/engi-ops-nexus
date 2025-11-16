@@ -11,7 +11,7 @@ import { StandardReportPreview } from "@/components/shared/StandardReportPreview
 import { PDFExportSettings, DEFAULT_MARGINS, DEFAULT_SECTIONS, type PDFMargins, type PDFSectionOptions } from "./PDFExportSettings";
 import { calculateCategoryTotals, calculateGrandTotals, validateTotals } from "@/utils/costReportCalculations";
 import { ValidationWarningDialog } from "./ValidationWarningDialog";
-import { captureKPICards, prepareElementForCapture, canvasToDataURL } from "@/utils/captureUIForPDF";
+import { captureKPICards, prepareElementForCapture, canvasToDataURL, captureExecutiveSummary } from "@/utils/captureUIForPDF";
 import { format } from "date-fns";
 import {
   initializePDF,
@@ -47,7 +47,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
   const [validationMismatches, setValidationMismatches] = useState<string[]>([]);
   const [pendingExport, setPendingExport] = useState(false);
   const [selectedContactId, setSelectedContactId] = useState<string>('');
-  const [useTemplate, setUseTemplate] = useState(true);
+  const [useTemplate, setUseTemplate] = useState(false);
 
   // Fetch project contacts and set primary contact as default
   const { data: contacts } = useQuery({
@@ -608,305 +608,42 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         doc.line(contentStartX, contentStartY + 15, pageWidth - useMargins.right, contentStartY + 15);
 
         doc.setTextColor(...colors.text);
-        let kpiY = contentStartY + 25;
+        let currentY = contentStartY + 25;
         
-        // Try to capture KPI cards, but fall back to manual rendering if not available
+        // Capture the Executive Summary table from the UI
         try {
-          setCurrentSection("Capturing UI components...");
-          await prepareElementForCapture("cost-report-kpi-cards");
-          const kpiCardsCanvas = await captureKPICards("cost-report-kpi-cards", { scale: 2 });
+          setCurrentSection("Capturing Executive Summary from UI...");
+          await prepareElementForCapture("executive-summary-table");
+          const executiveSummaryCanvas = await captureExecutiveSummary("executive-summary-table", { scale: 2 });
           
           // Validate canvas dimensions before proceeding
-          if (kpiCardsCanvas && kpiCardsCanvas.width > 0 && kpiCardsCanvas.height > 0) {
-            const kpiCardsImage = canvasToDataURL(kpiCardsCanvas, 'JPEG', 0.9);
+          if (executiveSummaryCanvas && executiveSummaryCanvas.width > 0 && executiveSummaryCanvas.height > 0) {
+            const summaryImage = canvasToDataURL(executiveSummaryCanvas, 'JPEG', 0.9);
             
-            // Calculate dimensions to fit the captured image - validate to prevent NaN/Infinity
-            const kpiImageAspectRatio = kpiCardsCanvas.width / kpiCardsCanvas.height;
-            const kpiImageWidth = contentWidth;
-            const kpiImageHeight = kpiImageWidth / kpiImageAspectRatio;
+            // Calculate dimensions to fit the captured image
+            const imageAspectRatio = executiveSummaryCanvas.width / executiveSummaryCanvas.height;
+            const imageWidth = contentWidth;
+            const imageHeight = imageWidth / imageAspectRatio;
             
             // Final validation before adding image
-            if (isFinite(kpiImageHeight) && kpiImageHeight > 0) {
-              doc.addImage(kpiCardsImage, 'JPEG', contentStartX, kpiY, kpiImageWidth, kpiImageHeight, undefined, 'FAST');
-              kpiY += kpiImageHeight + 5;
+            if (isFinite(imageHeight) && imageHeight > 0) {
+              // Check if we need a new page
+              if (currentY + imageHeight > pageHeight - useMargins.bottom) {
+                doc.addPage();
+                currentY = contentStartY;
+              }
+              
+              doc.addImage(summaryImage, 'JPEG', contentStartX, currentY, imageWidth, imageHeight, undefined, 'FAST');
+              currentY += imageHeight + 10;
             }
           }
         } catch (error) {
-          console.log("Could not capture KPI cards, will render manually:", error);
-          // Continue with manual rendering if capture fails
+          console.log("Could not capture Executive Summary table, falling back to manual rendering:", error);
+          // Fallback: Display a message that table couldn't be captured
+          doc.setFontSize(10);
+          doc.setTextColor(220, 38, 38);
+          doc.text("Unable to capture Executive Summary. Please ensure the page is fully loaded.", contentStartX, currentY);
         }
-
-        // Category Distribution & Financial Variance Table with improved styling
-        doc.setTextColor(...colors.text);
-        let tableY = kpiY + 20;
-        
-        // Section header with accent line
-        doc.setFontSize(14);
-        doc.setFont("helvetica", "bold");
-        doc.text("Category Distribution & Financial Variance", contentStartX, tableY);
-        doc.setDrawColor(...colors.secondary);
-        doc.setLineWidth(0.8);
-        doc.line(contentStartX, tableY + 2, contentStartX + 90, tableY + 2);
-        tableY += 12;
-
-        // Prepare table data matching the category summary structure
-        const tableData = categoryTotals.map((cat: any, index: number) => {
-          const percentage = totalAnticipatedFinal > 0 
-            ? ((cat.anticipatedFinal / totalAnticipatedFinal) * 100).toFixed(1)
-            : '0.0';
-          
-          return [
-            cat.code,
-            cat.description,
-            `R${cat.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-            `R${cat.previousReport.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-            `R${cat.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-            `${percentage}%`,
-            `${cat.currentVariance >= 0 ? '+' : ''}R${Math.abs(cat.currentVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-            `${cat.originalVariance >= 0 ? '+' : ''}R${Math.abs(cat.originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`
-          ];
-        });
-
-        // Add totals row
-        tableData.push([
-          '',
-          'GRAND TOTAL',
-          `R${totalOriginalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-          `R${totalPreviousReport.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-          `R${totalAnticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-          '100%',
-          `${currentVariance >= 0 ? '+' : ''}R${Math.abs(currentVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-          `${originalVariance >= 0 ? '+' : ''}R${Math.abs(originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`
-        ]);
-
-        autoTable(doc, {
-          startY: tableY,
-          margin: { left: contentStartX, right: useMargins.right },
-          head: [[
-            'Code',
-            'Category',
-            'Original Budget',
-            'Previous Report',
-            'Anticipated Final',
-            '% of Total',
-            'Current Variance',
-            'Original Variance'
-          ]],
-          body: tableData,
-          theme: 'striped',
-          headStyles: { 
-            fillColor: colors.primary, 
-            textColor: colors.white, 
-            fontStyle: 'bold',
-            fontSize: 8,
-            cellPadding: 4,
-            lineWidth: 0.1,
-            lineColor: colors.light,
-            valign: 'middle',
-            halign: 'center',
-            overflow: 'linebreak',
-            minCellWidth: 10
-          },
-          bodyStyles: { 
-            fontSize: 8,
-            cellPadding: 4,
-            minCellHeight: 12,
-            textColor: colors.text,
-            lineWidth: 0.1,
-            lineColor: [226, 232, 240],
-            valign: 'middle',
-            overflow: 'linebreak'
-          },
-          alternateRowStyles: {
-            fillColor: [248, 250, 252]
-          },
-          columnStyles: {
-            0: { cellWidth: 10, fontStyle: 'bold', halign: 'center' },
-            1: { cellWidth: 38, halign: 'left', cellPadding: { left: 5, right: 3, top: 4, bottom: 4 } },
-            2: { cellWidth: 22, halign: 'right', cellPadding: { right: 5 } },
-            3: { cellWidth: 22, halign: 'right', cellPadding: { right: 5 } },
-            4: { cellWidth: 22, halign: 'right', cellPadding: { right: 5 } },
-            5: { cellWidth: 10, halign: 'center' },
-            6: { cellWidth: 22, halign: 'right', cellPadding: { right: 5 } },
-            7: { cellWidth: 22, halign: 'right', cellPadding: { right: 5 } }
-          },
-          didDrawCell: (data) => {
-            // Add colored indicator bar on the left of each row (except totals row)
-            if (data.section === 'body' && data.column.index === 0 && data.row.index < categoryTotals.length) {
-              const color = cardColors[data.row.index % cardColors.length];
-              doc.setFillColor(color[0], color[1], color[2]);
-              doc.rect(data.cell.x - 3, data.cell.y, 3, data.cell.height, 'F');
-            }
-            
-            // Highlight the totals row with modern styling
-            if (data.section === 'body' && data.row.index === tableData.length - 1) {
-              data.cell.styles.fillColor = [226, 232, 240];
-              data.cell.styles.fontStyle = 'bold';
-              data.cell.styles.fontSize = 8.5;
-              data.cell.styles.textColor = colors.primary;
-            }
-            
-            // Color the variance cells
-            if (data.section === 'body' && data.row.index < categoryTotals.length) {
-              const cat = categoryTotals[data.row.index];
-              // Current Variance column with professional colors
-              if (data.column.index === 6) {
-                if (cat.currentVariance < 0) {
-                  data.cell.styles.textColor = colors.success;
-                  data.cell.styles.fontStyle = 'bold';
-                } else if (cat.currentVariance > 0) {
-                  data.cell.styles.textColor = colors.danger;
-                  data.cell.styles.fontStyle = 'bold';
-                }
-              }
-              // Original Variance column with professional colors
-              if (data.column.index === 7) {
-                if (cat.originalVariance < 0) {
-                  data.cell.styles.textColor = colors.success;
-                  data.cell.styles.fontStyle = 'bold';
-                } else if (cat.originalVariance > 0) {
-                  data.cell.styles.textColor = colors.danger;
-                  data.cell.styles.fontStyle = 'bold';
-                }
-              }
-            }
-            
-            // Color totals row variance with professional colors
-            if (data.section === 'body' && data.row.index === tableData.length - 1) {
-              if (data.column.index === 6) {
-                if (currentVariance < 0) {
-                  data.cell.styles.textColor = colors.success;
-                } else if (currentVariance > 0) {
-                  data.cell.styles.textColor = colors.danger;
-                }
-              }
-              if (data.column.index === 7) {
-                if (originalVariance < 0) {
-                  data.cell.styles.textColor = colors.success;
-                } else if (originalVariance > 0) {
-                  data.cell.styles.textColor = colors.danger;
-                }
-              }
-            }
-          }
-        });
-
-        let cardY = (doc as any).lastAutoTable.finalY + 15;
-        const cardWidth = (contentWidth - 8) / 2; // Two cards per row
-        const cardHeight = 52;
-        const cardsPerRow = 2;
-        
-        // Check if we need a new page for the cards
-        const totalRows = Math.ceil(categoryTotals.length / cardsPerRow);
-        const totalCardsHeight = totalRows * (cardHeight + 8);
-        
-        if (cardY + totalCardsHeight > pageHeight - useMargins.bottom) {
-          doc.addPage();
-          cardY = contentStartY;
-        }
-        
-        categoryTotals.forEach((cat: any, index: number) => {
-          const col = index % cardsPerRow;
-          const row = Math.floor(index / cardsPerRow);
-          const x = contentStartX + col * (cardWidth + 8);
-          const y = cardY + row * (cardHeight + 8);
-          
-          if (y > pageHeight - useMargins.bottom - 60) {
-            doc.addPage();
-            cardY = contentStartY;
-          }
-          
-          const finalY = row === 0 ? cardY : cardY + row * (cardHeight + 8);
-          const color = cardColors[index % cardColors.length];
-          
-          // Card background with subtle gradient
-          createGradientCard(x, finalY, cardWidth, cardHeight, [250, 250, 250], [255, 255, 255]);
-          
-          // Card border
-          doc.setDrawColor(220, 220, 220);
-          doc.setLineWidth(0.3);
-          doc.rect(x, finalY, cardWidth, cardHeight);
-          
-          // Left colored border (thicker, like border-l-[6px])
-          doc.setFillColor(color[0], color[1], color[2]);
-          doc.rect(x, finalY, 3, cardHeight, 'F');
-          
-          // Badge with rounded corners
-          const badgeX = x + 6;
-          const badgeY = finalY + 6;
-          const badgeSize = 11;
-          
-          doc.setFillColor(color[0], color[1], color[2]);
-          doc.roundedRect(badgeX, badgeY, badgeSize, badgeSize, 2, 2, 'F');
-          
-          // Badge text
-          doc.setFontSize(9);
-          doc.setFont("helvetica", "bold");
-          doc.setTextColor(255, 255, 255);
-          doc.text(cat.code, badgeX + badgeSize / 2, badgeY + badgeSize / 2 + 2, { align: "center" });
-          
-          // Category name
-          doc.setTextColor(0, 0, 0);
-          doc.setFontSize(9);
-          doc.setFont("helvetica", "bold");
-          const catName = doc.splitTextToSize(cat.description, cardWidth - 25);
-          doc.text(catName, badgeX + badgeSize + 3, finalY + 8);
-          
-          // Original Budget
-          doc.setFontSize(6);
-          doc.setFont("helvetica", "bold");
-          doc.setTextColor(120, 120, 120);
-          doc.text("ORIGINAL BUDGET", x + 5, finalY + 21);
-          doc.setFontSize(8);
-          doc.setFont("helvetica", "bold");
-          doc.setTextColor(0, 0, 0);
-          doc.text(`R${cat.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, x + 5, finalY + 27);
-          
-          // Anticipated Final
-          doc.setFontSize(6);
-          doc.setFont("helvetica", "bold");
-          doc.setTextColor(120, 120, 120);
-          doc.text("ANTICIPATED FINAL", x + 5, finalY + 33);
-          doc.setFontSize(8);
-          doc.setFont("helvetica", "bold");
-          doc.setTextColor(0, 0, 0);
-          doc.text(`R${cat.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, x + 5, finalY + 39);
-          
-          // Border separator
-          doc.setDrawColor(220, 220, 220);
-          doc.setLineWidth(0.5);
-          doc.line(x + 5, finalY + 42, x + cardWidth - 5, finalY + 42);
-          
-          // Variance label
-          doc.setFontSize(6);
-          doc.setFont("helvetica", "bold");
-          doc.setTextColor(120, 120, 120);
-          doc.text("VARIANCE", x + 5, finalY + 46);
-          
-          // Variance value
-          doc.setFontSize(9);
-          doc.setFont("helvetica", "bold");
-          const isExtra = cat.originalVariance > 0;
-          doc.setTextColor(isExtra ? 220 : 22, isExtra ? 38 : 163, isExtra ? 38 : 74);
-          const varianceText = `${cat.originalVariance >= 0 ? '+' : ''}R${Math.abs(cat.originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`;
-          doc.text(varianceText, x + 5, finalY + 50);
-          
-          // Status badge pill
-          const badgeText = isExtra ? 'EXTRA' : 'SAVING';
-          const badgeWidth = doc.getTextWidth(badgeText) + 5;
-          const pillX = x + cardWidth - badgeWidth - 5;
-          const pillY = finalY + 45;
-          
-          // Badge pill background
-          doc.setFillColor(isExtra ? 254 : 220, isExtra ? 226 : 252, isExtra ? 226 : 231);
-          doc.roundedRect(pillX, pillY, badgeWidth, 7, 3, 3, 'F');
-          
-          // Badge pill text
-          doc.setFontSize(5.5);
-          doc.setFont("helvetica", "bold");
-          doc.setTextColor(isExtra ? 185 : 21, isExtra ? 28 : 128, isExtra ? 28 : 61);
-          doc.text(badgeText, pillX + badgeWidth / 2, pillY + 4.8, { align: "center" });
-        });
       }
 
       // ========== CATEGORY PERFORMANCE DETAILS PAGE ==========
