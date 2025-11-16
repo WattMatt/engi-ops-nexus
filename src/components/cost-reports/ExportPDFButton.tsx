@@ -85,9 +85,10 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         .from('document_templates')
         .select('*')
         .eq('template_type', 'cost_report')
-        .eq('is_default_cover', true)
         .eq('is_active', true)
-        .single();
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
       if (templateError || !template) {
         toast({
