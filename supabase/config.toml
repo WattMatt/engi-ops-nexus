@@ -1,5 +1,8 @@
 project_id = "rsdisaisxdglmdmzmkyw"
 
+[functions.generate-template-preview]
+verify_jwt = false
+
 [functions.invite-user]
 verify_jwt = true
 
