@@ -76,17 +76,26 @@ serve(async (req) => {
     console.log('Uploaded modified template:', docxUrl);
 
     // Convert to PDF using the existing function
-    const { data: pdfData, error: pdfError } = await supabase.functions.invoke('convert-word-to-pdf', {
-      body: { 
+    console.log('Calling convert-word-to-pdf with URL:', docxUrl);
+    
+    const pdfResponse = await fetch(`${supabaseUrl}/functions/v1/convert-word-to-pdf`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${supabaseServiceKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ 
         templateUrl: docxUrl
-      }
+      })
     });
 
-    if (pdfError) {
-      console.error('PDF conversion error:', pdfError);
-      throw pdfError;
+    if (!pdfResponse.ok) {
+      const errorText = await pdfResponse.text();
+      console.error('PDF conversion failed:', pdfResponse.status, errorText);
+      throw new Error(`PDF conversion failed: ${errorText}`);
     }
 
+    const pdfData = await pdfResponse.json();
     console.log('PDF generated:', pdfData.pdfUrl);
 
     return new Response(
