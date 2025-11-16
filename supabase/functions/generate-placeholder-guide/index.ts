@@ -16,100 +16,18 @@ serve(async (req) => {
     
     console.log('Generating placeholder guide:', { placeholderCount: placeholders.length, templateType });
 
-    // Generate comprehensive instruction document as HTML
     const html = generateInstructionHTML(placeholders, templateType);
-    
-    // Convert to PDF using CloudConvert
-    const CLOUDCONVERT_API_KEY = Deno.env.get('CLOUDCONVERT_API_KEY');
-    if (!CLOUDCONVERT_API_KEY) {
-      throw new Error('CloudConvert API key not configured');
-    }
+    const htmlBlob = new TextEncoder().encode(html);
 
-    // Create conversion job
-    const createJobResponse = await fetch('https://api.cloudconvert.com/v2/jobs', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${CLOUDCONVERT_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        tasks: {
-          'import-html': {
-            operation: 'import/raw',
-            data: html,
-          },
-          'convert-to-pdf': {
-            operation: 'convert',
-            input: 'import-html',
-            output_format: 'pdf',
-          },
-          'export-pdf': {
-            operation: 'export/url',
-            input: 'convert-to-pdf',
-          },
-        },
-      }),
-    });
-
-    if (!createJobResponse.ok) {
-      const errorText = await createJobResponse.text();
-      console.error('CloudConvert job creation failed:', errorText);
-      throw new Error('Failed to create PDF conversion job');
-    }
-
-    const jobData = await createJobResponse.json();
-    const jobId = jobData.data.id;
-    console.log('CloudConvert job created:', jobId);
-
-    // Poll for job completion
-    let attempts = 0;
-    const maxAttempts = 30;
-    let pdfUrl = null;
-
-    while (attempts < maxAttempts) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      const statusResponse = await fetch(`https://api.cloudconvert.com/v2/jobs/${jobId}`, {
-        headers: { 'Authorization': `Bearer ${CLOUDCONVERT_API_KEY}` },
-      });
-
-      const statusData = await statusResponse.json();
-      const status = statusData.data.status;
-      
-      console.log(`Job status (attempt ${attempts + 1}):`, status);
-
-      if (status === 'finished') {
-        const exportTask = statusData.data.tasks.find((t: any) => t.name === 'export-pdf');
-        if (exportTask?.result?.files?.[0]?.url) {
-          pdfUrl = exportTask.result.files[0].url;
-          break;
-        }
-      } else if (status === 'error') {
-        throw new Error('PDF conversion failed');
-      }
-      
-      attempts++;
-    }
-
-    if (!pdfUrl) {
-      throw new Error('PDF generation timed out');
-    }
-
-    // Download the PDF
-    const pdfResponse = await fetch(pdfUrl);
-    const pdfBlob = await pdfResponse.arrayBuffer();
-    console.log('PDF downloaded, size:', pdfBlob.byteLength);
-
-    // Upload to Supabase Storage
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const fileName = `placeholder-guide-${Date.now()}.pdf`;
+    const fileName = `placeholder-guide-${Date.now()}.html`;
     const { data: uploadData, error: uploadError } = await supabase.storage
       .from('document-templates')
-      .upload(`guides/${fileName}`, pdfBlob, {
-        contentType: 'application/pdf',
+      .upload(`guides/${fileName}`, htmlBlob, {
+        contentType: 'text/html',
         upsert: true,
       });
 
@@ -122,9 +40,8 @@ serve(async (req) => {
       .from('document-templates')
       .getPublicUrl(`guides/${fileName}`);
 
-    console.log('PDF guide uploaded:', publicUrl);
+    console.log('HTML guide uploaded:', publicUrl);
 
-    // Generate Excel data
     const excelData = generateExcelData(placeholders);
 
     return new Response(
@@ -146,173 +63,181 @@ serve(async (req) => {
   }
 });
 
+function escapeHtml(text: string): string {
+  const map: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#039;'
+  };
+  return text.replace(/[&<>"']/g, (m) => map[m]);
+}
+
 function generateInstructionHTML(placeholders: any[], templateType: string): string {
-  return `
-<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Template Placeholder Guide</title>
   <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
-      font-family: Arial, sans-serif;
-      margin: 40px;
-      color: #333;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      line-height: 1.6;
+      color: #1f2937;
+      background: #ffffff;
+      padding: 40px 20px;
+      max-width: 1200px;
+      margin: 0 auto;
     }
+    @media print { body { padding: 20px; } }
     h1 {
-      color: #2563eb;
-      border-bottom: 3px solid #2563eb;
-      padding-bottom: 10px;
+      color: #1e40af;
+      border-bottom: 4px solid #3b82f6;
+      padding-bottom: 16px;
+      margin-bottom: 24px;
+      font-size: 32px;
     }
     h2 {
-      color: #1e40af;
-      margin-top: 30px;
+      color: #1e3a8a;
+      margin-top: 40px;
+      margin-bottom: 20px;
+      font-size: 24px;
     }
     .intro {
-      background: #f0f9ff;
-      padding: 20px;
-      border-left: 4px solid #2563eb;
-      margin: 20px 0;
+      background: #eff6ff;
+      padding: 24px;
+      border-left: 6px solid #3b82f6;
+      margin: 24px 0;
+      border-radius: 8px;
     }
     table {
       width: 100%;
       border-collapse: collapse;
-      margin: 20px 0;
+      margin: 24px 0;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     }
     th {
-      background: #2563eb;
+      background: #3b82f6;
       color: white;
-      padding: 12px;
+      padding: 16px;
       text-align: left;
+      font-weight: 600;
     }
     td {
-      border: 1px solid #ddd;
-      padding: 10px;
+      border: 1px solid #e5e7eb;
+      padding: 16px;
     }
-    tr:nth-child(even) {
-      background: #f9fafb;
-    }
+    tr:nth-child(even) { background: #f9fafb; }
+    tr:hover { background: #f3f4f6; }
     .placeholder-name {
-      font-family: monospace;
+      font-family: 'Courier New', monospace;
       background: #fef3c7;
-      padding: 2px 6px;
-      border-radius: 3px;
-      font-weight: bold;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-weight: 600;
+      color: #92400e;
+      border: 1px solid #fbbf24;
     }
-    .confidence-high {
-      color: #059669;
-      font-weight: bold;
-    }
-    .confidence-medium {
-      color: #d97706;
-      font-weight: bold;
-    }
+    .confidence-high { color: #059669; font-weight: 700; }
     .steps {
       background: #f9fafb;
-      padding: 20px;
-      border-radius: 8px;
-      margin: 20px 0;
+      padding: 24px;
+      border-radius: 12px;
+      margin: 24px 0;
     }
     .step {
-      margin: 15px 0;
-      padding-left: 30px;
+      margin: 20px 0;
+      padding-left: 40px;
+      position: relative;
     }
     .step-number {
-      display: inline-block;
-      background: #2563eb;
+      position: absolute;
+      left: 0;
+      top: 0;
+      background: #3b82f6;
       color: white;
-      width: 25px;
-      height: 25px;
+      width: 32px;
+      height: 32px;
       border-radius: 50%;
-      text-align: center;
-      line-height: 25px;
-      margin-left: -30px;
-      margin-right: 5px;
-      font-weight: bold;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+    }
+    .tips {
+      background: #fef3c7;
+      border: 2px solid #fbbf24;
+      padding: 20px;
+      border-radius: 8px;
+      margin: 24px 0;
     }
   </style>
 </head>
 <body>
-  <h1>Template Placeholder Guide</h1>
+  <h1>📋 Template Placeholder Guide</h1>
   
   <div class="intro">
-    <h3>📋 About This Guide</h3>
-    <p>This document provides step-by-step instructions for adding placeholders to your blank template.</p>
+    <h3>About This Guide</h3>
     <p><strong>Template Type:</strong> ${templateType || 'Document Template'}</p>
     <p><strong>Total Placeholders:</strong> ${placeholders.length}</p>
+    <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
   </div>
 
   <h2>🎯 Quick Start Instructions</h2>
   <div class="steps">
     <div class="step">
-      <span class="step-number">1</span>
+      <div class="step-number">1</div>
       <strong>Open your blank template in Microsoft Word</strong>
     </div>
     <div class="step">
-      <span class="step-number">2</span>
-      <strong>For each placeholder in the table below:</strong>
-      <ul>
-        <li>Find the location described in the "Position Context" column</li>
-        <li>Delete the example value (if present)</li>
-        <li>Type the exact placeholder name from the "Placeholder" column (including the curly braces)</li>
-      </ul>
+      <div class="step-number">2</div>
+      <strong>For each placeholder below, find its location and type the exact placeholder name (with curly braces)</strong>
     </div>
     <div class="step">
-      <span class="step-number">3</span>
-      <strong>Save your template</strong> - It's now ready to use with dynamic data
-    </div>
-    <div class="step">
-      <span class="step-number">4</span>
-      <strong>Test it</strong> - Upload your template and generate a report to verify all placeholders work
+      <div class="step-number">3</div>
+      <strong>Save and test your template</strong>
     </div>
   </div>
 
-  <h2>📊 Placeholder Reference Table</h2>
+  <h2>📊 Placeholder Reference</h2>
   <table>
     <thead>
       <tr>
-        <th style="width: 20%;">Placeholder</th>
-        <th style="width: 25%;">Example Value</th>
-        <th style="width: 30%;">Position Context</th>
-        <th style="width: 15%;">Description</th>
-        <th style="width: 10%;">Confidence</th>
+        <th>Placeholder</th>
+        <th>Example</th>
+        <th>Position</th>
+        <th>Description</th>
+        <th>Conf.</th>
       </tr>
     </thead>
     <tbody>
       ${placeholders.map(p => `
         <tr>
-          <td><span class="placeholder-name">${p.placeholder}</span></td>
-          <td>${p.exampleValue}</td>
-          <td><em>${p.position}</em></td>
-          <td>${p.description}</td>
-          <td class="${p.confidence >= 90 ? 'confidence-high' : 'confidence-medium'}">${p.confidence}%</td>
+          <td><span class="placeholder-name">${escapeHtml(p.placeholder)}</span></td>
+          <td>${escapeHtml(p.exampleValue)}</td>
+          <td>${escapeHtml(p.position)}</td>
+          <td>${escapeHtml(p.description)}</td>
+          <td class="confidence-high">${p.confidence}%</td>
         </tr>
       `).join('')}
     </tbody>
   </table>
 
-  <h2>💡 Tips for Success</h2>
-  <div class="intro">
+  <div class="tips">
+    <h3>💡 Tips</h3>
     <ul>
-      <li><strong>Copy-paste placeholder names</strong> from this document to avoid typos</li>
-      <li><strong>Keep the curly braces</strong> - they're required for the placeholder to work</li>
-      <li><strong>Match the exact spelling and capitalization</strong> - placeholders are case-sensitive</li>
-      <li><strong>Don't add extra spaces</strong> inside the curly braces</li>
-      <li><strong>Test with sample data</strong> before using in production</li>
+      <li>Copy-paste placeholder names to avoid typos</li>
+      <li>Keep the curly braces</li>
+      <li>Match exact spelling and capitalization</li>
+      <li>Test with sample data before production use</li>
     </ul>
   </div>
 
-  <h2>🔍 What Each Placeholder Represents</h2>
-  ${placeholders.map((p, i) => `
-    <div style="margin: 15px 0; padding: 10px; background: ${i % 2 === 0 ? '#f9fafb' : 'white'};">
-      <strong>${i + 1}. <span class="placeholder-name">${p.placeholder}</span></strong>
-      <p style="margin: 5px 0;">${p.description}</p>
-      <p style="margin: 5px 0; color: #6b7280;"><em>Example: "${p.exampleValue}"</em></p>
-    </div>
-  `).join('')}
-
 </body>
-</html>
-  `;
+</html>`;
 }
 
 function generateExcelData(placeholders: any[]) {
