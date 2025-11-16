@@ -253,16 +253,13 @@ export const CategoryCard = ({ category, onUpdate }: CategoryCardProps) => {
                         <div className="col-span-3 text-right">-</div>
                         <div className="col-span-3 text-right">-</div>
                         <div className="col-span-3 text-right font-medium">
-                          {variation.is_credit ? "-" : "+"}R
-                          {Number(variation.amount).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
+                          R{Number(variation.amount).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
                         </div>
                         <div className="col-span-4 text-right font-medium">
-                          {variation.is_credit ? "-" : "+"}R
-                          {Number(variation.amount).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
+                          R{Number(variation.amount).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
                         </div>
                         <div className="col-span-4 text-right font-medium">
-                          {variation.is_credit ? "-" : "+"}R
-                          {Number(variation.amount).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
+                          R{Number(variation.amount).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}
                         </div>
                       </div>
                       ))}
