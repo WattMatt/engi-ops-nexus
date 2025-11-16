@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Download, Loader2, Settings, FileText } from "lucide-react";
+import { Download, Loader2, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -1352,15 +1352,6 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           </Button>
           <Button onClick={() => setSettingsOpen(true)} variant="outline" size="icon" disabled={loading}>
             <Settings className="h-4 w-4" />
-          </Button>
-          <Button 
-            variant={useTemplate ? "default" : "outline"}
-            size="icon"
-            onClick={() => setUseTemplate(!useTemplate)}
-            disabled={loading}
-            title={useTemplate ? "Using Word Template" : "Using Legacy PDF"}
-          >
-            <FileText className="h-4 w-4" />
           </Button>
         </div>
         
