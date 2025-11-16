@@ -118,7 +118,7 @@ export const CostCategoriesManager = ({ reportId, projectId }: CostCategoriesMan
                   <td className="py-3 px-3 text-right font-mono">
                     R{grandTotals.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
                   </td>
-                  <td className="py-3 px-3"></td>
+                  <td className="py-3 px-3 text-right font-mono">100.0%</td>
                   <td className="py-3 px-3 text-right font-mono">
                     R{grandTotals.currentVariance.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}
                   </td>
