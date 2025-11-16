@@ -68,8 +68,8 @@ Deno.serve(async (req) => {
         paragraphLoop: true,
         linebreaks: true,
         delimiters: {
-          start: '{{',
-          end: '}}'
+          start: '{',
+          end: '}'
         }
       });
       
