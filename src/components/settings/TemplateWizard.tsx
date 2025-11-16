@@ -155,13 +155,13 @@ export function TemplateWizard() {
         const filePath = `templates/cost_reports/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
-          .from("templates")
+          .from("document-templates")
           .upload(filePath, file, { upsert: true });
 
         if (uploadError) throw uploadError;
 
         const { data: urlData } = supabase.storage
-          .from("templates")
+          .from("document-templates")
           .getPublicUrl(filePath);
 
         // Save to database
