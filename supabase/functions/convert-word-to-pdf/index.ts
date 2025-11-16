@@ -80,9 +80,28 @@ Deno.serve(async (req) => {
       try {
         doc.render();
         console.log('Template rendered successfully');
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error rendering template:', error);
-        console.error('Available placeholders in document:', doc.getFullText());
+        
+        // Log detailed error information
+        if (error.properties && error.properties.errors) {
+          console.error('Detailed errors:', JSON.stringify(error.properties.errors, null, 2));
+          
+          // Extract specific error details
+          const errorDetails = error.properties.errors.map((e: any) => {
+            return `${e.message} at "${e.properties?.context || e.properties?.xtag || 'unknown'}" in ${e.properties?.file || 'document'}`;
+          });
+          
+          return new Response(
+            JSON.stringify({ 
+              success: false, 
+              error: 'Template has formatting issues. Please fix these placeholders in your Word document:',
+              details: errorDetails
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+          );
+        }
+        
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         throw new Error(`Template rendering failed: ${errorMessage}. Check that your Word template contains the correct placeholders: ${Object.keys(placeholderData).map(k => `{${k}}`).join(', ')}`);
       }
