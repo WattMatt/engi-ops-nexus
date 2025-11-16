@@ -80,11 +80,26 @@ export function TemplateWizard() {
       setProgress(30);
       const completedAnalysis = await analyzeWordTemplate(completedFile);
       setCompletedStructure(completedAnalysis);
+      
+      console.log("Completed template analysis:", {
+        headings: completedAnalysis.headings,
+        tables: completedAnalysis.tables,
+        images: completedAnalysis.images,
+        paragraphCount: completedAnalysis.paragraphs.length,
+        hasFinancialContent: completedAnalysis.hasFinancialContent
+      });
 
       // Analyze blank template
       setProgress(60);
       const blankAnalysis = await analyzeWordTemplate(blankFile);
       setBlankStructure(blankAnalysis);
+      
+      console.log("Blank template analysis:", {
+        headings: blankAnalysis.headings,
+        tables: blankAnalysis.tables,
+        images: blankAnalysis.images,
+        paragraphCount: blankAnalysis.paragraphs.length,
+      });
 
       // Compare structures
       setProgress(80);
