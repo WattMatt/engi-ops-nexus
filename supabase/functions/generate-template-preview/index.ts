@@ -29,18 +29,34 @@ serve(async (req) => {
     // Convert blank template to PDF for WYSIWYG preview
     console.log('Converting blank template to PDF for preview...');
 
-    const convertResponse = await supabase.functions.invoke('convert-word-to-pdf', {
-      body: {
-        templateUrl: blankTemplateUrl,
-      },
-    });
+    // Convert to PDF using existing edge function
+    const convertResponse = await fetch(
+      `${supabaseUrl}/functions/v1/convert-word-to-pdf`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${supabaseServiceKey}`,
+        },
+        body: JSON.stringify({
+          templateUrl: blankTemplateUrl,
+        }),
+      }
+    );
 
-    if (convertResponse.error) {
-      console.error('Error converting to PDF:', convertResponse.error);
-      throw new Error('Failed to convert template to PDF');
+    if (!convertResponse.ok) {
+      const errorText = await convertResponse.text();
+      console.error('Conversion error:', errorText);
+      throw new Error(`Failed to convert template to PDF: ${errorText}`);
     }
 
-    const pdfUrl = convertResponse.data?.pdfUrl;
+    const convertData = await convertResponse.json();
+    const pdfUrl = convertData?.pdfUrl;
+    
+    if (!pdfUrl) {
+      throw new Error('No PDF URL returned from conversion');
+    }
+
     console.log('PDF preview generated:', pdfUrl);
 
     return new Response(
