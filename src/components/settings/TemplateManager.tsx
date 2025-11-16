@@ -166,12 +166,9 @@ export const TemplateManager = () => {
     }
   };
 
-  const handlePreview = async (template: any) => {
-    const { data: { publicUrl } } = supabase.storage
-      .from("documents")
-      .getPublicUrl(template.file_url.split("/documents/")[1] || "");
-    
-    setPreviewTemplate({ ...template, publicUrl });
+  const handlePreview = (template: any) => {
+    // file_url is already the full public URL from storage
+    setPreviewTemplate({ ...template, publicUrl: template.file_url });
   };
 
   const groupedTemplates = TEMPLATE_TYPES.reduce((acc, type) => {
