@@ -10,6 +10,7 @@ export interface CategoryTotal {
   originalBudget: number;
   previousReport: number;
   anticipatedFinal: number;
+  percentageOfTotal: number;
   currentVariance: number;
   originalVariance: number;
 }
@@ -31,7 +32,8 @@ export function calculateCategoryTotals(
   lineItems: any[],
   variations: any[]
 ): CategoryTotal[] {
-  return categories.map(category => {
+  // First pass: calculate totals without percentages
+  const totalsWithoutPercentages = categories.map(category => {
     const isVariationsCategory = category.description?.toUpperCase().includes("VARIATION");
     
     if (isVariationsCategory) {
@@ -48,6 +50,7 @@ export function calculateCategoryTotals(
         originalBudget: 0, // Variations show R0 in original budget
         previousReport: 0, // Variations show R0 in previous report
         anticipatedFinal, // Full variations amount in anticipated final
+        percentageOfTotal: 0, // Will be calculated in second pass
         currentVariance: anticipatedFinal, // Variance = full amount (since previous was 0)
         originalVariance: anticipatedFinal // Variance = full amount (since original was 0)
       };
@@ -65,11 +68,26 @@ export function calculateCategoryTotals(
         originalBudget,
         previousReport,
         anticipatedFinal,
+        percentageOfTotal: 0, // Will be calculated in second pass
         currentVariance: anticipatedFinal - previousReport,
         originalVariance: anticipatedFinal - originalBudget
       };
     }
   });
+
+  // Calculate total original budget for percentage calculations
+  const totalOriginalBudget = totalsWithoutPercentages.reduce(
+    (sum, cat) => sum + cat.originalBudget,
+    0
+  );
+
+  // Second pass: add percentage of total
+  return totalsWithoutPercentages.map(cat => ({
+    ...cat,
+    percentageOfTotal: totalOriginalBudget > 0 
+      ? (cat.originalBudget / totalOriginalBudget) * 100
+      : 0
+  }));
 }
 
 /**
