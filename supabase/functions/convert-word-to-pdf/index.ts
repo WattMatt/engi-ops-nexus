@@ -106,10 +106,6 @@ Deno.serve(async (req) => {
         throw new Error(`Template processing failed: ${errorMessage}. Please check your template syntax and ensure all required placeholders are present.`);
       }
       
-        const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        throw new Error(`Template rendering failed: ${errorMessage}. Check that your Word template contains the correct placeholders: ${Object.keys(placeholderData).map(k => `{{${k}}}`).join(', ')}`);
-      }
-      
       // Step 3: Generate the filled document
       const filledDocBuffer = doc.getZip().generate({
         type: 'nodebuffer',
