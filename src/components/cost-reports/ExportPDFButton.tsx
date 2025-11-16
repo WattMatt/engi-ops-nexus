@@ -80,19 +80,20 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
     try {
       console.log('Starting template-based PDF export for report:', report.id);
       
-      // Get default cover page template
+      // Get default cost report template
       const { data: template, error: templateError } = await supabase
         .from('document_templates')
         .select('*')
-        .eq('is_default_cover', true)
+        .eq('template_type', 'cost_report')
         .eq('is_active', true)
+        .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
 
       if (templateError || !template) {
         toast({
-          title: "No Default Cover Template",
-          description: "Please upload and set a default cover page template in Settings → PDF Templates",
+          title: "No Default Template",
+          description: "Please upload and set a default cost report template in Settings → PDF Templates",
           variant: "destructive",
         });
         setLoading(false);
