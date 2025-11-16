@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -19,6 +20,7 @@ export function TemplateWizard() {
   const [currentStep, setCurrentStep] = useState<WizardStep>("upload");
   const [progress, setProgress] = useState(0);
   
+  const [templateType, setTemplateType] = useState<string>("cost_report");
   const [completedFile, setCompletedFile] = useState<File | null>(null);
   const [blankFile, setBlankFile] = useState<File | null>(null);
   
@@ -31,6 +33,15 @@ export function TemplateWizard() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [comparison, setComparison] = useState<ReturnType<typeof compareTemplateStructures> | null>(null);
   const [placeholders, setPlaceholders] = useState<ReturnType<typeof getPlaceholderSuggestions> | null>(null);
+
+  const templateTypeLabels: Record<string, string> = {
+    cost_report: "Cost Report",
+    cover_page: "Cover Page",
+    specification: "Specification",
+    budget: "Budget",
+    final_account: "Final Account",
+    other: "Other Document"
+  };
 
   const handleCompletedFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -157,7 +168,8 @@ export function TemplateWizard() {
 
       for (const { file, suffix } of files) {
         const fileName = `${timestamp}${suffix}.docx`;
-        const filePath = `templates/cost_reports/${fileName}`;
+        const folderPath = templateType === "cover_page" ? "cover_pages" : `templates/${templateType}`;
+        const filePath = `${folderPath}/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
           .from("document-templates")
@@ -171,12 +183,13 @@ export function TemplateWizard() {
 
         // Save to database
         await supabase.from("document_templates").insert({
-          name: `Cost Report Template ${suffix.replace(/_/g, " ")}`,
+          name: `${templateTypeLabels[templateType]} ${suffix.replace(/_/g, " ")}`,
           description: `Generated via Template Wizard on ${timestamp}`,
-          template_type: "cost_report",
+          template_type: templateType,
           file_name: fileName,
           file_url: urlData.publicUrl,
           is_active: suffix === "_generated_template",
+          is_default_cover: templateType === "cover_page" && suffix === "_generated_template",
           created_by: user.id,
         });
       }
@@ -212,7 +225,7 @@ export function TemplateWizard() {
       <CardHeader>
         <CardTitle>Template Wizard</CardTitle>
         <CardDescription>
-          Upload your completed and blank templates to generate an intelligent cost report template with placeholders
+          Upload your completed and blank templates to generate an intelligent template with placeholders
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
@@ -236,6 +249,26 @@ export function TemplateWizard() {
             </Alert>
 
             <div className="grid gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="template-type">
+                  Template Type
+                  <span className="text-destructive ml-1">*</span>
+                </Label>
+                <Select value={templateType} onValueChange={setTemplateType}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select template type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="cost_report">Cost Report</SelectItem>
+                    <SelectItem value="cover_page">Cover Page</SelectItem>
+                    <SelectItem value="specification">Specification</SelectItem>
+                    <SelectItem value="budget">Budget</SelectItem>
+                    <SelectItem value="final_account">Final Account</SelectItem>
+                    <SelectItem value="other">Other Document</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
               <div className="space-y-2">
                 <Label htmlFor="completed-template">
                   Completed Example Template
