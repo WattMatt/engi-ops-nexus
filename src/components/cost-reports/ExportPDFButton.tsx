@@ -75,25 +75,24 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
 
   const exportWithTemplate = async () => {
     setLoading(true);
-    setCurrentSection("Generating PDF from Word template...");
+    setCurrentSection("Preparing template data...");
     
     try {
       console.log('Starting template-based PDF export for report:', report.id);
       
-      // Get default template
+      // Get default cover page template
       const { data: template, error: templateError } = await supabase
         .from('document_templates')
         .select('*')
-        .eq('template_type', 'cost_report')
+        .eq('is_default_cover', true)
         .eq('is_active', true)
-        .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
 
       if (templateError || !template) {
         toast({
-          title: "No Default Template",
-          description: "Please upload and set a default cost report template in Settings → PDF Templates",
+          title: "No Default Cover Template",
+          description: "Please upload and set a default cover page template in Settings → PDF Templates",
           variant: "destructive",
         });
         setLoading(false);
@@ -131,25 +130,66 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       
       console.log('PDF generated successfully:', data.pdfUrl);
       
-      setCurrentSection("Downloading PDF...");
+      setCurrentSection("Saving PDF to storage...");
       
-      // Download the PDF
+      // Download the PDF from the converted URL
       const response = await fetch(data.pdfUrl);
-      if (!response.ok) throw new Error('Failed to download PDF');
+      if (!response.ok) throw new Error('Failed to fetch converted PDF');
       
       const blob = await response.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `cost-report-${report.report_number}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
+      const fileName = `Cost_Report_${report.report_number}_${format(new Date(), 'yyyyMMdd_HHmmss')}.pdf`;
+      const filePath = `cost-reports/${report.project_id}/${fileName}`;
+      
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from('cost-report-pdfs')
+        .upload(filePath, blob, {
+          contentType: 'application/pdf',
+          upsert: false
+        });
+      
+      if (uploadError) {
+        console.error('Upload error:', uploadError);
+        toast({
+          title: "Upload Failed",
+          description: "Failed to save PDF to storage",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+      
+      // Get the public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('cost-report-pdfs')
+        .getPublicUrl(filePath);
+      
+      // Save record to database
+      const { error: dbError } = await supabase
+        .from('cost_report_pdfs')
+        .insert({
+          cost_report_id: report.id,
+          project_id: report.project_id,
+          file_name: fileName,
+          file_path: filePath,
+          revision: `R${report.report_number}`,
+          notes: 'Generated from Word template'
+        });
+      
+      if (dbError) {
+        console.error('Database error:', dbError);
+      }
+      
+      // Show preview dialog
+      setPreviewReport({
+        ...report,
+        pdf_url: publicUrl,
+        file_name: fileName
+      });
 
       toast({
         title: "Success",
-        description: "Cost report PDF generated successfully from Word template",
+        description: "PDF generated and saved. Preview it before downloading.",
       });
 
       if (onReportGenerated) {
