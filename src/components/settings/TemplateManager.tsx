@@ -92,7 +92,6 @@ export const TemplateManager = () => {
           file_name: file.name,
           file_url: publicUrl,
           template_type: templateType,
-          file_type: fileExt,
           is_active: isActive,
           is_default_cover: isDefault,
           created_by: user.id,
