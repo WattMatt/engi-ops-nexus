@@ -63,7 +63,7 @@ export const CostCategoriesManager = ({ reportId, projectId }: CostCategoriesMan
   return (
     <div className="space-y-6">
       {/* Executive Summary */}
-      <Card>
+      <Card id="executive-summary-table">
         <CardHeader>
           <CardTitle>Executive Summary</CardTitle>
         </CardHeader>
