@@ -131,20 +131,157 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       
       console.log('PDF generated successfully:', data.pdfUrl);
       
+      // Step 1: Fetch the converted cover page PDF
+      setCurrentSection("Fetching cover page...");
+      const coverResponse = await fetch(data.pdfUrl);
+      if (!coverResponse.ok) throw new Error('Failed to fetch cover PDF');
+      const coverBlob = await coverResponse.blob();
+      const coverArrayBuffer = await coverBlob.arrayBuffer();
+      
+      // Step 2: Generate report content using standard PDF export
+      setCurrentSection("Generating report content...");
+      
+      // Fetch all data needed for content
+      const { data: categories } = await supabase
+        .from("cost_categories")
+        .select("*, cost_line_items(*)")
+        .eq("cost_report_id", report.id)
+        .order("display_order");
+
+      const { data: variations } = await supabase
+        .from("cost_variations")
+        .select("*")
+        .eq("cost_report_id", report.id)
+        .order("display_order");
+
+      const { data: details } = await supabase
+        .from("cost_report_details")
+        .select("*")
+        .eq("cost_report_id", report.id)
+        .order("display_order");
+
+      // Create content PDF using jsPDF
+      const contentDoc = initializePDF({ quality: 'standard', orientation: 'portrait' });
+      const pageWidth = contentDoc.internal.pageSize.width;
+      const pageHeight = contentDoc.internal.pageSize.height;
+      let yPos = STANDARD_MARGINS.top;
+      
+      // Add cost summary table
+      const categoryTotals = categories?.map(cat => {
+        const lineItemsTotal = cat.cost_line_items?.reduce((sum: number, item: any) => 
+          sum + (item.anticipated_final || 0), 0) || 0;
+        return {
+          code: cat.code,
+          description: cat.description,
+          originalBudget: cat.original_budget || 0,
+          anticipatedFinal: lineItemsTotal || cat.anticipated_final || 0
+        };
+      }) || [];
+      
+      const grandTotals = {
+        originalBudget: categoryTotals.reduce((sum, cat) => sum + cat.originalBudget, 0),
+        anticipatedFinal: categoryTotals.reduce((sum, cat) => sum + cat.anticipatedFinal, 0)
+      };
+      
+      const tableData = categoryTotals.map(cat => [
+        cat.code,
+        cat.description,
+        `R ${cat.originalBudget.toFixed(2)}`,
+        `R ${cat.anticipatedFinal.toFixed(2)}`
+      ]);
+      
+      autoTable(contentDoc, {
+        startY: yPos,
+        head: [['Code', 'Description', 'Original Budget', 'Anticipated Final']],
+        body: tableData,
+        foot: [[
+          'TOTAL',
+          '',
+          `R ${grandTotals.originalBudget.toFixed(2)}`,
+          `R ${grandTotals.anticipatedFinal.toFixed(2)}`
+        ]],
+        theme: 'grid',
+        headStyles: { fillColor: [30, 58, 138] as [number, number, number], textColor: [255, 255, 255] as [number, number, number] },
+        footStyles: { fillColor: [240, 240, 240] as [number, number, number], fontStyle: 'bold' }
+      });
+      
+      // Add category details
+      for (const category of categories || []) {
+        yPos = checkPageBreak(contentDoc, (contentDoc as any).lastAutoTable.finalY + 10);
+        yPos = addSectionHeader(contentDoc, `${category.code} - ${category.description}`, yPos);
+        
+        if (category.cost_line_items && category.cost_line_items.length > 0) {
+          const lineItemData = category.cost_line_items.map((item: any) => [
+            item.code,
+            item.description,
+            `R ${item.original_budget.toFixed(2)}`,
+            `R ${item.anticipated_final.toFixed(2)}`
+          ]);
+          
+          autoTable(contentDoc, {
+            startY: yPos,
+            head: [['Code', 'Description', 'Original', 'Anticipated']],
+            body: lineItemData,
+            theme: 'grid',
+            headStyles: { fillColor: [59, 130, 246] as [number, number, number] }
+          });
+          yPos = (contentDoc as any).lastAutoTable.finalY + 10;
+        }
+      }
+      
+      // Add variations if any
+      if (variations && variations.length > 0) {
+        yPos = checkPageBreak(contentDoc, yPos);
+        yPos = addSectionHeader(contentDoc, "Variations", yPos);
+        
+        const variationsData = variations.map(v => [
+          v.code,
+          v.description,
+          v.is_credit ? 'Credit' : 'Extra',
+          `R ${Math.abs(v.amount).toFixed(2)}`
+        ]);
+        
+        autoTable(contentDoc, {
+          startY: yPos,
+          head: [['Code', 'Description', 'Type', 'Amount']],
+          body: variationsData,
+          theme: 'grid',
+          headStyles: { fillColor: [30, 58, 138] as [number, number, number] }
+        });
+      }
+      
+      // Add page numbers to content
+      addPageNumbers(contentDoc, 1);
+      
+      // Step 3: Merge cover page with content using pdf-lib
+      setCurrentSection("Merging PDFs...");
+      const PDFLib = await import('pdf-lib');
+      
+      const coverPdf = await PDFLib.PDFDocument.load(coverArrayBuffer);
+      const contentPdfBytes = contentDoc.output('arraybuffer');
+      const contentPdf = await PDFLib.PDFDocument.load(contentPdfBytes);
+      
+      const mergedPdf = await PDFLib.PDFDocument.create();
+      
+      // Copy cover page
+      const coverPages = await mergedPdf.copyPages(coverPdf, coverPdf.getPageIndices());
+      coverPages.forEach(page => mergedPdf.addPage(page));
+      
+      // Copy content pages
+      const contentPages = await mergedPdf.copyPages(contentPdf, contentPdf.getPageIndices());
+      contentPages.forEach(page => mergedPdf.addPage(page));
+      
+      const mergedPdfBytes = await mergedPdf.save();
+      const mergedBlob = new Blob([new Uint8Array(mergedPdfBytes)], { type: 'application/pdf' });
+      
+      // Step 4: Upload merged PDF to storage
       setCurrentSection("Saving PDF to storage...");
-      
-      // Download the PDF from the converted URL
-      const response = await fetch(data.pdfUrl);
-      if (!response.ok) throw new Error('Failed to fetch converted PDF');
-      
-      const blob = await response.blob();
       const fileName = `Cost_Report_${report.report_number}_${format(new Date(), 'yyyyMMdd_HHmmss')}.pdf`;
       const filePath = `cost-reports/${report.project_id}/${fileName}`;
       
-      // Upload to storage
       const { error: uploadError } = await supabase.storage
         .from('cost-report-pdfs')
-        .upload(filePath, blob, {
+        .upload(filePath, mergedBlob, {
           contentType: 'application/pdf',
           upsert: false
         });
@@ -174,7 +311,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           file_name: fileName,
           file_path: filePath,
           revision: `R${report.report_number}`,
-          notes: 'Generated from Word template'
+          notes: 'Generated with Word template cover page'
         });
       
       if (dbError) {
@@ -190,7 +327,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
 
       toast({
         title: "Success",
-        description: "PDF generated and saved. Preview it before downloading.",
+        description: "PDF with cover page generated. Preview before downloading.",
       });
 
       if (onReportGenerated) {
