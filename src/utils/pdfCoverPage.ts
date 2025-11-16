@@ -178,14 +178,19 @@ function createPlaceholderData(
  */
 async function convertWordTemplateToPDF(
   templateUrl: string,
-  placeholderData: Record<string, string>
+  placeholderData: Record<string, string>,
+  imagePlaceholders?: Record<string, string>
 ): Promise<string> {
   console.log('Converting Word template to PDF with placeholders:', placeholderData);
+  if (imagePlaceholders) {
+    console.log('Image placeholders:', imagePlaceholders);
+  }
   
   const { data, error } = await supabase.functions.invoke('convert-word-to-pdf', {
     body: {
       templateUrl,
-      placeholderData
+      placeholderData,
+      imagePlaceholders
     }
   });
 
@@ -588,7 +593,14 @@ export async function generateCoverPage(
           const placeholderData = createPlaceholderData(options, companyDetails, contactDetails);
           console.log('📝 Placeholder data:', placeholderData);
           
-          const convertedPdfUrl = await convertWordTemplateToPDF(templateUrl, placeholderData);
+          // Prepare image placeholders
+          const imagePlaceholders: Record<string, string> = {};
+          if (companyDetails.clientLogoUrl) {
+            imagePlaceholders['client_image'] = companyDetails.clientLogoUrl;
+            console.log('📷 Adding client logo:', companyDetails.clientLogoUrl);
+          }
+          
+          const convertedPdfUrl = await convertWordTemplateToPDF(templateUrl, placeholderData, imagePlaceholders);
           console.log('✅ Word template converted to PDF:', convertedPdfUrl);
           
           // Load the converted PDF and render it as a canvas

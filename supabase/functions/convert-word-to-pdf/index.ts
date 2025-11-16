@@ -65,36 +65,8 @@ Deno.serve(async (req) => {
       }
       const templateArrayBuffer = await templateResponse.arrayBuffer();
       
-      // Step 2: Fetch images if image placeholders are provided and convert to base64
-      const processedData: Record<string, any> = { ...placeholderData };
-      
-      if (imagePlaceholders && Object.keys(imagePlaceholders).length > 0) {
-        console.log('Processing images for placeholders...');
-        for (const [key, imageUrl] of Object.entries(imagePlaceholders)) {
-          if (imageUrl) {
-            try {
-              console.log(`Fetching image for ${key} from ${imageUrl}`);
-              const imageResponse = await fetch(imageUrl);
-              if (imageResponse.ok) {
-                const imageBuffer = await imageResponse.arrayBuffer();
-                const base64 = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
-                // Store as base64 data URL
-                processedData[key] = `data:image/png;base64,${base64}`;
-                console.log(`Image ${key} converted to base64, size: ${imageBuffer.byteLength} bytes`);
-              } else {
-                console.warn(`Failed to fetch image for ${key}: ${imageResponse.statusText}`);
-                processedData[key] = ''; // Empty string if image fetch fails
-              }
-            } catch (error) {
-              console.error(`Error fetching image for ${key}:`, error);
-              processedData[key] = ''; // Empty string if error
-            }
-          }
-        }
-      }
-      
-      // Step 3: Process with docxtemplater (basic text replacement only)
-      const zip = new PizZip(templateArrayBuffer);
+      // Step 2: First, replace text placeholders with docxtemplater
+      let zip = new PizZip(templateArrayBuffer);
       const doc = new Docxtemplater(zip, {
         paragraphLoop: true,
         linebreaks: true,
@@ -104,16 +76,13 @@ Deno.serve(async (req) => {
         }
       });
       
-      // Set the data for replacement
+      // Set the text data for replacement
       console.log('Setting placeholder data:', JSON.stringify(placeholderData, null, 2));
-      if (imagePlaceholders) {
-        console.log('Image placeholders will be replaced with empty strings (manual insertion required)');
-      }
-      doc.setData(processedData);
+      doc.setData(placeholderData || {});
       
       try {
         doc.render();
-        console.log('Template rendered successfully');
+        console.log('Template text placeholders rendered successfully');
       } catch (error: any) {
         console.error('Docxtemplater rendering error:', error);
         
@@ -140,8 +109,96 @@ Deno.serve(async (req) => {
         throw new Error(`Template processing failed: ${errorMessage}. Please check your template syntax and ensure all required placeholders are present.`);
       }
       
-      // Step 3: Generate the filled document
-      const filledDocBuffer = doc.getZip().generate({
+      // Step 3: Handle image placeholders by manipulating the ZIP directly
+      if (imagePlaceholders && Object.keys(imagePlaceholders).length > 0) {
+        console.log('Processing image placeholders...');
+        
+        // Get the modified zip from docxtemplater
+        zip = doc.getZip();
+        
+        // Fetch images
+        const imageBuffers: Record<string, Uint8Array> = {};
+        for (const [key, imageUrl] of Object.entries(imagePlaceholders)) {
+          if (imageUrl) {
+            try {
+              console.log(`Fetching image for ${key} from ${imageUrl}`);
+              const imageResponse = await fetch(imageUrl);
+              if (imageResponse.ok) {
+                const imageBuffer = await imageResponse.arrayBuffer();
+                imageBuffers[key] = new Uint8Array(imageBuffer);
+                console.log(`Image ${key} fetched, size: ${imageBuffer.byteLength} bytes`);
+              } else {
+                console.warn(`Failed to fetch image for ${key}: ${imageResponse.statusText}`);
+              }
+            } catch (error) {
+              console.error(`Error fetching image for ${key}:`, error);
+            }
+          }
+        }
+        
+        // Process each image placeholder
+        const docFile = zip.file('word/document.xml');
+        if (!docFile) {
+          throw new Error('document.xml not found in template');
+        }
+        let documentXml = docFile.asText();
+        let relsXml = '';
+        let hasRels = false;
+        
+        try {
+          const relsFile = zip.file('word/_rels/document.xml.rels');
+          if (relsFile) {
+            relsXml = relsFile.asText();
+            hasRels = true;
+          }
+        } catch (e) {
+          console.log('No existing relationships file');
+        }
+        
+        let imageCounter = 1;
+        let relIdCounter = 100; // Start high to avoid conflicts
+        
+        for (const [placeholderKey, imageBuffer] of Object.entries(imageBuffers)) {
+          const imageFileName = `image${imageCounter}.png`;
+          const relId = `rId${relIdCounter}`;
+          
+          // Add image to media folder
+          zip.file(`word/media/${imageFileName}`, imageBuffer);
+          console.log(`Added ${imageFileName} to document`);
+          
+          // Add relationship
+          if (!hasRels) {
+            relsXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
+            hasRels = true;
+          }
+          
+          const relationshipXml = `<Relationship Id="${relId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${imageFileName}"/>`;
+          relsXml = relsXml.replace('</Relationships>', `${relationshipXml}</Relationships>`);
+          
+          // Replace placeholder with image XML (simple inline image, 150x150 pt)
+          const imageXml = `<w:p><w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="1428750" cy="1428750"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${imageCounter}" name="Image ${imageCounter}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${imageCounter}" name="Image ${imageCounter}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${relId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="1428750" cy="1428750"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r></w:p>`;
+          
+          // Find and replace the placeholder text
+          const placeholderPattern = new RegExp(`{${placeholderKey}}`, 'g');
+          documentXml = documentXml.replace(placeholderPattern, imageXml);
+          
+          console.log(`Replaced {${placeholderKey}} with image XML`);
+          
+          imageCounter++;
+          relIdCounter++;
+        }
+        
+        // Update the document.xml and rels
+        zip.file('word/document.xml', documentXml);
+        if (hasRels) {
+          zip.file('word/_rels/document.xml.rels', relsXml);
+        }
+        
+        console.log('Image placeholders processed successfully');
+      }
+      
+      // Generate the filled document
+      const filledDocBuffer = zip.generate({
         type: 'nodebuffer',
         compression: 'DEFLATE',
       });
