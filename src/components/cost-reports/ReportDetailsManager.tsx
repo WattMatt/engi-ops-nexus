@@ -179,9 +179,11 @@ export const ReportDetailsManager = ({ report }: ReportDetailsManagerProps) => {
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
               <CardTitle className="text-base font-semibold flex items-center gap-2">
                 {section.section_number}. {section.section_title}
-                <Tooltip>
+                <Tooltip delayDuration={300}>
                   <TooltipTrigger asChild>
-                    <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                    <button type="button" className="inline-flex items-center">
+                      <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                    </button>
                   </TooltipTrigger>
                   <TooltipContent>
                     <p className="font-mono text-xs">{`Detail_Section_${section.section_number}_Content`}</p>
