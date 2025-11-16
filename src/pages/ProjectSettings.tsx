@@ -178,7 +178,6 @@ export default function ProjectSettings() {
           <TabsTrigger value="settings">Project Settings</TabsTrigger>
           <TabsTrigger value="contacts">Contacts</TabsTrigger>
           <TabsTrigger value="members">Team Members</TabsTrigger>
-          <TabsTrigger value="templates">PDF Templates</TabsTrigger>
         </TabsList>
 
         <TabsContent value="settings">
@@ -534,25 +533,6 @@ export default function ProjectSettings() {
 
         <TabsContent value="members">
           {projectId && <ProjectMembers projectId={projectId} />}
-        </TabsContent>
-
-        <TabsContent value="templates">
-          <Card>
-            <CardHeader>
-              <CardTitle>PDF Templates</CardTitle>
-              <CardDescription>
-                Manage PDF templates in the global Settings page
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <p className="text-muted-foreground mb-4">
-                Template management has been centralized. Visit Settings → PDF Templates to upload and manage all document templates.
-              </p>
-              <Button onClick={() => navigate("/dashboard/settings")}>
-                Go to Settings
-              </Button>
-            </CardContent>
-          </Card>
         </TabsContent>
       </Tabs>
     </div>
