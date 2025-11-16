@@ -140,13 +140,58 @@ export function TemplateWizard() {
   };
 
   const handleGenerateGuide = async () => {
-    if (aiPlaceholders.length === 0) {
-      toast.error("No placeholder data available");
+    if (aiPlaceholders.length === 0 || !blankFile) {
+      toast.error("No placeholder data or blank template available");
       return;
     }
 
     setIsGeneratingGuide(true);
     try {
+      // First upload the blank file again to ensure we have the URL
+      const timestamp = Date.now();
+      const blankUpload = await supabase.storage.from('document-templates').upload(
+        `templates/${templateType}/${new Date().toISOString().split('T')[0]}_blank_structure.docx`,
+        blankFile,
+        { upsert: true }
+      );
+
+      if (blankUpload.error) throw new Error('Failed to upload blank template');
+
+      const { data: { publicUrl: blankUrl } } = supabase.storage
+        .from('document-templates')
+        .getPublicUrl(blankUpload.data.path);
+
+      // Call insert-template-placeholders to create the actual template with placeholders
+      const placeholderObj = aiPlaceholders.reduce((acc: any, p: AIPlaceholder) => {
+        acc[p.placeholder.replace(/[{}]/g, '')] = p.exampleValue;
+        return acc;
+      }, {});
+
+      const { data: insertData, error: insertError } = await supabase.functions.invoke('insert-template-placeholders', {
+        body: {
+          blankTemplateUrl: blankUrl,
+          placeholders: placeholderObj
+        }
+      });
+
+      if (insertError || !insertData?.docxUrl) {
+        throw new Error('Failed to generate template with placeholders');
+      }
+
+      // Save the generated template to database
+      const today = new Date().toISOString().split('T')[0];
+      await supabase.from('document_templates').insert({
+        name: `${templateType.replace('_', ' ')} generated template`,
+        description: `Generated via Template Wizard on ${today}`,
+        template_type: templateType,
+        file_name: `${today}_generated_template.docx`,
+        file_url: insertData.docxUrl,
+        is_active: true,
+        is_default_cover: false,
+        created_by: (await supabase.auth.getUser()).data.user?.id
+      });
+
+      // Generate the instruction guide
       const { data, error } = await supabase.functions.invoke('generate-placeholder-guide', {
         body: {
           placeholders: aiPlaceholders,
@@ -160,10 +205,10 @@ export function TemplateWizard() {
       setExcelData(data.excelData);
       setCurrentStep("guide");
       setProgress(75);
-      toast.success("Instruction guide generated!");
+      toast.success("Template and guide generated successfully!");
     } catch (error) {
-      console.error("Guide generation error:", error);
-      toast.error("Failed to generate guide.");
+      console.error("Generation error:", error);
+      toast.error("Failed to generate template and guide.");
     } finally {
       setIsGeneratingGuide(false);
     }
