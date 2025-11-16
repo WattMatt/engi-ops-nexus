@@ -614,7 +614,7 @@ export function TemplateWizard() {
                       </Button>
                     </div>
 
-                    {pdfPreviewUrl && (
+                    {pdfPreviewUrl ? (
                       <div className="mt-4">
                         <p className="text-sm font-medium mb-2">PDF Preview</p>
                         <iframe 
@@ -623,6 +623,13 @@ export function TemplateWizard() {
                           title="Template Preview"
                         />
                       </div>
+                    ) : (
+                      <Alert className="mt-4">
+                        <Info className="h-4 w-4" />
+                        <AlertDescription>
+                          Click "Generate PDF Preview" to see how your template will look with sample data
+                        </AlertDescription>
+                      </Alert>
                     )}
                   </div>
                 ) : (
