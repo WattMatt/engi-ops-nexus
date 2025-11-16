@@ -1,5 +1,12 @@
 import mammoth from "mammoth";
 
+export interface DetectedField {
+  fieldName: string;
+  value: string;
+  context: string;
+  location: "heading" | "table" | "paragraph";
+}
+
 export interface TemplateStructure {
   headings: Array<{ level: number; text: string; position: number }>;
   tables: Array<{ position: number; rows: number; columns: number }>;
@@ -11,6 +18,7 @@ export interface TemplateStructure {
     beforeText: string;
     afterText: string;
   }>;
+  detectedFields: DetectedField[];
   rawText: string;
   hasFinancialContent: boolean;
   hasTableStructure: boolean;
@@ -107,11 +115,68 @@ export async function analyzeWordTemplate(file: File): Promise<TemplateStructure
   const hasTableStructure = tables.length > 0;
   const hasImages = images.length > 0;
 
+  // Detect potential data fields from the completed template
+  const detectedFields: DetectedField[] = [];
+  
+  // Pattern 1: "Label: Value" pairs
+  const labelValuePattern = /^([A-Z][A-Za-z\s]+):\s*(.+)$/gm;
+  let match;
+  while ((match = labelValuePattern.exec(rawText)) !== null) {
+    const label = match[1].trim();
+    const value = match[2].trim();
+    
+    // Skip if value looks like a placeholder already
+    if (!value.includes("{{") && value.length > 0 && value.length < 100) {
+      detectedFields.push({
+        fieldName: label.toLowerCase().replace(/\s+/g, "_"),
+        value,
+        context: label,
+        location: "paragraph"
+      });
+    }
+  }
+
+  // Pattern 2: Table headers with data
+  tables.forEach((table, tableIndex) => {
+    const tableElement = doc.querySelectorAll("table")[tableIndex];
+    const headerRow = tableElement?.querySelector("tr");
+    const headers: string[] = [];
+    
+    headerRow?.querySelectorAll("th, td").forEach(cell => {
+      const text = cell.textContent?.trim();
+      if (text) headers.push(text);
+    });
+    
+    if (headers.length > 0) {
+      headers.forEach(header => {
+        detectedFields.push({
+          fieldName: header.toLowerCase().replace(/[^a-z0-9]+/g, "_"),
+          value: header,
+          context: `Table column: ${header}`,
+          location: "table"
+        });
+      });
+    }
+  });
+
+  // Pattern 3: Headings as section indicators
+  headings.forEach(heading => {
+    if (heading.text.length > 0 && heading.text.length < 50) {
+      detectedFields.push({
+        fieldName: heading.text.toLowerCase().replace(/[^a-z0-9]+/g, "_"),
+        value: heading.text,
+        context: `Section: ${heading.text}`,
+        location: "heading"
+      });
+    }
+  });
+
   return {
     headings,
     tables,
     paragraphs,
     images,
+    detectedFields,
     rawText,
     hasFinancialContent,
     hasTableStructure,

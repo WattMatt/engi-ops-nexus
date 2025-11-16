@@ -30,6 +30,7 @@ export function TemplateWizard() {
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [comparison, setComparison] = useState<ReturnType<typeof compareTemplateStructures> | null>(null);
+  const [placeholders, setPlaceholders] = useState<ReturnType<typeof getPlaceholderSuggestions> | null>(null);
 
   const handleCompletedFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -102,6 +103,10 @@ export function TemplateWizard() {
 
       const fileName = blankFile!.name.replace(".docx", "_generated_template.docx");
       setGeneratedFileName(fileName);
+
+      // Generate placeholder suggestions based on completed document analysis
+      const suggestions = getPlaceholderSuggestions(blankStructure, completedStructure);
+      setPlaceholders(suggestions);
 
       setProgress(100);
       setCurrentStep("preview");
@@ -441,39 +446,63 @@ export function TemplateWizard() {
                   <CardTitle className="text-sm">Placeholder Suggestions</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-2">
-                    <div className="text-sm">
-                      <p className="font-medium">Standard Placeholders</p>
-                      <div className="flex flex-wrap gap-1 mt-1">
-                        {getPlaceholderSuggestions(blankStructure).standardPlaceholders.map((ph) => (
-                          <Badge key={ph} variant="secondary" className="text-xs">
-                            {`{{${ph}}}`}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                    <div className="text-sm">
-                      <p className="font-medium mt-3">Loop Syntax</p>
-                      {getPlaceholderSuggestions(blankStructure).loopSyntax.map((loop, index) => (
-                        <div key={index} className="mt-1">
-                          <p className="text-muted-foreground text-xs">{loop.section}</p>
-                          <code className="bg-muted px-2 py-1 rounded text-xs block mt-1">{loop.syntax}</code>
+                  {placeholders && (
+                    <div className="space-y-2">
+                      {placeholders.detectedFromDocument.length > 0 && (
+                        <div className="text-sm">
+                          <p className="font-medium">Detected from Your Document</p>
+                          <div className="space-y-1 mt-2">
+                            {placeholders.detectedFromDocument.map((item, i) => (
+                              <div key={i} className="flex items-start gap-2">
+                                <Badge variant="secondary" className="text-xs">
+                                  {item.field}
+                                </Badge>
+                                <span className="text-xs text-muted-foreground">{item.source}</span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      ))}
-                    </div>
-                    {getPlaceholderSuggestions(blankStructure).imagePlaceholders.length > 0 && (
-                      <div className="text-sm">
-                        <p className="font-medium mt-3">Image Placeholders</p>
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {getPlaceholderSuggestions(blankStructure).imagePlaceholders.map((ph) => (
-                            <Badge key={ph} variant="outline" className="text-xs">
-                              {ph}
-                            </Badge>
+                      )}
+                      
+                      {placeholders.standardPlaceholders.length > 0 && placeholders.detectedFromDocument.length === 0 && (
+                        <div className="text-sm">
+                          <p className="font-medium">Standard Placeholders</p>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {placeholders.standardPlaceholders.map((ph) => (
+                              <Badge key={ph} variant="secondary" className="text-xs">
+                                {`{{${ph}}}`}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      
+                      {placeholders.loopSyntax.length > 0 && (
+                        <div className="text-sm">
+                          <p className="font-medium mt-3">Loop Syntax</p>
+                          {placeholders.loopSyntax.map((loop, index) => (
+                            <div key={index} className="mt-1">
+                              <p className="text-muted-foreground text-xs">{loop.section}</p>
+                              <code className="bg-muted px-2 py-1 rounded text-xs block mt-1">{loop.syntax}</code>
+                            </div>
                           ))}
                         </div>
-                      </div>
-                    )}
-                  </div>
+                      )}
+                      
+                      {placeholders.imagePlaceholders.length > 0 && (
+                        <div className="text-sm">
+                          <p className="font-medium mt-3">Image Placeholders</p>
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {placeholders.imagePlaceholders.map((ph) => (
+                              <Badge key={ph} variant="outline" className="text-xs">
+                                {ph}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}
