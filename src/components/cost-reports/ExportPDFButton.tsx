@@ -78,47 +78,73 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
     setCurrentSection("Generating PDF from Word template...");
     
     try {
-      // Call the edge function to generate PDF from Word template
-      setCurrentSection("Processing template and data...");
+      console.log('Starting template-based PDF export for report:', report.id);
       
-      const { data, error } = await supabase.functions.invoke('generate-cost-report-pdf', {
-        body: {
-          costReportId: report.id,
-        },
-      });
+      // Get default template
+      const { data: template, error: templateError } = await supabase
+        .from('document_templates')
+        .select('*')
+        .eq('template_type', 'cost_report')
+        .eq('is_default_cover', true)
+        .eq('is_active', true)
+        .single();
 
-      if (error) {
-        console.error('Edge function error:', error);
-        
-        // Handle specific error messages
-        if (error.message?.includes('No default cost report template')) {
-          toast({
-            title: "No Template Found",
-            description: "Please upload and set a default cost report template in Settings → PDF Templates",
-            variant: "destructive",
-          });
-          setLoading(false);
-          return;
-        }
-        
-        throw new Error(error.message || 'Failed to generate PDF from template');
+      if (templateError || !template) {
+        toast({
+          title: "No Default Template",
+          description: "Please upload and set a default cost report template in Settings → PDF Templates",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
       }
 
-      if (!data?.url) {
+      setCurrentSection("Processing template and data...");
+
+      // Prepare placeholder data using existing utility
+      const placeholderData = await prepareCostReportTemplateData(report.id);
+
+      // Use existing convert-word-to-pdf function
+      const { data, error } = await supabase.functions.invoke('convert-word-to-pdf', {
+        body: { 
+          templateUrl: template.file_url,
+          templateId: template.id,
+          placeholderData 
+        }
+      });
+      
+      if (error) {
+        console.error('Conversion error:', error);
+        toast({
+          title: "PDF Generation Failed",
+          description: error.message || "Failed to generate PDF from template",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+      
+      if (!data?.pdfUrl) {
         throw new Error('No PDF URL returned from conversion');
       }
-
+      
+      console.log('PDF generated successfully:', data.pdfUrl);
+      
       setCurrentSection("Downloading PDF...");
-
+      
       // Download the PDF
-      const pdfResponse = await fetch(data.url);
-      const pdfBlob = await pdfResponse.blob();
-      const url = URL.createObjectURL(pdfBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = data.fileName || `Cost_Report_${report.report_number}.pdf`;
-      link.click();
-      URL.revokeObjectURL(url);
+      const response = await fetch(data.pdfUrl);
+      if (!response.ok) throw new Error('Failed to download PDF');
+      
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `cost-report-${report.report_number}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
 
       toast({
         title: "Success",
