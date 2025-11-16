@@ -19,7 +19,7 @@ import { LogoUpload } from "@/components/LogoUpload";
 import { ProjectMembers } from "@/components/settings/ProjectMembers";
 import { ProjectContacts } from "@/components/settings/ProjectContacts";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CoverPageUpload } from "@/components/settings/CoverPageUpload";
+
 
 export default function ProjectSettings() {
   const navigate = useNavigate();
@@ -537,7 +537,22 @@ export default function ProjectSettings() {
         </TabsContent>
 
         <TabsContent value="templates">
-          <CoverPageUpload />
+          <Card>
+            <CardHeader>
+              <CardTitle>PDF Templates</CardTitle>
+              <CardDescription>
+                Manage PDF templates in the global Settings page
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <p className="text-muted-foreground mb-4">
+                Template management has been centralized. Visit Settings → PDF Templates to upload and manage all document templates.
+              </p>
+              <Button onClick={() => navigate("/dashboard/settings")}>
+                Go to Settings
+              </Button>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
