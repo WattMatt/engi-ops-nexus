@@ -156,6 +156,8 @@ Deno.serve(async (req) => {
 
     const jobData = await createJobResponse.json();
     const jobId = jobData.data.id;
+    
+    console.log('CloudConvert job created:', jobId);
 
     console.log('Conversion job created:', jobId);
 

@@ -1,5 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { Download, Loader2, Settings } from "lucide-react";
+import { Download, Loader2, Settings, FileText } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -28,6 +28,7 @@ import {
   captureChartAsCanvas,
   addHighQualityImage
 } from "@/utils/pdfQualitySettings";
+import { prepareCostReportTemplateData } from "@/utils/prepareCostReportTemplateData";
 
 interface ExportPDFButtonProps {
   report: any;
@@ -46,6 +47,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
   const [validationMismatches, setValidationMismatches] = useState<string[]>([]);
   const [pendingExport, setPendingExport] = useState(false);
   const [selectedContactId, setSelectedContactId] = useState<string>('');
+  const [useTemplate, setUseTemplate] = useState(true);
 
   // Fetch project contacts and set primary contact as default
   const { data: contacts } = useQuery({
@@ -71,7 +73,113 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
     enabled: !!report.project_id,
   });
 
+  const exportWithTemplate = async () => {
+    setLoading(true);
+    setCurrentSection("Checking for template...");
+    
+    try {
+      // Check if a default cost report template exists
+      const { data: template, error: templateError } = await supabase
+        .from("document_templates")
+        .select("*")
+        .eq("template_type", "cost_report")
+        .eq("is_default_cover", true)
+        .eq("is_active", true)
+        .maybeSingle();
+
+      if (templateError || !template) {
+        toast({
+          title: "No Template Found",
+          description: "Please upload and set a default cost report template in Settings → PDF Templates",
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      setCurrentSection("Preparing data...");
+      
+      // Prepare placeholder data
+      const placeholderData = await prepareCostReportTemplateData(report.id);
+
+      setCurrentSection("Converting to PDF...");
+
+      // Call the edge function to convert
+      const { data, error } = await supabase.functions.invoke('convert-word-to-pdf', {
+        body: {
+          templateUrl: template.file_url,
+          templateId: template.id,
+          placeholderData,
+        },
+      });
+
+      if (error) {
+        console.error('Edge function error:', error);
+        throw new Error(error.message || 'Failed to generate PDF from template');
+      }
+
+      if (!data?.pdfUrl) {
+        throw new Error('No PDF URL returned from conversion');
+      }
+
+      setCurrentSection("Saving to storage...");
+
+      // Save to cost_report_pdfs table
+      const fileName = `Cost_Report_${report.report_number}_${Date.now()}.pdf`;
+      const { error: saveError } = await supabase
+        .from("cost_report_pdfs")
+        .insert({
+          cost_report_id: report.id,
+          project_id: report.project_id,
+          file_name: fileName,
+          file_path: data.pdfUrl,
+          revision: report.report_number.toString(),
+          notes: `Generated from template: ${template.name}`,
+        });
+
+      if (saveError) {
+        console.error('Save error:', saveError);
+        throw saveError;
+      }
+
+      // Download the PDF
+      const pdfResponse = await fetch(data.pdfUrl);
+      const pdfBlob = await pdfResponse.blob();
+      const url = URL.createObjectURL(pdfBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = fileName;
+      link.click();
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: "Success",
+        description: "Cost report PDF generated successfully from template",
+      });
+
+      if (onReportGenerated) {
+        onReportGenerated();
+      }
+    } catch (error) {
+      console.error("Template PDF export error:", error);
+      toast({
+        title: "Error",
+        description: error instanceof Error ? error.message : "Failed to generate PDF from template",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+      setCurrentSection("");
+    }
+  };
+
   const handleExport = async (useMargins: PDFMargins = margins, useSections: PDFSectionOptions = sections, skipValidation: boolean = false, contactId: string = selectedContactId) => {
+    // If template mode is enabled, use template export
+    if (useTemplate) {
+      return exportWithTemplate();
+    }
+
+    // Otherwise use legacy direct PDF generation
     setLoading(true);
     setCurrentSection("Fetching data...");
     
@@ -1334,6 +1442,15 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           </Button>
           <Button onClick={() => setSettingsOpen(true)} variant="outline" size="icon" disabled={loading}>
             <Settings className="h-4 w-4" />
+          </Button>
+          <Button 
+            variant={useTemplate ? "default" : "outline"}
+            size="icon"
+            onClick={() => setUseTemplate(!useTemplate)}
+            disabled={loading}
+            title={useTemplate ? "Using Word Template" : "Using Legacy PDF"}
+          >
+            <FileText className="h-4 w-4" />
           </Button>
         </div>
         
