@@ -1,4 +1,5 @@
 import { Document, Packer, Paragraph, TextRun, AlignmentType, HeadingLevel } from "docx";
+import { getTemplatePlaceholders, type ReportTemplateType } from "./reportTemplateSchemas";
 
 export type TemplateType = "cover_page" | "cost_report" | "cable_schedule" | "final_account" | "specification" | "project_outline" | "bulk_services";
 
@@ -242,8 +243,21 @@ const PLACEHOLDER_DEFINITIONS: Record<TemplateType, PlaceholderSection[]> = {
 };
 
 export const generatePlaceholderDocument = (templateType: TemplateType): Document => {
-  const sections = PLACEHOLDER_DEFINITIONS[templateType] || [];
+  // Map template type to report template type
+  const reportType = templateType as ReportTemplateType;
   
+  // Get all placeholders with their descriptions and categories
+  const placeholderInfoList = getTemplatePlaceholders(reportType);
+  
+  // Group placeholders by category
+  const groupedPlaceholders = placeholderInfoList.reduce((acc, info) => {
+    if (!acc[info.category]) {
+      acc[info.category] = [];
+    }
+    acc[info.category].push(info);
+    return acc;
+  }, {} as Record<string, typeof placeholderInfoList>);
+
   const children: Paragraph[] = [
     new Paragraph({
       text: "========================================",
@@ -271,25 +285,30 @@ export const generatePlaceholderDocument = (templateType: TemplateType): Documen
     }),
   ];
 
-  sections.forEach(section => {
+  // Add each category section with placeholder descriptions
+  Object.entries(groupedPlaceholders).forEach(([category, placeholders]) => {
     children.push(
       new Paragraph({
-        text: section.title,
+        text: category,
         heading: HeadingLevel.HEADING_2,
         spacing: { before: 300, after: 200 }
       })
     );
 
-    section.placeholders.forEach(placeholder => {
+    placeholders.forEach(info => {
       children.push(
         new Paragraph({
           children: [
             new TextRun({
-              text: placeholder,
+              text: `${info.placeholder}`,
               bold: true
+            }),
+            new TextRun({
+              text: ` - ${info.description}`
             })
           ],
-          spacing: { after: 100 }
+          spacing: { after: 100 },
+          bullet: { level: 0 }
         })
       );
     });
