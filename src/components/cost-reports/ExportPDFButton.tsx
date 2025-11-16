@@ -512,7 +512,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           subtitle: `Report #${report.report_number}`,
           revision: `Report ${report.report_number}`,
           date: format(new Date(), "dd MMMM yyyy"),
-        }, companyDetails, contactId || undefined, true); // Skip template lookup
+        }, companyDetails, contactId || undefined); // Use template from database
       }
 
       setCurrentSection("Creating table of contents...");
