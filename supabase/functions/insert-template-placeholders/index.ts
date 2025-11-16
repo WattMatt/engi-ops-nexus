@@ -77,7 +77,10 @@ serve(async (req) => {
 
     // Convert to PDF using the existing function
     const { data: pdfData, error: pdfError } = await supabase.functions.invoke('convert-word-to-pdf', {
-      body: { wordFileUrl: docxUrl }
+      body: { 
+        wordFileUrl: docxUrl,
+        outputPath: `template-with-placeholders-${Date.now()}.pdf`
+      }
     });
 
     if (pdfError) {
