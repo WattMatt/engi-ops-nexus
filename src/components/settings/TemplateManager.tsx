@@ -412,15 +412,6 @@ export const TemplateManager = () => {
                           </div>
                         ))
                       )}
-                      {type.value !== "cover_page" && typeTemplates.length > 0 && (
-                        <div className="mt-4 p-4 border rounded-lg bg-muted/50">
-                          <div className="flex items-center gap-2 mb-2">
-                            <FileText className="h-4 w-4" />
-                            <span className="font-medium text-sm">Available Placeholders for {type.label}</span>
-                          </div>
-                          <PlaceholderQuickCopy templateType={type.value as any} />
-                        </div>
-                      )}
                     </CollapsibleContent>
                   </Collapsible>
                 );
