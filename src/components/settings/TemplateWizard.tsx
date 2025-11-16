@@ -161,6 +161,8 @@ export function TemplateWizard() {
       setProgress(50);
 
       // Insert placeholders
+      console.log('Calling insert-template-placeholders with:', { blankUrl, placeholders: aiPlaceholders });
+      
       const { data: insertData, error: insertError } = await supabase.functions.invoke('insert-template-placeholders', {
         body: {
           blankTemplateUrl: blankUrl,
@@ -168,8 +170,19 @@ export function TemplateWizard() {
         }
       });
 
-      if (insertError) throw insertError;
+      console.log('Insert response:', { insertData, insertError });
 
+      if (insertError) {
+        console.error('Insert error:', insertError);
+        throw insertError;
+      }
+
+      if (!insertData?.pdfUrl) {
+        console.error('No PDF URL in response:', insertData);
+        throw new Error('Failed to generate PDF - no URL returned');
+      }
+
+      console.log('Setting URLs:', { docxUrl: insertData.docxUrl, pdfUrl: insertData.pdfUrl });
       setGeneratedDocxUrl(insertData.docxUrl);
       setPdfPreviewUrl(insertData.pdfUrl);
       setProgress(100);
