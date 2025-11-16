@@ -78,13 +78,24 @@ export async function prepareCostReportTemplateData(
     return format(new Date(date), "dd MMMM yyyy");
   };
 
+  // Calculate total for percentage calculations
+  const totalPreviousReport = (categories || []).reduce(
+    (sum, cat) => sum + (cat.previous_report || 0),
+    0
+  );
+
   // Prepare categories array for table loops
   const categoriesData = (categories || []).map(cat => ({
     code: cat.code,
     description: cat.description,
     original_budget: cat.original_budget?.toFixed(2) || "0.00",
+    previous_report: cat.previous_report?.toFixed(2) || "0.00",
     anticipated_final: cat.anticipated_final?.toFixed(2) || "0.00",
-    variance: ((cat.anticipated_final || 0) - (cat.original_budget || 0)).toFixed(2),
+    percentage_of_total: totalOriginalBudget > 0 
+      ? ((cat.original_budget || 0) / totalOriginalBudget * 100).toFixed(1) + '%'
+      : "0.0%",
+    current_variance: ((cat.anticipated_final || 0) - (cat.previous_report || 0)).toFixed(2),
+    original_variance: ((cat.anticipated_final || 0) - (cat.original_budget || 0)).toFixed(2),
     line_items: (cat.cost_line_items || []).map((item: any) => ({
       code: item.code,
       description: item.description,
@@ -138,9 +149,11 @@ export async function prepareCostReportTemplateData(
 
     // Financial Totals
     total_original_budget: totalOriginalBudget.toFixed(2),
+    total_previous_report: totalPreviousReport.toFixed(2),
     total_variations: totalVariations.toFixed(2),
     total_anticipated_final: totalAnticipatedFinal.toFixed(2),
-    total_variance: (totalAnticipatedFinal - totalOriginalBudget).toFixed(2),
+    total_current_variance: (totalAnticipatedFinal - totalPreviousReport).toFixed(2),
+    total_original_variance: (totalAnticipatedFinal - totalOriginalBudget).toFixed(2),
 
     // Notes
     notes: report.notes || "",

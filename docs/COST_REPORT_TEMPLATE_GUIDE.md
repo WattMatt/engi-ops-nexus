@@ -49,8 +49,10 @@ Client: {{client_name}}
 | `{{standby_plants_contractor}}` | Standby plants contractor name |
 | `{{cctv_contractor}}` | CCTV contractor name |
 | `{{total_original_budget}}` | Total original budget (formatted) |
+| `{{total_previous_report}}` | Total previous report (formatted) |
 | `{{total_anticipated_final}}` | Total anticipated final (formatted) |
-| `{{total_variance}}` | Total variance (formatted) |
+| `{{total_current_variance}}` | Total current variance from previous report (formatted) |
+| `{{total_original_variance}}` | Total original variance from original budget (formatted) |
 | `{{total_variations}}` | Total variations (formatted) |
 | `{{notes}}` | Report notes |
 
@@ -74,8 +76,11 @@ Variance: {variance}
 - `{code}` - Category code
 - `{description}` - Category description
 - `{original_budget}` - Original budget amount
+- `{previous_report}` - Previous cost report amount
 - `{anticipated_final}` - Anticipated final amount
-- `{variance}` - Variance amount
+- `{percentage_of_total}` - Percentage of total original budget
+- `{current_variance}` - Variance from previous report
+- `{original_variance}` - Variance from original budget
 
 #### Nested Line Items Loop
 
@@ -112,10 +117,10 @@ Line Items:
 
 Here's how to create a table with loops in Microsoft Word:
 
-| Code | Description | Original Budget | Anticipated Final | Variance |
-|------|-------------|-----------------|-------------------|----------|
-| {#categories}{code} | {description} | R {original_budget} | R {anticipated_final} | {variance}{/categories} |
-| **TOTAL** | | R {{total_original_budget}} | R {{total_anticipated_final}} | {{total_variance}} |
+| Code | Description | Original Budget | Previous Report | Anticipated Final | % of Total | Current Variance | Original Variance |
+|------|-------------|-----------------|-----------------|-------------------|------------|------------------|-------------------|
+| {#categories}{code} | {description} | R {original_budget} | R {previous_report} | R {anticipated_final} | {percentage_of_total} | R {current_variance} | R {original_variance}{/categories} |
+| **TOTAL** | | R {{total_original_budget}} | R {{total_previous_report}} | R {{total_anticipated_final}} | | R {{total_current_variance}} | R {{total_original_variance}} |
 
 **Important:** The loop tags `{#categories}` and `{/categories}` must be in the same table cell.
 
