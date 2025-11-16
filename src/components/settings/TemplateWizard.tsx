@@ -205,9 +205,9 @@ export function TemplateWizard() {
             <Wand2 className="w-5 h-5" />
             AI Template Wizard
           </CardTitle>
-          <CardDescription>
-            Upload a completed template and a blank template. AI will analyze them and insert placeholders into your blank template.
-          </CardDescription>
+              <CardDescription>
+                Upload a completed template and a blank template. AI will analyze them and suggest what placeholders you should add to your blank template and where they should go.
+              </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Progress Bar */}
@@ -267,10 +267,9 @@ export function TemplateWizard() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="blank-file">Blank Template with Placeholders</Label>
+                    <Label htmlFor="blank-file">Blank Template</Label>
                     <p className="text-xs text-muted-foreground mb-2">
-                      Upload a template that already contains placeholder tags like {`{report_title}`}, {`{project_name}`}, etc.
-                      The placeholders should be in curly braces where you want dynamic content.
+                      Upload your blank template. AI will suggest where to add placeholders based on the completed version.
                     </p>
                     <div className="border-2 border-dashed rounded-lg p-6 text-center hover:border-primary/50 transition-colors">
                       <Input
@@ -387,9 +386,9 @@ export function TemplateWizard() {
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-lg font-semibold">Template with Placeholders - Preview</h3>
+                    <h3 className="text-lg font-semibold">AI Analysis Results</h3>
                     <p className="text-sm text-muted-foreground mt-1">
-                      Use this PDF as a reference to update your blank template with the suggested placeholders
+                      Review the suggested placeholders below. You'll need to manually add these to your blank template in Word, then use it in your reports.
                     </p>
                   </div>
                   <div className="flex gap-2">
