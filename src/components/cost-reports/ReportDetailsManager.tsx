@@ -133,49 +133,52 @@ export const ReportDetailsManager = ({ report }: ReportDetailsManagerProps) => {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header with project info */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div>
-              <span className="font-medium">PROJECT NO. - </span>
-              <span>{report.project_number}</span>
+    <TooltipProvider>
+      <div className="space-y-6">
+        {/* Report header */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-xl font-bold">COST REPORT DETAILS</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="font-medium">PROJECT NO. - </span>
+                <span>{report.project_number}</span>
+              </div>
+              <div>
+                <span className="font-medium">PROJECT NAME - </span>
+                <span>{report.project_name}</span>
+              </div>
+              <div>
+                <span className="font-medium">CLIENT - </span>
+                <span>{report.client_name}</span>
+              </div>
+              <div>
+                <span className="font-medium">DATE - </span>
+                <span>{format(new Date(report.report_date), "dd MMMM yyyy")}</span>
+              </div>
+              <div>
+                <span className="font-medium">COST REPORT NO. - </span>
+                <span>{report.report_number}</span>
+              </div>
             </div>
-            <div>
-              <span className="font-medium">PROJECT NAME - </span>
-              <span>{report.project_name}</span>
-            </div>
-            <div>
-              <span className="font-medium">CLIENT - </span>
-              <span>{report.client_name}</span>
-            </div>
-            <div>
-              <span className="font-medium">DATE - </span>
-              <span>{format(new Date(report.report_date), "dd MMMM yyyy")}</span>
-            </div>
-            <div>
-              <span className="font-medium">COST REPORT NO. - </span>
-              <span>{report.report_number}</span>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
 
-      {/* General section */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">1. GENERAL</CardTitle>
-        </CardHeader>
-      </Card>
+        {/* General section */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-lg">1. GENERAL</CardTitle>
+          </CardHeader>
+        </Card>
 
-      {/* Editable sections */}
-      {sections.map((section: any) => (
-        <Card key={section.id}>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-            <CardTitle className="text-base font-semibold flex items-center gap-2">
-              {section.section_number}. {section.section_title}
-              <TooltipProvider>
+        {/* Editable sections */}
+        {sections.map((section: any) => (
+          <Card key={section.id}>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+              <CardTitle className="text-base font-semibold flex items-center gap-2">
+                {section.section_number}. {section.section_title}
                 <Tooltip>
                   <TooltipTrigger asChild>
                     <Info className="h-4 w-4 text-muted-foreground cursor-help" />
@@ -184,97 +187,103 @@ export const ReportDetailsManager = ({ report }: ReportDetailsManagerProps) => {
                     <p className="font-mono text-xs">{`Detail_Section_${section.section_number}_Content`}</p>
                   </TooltipContent>
                 </Tooltip>
-              </TooltipProvider>
-            </CardTitle>
-            {editingSection === section.section_number ? (
-              <div className="flex gap-2">
-                <Button size="sm" onClick={saveSection} disabled={updateMutation.isPending}>
-                  <Save className="h-4 w-4 mr-1" />
-                  Save
+              </CardTitle>
+              {editingSection === section.section_number ? (
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={saveSection} disabled={updateMutation.isPending}>
+                    <Save className="h-4 w-4 mr-1" />
+                    Save
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={cancelEditing}>
+                    <X className="h-4 w-4 mr-1" />
+                    Cancel
+                  </Button>
+                </div>
+              ) : (
+                <Button size="sm" variant="ghost" onClick={() => startEditing(section)}>
+                  <Edit2 className="h-4 w-4" />
                 </Button>
-                <Button size="sm" variant="outline" onClick={cancelEditing}>
-                  <X className="h-4 w-4 mr-1" />
-                  Cancel
-                </Button>
-              </div>
-            ) : (
-              <Button size="sm" variant="ghost" onClick={() => startEditing(section)}>
-                <Edit2 className="h-4 w-4" />
-              </Button>
-            )}
-          </CardHeader>
-          <CardContent>
-            {editingSection === section.section_number && editForm ? (
-              <Textarea
-                value={editForm.section_content || ""}
-                onChange={(e) => setEditForm({ ...editForm, section_content: e.target.value })}
-                rows={4}
-                className="w-full"
-              />
-            ) : (
-              <div className="space-y-2">
-                {/* Special formatting for certain sections */}
-                {section.section_number === 1 && (
-                  <p className="text-sm">
-                    {section.section_content} {format(new Date(report.report_date), "dd MMMM yyyy")}
-                  </p>
-                )}
-                {section.section_number === 5 && (
-                  <div className="space-y-1 text-sm">
-                    {report.site_handover_date && (
-                      <p>
-                        <span className="font-medium">Site handover: </span>
-                        {format(new Date(report.site_handover_date), "dd MMMM yyyy")}
-                      </p>
-                    )}
-                    {report.practical_completion_date && (
-                      <p>
-                        <span className="font-medium">Practical completion: </span>
-                        {format(new Date(report.practical_completion_date), "dd MMMM yyyy")}
-                      </p>
-                    )}
-                    {section.section_content && <p className="mt-2">{section.section_content}</p>}
-                  </div>
-                )}
-                {section.section_number === 8 && (
-                  <div className="space-y-1 text-sm">
-                    {report.electrical_contractor && (
-                      <p>
-                        <span className="font-medium">Electrical: </span>
-                        {report.electrical_contractor}
-                      </p>
-                    )}
-                    {report.earthing_contractor && (
-                      <p>
-                        <span className="font-medium">Earthing and lightning protection: </span>
-                        {report.earthing_contractor}
-                      </p>
-                    )}
-                    {report.standby_plants_contractor && (
-                      <p>
-                        <span className="font-medium">Standby Plants: </span>
-                        {report.standby_plants_contractor}
-                      </p>
-                    )}
-                    {report.cctv_contractor && (
-                      <p>
-                        <span className="font-medium">CCTV and access control: </span>
-                        {report.cctv_contractor}
-                      </p>
-                    )}
-                    {section.section_content && <p className="mt-2">{section.section_content}</p>}
-                  </div>
-                )}
-                {![1, 5, 8].includes(section.section_number) && (
-                  <p className="text-sm whitespace-pre-wrap">
-                    {section.section_content || <span className="text-muted-foreground">No content added</span>}
-                  </p>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      ))}
-    </div>
+              )}
+            </CardHeader>
+            <CardContent>
+              {editingSection === section.section_number && editForm ? (
+                <Textarea
+                  value={editForm.section_content || ""}
+                  onChange={(e) => setEditForm({ ...editForm, section_content: e.target.value })}
+                  rows={4}
+                  className="w-full"
+                />
+              ) : (
+                <div className="space-y-2">
+                  {/* Special formatting for certain sections */}
+                  {section.section_number === 1 && (
+                    <p className="text-sm">
+                      {section.section_content} {format(new Date(report.report_date), "dd MMMM yyyy")}
+                    </p>
+                  )}
+                  {section.section_number === 5 && (
+                    <div className="space-y-1 text-sm">
+                      {report.site_handover_date && (
+                        <p>
+                          <span className="font-medium">Site handover: </span>
+                          {format(new Date(report.site_handover_date), "dd MMMM yyyy")}
+                        </p>
+                      )}
+                      {report.practical_completion_date && (
+                        <p>
+                          <span className="font-medium">Practical completion: </span>
+                          {format(new Date(report.practical_completion_date), "dd MMMM yyyy")}
+                        </p>
+                      )}
+                      {section.section_content && <p>{section.section_content}</p>}
+                    </div>
+                  )}
+                  {section.section_number === 8 && (
+                    <div className="space-y-1 text-sm">
+                      {report.electrical_contractor && (
+                        <p>
+                          <span className="font-medium">Electrical Contractor: </span>
+                          {report.electrical_contractor}
+                        </p>
+                      )}
+                      {report.cctv_contractor && (
+                        <p>
+                          <span className="font-medium">CCTV Contractor: </span>
+                          {report.cctv_contractor}
+                        </p>
+                      )}
+                      {report.standby_plants_contractor && (
+                        <p>
+                          <span className="font-medium">Standby Plants Contractor: </span>
+                          {report.standby_plants_contractor}
+                        </p>
+                      )}
+                      {report.earthing_contractor && (
+                        <p>
+                          <span className="font-medium">Earthing Contractor: </span>
+                          {report.earthing_contractor}
+                        </p>
+                      )}
+                      {section.section_content && <p>{section.section_content}</p>}
+                    </div>
+                  )}
+                  {section.section_number !== 1 && 
+                   section.section_number !== 5 && 
+                   section.section_number !== 8 && 
+                   section.section_content && (
+                    <p className="text-sm whitespace-pre-wrap">{section.section_content}</p>
+                  )}
+                  {!section.section_content && 
+                   section.section_number !== 5 && 
+                   section.section_number !== 8 && (
+                    <p className="text-sm text-muted-foreground italic">No content added</p>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </TooltipProvider>
   );
 };
