@@ -167,8 +167,17 @@ export const TemplateManager = () => {
   };
 
   const handlePreview = (template: any) => {
-    // file_url is already the full public URL from storage
-    setPreviewTemplate({ ...template, publicUrl: template.file_url });
+    const fileExt = template.file_name.split('.').pop()?.toLowerCase();
+    
+    // Word documents can't be previewed - offer download instead
+    if (fileExt === 'docx' || fileExt === 'doc') {
+      window.open(template.file_url, '_blank');
+      toast.success("Opening Word document in new tab");
+      return;
+    }
+    
+    // PDFs and images can be previewed
+    setPreviewTemplate({ ...template, publicUrl: template.file_url, fileExt });
   };
 
   const groupedTemplates = TEMPLATE_TYPES.reduce((acc, type) => {
@@ -356,7 +365,7 @@ export const TemplateManager = () => {
           </DialogHeader>
           {previewTemplate && (
             <div className="overflow-auto">
-              {previewTemplate.file_type === "pdf" ? (
+              {previewTemplate.fileExt === "pdf" ? (
                 <iframe
                   src={previewTemplate.publicUrl}
                   className="w-full h-[600px] border rounded"
