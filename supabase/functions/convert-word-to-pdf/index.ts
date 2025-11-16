@@ -67,6 +67,10 @@ Deno.serve(async (req) => {
       const doc = new Docxtemplater(zip, {
         paragraphLoop: true,
         linebreaks: true,
+        delimiters: {
+          start: '{',
+          end: '}'
+        }
       });
       
       // Set the data for replacement
@@ -80,7 +84,7 @@ Deno.serve(async (req) => {
         console.error('Error rendering template:', error);
         console.error('Available placeholders in document:', doc.getFullText());
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-        throw new Error(`Template rendering failed: ${errorMessage}. Check that your Word template contains the correct placeholders: ${Object.keys(placeholderData).map(k => `{{${k}}}`).join(', ')}`);
+        throw new Error(`Template rendering failed: ${errorMessage}. Check that your Word template contains the correct placeholders: ${Object.keys(placeholderData).map(k => `{${k}}`).join(', ')}`);
       }
       
       // Step 3: Generate the filled document
