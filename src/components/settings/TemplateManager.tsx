@@ -168,15 +168,6 @@ export const TemplateManager = () => {
 
   const handlePreview = (template: any) => {
     const fileExt = template.file_name.split('.').pop()?.toLowerCase();
-    
-    // Word documents can't be previewed - offer download instead
-    if (fileExt === 'docx' || fileExt === 'doc') {
-      window.open(template.file_url, '_blank');
-      toast.success("Opening Word document in new tab");
-      return;
-    }
-    
-    // PDFs and images can be previewed
     setPreviewTemplate({ ...template, publicUrl: template.file_url, fileExt });
   };
 
@@ -370,6 +361,12 @@ export const TemplateManager = () => {
                   src={previewTemplate.publicUrl}
                   className="w-full h-[600px] border rounded"
                   title="PDF Preview"
+                />
+              ) : (previewTemplate.fileExt === "docx" || previewTemplate.fileExt === "doc") ? (
+                <iframe
+                  src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(previewTemplate.publicUrl)}`}
+                  className="w-full h-[600px] border rounded"
+                  title="Word Document Preview"
                 />
               ) : (
                 <img
