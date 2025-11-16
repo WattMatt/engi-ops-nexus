@@ -8,7 +8,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
-import { Plus, Save, Edit2, X, Info } from "lucide-react";
+import { Plus, Save, Edit2, X, Info, Copy, Check } from "lucide-react";
 
 interface ReportDetailsManagerProps {
   report: any;
@@ -40,6 +40,7 @@ export const ReportDetailsManager = ({ report }: ReportDetailsManagerProps) => {
   const queryClient = useQueryClient();
   const [editingSection, setEditingSection] = useState<number | null>(null);
   const [editForm, setEditForm] = useState<DetailSection | null>(null);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const { data: sections = [], isLoading } = useQuery({
     queryKey: ["cost-report-details", report.id],
@@ -126,6 +127,15 @@ export const ReportDetailsManager = ({ report }: ReportDetailsManagerProps) => {
     }
   };
 
+  const handleCopyPlaceholder = (placeholder: string, sectionId: string) => {
+    navigator.clipboard.writeText(`{${placeholder}}`);
+    setCopiedId(sectionId);
+    toast({
+      description: "Placeholder copied to clipboard",
+    });
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
   if (isLoading) {
     return <div className="animate-pulse space-y-4">
       <div className="h-32 bg-muted rounded"></div>
@@ -186,7 +196,17 @@ export const ReportDetailsManager = ({ report }: ReportDetailsManagerProps) => {
                     </button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p className="font-mono text-xs">{`Detail_Section_${section.section_number}_Content`}</p>
+                    <button
+                      onClick={() => handleCopyPlaceholder(`Detail_Section_${section.section_number}_Content`, section.id)}
+                      className="flex items-center gap-2 hover:bg-accent px-2 py-1 rounded transition-colors"
+                    >
+                      <p className="font-mono text-xs">{`{Detail_Section_${section.section_number}_Content}`}</p>
+                      {copiedId === section.id ? (
+                        <Check className="h-3 w-3 text-green-500" />
+                      ) : (
+                        <Copy className="h-3 w-3" />
+                      )}
+                    </button>
                   </TooltipContent>
                 </Tooltip>
               </CardTitle>
