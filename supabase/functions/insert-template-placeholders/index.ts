@@ -96,12 +96,12 @@ serve(async (req) => {
     }
 
     const pdfData = await pdfResponse.json();
-    console.log('PDF generated:', pdfData.pdfUrl);
+    console.log('PDF conversion response:', pdfData);
 
     return new Response(
       JSON.stringify({ 
         docxUrl,
-        pdfUrl: pdfData.pdfUrl 
+        pdfUrl: pdfData.pdfUrl
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
