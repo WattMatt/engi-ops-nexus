@@ -81,27 +81,31 @@ Deno.serve(async (req) => {
         doc.render();
         console.log('Template rendered successfully');
       } catch (error: any) {
-        console.error('Error rendering template:', error);
+        console.error('Docxtemplater rendering error:', error);
         
-        // Log detailed error information
+        // Enhanced error messages
+        let errorMessage = 'Failed to process template';
+        
         if (error.properties && error.properties.errors) {
-          console.error('Detailed errors:', JSON.stringify(error.properties.errors, null, 2));
+          const errors = error.properties.errors;
+          errorMessage = errors.map((e: any) => {
+            if (e.name === 'TemplateError') {
+              return `Template syntax error: ${e.message}`;
+            } else if (e.name === 'ScopeParserError') {
+              return `Missing placeholder data: ${e.message}`;
+            } else {
+              return e.message;
+            }
+          }).join('; ');
           
-          // Extract specific error details
-          const errorDetails = error.properties.errors.map((e: any) => {
-            return `${e.message} at "${e.properties?.context || e.properties?.xtag || 'unknown'}" in ${e.properties?.file || 'document'}`;
-          });
-          
-          return new Response(
-            JSON.stringify({ 
-              success: false, 
-              error: 'Template has formatting issues. Please fix these placeholders in your Word document:',
-              details: errorDetails
-            }),
-            { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-          );
+          console.error('Detailed errors:', JSON.stringify(errors, null, 2));
+        } else if (error.message) {
+          errorMessage = error.message;
         }
-        
+
+        throw new Error(`Template processing failed: ${errorMessage}. Please check your template syntax and ensure all required placeholders are present.`);
+      }
+      
         const errorMessage = error instanceof Error ? error.message : 'Unknown error';
         throw new Error(`Template rendering failed: ${errorMessage}. Check that your Word template contains the correct placeholders: ${Object.keys(placeholderData).map(k => `{{${k}}}`).join(', ')}`);
       }
