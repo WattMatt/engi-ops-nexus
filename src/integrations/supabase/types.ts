@@ -1390,45 +1390,6 @@ export type Database = {
           },
         ]
       }
-      cover_page_templates: {
-        Row: {
-          company_id: string | null
-          created_at: string
-          created_by: string | null
-          field_mappings: Json | null
-          file_path: string
-          file_type: string | null
-          id: string
-          is_default: boolean | null
-          name: string
-          updated_at: string
-        }
-        Insert: {
-          company_id?: string | null
-          created_at?: string
-          created_by?: string | null
-          field_mappings?: Json | null
-          file_path: string
-          file_type?: string | null
-          id?: string
-          is_default?: boolean | null
-          name: string
-          updated_at?: string
-        }
-        Update: {
-          company_id?: string | null
-          created_at?: string
-          created_by?: string | null
-          field_mappings?: Json | null
-          file_path?: string
-          file_type?: string | null
-          id?: string
-          is_default?: boolean | null
-          name?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       db_sizing_rules: {
         Row: {
           category: string

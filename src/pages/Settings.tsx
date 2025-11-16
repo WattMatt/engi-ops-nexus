@@ -1,8 +1,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CompanySettings } from "@/components/settings/CompanySettings";
 import { InvoiceSettings } from "@/components/settings/InvoiceSettings";
-import { CoverPageTemplates } from "@/components/settings/CoverPageTemplates";
-import { CoverPageUpload } from "@/components/settings/CoverPageUpload";
+import { TemplateManager } from "@/components/settings/TemplateManager";
 import { PDFExportSettings } from "@/components/settings/PDFExportSettings";
 import { ComponentGenerator } from "@/components/ComponentGenerator";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -85,9 +84,8 @@ const Settings = () => {
           <PDFExportSettings />
         </TabsContent>
 
-        <TabsContent value="templates" className="space-y-6">
-          <CoverPageUpload />
-          <CoverPageTemplates />
+        <TabsContent value="templates">
+          <TemplateManager />
         </TabsContent>
 
         <TabsContent value="invoice">
