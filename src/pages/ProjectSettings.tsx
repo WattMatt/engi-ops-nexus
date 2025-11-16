@@ -502,7 +502,29 @@ export default function ProjectSettings() {
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
-                    <Label htmlFor="electrical_contractor">Electrical</Label>
+                    <Label htmlFor="electrical_contractor" className="flex items-center gap-2">
+                      Electrical
+                      <Tooltip delayDuration={300}>
+                        <TooltipTrigger asChild>
+                          <button type="button" className="inline-flex items-center">
+                            <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <button
+                            onClick={() => handleCopyPlaceholder("Electrical_Contractor", "electrical_contractor")}
+                            className="flex items-center gap-2 hover:bg-accent px-2 py-1 rounded transition-colors"
+                          >
+                            <p className="font-mono text-xs">{`{Electrical_Contractor}`}</p>
+                            {copiedField === "electrical_contractor" ? (
+                              <Check className="h-3 w-3 text-green-500" />
+                            ) : (
+                              <Copy className="h-3 w-3" />
+                            )}
+                          </button>
+                        </TooltipContent>
+                      </Tooltip>
+                    </Label>
                     <Input
                       id="electrical_contractor"
                       value={formData.electrical_contractor}
@@ -511,7 +533,29 @@ export default function ProjectSettings() {
                   </div>
 
                   <div className="grid gap-2">
-                    <Label htmlFor="earthing_contractor">Earthing & Lightning</Label>
+                    <Label htmlFor="earthing_contractor" className="flex items-center gap-2">
+                      Earthing & Lightning
+                      <Tooltip delayDuration={300}>
+                        <TooltipTrigger asChild>
+                          <button type="button" className="inline-flex items-center">
+                            <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <button
+                            onClick={() => handleCopyPlaceholder("Earthing_Contractor", "earthing_contractor")}
+                            className="flex items-center gap-2 hover:bg-accent px-2 py-1 rounded transition-colors"
+                          >
+                            <p className="font-mono text-xs">{`{Earthing_Contractor}`}</p>
+                            {copiedField === "earthing_contractor" ? (
+                              <Check className="h-3 w-3 text-green-500" />
+                            ) : (
+                              <Copy className="h-3 w-3" />
+                            )}
+                          </button>
+                        </TooltipContent>
+                      </Tooltip>
+                    </Label>
                     <Input
                       id="earthing_contractor"
                       value={formData.earthing_contractor}
@@ -520,7 +564,29 @@ export default function ProjectSettings() {
                   </div>
 
                   <div className="grid gap-2">
-                    <Label htmlFor="standby_plants_contractor">Standby Plants</Label>
+                    <Label htmlFor="standby_plants_contractor" className="flex items-center gap-2">
+                      Standby Plants
+                      <Tooltip delayDuration={300}>
+                        <TooltipTrigger asChild>
+                          <button type="button" className="inline-flex items-center">
+                            <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <button
+                            onClick={() => handleCopyPlaceholder("Standby_Plants_Contractor", "standby_plants_contractor")}
+                            className="flex items-center gap-2 hover:bg-accent px-2 py-1 rounded transition-colors"
+                          >
+                            <p className="font-mono text-xs">{`{Standby_Plants_Contractor}`}</p>
+                            {copiedField === "standby_plants_contractor" ? (
+                              <Check className="h-3 w-3 text-green-500" />
+                            ) : (
+                              <Copy className="h-3 w-3" />
+                            )}
+                          </button>
+                        </TooltipContent>
+                      </Tooltip>
+                    </Label>
                     <Input
                       id="standby_plants_contractor"
                       value={formData.standby_plants_contractor}
@@ -529,7 +595,29 @@ export default function ProjectSettings() {
                   </div>
 
                   <div className="grid gap-2">
-                    <Label htmlFor="cctv_contractor">CCTV & Access</Label>
+                    <Label htmlFor="cctv_contractor" className="flex items-center gap-2">
+                      CCTV & Access
+                      <Tooltip delayDuration={300}>
+                        <TooltipTrigger asChild>
+                          <button type="button" className="inline-flex items-center">
+                            <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                          </button>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <button
+                            onClick={() => handleCopyPlaceholder("CCTV_Contractor", "cctv_contractor")}
+                            className="flex items-center gap-2 hover:bg-accent px-2 py-1 rounded transition-colors"
+                          >
+                            <p className="font-mono text-xs">{`{CCTV_Contractor}`}</p>
+                            {copiedField === "cctv_contractor" ? (
+                              <Check className="h-3 w-3 text-green-500" />
+                            ) : (
+                              <Copy className="h-3 w-3" />
+                            )}
+                          </button>
+                        </TooltipContent>
+                      </Tooltip>
+                    </Label>
                     <Input
                       id="cctv_contractor"
                       value={formData.cctv_contractor}
