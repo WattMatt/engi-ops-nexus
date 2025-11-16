@@ -85,22 +85,6 @@ export const captureAllCategoryCards = async (
 };
 
 /**
- * Capture Executive Summary table for cost reports
- */
-export const captureExecutiveSummary = async (
-  elementId: string = "executive-summary-table",
-  options: CaptureOptions = {}
-): Promise<HTMLCanvasElement> => {
-  const element = await waitForElement(elementId);
-  
-  return await html2canvas(element, {
-    ...HIGH_QUALITY_CANVAS_OPTIONS,
-    scale: options.scale || 2,
-    backgroundColor: options.backgroundColor || '#ffffff',
-  });
-};
-
-/**
  * Capture charts section
  */
 export const captureCharts = async (

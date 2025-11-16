@@ -11,8 +11,8 @@ import { StandardReportPreview } from "@/components/shared/StandardReportPreview
 import { PDFExportSettings, DEFAULT_MARGINS, DEFAULT_SECTIONS, type PDFMargins, type PDFSectionOptions } from "./PDFExportSettings";
 import { calculateCategoryTotals, calculateGrandTotals, validateTotals } from "@/utils/costReportCalculations";
 import { ValidationWarningDialog } from "./ValidationWarningDialog";
-import { captureKPICards, prepareElementForCapture, canvasToDataURL, captureExecutiveSummary } from "@/utils/captureUIForPDF";
 import { format } from "date-fns";
+import { generateExecutiveSummaryTableData } from "@/utils/executiveSummaryTable";
 import {
   initializePDF,
   getStandardTableStyles,
@@ -608,42 +608,131 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         doc.line(contentStartX, contentStartY + 15, pageWidth - useMargins.right, contentStartY + 15);
 
         doc.setTextColor(...colors.text);
-        let currentY = contentStartY + 25;
+        let tableY = contentStartY + 25;
         
-        // Capture the Executive Summary table from the UI
-        try {
-          setCurrentSection("Capturing Executive Summary from UI...");
-          await prepareElementForCapture("executive-summary-table");
-          const executiveSummaryCanvas = await captureExecutiveSummary("executive-summary-table", { scale: 2 });
-          
-          // Validate canvas dimensions before proceeding
-          if (executiveSummaryCanvas && executiveSummaryCanvas.width > 0 && executiveSummaryCanvas.height > 0) {
-            const summaryImage = canvasToDataURL(executiveSummaryCanvas, 'JPEG', 0.9);
+        // Generate table data using shared utility
+        const tableData = generateExecutiveSummaryTableData(pdfCategoryTotals, pdfGrandTotals);
+        
+        // Prepare table rows for autoTable
+        const tableRows = [
+          ...tableData.categoryRows.map(row => [
+            row.code,
+            row.description,
+            `R${row.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+            `R${row.previousReport.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+            `R${row.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+            row.percentOfTotal,
+            `${row.currentVariance >= 0 ? '+' : ''}R${Math.abs(row.currentVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+            `${row.originalVariance >= 0 ? '+' : ''}R${Math.abs(row.originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`
+          ]),
+          // Grand total row
+          [
+            '',
+            tableData.grandTotalRow.description,
+            `R${tableData.grandTotalRow.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+            `R${tableData.grandTotalRow.previousReport.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+            `R${tableData.grandTotalRow.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+            tableData.grandTotalRow.percentOfTotal,
+            `${tableData.grandTotalRow.currentVariance >= 0 ? '+' : ''}R${Math.abs(tableData.grandTotalRow.currentVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+            `${tableData.grandTotalRow.originalVariance >= 0 ? '+' : ''}R${Math.abs(tableData.grandTotalRow.originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`
+          ]
+        ];
+
+        autoTable(doc, {
+          startY: tableY,
+          margin: { left: contentStartX, right: useMargins.right },
+          head: [tableData.headers],
+          body: tableRows,
+          theme: 'striped',
+          headStyles: { 
+            fillColor: colors.primary, 
+            textColor: colors.white, 
+            fontStyle: 'bold',
+            fontSize: 8,
+            cellPadding: 4,
+            lineWidth: 0.1,
+            lineColor: colors.light,
+            valign: 'middle',
+            halign: 'center',
+            overflow: 'linebreak',
+            minCellWidth: 10
+          },
+          bodyStyles: { 
+            fontSize: 8,
+            cellPadding: 4,
+            minCellHeight: 12,
+            textColor: colors.text,
+            lineWidth: 0.1,
+            lineColor: [226, 232, 240],
+            valign: 'middle',
+            overflow: 'linebreak'
+          },
+          alternateRowStyles: {
+            fillColor: [248, 250, 252]
+          },
+          columnStyles: {
+            0: { cellWidth: 10, fontStyle: 'bold', halign: 'center' },
+            1: { cellWidth: 38, halign: 'left', cellPadding: { left: 5, right: 3, top: 4, bottom: 4 } },
+            2: { cellWidth: 22, halign: 'right', cellPadding: { right: 5 } },
+            3: { cellWidth: 22, halign: 'right', cellPadding: { right: 5 } },
+            4: { cellWidth: 22, halign: 'right', cellPadding: { right: 5 } },
+            5: { cellWidth: 10, halign: 'center' },
+            6: { cellWidth: 22, halign: 'right', cellPadding: { right: 5 } },
+            7: { cellWidth: 22, halign: 'right', cellPadding: { right: 5 } }
+          },
+          didDrawCell: (data) => {
+            // Highlight the grand total row
+            if (data.section === 'body' && data.row.index === tableRows.length - 1) {
+              data.cell.styles.fillColor = [226, 232, 240];
+              data.cell.styles.fontStyle = 'bold';
+              data.cell.styles.fontSize = 8.5;
+              data.cell.styles.textColor = colors.primary;
+            }
             
-            // Calculate dimensions to fit the captured image
-            const imageAspectRatio = executiveSummaryCanvas.width / executiveSummaryCanvas.height;
-            const imageWidth = contentWidth;
-            const imageHeight = imageWidth / imageAspectRatio;
-            
-            // Final validation before adding image
-            if (isFinite(imageHeight) && imageHeight > 0) {
-              // Check if we need a new page
-              if (currentY + imageHeight > pageHeight - useMargins.bottom) {
-                doc.addPage();
-                currentY = contentStartY;
+            // Color the variance cells for category rows
+            if (data.section === 'body' && data.row.index < tableData.categoryRows.length) {
+              const cat = tableData.categoryRows[data.row.index];
+              // Current Variance column
+              if (data.column.index === 6) {
+                if (cat.currentVariance < 0) {
+                  data.cell.styles.textColor = colors.success;
+                  data.cell.styles.fontStyle = 'bold';
+                } else if (cat.currentVariance > 0) {
+                  data.cell.styles.textColor = colors.danger;
+                  data.cell.styles.fontStyle = 'bold';
+                }
               }
-              
-              doc.addImage(summaryImage, 'JPEG', contentStartX, currentY, imageWidth, imageHeight, undefined, 'FAST');
-              currentY += imageHeight + 10;
+              // Original Variance column
+              if (data.column.index === 7) {
+                if (cat.originalVariance < 0) {
+                  data.cell.styles.textColor = colors.success;
+                  data.cell.styles.fontStyle = 'bold';
+                } else if (cat.originalVariance > 0) {
+                  data.cell.styles.textColor = colors.danger;
+                  data.cell.styles.fontStyle = 'bold';
+                }
+              }
+            }
+            
+            // Color totals row variance
+            if (data.section === 'body' && data.row.index === tableRows.length - 1) {
+              if (data.column.index === 6) {
+                if (tableData.grandTotalRow.currentVariance < 0) {
+                  data.cell.styles.textColor = colors.success;
+                } else if (tableData.grandTotalRow.currentVariance > 0) {
+                  data.cell.styles.textColor = colors.danger;
+                }
+              }
+              if (data.column.index === 7) {
+                if (tableData.grandTotalRow.originalVariance < 0) {
+                  data.cell.styles.textColor = colors.success;
+                } else if (tableData.grandTotalRow.originalVariance > 0) {
+                  data.cell.styles.textColor = colors.danger;
+                }
+              }
             }
           }
-        } catch (error) {
-          console.log("Could not capture Executive Summary table, falling back to manual rendering:", error);
-          // Fallback: Display a message that table couldn't be captured
-          doc.setFontSize(10);
-          doc.setTextColor(220, 38, 38);
-          doc.text("Unable to capture Executive Summary. Please ensure the page is fully loaded.", contentStartX, currentY);
-        }
+        });
       }
 
       // ========== CATEGORY PERFORMANCE DETAILS PAGE ==========
