@@ -39,5 +39,5 @@ verify_jwt = true
 [functions.get-mapbox-token]
 verify_jwt = true
 
-[functions.generate-cost-report-pdf]
-verify_jwt = true
+[functions.convert-word-to-pdf]
+verify_jwt = false
