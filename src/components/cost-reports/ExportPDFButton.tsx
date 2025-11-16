@@ -644,48 +644,55 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           head: [tableData.headers],
           body: tableRows,
           theme: 'striped',
+          styles: {
+            fontSize: 7,
+            cellPadding: 3,
+            overflow: 'linebreak',
+            halign: 'left'
+          },
           headStyles: { 
             fillColor: colors.primary, 
             textColor: colors.white, 
             fontStyle: 'bold',
-            fontSize: 8,
-            cellPadding: 4,
-            lineWidth: 0.1,
-            lineColor: colors.light,
+            fontSize: 7,
+            cellPadding: 3,
+            halign: 'left',
             valign: 'middle',
-            halign: 'center',
-            overflow: 'linebreak',
-            minCellWidth: 10
+            minCellHeight: 8
           },
           bodyStyles: { 
-            fontSize: 8,
-            cellPadding: 4,
-            minCellHeight: 12,
+            fontSize: 7,
+            cellPadding: 3,
             textColor: colors.text,
-            lineWidth: 0.1,
-            lineColor: [226, 232, 240],
-            valign: 'middle',
-            overflow: 'linebreak'
+            valign: 'middle'
           },
           alternateRowStyles: {
             fillColor: [248, 250, 252]
           },
           columnStyles: {
-            0: { cellWidth: 10, fontStyle: 'bold', halign: 'center' },
-            1: { cellWidth: 38, halign: 'left', cellPadding: { left: 5, right: 3, top: 4, bottom: 4 } },
-            2: { cellWidth: 22, halign: 'right', cellPadding: { right: 5 } },
-            3: { cellWidth: 22, halign: 'right', cellPadding: { right: 5 } },
-            4: { cellWidth: 22, halign: 'right', cellPadding: { right: 5 } },
-            5: { cellWidth: 10, halign: 'center' },
-            6: { cellWidth: 22, halign: 'right', cellPadding: { right: 5 } },
-            7: { cellWidth: 22, halign: 'right', cellPadding: { right: 5 } }
+            0: { cellWidth: 12, fontStyle: 'bold', halign: 'left' },
+            1: { cellWidth: 42, halign: 'left' },
+            2: { cellWidth: 24, halign: 'right' },
+            3: { cellWidth: 24, halign: 'right' },
+            4: { cellWidth: 24, halign: 'right' },
+            5: { cellWidth: 14, halign: 'right' },
+            6: { cellWidth: 24, halign: 'right' },
+            7: { cellWidth: 24, halign: 'right' }
           },
           didDrawCell: (data) => {
+            // Set header alignment properly
+            if (data.section === 'head') {
+              if (data.column.index === 0 || data.column.index === 1) {
+                data.cell.styles.halign = 'left';
+              } else {
+                data.cell.styles.halign = 'right';
+              }
+            }
+            
             // Highlight the grand total row
             if (data.section === 'body' && data.row.index === tableRows.length - 1) {
               data.cell.styles.fillColor = [226, 232, 240];
               data.cell.styles.fontStyle = 'bold';
-              data.cell.styles.fontSize = 8.5;
               data.cell.styles.textColor = colors.primary;
             }
             
