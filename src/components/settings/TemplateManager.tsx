@@ -64,13 +64,13 @@ export const TemplateManager = () => {
       const filePath = `templates/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
-        .from("documents")
+        .from("document_templates")
         .upload(filePath, file);
 
       if (uploadError) throw uploadError;
 
       const { data: { publicUrl } } = supabase.storage
-        .from("documents")
+        .from("document_templates")
         .getPublicUrl(filePath);
 
       if (isDefault) {
@@ -134,10 +134,10 @@ export const TemplateManager = () => {
 
   const deleteMutation = useMutation({
     mutationFn: async (template: any) => {
-      const filePath = template.file_url.split("/documents/")[1];
+      const filePath = template.file_url.split("/document_templates/")[1];
       
       if (filePath) {
-        await supabase.storage.from("documents").remove([filePath]);
+        await supabase.storage.from("document_templates").remove([filePath]);
       }
 
       const { error } = await supabase
