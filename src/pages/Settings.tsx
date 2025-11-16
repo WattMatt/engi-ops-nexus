@@ -4,6 +4,7 @@ import { InvoiceSettings } from "@/components/settings/InvoiceSettings";
 import { TemplateManager } from "@/components/settings/TemplateManager";
 import { PDFExportSettings } from "@/components/settings/PDFExportSettings";
 import { ComponentGenerator } from "@/components/ComponentGenerator";
+import { TemplateWizard } from "@/components/settings/TemplateWizard";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AvatarUpload } from "@/components/settings/AvatarUpload";
 import { useEffect, useState } from "react";
@@ -51,6 +52,7 @@ const Settings = () => {
           <TabsTrigger value="company">Company</TabsTrigger>
           <TabsTrigger value="pdf">PDF Quality</TabsTrigger>
           <TabsTrigger value="templates">PDF Templates</TabsTrigger>
+          <TabsTrigger value="wizard">Template Wizard</TabsTrigger>
           <TabsTrigger value="invoice">Invoice Settings</TabsTrigger>
           <TabsTrigger value="tools">Developer Tools</TabsTrigger>
         </TabsList>
@@ -86,6 +88,10 @@ const Settings = () => {
 
         <TabsContent value="templates">
           <TemplateManager />
+        </TabsContent>
+
+        <TabsContent value="wizard">
+          <TemplateWizard />
         </TabsContent>
 
         <TabsContent value="invoice">
