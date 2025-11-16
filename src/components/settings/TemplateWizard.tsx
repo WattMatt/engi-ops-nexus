@@ -10,8 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Upload, FileCheck, Wand2, Download, AlertTriangle, CheckCircle2, Info } from "lucide-react";
 import { toast } from "sonner";
-import { analyzeWordTemplate, compareTemplateStructures, TemplateStructure } from "@/utils/analyzeWordTemplate";
-import { generateIntelligentTemplate, getPlaceholderSuggestions } from "@/utils/intelligentTemplateMerge";
+import { analyzeWordTemplate, compareTemplateStructures, TemplateStructure, detectPlaceholdersInTemplate } from "@/utils/analyzeWordTemplate";
+import { detectPlaceholders, getPlaceholderSuggestions } from "@/utils/placeholderDetection";
 import { supabase } from "@/integrations/supabase/client";
 
 type WizardStep = "upload" | "analyze" | "generate" | "preview" | "complete";
@@ -32,7 +32,12 @@ export function TemplateWizard() {
   
   const [isProcessing, setIsProcessing] = useState(false);
   const [comparison, setComparison] = useState<ReturnType<typeof compareTemplateStructures> | null>(null);
-  const [placeholders, setPlaceholders] = useState<ReturnType<typeof getPlaceholderSuggestions> | null>(null);
+  const [detectedPlaceholders, setDetectedPlaceholders] = useState<{
+    textPlaceholders: string[];
+    imagePlaceholders: string[];
+    loopPlaceholders: string[];
+  } | null>(null);
+  const [pdfPreviewUrl, setPdfPreviewUrl] = useState<string | null>(null);
 
   const templateTypeLabels: Record<string, string> = {
     cost_report: "Cost Report",
@@ -98,8 +103,8 @@ export function TemplateWizard() {
   };
 
   const handleGenerate = async () => {
-    if (!blankStructure) {
-      toast.error("Please analyze templates first");
+    if (!blankFile) {
+      toast.error("Please upload blank template first");
       return;
     }
 
@@ -107,24 +112,70 @@ export function TemplateWizard() {
     setProgress(20);
 
     try {
-      // Generate intelligent template
-      setProgress(50);
-      const blob = await generateIntelligentTemplate(blankStructure);
-      setGeneratedBlob(blob);
-
-      const fileName = blankFile!.name.replace(".docx", "_generated_template.docx");
+      // Detect placeholders in blank template
+      setProgress(40);
+      const detected = await detectPlaceholdersInTemplate(blankFile);
+      setDetectedPlaceholders(detected);
+      
+      // Use the blank file AS-IS (this is the key change!)
+      setGeneratedBlob(blankFile);
+      const fileName = blankFile.name.replace(".docx", "_template.docx");
       setGeneratedFileName(fileName);
-
-      // Generate placeholder suggestions based on completed document analysis
-      const suggestions = getPlaceholderSuggestions(blankStructure, completedStructure);
-      setPlaceholders(suggestions);
 
       setProgress(100);
       setCurrentStep("preview");
-      toast.success("Template generated successfully");
+      toast.success("Template analyzed successfully - placeholders detected");
     } catch (error) {
       console.error("Generation error:", error);
-      toast.error("Failed to generate template");
+      toast.error("Failed to analyze template");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleGeneratePreview = async () => {
+    if (!blankFile) {
+      toast.error("Please upload blank template");
+      return;
+    }
+
+    setIsProcessing(true);
+    try {
+      // Upload blank template temporarily
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+      const tempPath = `temp/preview_blank_${timestamp}.docx`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('document-templates')
+        .upload(tempPath, blankFile, {
+          contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('document-templates')
+        .getPublicUrl(tempPath);
+
+      // Generate PDF preview
+      const { data, error } = await supabase.functions.invoke('generate-template-preview', {
+        body: {
+          blankTemplateUrl: urlData.publicUrl,
+          templateType,
+        },
+      });
+
+      if (error) throw error;
+
+      setPdfPreviewUrl(data.pdfUrl);
+      toast.success("PDF preview generated");
+
+      // Clean up temp file
+      await supabase.storage.from('document-templates').remove([tempPath]);
+    } catch (error) {
+      console.error("Preview error:", error);
+      toast.error("Failed to generate preview");
     } finally {
       setIsProcessing(false);
     }
@@ -146,7 +197,7 @@ export function TemplateWizard() {
   };
 
   const handleSaveToDatabase = async () => {
-    if (!completedFile || !blankFile || !generatedBlob) {
+    if (!completedFile || !blankFile) {
       toast.error("Missing files to save");
       return;
     }
@@ -159,12 +210,13 @@ export function TemplateWizard() {
 
       const timestamp = new Date().toISOString().split("T")[0];
       
-      // Upload all three files
+      // Upload completed example and blank template
       const files = [
         { file: completedFile, suffix: "_completed_example" },
-        { file: blankFile, suffix: "_blank_structure" },
-        { file: new File([generatedBlob], generatedFileName), suffix: "_generated_template" },
+        { file: blankFile, suffix: "_blank_template" },
       ];
+
+      let blankTemplateUrl = "";
 
       for (const { file, suffix } of files) {
         const fileName = `${timestamp}${suffix}.docx`;
@@ -181,17 +233,22 @@ export function TemplateWizard() {
           .from("document-templates")
           .getPublicUrl(filePath);
 
-        // Save to database
-        await supabase.from("document_templates").insert({
-          name: `${templateTypeLabels[templateType]} ${suffix.replace(/_/g, " ")}`,
-          description: `Generated via Template Wizard on ${timestamp}`,
-          template_type: templateType,
-          file_name: fileName,
-          file_url: urlData.publicUrl,
-          is_active: suffix === "_generated_template",
-          is_default_cover: templateType === "cover_page" && suffix === "_generated_template",
-          created_by: user.id,
-        });
+        // Save blank template as the main template
+        if (suffix === "_blank_template") {
+          blankTemplateUrl = urlData.publicUrl;
+          
+          await supabase.from("document_templates").insert({
+            name: `${templateTypeLabels[templateType]} Template`,
+            description: `Created via Template Wizard on ${timestamp}`,
+            template_type: templateType,
+            file_name: fileName,
+            file_url: urlData.publicUrl,
+            preview_pdf_url: pdfPreviewUrl,
+            is_active: true,
+            is_default_cover: templateType === "cover_page",
+            created_by: user.id,
+          });
+        }
       }
 
       setCurrentStep("complete");
@@ -464,81 +521,85 @@ export function TemplateWizard() {
 
             <Card>
               <CardHeader>
-                <CardTitle className="text-sm">Generated Template Info</CardTitle>
+                <CardTitle className="text-base">Detected Placeholders</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2 text-sm">
-                <p><strong>File name:</strong> {generatedFileName}</p>
-                <p><strong>Placeholders added:</strong> Project info, contractors, financial summaries, categories, variations</p>
-                <p><strong>Loop syntax:</strong> Categories with line items, Variations table</p>
-              </CardContent>
-            </Card>
-
-            {blankStructure && (
-              <Card>
-                <CardHeader>
-                  <CardTitle className="text-sm">Placeholder Suggestions</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {placeholders && (
-                    <div className="space-y-2">
-                      {placeholders.detectedFromDocument.length > 0 && (
-                        <div className="text-sm">
-                          <p className="font-medium">Detected from Your Document</p>
-                          <div className="space-y-1 mt-2">
-                            {placeholders.detectedFromDocument.map((item, i) => (
-                              <div key={i} className="flex items-start gap-2">
-                                <Badge variant="secondary" className="text-xs">
-                                  {item.field}
-                                </Badge>
-                                <span className="text-xs text-muted-foreground">{item.source}</span>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      
-                      {placeholders.standardPlaceholders.length > 0 && placeholders.detectedFromDocument.length === 0 && (
-                        <div className="text-sm">
-                          <p className="font-medium">Standard Placeholders</p>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {placeholders.standardPlaceholders.map((ph) => (
-                              <Badge key={ph} variant="secondary" className="text-xs">
-                                {`{{${ph}}}`}
-                              </Badge>
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      
-                      {placeholders.loopSyntax.length > 0 && (
-                        <div className="text-sm">
-                          <p className="font-medium mt-3">Loop Syntax</p>
-                          {placeholders.loopSyntax.map((loop, index) => (
-                            <div key={index} className="mt-1">
-                              <p className="text-muted-foreground text-xs">{loop.section}</p>
-                              <code className="bg-muted px-2 py-1 rounded text-xs block mt-1">{loop.syntax}</code>
-                            </div>
+              <CardContent>
+                {detectedPlaceholders ? (
+                  <div className="space-y-4">
+                    {detectedPlaceholders.textPlaceholders.length > 0 && (
+                      <div className="text-sm">
+                        <p className="font-medium">Text Placeholders</p>
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {detectedPlaceholders.textPlaceholders.map((ph) => (
+                            <Badge key={ph} variant="secondary" className="text-xs">
+                              {ph}
+                            </Badge>
                           ))}
                         </div>
-                      )}
-                      
-                      {placeholders.imagePlaceholders.length > 0 && (
-                        <div className="text-sm">
-                          <p className="font-medium mt-3">Image Placeholders</p>
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {placeholders.imagePlaceholders.map((ph) => (
-                              <Badge key={ph} variant="outline" className="text-xs">
-                                {ph}
-                              </Badge>
-                            ))}
-                          </div>
+                      </div>
+                    )}
+                    
+                    {detectedPlaceholders.imagePlaceholders.length > 0 && (
+                      <div className="text-sm">
+                        <p className="font-medium">Image Placeholders</p>
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {detectedPlaceholders.imagePlaceholders.map((ph) => (
+                            <Badge key={ph} variant="outline" className="text-xs">
+                              {ph}
+                            </Badge>
+                          ))}
                         </div>
-                      )}
+                      </div>
+                    )}
+
+                    {detectedPlaceholders.loopPlaceholders.length > 0 && (
+                      <div className="text-sm">
+                        <p className="font-medium">Loop Syntax</p>
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {detectedPlaceholders.loopPlaceholders.map((ph) => (
+                            <Badge key={ph} variant="default" className="text-xs">
+                              {ph}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
+                    {detectedPlaceholders.textPlaceholders.length === 0 && 
+                     detectedPlaceholders.imagePlaceholders.length === 0 && 
+                     detectedPlaceholders.loopPlaceholders.length === 0 && (
+                      <Alert>
+                        <Info className="h-4 w-4" />
+                        <AlertDescription>
+                          No placeholders detected. Add placeholders in format {`{placeholder_name}`} to your blank template.
+                        </AlertDescription>
+                      </Alert>
+                    )}
+                    
+                    <div className="mt-4">
+                      <Button onClick={handleGeneratePreview} disabled={isProcessing} className="w-full">
+                        Generate PDF Preview
+                      </Button>
                     </div>
-                  )}
-                </CardContent>
-              </Card>
-            )}
+
+                    {pdfPreviewUrl && (
+                      <div className="mt-4">
+                        <p className="text-sm font-medium mb-2">PDF Preview</p>
+                        <iframe 
+                          src={pdfPreviewUrl} 
+                          className="w-full h-96 border rounded"
+                          title="Template Preview"
+                        />
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Analyze your template to detect placeholders
+                  </p>
+                )}
+              </CardContent>
+            </Card>
 
             <div className="flex gap-2">
               <Button onClick={handleDownloadGenerated} variant="outline" className="flex-1">

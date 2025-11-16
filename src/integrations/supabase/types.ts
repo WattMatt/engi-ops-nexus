@@ -1473,6 +1473,7 @@ export type Database = {
           is_default_cover: boolean | null
           name: string
           placeholder_schema: Json | null
+          preview_pdf_url: string | null
           template_type: string
           updated_at: string | null
         }
@@ -1487,6 +1488,7 @@ export type Database = {
           is_default_cover?: boolean | null
           name: string
           placeholder_schema?: Json | null
+          preview_pdf_url?: string | null
           template_type?: string
           updated_at?: string | null
         }
@@ -1501,6 +1503,7 @@ export type Database = {
           is_default_cover?: boolean | null
           name?: string
           placeholder_schema?: Json | null
+          preview_pdf_url?: string | null
           template_type?: string
           updated_at?: string | null
         }

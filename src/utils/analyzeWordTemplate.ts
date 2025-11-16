@@ -1,5 +1,54 @@
 import mammoth from "mammoth";
 
+/**
+ * Detects existing placeholders in a template file
+ */
+export async function detectPlaceholdersInTemplate(file: File): Promise<{
+  textPlaceholders: string[];
+  imagePlaceholders: string[];
+  loopPlaceholders: string[];
+}> {
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const result = await mammoth.extractRawText({ arrayBuffer });
+    const text = result.value;
+
+    // Find all {placeholder} patterns
+    const placeholderRegex = /\{([a-zA-Z_#\/][a-zA-Z0-9_]*)\}/g;
+    const matches = [...text.matchAll(placeholderRegex)];
+    const allPlaceholders = [...new Set(matches.map(m => m[0]))];
+
+    // Categorize placeholders
+    const imagePlaceholders = allPlaceholders.filter(p => 
+      p.toLowerCase().includes('image') || 
+      p.toLowerCase().includes('logo') ||
+      p.toLowerCase().includes('photo') ||
+      p.toLowerCase().includes('picture')
+    );
+
+    const loopPlaceholders = allPlaceholders.filter(p => 
+      p.startsWith('{#') || p.startsWith('{/')
+    );
+
+    const textPlaceholders = allPlaceholders.filter(p => 
+      !imagePlaceholders.includes(p) && !loopPlaceholders.includes(p)
+    );
+
+    return {
+      textPlaceholders,
+      imagePlaceholders,
+      loopPlaceholders,
+    };
+  } catch (error) {
+    console.error('Error detecting placeholders:', error);
+    return {
+      textPlaceholders: [],
+      imagePlaceholders: [],
+      loopPlaceholders: [],
+    };
+  }
+}
+
 export interface DetectedField {
   fieldName: string;
   value: string;
