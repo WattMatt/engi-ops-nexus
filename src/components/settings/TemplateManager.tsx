@@ -8,13 +8,14 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
-import { Upload, Trash2, Star, Eye, FileText } from "lucide-react";
+import { Upload, Trash2, Star, Eye, FileText, Edit } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Separator } from "@/components/ui/separator";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ChevronDown } from "lucide-react";
 import { PlaceholderQuickCopy } from "@/components/shared/PlaceholderQuickCopy";
+import { WordDocumentEditor } from "./WordDocumentEditor";
 
 const TEMPLATE_TYPES = [
   { value: "cover_page", label: "📄 Cover Page" },
@@ -35,6 +36,7 @@ export const TemplateManager = () => {
   const [isActive, setIsActive] = useState(true);
   const [uploading, setUploading] = useState(false);
   const [previewTemplate, setPreviewTemplate] = useState<any>(null);
+  const [editTemplate, setEditTemplate] = useState<any>(null);
   const [deleteTemplate, setDeleteTemplate] = useState<any>(null);
 
   const { data: templates = [], isLoading } = useQuery({
@@ -169,6 +171,16 @@ export const TemplateManager = () => {
   const handlePreview = (template: any) => {
     const fileExt = template.file_name.split('.').pop()?.toLowerCase();
     setPreviewTemplate({ ...template, publicUrl: template.file_url, fileExt });
+  };
+
+  const handleEdit = (template: any) => {
+    const fileExt = template.file_name.split('.').pop()?.toLowerCase();
+    
+    if (fileExt === 'docx' || fileExt === 'doc') {
+      setEditTemplate({ ...template, publicUrl: template.file_url });
+    } else {
+      toast.error("Only Word documents (.docx) can be edited");
+    }
   };
 
   const groupedTemplates = TEMPLATE_TYPES.reduce((acc, type) => {
@@ -311,6 +323,15 @@ export const TemplateManager = () => {
                               >
                                 <Eye className="h-4 w-4" />
                               </Button>
+                              {(template.file_name.endsWith('.docx') || template.file_name.endsWith('.doc')) && (
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleEdit(template)}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                              )}
                               {!template.is_default_cover && (
                                 <Button
                                   variant="outline"
@@ -379,6 +400,17 @@ export const TemplateManager = () => {
           )}
         </DialogContent>
       </Dialog>
+
+
+      <WordDocumentEditor
+        template={editTemplate}
+        open={!!editTemplate}
+        onClose={() => setEditTemplate(null)}
+        onSave={() => {
+          queryClient.invalidateQueries({ queryKey: ["document-templates"] });
+          setEditTemplate(null);
+        }}
+      />
 
       <AlertDialog open={!!deleteTemplate} onOpenChange={() => setDeleteTemplate(null)}>
         <AlertDialogContent>
