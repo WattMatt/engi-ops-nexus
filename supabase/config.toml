@@ -3,6 +3,12 @@ project_id = "rsdisaisxdglmdmzmkyw"
 [functions.generate-template-preview]
 verify_jwt = false
 
+[functions.ai-analyze-template-placeholders]
+verify_jwt = false
+
+[functions.insert-template-placeholders]
+verify_jwt = false
+
 [functions.invite-user]
 verify_jwt = true
 
