@@ -153,6 +153,15 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         .select("*")
         .eq("cost_report_id", report.id)
         .order("display_order");
+      
+      // Sort variations by extracting numeric part from code (e.g., G1, G2, G10)
+      const sortedVariations = (variations || []).sort((a, b) => {
+        const aMatch = a.code.match(/\d+/);
+        const bMatch = b.code.match(/\d+/);
+        const aNum = aMatch ? parseInt(aMatch[0], 10) : 0;
+        const bNum = bMatch ? parseInt(bMatch[0], 10) : 0;
+        return aNum - bNum;
+      });
 
       const { data: details } = await supabase
         .from("cost_report_details")
@@ -303,14 +312,14 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       }
       
       // ========== VARIATIONS SECTION ==========
-      if (variations && variations.length > 0) {
+      if (sortedVariations && sortedVariations.length > 0) {
         contentDoc.addPage();
         tocSections.push({ title: "Variations", page: contentDoc.getCurrentPageInfo().pageNumber });
         yPos = contentStartY;
         yPos = addSectionHeader(contentDoc, "VARIATIONS", yPos);
         yPos += 5;
         
-        const variationsData = variations.map(v => [
+        const variationsData = sortedVariations.map(v => [
           v.code,
           v.description,
           v.is_credit ? 'Credit' : 'Extra',
@@ -514,8 +523,14 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       // Sort categories alphabetically by code for consistent ordering
       const sortedCategories = [...categories].sort((a, b) => a.code.localeCompare(b.code));
       
-      // Keep variations in display_order as fetched from database (already ordered by display_order)
-      const sortedVariations = variations;
+      // Sort variations by extracting numeric part from code (e.g., G1, G2, G10)
+      const sortedVariations = [...variations].sort((a, b) => {
+        const aMatch = a.code.match(/\d+/);
+        const bMatch = b.code.match(/\d+/);
+        const aNum = aMatch ? parseInt(aMatch[0], 10) : 0;
+        const bNum = bMatch ? parseInt(bMatch[0], 10) : 0;
+        return aNum - bNum;
+      });
       
       // Calculate totals using shared utility and sort alphabetically
       const pdfCategoryTotals = calculateCategoryTotals(sortedCategories, allLineItems, sortedVariations)
