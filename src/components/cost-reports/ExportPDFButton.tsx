@@ -1035,30 +1035,6 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         }
         yPos += 5;
       });
-
-      // Add contract information
-      if (yPos > pageHeight - useMargins.bottom - 30) {
-        doc.addPage();
-        yPos = contentStartY;
-      }
-
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "bold");
-      doc.text("8. CONTRACT INFORMATION", contentStartX, yPos);
-      yPos += 6;
-      doc.setFont("helvetica", "normal");
-      
-      const contractors = [
-        { label: 'Electrical', value: report.electrical_contractor },
-        { label: 'Earthing and lightning protection', value: report.earthing_contractor },
-        { label: 'Standby Plants', value: report.standby_plants_contractor },
-        { label: 'CCTV and access control', value: report.cctv_contractor }
-      ].filter(c => c.value);
-
-      contractors.forEach(c => {
-        doc.text(`${c.label}: ${c.value}`, contentStartX, yPos);
-        yPos += 5;
-      });
       }
 
       // ========== DETAILED LINE ITEMS PAGES ==========
