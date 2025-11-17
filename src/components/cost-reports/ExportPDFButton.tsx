@@ -317,6 +317,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       
       // Add VARIATIONS as a category detail (like other categories)
       if (sortedVariations && sortedVariations.length > 0) {
+        console.log('[PDF EXPORT] Adding G - VARIATIONS section with', sortedVariations.length, 'variations');
         yPos = checkPageBreak(contentDoc, yPos);
         
         contentDoc.setFontSize(14);
@@ -329,12 +330,15 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         yPos += 10;
         
         // Show variations in same format as category line items
-        const variationsLineItemData = sortedVariations.map(v => [
-          v.code,
-          v.description,
-          'R 0.00', // Original budget for variations is always 0
-          `R ${Math.abs(v.amount).toFixed(2)}`
-        ]);
+        const variationsLineItemData = sortedVariations.map(v => {
+          console.log('[PDF EXPORT] Adding variation:', v.code, v.description, v.amount);
+          return [
+            v.code,
+            v.description,
+            'R 0.00', // Original budget for variations is always 0
+            `R ${Math.abs(v.amount).toFixed(2)}`
+          ];
+        });
         
         autoTable(contentDoc, {
           startY: yPos,
@@ -344,6 +348,9 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           headStyles: { fillColor: [59, 130, 246] as [number, number, number] }
         });
         yPos = (contentDoc as any).lastAutoTable.finalY + 15;
+        console.log('[PDF EXPORT] G - VARIATIONS section completed');
+      } else {
+        console.log('[PDF EXPORT] No variations to add - sortedVariations:', sortedVariations);
       }
       
       // ========== DETAILED VARIATION ORDER SHEETS ==========
