@@ -1026,7 +1026,22 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         pageContentMap[currentPage].push(sectionTitle);
         yPos += 6;
 
-        if (detail.section_content) {
+        // Special handling for CONTRACT INFORMATION section
+        if (detail.section_title.toUpperCase().includes('CONTRACT INFORMATION')) {
+          doc.setFont("helvetica", "normal");
+          const contractors = [
+            { label: 'Electrical', value: report.electrical_contractor },
+            { label: 'Earthing and lightning protection', value: report.earthing_contractor },
+            { label: 'Standby Plants', value: report.standby_plants_contractor },
+            { label: 'CCTV and access control', value: report.cctv_contractor }
+          ].filter(c => c.value);
+
+          contractors.forEach(c => {
+            doc.text(`${c.label}: ${c.value}`, contentStartX, yPos);
+            pageContentMap[currentPage].push(`${c.label}: ${c.value}`);
+            yPos += 5;
+          });
+        } else if (detail.section_content) {
           doc.setFont("helvetica", "normal");
           const lines = doc.splitTextToSize(detail.section_content, contentWidth - 4);
           doc.text(lines, contentStartX, yPos);
