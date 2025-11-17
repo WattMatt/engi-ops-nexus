@@ -1195,27 +1195,19 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         doc.addPage();
         tocSections.push({ title: "Variations", page: doc.getCurrentPageInfo().pageNumber });
         
-        // Add gradient header bar
-        const headerHeight = 40;
-        for (let i = 0; i < headerHeight; i++) {
-          const ratio = i / headerHeight;
-          const r = Math.round(colors.accent[0] + (colors.secondary[0] - colors.accent[0]) * ratio);
-          const g = Math.round(colors.accent[1] + (colors.secondary[1] - colors.accent[1]) * ratio);
-          const b = Math.round(colors.accent[2] + (colors.secondary[2] - colors.accent[2]) * ratio);
-          doc.setFillColor(r, g, b);
-          doc.rect(0, i, pageWidth, 1, 'F');
-        }
-        
-        doc.setFontSize(20);
+        // Simple professional header
+        doc.setFontSize(14);
         doc.setFont("helvetica", "bold");
-        doc.setTextColor(...colors.white);
-        doc.text("VARIATIONS", pageWidth / 2, 22, { align: "center" });
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "normal");
-        doc.text("Contract Variations & Adjustments", pageWidth / 2, 32, { align: "center" });
+        doc.setTextColor(0, 0, 0);
+        doc.text("VARIATIONS", contentStartX, contentStartY + 5);
+        
+        // Add a subtle line under the header
+        doc.setDrawColor(200, 200, 200);
+        doc.setLineWidth(0.5);
+        doc.line(contentStartX, contentStartY + 8, pageWidth - useMargins.right, contentStartY + 8);
 
         autoTable(doc, {
-          startY: contentStartY + 30,
+          startY: contentStartY + 15,
           margin: { left: contentStartX, right: useMargins.right },
           head: [['Code', 'Description', 'Amount', 'Type']],
           body: variations.map((v: any) => [
