@@ -1044,13 +1044,13 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
               cellPadding: { top: 4, bottom: 4, left: 3, right: 3 }
             },
             columnStyles: {
-              0: { cellWidth: 12, halign: 'center' },
-              1: { cellWidth: 55, halign: 'left' },
-              2: { cellWidth: 25, halign: 'right' },
-              3: { cellWidth: 25, halign: 'right' },
-              4: { cellWidth: 25, halign: 'right' },
-              5: { cellWidth: 25, halign: 'right' },
-              6: { cellWidth: 25, halign: 'right' }
+              0: { cellWidth: 10, halign: 'center' },
+              1: { cellWidth: 36, halign: 'left' },
+              2: { cellWidth: 27, halign: 'right' },
+              3: { cellWidth: 27, halign: 'right' },
+              4: { cellWidth: 27, halign: 'right' },
+              5: { cellWidth: 27, halign: 'right' },
+              6: { cellWidth: 27, halign: 'right' }
             }
           });
           
