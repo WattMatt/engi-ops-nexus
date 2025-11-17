@@ -80,6 +80,21 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
     try {
       console.log('Starting template-based PDF export for report:', report.id);
       
+      // Capture KPI cards as image before generating PDF
+      setCurrentSection("Capturing KPI cards...");
+      let kpiCardsImage: string | null = null;
+      const kpiCardsElement = document.getElementById('cost-report-kpi-cards');
+      
+      if (kpiCardsElement) {
+        try {
+          const canvas = await captureElementAsCanvas(kpiCardsElement);
+          kpiCardsImage = canvas.toDataURL('image/png');
+        } catch (error) {
+          console.error('Failed to capture KPI cards:', error);
+          // Continue without KPI cards image
+        }
+      }
+      
       // Get default cost report template
       const { data: template, error: templateError } = await supabase
         .from('document_templates')
@@ -164,9 +179,53 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       const contentDoc = initializePDF({ quality: 'standard', orientation: 'portrait' });
       const pageWidth = contentDoc.internal.pageSize.width;
       const pageHeight = contentDoc.internal.pageSize.height;
-      let yPos = STANDARD_MARGINS.top;
+      const contentStartX = STANDARD_MARGINS.left;
+      const contentStartY = STANDARD_MARGINS.top;
+      const tocSections: { title: string; page: number }[] = [];
+      let yPos = contentStartY;
       
-      // Add cost summary table
+      // ========== TABLE OF CONTENTS (INDEX) ==========
+      contentDoc.setFontSize(18);
+      contentDoc.setFont("helvetica", "bold");
+      contentDoc.text("TABLE OF CONTENTS", pageWidth / 2, yPos, { align: "center" });
+      contentDoc.setLineWidth(0.5);
+      contentDoc.setDrawColor(200, 200, 200);
+      contentDoc.line(contentStartX, yPos + 3, pageWidth - STANDARD_MARGINS.right, yPos + 3);
+      const tocPage = contentDoc.getCurrentPageInfo().pageNumber;
+      const tocStartY = yPos + 15;
+      
+      // ========== REPORT DETAILS ==========
+      contentDoc.addPage();
+      tocSections.push({ title: "Project Information", page: contentDoc.getCurrentPageInfo().pageNumber });
+      yPos = contentStartY;
+      yPos = addSectionHeader(contentDoc, "PROJECT INFORMATION", yPos);
+      yPos += 5;
+      
+      yPos = addKeyValue(contentDoc, "Project Name:", report.project_name, contentStartX, yPos);
+      yPos = addKeyValue(contentDoc, "Client Name:", report.client_name, contentStartX, yPos);
+      yPos = addKeyValue(contentDoc, "Project Number:", report.project_number, contentStartX, yPos);
+      yPos = addKeyValue(contentDoc, "Report Date:", format(new Date(report.report_date), "dd MMMM yyyy"), contentStartX, yPos);
+      yPos = addKeyValue(contentDoc, "Report Number:", report.report_number.toString(), contentStartX, yPos);
+      
+      yPos += 10;
+      contentDoc.setFontSize(12);
+      contentDoc.setFont("helvetica", "bold");
+      contentDoc.text("CONTRACTORS", contentStartX, yPos);
+      yPos += 7;
+      
+      if (report.electrical_contractor) yPos = addKeyValue(contentDoc, "Electrical Contractor:", report.electrical_contractor, contentStartX, yPos);
+      if (report.cctv_contractor) yPos = addKeyValue(contentDoc, "CCTV Contractor:", report.cctv_contractor, contentStartX, yPos);
+      if (report.standby_plants_contractor) yPos = addKeyValue(contentDoc, "Standby Plants:", report.standby_plants_contractor, contentStartX, yPos);
+      if (report.earthing_contractor) yPos = addKeyValue(contentDoc, "Earthing Contractor:", report.earthing_contractor, contentStartX, yPos);
+      
+      // ========== EXECUTIVE SUMMARY ==========
+      contentDoc.addPage();
+      tocSections.push({ title: "Executive Summary", page: contentDoc.getCurrentPageInfo().pageNumber });
+      yPos = contentStartY;
+      yPos = addSectionHeader(contentDoc, "EXECUTIVE SUMMARY", yPos);
+      yPos += 5;
+      
+      // Calculate totals for executive summary
       const categoryTotals = categories?.map(cat => {
         const lineItemsTotal = cat.cost_line_items?.reduce((sum: number, item: any) => 
           sum + (item.anticipated_final || 0), 0) || 0;
@@ -205,10 +264,53 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         footStyles: { fillColor: [240, 240, 240] as [number, number, number], fontStyle: 'bold' }
       });
       
-      // Add category details
+      yPos = (contentDoc as any).lastAutoTable.finalY + 15;
+      
+      // ========== CATEGORY KPI CARDS ==========
+      contentDoc.addPage();
+      tocSections.push({ title: "Category Performance", page: contentDoc.getCurrentPageInfo().pageNumber });
+      yPos = contentStartY;
+      yPos = addSectionHeader(contentDoc, "CATEGORY PERFORMANCE", yPos);
+      yPos += 5;
+      
+      // Add captured KPI cards image if available
+      if (kpiCardsImage) {
+        try {
+          const imgWidth = pageWidth - STANDARD_MARGINS.left - STANDARD_MARGINS.right;
+          const imgHeight = 80; // Fixed height for KPI cards
+          contentDoc.addImage(kpiCardsImage, 'PNG', contentStartX, yPos, imgWidth, imgHeight);
+          yPos += imgHeight + 10;
+        } catch (error) {
+          console.error('Failed to add KPI cards image:', error);
+          contentDoc.setFontSize(10);
+          contentDoc.text("Category KPI cards could not be displayed", contentStartX, yPos);
+          yPos += 20;
+        }
+      } else {
+        contentDoc.setFontSize(10);
+        contentDoc.text("Category KPI cards showing performance indicators for each category", contentStartX, yPos);
+        yPos += 20;
+      }
+      
+      // ========== CATEGORIES AND LINE ITEMS ==========
+      contentDoc.addPage();
+      tocSections.push({ title: "Categories & Line Items", page: contentDoc.getCurrentPageInfo().pageNumber });
+      yPos = contentStartY;
+      yPos = addSectionHeader(contentDoc, "CATEGORIES & LINE ITEMS", yPos);
+      yPos += 5;
+      
+      // Add category details with line items
       for (const category of categories || []) {
-        yPos = checkPageBreak(contentDoc, (contentDoc as any).lastAutoTable.finalY + 10);
-        yPos = addSectionHeader(contentDoc, `${category.code} - ${category.description}`, yPos);
+        yPos = checkPageBreak(contentDoc, yPos);
+        
+        contentDoc.setFontSize(14);
+        contentDoc.setFont("helvetica", "bold");
+        contentDoc.setTextColor(30, 58, 138);
+        contentDoc.text(`${category.code} - ${category.description}`, contentStartX, yPos);
+        contentDoc.setDrawColor(59, 130, 246);
+        contentDoc.setLineWidth(0.3);
+        contentDoc.line(contentStartX, yPos + 2, pageWidth - STANDARD_MARGINS.right, yPos + 2);
+        yPos += 10;
         
         if (category.cost_line_items && category.cost_line_items.length > 0) {
           const lineItemData = category.cost_line_items.map((item: any) => [
@@ -225,14 +327,17 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
             theme: 'grid',
             headStyles: { fillColor: [59, 130, 246] as [number, number, number] }
           });
-          yPos = (contentDoc as any).lastAutoTable.finalY + 10;
+          yPos = (contentDoc as any).lastAutoTable.finalY + 15;
         }
       }
       
-      // Add variations if any
+      // ========== VARIATIONS SECTION ==========
       if (variations && variations.length > 0) {
-        yPos = checkPageBreak(contentDoc, yPos);
-        yPos = addSectionHeader(contentDoc, "Variations", yPos);
+        contentDoc.addPage();
+        tocSections.push({ title: "Variations", page: contentDoc.getCurrentPageInfo().pageNumber });
+        yPos = contentStartY;
+        yPos = addSectionHeader(contentDoc, "VARIATIONS", yPos);
+        yPos += 5;
         
         const variationsData = variations.map(v => [
           v.code,
@@ -249,6 +354,36 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           headStyles: { fillColor: [30, 58, 138] as [number, number, number] }
         });
       }
+      
+      // ========== UPDATE TABLE OF CONTENTS ==========
+      const currentPage = contentDoc.getCurrentPageInfo().pageNumber;
+      contentDoc.setPage(tocPage);
+      yPos = tocStartY;
+      
+      contentDoc.setFontSize(11);
+      contentDoc.setTextColor(0, 0, 0);
+      
+      tocSections.forEach((section) => {
+        contentDoc.setFont("helvetica", "normal");
+        contentDoc.text(section.title, contentStartX, yPos);
+        
+        const pageNumText = String(section.page);
+        const pageNumWidth = contentDoc.getTextWidth(pageNumText);
+        contentDoc.text(pageNumText, pageWidth - STANDARD_MARGINS.right - pageNumWidth, yPos);
+        
+        // Draw dotted line
+        const titleWidth = contentDoc.getTextWidth(section.title);
+        const dotsStartX = contentStartX + titleWidth + 3;
+        const dotsEndX = pageWidth - STANDARD_MARGINS.right - pageNumWidth - 3;
+        (contentDoc as any).setLineDash([1, 2]);
+        contentDoc.setDrawColor(150, 150, 150);
+        contentDoc.line(dotsStartX, yPos - 1, dotsEndX, yPos - 1);
+        (contentDoc as any).setLineDash([]);
+        
+        yPos += 8;
+      });
+      
+      contentDoc.setPage(currentPage);
       
       // Add page numbers to content
       addPageNumbers(contentDoc, 1);
