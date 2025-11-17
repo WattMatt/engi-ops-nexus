@@ -315,13 +315,42 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         }
       }
       
-      // ========== VARIATIONS SECTION ==========
+      // Add VARIATIONS as a category detail (like other categories)
+      if (sortedVariations && sortedVariations.length > 0) {
+        yPos = checkPageBreak(contentDoc, yPos);
+        
+        contentDoc.setFontSize(14);
+        contentDoc.setFont("helvetica", "bold");
+        contentDoc.setTextColor(30, 58, 138);
+        contentDoc.text("G - VARIATIONS", contentStartX, yPos);
+        contentDoc.setDrawColor(59, 130, 246);
+        contentDoc.setLineWidth(0.3);
+        contentDoc.line(contentStartX, yPos + 2, pageWidth - STANDARD_MARGINS.right, yPos + 2);
+        yPos += 10;
+        
+        // Show variations in same format as category line items
+        const variationsLineItemData = sortedVariations.map(v => [
+          v.code,
+          v.description,
+          'R 0.00', // Original budget for variations is always 0
+          `R ${Math.abs(v.amount).toFixed(2)}`
+        ]);
+        
+        autoTable(contentDoc, {
+          startY: yPos,
+          head: [['Code', 'Description', 'Original Budget', 'Anticipated Final']],
+          body: variationsLineItemData,
+          theme: 'grid',
+          headStyles: { fillColor: [59, 130, 246] as [number, number, number] }
+        });
+        yPos = (contentDoc as any).lastAutoTable.finalY + 15;
+      }
+      
+      // ========== DETAILED VARIATION ORDER SHEETS ==========
       if (sortedVariations && sortedVariations.length > 0) {
         contentDoc.addPage();
-        tocSections.push({ title: "Variations", page: contentDoc.getCurrentPageInfo().pageNumber });
+        tocSections.push({ title: "Variation Order Sheets", page: contentDoc.getCurrentPageInfo().pageNumber });
         yPos = contentStartY;
-        yPos = addSectionHeader(contentDoc, "VARIATIONS", yPos);
-        yPos += 10;
         
         // Display each variation with its line items
         for (const variation of sortedVariations) {
