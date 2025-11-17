@@ -319,9 +319,23 @@ async function generateDefaultCoverPage(
       }
       
       const clientLogoBlob = await clientLogoResponse.blob();
+      
+      // Validate that we got a valid image blob
+      if (!clientLogoBlob || clientLogoBlob.size === 0 || !clientLogoBlob.type.startsWith('image/')) {
+        console.warn('Invalid client logo blob:', clientLogoBlob);
+        throw new Error('Invalid image blob');
+      }
+      
       const clientLogoDataUrl = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
+        reader.onloadend = () => {
+          const result = reader.result as string;
+          if (!result || result === 'data:' || result.length < 100) {
+            reject(new Error('Invalid data URL'));
+          } else {
+            resolve(result);
+          }
+        };
         reader.onerror = () => reject(new Error('Failed to read logo blob'));
         reader.readAsDataURL(clientLogoBlob);
       });
@@ -332,19 +346,17 @@ async function generateDefaultCoverPage(
       const clientLogoX = pageWidth - clientLogoWidth - 28;
       const clientLogoY = 135;
       
-      // Add light background for client logo
+      // Only draw background and image if we have valid data
       doc.setFillColor(...colors.light);
       doc.roundedRect(clientLogoX - 5, clientLogoY - 5, clientLogoWidth + 10, clientLogoHeight + 10, 3, 3, 'F');
-      
-      // Add the logo image
       doc.addImage(clientLogoDataUrl, 'PNG', clientLogoX, clientLogoY, clientLogoWidth, clientLogoHeight);
       console.log('Client logo added successfully');
     } catch (error) {
       console.error("Failed to add client logo to PDF:", error);
-      // Don't draw anything if logo fails - no grey box, no undefined text
+      // Silently skip - no background box, no image, no undefined text
     }
   } else {
-    console.log('No client logo URL available');
+    console.log('No client logo URL available - skipping client logo');
   }
   
   // Company details section with modern card-like appearance (PREPARED BY - appears first)
