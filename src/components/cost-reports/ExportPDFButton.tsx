@@ -781,13 +781,13 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           },
           columnStyles: {
             0: { cellWidth: 12, fontStyle: 'bold', halign: 'center' },
-            1: { cellWidth: 38, halign: 'left' },
-            2: { cellWidth: 22, halign: 'right' },
-            3: { cellWidth: 22, halign: 'right' },
-            4: { cellWidth: 22, halign: 'right' },
+            1: { cellWidth: 36, halign: 'left' },
+            2: { cellWidth: 26, halign: 'right' },
+            3: { cellWidth: 26, halign: 'right' },
+            4: { cellWidth: 26, halign: 'right' },
             5: { cellWidth: 16, halign: 'center' },
-            6: { cellWidth: 22, halign: 'right' },
-            7: { cellWidth: 22, halign: 'right' }
+            6: { cellWidth: 26, halign: 'right' },
+            7: { cellWidth: 26, halign: 'right' }
           },
           didDrawCell: (data) => {
             // Set header alignment properly
@@ -1126,12 +1126,12 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
             },
             columnStyles: {
               0: { cellWidth: 12, halign: 'center', fontStyle: 'bold' },
-              1: { cellWidth: 42, halign: 'left' },
-              2: { cellWidth: 22, halign: 'right' },
-              3: { cellWidth: 22, halign: 'right' },
-              4: { cellWidth: 22, halign: 'right' },
-              5: { cellWidth: 22, halign: 'right' },
-              6: { cellWidth: 22, halign: 'right' }
+              1: { cellWidth: 40, halign: 'left' },
+              2: { cellWidth: 26, halign: 'right' },
+              3: { cellWidth: 26, halign: 'right' },
+              4: { cellWidth: 26, halign: 'right' },
+              5: { cellWidth: 26, halign: 'right' },
+              6: { cellWidth: 26, halign: 'right' }
             },
             didDrawCell: (data) => {
               // Color variance cells only if we have line items
@@ -1240,8 +1240,8 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           },
           columnStyles: {
             0: { cellWidth: 12, halign: 'center', fontStyle: 'bold' },
-            1: { cellWidth: 75, halign: 'left' },
-            2: { cellWidth: 26, halign: 'right' },
+            1: { cellWidth: 70, halign: 'left' },
+            2: { cellWidth: 30, halign: 'right' },
             3: { cellWidth: 18, halign: 'center' }
           },
           didDrawCell: (data) => {
