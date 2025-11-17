@@ -732,7 +732,17 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         text: [15, 23, 42] as [number, number, number]
       };
 
-      // Cover page generation removed per user request
+      setCurrentSection("Generating cover page...");
+      // ========== COVER PAGE (TEMPLATE-BASED) ==========
+      if (useSections.coverPage) {
+        await generateCoverPage(doc, {
+          title: "Cost Report",
+          projectName: report.project_name,
+          subtitle: `Report #${report.report_number}`,
+          revision: `Report ${report.report_number}`,
+          date: format(new Date(), "dd MMMM yyyy"),
+        }, companyDetails, contactId || undefined); // Use template from database
+      }
 
       setCurrentSection("Creating table of contents...");
       // ========== TABLE OF CONTENTS ==========
