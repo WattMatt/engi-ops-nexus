@@ -986,34 +986,35 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           margin: { left: contentStartX, right: useMargins.right },
           head: [tableData.headers],
           body: tableRows,
-          theme: 'striped',
+          theme: 'grid',
           tableWidth: 'auto',
           styles: {
-            fontSize: 8,
-            cellPadding: { top: 3, bottom: 3, left: 2, right: 2 },
+            fontSize: 7,
+            cellPadding: { top: 2, bottom: 2, left: 1.5, right: 1.5 },
             overflow: 'linebreak',
             halign: 'left',
-            minCellHeight: 8,
-            lineColor: [220, 220, 220],
+            minCellHeight: 7,
+            lineColor: [200, 200, 200],
             lineWidth: 0.1
           },
           headStyles: {
-            fillColor: [41, 128, 185],
-            textColor: 255,
+            fillColor: [30, 58, 138],
+            textColor: [255, 255, 255],
             fontStyle: 'bold',
-            halign: 'left',
-            fontSize: 8,
+            halign: 'center',
+            valign: 'middle',
+            fontSize: 7,
             cellPadding: { top: 3, bottom: 3, left: 2, right: 2 }
           },
           columnStyles: {
-            0: { cellWidth: 12, halign: 'center' },
-            1: { cellWidth: 45, halign: 'left' },
-            2: { cellWidth: 25, halign: 'right' },
-            3: { cellWidth: 25, halign: 'right' },
-            4: { cellWidth: 25, halign: 'right' },
-            5: { cellWidth: 15, halign: 'center' },
-            6: { cellWidth: 25, halign: 'right' },
-            7: { cellWidth: 25, halign: 'right' }
+            0: { cellWidth: 10, halign: 'center' },  // CODE
+            1: { cellWidth: 42, halign: 'left' },     // CATEGORY
+            2: { cellWidth: 22, halign: 'right' },    // ORIGINAL BUDGET
+            3: { cellWidth: 22, halign: 'right' },    // PREVIOUS REPORT
+            4: { cellWidth: 22, halign: 'right' },    // ANTICIPATED FINAL
+            5: { cellWidth: 12, halign: 'center' },   // % OF TOTAL
+            6: { cellWidth: 22, halign: 'right' },    // CURRENT VARIANCE
+            7: { cellWidth: 22, halign: 'right' }     // ORIGINAL VARIANCE
           },
           didParseCell: (data: any) => {
             // Make category rows slightly bold
@@ -1023,8 +1024,13 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
               }
             }
             
-            // Color totals row variance
+            // Bold and highlight totals row
             if (data.section === 'body' && data.row.index === tableRows.length - 1) {
+              data.cell.styles.fillColor = [240, 240, 240];
+              data.cell.styles.fontStyle = 'bold';
+              data.cell.styles.fontSize = 8;
+              
+              // Color variance columns
               if (data.column.index === 6) {
                 if (tableData.grandTotalRow.currentVariance < 0) {
                   data.cell.styles.textColor = colors.success;
