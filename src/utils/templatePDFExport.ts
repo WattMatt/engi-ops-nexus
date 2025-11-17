@@ -32,7 +32,7 @@ export const exportTemplatePDF = async (templateData: any, companyDetails: any) 
     date: format(new Date(), "dd MMMM yyyy"),
   }, companyDetails);
 
-  // ========== TABLE OF CONTENTS ==========
+  // ========== TABLE OF CONTENTS (INDEX) ==========
   doc.addPage();
   const tocPage = doc.getCurrentPageInfo().pageNumber;
   
@@ -47,37 +47,10 @@ export const exportTemplatePDF = async (templateData: any, companyDetails: any) 
 
   const tocStartY = contentStartY + 20;
 
-  // ========== EXECUTIVE SUMMARY PAGE ==========
-  doc.addPage();
-  tocSections.push({ title: "Executive Summary", page: doc.getCurrentPageInfo().pageNumber });
-  
-  doc.setFontSize(18);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(0, 0, 0);
-  doc.text("EXECUTIVE SUMMARY", pageWidth / 2, contentStartY + 5, { align: "center" });
-  
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(60, 60, 60);
-  doc.text("Key Performance Indicators & Financial Overview", pageWidth / 2, contentStartY + 12, { align: "center" });
-
-  doc.setDrawColor(200, 200, 200);
-  doc.setLineWidth(0.5);
-  doc.line(contentStartX, contentStartY + 15, pageWidth - useMargins.right, contentStartY + 15);
-
-  doc.setTextColor(...colors.text);
-  let yPos = contentStartY + 25;
-  
-  // KPI Placeholder text
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "normal");
-  doc.text("[KPI Cards would appear here with actual values]", contentStartX, yPos);
-  yPos += 70;
-
-  // ========== PROJECT INFORMATION PAGE ==========
+  // ========== PROJECT INFORMATION / REPORT DETAILS PAGE ==========
   doc.addPage();
   tocSections.push({ title: "Project Information", page: doc.getCurrentPageInfo().pageNumber });
-  yPos = contentStartY;
+  let yPos = contentStartY;
   
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
@@ -126,91 +99,134 @@ export const exportTemplatePDF = async (templateData: any, companyDetails: any) 
   addKeyValue("Standby Plants Contractor:", "{Standby_Plants_Contractor}");
   addKeyValue("Earthing Contractor:", "{Earthing_Contractor}");
 
-  // ========== COST SUMMARY PAGE ==========
+  // ========== EXECUTIVE SUMMARY PAGE ==========
   doc.addPage();
-  tocSections.push({ title: "Cost Summary", page: doc.getCurrentPageInfo().pageNumber });
+  tocSections.push({ title: "Executive Summary", page: doc.getCurrentPageInfo().pageNumber });
   yPos = contentStartY;
   
   doc.setFontSize(16);
   doc.setFont("helvetica", "bold");
   doc.setTextColor(...colors.primary);
-  doc.text("COST SUMMARY", contentStartX, yPos);
+  doc.text("EXECUTIVE SUMMARY", contentStartX, yPos);
+  
+  doc.setDrawColor(...colors.primary);
   doc.setLineWidth(0.5);
   doc.line(contentStartX, yPos + 2, pageWidth - useMargins.right, yPos + 2);
   
   yPos += 12;
+  doc.setTextColor(...colors.text);
 
-  const summaryBody = templateData.categories.map((cat: any) => [
-    cat.code || "{Code}",
-    cat.description || "{Description}",
-    "{Original_Budget}",
-    "{Previous_Report}",
-    "{Anticipated_Final}",
-  ]);
-
-  summaryBody.push([
-    { content: "TOTAL", styles: { fontStyle: 'bold' } },
-    "",
-    { content: "{Total_Original_Budget}", styles: { fontStyle: 'bold' } },
-    { content: "{Total_Previous_Report}", styles: { fontStyle: 'bold' } },
-    { content: "{Total_Anticipated_Final}", styles: { fontStyle: 'bold' } },
-  ]);
-
+  // Executive Summary Table
   (doc as any).autoTable({
     startY: yPos,
-    head: [["Code", "Description", "Original Budget", "Previous Report", "Anticipated Final"]],
-    body: summaryBody,
+    head: [["Category", "Original Budget", "Previous Report", "Anticipated Final", "Variance", "% Variance"]],
+    body: [
+      ["{Category_Code}", "{Original_Budget}", "{Previous_Report}", "{Anticipated_Final}", "{Variance}", "{Variance_%}"],
+      ["TOTAL", "{Total_Original_Budget}", "{Total_Previous_Report}", "{Total_Anticipated_Final}", "{Total_Variance}", "{Total_Variance_%}"]
+    ],
+    theme: "grid",
     ...getStandardTableStyles(),
+    headStyles: { fillColor: colors.primary, textColor: 255, fontStyle: "bold" },
+    footStyles: { fillColor: [220, 230, 240], fontStyle: "bold" },
   });
 
   yPos = (doc as any).lastAutoTable.finalY + 15;
 
-  // ========== DETAILED CATEGORIES ==========
-  templateData.categories.forEach((category: any) => {
-    const categoryLineItems = templateData.lineItems.filter(
-      (item: any) => item.category_id === category.id
-    );
+  // ========== CATEGORY KPI CARDS ==========
+  doc.addPage();
+  tocSections.push({ title: "Category Performance", page: doc.getCurrentPageInfo().pageNumber });
+  yPos = contentStartY;
+  
+  doc.setFontSize(16);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...colors.primary);
+  doc.text("CATEGORY PERFORMANCE", contentStartX, yPos);
+  
+  doc.setDrawColor(...colors.primary);
+  doc.setLineWidth(0.5);
+  doc.line(contentStartX, yPos + 2, pageWidth - useMargins.right, yPos + 2);
+  
+  yPos += 12;
+  doc.setTextColor(...colors.text);
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "normal");
+  
+  // KPI Cards placeholder - in actual implementation, this would render visual cards
+  doc.text("Category KPI cards showing visual performance indicators for each category", contentStartX, yPos);
+  doc.text("would be displayed here with budget variance indicators and status colors.", contentStartX, yPos + 7);
+  yPos += 30;
 
-    if (categoryLineItems.length === 0) return;
-
+  // ========== CATEGORIES AND LINE ITEMS ==========
+  if (templateData.categories && templateData.categories.length > 0) {
     doc.addPage();
-    tocSections.push({ title: `${category.code || '{Code}'} - ${category.description || '{Description}'}`, page: doc.getCurrentPageInfo().pageNumber });
+    tocSections.push({ title: "Categories & Line Items", page: doc.getCurrentPageInfo().pageNumber });
     yPos = contentStartY;
-    
-    doc.setFontSize(16);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(...colors.primary);
-    doc.text(`${category.code || '{Code}'} - ${category.description || '{Description}'}`, contentStartX, yPos);
-    doc.setLineWidth(0.5);
-    doc.line(contentStartX, yPos + 2, pageWidth - useMargins.right, yPos + 2);
-    
-    yPos += 12;
 
-    const categoryBody = categoryLineItems.map((item: any) => [
-      item.code || "{Code}",
-      item.description || "{Description}",
-      "{Original_Budget}",
-      "{Previous_Report}",
-      "{Anticipated_Final}",
-    ]);
+    for (const category of templateData.categories) {
+      // Check if we need a new page
+      if (yPos > pageHeight - 60) {
+        doc.addPage();
+        yPos = contentStartY;
+      }
 
-    categoryBody.push([
-      { content: "SUBTOTAL", styles: { fontStyle: 'bold' } },
-      "",
-      { content: "{Subtotal_Original_Budget}", styles: { fontStyle: 'bold' } },
-      { content: "{Subtotal_Previous_Report}", styles: { fontStyle: 'bold' } },
-      { content: "{Subtotal_Anticipated_Final}", styles: { fontStyle: 'bold' } },
-    ]);
+      // Category header
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.setTextColor(...colors.primary);
+      doc.text(`${category.code} - ${category.description}`, contentStartX, yPos);
+      
+      doc.setDrawColor(...colors.secondary);
+      doc.setLineWidth(0.3);
+      doc.line(contentStartX, yPos + 2, pageWidth - useMargins.right, yPos + 2);
+      
+      yPos += 10;
 
-    (doc as any).autoTable({
-      startY: yPos,
-      head: [["Code", "Description", "Original Budget", "Previous Report", "Anticipated Final"]],
-      body: categoryBody,
-      ...getStandardTableStyles(),
-    });
-  });
+      // Line items table
+      const lineItemsBody = category.lineItems.map((item: any) => [
+        item.code,
+        item.description,
+        `R ${Number(item.original_budget || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+        `R ${Number(item.previous_report || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+        `R ${Number(item.anticipated_final || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+      ]);
 
-  // ========== VARIATIONS ==========
+      // Add subtotal row
+      lineItemsBody.push([
+        "",
+        "SUBTOTAL",
+        `R ${Number(category.original_budget || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+        `R ${Number(category.previous_report || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+        `R ${Number(category.anticipated_final || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+      ]);
+
+      (doc as any).autoTable({
+        startY: yPos,
+        head: [["Code", "Description", "Original Budget", "Previous Report", "Anticipated Final"]],
+        body: lineItemsBody,
+        theme: "grid",
+        ...getStandardTableStyles(),
+        headStyles: { fillColor: colors.secondary, textColor: 255 },
+        styles: { fontSize: 9 },
+        columnStyles: {
+          0: { cellWidth: 20 },
+          1: { cellWidth: 70 },
+          2: { cellWidth: 30, halign: 'right' },
+          3: { cellWidth: 30, halign: 'right' },
+          4: { cellWidth: 30, halign: 'right' },
+        },
+        willDrawCell: (data: any) => {
+          if (data.section === 'body' && data.row.index === lineItemsBody.length - 1) {
+            data.cell.styles.fillColor = [220, 230, 240];
+            data.cell.styles.fontStyle = 'bold';
+          }
+        },
+      });
+
+      yPos = (doc as any).lastAutoTable.finalY + 15;
+    }
+  }
+
+  // ========== VARIATIONS SECTION ==========
   if (templateData.variations && templateData.variations.length > 0) {
     doc.addPage();
     tocSections.push({ title: "Variations", page: doc.getCurrentPageInfo().pageNumber });
@@ -220,102 +236,131 @@ export const exportTemplatePDF = async (templateData: any, companyDetails: any) 
     doc.setFont("helvetica", "bold");
     doc.setTextColor(...colors.primary);
     doc.text("VARIATIONS", contentStartX, yPos);
+    
+    doc.setDrawColor(...colors.primary);
     doc.setLineWidth(0.5);
     doc.line(contentStartX, yPos + 2, pageWidth - useMargins.right, yPos + 2);
     
     yPos += 12;
 
     const variationsBody = templateData.variations.map((variation: any) => [
-      variation.code || "{Code}",
-      variation.description || "{Description}",
-      "{Amount}",
+      variation.code,
+      variation.description,
+      variation.tenant_name || "-",
       variation.is_credit ? "Credit" : "Debit",
+      `R ${Number(variation.amount || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
     ]);
 
+    const totalVariations = templateData.variations.reduce(
+      (sum: number, v: any) => sum + (v.is_credit ? -Number(v.amount || 0) : Number(v.amount || 0)),
+      0
+    );
+
     variationsBody.push([
-      { content: "TOTAL VARIATIONS", styles: { fontStyle: 'bold' } },
       "",
-      { content: "{Total_Variations}", styles: { fontStyle: 'bold' } },
+      "TOTAL VARIATIONS",
       "",
+      "",
+      `R ${totalVariations.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
     ]);
 
     (doc as any).autoTable({
       startY: yPos,
-      head: [["Code", "Description", "Amount", "Type"]],
+      head: [["Code", "Description", "Tenant", "Type", "Amount"]],
       body: variationsBody,
+      theme: "grid",
       ...getStandardTableStyles(),
+      headStyles: { fillColor: colors.primary, textColor: 255, fontStyle: "bold" },
+      columnStyles: {
+        0: { cellWidth: 25 },
+        1: { cellWidth: 80 },
+        2: { cellWidth: 35 },
+        3: { cellWidth: 20 },
+        4: { cellWidth: 30, halign: 'right' },
+      },
+      willDrawCell: (data: any) => {
+        if (data.section === 'body' && data.row.index === variationsBody.length - 1) {
+          data.cell.styles.fillColor = [220, 230, 240];
+          data.cell.styles.fontStyle = 'bold';
+        }
+      },
     });
   }
 
   // ========== DETAILS SECTIONS ==========
   if (templateData.details && templateData.details.length > 0) {
-    templateData.details.forEach((detail: any) => {
+    for (const detail of templateData.details) {
       doc.addPage();
-      tocSections.push({ title: detail.section_title || "{Section_Title}", page: doc.getCurrentPageInfo().pageNumber });
+      tocSections.push({ title: detail.section_title, page: doc.getCurrentPageInfo().pageNumber });
       yPos = contentStartY;
       
       doc.setFontSize(16);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(...colors.primary);
-      doc.text(detail.section_title || "{Section_Title}", contentStartX, yPos);
+      doc.text(`${detail.section_number}. ${detail.section_title}`.toUpperCase(), contentStartX, yPos);
+      
+      doc.setDrawColor(...colors.primary);
       doc.setLineWidth(0.5);
       doc.line(contentStartX, yPos + 2, pageWidth - useMargins.right, yPos + 2);
       
       yPos += 12;
-
+      doc.setTextColor(...colors.text);
       doc.setFontSize(10);
       doc.setFont("helvetica", "normal");
-      doc.setTextColor(...colors.text);
-      const content = detail.section_content || "{Section_Content}";
-      const lines = doc.splitTextToSize(content, contentWidth);
       
-      lines.forEach((line: string) => {
-        if (yPos > pageHeight - useMargins.bottom) {
-          doc.addPage();
-          yPos = contentStartY;
-        }
-        doc.text(line, contentStartX, yPos);
-        yPos += 6;
-      });
-    });
+      const contentLines = doc.splitTextToSize(
+        detail.section_content || "Content for this section would appear here.",
+        contentWidth
+      );
+      doc.text(contentLines, contentStartX, yPos);
+      yPos += contentLines.length * 5 + 10;
+    }
   }
 
-  // Update TOC with actual page numbers
+  // ========== UPDATE TABLE OF CONTENTS ==========
+  const currentPage = doc.getCurrentPageInfo().pageNumber;
   doc.setPage(tocPage);
-  let tocY = tocStartY;
-  doc.setFontSize(10);
+  yPos = tocStartY;
+  
+  doc.setFontSize(11);
+  doc.setTextColor(...colors.text);
+  
   tocSections.forEach((section) => {
     doc.setFont("helvetica", "normal");
-    doc.setTextColor(...colors.text);
-    doc.text(section.title, contentStartX, tocY);
-    doc.text(String(section.page), pageWidth - useMargins.right - 10, tocY, { align: "right" });
+    doc.text(section.title, contentStartX, yPos);
     
-    // Add dotted line
+    const pageNumText = String(section.page);
+    const pageNumWidth = doc.getTextWidth(pageNumText);
+    doc.text(pageNumText, pageWidth - useMargins.right - pageNumWidth, yPos);
+    
+    // Draw dotted line
     const titleWidth = doc.getTextWidth(section.title);
-    const pageNumWidth = doc.getTextWidth(String(section.page));
     const dotsStartX = contentStartX + titleWidth + 3;
-    const dotsEndX = pageWidth - useMargins.right - pageNumWidth - 13;
+    const dotsEndX = pageWidth - useMargins.right - pageNumWidth - 3;
+    (doc as any).setLineDash([1, 2]);
+    doc.setDrawColor(150, 150, 150);
+    doc.line(dotsStartX, yPos - 1, dotsEndX, yPos - 1);
+    (doc as any).setLineDash([]);
     
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(150, 150, 150);
-    for (let x = dotsStartX; x < dotsEndX; x += 3) {
-      doc.text(".", x, tocY);
-    }
-    
-    tocY += 7;
+    yPos += 8;
   });
+  
+  doc.setPage(currentPage);
 
-  // Add page numbers (starting from page 2, skipping cover)
+  // ========== ADD PAGE NUMBERS ==========
   const totalPages = doc.getNumberOfPages();
+  doc.setFontSize(9);
+  doc.setTextColor(100, 100, 100);
+  
   for (let i = 2; i <= totalPages; i++) {
     doc.setPage(i);
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(100, 100, 100);
-    doc.text(`Page ${i - 1} of ${totalPages - 1}`, pageWidth / 2, pageHeight - 10, { align: "center" });
+    doc.text(
+      `Page ${i - 1} of ${totalPages - 1}`,
+      pageWidth / 2,
+      pageHeight - 10,
+      { align: "center" }
+    );
   }
 
-  // Save the PDF
-  const fileName = `Template_Cost_Report_${Date.now()}.pdf`;
-  doc.save(fileName);
+  return doc;
 };
