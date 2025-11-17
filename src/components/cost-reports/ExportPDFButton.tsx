@@ -750,44 +750,44 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           head: [tableData.headers],
           body: tableRows,
           theme: 'striped',
-          tableWidth: 'wrap',
+          tableWidth: 'auto',
           styles: {
-            fontSize: 6,
-            cellPadding: 2,
+            fontSize: 9,
+            cellPadding: { top: 5, bottom: 5, left: 3, right: 3 },
             overflow: 'linebreak',
             halign: 'left',
-            minCellHeight: 6
+            minCellHeight: 12,
+            lineColor: [220, 220, 220],
+            lineWidth: 0.1
           },
           headStyles: { 
             fillColor: colors.primary, 
             textColor: colors.white, 
             fontStyle: 'bold',
-            fontSize: 6,
-            cellPadding: 2,
-            halign: 'left',
+            fontSize: 9,
+            cellPadding: { top: 6, bottom: 6, left: 3, right: 3 },
+            halign: 'center',
             valign: 'middle',
-            minCellHeight: 6,
-            overflow: 'linebreak'
+            minCellHeight: 14
           },
           bodyStyles: { 
-            fontSize: 6,
-            cellPadding: 2,
+            fontSize: 9,
+            cellPadding: { top: 5, bottom: 5, left: 3, right: 3 },
             textColor: colors.text,
-            valign: 'middle',
-            overflow: 'linebreak'
+            valign: 'middle'
           },
           alternateRowStyles: {
-            fillColor: [248, 250, 252]
+            fillColor: [245, 247, 250]
           },
           columnStyles: {
-            0: { cellWidth: 10, fontStyle: 'bold', halign: 'left', overflow: 'linebreak' },
-            1: { cellWidth: 35, halign: 'left', overflow: 'linebreak' },
-            2: { cellWidth: 20, halign: 'right', overflow: 'linebreak' },
-            3: { cellWidth: 20, halign: 'right', overflow: 'linebreak' },
-            4: { cellWidth: 20, halign: 'right', overflow: 'linebreak' },
-            5: { cellWidth: 12, halign: 'right', overflow: 'linebreak' },
-            6: { cellWidth: 20, halign: 'right', overflow: 'linebreak' },
-            7: { cellWidth: 20, halign: 'right', overflow: 'linebreak' }
+            0: { cellWidth: 15, fontStyle: 'bold', halign: 'center' },
+            1: { cellWidth: 45, halign: 'left' },
+            2: { cellWidth: 24, halign: 'right' },
+            3: { cellWidth: 24, halign: 'right' },
+            4: { cellWidth: 24, halign: 'right' },
+            5: { cellWidth: 16, halign: 'right' },
+            6: { cellWidth: 24, halign: 'right' },
+            7: { cellWidth: 24, halign: 'right' }
           },
           didDrawCell: (data) => {
             // Set header alignment properly
@@ -1087,59 +1087,66 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           autoTable(doc, {
             startY: summaryY,
             margin: { left: contentStartX, right: useMargins.right },
-            head: [['Code', 'Description', 'Original Budget', 'Previous Report', 'Anticipated Final', 'Current Variance', 'Original Variance']],
+            head: [['Code', 'Description', 'Original\nBudget', 'Previous\nReport', 'Anticipated\nFinal', 'Current\nVariance', 'Original\nVariance']],
             body: lineItems.length > 0 ? lineItems.map((item: any) => {
               const currentVar = Number(item.anticipated_final || 0) - Number(item.previous_report || 0);
               const originalVar = Number(item.anticipated_final || 0) - Number(item.original_budget || 0);
               return [
                 item.code,
                 item.description,
-                `R ${Number(item.original_budget || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-                `R ${Number(item.previous_report || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-                `R ${Number(item.anticipated_final || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-                `${currentVar >= 0 ? '+' : ''}R ${Math.abs(currentVar).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-                `${originalVar >= 0 ? '+' : ''}R ${Math.abs(originalVar).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`
+                Number(item.original_budget || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+                Number(item.previous_report || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+                Number(item.anticipated_final || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+                `${currentVar >= 0 ? '+' : '-'}${Math.abs(currentVar).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                `${originalVar >= 0 ? '+' : '-'}${Math.abs(originalVar).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
               ];
             }) : [['', 'No line items added yet', '', '', '', '', '']],
-            theme: 'grid',
+            theme: 'striped',
             styles: { 
-              fontSize: 8, 
-              cellPadding: 4,
+              fontSize: 9, 
+              cellPadding: { top: 5, bottom: 5, left: 3, right: 3 },
               valign: 'middle',
-              minCellHeight: 10,
-              overflow: 'linebreak'
+              minCellHeight: 12,
+              overflow: 'linebreak',
+              lineColor: [220, 220, 220],
+              lineWidth: 0.1
             },
             headStyles: { 
               fillColor: [30, 58, 138], 
               textColor: [255, 255, 255], 
               fontStyle: 'bold', 
-              fontSize: 8,
+              fontSize: 9,
               halign: 'center',
               valign: 'middle',
-              cellPadding: 4,
-              overflow: 'linebreak'
+              cellPadding: { top: 6, bottom: 6, left: 3, right: 3 },
+              minCellHeight: 14
+            },
+            alternateRowStyles: {
+              fillColor: [245, 247, 250]
             },
             columnStyles: {
-              0: { cellWidth: 12, halign: 'center' },
-              1: { cellWidth: 46, halign: 'left', cellPadding: { left: 4, right: 3 } },
-              2: { cellWidth: 20, halign: 'right', cellPadding: { right: 4 } },
-              3: { cellWidth: 20, halign: 'right', cellPadding: { right: 4 } },
-              4: { cellWidth: 20, halign: 'right', cellPadding: { right: 4 } },
-              5: { cellWidth: 20, halign: 'right', cellPadding: { right: 4 } },
-              6: { cellWidth: 20, halign: 'right', cellPadding: { right: 4 } }
+              0: { cellWidth: 15, halign: 'center', fontStyle: 'bold' },
+              1: { cellWidth: 50, halign: 'left' },
+              2: { cellWidth: 26, halign: 'right' },
+              3: { cellWidth: 26, halign: 'right' },
+              4: { cellWidth: 26, halign: 'right' },
+              5: { cellWidth: 26, halign: 'right' },
+              6: { cellWidth: 26, halign: 'right' }
             },
             didDrawCell: (data) => {
-              // Color variance cells
-              if (data.section === 'body') {
+              // Color variance cells only if we have line items
+              if (data.section === 'body' && lineItems.length > 0 && lineItems[data.row.index]) {
                 const item = lineItems[data.row.index];
                 const currentVar = Number(item.anticipated_final || 0) - Number(item.previous_report || 0);
                 const originalVar = Number(item.anticipated_final || 0) - Number(item.original_budget || 0);
                 
-                if (data.column.index === 5) {
-                  data.cell.styles.textColor = currentVar < 0 ? [0, 150, 0] : currentVar > 0 ? [255, 0, 0] : [0, 0, 0];
+                if (data.column.index === 5 && currentVar !== 0) {
+                  data.cell.styles.textColor = currentVar < 0 ? [0, 120, 0] : [200, 0, 0];
+                  data.cell.styles.fontStyle = 'bold';
                 }
-                if (data.column.index === 6) {
-                  data.cell.styles.textColor = originalVar < 0 ? [0, 150, 0] : originalVar > 0 ? [255, 0, 0] : [0, 0, 0];
+                if (data.column.index === 6 && originalVar !== 0) {
+                  data.cell.styles.textColor = originalVar < 0 ? [0, 120, 0] : [200, 0, 0];
+                  data.cell.styles.fontStyle = 'bold';
                 }
               }
             }
@@ -1214,16 +1221,17 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           body: variations.map((v: any) => [
             v.code,
             v.description,
-            `R ${Math.abs(Number(v.amount || 0)).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+            Math.abs(Number(v.amount || 0)).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
             v.is_credit ? 'Credit' : 'Debit'
           ]),
-          theme: 'grid',
+          theme: 'striped',
           styles: { 
             fontSize: 9, 
-            cellPadding: 4,
+            cellPadding: { top: 5, bottom: 5, left: 3, right: 3 },
             valign: 'middle',
-            minCellHeight: 10,
-            overflow: 'linebreak'
+            minCellHeight: 12,
+            lineColor: [220, 220, 220],
+            lineWidth: 0.1
           },
           headStyles: { 
             fillColor: [30, 58, 138], 
@@ -1232,14 +1240,30 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
             fontSize: 9,
             halign: 'center',
             valign: 'middle',
-            cellPadding: 4,
-            overflow: 'linebreak'
+            cellPadding: { top: 6, bottom: 6, left: 3, right: 3 },
+            minCellHeight: 14
+          },
+          alternateRowStyles: {
+            fillColor: [245, 247, 250]
           },
           columnStyles: {
-            0: { cellWidth: 12, halign: 'center' },
-            1: { cellWidth: 88, halign: 'left', cellPadding: { left: 4, right: 3 } },
-            2: { cellWidth: 28, halign: 'right', cellPadding: { right: 4 } },
-            3: { cellWidth: 18, halign: 'center' }
+            0: { cellWidth: 15, halign: 'center', fontStyle: 'bold' },
+            1: { cellWidth: 90, halign: 'left' },
+            2: { cellWidth: 30, halign: 'right' },
+            3: { cellWidth: 20, halign: 'center' }
+          },
+          didDrawCell: (data) => {
+            // Color the type cell
+            if (data.section === 'body' && data.column.index === 3) {
+              const variation = variations[data.row.index];
+              if (variation.is_credit) {
+                data.cell.styles.textColor = [0, 120, 0];
+                data.cell.styles.fontStyle = 'bold';
+              } else {
+                data.cell.styles.textColor = [200, 0, 0];
+                data.cell.styles.fontStyle = 'bold';
+              }
+            }
           }
         });
         
