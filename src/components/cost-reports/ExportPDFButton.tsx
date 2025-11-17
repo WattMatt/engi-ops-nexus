@@ -976,16 +976,10 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       // Initialize page content array
       if (!pageContentMap[projectInfoPage]) pageContentMap[projectInfoPage] = [];
       
-      doc.setFillColor(41, 128, 185);
-      doc.rect(0, 0, pageWidth, 35, 'F');
-      doc.setFontSize(16);
-      doc.setFont("helvetica", "bold");
-      doc.setTextColor(255, 255, 255);
-      const headerText = "PROJECT INFORMATION";
-      doc.text(headerText, pageWidth / 2, 22, { align: "center" });
-      pageContentMap[projectInfoPage].push(headerText);
-
-      let yPos = contentStartY + 30;
+      let yPos = contentStartY;
+      yPos = addSectionHeader(doc, "PROJECT INFORMATION", yPos);
+      yPos += 5;
+      pageContentMap[projectInfoPage].push("PROJECT INFORMATION");
       doc.setTextColor(0, 0, 0);
       doc.setFontSize(12);
       doc.setFont("helvetica", "bold");
