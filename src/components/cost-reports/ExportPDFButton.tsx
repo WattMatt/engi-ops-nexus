@@ -752,11 +752,11 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           theme: 'striped',
           tableWidth: 'auto',
           styles: {
-            fontSize: 9,
-            cellPadding: { top: 5, bottom: 5, left: 3, right: 3 },
+            fontSize: 7,
+            cellPadding: { top: 3, bottom: 3, left: 2, right: 2 },
             overflow: 'linebreak',
             halign: 'left',
-            minCellHeight: 12,
+            minCellHeight: 8,
             lineColor: [220, 220, 220],
             lineWidth: 0.1
           },
@@ -764,15 +764,15 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
             fillColor: colors.primary, 
             textColor: colors.white, 
             fontStyle: 'bold',
-            fontSize: 9,
-            cellPadding: { top: 6, bottom: 6, left: 3, right: 3 },
+            fontSize: 7,
+            cellPadding: { top: 4, bottom: 4, left: 2, right: 2 },
             halign: 'center',
             valign: 'middle',
-            minCellHeight: 14
+            minCellHeight: 10
           },
           bodyStyles: { 
-            fontSize: 9,
-            cellPadding: { top: 5, bottom: 5, left: 3, right: 3 },
+            fontSize: 7,
+            cellPadding: { top: 3, bottom: 3, left: 2, right: 2 },
             textColor: colors.text,
             valign: 'middle'
           },
@@ -780,14 +780,14 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
             fillColor: [245, 247, 250]
           },
           columnStyles: {
-            0: { cellWidth: 15, fontStyle: 'bold', halign: 'center' },
-            1: { cellWidth: 45, halign: 'left' },
-            2: { cellWidth: 24, halign: 'right' },
-            3: { cellWidth: 24, halign: 'right' },
-            4: { cellWidth: 24, halign: 'right' },
-            5: { cellWidth: 16, halign: 'right' },
-            6: { cellWidth: 24, halign: 'right' },
-            7: { cellWidth: 24, halign: 'right' }
+            0: { cellWidth: 12, fontStyle: 'bold', halign: 'center' },
+            1: { cellWidth: 38, halign: 'left' },
+            2: { cellWidth: 22, halign: 'right' },
+            3: { cellWidth: 22, halign: 'right' },
+            4: { cellWidth: 22, halign: 'right' },
+            5: { cellWidth: 16, halign: 'center' },
+            6: { cellWidth: 22, halign: 'right' },
+            7: { cellWidth: 22, halign: 'right' }
           },
           didDrawCell: (data) => {
             // Set header alignment properly
@@ -1103,10 +1103,10 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
             }) : [['', 'No line items added yet', '', '', '', '', '']],
             theme: 'striped',
             styles: { 
-              fontSize: 9, 
-              cellPadding: { top: 5, bottom: 5, left: 3, right: 3 },
+              fontSize: 7, 
+              cellPadding: { top: 3, bottom: 3, left: 2, right: 2 },
               valign: 'middle',
-              minCellHeight: 12,
+              minCellHeight: 8,
               overflow: 'linebreak',
               lineColor: [220, 220, 220],
               lineWidth: 0.1
@@ -1115,23 +1115,23 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
               fillColor: [30, 58, 138], 
               textColor: [255, 255, 255], 
               fontStyle: 'bold', 
-              fontSize: 9,
+              fontSize: 7,
               halign: 'center',
               valign: 'middle',
-              cellPadding: { top: 6, bottom: 6, left: 3, right: 3 },
-              minCellHeight: 14
+              cellPadding: { top: 4, bottom: 4, left: 2, right: 2 },
+              minCellHeight: 10
             },
             alternateRowStyles: {
               fillColor: [245, 247, 250]
             },
             columnStyles: {
-              0: { cellWidth: 15, halign: 'center', fontStyle: 'bold' },
-              1: { cellWidth: 50, halign: 'left' },
-              2: { cellWidth: 26, halign: 'right' },
-              3: { cellWidth: 26, halign: 'right' },
-              4: { cellWidth: 26, halign: 'right' },
-              5: { cellWidth: 26, halign: 'right' },
-              6: { cellWidth: 26, halign: 'right' }
+              0: { cellWidth: 12, halign: 'center', fontStyle: 'bold' },
+              1: { cellWidth: 42, halign: 'left' },
+              2: { cellWidth: 22, halign: 'right' },
+              3: { cellWidth: 22, halign: 'right' },
+              4: { cellWidth: 22, halign: 'right' },
+              5: { cellWidth: 22, halign: 'right' },
+              6: { cellWidth: 22, halign: 'right' }
             },
             didDrawCell: (data) => {
               // Color variance cells only if we have line items
@@ -1218,10 +1218,10 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           ]),
           theme: 'striped',
           styles: { 
-            fontSize: 9, 
-            cellPadding: { top: 5, bottom: 5, left: 3, right: 3 },
+            fontSize: 7, 
+            cellPadding: { top: 3, bottom: 3, left: 2, right: 2 },
             valign: 'middle',
-            minCellHeight: 12,
+            minCellHeight: 8,
             lineColor: [220, 220, 220],
             lineWidth: 0.1
           },
@@ -1229,20 +1229,20 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
             fillColor: [30, 58, 138], 
             textColor: [255, 255, 255], 
             fontStyle: 'bold',
-            fontSize: 9,
+            fontSize: 7,
             halign: 'center',
             valign: 'middle',
-            cellPadding: { top: 6, bottom: 6, left: 3, right: 3 },
-            minCellHeight: 14
+            cellPadding: { top: 4, bottom: 4, left: 2, right: 2 },
+            minCellHeight: 10
           },
           alternateRowStyles: {
             fillColor: [245, 247, 250]
           },
           columnStyles: {
-            0: { cellWidth: 15, halign: 'center', fontStyle: 'bold' },
-            1: { cellWidth: 90, halign: 'left' },
-            2: { cellWidth: 30, halign: 'right' },
-            3: { cellWidth: 20, halign: 'center' }
+            0: { cellWidth: 12, halign: 'center', fontStyle: 'bold' },
+            1: { cellWidth: 75, halign: 'left' },
+            2: { cellWidth: 26, halign: 'right' },
+            3: { cellWidth: 18, halign: 'center' }
           },
           didDrawCell: (data) => {
             // Color the type cell
