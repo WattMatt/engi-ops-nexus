@@ -514,15 +514,22 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       // Sort categories alphabetically by code for consistent ordering
       const sortedCategories = [...categories].sort((a, b) => a.code.localeCompare(b.code));
       
+      // Sort variations by extracting numeric part from code (e.g., VO-001, VO-002)
+      const sortedVariations = [...variations].sort((a, b) => {
+        const aNum = parseInt(a.code.replace(/\D/g, ''), 10) || 0;
+        const bNum = parseInt(b.code.replace(/\D/g, ''), 10) || 0;
+        return aNum - bNum;
+      });
+      
       // Calculate totals using shared utility and sort alphabetically
-      const pdfCategoryTotals = calculateCategoryTotals(sortedCategories, allLineItems, variations)
+      const pdfCategoryTotals = calculateCategoryTotals(sortedCategories, allLineItems, sortedVariations)
         .sort((a, b) => a.code.localeCompare(b.code));
       const pdfGrandTotals = calculateGrandTotals(pdfCategoryTotals);
       
       // Validate totals if not skipping validation
       if (!skipValidation) {
         // Calculate UI totals from flat line items list and sort alphabetically
-        const uiCategoryTotals = calculateCategoryTotals(sortedCategories, allLineItems, variations)
+        const uiCategoryTotals = calculateCategoryTotals(sortedCategories, allLineItems, sortedVariations)
           .sort((a, b) => a.code.localeCompare(b.code));
         const uiGrandTotals = calculateGrandTotals(uiCategoryTotals);
         
@@ -1193,7 +1200,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       });
 
       // ========== VARIATIONS PAGE ==========
-      if (useSections.variations && variations.length > 0) {
+      if (useSections.variations && sortedVariations.length > 0) {
         setCurrentSection("Adding variations...");
         doc.addPage();
         tocSections.push({ title: "Variations", page: doc.getCurrentPageInfo().pageNumber });
@@ -1213,7 +1220,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           startY: contentStartY + 15,
           margin: { left: contentStartX, right: useMargins.right },
           head: [['Code', 'Description', 'Amount', 'Type']],
-          body: variations.map((v: any) => [
+          body: sortedVariations.map((v: any) => [
             v.code,
             v.description,
             Math.abs(Number(v.amount || 0)).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
@@ -1250,7 +1257,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           didDrawCell: (data) => {
             // Color the type cell
             if (data.section === 'body' && data.column.index === 3) {
-              const variation = variations[data.row.index];
+              const variation = sortedVariations[data.row.index];
               if (variation.is_credit) {
                 data.cell.styles.textColor = [0, 120, 0];
                 data.cell.styles.fontStyle = 'bold';
@@ -1267,7 +1274,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         
         // Fetch line items for all variations
         const variationLineItemsMap = new Map();
-        for (const variation of variations) {
+        for (const variation of sortedVariations) {
           const { data: lineItems } = await supabase
             .from("variation_line_items")
             .select("*")
@@ -1276,8 +1283,8 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           variationLineItemsMap.set(variation.id, lineItems || []);
         }
         
-        variations.forEach((variation: any, index: number) => {
-          setCurrentSection(`Adding variation sheet ${index + 1}/${variations.length}...`);
+        sortedVariations.forEach((variation: any, index: number) => {
+          setCurrentSection(`Adding variation sheet ${index + 1}/${sortedVariations.length}...`);
           doc.addPage();
           
           const lineItems = variationLineItemsMap.get(variation.id) || [];
@@ -1423,10 +1430,10 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         });
         
         // Add summary entry to TOC for all variation sheets
-        if (variations.length > 0) {
+        if (sortedVariations.length > 0) {
           const variationSheetsEndPage = doc.getCurrentPageInfo().pageNumber;
           tocSections.push({ 
-            title: `Variation Order Sheets (${variations.length} sheets)`, 
+            title: `Variation Order Sheets (${sortedVariations.length} sheets)`,
             page: variationSheetsStartPage 
           });
         }
