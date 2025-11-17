@@ -1020,59 +1020,39 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         let summaryY = contentStartY + 5;
         
         if (catTotals) {
-          // Create category summary table that matches UI layout
-          autoTable(doc, {
-            startY: summaryY,
-            margin: { left: contentStartX, right: useMargins.right },
-            head: [[
-              category.code,
-              category.description.toUpperCase(),
-              `R${catTotals.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-              `R${catTotals.previousReport.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-              `R${catTotals.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-              `${catTotals.currentVariance >= 0 ? '+' : ''}R${Math.abs(catTotals.currentVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-              `${catTotals.originalVariance >= 0 ? '+' : ''}R${Math.abs(catTotals.originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`
-            ]],
-            body: [],
-            theme: 'plain',
-            headStyles: {
-              fillColor: [34, 197, 218], // Cyan color like UI
-              textColor: [0, 0, 0],
-              fontStyle: 'bold',
-              halign: 'left',
-              fontSize: 9,
-              cellPadding: { top: 4, bottom: 4, left: 3, right: 3 }
-            },
-            columnStyles: {
-              0: { cellWidth: 10, halign: 'center' },
-              1: { cellWidth: 36, halign: 'left' },
-              2: { cellWidth: 27, halign: 'right' },
-              3: { cellWidth: 27, halign: 'right' },
-              4: { cellWidth: 27, halign: 'right' },
-              5: { cellWidth: 27, halign: 'right' },
-              6: { cellWidth: 27, halign: 'right' }
-            }
-          });
-          
-          summaryY = (doc as any).lastAutoTable.finalY + 3;
+          // Create single combined table with category header and line items
+          const tableBody = lineItems.length > 0 ? lineItems.map((item: any) => {
+            const currentVar = Number(item.anticipated_final || 0) - Number(item.previous_report || 0);
+            const originalVar = Number(item.anticipated_final || 0) - Number(item.original_budget || 0);
+            return [
+              item.code,
+              item.description,
+              Number(item.original_budget || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+              Number(item.previous_report || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+              Number(item.anticipated_final || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+              `${currentVar >= 0 ? '+' : '-'}${Math.abs(currentVar).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+              `${originalVar >= 0 ? '+' : '-'}${Math.abs(originalVar).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+            ];
+          }) : [['', 'No line items added yet', '', '', '', '', '']];
           
           autoTable(doc, {
             startY: summaryY,
             margin: { left: contentStartX, right: useMargins.right },
-            head: [['Code', 'Description', 'Original\nBudget', 'Previous\nReport', 'Anticipated\nFinal', 'Current\nVariance', 'Original\nVariance']],
-            body: lineItems.length > 0 ? lineItems.map((item: any) => {
-              const currentVar = Number(item.anticipated_final || 0) - Number(item.previous_report || 0);
-              const originalVar = Number(item.anticipated_final || 0) - Number(item.original_budget || 0);
-              return [
-                item.code,
-                item.description,
-                Number(item.original_budget || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-                Number(item.previous_report || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-                Number(item.anticipated_final || 0).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-                `${currentVar >= 0 ? '+' : '-'}${Math.abs(currentVar).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
-                `${originalVar >= 0 ? '+' : '-'}${Math.abs(originalVar).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-              ];
-            }) : [['', 'No line items added yet', '', '', '', '', '']],
+            head: [
+              // Category summary row (cyan)
+              [
+                category.code,
+                category.description.toUpperCase(),
+                `R${catTotals.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+                `R${catTotals.previousReport.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+                `R${catTotals.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+                `${catTotals.currentVariance >= 0 ? '+' : ''}R${Math.abs(catTotals.currentVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+                `${catTotals.originalVariance >= 0 ? '+' : ''}R${Math.abs(catTotals.originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`
+              ],
+              // Column headers row (blue)
+              ['Code', 'Description', 'Original\nBudget', 'Previous\nReport', 'Anticipated\nFinal', 'Current\nVariance', 'Original\nVariance']
+            ],
+            body: tableBody,
             theme: 'striped',
             styles: { 
               fontSize: 7, 
@@ -1104,6 +1084,16 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
               4: { cellWidth: 27, halign: 'right' },
               5: { cellWidth: 27, halign: 'right' },
               6: { cellWidth: 27, halign: 'right' }
+            },
+            didParseCell: (data: any) => {
+              // Style the first header row (category summary) with cyan background
+              if (data.section === 'head' && data.row.index === 0) {
+                data.cell.styles.fillColor = [34, 197, 218];
+                data.cell.styles.textColor = [0, 0, 0];
+                data.cell.styles.fontStyle = 'bold';
+                data.cell.styles.fontSize = 9;
+                data.cell.styles.halign = data.column.index === 0 ? 'center' : (data.column.index === 1 ? 'left' : 'right');
+              }
             },
             didDrawCell: (data) => {
               // Color variance cells only if we have line items
