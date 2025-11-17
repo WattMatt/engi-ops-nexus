@@ -310,11 +310,19 @@ async function generateDefaultCoverPage(
   const clientLogoUrl = contactDetails?.logo_url || companyDetails.clientLogoUrl;
   if (clientLogoUrl) {
     try {
+      console.log('Attempting to load client logo from:', clientLogoUrl);
       const clientLogoResponse = await fetch(clientLogoUrl);
+      
+      if (!clientLogoResponse.ok) {
+        console.warn('Client logo fetch failed with status:', clientLogoResponse.status);
+        throw new Error(`Failed to fetch logo: ${clientLogoResponse.status}`);
+      }
+      
       const clientLogoBlob = await clientLogoResponse.blob();
-      const clientLogoDataUrl = await new Promise<string>((resolve) => {
+      const clientLogoDataUrl = await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error('Failed to read logo blob'));
         reader.readAsDataURL(clientLogoBlob);
       });
       
@@ -328,10 +336,15 @@ async function generateDefaultCoverPage(
       doc.setFillColor(...colors.light);
       doc.roundedRect(clientLogoX - 5, clientLogoY - 5, clientLogoWidth + 10, clientLogoHeight + 10, 3, 3, 'F');
       
+      // Add the logo image
       doc.addImage(clientLogoDataUrl, 'PNG', clientLogoX, clientLogoY, clientLogoWidth, clientLogoHeight);
+      console.log('Client logo added successfully');
     } catch (error) {
       console.error("Failed to add client logo to PDF:", error);
+      // Don't draw anything if logo fails - no grey box, no undefined text
     }
+  } else {
+    console.log('No client logo URL available');
   }
   
   // Company details section with modern card-like appearance (PREPARED BY - appears first)
