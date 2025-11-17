@@ -1015,41 +1015,46 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         doc.addPage();
         tocSections.push({ title: `Detailed Line Items - ${category.description}`, page: doc.getCurrentPageInfo().pageNumber });
         
-        // Simple professional header
-        doc.setFontSize(14);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(0, 0, 0);
-        doc.text(`${category.code} - ${category.description}`, contentStartX, contentStartY + 5);
-        
-        // Add a subtle line under the header
-        doc.setDrawColor(200, 200, 200);
-        doc.setLineWidth(0.5);
-        doc.line(contentStartX, contentStartY + 8, pageWidth - useMargins.right, contentStartY + 8);
-
         // Find the corresponding category totals for this category
         const catTotals = categoryTotals.find((ct: any) => ct.code === category.code);
-        
-        let summaryY = contentStartY + 15;
+        let summaryY = contentStartY + 5;
         
         if (catTotals) {
-          // Add simple summary text
-          doc.setFontSize(9);
-          doc.setFont("helvetica", "normal");
-          doc.setTextColor(60, 60, 60);
-          
-          const summaryText = [
-            `Original Budget: R${catTotals.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-            `Previous Report: R${catTotals.previousReport.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-            `Anticipated Final: R${catTotals.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-            `Current Variance: ${catTotals.currentVariance >= 0 ? '+' : ''}R${Math.abs(catTotals.currentVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-            `Original Variance: ${catTotals.originalVariance >= 0 ? '+' : ''}R${Math.abs(catTotals.originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`
-          ];
-          
-          summaryText.forEach((text, idx) => {
-            doc.text(text, contentStartX, summaryY + (idx * 5));
+          // Create category summary table that matches UI layout
+          autoTable(doc, {
+            startY: summaryY,
+            margin: { left: contentStartX, right: useMargins.right },
+            head: [[
+              category.code,
+              category.description.toUpperCase(),
+              `R${catTotals.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+              `R${catTotals.previousReport.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+              `R${catTotals.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+              `${catTotals.currentVariance >= 0 ? '+' : ''}R${Math.abs(catTotals.currentVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+              `${catTotals.originalVariance >= 0 ? '+' : ''}R${Math.abs(catTotals.originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`
+            ]],
+            body: [],
+            theme: 'plain',
+            headStyles: {
+              fillColor: [34, 197, 218], // Cyan color like UI
+              textColor: [0, 0, 0],
+              fontStyle: 'bold',
+              halign: 'left',
+              fontSize: 9,
+              cellPadding: { top: 4, bottom: 4, left: 3, right: 3 }
+            },
+            columnStyles: {
+              0: { cellWidth: 12, halign: 'center' },
+              1: { cellWidth: 55, halign: 'left' },
+              2: { cellWidth: 25, halign: 'right' },
+              3: { cellWidth: 25, halign: 'right' },
+              4: { cellWidth: 25, halign: 'right' },
+              5: { cellWidth: 25, halign: 'right' },
+              6: { cellWidth: 25, halign: 'right' }
+            }
           });
           
-          summaryY += 30;
+          summaryY = (doc as any).lastAutoTable.finalY + 3;
           
           autoTable(doc, {
             startY: summaryY,
