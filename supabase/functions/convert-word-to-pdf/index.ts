@@ -293,40 +293,70 @@ Deno.serve(async (req) => {
     let jobComplete = false;
     let exportTask = null;
     let attempts = 0;
-    const maxAttempts = 30; // 30 seconds timeout
+    const maxAttempts = 60; // 60 seconds timeout (increased for complex documents)
+    let consecutiveErrors = 0;
+    const maxConsecutiveErrors = 3;
 
     while (!jobComplete && attempts < maxAttempts) {
       await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
       attempts++;
 
-      const statusResponse = await fetch(`https://api.cloudconvert.com/v2/jobs/${jobId}`, {
-        headers: {
-          'Authorization': `Bearer ${cloudConvertApiKey}`,
-        },
-      });
+      try {
+        const statusResponse = await fetch(`https://api.cloudconvert.com/v2/jobs/${jobId}`, {
+          headers: {
+            'Authorization': `Bearer ${cloudConvertApiKey}`,
+          },
+        });
 
-      if (!statusResponse.ok) {
-        throw new Error('Failed to check job status');
-      }
-
-      const statusData = await statusResponse.json();
-      const status = statusData.data.status;
-
-      console.log(`Job status (attempt ${attempts}):`, status);
-
-      if (status === 'finished') {
-        jobComplete = true;
-        // Find the export task
-        exportTask = statusData.data.tasks.find((task: any) => task.name === 'export-file');
-      } else if (status === 'error') {
-        // Log detailed error information
-        console.error('CloudConvert job failed. Full job data:', JSON.stringify(statusData, null, 2));
-        const failedTask = statusData.data.tasks.find((task: any) => task.status === 'error');
-        if (failedTask) {
-          console.error('Failed task:', JSON.stringify(failedTask, null, 2));
-          throw new Error(`Conversion failed: ${failedTask.message || 'Unknown error'}`);
+        if (!statusResponse.ok) {
+          const errorText = await statusResponse.text();
+          console.warn(`Status check failed (attempt ${attempts}):`, statusResponse.status, errorText);
+          consecutiveErrors++;
+          
+          // Only throw if we've had multiple consecutive errors
+          if (consecutiveErrors >= maxConsecutiveErrors) {
+            throw new Error(`Failed to check job status after ${maxConsecutiveErrors} consecutive attempts: ${errorText}`);
+          }
+          
+          // Otherwise continue polling
+          continue;
         }
-        throw new Error('Conversion job failed');
+
+        // Reset error counter on success
+        consecutiveErrors = 0;
+
+        const statusData = await statusResponse.json();
+        const status = statusData.data.status;
+
+        console.log(`Job status (attempt ${attempts}):`, status);
+
+        if (status === 'finished') {
+          jobComplete = true;
+          // Find the export task
+          exportTask = statusData.data.tasks.find((task: any) => task.name === 'export-file');
+        } else if (status === 'error') {
+          // Log detailed error information
+          console.error('CloudConvert job failed. Full job data:', JSON.stringify(statusData, null, 2));
+          const failedTask = statusData.data.tasks.find((task: any) => task.status === 'error');
+          if (failedTask) {
+            console.error('Failed task:', JSON.stringify(failedTask, null, 2));
+            throw new Error(`Conversion failed: ${failedTask.message || 'Unknown error'}`);
+          }
+          throw new Error('Conversion job failed');
+        }
+      } catch (error: any) {
+        // If it's already a thrown error from above, rethrow it
+        if (error.message.includes('Conversion failed') || error.message.includes('consecutive attempts')) {
+          throw error;
+        }
+        
+        // Otherwise, log and continue (might be a transient network issue)
+        console.warn(`Error checking job status (attempt ${attempts}):`, error.message);
+        consecutiveErrors++;
+        
+        if (consecutiveErrors >= maxConsecutiveErrors) {
+          throw new Error(`Failed to check job status after ${maxConsecutiveErrors} consecutive errors: ${error.message}`);
+        }
       }
     }
 
