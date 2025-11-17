@@ -874,7 +874,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       ];
       
       let yPos = contentStartY + 25;
-      const cardWidth = (pageWidth - contentStartX - useMargins.right - 20) / 3;
+      const cardWidth = (pageWidth - contentStartX - useMargins.right - 20) / 2;
       const cardHeight = 45;
       const cardPadding = 10;
       let xPos = contentStartX;
@@ -884,7 +884,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         const color = cardColors[index % cardColors.length];
         
         // Check if we need a new row or page
-        if (cardsInRow === 3) {
+        if (cardsInRow === 2) {
           xPos = contentStartX;
           yPos += cardHeight + cardPadding;
           cardsInRow = 0;
