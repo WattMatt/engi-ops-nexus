@@ -85,17 +85,27 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       let categoryCardsImage: string | null = null;
       const categoryCardsElement = document.getElementById('cost-report-category-cards');
       
+      console.log('Looking for category cards element:', categoryCardsElement);
+      
       if (categoryCardsElement) {
         try {
+          console.log('Category cards element found, attempting capture...');
           const canvas = await captureElementAsCanvas(categoryCardsElement);
           categoryCardsImage = canvas.toDataURL('image/png');
-          console.log('Successfully captured category cards');
+          console.log('Successfully captured category cards, image size:', categoryCardsImage.length);
         } catch (error) {
           console.error('Failed to capture category cards:', error);
-          // Continue without category cards image
+          toast({
+            title: "Warning",
+            description: "Could not capture category cards for PDF. They will be represented as text instead.",
+          });
         }
       } else {
-        console.warn('Category cards element not found');
+        console.warn('Category cards element not found in DOM');
+        toast({
+          title: "Notice",
+          description: "Category cards not found. Please ensure you're viewing the Overview tab before generating the PDF.",
+        });
       }
       
       // Get default cost report template
