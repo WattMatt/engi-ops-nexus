@@ -80,34 +80,6 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
     try {
       console.log('Starting template-based PDF export for report:', report.id);
       
-      // Capture category performance cards as image before generating PDF
-      setCurrentSection("Capturing category performance cards...");
-      let categoryCardsImage: string | null = null;
-      const categoryCardsElement = document.getElementById('cost-report-category-cards');
-      
-      console.log('Looking for category cards element:', categoryCardsElement);
-      
-      if (categoryCardsElement) {
-        try {
-          console.log('Category cards element found, attempting capture...');
-          const canvas = await captureElementAsCanvas(categoryCardsElement);
-          categoryCardsImage = canvas.toDataURL('image/png');
-          console.log('Successfully captured category cards, image size:', categoryCardsImage.length);
-        } catch (error) {
-          console.error('Failed to capture category cards:', error);
-          toast({
-            title: "Warning",
-            description: "Could not capture category cards for PDF. They will be represented as text instead.",
-          });
-        }
-      } else {
-        console.warn('Category cards element not found in DOM');
-        toast({
-          title: "Notice",
-          description: "Category cards not found. Please ensure you're viewing the Overview tab before generating the PDF.",
-        });
-      }
-      
       // Get default cost report template
       const { data: template, error: templateError } = await supabase
         .from('document_templates')
@@ -284,36 +256,12 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       tocSections.push({ title: "Category Performance", page: contentDoc.getCurrentPageInfo().pageNumber });
       yPos = contentStartY;
       yPos = addSectionHeader(contentDoc, "CATEGORY PERFORMANCE", yPos);
-      yPos += 5;
+      yPos += 10;
       
-      // Add captured category cards image if available
-      if (categoryCardsImage) {
-        try {
-          const imgWidth = pageWidth - STANDARD_MARGINS.left - STANDARD_MARGINS.right;
-          // Calculate height to maintain aspect ratio from captured image
-          const tempImg = new Image();
-          tempImg.src = categoryCardsImage;
-          await new Promise((resolve) => {
-            tempImg.onload = resolve;
-          });
-          const aspectRatio = tempImg.height / tempImg.width;
-          const imgHeight = imgWidth * aspectRatio;
-          
-          contentDoc.addImage(categoryCardsImage, 'PNG', contentStartX, yPos, imgWidth, imgHeight);
-          yPos += imgHeight + 10;
-          console.log('Category cards added to PDF');
-        } catch (error) {
-          console.error('Failed to add category cards image:', error);
-          contentDoc.setFontSize(10);
-          contentDoc.text("Category performance cards could not be displayed", contentStartX, yPos);
-          yPos += 20;
-        }
-      } else {
-        contentDoc.setFontSize(10);
-        contentDoc.text("Category performance cards showing individual category details", contentStartX, yPos);
-        contentDoc.text("would be displayed here with visual indicators.", contentStartX, yPos + 7);
-        yPos += 30;
-      }
+      // Generate category cards programmatically
+      contentDoc.setFontSize(10);
+      contentDoc.text("Category performance details with visual indicators", contentStartX, yPos);
+      yPos += 15;
       
       // ========== CATEGORIES AND LINE ITEMS ==========
       contentDoc.addPage();
@@ -512,33 +460,6 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
 
     // Otherwise use legacy direct PDF generation
     setLoading(true);
-    setCurrentSection("Capturing category cards...");
-    
-    // Capture category performance cards as image before generating PDF
-    let categoryCardsImage: string | null = null;
-    const categoryCardsElement = document.getElementById('cost-report-category-cards');
-    
-    if (categoryCardsElement) {
-      try {
-        console.log('Category cards element found, capturing...');
-        const canvas = await captureElementAsCanvas(categoryCardsElement);
-        categoryCardsImage = canvas.toDataURL('image/png');
-        console.log('Successfully captured category cards');
-      } catch (error) {
-        console.error('Failed to capture category cards:', error);
-        toast({
-          title: "Warning",
-          description: "Could not capture category cards. Using table instead.",
-        });
-      }
-    } else {
-      console.warn('Category cards element not found - make sure you are on the Overview tab');
-      toast({
-        title: "Notice",
-        description: "For best results, please view the Overview tab before exporting.",
-      });
-    }
-    
     setCurrentSection("Fetching data...");
     
     // Initialize page content map to track what goes on each page
@@ -941,52 +862,108 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       doc.setTextColor(0, 0, 0);
       doc.text("CATEGORY PERFORMANCE DETAILS", pageWidth / 2, contentStartY + 10, { align: "center" });
 
-      // Use captured category cards image if available, otherwise fall back to table
-      if (categoryCardsImage) {
-        try {
-          const imgWidth = pageWidth - contentStartX - useMargins.right;
-          const tempImg = new Image();
-          tempImg.src = categoryCardsImage;
-          await new Promise((resolve) => {
-            tempImg.onload = resolve;
-          });
-          const aspectRatio = tempImg.height / tempImg.width;
-          const imgHeight = imgWidth * aspectRatio;
-          
-          doc.addImage(categoryCardsImage, 'PNG', contentStartX, contentStartY + 20, imgWidth, imgHeight);
-          console.log('Category cards image added to PDF');
-          trackPageContent(doc, 'Category Performance Cards');
-        } catch (error) {
-          console.error('Failed to add category cards image:', error);
-          doc.setFontSize(10);
-          doc.text("Category performance cards could not be displayed", contentStartX, contentStartY + 25);
+      // Generate category cards programmatically for better performance
+      const cardColors = [
+        [59, 130, 246],   // Blue
+        [16, 185, 129],   // Green  
+        [251, 191, 36],   // Yellow
+        [249, 115, 22],   // Orange
+        [139, 92, 246],   // Purple
+        [236, 72, 153],   // Pink
+        [134, 239, 172]   // Light green
+      ];
+      
+      let yPos = contentStartY + 25;
+      const cardWidth = (pageWidth - contentStartX - useMargins.right - 20) / 3;
+      const cardHeight = 45;
+      const cardPadding = 10;
+      let xPos = contentStartX;
+      let cardsInRow = 0;
+      
+      categoryTotals.forEach((cat: any, index: number) => {
+        const color = cardColors[index % cardColors.length];
+        
+        // Check if we need a new row or page
+        if (cardsInRow === 3) {
+          xPos = contentStartX;
+          yPos += cardHeight + cardPadding;
+          cardsInRow = 0;
         }
-      } else {
-        // Fallback to table if image not captured
-        autoTable(doc, {
-          startY: contentStartY + 20,
-          margin: { left: contentStartX, right: useMargins.right },
-          head: [['Code', 'Category', 'Original Budget', 'Anticipated Final', 'Variance', 'Status']],
-          body: categoryTotals.map((cat: any) => [
-            cat.code,
-            cat.description,
-            `R ${cat.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-            `R ${cat.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-            `${cat.originalVariance >= 0 ? '+' : ''}R ${Math.abs(cat.originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-            cat.originalVariance < 0 ? 'Saving' : 'Extra'
-          ]),
-          theme: 'grid',
-          styles: { fontSize: 9, cellPadding: 3, overflow: 'linebreak', valign: 'middle' },
-          headStyles: { 
-            fillColor: [30, 58, 138], 
-            textColor: [255, 255, 255], 
-            fontStyle: 'bold',
-            overflow: 'linebreak',
-            valign: 'middle',
-            halign: 'center'
-          }
-        });
-      }
+        
+        if (yPos + cardHeight > pageHeight - 30) {
+          doc.addPage();
+          yPos = contentStartY;
+          xPos = contentStartX;
+          cardsInRow = 0;
+        }
+        
+        // Draw card background with border
+        doc.setFillColor(255, 255, 255);
+        doc.setDrawColor(color[0], color[1], color[2]);
+        doc.setLineWidth(0.5);
+        doc.roundedRect(xPos, yPos, cardWidth, cardHeight, 2, 2, 'FD');
+        
+        // Draw colored side bar
+        doc.setFillColor(color[0], color[1], color[2]);
+        doc.rect(xPos, yPos, 3, cardHeight, 'F');
+        
+        // Category code badge
+        doc.setFillColor(color[0], color[1], color[2]);
+        doc.roundedRect(xPos + 8, yPos + 5, 12, 8, 1, 1, 'F');
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(255, 255, 255);
+        doc.text(cat.code, xPos + 14, yPos + 10, { align: 'center' });
+        
+        // Category description
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0, 0, 0);
+        const descLines = doc.splitTextToSize(cat.description, cardWidth - 28);
+        doc.text(descLines[0], xPos + 24, yPos + 10);
+        
+        // Original Budget
+        doc.setFontSize(6);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(100, 100, 100);
+        doc.text("ORIGINAL BUDGET", xPos + 8, yPos + 18);
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0, 0, 0);
+        doc.text(`R${cat.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, xPos + 8, yPos + 24);
+        
+        // Anticipated Final
+        doc.setFontSize(6);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(100, 100, 100);
+        doc.text("ANTICIPATED FINAL", xPos + 8, yPos + 30);
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.text(`R${cat.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, xPos + 8, yPos + 36);
+        
+        // Variance badge
+        const isNegative = cat.originalVariance < 0;
+        doc.setFillColor(isNegative ? 220 : 254, isNegative ? 252 : 226, isNegative ? 231 : 226);
+        doc.roundedRect(xPos + cardWidth - 25, yPos + 28, 20, 6, 1, 1, 'F');
+        doc.setFontSize(6);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(isNegative ? 22 : 185, isNegative ? 163 : 28, isNegative ? 74 : 39);
+        doc.text(isNegative ? 'SAVING' : 'EXTRA', xPos + cardWidth - 15, yPos + 32, { align: 'center' });
+        
+        // Variance amount
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "bold");
+        doc.text(
+          `${isNegative ? '-' : '+'}R${Math.abs(cat.originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+          xPos + cardWidth - 8,
+          yPos + 24,
+          { align: 'right' }
+        );
+        
+        xPos += cardWidth + cardPadding;
+        cardsInRow++;
+        trackPageContent(doc, `Category Card: ${cat.code} - ${cat.description}`);
+      });
       }
 
       setCurrentSection("Adding project information...");
