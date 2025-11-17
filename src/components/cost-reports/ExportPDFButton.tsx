@@ -1084,7 +1084,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
               lineWidth: 0.1
             },
             headStyles: { 
-              fillColor: [30, 58, 138], 
+              fillColor: [41, 128, 185], 
               textColor: [255, 255, 255], 
               fontStyle: 'bold', 
               fontSize: 7,
@@ -1112,12 +1112,13 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
                 const currentVar = Number(item.anticipated_final || 0) - Number(item.previous_report || 0);
                 const originalVar = Number(item.anticipated_final || 0) - Number(item.original_budget || 0);
                 
+                // Green for savings (negative variance), Red for extra costs (positive variance)
                 if (data.column.index === 5 && currentVar !== 0) {
-                  data.cell.styles.textColor = currentVar < 0 ? [0, 120, 0] : [200, 0, 0];
+                  data.cell.styles.textColor = currentVar < 0 ? [22, 163, 74] : [220, 38, 38];
                   data.cell.styles.fontStyle = 'bold';
                 }
                 if (data.column.index === 6 && originalVar !== 0) {
-                  data.cell.styles.textColor = originalVar < 0 ? [0, 120, 0] : [200, 0, 0];
+                  data.cell.styles.textColor = originalVar < 0 ? [22, 163, 74] : [220, 38, 38];
                   data.cell.styles.fontStyle = 'bold';
                 }
               }
