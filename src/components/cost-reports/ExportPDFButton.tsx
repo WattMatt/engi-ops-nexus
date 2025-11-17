@@ -150,7 +150,11 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
 
       const { data: variations } = await supabase
         .from("cost_variations")
-        .select("*")
+        .select(`
+          *,
+          tenants(shop_name, shop_number),
+          variation_line_items(*)
+        `)
         .eq("cost_report_id", report.id)
         .order("display_order");
       
@@ -317,22 +321,84 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         tocSections.push({ title: "Variations", page: contentDoc.getCurrentPageInfo().pageNumber });
         yPos = contentStartY;
         yPos = addSectionHeader(contentDoc, "VARIATIONS", yPos);
-        yPos += 5;
+        yPos += 10;
         
-        const variationsData = sortedVariations.map(v => [
-          v.code,
-          v.description,
-          v.is_credit ? 'Credit' : 'Extra',
-          `R ${Math.abs(v.amount).toFixed(2)}`
-        ]);
-        
-        autoTable(contentDoc, {
-          startY: yPos,
-          head: [['Code', 'Description', 'Type', 'Amount']],
-          body: variationsData,
-          theme: 'grid',
-          headStyles: { fillColor: [30, 58, 138] as [number, number, number] }
-        });
+        // Display each variation with its line items
+        for (const variation of sortedVariations) {
+          yPos = checkPageBreak(contentDoc, yPos, 40);
+          
+          // Variation header with tenant info
+          contentDoc.setFontSize(12);
+          contentDoc.setFont("helvetica", "bold");
+          contentDoc.setTextColor(30, 58, 138);
+          const varHeader = `${variation.code} - ${variation.tenants ? `${variation.tenants.shop_number} ${variation.tenants.shop_name}` : variation.description}`;
+          contentDoc.text(varHeader, contentStartX, yPos);
+          yPos += 2;
+          
+          contentDoc.setDrawColor(30, 58, 138);
+          contentDoc.setLineWidth(0.5);
+          contentDoc.line(contentStartX, yPos, pageWidth - STANDARD_MARGINS.right, yPos);
+          yPos += 8;
+          
+          // Line items table
+          const lineItems = variation.variation_line_items || [];
+          if (lineItems.length > 0) {
+            const sortedLineItems = lineItems.sort((a: any, b: any) => a.line_number - b.line_number);
+            const lineItemsData = sortedLineItems.map((item: any) => [
+              item.line_number,
+              item.description,
+              item.comments || '',
+              item.quantity,
+              `R${Number(item.rate).toFixed(2)}`,
+              `R${Number(item.amount).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+            ]);
+            
+            autoTable(contentDoc, {
+              startY: yPos,
+              head: [['NO', 'DESCRIPTION', 'COMMENTS/ DETAIL', 'QTY:', 'RATE:', 'AMOUNT:']],
+              body: lineItemsData,
+              foot: [[
+                '', '', '', '', 'TOTAL ADDITIONAL WORKS EXCLUSIVE OF VAT',
+                `R${Number(variation.amount).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+              ]],
+              theme: 'grid',
+              headStyles: { 
+                fillColor: [240, 240, 240] as [number, number, number],
+                textColor: [0, 0, 0] as [number, number, number],
+                fontStyle: 'bold',
+                fontSize: 9
+              },
+              bodyStyles: {
+                fontSize: 9
+              },
+              footStyles: {
+                fillColor: [255, 255, 255] as [number, number, number],
+                textColor: [0, 0, 0] as [number, number, number],
+                fontStyle: 'bold',
+                fontSize: 9,
+                lineWidth: { top: 0.5 },
+                lineColor: [0, 0, 0] as [number, number, number]
+              },
+              columnStyles: {
+                0: { cellWidth: 15 },
+                1: { cellWidth: 60 },
+                2: { cellWidth: 45 },
+                3: { cellWidth: 20, halign: 'right' },
+                4: { cellWidth: 25, halign: 'right' },
+                5: { cellWidth: 30, halign: 'right' }
+              }
+            });
+            
+            yPos = (contentDoc as any).lastAutoTable.finalY + 15;
+          } else {
+            // If no line items, show summary
+            contentDoc.setFontSize(10);
+            contentDoc.setFont("helvetica", "normal");
+            contentDoc.setTextColor(0, 0, 0);
+            contentDoc.text(`Amount: R${Number(variation.amount).toFixed(2)}`, contentStartX, yPos);
+            yPos += 15;
+          }
+        }
       }
       
       // ========== UPDATE TABLE OF CONTENTS ==========
