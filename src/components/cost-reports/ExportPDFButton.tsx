@@ -511,15 +511,18 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       const details = detailsResult.data || [];
       const allLineItems = allLineItemsResult.data || [];
       
+      // Sort categories alphabetically by code for consistent ordering
+      const sortedCategories = [...categories].sort((a, b) => a.code.localeCompare(b.code));
+      
       // Calculate totals using shared utility and sort alphabetically
-      const pdfCategoryTotals = calculateCategoryTotals(categories, allLineItems, variations)
+      const pdfCategoryTotals = calculateCategoryTotals(sortedCategories, allLineItems, variations)
         .sort((a, b) => a.code.localeCompare(b.code));
       const pdfGrandTotals = calculateGrandTotals(pdfCategoryTotals);
       
       // Validate totals if not skipping validation
       if (!skipValidation) {
         // Calculate UI totals from flat line items list and sort alphabetically
-        const uiCategoryTotals = calculateCategoryTotals(categories, allLineItems, variations)
+        const uiCategoryTotals = calculateCategoryTotals(sortedCategories, allLineItems, variations)
           .sort((a, b) => a.code.localeCompare(b.code));
         const uiGrandTotals = calculateGrandTotals(uiCategoryTotals);
         
@@ -1041,8 +1044,8 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       }
 
       // ========== DETAILED LINE ITEMS PAGES ==========
-      categories.forEach((category: any, index: number) => {
-        setCurrentSection(`Adding detailed line items (${index + 1}/${categories.length})...`);
+      sortedCategories.forEach((category: any, index: number) => {
+        setCurrentSection(`Adding detailed line items (${index + 1}/${sortedCategories.length})...`);
         const lineItems = category.cost_line_items || [];
 
         doc.addPage();
