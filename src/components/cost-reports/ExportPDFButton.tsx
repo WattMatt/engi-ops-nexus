@@ -712,167 +712,6 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         }
       };
 
-      setCurrentSection("Generating executive summary...");
-      // ========== EXECUTIVE SUMMARY PAGE ==========
-      if (useSections.executiveSummary) {
-        doc.addPage();
-        tocSections.push({ title: "Executive Summary", page: doc.getCurrentPageInfo().pageNumber });
-        
-        // Simple professional header
-        doc.setFontSize(16);
-        doc.setFont("helvetica", "bold");
-        doc.setTextColor(0, 0, 0);
-        doc.text("EXECUTIVE SUMMARY", pageWidth / 2, contentStartY + 3, { align: "center" });
-        
-        doc.setFontSize(9);
-        doc.setFont("helvetica", "normal");
-        doc.setTextColor(60, 60, 60);
-        doc.text("Key Performance Indicators & Financial Overview", pageWidth / 2, contentStartY + 9, { align: "center" });
-
-        // Add a subtle line under the header
-        doc.setDrawColor(200, 200, 200);
-        doc.setLineWidth(0.5);
-        doc.line(contentStartX, contentStartY + 12, pageWidth - useMargins.right, contentStartY + 12);
-
-        doc.setTextColor(...colors.text);
-        let tableY = contentStartY + 16;
-        
-        // Generate table data using shared utility
-        const tableData = generateExecutiveSummaryTableData(pdfCategoryTotals, pdfGrandTotals);
-        
-        // Prepare table rows for autoTable
-        const tableRows = [
-          ...tableData.categoryRows.map(row => [
-            row.code,
-            row.description,
-            `R${row.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-            `R${row.previousReport.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-            `R${row.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-            row.percentOfTotal,
-            `${row.currentVariance >= 0 ? '+' : ''}R${Math.abs(row.currentVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-            `${row.originalVariance >= 0 ? '+' : ''}R${Math.abs(row.originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`
-          ]),
-          // Grand total row
-          [
-            '',
-            tableData.grandTotalRow.description,
-            `R${tableData.grandTotalRow.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-            `R${tableData.grandTotalRow.previousReport.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-            `R${tableData.grandTotalRow.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-            tableData.grandTotalRow.percentOfTotal,
-            `${tableData.grandTotalRow.currentVariance >= 0 ? '+' : ''}R${Math.abs(tableData.grandTotalRow.currentVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-            `${tableData.grandTotalRow.originalVariance >= 0 ? '+' : ''}R${Math.abs(tableData.grandTotalRow.originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`
-          ]
-        ];
-
-        autoTable(doc, {
-          startY: tableY,
-          margin: { left: contentStartX, right: useMargins.right },
-          head: [tableData.headers],
-          body: tableRows,
-          theme: 'striped',
-          tableWidth: 'auto',
-          styles: {
-            fontSize: 8,
-            cellPadding: { top: 3, bottom: 3, left: 2, right: 2 },
-            overflow: 'linebreak',
-            halign: 'left',
-            minCellHeight: 8,
-            lineColor: [220, 220, 220],
-            lineWidth: 0.1
-          },
-          headStyles: { 
-            fillColor: colors.primary, 
-            textColor: colors.white, 
-            fontStyle: 'bold',
-            fontSize: 8,
-            cellPadding: { top: 2, bottom: 2, left: 2, right: 2 },
-            halign: 'center',
-            valign: 'middle',
-            minCellHeight: 8
-          },
-          bodyStyles: { 
-            fontSize: 8,
-            cellPadding: { top: 2, bottom: 2, left: 2, right: 2 },
-            textColor: colors.text,
-            valign: 'middle'
-          },
-          alternateRowStyles: {
-            fillColor: [245, 247, 250]
-          },
-          columnStyles: {
-            0: { cellWidth: 10, fontStyle: 'bold', halign: 'center' },
-            1: { cellWidth: 30, halign: 'left' },
-            2: { cellWidth: 26, halign: 'right' },
-            3: { cellWidth: 26, halign: 'right' },
-            4: { cellWidth: 26, halign: 'right' },
-            5: { cellWidth: 14, halign: 'center' },
-            6: { cellWidth: 26, halign: 'right' },
-            7: { cellWidth: 26, halign: 'right' }
-          },
-          didDrawCell: (data) => {
-            // Set header alignment properly
-            if (data.section === 'head') {
-              if (data.column.index === 0 || data.column.index === 1) {
-                data.cell.styles.halign = 'left';
-              } else {
-                data.cell.styles.halign = 'right';
-              }
-            }
-            
-            // Highlight the grand total row
-            if (data.section === 'body' && data.row.index === tableRows.length - 1) {
-              data.cell.styles.fillColor = [226, 232, 240];
-              data.cell.styles.fontStyle = 'bold';
-              data.cell.styles.textColor = colors.primary;
-            }
-            
-            // Color the variance cells for category rows
-            if (data.section === 'body' && data.row.index < tableData.categoryRows.length) {
-              const cat = tableData.categoryRows[data.row.index];
-              // Current Variance column
-              if (data.column.index === 6) {
-                if (cat.currentVariance < 0) {
-                  data.cell.styles.textColor = colors.success;
-                  data.cell.styles.fontStyle = 'bold';
-                } else if (cat.currentVariance > 0) {
-                  data.cell.styles.textColor = colors.danger;
-                  data.cell.styles.fontStyle = 'bold';
-                }
-              }
-              // Original Variance column
-              if (data.column.index === 7) {
-                if (cat.originalVariance < 0) {
-                  data.cell.styles.textColor = colors.success;
-                  data.cell.styles.fontStyle = 'bold';
-                } else if (cat.originalVariance > 0) {
-                  data.cell.styles.textColor = colors.danger;
-                  data.cell.styles.fontStyle = 'bold';
-                }
-              }
-            }
-            
-            // Color totals row variance
-            if (data.section === 'body' && data.row.index === tableRows.length - 1) {
-              if (data.column.index === 6) {
-                if (tableData.grandTotalRow.currentVariance < 0) {
-                  data.cell.styles.textColor = colors.success;
-                } else if (tableData.grandTotalRow.currentVariance > 0) {
-                  data.cell.styles.textColor = colors.danger;
-                }
-              }
-              if (data.column.index === 7) {
-                if (tableData.grandTotalRow.originalVariance < 0) {
-                  data.cell.styles.textColor = colors.success;
-                } else if (tableData.grandTotalRow.originalVariance > 0) {
-                  data.cell.styles.textColor = colors.danger;
-                }
-              }
-            }
-          }
-        });
-      }
-
       // ========== CATEGORY PERFORMANCE DETAILS PAGE ==========
       if (useSections.categoryDetails) {
       doc.addPage();
@@ -985,6 +824,122 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         cardsInRow++;
         trackPageContent(doc, `Category Card: ${cat.code} - ${cat.description}`);
       });
+      }
+
+      setCurrentSection("Generating executive summary...");
+      // ========== EXECUTIVE SUMMARY PAGE ==========
+      if (useSections.executiveSummary) {
+        doc.addPage();
+        tocSections.push({ title: "Executive Summary", page: doc.getCurrentPageInfo().pageNumber });
+        
+        // Simple professional header
+        doc.setFontSize(16);
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(0, 0, 0);
+        doc.text("EXECUTIVE SUMMARY", pageWidth / 2, contentStartY + 3, { align: "center" });
+        
+        doc.setFontSize(9);
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(60, 60, 60);
+        doc.text("Key Performance Indicators & Financial Overview", pageWidth / 2, contentStartY + 9, { align: "center" });
+
+        // Add a subtle line under the header
+        doc.setDrawColor(200, 200, 200);
+        doc.setLineWidth(0.5);
+        doc.line(contentStartX, contentStartY + 12, pageWidth - useMargins.right, contentStartY + 12);
+
+        doc.setTextColor(...colors.text);
+        let tableY = contentStartY + 16;
+        
+        // Generate table data using shared utility
+        const tableData = generateExecutiveSummaryTableData(pdfCategoryTotals, pdfGrandTotals);
+        
+        // Prepare table rows for autoTable
+        const tableRows = [
+          ...tableData.categoryRows.map(row => [
+            row.code,
+            row.description,
+            `R${row.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+            `R${row.previousReport.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+            `R${row.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+            row.percentOfTotal,
+            `${row.currentVariance >= 0 ? '+' : ''}R${Math.abs(row.currentVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+            `${row.originalVariance >= 0 ? '+' : ''}R${Math.abs(row.originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`
+          ]),
+          // Grand total row
+          [
+            '',
+            tableData.grandTotalRow.description,
+            `R${tableData.grandTotalRow.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+            `R${tableData.grandTotalRow.previousReport.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+            `R${tableData.grandTotalRow.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+            tableData.grandTotalRow.percentOfTotal,
+            `${tableData.grandTotalRow.currentVariance >= 0 ? '+' : ''}R${Math.abs(tableData.grandTotalRow.currentVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+            `${tableData.grandTotalRow.originalVariance >= 0 ? '+' : ''}R${Math.abs(tableData.grandTotalRow.originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`
+          ]
+        ];
+
+        autoTable(doc, {
+          startY: tableY,
+          margin: { left: contentStartX, right: useMargins.right },
+          head: [tableData.headers],
+          body: tableRows,
+          theme: 'striped',
+          tableWidth: 'auto',
+          styles: {
+            fontSize: 8,
+            cellPadding: { top: 3, bottom: 3, left: 2, right: 2 },
+            overflow: 'linebreak',
+            halign: 'left',
+            minCellHeight: 8,
+            lineColor: [220, 220, 220],
+            lineWidth: 0.1
+          },
+          headStyles: {
+            fillColor: [41, 128, 185],
+            textColor: 255,
+            fontStyle: 'bold',
+            halign: 'left',
+            fontSize: 8,
+            cellPadding: { top: 3, bottom: 3, left: 2, right: 2 }
+          },
+          columnStyles: {
+            0: { cellWidth: 12, halign: 'center' },
+            1: { cellWidth: 45, halign: 'left' },
+            2: { cellWidth: 25, halign: 'right' },
+            3: { cellWidth: 25, halign: 'right' },
+            4: { cellWidth: 25, halign: 'right' },
+            5: { cellWidth: 15, halign: 'center' },
+            6: { cellWidth: 25, halign: 'right' },
+            7: { cellWidth: 25, halign: 'right' }
+          },
+          didParseCell: (data: any) => {
+            // Make category rows slightly bold
+            if (data.section === 'body' && data.row.index < tableRows.length - 1) {
+              if (data.column.index === 0 || data.column.index === 1) {
+                data.cell.styles.fontStyle = 'bold';
+              }
+            }
+            
+            // Color totals row variance
+            if (data.section === 'body' && data.row.index === tableRows.length - 1) {
+              if (data.column.index === 6) {
+                if (tableData.grandTotalRow.currentVariance < 0) {
+                  data.cell.styles.textColor = colors.success;
+                } else if (tableData.grandTotalRow.currentVariance > 0) {
+                  data.cell.styles.textColor = colors.danger;
+                }
+              }
+              if (data.column.index === 7) {
+                if (tableData.grandTotalRow.originalVariance < 0) {
+                  data.cell.styles.textColor = colors.success;
+                } else if (tableData.grandTotalRow.originalVariance > 0) {
+                  data.cell.styles.textColor = colors.danger;
+                }
+              }
+            }
+          }
+        });
       }
 
       setCurrentSection("Adding project information...");
