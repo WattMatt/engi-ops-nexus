@@ -1044,7 +1044,6 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       categories.forEach((category: any, index: number) => {
         setCurrentSection(`Adding detailed line items (${index + 1}/${categories.length})...`);
         const lineItems = category.cost_line_items || [];
-        if (lineItems.length === 0) return;
 
         doc.addPage();
         tocSections.push({ title: `Detailed Line Items - ${category.description}`, page: doc.getCurrentPageInfo().pageNumber });
@@ -1089,7 +1088,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
             startY: summaryY,
             margin: { left: contentStartX, right: useMargins.right },
             head: [['Code', 'Description', 'Original Budget', 'Previous Report', 'Anticipated Final', 'Current Variance', 'Original Variance']],
-            body: lineItems.map((item: any) => {
+            body: lineItems.length > 0 ? lineItems.map((item: any) => {
               const currentVar = Number(item.anticipated_final || 0) - Number(item.previous_report || 0);
               const originalVar = Number(item.anticipated_final || 0) - Number(item.original_budget || 0);
               return [
@@ -1101,7 +1100,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
                 `${currentVar >= 0 ? '+' : ''}R ${Math.abs(currentVar).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
                 `${originalVar >= 0 ? '+' : ''}R ${Math.abs(originalVar).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`
               ];
-            }),
+            }) : [['', 'No line items added yet', '', '', '', '', '']],
             theme: 'grid',
             styles: { 
               fontSize: 8, 
