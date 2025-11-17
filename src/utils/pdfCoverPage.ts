@@ -306,10 +306,11 @@ async function generateDefaultCoverPage(
   doc.setTextColor(...colors.secondary);
   doc.text(options.subtitle, pageWidth / 2, yPos, { align: "center" });
   
-  // Add client logo in dedicated space if available (contactDetails)
-  if (contactDetails?.logo_url) {
+  // Add client logo in dedicated space if available (from contactDetails or company settings)
+  const clientLogoUrl = contactDetails?.logo_url || companyDetails.clientLogoUrl;
+  if (clientLogoUrl) {
     try {
-      const clientLogoResponse = await fetch(contactDetails.logo_url);
+      const clientLogoResponse = await fetch(clientLogoUrl);
       const clientLogoBlob = await clientLogoResponse.blob();
       const clientLogoDataUrl = await new Promise<string>((resolve) => {
         const reader = new FileReader();
