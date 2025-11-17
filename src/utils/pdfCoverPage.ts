@@ -306,8 +306,35 @@ async function generateDefaultCoverPage(
   doc.setTextColor(...colors.secondary);
   doc.text(options.subtitle, pageWidth / 2, yPos, { align: "center" });
   
+  // Add client logo in dedicated space if available (contactDetails)
+  if (contactDetails?.logo_url) {
+    try {
+      const clientLogoResponse = await fetch(contactDetails.logo_url);
+      const clientLogoBlob = await clientLogoResponse.blob();
+      const clientLogoDataUrl = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(clientLogoBlob);
+      });
+      
+      // Position client logo centered above PREPARED BY section
+      const clientLogoWidth = 45;
+      const clientLogoHeight = 32;
+      const clientLogoX = pageWidth - clientLogoWidth - 28;
+      const clientLogoY = 135;
+      
+      // Add light background for client logo
+      doc.setFillColor(...colors.light);
+      doc.roundedRect(clientLogoX - 5, clientLogoY - 5, clientLogoWidth + 10, clientLogoHeight + 10, 3, 3, 'F');
+      
+      doc.addImage(clientLogoDataUrl, 'PNG', clientLogoX, clientLogoY, clientLogoWidth, clientLogoHeight);
+    } catch (error) {
+      console.error("Failed to add client logo to PDF:", error);
+    }
+  }
+  
   // Company details section with modern card-like appearance (PREPARED BY - appears first)
-  yPos = 145;
+  yPos = 175;
   
   // Light background card
   doc.setFillColor(...colors.light);
@@ -363,7 +390,7 @@ async function generateDefaultCoverPage(
   }
   
   // Modern divider with shadow effect
-  yPos = 195;
+  yPos = 225;
   doc.setDrawColor(...colors.light);
   doc.setLineWidth(0.3);
   doc.line(25, yPos, pageWidth - 25, yPos);
@@ -373,7 +400,7 @@ async function generateDefaultCoverPage(
   
   // PREPARED FOR section (if contact is selected - appears second, below company)
   if (contactDetails) {
-    yPos = 208;
+    yPos = 238;
     
     // Light background card for "Prepared For"
     doc.setFillColor(...colors.light);
@@ -414,32 +441,11 @@ async function generateDefaultCoverPage(
       doc.text(`Tel: ${contactDetails.phone}`, 28, yPos);
     }
     
-    // Add contact logo if available
-    if (contactDetails.logo_url) {
-      try {
-        const contactLogoResponse = await fetch(contactDetails.logo_url);
-        const contactLogoBlob = await contactLogoResponse.blob();
-        const contactLogoDataUrl = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.readAsDataURL(contactLogoBlob);
-        });
-        
-        // Position contact logo on the right side
-        const contactLogoWidth = 35;
-        const contactLogoHeight = 26;
-        const contactLogoX = pageWidth - contactLogoWidth - 28;
-        const contactLogoY = 215;
-        
-        doc.addImage(contactLogoDataUrl, 'PNG', contactLogoX, contactLogoY, contactLogoWidth, contactLogoHeight);
-      } catch (error) {
-        console.error("Failed to add contact logo to PDF:", error);
-      }
-    }
+    // Client logo is now placed above in its own dedicated space, not here
   }
   
   // Modern divider
-  yPos = contactDetails ? 257 : 195;
+  yPos = contactDetails ? 287 : 225;
   doc.setDrawColor(...colors.light);
   doc.setLineWidth(0.3);
   doc.line(25, yPos, pageWidth - 25, yPos);
@@ -448,7 +454,7 @@ async function generateDefaultCoverPage(
   doc.line(25, yPos + 1, pageWidth - 25, yPos + 1);
   
   // Date and Revision section - simple text labels
-  yPos = contactDetails ? 275 : 213;
+  yPos = contactDetails ? 305 : 243;
   
   // Date label and value
   doc.setFontSize(9);
