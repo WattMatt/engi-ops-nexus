@@ -306,13 +306,78 @@ async function generateDefaultCoverPage(
   doc.setTextColor(...colors.secondary);
   doc.text(options.subtitle, pageWidth / 2, yPos, { align: "center" });
   
-  // PREPARED FOR section (if contact is selected)
+  // Company details section with modern card-like appearance (PREPARED BY - appears first)
+  yPos = 145;
+  
+  // Light background card
+  doc.setFillColor(...colors.light);
+  doc.roundedRect(22, yPos - 4, pageWidth - 44, 50, 3, 3, 'F');
+  
+  doc.setTextColor(...colors.primary);
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.text("PREPARED BY:", 28, yPos);
+  
+  yPos += 8;
+  doc.setFontSize(10);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(...colors.text);
+  doc.text(companyDetails.companyName.toUpperCase(), 28, yPos);
+  
+  yPos += 7;
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(...colors.neutral);
+  doc.text("141 Which Hazel ave,", 28, yPos);
+  
+  yPos += 6;
+  doc.text("Highveld Techno Park, Building 1A", 28, yPos);
+  
+  yPos += 6;
+  doc.text(`Tel: ${companyDetails.contactPhone}`, 28, yPos);
+  
+  yPos += 6;
+  doc.text(`Contact: ${companyDetails.contactName}`, 28, yPos);
+  
+  // Add company logo with clean positioning
+  if (companyDetails.logoUrl) {
+    try {
+      const logoResponse = await fetch(companyDetails.logoUrl);
+      const logoBlob = await logoResponse.blob();
+      const logoDataUrl = await new Promise<string>((resolve) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.readAsDataURL(logoBlob);
+      });
+      
+      // Position logo on the right side with proper spacing
+      const logoWidth = 35;
+      const logoHeight = 26;
+      const logoX = pageWidth - logoWidth - 28;
+      const logoY = 152;
+      
+      doc.addImage(logoDataUrl, 'PNG', logoX, logoY, logoWidth, logoHeight);
+    } catch (error) {
+      console.error("Failed to add logo to PDF:", error);
+    }
+  }
+  
+  // Modern divider with shadow effect
+  yPos = 195;
+  doc.setDrawColor(...colors.light);
+  doc.setLineWidth(0.3);
+  doc.line(25, yPos, pageWidth - 25, yPos);
+  doc.setDrawColor(...colors.primary);
+  doc.setLineWidth(1.2);
+  doc.line(25, yPos + 1, pageWidth - 25, yPos + 1);
+  
+  // PREPARED FOR section (if contact is selected - appears second, below company)
   if (contactDetails) {
-    yPos = 145;
+    yPos = 208;
     
     // Light background card for "Prepared For"
     doc.setFillColor(...colors.light);
-    doc.roundedRect(22, 141, pageWidth - 44, 40, 3, 3, 'F');
+    doc.roundedRect(22, yPos - 4, pageWidth - 44, 40, 3, 3, 'F');
     
     doc.setTextColor(...colors.primary);
     doc.setFontSize(11);
@@ -364,7 +429,7 @@ async function generateDefaultCoverPage(
         const contactLogoWidth = 35;
         const contactLogoHeight = 26;
         const contactLogoX = pageWidth - contactLogoWidth - 28;
-        const contactLogoY = 151;
+        const contactLogoY = 215;
         
         doc.addImage(contactLogoDataUrl, 'PNG', contactLogoX, contactLogoY, contactLogoWidth, contactLogoHeight);
       } catch (error) {
@@ -373,73 +438,8 @@ async function generateDefaultCoverPage(
     }
   }
   
-  // Modern divider with shadow effect
-  yPos = contactDetails ? 195 : 185;
-  doc.setDrawColor(...colors.light);
-  doc.setLineWidth(0.3);
-  doc.line(25, yPos, pageWidth - 25, yPos);
-  doc.setDrawColor(...colors.primary);
-  doc.setLineWidth(1.2);
-  doc.line(25, yPos + 1, pageWidth - 25, yPos + 1);
-  
-  // Company details section with modern card-like appearance
-  yPos = contactDetails ? 208 : 198;
-  
-  // Light background card
-  doc.setFillColor(...colors.light);
-  doc.roundedRect(22, yPos - 4, pageWidth - 44, 50, 3, 3, 'F');
-  
-  doc.setTextColor(...colors.primary);
-  doc.setFontSize(11);
-  doc.setFont("helvetica", "bold");
-  doc.text("PREPARED BY:", 28, yPos);
-  
-  yPos += 8;
-  doc.setFontSize(10);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(...colors.text);
-  doc.text(companyDetails.companyName.toUpperCase(), 28, yPos);
-  
-  yPos += 7;
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(...colors.neutral);
-  doc.text("141 Which Hazel ave,", 28, yPos);
-  
-  yPos += 6;
-  doc.text("Highveld Techno Park, Building 1A", 28, yPos);
-  
-  yPos += 6;
-  doc.text(`Tel: ${companyDetails.contactPhone}`, 28, yPos);
-  
-  yPos += 6;
-  doc.text(`Contact: ${companyDetails.contactName}`, 28, yPos);
-  
-  // Add company logo with clean positioning
-  if (companyDetails.logoUrl) {
-    try {
-      const logoResponse = await fetch(companyDetails.logoUrl);
-      const logoBlob = await logoResponse.blob();
-      const logoDataUrl = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.readAsDataURL(logoBlob);
-      });
-      
-      // Position logo on the right side with proper spacing
-      const logoWidth = 35;
-      const logoHeight = 26;
-      const logoX = pageWidth - logoWidth - 28;
-      const logoY = contactDetails ? 215 : 205;
-      
-      doc.addImage(logoDataUrl, 'PNG', logoX, logoY, logoWidth, logoHeight);
-    } catch (error) {
-      console.error("Failed to add logo to PDF:", error);
-    }
-  }
-  
   // Modern divider
-  yPos = contactDetails ? 257 : 247;
+  yPos = contactDetails ? 257 : 195;
   doc.setDrawColor(...colors.light);
   doc.setLineWidth(0.3);
   doc.line(25, yPos, pageWidth - 25, yPos);
@@ -448,7 +448,7 @@ async function generateDefaultCoverPage(
   doc.line(25, yPos + 1, pageWidth - 25, yPos + 1);
   
   // Date and Revision section - simple text labels
-  yPos = contactDetails ? 275 : 265;
+  yPos = contactDetails ? 275 : 213;
   
   // Date label and value
   doc.setFontSize(9);
