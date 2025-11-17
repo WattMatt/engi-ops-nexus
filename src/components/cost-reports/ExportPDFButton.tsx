@@ -983,11 +983,10 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
 
         autoTable(doc, {
           startY: tableY,
-          margin: { left: 15, right: 15 },
+          margin: { left: 20, right: 20 },
           head: [tableData.headers],
           body: tableRows,
           theme: 'striped',
-          tableWidth: 'auto',
           styles: {
             fontSize: 8,
             cellPadding: { top: 3, bottom: 3, left: 3, right: 3 },
@@ -1006,14 +1005,14 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
             cellPadding: { top: 3, bottom: 3, left: 3, right: 3 }
           },
           columnStyles: {
-            0: { cellWidth: 18, halign: 'center' },
-            1: { cellWidth: 75, halign: 'left' },
-            2: { cellWidth: 40, halign: 'right' },
-            3: { cellWidth: 40, halign: 'right' },
-            4: { cellWidth: 40, halign: 'right' },
-            5: { cellWidth: 22, halign: 'center' },
-            6: { cellWidth: 40, halign: 'right' },
-            7: { cellWidth: 40, halign: 'right' }
+            0: { cellWidth: 'auto', halign: 'center' },
+            1: { cellWidth: 'auto', halign: 'left' },
+            2: { cellWidth: 'auto', halign: 'right' },
+            3: { cellWidth: 'auto', halign: 'right' },
+            4: { cellWidth: 'auto', halign: 'right' },
+            5: { cellWidth: 'auto', halign: 'center' },
+            6: { cellWidth: 'auto', halign: 'right' },
+            7: { cellWidth: 'auto', halign: 'right' }
           },
           didParseCell: (data: any) => {
             // Make category rows slightly bold
