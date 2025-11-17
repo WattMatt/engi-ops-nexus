@@ -698,23 +698,23 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         tocSections.push({ title: "Executive Summary", page: doc.getCurrentPageInfo().pageNumber });
         
         // Simple professional header
-        doc.setFontSize(18);
+        doc.setFontSize(16);
         doc.setFont("helvetica", "bold");
         doc.setTextColor(0, 0, 0);
-        doc.text("EXECUTIVE SUMMARY", pageWidth / 2, contentStartY + 5, { align: "center" });
+        doc.text("EXECUTIVE SUMMARY", pageWidth / 2, contentStartY + 3, { align: "center" });
         
-        doc.setFontSize(10);
+        doc.setFontSize(9);
         doc.setFont("helvetica", "normal");
         doc.setTextColor(60, 60, 60);
-        doc.text("Key Performance Indicators & Financial Overview", pageWidth / 2, contentStartY + 12, { align: "center" });
+        doc.text("Key Performance Indicators & Financial Overview", pageWidth / 2, contentStartY + 9, { align: "center" });
 
         // Add a subtle line under the header
         doc.setDrawColor(200, 200, 200);
         doc.setLineWidth(0.5);
-        doc.line(contentStartX, contentStartY + 15, pageWidth - useMargins.right, contentStartY + 15);
+        doc.line(contentStartX, contentStartY + 12, pageWidth - useMargins.right, contentStartY + 12);
 
         doc.setTextColor(...colors.text);
-        let tableY = contentStartY + 25;
+        let tableY = contentStartY + 16;
         
         // Generate table data using shared utility
         const tableData = generateExecutiveSummaryTableData(pdfCategoryTotals, pdfGrandTotals);
@@ -765,14 +765,14 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
             textColor: colors.white, 
             fontStyle: 'bold',
             fontSize: 7,
-            cellPadding: { top: 4, bottom: 4, left: 2, right: 2 },
+            cellPadding: { top: 2, bottom: 2, left: 2, right: 2 },
             halign: 'center',
             valign: 'middle',
-            minCellHeight: 10
+            minCellHeight: 8
           },
           bodyStyles: { 
             fontSize: 7,
-            cellPadding: { top: 3, bottom: 3, left: 2, right: 2 },
+            cellPadding: { top: 2, bottom: 2, left: 2, right: 2 },
             textColor: colors.text,
             valign: 'middle'
           },
@@ -857,10 +857,10 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       doc.addPage();
       tocSections.push({ title: "Category Performance Details", page: doc.getCurrentPageInfo().pageNumber });
       
-      doc.setFontSize(18);
+      doc.setFontSize(16);
       doc.setFont("helvetica", "bold");
       doc.setTextColor(0, 0, 0);
-      doc.text("CATEGORY PERFORMANCE DETAILS", pageWidth / 2, contentStartY + 10, { align: "center" });
+      doc.text("CATEGORY PERFORMANCE DETAILS", pageWidth / 2, contentStartY + 5, { align: "center" });
 
       // Generate category cards programmatically for better performance
       const cardColors = [
@@ -873,7 +873,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         [134, 239, 172]   // Light green
       ];
       
-      let yPos = contentStartY + 25;
+      let yPos = contentStartY + 15;
       const cardWidth = (pageWidth - contentStartX - useMargins.right - 20) / 2;
       const cardHeight = 45;
       const cardPadding = 10;
