@@ -80,7 +80,7 @@ export const DEFAULT_SECTIONS: PDFSectionOptions = {
   executiveSummary: true,
   categoryDetails: true,
   projectInfo: true,
-  costSummary: true,
+  costSummary: false,
   detailedLineItems: true,
   variations: true,
 };
