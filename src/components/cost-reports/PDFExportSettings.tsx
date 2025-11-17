@@ -53,8 +53,8 @@ type MarginPreset = 'normal' | 'narrow' | 'wide' | 'custom';
 
 const MARGIN_PRESETS: Record<Exclude<MarginPreset, 'custom'>, PDFMargins> = {
   normal: {
-    top: 20,
-    bottom: 20,
+    top: 15,
+    bottom: 15,
     left: 20,
     right: 20,
   },
