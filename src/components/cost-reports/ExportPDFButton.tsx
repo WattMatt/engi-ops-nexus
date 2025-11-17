@@ -80,19 +80,22 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
     try {
       console.log('Starting template-based PDF export for report:', report.id);
       
-      // Capture KPI cards as image before generating PDF
-      setCurrentSection("Capturing KPI cards...");
-      let kpiCardsImage: string | null = null;
-      const kpiCardsElement = document.getElementById('cost-report-kpi-cards');
+      // Capture category performance cards as image before generating PDF
+      setCurrentSection("Capturing category performance cards...");
+      let categoryCardsImage: string | null = null;
+      const categoryCardsElement = document.getElementById('cost-report-category-cards');
       
-      if (kpiCardsElement) {
+      if (categoryCardsElement) {
         try {
-          const canvas = await captureElementAsCanvas(kpiCardsElement);
-          kpiCardsImage = canvas.toDataURL('image/png');
+          const canvas = await captureElementAsCanvas(categoryCardsElement);
+          categoryCardsImage = canvas.toDataURL('image/png');
+          console.log('Successfully captured category cards');
         } catch (error) {
-          console.error('Failed to capture KPI cards:', error);
-          // Continue without KPI cards image
+          console.error('Failed to capture category cards:', error);
+          // Continue without category cards image
         }
+      } else {
+        console.warn('Category cards element not found');
       }
       
       // Get default cost report template
@@ -266,30 +269,40 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       
       yPos = (contentDoc as any).lastAutoTable.finalY + 15;
       
-      // ========== CATEGORY KPI CARDS ==========
+      // ========== CATEGORY PERFORMANCE CARDS ==========
       contentDoc.addPage();
       tocSections.push({ title: "Category Performance", page: contentDoc.getCurrentPageInfo().pageNumber });
       yPos = contentStartY;
       yPos = addSectionHeader(contentDoc, "CATEGORY PERFORMANCE", yPos);
       yPos += 5;
       
-      // Add captured KPI cards image if available
-      if (kpiCardsImage) {
+      // Add captured category cards image if available
+      if (categoryCardsImage) {
         try {
           const imgWidth = pageWidth - STANDARD_MARGINS.left - STANDARD_MARGINS.right;
-          const imgHeight = 80; // Fixed height for KPI cards
-          contentDoc.addImage(kpiCardsImage, 'PNG', contentStartX, yPos, imgWidth, imgHeight);
+          // Calculate height to maintain aspect ratio from captured image
+          const tempImg = new Image();
+          tempImg.src = categoryCardsImage;
+          await new Promise((resolve) => {
+            tempImg.onload = resolve;
+          });
+          const aspectRatio = tempImg.height / tempImg.width;
+          const imgHeight = imgWidth * aspectRatio;
+          
+          contentDoc.addImage(categoryCardsImage, 'PNG', contentStartX, yPos, imgWidth, imgHeight);
           yPos += imgHeight + 10;
+          console.log('Category cards added to PDF');
         } catch (error) {
-          console.error('Failed to add KPI cards image:', error);
+          console.error('Failed to add category cards image:', error);
           contentDoc.setFontSize(10);
-          contentDoc.text("Category KPI cards could not be displayed", contentStartX, yPos);
+          contentDoc.text("Category performance cards could not be displayed", contentStartX, yPos);
           yPos += 20;
         }
       } else {
         contentDoc.setFontSize(10);
-        contentDoc.text("Category KPI cards showing performance indicators for each category", contentStartX, yPos);
-        yPos += 20;
+        contentDoc.text("Category performance cards showing individual category details", contentStartX, yPos);
+        contentDoc.text("would be displayed here with visual indicators.", contentStartX, yPos + 7);
+        yPos += 30;
       }
       
       // ========== CATEGORIES AND LINE ITEMS ==========
