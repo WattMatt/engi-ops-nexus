@@ -396,82 +396,83 @@ export const VariationSheetDialog = ({
           </div>
         </DialogHeader>
 
-        {/* Professional Header Section */}
-        <div className="space-y-4 border-b pb-6">
-          <div className="text-center border-b-2 border-foreground pb-2">
-            <h2 className="text-lg font-bold uppercase">
-              WATSON MATTHEUS CONSULTING ELECTRICAL ENGINEERS (PTY) LTD
+        {/* Professional Header Section - Matching Excel Template */}
+        <div className="space-y-6 pb-4">
+          {/* Main Title */}
+          <div className="text-center py-3">
+            <h2 className="text-2xl font-bold uppercase tracking-wide">
+              TENANT ACCOUNT
             </h2>
-            <p className="text-sm text-muted-foreground">CREATED BY: Arno Mattheus</p>
           </div>
 
-          <div className="text-center py-2">
-            <h3 className="text-xl font-bold uppercase">
-              {variation?.description || "TENANT ACCOUNT"}
+          {/* Project and Date Info */}
+          <div className="space-y-3 px-4">
+            <div className="grid grid-cols-2 gap-x-12 text-sm">
+              <div className="flex gap-2">
+                <span className="font-bold uppercase">PROJECT:</span>
+                <span className="flex-1">{costReport?.project_name || ""}</span>
+              </div>
+              <div className="flex gap-2">
+                <span className="font-bold uppercase">DATE:</span>
+                <span className="flex-1">
+                  {costReport?.report_date
+                    ? new Date(costReport.report_date).toLocaleDateString('en-GB', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: '2-digit'
+                      })
+                    : ""}
+                </span>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-x-12 text-sm">
+              <div className="flex gap-2">
+                <span className="font-bold uppercase">VARIATION ORDER NO.:</span>
+                <span className="flex-1">{variation?.code || ""}</span>
+              </div>
+              <div className="flex gap-2">
+                <span className="font-bold uppercase">REVISION:</span>
+                <span className="flex-1">0</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Tenant/Shop Title */}
+          <div className="text-center py-4 bg-muted/20">
+            <h3 className="text-lg font-bold uppercase tracking-wide">
+              {variation?.tenants 
+                ? `${variation.tenants.shop_name}` 
+                : variation?.description || ""}
             </h3>
           </div>
-
-          <div className="grid grid-cols-2 gap-x-8 gap-y-2 text-sm">
-            <div>
-              <span className="font-bold">PROJECT: </span>
-              <span>{costReport?.project_name}</span>
-            </div>
-            <div>
-              <span className="font-bold">DATE: </span>
-              <span>
-                {costReport?.report_date
-                  ? new Date(costReport.report_date).toLocaleDateString('en-GB', {
-                      day: '2-digit',
-                      month: 'short',
-                      year: '2-digit'
-                    })
-                  : ""}
-              </span>
-            </div>
-            <div>
-              <span className="font-bold">VARIATION ORDER NO.: </span>
-              <span>{variation?.code}</span>
-            </div>
-            <div>
-              <span className="font-bold">REVISION: </span>
-              <span>0</span>
-            </div>
-          </div>
-
-          {variation?.tenants && (
-            <div className="text-center py-1">
-              <h4 className="text-base font-bold uppercase">
-                {variation.tenants.shop_number} - {variation.tenants.shop_name}
-              </h4>
-            </div>
-          )}
         </div>
 
         {/* Line Items Table */}
-        <div className="space-y-4">
+        <div className="space-y-4 px-2">
           <div className="overflow-x-auto">
-            <table className="w-full border-collapse border border-border">
+            <table className="w-full border-collapse border-2 border-border">
               <thead>
-                <tr className="bg-muted/50">
-                  <th className="border border-border p-2 text-left font-bold text-sm w-12">NO</th>
-                  <th className="border border-border p-2 text-left font-bold text-sm">DESCRIPTION</th>
-                  <th className="border border-border p-2 text-left font-bold text-sm">COMMENTS/ DETAIL</th>
-                  <th className="border border-border p-2 text-right font-bold text-sm w-24">QTY:</th>
-                  <th className="border border-border p-2 text-right font-bold text-sm w-32">RATE:</th>
-                  <th className="border border-border p-2 text-right font-bold text-sm w-40">AMOUNT:</th>
-                  <th className="border border-border p-2 w-12"></th>
+                <tr className="bg-muted">
+                  <th className="border border-border p-3 text-left font-bold text-xs uppercase w-16">NO</th>
+                  <th className="border border-border p-3 text-left font-bold text-xs uppercase min-w-[250px]">DESCRIPTION</th>
+                  <th className="border border-border p-3 text-left font-bold text-xs uppercase min-w-[200px]">COMMENTS/ DETAIL</th>
+                  <th className="border border-border p-3 text-right font-bold text-xs uppercase w-24">QTY:</th>
+                  <th className="border border-border p-3 text-right font-bold text-xs uppercase w-32">RATE:</th>
+                  <th className="border border-border p-3 text-right font-bold text-xs uppercase w-40">AMOUNT:</th>
+                  <th className="border border-border p-3 w-12"></th>
                 </tr>
               </thead>
               <tbody>
                 {lineItems.map((item, index) => (
-                  <tr key={index} className="hover:bg-muted/30">
-                    <td className="border border-border p-2 text-center font-medium">{item.line_number}</td>
+                  <tr key={index} className="hover:bg-muted/20">
+                    <td className="border border-border p-3 text-center font-semibold">{item.line_number}</td>
                     <td className="border border-border p-2">
                       <Input
                         value={item.description}
                         onChange={(e) => updateLineItem(index, "description", e.target.value)}
                         placeholder="Description"
-                        className="h-9 border-0 focus-visible:ring-0 bg-transparent"
+                        className="h-10 border-0 focus-visible:ring-0 bg-transparent text-sm"
                       />
                     </td>
                     <td className="border border-border p-2">
@@ -479,15 +480,16 @@ export const VariationSheetDialog = ({
                         value={item.comments}
                         onChange={(e) => updateLineItem(index, "comments", e.target.value)}
                         placeholder="Comments"
-                        className="h-9 border-0 focus-visible:ring-0 bg-transparent"
+                        className="h-10 border-0 focus-visible:ring-0 bg-transparent text-sm"
                       />
                     </td>
                     <td className="border border-border p-2">
                       <Input
                         type="number"
+                        step="1"
                         value={item.quantity}
                         onChange={(e) => updateLineItem(index, "quantity", e.target.value)}
-                        className="h-9 text-right border-0 focus-visible:ring-0 bg-transparent"
+                        className="h-10 text-right border-0 focus-visible:ring-0 bg-transparent text-sm font-medium"
                       />
                     </td>
                     <td className="border border-border p-2">
@@ -496,10 +498,10 @@ export const VariationSheetDialog = ({
                         step="0.01"
                         value={item.rate}
                         onChange={(e) => updateLineItem(index, "rate", e.target.value)}
-                        className="h-9 text-right border-0 focus-visible:ring-0 bg-transparent"
+                        className="h-10 text-right border-0 focus-visible:ring-0 bg-transparent text-sm font-medium"
                       />
                     </td>
-                    <td className="border border-border p-2 text-right font-medium">
+                    <td className="border border-border p-3 text-right font-semibold text-sm">
                       R{item.amount.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                     </td>
                     <td className="border border-border p-2 text-center">
@@ -525,13 +527,13 @@ export const VariationSheetDialog = ({
           </Button>
         </div>
 
-        {/* Total Section */}
-        <div className="flex justify-end pt-4 border-t-2 border-foreground">
-          <div className="text-right space-y-1">
-            <div className="text-sm font-bold uppercase">
-              Total Additional Works Exclusive of VAT
+        {/* Total Section - Matching Excel Footer */}
+        <div className="flex justify-end pt-8 pb-2 px-2">
+          <div className="flex items-center gap-8 border-t-2 border-foreground pt-4">
+            <div className="text-sm font-bold uppercase tracking-wide">
+              TOTAL ADDITIONAL WORKS EXCLUSIVE OF VAT
             </div>
-            <div className="text-2xl font-bold">
+            <div className="text-xl font-bold min-w-[150px] text-right">
               R{displayTotal.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </div>
           </div>
