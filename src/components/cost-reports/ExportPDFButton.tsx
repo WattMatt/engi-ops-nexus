@@ -514,12 +514,8 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       // Sort categories alphabetically by code for consistent ordering
       const sortedCategories = [...categories].sort((a, b) => a.code.localeCompare(b.code));
       
-      // Sort variations by extracting numeric part from code (e.g., VO-001, VO-002)
-      const sortedVariations = [...variations].sort((a, b) => {
-        const aNum = parseInt(a.code.replace(/\D/g, ''), 10) || 0;
-        const bNum = parseInt(b.code.replace(/\D/g, ''), 10) || 0;
-        return aNum - bNum;
-      });
+      // Keep variations in display_order as fetched from database (already ordered by display_order)
+      const sortedVariations = variations;
       
       // Calculate totals using shared utility and sort alphabetically
       const pdfCategoryTotals = calculateCategoryTotals(sortedCategories, allLineItems, sortedVariations)
