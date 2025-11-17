@@ -1044,15 +1044,20 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       // ========== COST SUMMARY PAGE ==========
       if (useSections.costSummary) {
       doc.addPage();
-      tocSections.push({ title: "Cost Summary", page: doc.getCurrentPageInfo().pageNumber });
+      const costSummaryPage = doc.getCurrentPageInfo().pageNumber;
+      tocSections.push({ title: "Cost Summary", page: costSummaryPage });
       
-      doc.setFontSize(18);
-      doc.setFont("helvetica", "bold");
-      doc.text("EXECUTIVE SUMMARY", contentStartX, contentStartY + 10);
+      // Initialize page content array
+      if (!pageContentMap[costSummaryPage]) pageContentMap[costSummaryPage] = [];
+      
+      let yPos = contentStartY;
+      yPos = addSectionHeader(doc, "COST SUMMARY", yPos);
+      yPos += 10;
+      pageContentMap[costSummaryPage].push("COST SUMMARY");
 
       // Summary table
       autoTable(doc, {
-        startY: contentStartY + 20,
+        startY: yPos,
         margin: { left: contentStartX, right: useMargins.right },
         head: [['Metric', 'Value']],
         body: [
