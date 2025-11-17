@@ -752,7 +752,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           theme: 'striped',
           tableWidth: 'auto',
           styles: {
-            fontSize: 7,
+            fontSize: 8,
             cellPadding: { top: 3, bottom: 3, left: 2, right: 2 },
             overflow: 'linebreak',
             halign: 'left',
@@ -764,14 +764,14 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
             fillColor: colors.primary, 
             textColor: colors.white, 
             fontStyle: 'bold',
-            fontSize: 7,
+            fontSize: 8,
             cellPadding: { top: 2, bottom: 2, left: 2, right: 2 },
             halign: 'center',
             valign: 'middle',
             minCellHeight: 8
           },
           bodyStyles: { 
-            fontSize: 7,
+            fontSize: 8,
             cellPadding: { top: 2, bottom: 2, left: 2, right: 2 },
             textColor: colors.text,
             valign: 'middle'
@@ -780,14 +780,14 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
             fillColor: [245, 247, 250]
           },
           columnStyles: {
-            0: { cellWidth: 9, fontStyle: 'bold', halign: 'center' },
-            1: { cellWidth: 28, halign: 'left' },
-            2: { cellWidth: 27, halign: 'right' },
-            3: { cellWidth: 27, halign: 'right' },
-            4: { cellWidth: 27, halign: 'right' },
-            5: { cellWidth: 11, halign: 'center' },
-            6: { cellWidth: 27, halign: 'right' },
-            7: { cellWidth: 27, halign: 'right' }
+            0: { cellWidth: 10, fontStyle: 'bold', halign: 'center' },
+            1: { cellWidth: 30, halign: 'left' },
+            2: { cellWidth: 26, halign: 'right' },
+            3: { cellWidth: 26, halign: 'right' },
+            4: { cellWidth: 26, halign: 'right' },
+            5: { cellWidth: 14, halign: 'center' },
+            6: { cellWidth: 26, halign: 'right' },
+            7: { cellWidth: 26, halign: 'right' }
           },
           didDrawCell: (data) => {
             // Set header alignment properly
