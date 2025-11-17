@@ -1303,22 +1303,6 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           // Professional header matching Excel template
           let yPos = contentStartY;
           
-          // Company header with border
-          doc.setDrawColor(0, 0, 0);
-          doc.setLineWidth(0.5);
-          doc.line(contentStartX, yPos + 10, contentStartX + contentWidth, yPos + 10);
-          
-          doc.setFontSize(10);
-          doc.setFont("helvetica", "bold");
-          doc.setTextColor(0, 0, 0);
-          doc.text("WATSON MATTHEUS CONSULTING ELECTRICAL ENGINEERS (PTY) LTD", contentStartX + contentWidth / 2, yPos + 5, { align: "center" });
-          
-          doc.setFontSize(8);
-          doc.setFont("helvetica", "normal");
-          doc.text("CREATED BY: Arno Mattheus", contentStartX + contentWidth / 2, yPos + 15, { align: "center" });
-          
-          yPos += 25;
-          
           // Title
           doc.setFontSize(14);
           doc.setFont("helvetica", "bold");
