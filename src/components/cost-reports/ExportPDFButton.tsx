@@ -512,6 +512,33 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
 
     // Otherwise use legacy direct PDF generation
     setLoading(true);
+    setCurrentSection("Capturing category cards...");
+    
+    // Capture category performance cards as image before generating PDF
+    let categoryCardsImage: string | null = null;
+    const categoryCardsElement = document.getElementById('cost-report-category-cards');
+    
+    if (categoryCardsElement) {
+      try {
+        console.log('Category cards element found, capturing...');
+        const canvas = await captureElementAsCanvas(categoryCardsElement);
+        categoryCardsImage = canvas.toDataURL('image/png');
+        console.log('Successfully captured category cards');
+      } catch (error) {
+        console.error('Failed to capture category cards:', error);
+        toast({
+          title: "Warning",
+          description: "Could not capture category cards. Using table instead.",
+        });
+      }
+    } else {
+      console.warn('Category cards element not found - make sure you are on the Overview tab');
+      toast({
+        title: "Notice",
+        description: "For best results, please view the Overview tab before exporting.",
+      });
+    }
+    
     setCurrentSection("Fetching data...");
     
     // Initialize page content map to track what goes on each page
@@ -914,29 +941,52 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       doc.setTextColor(0, 0, 0);
       doc.text("CATEGORY PERFORMANCE DETAILS", pageWidth / 2, contentStartY + 10, { align: "center" });
 
-      autoTable(doc, {
-        startY: contentStartY + 20,
-        margin: { left: contentStartX, right: useMargins.right },
-        head: [['Code', 'Category', 'Original Budget', 'Anticipated Final', 'Variance', 'Status']],
-        body: categoryTotals.map((cat: any) => [
-          cat.code,
-          cat.description,
-          `R ${cat.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-          `R ${cat.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-          `${cat.originalVariance >= 0 ? '+' : ''}R ${Math.abs(cat.originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-          cat.originalVariance < 0 ? 'Saving' : 'Extra'
-        ]),
-        theme: 'grid',
-        styles: { fontSize: 9, cellPadding: 3, overflow: 'linebreak', valign: 'middle' },
-        headStyles: { 
-          fillColor: [30, 58, 138], 
-          textColor: [255, 255, 255], 
-          fontStyle: 'bold',
-          overflow: 'linebreak',
-          valign: 'middle',
-          halign: 'center'
+      // Use captured category cards image if available, otherwise fall back to table
+      if (categoryCardsImage) {
+        try {
+          const imgWidth = pageWidth - contentStartX - useMargins.right;
+          const tempImg = new Image();
+          tempImg.src = categoryCardsImage;
+          await new Promise((resolve) => {
+            tempImg.onload = resolve;
+          });
+          const aspectRatio = tempImg.height / tempImg.width;
+          const imgHeight = imgWidth * aspectRatio;
+          
+          doc.addImage(categoryCardsImage, 'PNG', contentStartX, contentStartY + 20, imgWidth, imgHeight);
+          console.log('Category cards image added to PDF');
+          trackPageContent(doc, 'Category Performance Cards');
+        } catch (error) {
+          console.error('Failed to add category cards image:', error);
+          doc.setFontSize(10);
+          doc.text("Category performance cards could not be displayed", contentStartX, contentStartY + 25);
         }
-      });
+      } else {
+        // Fallback to table if image not captured
+        autoTable(doc, {
+          startY: contentStartY + 20,
+          margin: { left: contentStartX, right: useMargins.right },
+          head: [['Code', 'Category', 'Original Budget', 'Anticipated Final', 'Variance', 'Status']],
+          body: categoryTotals.map((cat: any) => [
+            cat.code,
+            cat.description,
+            `R ${cat.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+            `R ${cat.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+            `${cat.originalVariance >= 0 ? '+' : ''}R ${Math.abs(cat.originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+            cat.originalVariance < 0 ? 'Saving' : 'Extra'
+          ]),
+          theme: 'grid',
+          styles: { fontSize: 9, cellPadding: 3, overflow: 'linebreak', valign: 'middle' },
+          headStyles: { 
+            fillColor: [30, 58, 138], 
+            textColor: [255, 255, 255], 
+            fontStyle: 'bold',
+            overflow: 'linebreak',
+            valign: 'middle',
+            halign: 'center'
+          }
+        });
+      }
       }
 
       setCurrentSection("Adding project information...");
