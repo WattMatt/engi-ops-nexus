@@ -180,7 +180,7 @@ export const StandardReportPreview = ({
                   <div key={`page_${index + 1}`} className="mb-4">
                     <Page
                       pageNumber={index + 1}
-                      renderTextLayer={true}
+                      renderTextLayer={false}
                       renderAnnotationLayer={false}
                       width={793.7}
                       className="shadow-lg bg-white"
