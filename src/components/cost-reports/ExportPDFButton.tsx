@@ -1040,106 +1040,6 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       });
       }
 
-      setCurrentSection("Creating cost summary...");
-      // ========== COST SUMMARY PAGE ==========
-      if (useSections.costSummary) {
-      doc.addPage();
-      const costSummaryPage = doc.getCurrentPageInfo().pageNumber;
-      tocSections.push({ title: "Cost Summary", page: costSummaryPage });
-      
-      // Initialize page content array
-      if (!pageContentMap[costSummaryPage]) pageContentMap[costSummaryPage] = [];
-      
-      let yPos = contentStartY;
-      yPos = addSectionHeader(doc, "COST SUMMARY", yPos);
-      yPos += 10;
-      pageContentMap[costSummaryPage].push("COST SUMMARY");
-
-      // Summary table
-      autoTable(doc, {
-        startY: yPos,
-        margin: { left: contentStartX, right: useMargins.right },
-        head: [['Metric', 'Value']],
-        body: [
-          ['Original Budget', `R ${totalOriginalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`],
-          ['Previous Report', `R ${totalPreviousReport.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`],
-          ['Anticipated Final', `R ${totalAnticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`],
-          ['Current Variance', `R ${Math.abs(currentVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })} (${currentVariancePercentage.toFixed(2)}%)`],
-          ['Original Variance', `R ${Math.abs(originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })} (${originalVariancePercentage.toFixed(2)}%)`]
-        ],
-        theme: 'grid',
-        styles: { 
-          fontSize: 10, 
-          cellPadding: 5, 
-          overflow: 'linebreak', 
-          valign: 'middle',
-          lineColor: [200, 200, 200],
-          lineWidth: 0.1
-        },
-        headStyles: { 
-          fillColor: [30, 58, 138], 
-          textColor: [255, 255, 255], 
-          fontStyle: 'bold',
-          overflow: 'linebreak',
-          valign: 'middle',
-          halign: 'left'
-        },
-        columnStyles: {
-          0: { cellWidth: 70, halign: 'left' },
-          1: { cellWidth: 'auto', halign: 'right' }
-        },
-        didParseCell: function(data) {
-          // Ensure text is rendered as single strings
-          data.cell.styles.cellPadding = 5;
-        }
-      });
-
-      // Category breakdown table
-      const lastY = (doc as any).lastAutoTable.finalY + 15;
-      doc.setFontSize(14);
-      doc.setFont("helvetica", "bold");
-      doc.text("CATEGORY BREAKDOWN", contentStartX, lastY);
-
-      autoTable(doc, {
-        startY: lastY + 5,
-        margin: { left: contentStartX, right: useMargins.right },
-        head: [['Code', 'Category', 'Original Budget', 'Previous Report', 'Anticipated Final', 'Current Variance', 'Original Variance']],
-        body: categoryTotals.map((cat: any) => [
-          cat.code,
-          cat.description,
-          `R ${cat.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-          `R ${cat.previousReport.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-          `R ${cat.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-          `${cat.currentVariance >= 0 ? '+' : ''}R ${Math.abs(cat.currentVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
-          `${cat.originalVariance >= 0 ? '+' : ''}R ${Math.abs(cat.originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`
-        ]),
-        theme: 'grid',
-        styles: { 
-          fontSize: 8, 
-          cellPadding: 4,
-          valign: 'middle',
-          overflow: 'linebreak'
-        },
-        headStyles: { 
-          fillColor: [30, 58, 138], 
-          textColor: [255, 255, 255], 
-          fontStyle: 'bold', 
-          fontSize: 8,
-          halign: 'center',
-          valign: 'middle',
-          overflow: 'linebreak'
-        },
-        columnStyles: {
-          0: { cellWidth: 10, halign: 'center' },
-          1: { cellWidth: 38, halign: 'left' },
-          2: { halign: 'right', cellWidth: 22 },
-          3: { halign: 'right', cellWidth: 22 },
-          4: { halign: 'right', cellWidth: 22 },
-          5: { halign: 'right', cellWidth: 22 },
-          6: { halign: 'right', cellWidth: 22 }
-        }
-      });
-
       // ========== DETAILED LINE ITEMS PAGES ==========
       categories.forEach((category: any, index: number) => {
         setCurrentSection(`Adding detailed line items (${index + 1}/${categories.length})...`);
@@ -1282,7 +1182,6 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           });
         }
       });
-      }
 
       // ========== VARIATIONS PAGE ==========
       if (useSections.variations && variations.length > 0) {
