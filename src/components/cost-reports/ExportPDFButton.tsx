@@ -1111,6 +1111,11 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
 
       // ========== DETAILED LINE ITEMS PAGES ==========
       sortedCategories.forEach((category: any, index: number) => {
+        // Skip VARIATIONS category as it will be handled in the dedicated variations section
+        if (category.code === 'G' || category.description.toUpperCase().includes('VARIATION')) {
+          return;
+        }
+        
         setCurrentSection(`Adding detailed line items (${index + 1}/${sortedCategories.length})...`);
         const lineItems = category.cost_line_items || [];
 
@@ -1254,8 +1259,75 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         }
       });
 
-      // ========== VARIATIONS PAGE ==========
-      if (useSections.variations && sortedVariations.length > 0) {
+      // ========== VARIATIONS PAGE - REMOVED ==========
+      // This section was removed as variations are now shown in:
+      // 1. Detailed Line Items - VARIATIONS page (created below)
+      // 2. Individual Variation Order Sheets
+      
+      // Instead, create a proper Detailed Line Items - VARIATIONS page
+      if (sortedVariations.length > 0) {
+        setCurrentSection("Adding variations detailed page...");
+        doc.addPage();
+        tocSections.push({ title: "Detailed Line Items - VARIATIONS", page: doc.getCurrentPageInfo().pageNumber });
+        
+        // Find variations totals
+        const varTotals = categoryTotals.find((ct: any) => ct.code === 'G');
+        let summaryY = contentStartY + 5;
+        
+        if (varTotals) {
+          // Create table with variations header and individual variations
+          const tableBody = sortedVariations.map((v: any) => [
+            v.code,
+            v.description,
+            'R0.00', // Original budget is always 0 for variations
+            'R0.00', // Previous report
+            `R${Math.abs(v.amount).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            `${v.is_credit ? '-' : '+'}R${Math.abs(v.amount).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            `${v.is_credit ? '-' : '+'}R${Math.abs(v.amount).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+          ]);
+          
+          autoTable(doc, {
+            startY: summaryY,
+            margin: { left: contentStartX, right: useMargins.right },
+            head: [
+              // Category summary row (cyan)
+              [
+                'G',
+                'VARIATIONS',
+                `R${varTotals.originalBudget.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+                `R${varTotals.previousReport.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+                `R${varTotals.anticipatedFinal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+                `${varTotals.currentVariance >= 0 ? '+' : ''}R${Math.abs(varTotals.currentVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`,
+                `${varTotals.originalVariance >= 0 ? '+' : ''}R${Math.abs(varTotals.originalVariance).toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`
+              ],
+              // Column headers row (blue)
+              ['Code', 'Description', 'Original\nBudget', 'Previous\nReport', 'Anticipated\nFinal', 'Current\nVariance', 'Original\nVariance']
+            ],
+            body: tableBody,
+            theme: 'striped',
+            styles: { 
+              fontSize: 7, 
+              cellPadding: { top: 3, bottom: 3, left: 2, right: 2 },
+              valign: 'middle',
+              minCellHeight: 8,
+              overflow: 'linebreak',
+              lineColor: [220, 220, 220],
+              lineWidth: 0.1
+            },
+            headStyles: { 
+              fillColor: [41, 128, 185], 
+              textColor: [255, 255, 255], 
+              fontStyle: 'bold',
+              fontSize: 8,
+              overflow: 'linebreak',
+              valign: 'middle'
+            }
+          });
+        }
+      }
+
+      // Skip the old variations summary page entirely
+      if (false && useSections.variations && sortedVariations.length > 0) {
         setCurrentSection("Adding variations...");
         doc.addPage();
         tocSections.push({ title: "Variations", page: doc.getCurrentPageInfo().pageNumber });
@@ -1324,7 +1396,11 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           }
         });
         
-        // ========== INDIVIDUAL VARIATION DETAIL SHEETS ==========
+        // Close the disabled old variations summary page block
+      }
+      
+      // ========== INDIVIDUAL VARIATION DETAIL SHEETS ==========
+      if (useSections.variations && sortedVariations.length > 0) {
         const variationSheetsStartPage = doc.getCurrentPageInfo().pageNumber + 1;
         
         // Fetch line items for all variations
