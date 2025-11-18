@@ -154,6 +154,7 @@ const distanceToLineSegment = (point: Point, segStart: Point, segEnd: Point): nu
 /**
  * Finds the best snap point for a walkway to PV array corners and edges.
  * Offsets the walkway by its width plus clearance to accommodate the panels.
+ * For areas away from panels, aligns with roof mask edges.
  * @returns An object with the snapped position and guide lines, or null.
  */
 export const findWalkwaySnap = (
@@ -172,6 +173,7 @@ export const findWalkwaySnap = (
     // Offset by full walkway width + clearance so the entire walkway is clear of panels
     const OFFSET_DISTANCE = (WALKWAY_WIDTH + CLEARANCE) / scaleInfo.ratio; // Convert to pixels
     
+    // First priority: Snap to panel edges/corners with offset
     for (const array of existingArrays) {
         const corners = getPVArrayCorners(array, pvPanelConfig, roofMasks, scaleInfo);
         const centerX = corners.reduce((sum, c) => sum + c.x, 0) / corners.length;
@@ -249,6 +251,40 @@ export const findWalkwaySnap = (
                             { start: mousePos, end: snappedPosition },
                             { start: projPoint, end: snappedPosition }
                         ]
+                    };
+                }
+            }
+        }
+    }
+    
+    // Second priority: Snap to roof mask edges (no offset needed - just align)
+    const ROOF_SNAP_THRESHOLD = 30 / zoom; // Slightly larger threshold for roof edges
+    for (const roofMask of roofMasks) {
+        for (let i = 0; i < roofMask.points.length; i++) {
+            const p1 = roofMask.points[i];
+            const p2 = roofMask.points[(i + 1) % roofMask.points.length];
+            
+            const edgeVec = { x: p2.x - p1.x, y: p2.y - p1.y };
+            const edgeLen = Math.sqrt(edgeVec.x * edgeVec.x + edgeVec.y * edgeVec.y);
+            
+            if (edgeLen === 0) continue;
+            
+            const edgeUnit = { x: edgeVec.x / edgeLen, y: edgeVec.y / edgeLen };
+            const toMouse = { x: mousePos.x - p1.x, y: mousePos.y - p1.y };
+            const projLen = toMouse.x * edgeUnit.x + toMouse.y * edgeUnit.y;
+            
+            if (projLen >= 0 && projLen <= edgeLen) {
+                const projPoint = {
+                    x: p1.x + edgeUnit.x * projLen,
+                    y: p1.y + edgeUnit.y * projLen
+                };
+                
+                const dist = distance(mousePos, projPoint);
+                
+                if (dist < ROOF_SNAP_THRESHOLD) {
+                    return {
+                        snappedPosition: projPoint,
+                        snapLines: [{ start: mousePos, end: projPoint }]
                     };
                 }
             }
