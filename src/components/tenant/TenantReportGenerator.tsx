@@ -71,26 +71,26 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
     doc.setFont("helvetica", "italic");
     doc.text("Note: Documents are organized by tenant in the appendix section", pageWidth / 2, 8, { align: 'center' });
     
-    // Layout configuration based on mode
+    // Layout configuration based on mode - reduced scale to fit on page
     const isCompact = options.kpiLayout === 'compact';
     const fontSize = {
-      title: isCompact ? 20 : 24,
-      cardLabel: isCompact ? 8 : 9,
-      cardValue: isCompact ? 18 : 22,
-      cardValueSmall: isCompact ? 14 : 16,
-      cardValueLarge: isCompact ? 12 : 14,
-      sectionTitle: isCompact ? 10 : 12,
-      legendText: isCompact ? 8 : 9,
-      progressLabel: isCompact ? 7 : 8,
-      progressPercent: isCompact ? 7 : 8,
+      title: isCompact ? 16 : 18,
+      cardLabel: isCompact ? 7 : 8,
+      cardValue: isCompact ? 14 : 16,
+      cardValueSmall: isCompact ? 11 : 13,
+      cardValueLarge: isCompact ? 10 : 11,
+      sectionTitle: isCompact ? 9 : 10,
+      legendText: isCompact ? 7 : 8,
+      progressLabel: isCompact ? 6 : 7,
+      progressPercent: isCompact ? 6 : 7,
     };
     const spacing = {
-      headerHeight: isCompact ? 30 : 40,
-      cardHeight: isCompact ? 25 : 32,
-      cardSpacing: isCompact ? 8 : 12,
-      sectionSpacing: isCompact ? 12 : 18,
-      chartRadius: isCompact ? 16 : 22,
-      progressRow: isCompact ? 14 : 18,
+      headerHeight: isCompact ? 22 : 28,
+      cardHeight: isCompact ? 20 : 24,
+      cardSpacing: isCompact ? 6 : 8,
+      sectionSpacing: isCompact ? 8 : 12,
+      chartRadius: isCompact ? 14 : 18,
+      progressRow: isCompact ? 10 : 12,
     };
 
     // Color theme configuration
