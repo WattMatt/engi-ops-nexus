@@ -47,6 +47,7 @@ export const EditCableEntryDialog = ({
   const [loading, setLoading] = useState(false);
   const [tenants, setTenants] = useState<any[]>([]);
   const [warning, setWarning] = useState<string>("");
+  const [manualOverride, setManualOverride] = useState(false);
   
   // Store the recommended cable configuration from calculation
   const calculationRef = useRef<{ 
@@ -158,8 +159,14 @@ export const EditCableEntryDialog = ({
     }));
   }, [formData.extra_length, formData.measured_length]);
 
-  // Auto-calculate cable sizing based on load, voltage, and length
+  // Auto-calculate cable sizing based on load, voltage, and length (only if not manually overridden)
   useEffect(() => {
+    // Skip auto-calculation if user has manually set cable size
+    if (manualOverride) {
+      console.log("Manual override active, skipping auto-calculation");
+      return;
+    }
+
     const loadAmps = parseFloat(formData.load_amps);
     const voltage = parseFloat(formData.voltage);
     const totalLength = parseFloat(formData.total_length);
@@ -229,7 +236,54 @@ export const EditCableEntryDialog = ({
         }
       }
     }
-  }, [formData.load_amps, formData.voltage, formData.total_length, formData.cable_type, formData.installation_method, formData.quantity]);
+  }, [formData.load_amps, formData.voltage, formData.total_length, formData.cable_type, formData.installation_method, formData.quantity, manualOverride]);
+
+  // Calculate volt drop and costs based on manual cable size selection
+  useEffect(() => {
+    if (!manualOverride || !formData.cable_size) return;
+
+    const loadAmps = parseFloat(formData.load_amps);
+    const voltage = parseFloat(formData.voltage);
+    const totalLength = parseFloat(formData.total_length);
+    const quantity = parseInt(formData.quantity) || 1;
+
+    if (!loadAmps || !voltage || !totalLength) return;
+
+    const material = formData.cable_type?.toLowerCase() === "copper" ? "copper" : "aluminium";
+    const cableTable = material === "copper" ? 
+      require("@/utils/cableSizing").COPPER_CABLE_TABLE : 
+      require("@/utils/cableSizing").ALUMINIUM_CABLE_TABLE;
+
+    const selectedCable = cableTable.find((c: any) => c.size === formData.cable_size);
+    if (!selectedCable) return;
+
+    // Calculate per-cable load and volt drop
+    const loadPerCable = loadAmps / quantity;
+    const voltDrop3Phase = selectedCable.voltDrop3Phase;
+    const voltDrop = (loadPerCable * totalLength * voltDrop3Phase) / 1000;
+
+    setFormData(prev => ({
+      ...prev,
+      ohm_per_km: selectedCable.impedance.toString(),
+      volt_drop: voltDrop.toString(),
+      supply_cost: (selectedCable.supplyCost * totalLength * quantity).toString(),
+      install_cost: (selectedCable.installCost * totalLength * quantity).toString(),
+    }));
+
+    // Set warning if cable is undersized
+    const installationMethod = formData.installation_method as 'air' | 'ducts' | 'ground';
+    const cableRating = installationMethod === 'air' ? selectedCable.currentRatingAir :
+                        installationMethod === 'ground' ? selectedCable.currentRatingGround :
+                        selectedCable.currentRatingDucts;
+    
+    if (loadPerCable > cableRating) {
+      setWarning(`⚠️ UNDERSIZED! ${formData.cable_size} rated ${cableRating}A but carrying ${loadPerCable.toFixed(1)}A`);
+    } else if (loadPerCable > cableRating * 0.85) {
+      setWarning(`⚠️ High utilization: ${((loadPerCable / cableRating) * 100).toFixed(0)}% of cable rating`);
+    } else {
+      setWarning("");
+    }
+  }, [formData.cable_size, formData.load_amps, formData.voltage, formData.total_length, formData.quantity, formData.cable_type, formData.installation_method, manualOverride]);
 
   // Auto-calculate total_cost
   useEffect(() => {
@@ -575,10 +629,33 @@ export const EditCableEntryDialog = ({
                   </div>
                 )}
                 <div className="space-y-3">
-                  <div className="p-3 bg-background rounded-lg border">
-                    <div className="text-xs text-muted-foreground mb-1">Cable Size</div>
-                    <div className="text-2xl font-bold text-primary font-mono">
-                      {formData.cable_size || "-"}
+                  <div className="space-y-2">
+                    <Label htmlFor="cable_size_input" className="flex items-center gap-2">
+                      Cable Size
+                      {manualOverride && <Badge variant="secondary" className="text-[10px]">Manual</Badge>}
+                      {!manualOverride && calculationRef.current && <Badge variant="secondary" className="text-[10px]">Auto</Badge>}
+                    </Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="cable_size_input"
+                        value={formData.cable_size}
+                        onChange={(e) => {
+                          setManualOverride(true);
+                          setFormData({ ...formData, cable_size: e.target.value });
+                        }}
+                        placeholder="e.g., 185mm²"
+                        className="font-mono font-bold text-lg"
+                      />
+                      {manualOverride && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setManualOverride(false)}
+                          title="Use auto-calculation"
+                        >
+                          Auto
+                        </Button>
+                      )}
                     </div>
                   </div>
 
