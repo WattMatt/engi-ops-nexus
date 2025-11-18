@@ -153,6 +153,7 @@ const distanceToLineSegment = (point: Point, segStart: Point, segEnd: Point): nu
 
 /**
  * Finds the best snap point for a walkway to PV array corners and edges.
+ * Offsets the walkway by its width plus clearance to accommodate the panels.
  * @returns An object with the snapped position and guide lines, or null.
  */
 export const findWalkwaySnap = (
@@ -166,23 +167,46 @@ export const findWalkwaySnap = (
     if (!scaleInfo.ratio || !pvPanelConfig) return null;
     
     const SNAP_THRESHOLD = 20 / zoom;
+    const WALKWAY_WIDTH = 0.55; // 550mm in meters
+    const CLEARANCE = 0.1; // 100mm clearance
+    const OFFSET_DISTANCE = (WALKWAY_WIDTH / 2 + CLEARANCE) / scaleInfo.ratio; // Convert to pixels
     
     for (const array of existingArrays) {
         const corners = getPVArrayCorners(array, pvPanelConfig, roofMasks, scaleInfo);
+        const centerX = corners.reduce((sum, c) => sum + c.x, 0) / corners.length;
+        const centerY = corners.reduce((sum, c) => sum + c.y, 0) / corners.length;
         
-        // Check snapping to corners
+        // Check snapping to corners with offset away from panel center
         for (const corner of corners) {
             const dist = distance(mousePos, corner);
             
             if (dist < SNAP_THRESHOLD) {
-                return {
-                    snappedPosition: corner,
-                    snapLines: [{ start: mousePos, end: corner }]
-                };
+                // Calculate direction away from panel center
+                const dx = corner.x - centerX;
+                const dy = corner.y - centerY;
+                const len = Math.sqrt(dx * dx + dy * dy);
+                
+                if (len > 0) {
+                    const offsetX = (dx / len) * OFFSET_DISTANCE;
+                    const offsetY = (dy / len) * OFFSET_DISTANCE;
+                    
+                    const snappedPosition = {
+                        x: corner.x + offsetX,
+                        y: corner.y + offsetY
+                    };
+                    
+                    return {
+                        snappedPosition,
+                        snapLines: [
+                            { start: mousePos, end: snappedPosition },
+                            { start: corner, end: snappedPosition }
+                        ]
+                    };
+                }
             }
         }
         
-        // Check snapping to edges
+        // Check snapping to edges with perpendicular offset
         for (let i = 0; i < corners.length; i++) {
             const c1 = corners[i];
             const c2 = corners[(i + 1) % corners.length];
@@ -205,9 +229,25 @@ export const findWalkwaySnap = (
                 const dist = distance(mousePos, projPoint);
                 
                 if (dist < SNAP_THRESHOLD) {
+                    // Calculate perpendicular offset away from panel
+                    const perpX = -edgeUnit.y;
+                    const perpY = edgeUnit.x;
+                    
+                    // Determine which side of the edge the mouse is on
+                    const crossProduct = (mousePos.x - c1.x) * perpY - (mousePos.y - c1.y) * perpX;
+                    const side = crossProduct > 0 ? 1 : -1;
+                    
+                    const snappedPosition = {
+                        x: projPoint.x + perpX * OFFSET_DISTANCE * side,
+                        y: projPoint.y + perpY * OFFSET_DISTANCE * side
+                    };
+                    
                     return {
-                        snappedPosition: projPoint,
-                        snapLines: [{ start: mousePos, end: projPoint }]
+                        snappedPosition,
+                        snapLines: [
+                            { start: mousePos, end: snappedPosition },
+                            { start: projPoint, end: snappedPosition }
+                        ]
                     };
                 }
             }
