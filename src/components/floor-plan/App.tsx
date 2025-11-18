@@ -568,30 +568,71 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
     startHeight: number, 
     endHeight: number, 
     label: string,
-    cableEntryId?: string,
-    scheduleId?: string,
-    calculatedLength?: number
+    calculatedLength: number
   }) => {
       if (!pendingLine) return;
       const pathLength = pendingLine.length;
       const totalLength = pathLength + details.startHeight + details.endHeight;
       
-      // If linked to cable schedule, update the entry's measured length
-      if (details.cableEntryId && details.calculatedLength) {
+      let cableEntryId: string | undefined;
+
+      // Auto-save to database if we have a project ID
+      if (projectId) {
         try {
-          const { error } = await supabase
+          // Get the latest cable schedule for this project
+          const { data: schedules } = await supabase
+            .from('cable_schedules')
+            .select('id')
+            .eq('project_id', projectId)
+            .order('created_at', { ascending: false })
+            .limit(1);
+
+          const scheduleId = schedules?.[0]?.id;
+
+          // Save to cable_entries (single source of truth)
+          const { data: cableEntry, error: entryError } = await supabase
             .from('cable_entries')
-            .update({ measured_length: details.calculatedLength })
-            .eq('id', details.cableEntryId);
+            .insert({
+              schedule_id: scheduleId,
+              floor_plan_id: currentDesignId,
+              created_from: 'floor_plan',
+              cable_tag: details.label || `${details.from}-${details.to}`,
+              from_location: details.from,
+              to_location: details.to,
+              cable_type: details.cableType,
+              measured_length: details.calculatedLength,
+              extra_length: details.startHeight + details.endHeight,
+              total_length: details.calculatedLength + details.startHeight + details.endHeight,
+              notes: `Terminations: ${details.terminationCount}`,
+              installation_method: 'TBD',
+              quantity: 1
+            })
+            .select()
+            .single();
+
+          if (entryError) throw entryError;
           
-          if (error) {
-            toast.error('Failed to update cable schedule entry');
-            console.error(error);
-          } else {
-            toast.success('Cable length updated in schedule');
-          }
+          cableEntryId = cableEntry.id;
+
+          // Save to floor_plan_cables for reference
+          await supabase.from('floor_plan_cables').insert({
+            floor_plan_id: currentDesignId,
+            cable_type: details.cableType,
+            points: pendingLine.points as any,
+            length_meters: totalLength,
+            from_label: details.from,
+            to_label: details.to,
+            label: details.label,
+            termination_count: details.terminationCount,
+            start_height: details.startHeight,
+            end_height: details.endHeight,
+            cable_entry_id: cableEntryId
+          });
+
+          toast.success('Cable saved to schedule');
         } catch (error) {
-          console.error('Error updating cable entry:', error);
+          console.error('Error saving cable:', error);
+          toast.error('Failed to save cable to schedule');
         }
       }
 
@@ -599,7 +640,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
           id: `line-${Date.now()}`, name: `${details.from} to ${details.to}`, type: 'lv' as const, points: pendingLine.points, 
           length: totalLength, pathLength: pathLength, from: details.from, to: details.to, cableType: details.cableType,
           terminationCount: details.terminationCount, startHeight: details.startHeight, endHeight: details.endHeight, label: details.label,
-          cableEntryId: details.cableEntryId
+          cableEntryId: cableEntryId
       };
       setLines(prev => [...prev, newLine]);
       setIsCableModalOpen(false);

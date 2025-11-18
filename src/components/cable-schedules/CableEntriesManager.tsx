@@ -58,11 +58,11 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
         setProjectId(schedule.project_id);
       }
 
-      // Then get the cable entries
+      // Get cable entries linked to this schedule OR to floor plans in this project
       const { data, error } = await supabase
         .from("cable_entries")
-        .select("*")
-        .eq("schedule_id", scheduleId);
+        .select("*, floor_plan_projects!cable_entries_floor_plan_id_fkey(project_id)")
+        .or(`schedule_id.eq.${scheduleId},and(floor_plan_projects.project_id.eq.${schedule?.project_id})`);
 
       if (error) throw error;
       
