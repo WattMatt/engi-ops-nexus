@@ -207,7 +207,7 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
     // Render all saved items
     if (scaleInfo.ratio) {
         renderMarkupsToContext(ctx, {
-            equipment, lines, zones, containment, scaleInfo, roofMasks,
+            equipment, lines, zones, containment, walkways, scaleInfo, roofMasks,
             pvPanelConfig, pvArrays, zoom: viewState.zoom, selectedItemId, tasks,
         });
     }
@@ -554,7 +554,7 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isDrawingShape, activeTool, currentDrawing, onRoofMaskDrawComplete, completeZoneDrawing, onLvLineComplete, onContainmentDrawComplete, purposeConfig, scaleInfo.ratio, setLines, resetDrawingState, onCancelRoofCreation]);
+    }, [isDrawingShape, activeTool, currentDrawing, onRoofMaskDrawComplete, completeZoneDrawing, onLvLineComplete, onWalkwayDrawComplete, onContainmentDrawComplete, purposeConfig, scaleInfo.ratio, setLines, resetDrawingState, onCancelRoofCreation]);
 
 
   const handleMouseDown = (e: React.MouseEvent) => {

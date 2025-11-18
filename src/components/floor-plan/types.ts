@@ -279,6 +279,7 @@ export interface GeneratePdfParams {
   lines: SupplyLine[];
   zones: SupplyZone[];
   containment: Containment[];
+  walkways: Walkway[];
   scaleInfo: ScaleInfo;
   roofMasks: RoofMask[];
   tasks: Task[];

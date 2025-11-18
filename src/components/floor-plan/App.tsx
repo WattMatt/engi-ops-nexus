@@ -319,8 +319,8 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
     setIsLoadDesignModalOpen(true);
     setIsLoadingDesigns(true);
     try {
-      // Show all designs initially
-      const designs = await listDesigns(true);
+      // Only show designs for the current project
+      const designs = await listDesigns(false, currentProjectId);
       setDesignList(designs);
     } catch (error) {
       console.error("Error listing designs:", error);
@@ -339,8 +339,8 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
     try {
       await assignDesignToProject(designId, currentProjectId);
       toast.success("Design assigned to current project!");
-      // Refresh the design list
-      const designs = await listDesigns(true);
+      // Refresh the design list - only show designs for current project
+      const designs = await listDesigns(false, currentProjectId);
       setDesignList(designs);
     } catch (error) {
       console.error("Error assigning design:", error);
@@ -430,7 +430,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
     setIsExportModalOpen(false);
     try {
         const blob = await generatePdf({
-            canvases, projectName, equipment, lines, zones, containment, comments, 
+            canvases, projectName, equipment, lines, zones, containment, walkways, comments, 
             pvPanelConfig, pvArrays, scaleInfo, roofMasks, tasks
         }, true);
 
