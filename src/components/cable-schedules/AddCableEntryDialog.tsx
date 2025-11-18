@@ -74,43 +74,21 @@ export const AddCableEntryDialog = ({
 
         if (schedule?.project_id) {
           setProjectId(schedule.project_id);
-          // Fetch all tenants for the project
           const { data: tenantsData } = await supabase
             .from("tenants")
             .select("id, shop_number, shop_name, db_size_allowance")
             .eq("project_id", schedule.project_id);
 
-          // Fetch existing cable entries to filter out already used tenants
           const { data: existingEntries } = await supabase
             .from("cable_entries")
             .select("to_location")
             .eq("schedule_id", scheduleId);
 
           if (tenantsData) {
-            // Create set of used tenant identifiers
-            const usedTenants = new Set(
-              existingEntries?.map(entry => entry.to_location) || []
+            const usedToLocations = existingEntries?.map((e) => e.to_location) || [];
+            const availableTenants = tenantsData.filter(
+              (t) => !usedToLocations.includes(`${t.shop_number} - ${t.shop_name}`)
             );
-
-            // Filter out already used tenants and sort numerically
-            const availableTenants = tenantsData
-              .filter(tenant => {
-                const identifier = `${tenant.shop_number} - ${tenant.shop_name}`;
-                return !usedTenants.has(identifier);
-              })
-              .sort((a, b) => {
-                // Extract numeric part from shop_number for proper sorting
-                const getNumericValue = (str: string) => {
-                  const match = str.match(/\d+/);
-                  return match ? parseInt(match[0], 10) : 0;
-                };
-                
-                const numA = getNumericValue(a.shop_number);
-                const numB = getNumericValue(b.shop_number);
-                
-                return numA - numB;
-              });
-
             setTenants(availableTenants);
           }
         }
@@ -120,203 +98,117 @@ export const AddCableEntryDialog = ({
     }
   }, [open, scheduleId]);
 
-  // Auto-populate load_amps from tenant's DB allowance when tenant is selected
+  // Auto-suggest cable size when load changes
   useEffect(() => {
-    const selectedTenant = tenants.find(
-      (t) => `${t.shop_number} - ${t.shop_name}` === formData.to_location
-    );
-    
-    if (selectedTenant?.db_size_allowance) {
-      // Extract amperage from DB allowance (e.g., "63A TPN DB" -> 63)
-      const match = selectedTenant.db_size_allowance.match(/(\d+)\s*A/);
-      if (match) {
-        setFormData((prev) => ({
-          ...prev,
-          load_amps: match[1],
-        }));
-      }
-    }
-  }, [formData.to_location, tenants]);
-
-  // Auto-generate cable_tag
-  useEffect(() => {
-    const parts = [
-      formData.from_location,
-      formData.to_location,
-      formData.voltage,
-      formData.cable_number,
-    ].filter(part => part && part.trim() !== "");
-    
-    if (parts.length > 0) {
-      setFormData((prev) => ({
-        ...prev,
-        cable_tag: parts.join("-"),
-      }));
-    }
-  }, [formData.from_location, formData.to_location, formData.voltage, formData.cable_number]);
-
-  // Auto-calculate total_length
-  useEffect(() => {
-    const extra = parseFloat(formData.extra_length) || 0;
-    const measured = parseFloat(formData.measured_length) || 0;
-    setFormData((prev) => ({
-      ...prev,
-      total_length: (extra + measured).toString(),
-    }));
-  }, [formData.extra_length, formData.measured_length]);
-
-  // Auto-calculate cable sizing based on load, voltage, and optionally length
-  useEffect(() => {
-    const loadAmps = parseFloat(formData.load_amps);
-    const voltage = parseFloat(formData.voltage);
-    const totalLength = parseFloat(formData.total_length);
-
-    if (loadAmps && voltage && calcSettings) {
-      const material = formData.cable_type.toLowerCase() === "copper" ? "copper" : "aluminium";
-      
-      const result = calculateCableSize({
-        loadAmps,
-        voltage,
-        totalLength: totalLength || 0,
-        deratingFactor: 1.0,
-        material: material as "copper" | "aluminium",
-        installationMethod: formData.installation_method as 'air' | 'ducts' | 'ground',
-        safetyMargin: calcSettings.cable_safety_margin,
-        voltageDropLimit: voltage >= 400 ? calcSettings.voltage_drop_limit_400v : calcSettings.voltage_drop_limit_230v,
-      });
-
-      if (result) {
-        setCablesInParallel(result.cablesInParallel);
-        setLoadPerCable(result.loadPerCable);
-        setCostAlternatives(result.alternatives || []);
-        setCostSavings(result.costSavings || 0);
+    if (formData.load_amps) {
+      const loadAmps = parseFloat(formData.load_amps);
+      if (!isNaN(loadAmps) && loadAmps > 0) {
+        const cableTable = formData.cable_type === "Copper" ? COPPER_CABLE_TABLE : ALUMINIUM_CABLE_TABLE;
+        const installMethod = formData.installation_method as 'ground' | 'ducts' | 'air';
         
-        setFormData((prev) => ({
-          ...prev,
-          cable_size: result.recommendedSize,
-          ohm_per_km: result.ohmPerKm.toString(),
-          volt_drop: totalLength ? result.voltDrop.toString() : "0",
-          supply_cost: result.supplyCost.toString(),
-          install_cost: result.installCost.toString(),
-          load_amps: result.loadPerCable.toString(), // Update to show load per cable
-        }));
+        // Find the smallest cable that can handle the load
+        const suitableCable = cableTable.find(cable => {
+          const rating = installMethod === 'ground' ? cable.currentRatingGround :
+                        installMethod === 'ducts' ? cable.currentRatingDucts :
+                        cable.currentRatingAir;
+          return rating >= loadAmps * 1.15; // 15% safety margin
+        });
+        
+        if (suitableCable) {
+          setSuggestedCableSize(suitableCable.size);
+          if (!formData.cable_size) {
+            setFormData(prev => ({ ...prev, cable_size: suitableCable.size }));
+          }
+        }
       }
     }
-  }, [formData.load_amps, formData.voltage, formData.total_length, formData.cable_type, formData.installation_method, calcSettings]);
+  }, [formData.load_amps, formData.cable_type, formData.installation_method]);
 
-  // Auto-calculate total_cost
+  // Calculate voltage drop when length or cable size changes
   useEffect(() => {
-    const supply = parseFloat(formData.supply_cost) || 0;
-    const install = parseFloat(formData.install_cost) || 0;
-    setFormData((prev) => ({
-      ...prev,
-      total_cost: (supply + install).toString(),
-    }));
-  }, [formData.supply_cost, formData.install_cost]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-
-    try {
-      // Create multiple cable entries if cables are in parallel
-      const entriesToCreate = [];
+    if (formData.cable_size && formData.measured_length && formData.load_amps && formData.voltage) {
+      const cableTable = formData.cable_type === "Copper" ? COPPER_CABLE_TABLE : ALUMINIUM_CABLE_TABLE;
+      const selectedCable = cableTable.find(c => c.size === formData.cable_size);
       
-      for (let i = 0; i < cablesInParallel; i++) {
-        entriesToCreate.push({
-          schedule_id: scheduleId,
-          cable_tag: formData.cable_tag,
-          from_location: formData.from_location,
-          to_location: formData.to_location,
-          voltage: formData.voltage ? parseFloat(formData.voltage) : null,
-          load_amps: formData.load_amps ? parseFloat(formData.load_amps) : null,
-          cable_type: formData.cable_type || null,
-          installation_method: formData.installation_method || 'air',
-          ohm_per_km: formData.ohm_per_km ? parseFloat(formData.ohm_per_km) : null,
-          cable_number: i + 1, // Number cables 1, 2, 3, 4...
-          quantity: cablesInParallel,
-          extra_length: formData.extra_length ? parseFloat(formData.extra_length) : 0,
-          measured_length: formData.measured_length ? parseFloat(formData.measured_length) : 0,
-          total_length: formData.total_length ? parseFloat(formData.total_length) : 0,
-          volt_drop: formData.volt_drop ? parseFloat(formData.volt_drop) : null,
-          notes: cablesInParallel > 1 
-            ? `Cable ${i + 1} of ${cablesInParallel} in parallel. ${formData.notes || ""}`.trim()
-            : formData.notes || null,
-          cable_size: formData.cable_size || null,
-          supply_cost: formData.supply_cost ? parseFloat(formData.supply_cost) : 0,
-          install_cost: formData.install_cost ? parseFloat(formData.install_cost) : 0,
-          total_cost: formData.total_cost ? parseFloat(formData.total_cost) : 0,
-          // Engineering parameters
-          power_factor: formData.power_factor ? parseFloat(formData.power_factor) : 0.85,
-          ambient_temperature: formData.ambient_temperature ? parseInt(formData.ambient_temperature) : 30,
-          grouping_factor: formData.grouping_factor ? parseFloat(formData.grouping_factor) : 1.0,
-          thermal_insulation_factor: formData.thermal_insulation_factor ? parseFloat(formData.thermal_insulation_factor) : 1.0,
-          voltage_drop_limit: formData.voltage_drop_limit ? parseFloat(formData.voltage_drop_limit) : 5.0,
-          circuit_type: formData.circuit_type || 'power',
-          number_of_phases: formData.number_of_phases ? parseInt(formData.number_of_phases) : 3,
-          core_configuration: formData.core_configuration || '3-core',
-          protection_device_rating: formData.protection_device_rating ? parseFloat(formData.protection_device_rating) : null,
-          max_demand_factor: formData.max_demand_factor ? parseFloat(formData.max_demand_factor) : 1.0,
-          starting_current: formData.starting_current ? parseFloat(formData.starting_current) : null,
-          fault_level: formData.fault_level ? parseFloat(formData.fault_level) : null,
-          earth_fault_loop_impedance: formData.earth_fault_loop_impedance ? parseFloat(formData.earth_fault_loop_impedance) : null,
-          calculation_method: formData.calculation_method || 'SANS 10142-1',
-          insulation_type: formData.insulation_type || 'PVC',
-        });
+      if (selectedCable) {
+        const length = parseFloat(formData.measured_length);
+        const loadAmps = parseFloat(formData.load_amps);
+        const voltage = parseFloat(formData.voltage);
+        
+        if (!isNaN(length) && !isNaN(loadAmps) && !isNaN(voltage)) {
+          // Voltage drop calculation: V = I × R × L
+          // Using 3-phase voltage drop from table (mV/A/m)
+          const voltDropValue = voltage === 400 ? selectedCable.voltDrop3Phase : selectedCable.voltDrop1Phase;
+          const voltDrop = (voltDropValue * loadAmps * length) / 1000;
+          const voltDropPercent = (voltDrop / voltage) * 100;
+          
+          setCalculatedVoltDrop(voltDropPercent);
+          
+          // Set warning if voltage drop exceeds limit
+          const limit = voltage === 400 ? 5.0 : 3.0;
+          if (voltDropPercent > limit) {
+            setVoltDropWarning(`Voltage drop ${voltDropPercent.toFixed(2)}% exceeds ${limit}% limit for ${voltage}V`);
+          } else {
+            setVoltDropWarning("");
+          }
+        }
       }
+    }
+  }, [formData.cable_size, formData.measured_length, formData.load_amps, formData.voltage, formData.cable_type]);
 
-      const { error } = await supabase.from("cable_entries").insert(entriesToCreate);
+  const handleSubmit = async () => {
+    if (!formData.cable_tag || !formData.from_location || !formData.to_location) {
+      toast({
+        title: "Missing Information",
+        description: "Please fill in all required fields.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { error } = await supabase.from("cable_entries").insert({
+        schedule_id: scheduleId,
+        cable_tag: formData.cable_tag,
+        from_location: formData.from_location,
+        to_location: formData.to_location,
+        voltage: parseFloat(formData.voltage) || 400,
+        load_amps: parseFloat(formData.load_amps) || null,
+        cable_type: formData.cable_type,
+        installation_method: formData.installation_method,
+        cable_size: formData.cable_size || null,
+        measured_length: parseFloat(formData.measured_length) || null,
+        volt_drop: calculatedVoltDrop || null,
+        notes: formData.notes || null,
+        quantity: 1,
+      });
 
       if (error) throw error;
 
       toast({
         title: "Success",
-        description: cablesInParallel > 1 
-          ? `Created ${cablesInParallel} cable entries in parallel`
-          : "Cable entry added successfully",
+        description: "Cable entry added successfully",
       });
-
       onSuccess();
+      onOpenChange(false);
+      
+      // Reset form
       setFormData({
         cable_tag: "",
         from_location: "",
         to_location: "",
-        voltage: "400", // Reset to default 400V
+        voltage: "400",
         load_amps: "",
-        cable_type: "Aluminium", // Reset to default Aluminium
-        installation_method: "air", // Reset to default Air
-        ohm_per_km: "",
-        cable_number: "1",
-        quantity: "1",
-        extra_length: "",
-        measured_length: "",
-        total_length: "",
-        volt_drop: "",
-        notes: "",
+        cable_type: "Aluminium",
+        installation_method: "air",
         cable_size: "",
-        supply_cost: "",
-        install_cost: "",
-        total_cost: "",
-        // Engineering parameters
-        power_factor: "0.85",
-        ambient_temperature: "30",
-        grouping_factor: "1.0",
-        thermal_insulation_factor: "1.0",
-        voltage_drop_limit: "5.0",
-        circuit_type: "power",
-        number_of_phases: "3",
-        core_configuration: "3-core",
-        protection_device_rating: "",
-        max_demand_factor: "1.0",
-        starting_current: "",
-        fault_level: "",
-        earth_fault_loop_impedance: "",
-        calculation_method: "SANS 10142-1",
-        insulation_type: "PVC",
+        measured_length: "",
+        notes: "",
       });
-      setCablesInParallel(1);
-      setLoadPerCable(null);
-      setUseCustomToLocation(false);
+      setSuggestedCableSize("");
+      setCalculatedVoltDrop(null);
+      setVoltDropWarning("");
     } catch (error: any) {
       toast({
         title: "Error",
@@ -328,378 +220,210 @@ export const AddCableEntryDialog = ({
     }
   };
 
+  const handleTenantSelect = (tenantId: string) => {
+    const tenant = tenants.find((t) => t.id === tenantId);
+    if (tenant) {
+      setFormData({
+        ...formData,
+        to_location: `${tenant.shop_number} - ${tenant.shop_name}`,
+        cable_tag: tenant.shop_number,
+      });
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add Cable Entry</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+
+        <div className="space-y-4">
+          {/* Basic Information */}
           <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="cable_tag">Cable Tag (Auto-generated) *</Label>
+            <div>
+              <Label htmlFor="cable_tag">Cable Tag *</Label>
               <Input
                 id="cable_tag"
                 value={formData.cable_tag}
-                readOnly
-                required
-                className="bg-muted"
-                placeholder="Will be generated from: From-To-Voltage-Number"
+                onChange={(e) => setFormData({ ...formData, cable_tag: e.target.value })}
+                placeholder="e.g., CB-001"
               />
             </div>
-            <div className="space-y-2 col-span-2">
-              {cablesInParallel > 1 && (
-                <div className="space-y-3">
-                  <div className="p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-md">
-                    <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                      💰 Cost-Optimized Recommendation
-                    </p>
-                    <p className="text-sm text-blue-700 dark:text-blue-300 mt-1">
-                      <strong>{cablesInParallel}x {formData.cable_size}</strong> cables @ <strong>{loadPerCable?.toFixed(2)}A</strong> each
-                      <br />
-                      Total Cost: <strong>R {formData.total_cost}</strong>
-                      {costSavings > 0 && (
-                        <span className="text-green-600 dark:text-green-400"> (Saves R {costSavings.toFixed(2)})</span>
-                      )}
-                    </p>
-                  </div>
-                  
-                  {costAlternatives.length > 1 && (
-                    <div className="p-3 bg-muted rounded-md">
-                      <p className="text-sm font-medium mb-2">Alternative Configurations:</p>
-                      <div className="space-y-1">
-                        {costAlternatives.map((alt, idx) => (
-                          <div key={idx} className={`text-xs p-2 rounded ${alt.isRecommended ? 'bg-green-100 dark:bg-green-950 border border-green-300 dark:border-green-800' : 'bg-background'}`}>
-                            {alt.isRecommended && <span className="text-green-600 dark:text-green-400 font-medium">✓ </span>}
-                            <strong>{alt.cablesInParallel}x {alt.cableSize}</strong> @ {alt.loadPerCable.toFixed(2)}A each
-                            <span className="float-right">R {alt.totalCost.toFixed(2)}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-              {cablesInParallel === 1 && formData.cable_size && (
-                <div className="p-3 bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800 rounded-md">
-                  <p className="text-sm text-green-700 dark:text-green-300">
-                    ✓ Single cable (No.1) is sufficient for this load
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="from_location">From *</Label>
+            <div>
+              <Label htmlFor="from_location">From Location *</Label>
               <Input
                 id="from_location"
                 value={formData.from_location}
-                onChange={(e) =>
-                  setFormData({ ...formData, from_location: e.target.value })
-                }
-                required
+                onChange={(e) => setFormData({ ...formData, from_location: e.target.value })}
+                placeholder="e.g., Main DB"
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="to_location">To *</Label>
-              <div className="flex gap-2">
-                {!useCustomToLocation ? (
-                  <>
-                    <Select
-                      value={formData.to_location}
-                      onValueChange={(value) => {
-                        if (value === "_custom") {
-                          setUseCustomToLocation(true);
-                          setFormData({ ...formData, to_location: "" });
-                        } else {
-                          setFormData({ ...formData, to_location: value });
-                        }
-                      }}
-                    >
-                      <SelectTrigger className="flex-1">
-                        <SelectValue placeholder="Select tenant or other" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="_custom">Other (Custom)</SelectItem>
-                        {tenants.map((tenant) => (
-                          <SelectItem
-                            key={tenant.id}
-                            value={`${tenant.shop_number} - ${tenant.shop_name}`}
-                          >
-                            {tenant.shop_number} - {tenant.shop_name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setUseCustomToLocation(true);
-                        setFormData({ ...formData, to_location: "" });
-                      }}
-                    >
-                      Custom
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <Input
-                      id="to_location"
-                      value={formData.to_location}
-                      onChange={(e) =>
-                        setFormData({ ...formData, to_location: e.target.value })
-                      }
-                      required
-                      placeholder="Enter custom destination"
-                      className="flex-1"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        setUseCustomToLocation(false);
-                        setFormData({ ...formData, to_location: "" });
-                      }}
-                    >
-                      Dropdown
-                    </Button>
-                  </>
-                )}
-              </div>
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="voltage">Voltage</Label>
-              <Select
-                value={formData.voltage}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, voltage: value })
-                }
-              >
-                <SelectTrigger id="voltage">
-                  <SelectValue placeholder="Select voltage" />
+          {/* Tenant Selection */}
+          {tenants.length > 0 && (
+            <div>
+              <Label htmlFor="tenant_select">Select Tenant (Optional)</Label>
+              <Select onValueChange={handleTenantSelect}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a tenant or enter custom location" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="400">400V (3-Phase)</SelectItem>
-                  <SelectItem value="230">230V (Single Phase)</SelectItem>
+                  {tenants.map((tenant) => (
+                    <SelectItem key={tenant.id} value={tenant.id}>
+                      {tenant.shop_number} - {tenant.shop_name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="load_amps">Load (Amps) - Auto-filled from tenant DB allowance</Label>
-              <Input
-                id="load_amps"
-                type="number"
-                step="0.01"
-                value={formData.load_amps}
-                onChange={(e) =>
-                  setFormData({ ...formData, load_amps: e.target.value })
-                }
-                placeholder="Auto-populated for tenants"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="cable_type">Cable Type</Label>
-              <Select
-                value={formData.cable_type}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, cable_type: value })
-                }
-              >
-                <SelectTrigger id="cable_type">
-                  <SelectValue placeholder="Select cable type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Aluminium">Aluminium</SelectItem>
-                  <SelectItem value="Copper">Copper</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="installation_method">Installation Method</Label>
-              <Select
-                value={formData.installation_method}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, installation_method: value })
-                }
-              >
-                <SelectTrigger id="installation_method">
-                  <SelectValue placeholder="Select installation" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="air">Air</SelectItem>
-                  <SelectItem value="ducts">Ducts</SelectItem>
-                  <SelectItem value="ground">Ground</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+          )}
 
-          <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="ohm_per_km">Ohm/km (Auto-calculated)</Label>
-              <Input
-                id="ohm_per_km"
-                type="number"
-                step="0.001"
-                value={formData.ohm_per_km}
-                onChange={(e) =>
-                  setFormData({ ...formData, ohm_per_km: e.target.value })
-                }
-                className="bg-muted"
-                readOnly
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="cable_size">Cable Size (Auto-calculated)</Label>
-              <Input
-                id="cable_size"
-                value={formData.cable_size}
-                onChange={(e) =>
-                  setFormData({ ...formData, cable_size: e.target.value })
-                }
-                placeholder="e.g., 240mm²"
-                className="bg-muted"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="volt_drop">Volt Drop (V) (Auto-calculated)</Label>
-              <Input
-                id="volt_drop"
-                type="number"
-                step="0.01"
-                value={formData.volt_drop}
-                onChange={(e) =>
-                  setFormData({ ...formData, volt_drop: e.target.value })
-                }
-                className="bg-muted"
-                readOnly
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-4 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="quantity">Quantity</Label>
-              <Input
-                id="quantity"
-                type="number"
-                min="1"
-                value={formData.quantity}
-                onChange={(e) =>
-                  setFormData({ ...formData, quantity: e.target.value })
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="extra_length">Extra Length (m)</Label>
-              <Input
-                id="extra_length"
-                type="number"
-                step="0.01"
-                value={formData.extra_length}
-                onChange={(e) =>
-                  setFormData({ ...formData, extra_length: e.target.value })
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="measured_length">Measured Length (m)</Label>
-              <Input
-                id="measured_length"
-                type="number"
-                step="0.01"
-                value={formData.measured_length}
-                onChange={(e) =>
-                  setFormData({ ...formData, measured_length: e.target.value })
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="total_length">Total Length (m)</Label>
-              <Input
-                id="total_length"
-                type="number"
-                step="0.01"
-                value={formData.total_length}
-                readOnly
-                className="bg-muted"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="supply_cost">Supply Cost (R) (Auto-calculated)</Label>
-              <Input
-                id="supply_cost"
-                type="number"
-                step="0.01"
-                value={formData.supply_cost}
-                onChange={(e) =>
-                  setFormData({ ...formData, supply_cost: e.target.value })
-                }
-                className="bg-muted"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="install_cost">Install Cost (R) (Auto-calculated)</Label>
-              <Input
-                id="install_cost"
-                type="number"
-                step="0.01"
-                value={formData.install_cost}
-                onChange={(e) =>
-                  setFormData({ ...formData, install_cost: e.target.value })
-                }
-                className="bg-muted"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="total_cost">Total Cost (R)</Label>
-              <Input
-                id="total_cost"
-                type="number"
-                step="0.01"
-                value={formData.total_cost}
-                readOnly
-                className="bg-muted"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="notes">Notes</Label>
-            <Textarea
-              id="notes"
-              value={formData.notes}
-              onChange={(e) =>
-                setFormData({ ...formData, notes: e.target.value })
-              }
-              placeholder="e.g., See Note 14"
+          <div>
+            <Label htmlFor="to_location">To Location *</Label>
+            <Input
+              id="to_location"
+              value={formData.to_location}
+              onChange={(e) => setFormData({ ...formData, to_location: e.target.value })}
+              placeholder="e.g., Shop 001 - ABC Store"
             />
           </div>
 
-          <div className="flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
+          {/* Voltage and Load */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="voltage">Voltage (V) *</Label>
+              <Select
+                value={formData.voltage}
+                onValueChange={(value) => setFormData({ ...formData, voltage: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="230">230V (Single Phase)</SelectItem>
+                  <SelectItem value="400">400V (Three Phase)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="load_amps">Load (Amps) *</Label>
+              <Input
+                id="load_amps"
+                type="number"
+                value={formData.load_amps}
+                onChange={(e) => setFormData({ ...formData, load_amps: e.target.value })}
+                placeholder="e.g., 32"
+              />
+            </div>
+          </div>
+
+          {/* Cable Type and Installation */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="cable_type">Cable Material</Label>
+              <Select
+                value={formData.cable_type}
+                onValueChange={(value) => setFormData({ ...formData, cable_type: value, cable_size: "" })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Copper">Copper</SelectItem>
+                  <SelectItem value="Aluminium">Aluminium</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="installation_method">Installation Method</Label>
+              <Select
+                value={formData.installation_method}
+                onValueChange={(value) => setFormData({ ...formData, installation_method: value })}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="ground">Underground</SelectItem>
+                  <SelectItem value="ducts">In Ducts</SelectItem>
+                  <SelectItem value="air">In Air / On Tray</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Cable Size with Suggestion */}
+          <div>
+            <Label htmlFor="cable_size">Cable Size (mm²)</Label>
+            {suggestedCableSize && (
+              <Badge variant="secondary" className="ml-2">
+                Suggested: {suggestedCableSize}
+              </Badge>
+            )}
+            <Input
+              id="cable_size"
+              value={formData.cable_size}
+              onChange={(e) => setFormData({ ...formData, cable_size: e.target.value })}
+              placeholder={suggestedCableSize ? `Suggested: ${suggestedCableSize}` : "e.g., 16"}
+            />
+          </div>
+
+          {/* Length */}
+          <div>
+            <Label htmlFor="measured_length">Cable Length (m)</Label>
+            <Input
+              id="measured_length"
+              type="number"
+              value={formData.measured_length}
+              onChange={(e) => setFormData({ ...formData, measured_length: e.target.value })}
+              placeholder="e.g., 50"
+            />
+          </div>
+
+          {/* Voltage Drop Display */}
+          {calculatedVoltDrop !== null && (
+            <div className="p-3 bg-muted rounded-md">
+              <div className="flex items-center gap-2">
+                <span className="font-medium">Voltage Drop:</span>
+                <span className={calculatedVoltDrop > 5 ? "text-destructive" : "text-foreground"}>
+                  {calculatedVoltDrop.toFixed(2)}%
+                </span>
+              </div>
+              {voltDropWarning && (
+                <div className="flex items-center gap-2 mt-2 text-destructive text-sm">
+                  <AlertCircle className="w-4 h-4" />
+                  {voltDropWarning}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Notes */}
+          <div>
+            <Label htmlFor="notes">Notes (Optional)</Label>
+            <Textarea
+              id="notes"
+              value={formData.notes}
+              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+              placeholder="Additional notes..."
+              rows={3}
+            />
+          </div>
+
+          <div className="flex justify-end gap-2 pt-4">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? "Adding..." : "Add Cable Entry"}
+            <Button onClick={handleSubmit} disabled={loading}>
+              {loading ? "Adding..." : "Add Entry"}
             </Button>
           </div>
-        </form>
+        </div>
       </DialogContent>
     </Dialog>
   );
