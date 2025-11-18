@@ -5,7 +5,7 @@ import { Upload, Calendar } from "lucide-react";
 
 const Invoicing = () => {
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="container mx-auto px-6 py-6 space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Invoicing</h1>
         <p className="text-muted-foreground">Manage projects and generate invoices</p>

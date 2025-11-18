@@ -201,7 +201,7 @@ const GeneratorReport = () => {
   }, [projectId, refetch]);
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
+    <div className="container mx-auto px-6 py-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <div className="flex items-center gap-3">
