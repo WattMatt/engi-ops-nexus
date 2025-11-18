@@ -20,6 +20,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Calculator, Zap, DollarSign, AlertCircle, Info } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface EditCableEntryDialogProps {
   open: boolean;
@@ -185,8 +194,8 @@ export const EditCableEntryDialog = ({
     }));
   }, [formData.supply_cost, formData.install_cost]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setLoading(true);
 
     try {
@@ -237,275 +246,393 @@ export const EditCableEntryDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Edit Cable Entry</DialogTitle>
+          <DialogTitle className="flex items-center gap-2">
+            <Calculator className="h-5 w-5 text-primary" />
+            Interactive Cable Calculator
+          </DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="cable_tag">Cable Tag (Auto-generated) *</Label>
-              <Input
-                id="cable_tag"
-                value={formData.cable_tag}
-                readOnly
-                required
-                className="bg-muted"
-                placeholder="Will be generated from: From-To-Voltage-Number"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="cable_number">Cable Number</Label>
-              <Input
-                id="cable_number"
-                type="number"
-                value={formData.cable_number}
-                onChange={(e) =>
-                  setFormData({ ...formData, cable_number: e.target.value })
-                }
-              />
-            </div>
+        
+        <div className="grid grid-cols-3 gap-4">
+          {/* Left Column - Input Parameters */}
+          <div className="col-span-2 space-y-4">
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Info className="h-4 w-4" />
+                  Cable Identification
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="cable_tag" className="flex items-center gap-2">
+                      Cable Tag
+                      <Badge variant="secondary" className="text-[10px]">Auto</Badge>
+                    </Label>
+                    <Input
+                      id="cable_tag"
+                      value={formData.cable_tag}
+                      readOnly
+                      className="bg-muted font-mono"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="cable_number">Cable Number</Label>
+                    <Input
+                      id="cable_number"
+                      type="number"
+                      value={formData.cable_number}
+                      onChange={(e) =>
+                        setFormData({ ...formData, cable_number: e.target.value })
+                      }
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="from_location">From Location *</Label>
+                    <Input
+                      id="from_location"
+                      value={formData.from_location}
+                      onChange={(e) =>
+                        setFormData({ ...formData, from_location: e.target.value })
+                      }
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="to_location">To Location *</Label>
+                    <Input
+                      id="to_location"
+                      value={formData.to_location}
+                      onChange={(e) =>
+                        setFormData({ ...formData, to_location: e.target.value })
+                      }
+                      required
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Zap className="h-4 w-4 text-amber-500" />
+                  Electrical Parameters
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Label htmlFor="voltage" className="cursor-help">Voltage (V)</Label>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Operating voltage (e.g., 230V, 400V)</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <Input
+                      id="voltage"
+                      type="number"
+                      step="0.01"
+                      value={formData.voltage}
+                      onChange={(e) =>
+                        setFormData({ ...formData, voltage: e.target.value })
+                      }
+                      className="font-mono"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Label htmlFor="load_amps" className="cursor-help">Load (Amps)</Label>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Full load current - drives cable size calculation</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <Input
+                      id="load_amps"
+                      type="number"
+                      step="0.01"
+                      value={formData.load_amps}
+                      onChange={(e) =>
+                        setFormData({ ...formData, load_amps: e.target.value })
+                      }
+                      className="font-mono"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Label htmlFor="quantity" className="cursor-help">Quantity</Label>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Cables in parallel reduce voltage drop</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <Input
+                      id="quantity"
+                      type="number"
+                      min="1"
+                      value={formData.quantity}
+                      onChange={(e) =>
+                        setFormData({ ...formData, quantity: e.target.value })
+                      }
+                      className="font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="cable_type">Cable Material</Label>
+                    <Select
+                      value={formData.cable_type}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, cable_type: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select material" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Aluminium">Aluminium</SelectItem>
+                        <SelectItem value="Copper">Copper</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="installation_method">Installation Method</Label>
+                    <Select
+                      value={formData.installation_method}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, installation_method: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="air">Air</SelectItem>
+                        <SelectItem value="ducts">Ducts</SelectItem>
+                        <SelectItem value="ground">Ground</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm">Cable Dimensions</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="measured_length">Measured Length (m)</Label>
+                    <Input
+                      id="measured_length"
+                      type="number"
+                      step="0.01"
+                      value={formData.measured_length}
+                      onChange={(e) =>
+                        setFormData({ ...formData, measured_length: e.target.value })
+                      }
+                      className="font-mono"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="extra_length">Extra Length (m)</Label>
+                    <Input
+                      id="extra_length"
+                      type="number"
+                      step="0.01"
+                      value={formData.extra_length}
+                      onChange={(e) =>
+                        setFormData({ ...formData, extra_length: e.target.value })
+                      }
+                      className="font-mono"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="flex items-center gap-2">
+                      Total Length (m)
+                      <Badge variant="secondary" className="text-[10px]">Auto</Badge>
+                    </Label>
+                    <Input
+                      type="number"
+                      value={formData.total_length}
+                      readOnly
+                      className="bg-muted font-mono font-bold"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm">Additional Information</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <Label htmlFor="notes">Notes</Label>
+                  <Textarea
+                    id="notes"
+                    value={formData.notes}
+                    onChange={(e) =>
+                      setFormData({ ...formData, notes: e.target.value })
+                    }
+                    rows={2}
+                  />
+                </div>
+              </CardContent>
+            </Card>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="from_location">From *</Label>
-              <Input
-                id="from_location"
-                value={formData.from_location}
-                onChange={(e) =>
-                  setFormData({ ...formData, from_location: e.target.value })
-                }
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="to_location">To *</Label>
-              <Input
-                id="to_location"
-                value={formData.to_location}
-                onChange={(e) =>
-                  setFormData({ ...formData, to_location: e.target.value })
-                }
-                required
-              />
-            </div>
-          </div>
+          {/* Right Column - Live Calculations */}
+          <div className="space-y-4">
+            <Card className="border-primary/50 bg-gradient-to-br from-primary/5 to-background">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Calculator className="h-4 w-4" />
+                  Calculated Results
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-3">
+                  <div className="p-3 bg-background rounded-lg border">
+                    <div className="text-xs text-muted-foreground mb-1">Cable Size</div>
+                    <div className="text-2xl font-bold text-primary font-mono">
+                      {formData.cable_size || "-"}
+                    </div>
+                  </div>
 
-          <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="voltage">Voltage</Label>
-              <Input
-                id="voltage"
-                type="number"
-                step="0.01"
-                value={formData.voltage}
-                onChange={(e) =>
-                  setFormData({ ...formData, voltage: e.target.value })
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="load_amps">Load (Amps) - Auto-filled from tenant DB allowance</Label>
-              <Input
-                id="load_amps"
-                type="number"
-                step="0.01"
-                value={formData.load_amps}
-                onChange={(e) =>
-                  setFormData({ ...formData, load_amps: e.target.value })
-                }
-                placeholder="Auto-populated for tenants"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="cable_type">Cable Type</Label>
-              <Select
-                value={formData.cable_type || "Aluminium"}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, cable_type: value })
-                }
-              >
-                <SelectTrigger id="cable_type">
-                  <SelectValue placeholder="Select cable type" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Aluminium">Aluminium</SelectItem>
-                  <SelectItem value="Copper">Copper</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="installation_method">Installation Method</Label>
-              <Select
-                value={formData.installation_method || "air"}
-                onValueChange={(value) =>
-                  setFormData({ ...formData, installation_method: value })
-                }
-              >
-                <SelectTrigger id="installation_method">
-                  <SelectValue placeholder="Select installation" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="air">Air</SelectItem>
-                  <SelectItem value="ducts">Ducts</SelectItem>
-                  <SelectItem value="ground">Ground</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
+                  <div className="p-3 bg-background rounded-lg border">
+                    <div className="text-xs text-muted-foreground mb-1">Voltage Drop</div>
+                    <div className="text-xl font-bold font-mono flex items-center gap-2">
+                      {formData.volt_drop ? `${parseFloat(formData.volt_drop).toFixed(2)}V` : "-"}
+                      {formData.volt_drop && parseFloat(formData.volt_drop) > 10 && (
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <AlertCircle className="h-4 w-4 text-amber-500" />
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>High voltage drop - consider larger cable</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      )}
+                    </div>
+                    {formData.voltage && formData.volt_drop && (
+                      <div className="text-xs text-muted-foreground mt-1">
+                        {((parseFloat(formData.volt_drop) / parseFloat(formData.voltage)) * 100).toFixed(2)}% drop
+                      </div>
+                    )}
+                  </div>
 
-          <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="ohm_per_km">Ohm/km</Label>
-              <Input
-                id="ohm_per_km"
-                type="number"
-                step="0.001"
-                value={formData.ohm_per_km}
-                onChange={(e) =>
-                  setFormData({ ...formData, ohm_per_km: e.target.value })
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="cable_size">Cable Size</Label>
-              <Input
-                id="cable_size"
-                value={formData.cable_size}
-                onChange={(e) =>
-                  setFormData({ ...formData, cable_size: e.target.value })
-                }
-                placeholder="e.g., 240mm²"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="volt_drop">Volt Drop</Label>
-              <Input
-                id="volt_drop"
-                type="number"
-                step="0.01"
-                value={formData.volt_drop}
-                onChange={(e) =>
-                  setFormData({ ...formData, volt_drop: e.target.value })
-                }
-              />
-            </div>
-          </div>
+                  <div className="p-3 bg-background rounded-lg border">
+                    <div className="text-xs text-muted-foreground mb-1">Resistance</div>
+                    <div className="text-lg font-mono">
+                      {formData.ohm_per_km ? `${parseFloat(formData.ohm_per_km).toFixed(4)} Ω/km` : "-"}
+                    </div>
+                  </div>
 
-          <div className="grid grid-cols-4 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="quantity">Quantity</Label>
-              <Input
-                id="quantity"
-                type="number"
-                min="1"
-                value={formData.quantity}
-                onChange={(e) =>
-                  setFormData({ ...formData, quantity: e.target.value })
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="extra_length">Extra Length (m)</Label>
-              <Input
-                id="extra_length"
-                type="number"
-                step="0.01"
-                value={formData.extra_length}
-                onChange={(e) =>
-                  setFormData({ ...formData, extra_length: e.target.value })
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="measured_length">Measured Length (m)</Label>
-              <Input
-                id="measured_length"
-                type="number"
-                step="0.01"
-                value={formData.measured_length}
-                onChange={(e) =>
-                  setFormData({ ...formData, measured_length: e.target.value })
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="total_length">Total Length (m)</Label>
-              <Input
-                id="total_length"
-                type="number"
-                step="0.01"
-                value={formData.total_length}
-                readOnly
-                className="bg-muted"
-              />
-            </div>
-          </div>
+                  {formData.quantity && parseInt(formData.quantity) > 1 && (
+                    <div className="p-3 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                      <div className="text-xs text-blue-600 dark:text-blue-400 font-semibold mb-1">
+                        Parallel Configuration
+                      </div>
+                      <div className="text-sm">
+                        {formData.quantity}× cables @ {formData.load_amps && (parseFloat(formData.load_amps) / parseInt(formData.quantity)).toFixed(1)}A each
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
 
-          <div className="grid grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="supply_cost">Supply Cost (R)</Label>
-              <Input
-                id="supply_cost"
-                type="number"
-                step="0.01"
-                value={formData.supply_cost}
-                onChange={(e) =>
-                  setFormData({ ...formData, supply_cost: e.target.value })
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="install_cost">Install Cost (R)</Label>
-              <Input
-                id="install_cost"
-                type="number"
-                step="0.01"
-                value={formData.install_cost}
-                onChange={(e) =>
-                  setFormData({ ...formData, install_cost: e.target.value })
-                }
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="total_cost">Total Cost (R)</Label>
-              <Input
-                id="total_cost"
-                type="number"
-                step="0.01"
-                value={formData.total_cost}
-                readOnly
-                className="bg-muted"
-              />
-            </div>
-          </div>
+            <Card className="border-green-500/50 bg-gradient-to-br from-green-500/5 to-background">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <DollarSign className="h-4 w-4" />
+                  Cost Breakdown
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Supply Cost</span>
+                  <span className="font-mono font-bold">
+                    R {formData.supply_cost ? parseFloat(formData.supply_cost).toFixed(2) : "0.00"}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">Install Cost</span>
+                  <span className="font-mono font-bold">
+                    R {formData.install_cost ? parseFloat(formData.install_cost).toFixed(2) : "0.00"}
+                  </span>
+                </div>
+                <div className="pt-2 border-t">
+                  <div className="flex justify-between items-center">
+                    <span className="font-semibold">Total Cost</span>
+                    <span className="text-lg font-bold text-green-600 dark:text-green-400 font-mono">
+                      R {formData.total_cost ? parseFloat(formData.total_cost).toFixed(2) : "0.00"}
+                    </span>
+                  </div>
+                </div>
+                {formData.quantity && parseInt(formData.quantity) > 1 && (
+                  <div className="text-xs text-muted-foreground pt-1 border-t">
+                    Cost per cable: R {formData.total_cost && (parseFloat(formData.total_cost) / parseInt(formData.quantity)).toFixed(2)}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-          <div className="space-y-2">
-            <Label htmlFor="notes">Notes</Label>
-            <Textarea
-              id="notes"
-              value={formData.notes}
-              onChange={(e) =>
-                setFormData({ ...formData, notes: e.target.value })
-              }
-              placeholder="e.g., See Note 14"
-            />
+            <div className="p-3 bg-muted/50 rounded-lg text-xs space-y-1">
+              <div className="font-semibold mb-2 flex items-center gap-1">
+                <Info className="h-3 w-3" />
+                Calculation Info
+              </div>
+              <div className="text-muted-foreground space-y-0.5">
+                <p>• Cable sizing per SANS 10142-1</p>
+                <p>• Derating factor: 1.0</p>
+                <p>• Material: {formData.cable_type || "Not set"}</p>
+                <p>• Method: {formData.installation_method || "air"}</p>
+              </div>
+            </div>
           </div>
+        </div>
 
-          <div className="flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
-              Cancel
-            </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? "Saving..." : "Save Changes"}
-            </Button>
-          </div>
-        </form>
+        <div className="flex justify-end gap-2 pt-4 border-t">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            onClick={handleSubmit}
+            disabled={loading}
+          >
+            {loading ? "Saving..." : "Save Changes"}
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );
