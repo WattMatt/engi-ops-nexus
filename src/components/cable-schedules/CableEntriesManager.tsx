@@ -58,11 +58,26 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
         setProjectId(schedule.project_id);
       }
 
+      // Get all floor plan IDs for this project
+      const { data: floorPlans } = await supabase
+        .from("floor_plan_projects")
+        .select("id")
+        .eq("project_id", schedule?.project_id || "");
+
+      const floorPlanIds = floorPlans?.map(fp => fp.id) || [];
+
       // Get cable entries linked to this schedule OR to floor plans in this project
-      const { data, error } = await supabase
+      let query = supabase
         .from("cable_entries")
-        .select("*, floor_plan_projects!cable_entries_floor_plan_id_fkey(project_id)")
-        .or(`schedule_id.eq.${scheduleId},and(floor_plan_projects.project_id.eq.${schedule?.project_id})`);
+        .select("*");
+
+      if (floorPlanIds.length > 0) {
+        query = query.or(`schedule_id.eq.${scheduleId},floor_plan_id.in.(${floorPlanIds.join(',')})`);
+      } else {
+        query = query.eq("schedule_id", scheduleId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       
