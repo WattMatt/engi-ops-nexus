@@ -100,6 +100,7 @@ export const CableCostsSummary = ({ projectId }: CableCostsSummaryProps) => {
           summary.supply_cost = summary.total_length * rate.supply_rate_per_meter;
           summary.install_cost = summary.total_length * rate.install_rate_per_meter;
           // Each cable has 2 terminations (one at each end)
+          // If multiple cables in parallel, multiply by cable count
           summary.termination_cost = summary.cable_count * 2 * rate.termination_cost_per_end;
           summary.total_cost = summary.supply_cost + summary.install_cost + summary.termination_cost;
         }
