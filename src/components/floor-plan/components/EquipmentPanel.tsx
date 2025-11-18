@@ -613,6 +613,40 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
     }));
   };
 
+  // Calculate cable summary totals
+  const cableSummary = useMemo(() => {
+    const summary = new Map<string, { type: string; size: string; count: number; totalLength: number; totalCost: number }>();
+    
+    cableEntries.forEach(entry => {
+      const key = `${entry.cable_type || 'Unknown'}_${entry.cable_size || 'N/A'}`;
+      const existing = summary.get(key) || { 
+        type: entry.cable_type || 'Unknown', 
+        size: entry.cable_size || 'N/A', 
+        count: 0, 
+        totalLength: 0,
+        totalCost: 0 
+      };
+      
+      existing.count += entry.quantity || 1;
+      existing.totalLength += (entry.total_length || 0) * (entry.quantity || 1);
+      existing.totalCost += entry.total_cost || 0;
+      
+      summary.set(key, existing);
+    });
+    
+    return Array.from(summary.values()).sort((a, b) => 
+      a.type.localeCompare(b.type) || a.size.localeCompare(b.size)
+    );
+  }, [cableEntries]);
+
+  const totalCableLength = useMemo(() => 
+    cableEntries.reduce((sum, entry) => sum + ((entry.total_length || 0) * (entry.quantity || 1)), 0)
+  , [cableEntries]);
+
+  const totalCableCost = useMemo(() => 
+    cableEntries.reduce((sum, entry) => sum + (entry.total_cost || 0), 0)
+  , [cableEntries]);
+
   const {itemDictionary, equipmentCounts, containmentSummary, tasksByStatus, tasksByAssignee} = useMemo(() => {
     const eqCounts = new Map<EquipmentType, number>();
     if (purposeConfig) {
@@ -778,24 +812,75 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
                 </div>
             </div>
              <div style={{display: activeTab === 'cables' ? 'block' : 'none'}}>
-                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Cable Schedule ({cableEntries.length})</h3>
+                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Cable Schedule Summary</h3>
                 {loadingCables ? (
                   <p className="text-gray-500 text-xs text-center p-4">Loading cables...</p>
                 ) : cableEntries.length > 0 ? (
-                  <div className="space-y-1.5 text-xs max-h-[60vh] overflow-y-auto pr-2">
-                    {cableEntries.map(entry => (
-                      <div key={entry.id} className="bg-gray-700/50 p-2 rounded-md space-y-1">
-                        <div className="flex justify-between items-center">
-                          <span className="font-semibold text-amber-400">{entry.cable_tag}</span>
-                          <span className="text-gray-400 font-mono">{entry.cable_size || 'N/A'}</span>
-                        </div>
-                        <div className="text-gray-400 text-[10px]">
-                          <div>From: {entry.from_location}</div>
-                          <div>To: {entry.to_location}</div>
-                          <div>Length: {entry.total_length?.toFixed(2) || 0}m</div>
-                        </div>
+                  <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
+                    {/* Summary Totals Card */}
+                    <div className="bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/30 rounded-lg p-3 space-y-2">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-gray-300 font-medium">Total Cables:</span>
+                        <span className="font-bold text-primary">{cableEntries.length}</span>
                       </div>
-                    ))}
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="text-gray-300 font-medium">Total Length:</span>
+                        <span className="font-bold text-amber-400">{totalCableLength.toFixed(2)}m</span>
+                      </div>
+                      {totalCableCost > 0 && (
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-gray-300 font-medium">Total Cost:</span>
+                          <span className="font-bold text-green-400">R {totalCableCost.toFixed(2)}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Cable Type Breakdown */}
+                    <div className="space-y-2">
+                      <h4 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Breakdown by Type & Size</h4>
+                      {cableSummary.map((summary) => (
+                        <div key={`${summary.type}_${summary.size}`} className="bg-gray-700/50 p-2.5 rounded-md">
+                          <div className="flex justify-between items-start mb-2">
+                            <div className="flex-1">
+                              <div className="font-semibold text-sm text-gray-200">{summary.type}</div>
+                              <div className="text-[10px] text-gray-400">Size: {summary.size}</div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-xs font-bold text-amber-400">{summary.count} cables</div>
+                            </div>
+                          </div>
+                          <div className="flex justify-between items-center text-[10px] text-gray-400">
+                            <span>Total Length: <span className="text-gray-300 font-mono">{summary.totalLength.toFixed(2)}m</span></span>
+                            {summary.totalCost > 0 && (
+                              <span>Cost: <span className="text-green-400 font-mono">R {summary.totalCost.toFixed(2)}</span></span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {/* Individual Entries */}
+                    <div className="space-y-2">
+                      <h4 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Individual Cables ({cableEntries.length})</h4>
+                      {cableEntries.map(entry => (
+                        <div key={entry.id} className="bg-gray-700/30 p-2 rounded-md space-y-1 border border-gray-600/30">
+                          <div className="flex justify-between items-center">
+                            <span className="font-semibold text-amber-400 text-xs">{entry.cable_tag}</span>
+                            <span className="text-gray-400 font-mono text-[10px]">{entry.cable_type} {entry.cable_size || 'N/A'}</span>
+                          </div>
+                          <div className="text-gray-400 text-[10px] space-y-0.5">
+                            <div>From: <span className="text-gray-300">{entry.from_location}</span></div>
+                            <div>To: <span className="text-gray-300">{entry.to_location}</span></div>
+                            <div className="flex justify-between items-center pt-1 border-t border-gray-600/30">
+                              <span>Length: <span className="text-gray-300 font-mono">{entry.total_length?.toFixed(2) || 0}m</span></span>
+                              {entry.total_cost && entry.total_cost > 0 && (
+                                <span>Cost: <span className="text-green-400 font-mono">R {entry.total_cost.toFixed(2)}</span></span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 ) : (
                   <p className="text-gray-500 text-xs text-center p-4">No cables found for this project.</p>
