@@ -168,8 +168,9 @@ export const findWalkwaySnap = (
     
     const SNAP_THRESHOLD = 20 / zoom;
     const WALKWAY_WIDTH = 0.55; // 550mm in meters
-    const CLEARANCE = 0.1; // 100mm clearance
-    const OFFSET_DISTANCE = (WALKWAY_WIDTH / 2 + CLEARANCE) / scaleInfo.ratio; // Convert to pixels
+    const CLEARANCE = 0.15; // 150mm clearance
+    // Offset by full walkway width + clearance so the entire walkway is clear of panels
+    const OFFSET_DISTANCE = (WALKWAY_WIDTH + CLEARANCE) / scaleInfo.ratio; // Convert to pixels
     
     for (const array of existingArrays) {
         const corners = getPVArrayCorners(array, pvPanelConfig, roofMasks, scaleInfo);
