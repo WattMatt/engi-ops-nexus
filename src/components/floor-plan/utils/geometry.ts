@@ -152,6 +152,72 @@ const distanceToLineSegment = (point: Point, segStart: Point, segEnd: Point): nu
 };
 
 /**
+ * Finds the best snap point for a walkway to PV array corners and edges.
+ * @returns An object with the snapped position and guide lines, or null.
+ */
+export const findWalkwaySnap = (
+    mousePos: Point,
+    existingArrays: PVArrayItem[],
+    pvPanelConfig: PVPanelConfig | null,
+    roofMasks: RoofMask[],
+    scaleInfo: ScaleInfo,
+    zoom: number
+): { snappedPosition: Point; snapLines: { start: Point; end: Point }[] } | null => {
+    if (!scaleInfo.ratio || !pvPanelConfig) return null;
+    
+    const SNAP_THRESHOLD = 20 / zoom;
+    
+    for (const array of existingArrays) {
+        const corners = getPVArrayCorners(array, pvPanelConfig, roofMasks, scaleInfo);
+        
+        // Check snapping to corners
+        for (const corner of corners) {
+            const dist = distance(mousePos, corner);
+            
+            if (dist < SNAP_THRESHOLD) {
+                return {
+                    snappedPosition: corner,
+                    snapLines: [{ start: mousePos, end: corner }]
+                };
+            }
+        }
+        
+        // Check snapping to edges
+        for (let i = 0; i < corners.length; i++) {
+            const c1 = corners[i];
+            const c2 = corners[(i + 1) % corners.length];
+            
+            const edgeVec = { x: c2.x - c1.x, y: c2.y - c1.y };
+            const edgeLen = Math.sqrt(edgeVec.x * edgeVec.x + edgeVec.y * edgeVec.y);
+            
+            if (edgeLen === 0) continue;
+            
+            const edgeUnit = { x: edgeVec.x / edgeLen, y: edgeVec.y / edgeLen };
+            const toMouse = { x: mousePos.x - c1.x, y: mousePos.y - c1.y };
+            const projLen = toMouse.x * edgeUnit.x + toMouse.y * edgeUnit.y;
+            
+            if (projLen >= 0 && projLen <= edgeLen) {
+                const projPoint = {
+                    x: c1.x + edgeUnit.x * projLen,
+                    y: c1.y + edgeUnit.y * projLen
+                };
+                
+                const dist = distance(mousePos, projPoint);
+                
+                if (dist < SNAP_THRESHOLD) {
+                    return {
+                        snappedPosition: projPoint,
+                        snapLines: [{ start: mousePos, end: projPoint }]
+                    };
+                }
+            }
+        }
+    }
+    
+    return null;
+};
+
+/**
  * Finds the best snap point for a PV array being placed.
  * @returns An object with the snapped position and guide lines, or null.
  */

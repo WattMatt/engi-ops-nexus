@@ -6,7 +6,7 @@ import { type PurposeConfig } from '../purpose.config';
 import { TOOL_COLORS, EQUIPMENT_REAL_WORLD_SIZES, CONTAINMENT_COLORS } from '../constants';
 import { getZoneColor } from '../utils/styleUtils';
 import { PVArrayConfig } from './PVArrayModal';
-import { findSnap, isPointInPolygon, isPointNearPolyline, calculateArrayRotationForRoof } from '../utils/geometry';
+import { findSnap, findWalkwaySnap, isPointInPolygon, isPointNearPolyline, calculateArrayRotationForRoof } from '../utils/geometry';
 import { renderMarkupsToContext, drawPvArray, drawEquipmentIcon } from '../utils/drawing';
 
 
@@ -772,8 +772,17 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
             }
         }
 
+        // Check for snap to PV arrays for walkways
+        let finalPos = worldPos;
+        if (activeTool === Tool.TOOL_WALKWAY) {
+            const snapResult = findWalkwaySnap(worldPos, pvArrays, pvPanelConfig, roofMasks, scaleInfo, viewState.zoom);
+            if (snapResult) {
+                finalPos = snapResult.snappedPosition;
+            }
+        }
+
         setIsDrawingShape(true);
-        setCurrentDrawing(prev => [...prev, worldPos]);
+        setCurrentDrawing(prev => [...prev, finalPos]);
         return;
     }
 
@@ -1000,9 +1009,25 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
             }
         }
     } else if (isDrawingShape && currentDrawing.length > 0) {
-        setPreviewPoint(worldPos);
+        // Check for snap to PV arrays for walkways
+        let finalPreviewPos = worldPos;
+        if (activeTool === Tool.TOOL_WALKWAY) {
+            const snapResult = findWalkwaySnap(worldPos, pvArrays, pvPanelConfig, roofMasks, scaleInfo, viewState.zoom);
+            if (snapResult) {
+                finalPreviewPos = snapResult.snappedPosition;
+                setSnapLines(snapResult.snapLines);
+            } else if (snapLines.length > 0) {
+                setSnapLines([]);
+            }
+        }
+        setPreviewPoint(finalPreviewPos);
     } else if (activeTool === Tool.TOOL_ROOF_DIRECTION && directionLine.length > 0) {
         setPreviewPoint(worldPos);
+    } else if (previewPoint) {
+        setPreviewPoint(null);
+        if (snapLines.length > 0) {
+            setSnapLines([]);
+        }
     }
     
     if (activeTool === Tool.TOOL_PV_ARRAY && pendingPvArrayConfig && pvPanelConfig && scaleInfo.ratio) {
