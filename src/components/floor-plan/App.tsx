@@ -319,8 +319,8 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
     setIsLoadDesignModalOpen(true);
     setIsLoadingDesigns(true);
     try {
-      // Only show designs for the current project
-      const designs = await listDesigns(false, currentProjectId);
+      // Only show floor plan markups for the current project (exclude cable schedule markups)
+      const designs = await listDesigns(false, currentProjectId, [DesignPurpose.CABLE_SCHEDULE_MARKUP]);
       setDesignList(designs);
     } catch (error) {
       console.error("Error listing designs:", error);
