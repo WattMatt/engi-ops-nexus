@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -48,6 +49,7 @@ export const ImportFloorPlanCablesDialog = ({
   onSuccess,
 }: ImportFloorPlanCablesDialogProps) => {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
   const [floorPlanCables, setFloorPlanCables] = useState<FloorPlanCable[]>([]);
   const [selectedCables, setSelectedCables] = useState<Set<string>>(new Set());
@@ -140,16 +142,19 @@ export const ImportFloorPlanCablesDialog = ({
         .update({ schedule_id: scheduleId })
         .in("id", Array.from(selectedCables));
 
-      if (updateError) throw updateError;
+    if (updateError) throw updateError;
 
-      toast({
-        title: "Success",
-        description: `Linked ${selectedCables.size} cable(s) from floor plans to this schedule`,
-      });
+    // Invalidate queries to force refetch
+    await queryClient.invalidateQueries({ queryKey: ["cable-entries", scheduleId] });
 
-      onSuccess();
-      setSelectedCables(new Set());
-      onOpenChange(false);
+    toast({
+      title: "Success",
+      description: `Linked ${selectedCables.size} cable(s) from floor plans to this schedule`,
+    });
+
+    onSuccess();
+    setSelectedCables(new Set());
+    onOpenChange(false);
     } catch (error: any) {
       toast({
         title: "Error",
