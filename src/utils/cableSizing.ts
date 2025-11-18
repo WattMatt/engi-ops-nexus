@@ -138,22 +138,21 @@ export function calculateCableSize(
     totalLength, 
     deratingFactor = 1.0, 
     material = "copper",
-    maxAmpsPerCable = 400, // Don't exceed 400A per cable for safety
-    preferredAmpsPerCable = 300, // Prefer 300A per cable for parallel runs
-    installationMethod = 'air', // Default to Air installation
-    safetyMargin = 1.15, // Default 15% safety margin
-    voltageDropLimit // Custom voltage drop limit
+    maxAmpsPerCable = 400,
+    preferredAmpsPerCable = 300,
+    installationMethod = 'air',
+    safetyMargin = 1.15,
+    voltageDropLimit
   } = params;
 
   if (!loadAmps || loadAmps <= 0 || !voltage || voltage <= 0) {
     return null;
   }
 
-  // Determine voltage drop limit based on voltage if not specified
   const maxVoltDropPercentage = voltageDropLimit || (voltage === 400 ? 5 : 3);
-
-  // Select appropriate cable table based on material
   const cableTable = material === "aluminium" ? ALUMINIUM_CABLE_TABLE : COPPER_CABLE_TABLE;
+
+  console.log(`[CABLE CALC START] Material: ${material}, Load: ${loadAmps}A, Voltage: ${voltage}V, Length: ${totalLength}m, Installation: ${installationMethod}`);
 
   // If load is low enough for single cable, use standard calculation
   if (loadAmps <= maxAmpsPerCable) {
@@ -171,12 +170,15 @@ export function calculateCableSize(
       return currentRating >= requiredRating;
     });
 
+    console.log(`[INITIAL SELECTION] Required rating: ${requiredRating}A, Selected: ${selectedCable?.size}, Impedance: ${selectedCable?.impedance}`);
+
     if (!selectedCable) {
       return null;
     }
 
     // Check voltage drop if length provided
     if (totalLength > 0) {
+      console.log(`[BEFORE VOLT DROP CHECK] Cable: ${selectedCable.size}, Impedance: ${selectedCable.impedance}`);
       selectedCable = findCableWithAcceptableVoltDrop(
         cableTable,
         selectedCable,
@@ -184,6 +186,7 @@ export function calculateCableSize(
         voltage,
         totalLength
       );
+      console.log(`[AFTER VOLT DROP CHECK] Cable: ${selectedCable.size}, Impedance: ${selectedCable.impedance}`);
     }
 
     const result = calculateSingleCableResult(selectedCable, loadAmps, voltage, totalLength);
@@ -372,21 +375,27 @@ function findCableWithAcceptableVoltDrop(
   const maxVoltDropPercentage = voltage === 400 ? 5 : 3;
   let cableIndex = cableTable.findIndex(c => c.size === startCable.size);
 
+  console.log(`[VOLT DROP SEARCH] Starting from ${startCable.size} at index ${cableIndex}, Max VD: ${maxVoltDropPercentage}%`);
+
   while (cableIndex < cableTable.length) {
     const testCable = cableTable[cableIndex];
     const voltDrop = calculateVoltDrop(loadAmps, voltage, totalLength, testCable);
-    // Use math.js for voltage drop percentage calculation
     const voltDropPercentage = Number(
       format(multiply(divide(bignumber(voltDrop), bignumber(voltage)), 100), { notation: 'fixed', precision: 2 })
     );
 
+    console.log(`[TEST CABLE ${cableIndex}] Size: ${testCable.size}, Impedance: ${testCable.impedance}, VD: ${voltDropPercentage}%`);
+
     if (voltDropPercentage <= maxVoltDropPercentage) {
+      console.log(`[SELECTED] ${testCable.size} with impedance ${testCable.impedance}`);
       return testCable;
     }
     cableIndex++;
   }
 
-  return cableTable[cableTable.length - 1];
+  const lastCable = cableTable[cableTable.length - 1];
+  console.log(`[FALLBACK] Returning largest cable: ${lastCable.size}, Impedance: ${lastCable.impedance}`);
+  return lastCable;
 }
 
 /**
