@@ -94,9 +94,10 @@ export const EditCableEntryDialog = ({
     }
   }, [open, entry]);
 
-  // Initialize form data when dialog opens or entry changes
+  // Initialize form data only once when dialog opens with new entry
   useEffect(() => {
     if (open && entry) {
+      console.log("Initializing form with entry:", entry.cable_tag);
       setFormData({
         cable_tag: entry.cable_tag || "",
         from_location: entry.from_location || "",
@@ -119,7 +120,7 @@ export const EditCableEntryDialog = ({
         total_cost: entry.total_cost?.toString() || "",
       });
     }
-  }, [open, entry]);
+  }, [entry?.id, open]); // Only re-init when entry ID changes or dialog opens
 
   // Auto-generate cable_tag
   useEffect(() => {
@@ -155,6 +156,8 @@ export const EditCableEntryDialog = ({
     const totalLength = parseFloat(formData.total_length);
     const quantity = parseInt(formData.quantity) || 1;
 
+    console.log("Cable calc triggered:", { loadAmps, voltage, totalLength, quantity });
+
     // Calculate if we have at least load and voltage
     if (loadAmps && voltage) {
       const material = formData.cable_type?.toLowerCase() === "copper" ? "copper" : "aluminium";
@@ -166,12 +169,13 @@ export const EditCableEntryDialog = ({
         loadAmps: effectiveLoad,
         voltage,
         totalLength: totalLength || 0,
-        deratingFactor: 1.0, // Use 1.0 for accurate sizing (was 0.8)
+        deratingFactor: 1.0,
         material: material as "copper" | "aluminium",
         installationMethod: formData.installation_method as 'air' | 'ducts' | 'ground',
       });
 
       if (result) {
+        console.log("Updating with calculated values:", result.recommendedSize);
         setFormData((prev) => ({
           ...prev,
           cable_size: result.recommendedSize,
