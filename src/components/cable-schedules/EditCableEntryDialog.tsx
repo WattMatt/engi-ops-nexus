@@ -85,9 +85,9 @@ export const EditCableEntryDialog = ({
     }
   }, [open, entry]);
 
-  // Initialize form data when entry changes
+  // Initialize form data when dialog opens or entry changes
   useEffect(() => {
-    if (entry) {
+    if (open && entry) {
       setFormData({
         cable_tag: entry.cable_tag || "",
         from_location: entry.from_location || "",
@@ -110,7 +110,7 @@ export const EditCableEntryDialog = ({
         total_cost: entry.total_cost?.toString() || "",
       });
     }
-  }, [entry]);
+  }, [open, entry]);
 
   // Auto-generate cable_tag
   useEffect(() => {
