@@ -134,7 +134,10 @@ export function calculateCableSize(
   // If load is low enough for single cable, use standard calculation
   if (loadAmps <= maxAmpsPerCable) {
     // Apply derating factor and safety margin to get required current rating
-    const requiredRating = (loadAmps / deratingFactor) * safetyMargin;
+    // Safety margin increases required rating, derating factor also increases it (cable must handle MORE)
+    const requiredRating = Number(
+      format(divide(multiply(bignumber(loadAmps), bignumber(safetyMargin)), bignumber(deratingFactor)), { notation: 'fixed', precision: 2 })
+    );
     
     // Find the smallest cable that can handle the required current based on installation method
     let selectedCable = cableTable.find((cable) => {
