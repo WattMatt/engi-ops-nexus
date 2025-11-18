@@ -18,6 +18,7 @@ import { ImportFloorPlanCablesDialog } from "./ImportFloorPlanCablesDialog";
 import { ImportTenantsDialog } from "./ImportTenantsDialog";
 import { useToast } from "@/hooks/use-toast";
 import { calculateCableSize } from "@/utils/cableSizing";
+import { useCalculationSettings } from "@/hooks/useCalculationSettings";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -43,6 +44,9 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
   const [selectedEntry, setSelectedEntry] = useState<any>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [recalculating, setRecalculating] = useState(false);
+  
+  // Fetch calculation settings
+  const { data: calcSettings } = useCalculationSettings(projectId);
 
   const { data: entries, refetch } = useQuery({
     queryKey: ["cable-entries", scheduleId],
@@ -158,7 +162,7 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
   };
 
   const handleRecalculateAll = async () => {
-    if (!entries || entries.length === 0) return;
+    if (!entries || entries.length === 0 || !calcSettings) return;
 
     setRecalculating(true);
     try {
@@ -180,6 +184,8 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
           deratingFactor: 1.0,
           material: material as "copper" | "aluminium",
           installationMethod: entry.installation_method as 'air' | 'ducts' | 'ground' || 'air',
+          safetyMargin: calcSettings.cable_safety_margin,
+          voltageDropLimit: entry.voltage >= 400 ? calcSettings.voltage_drop_limit_400v : calcSettings.voltage_drop_limit_230v,
         });
 
         if (result) {

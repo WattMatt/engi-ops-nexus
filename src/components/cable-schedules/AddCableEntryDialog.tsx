@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { calculateCableSize } from "@/utils/cableSizing";
+import { useCalculationSettings } from "@/hooks/useCalculationSettings";
 import {
   Select,
   SelectContent,
@@ -44,18 +45,23 @@ export const AddCableEntryDialog = ({
   const [loading, setLoading] = useState(false);
   const [tenants, setTenants] = useState<Tenant[]>([]);
   const [useCustomToLocation, setUseCustomToLocation] = useState(false);
-  const [cablesInParallel, setCablesInParallel] = useState(1); // Track parallel cables needed
-  const [loadPerCable, setLoadPerCable] = useState<number | null>(null); // Track load per cable
-  const [costAlternatives, setCostAlternatives] = useState<any[]>([]); // Track alternative configurations
-  const [costSavings, setCostSavings] = useState<number>(0); // Track cost savings
+  const [cablesInParallel, setCablesInParallel] = useState(1);
+  const [loadPerCable, setLoadPerCable] = useState<number | null>(null);
+  const [costAlternatives, setCostAlternatives] = useState<any[]>([]);
+  const [costSavings, setCostSavings] = useState<number>(0);
+  const [projectId, setProjectId] = useState<string | null>(null);
+  
+  // Fetch calculation settings for the project
+  const { data: calcSettings } = useCalculationSettings(projectId);
+  
   const [formData, setFormData] = useState({
     cable_tag: "",
     from_location: "",
     to_location: "",
-    voltage: "400", // Default to 400V
+    voltage: "400",
     load_amps: "",
-    cable_type: "Aluminium", // Default to Aluminium
-    installation_method: "air", // Default to Air
+    cable_type: calcSettings?.default_cable_material || "Aluminium",
+    installation_method: calcSettings?.default_installation_method || "air",
     ohm_per_km: "",
     cable_number: "1",
     quantity: "1",
@@ -68,12 +74,11 @@ export const AddCableEntryDialog = ({
     supply_cost: "",
     install_cost: "",
     total_cost: "",
-    // Engineering parameters
-    power_factor: "0.85",
-    ambient_temperature: "30",
+    power_factor: calcSettings?.power_factor_power?.toString() || "0.85",
+    ambient_temperature: calcSettings?.ambient_temp_baseline?.toString() || "30",
     grouping_factor: "1.0",
     thermal_insulation_factor: "1.0",
-    voltage_drop_limit: "5.0",
+    voltage_drop_limit: calcSettings?.voltage_drop_limit_400v?.toString() || "5.0",
     circuit_type: "power",
     number_of_phases: "3",
     core_configuration: "3-core",
@@ -82,15 +87,13 @@ export const AddCableEntryDialog = ({
     starting_current: "",
     fault_level: "",
     earth_fault_loop_impedance: "",
-    calculation_method: "SANS 10142-1",
-    insulation_type: "PVC",
+    calculation_method: calcSettings?.calculation_standard || "SANS 10142-1",
+    insulation_type: calcSettings?.default_insulation_type || "PVC",
   });
 
-  // Fetch tenants when dialog opens
   useEffect(() => {
     if (open && scheduleId) {
       const fetchTenants = async () => {
-        // First get the project_id from the schedule
         const { data: schedule } = await supabase
           .from("cable_schedules")
           .select("project_id")
@@ -98,6 +101,7 @@ export const AddCableEntryDialog = ({
           .single();
 
         if (schedule?.project_id) {
+          setProjectId(schedule.project_id);
           // Fetch all tenants for the project
           const { data: tenantsData } = await supabase
             .from("tenants")
@@ -195,17 +199,18 @@ export const AddCableEntryDialog = ({
     const voltage = parseFloat(formData.voltage);
     const totalLength = parseFloat(formData.total_length);
 
-    // Calculate if we have at least load and voltage
-    if (loadAmps && voltage) {
+    if (loadAmps && voltage && calcSettings) {
       const material = formData.cable_type.toLowerCase() === "copper" ? "copper" : "aluminium";
       
       const result = calculateCableSize({
         loadAmps,
         voltage,
-        totalLength: totalLength || 0, // Use 0 if no length provided yet
-        deratingFactor: 1.0, // Use 1.0 for accurate sizing (was 0.8)
+        totalLength: totalLength || 0,
+        deratingFactor: 1.0,
         material: material as "copper" | "aluminium",
         installationMethod: formData.installation_method as 'air' | 'ducts' | 'ground',
+        safetyMargin: calcSettings.cable_safety_margin,
+        voltageDropLimit: voltage >= 400 ? calcSettings.voltage_drop_limit_400v : calcSettings.voltage_drop_limit_230v,
       });
 
       if (result) {
@@ -225,7 +230,7 @@ export const AddCableEntryDialog = ({
         }));
       }
     }
-  }, [formData.load_amps, formData.voltage, formData.total_length, formData.cable_type, formData.installation_method]);
+  }, [formData.load_amps, formData.voltage, formData.total_length, formData.cable_type, formData.installation_method, calcSettings]);
 
   // Auto-calculate total_cost
   useEffect(() => {

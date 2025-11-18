@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { calculateCableSize, COPPER_CABLE_TABLE, ALUMINIUM_CABLE_TABLE } from "@/utils/cableSizing";
+import { useCalculationSettings } from "@/hooks/useCalculationSettings";
 import {
   Select,
   SelectContent,
@@ -48,8 +49,11 @@ export const EditCableEntryDialog = ({
   const [tenants, setTenants] = useState<any[]>([]);
   const [warning, setWarning] = useState<string>("");
   const [manualOverride, setManualOverride] = useState(false);
+  const [projectId, setProjectId] = useState<string | null>(null);
   
-  // Store the recommended cable configuration from calculation
+  // Fetch calculation settings
+  const { data: calcSettings } = useCalculationSettings(projectId);
+  
   const calculationRef = useRef<{ 
     cableSize: string; 
     recommendedQuantity: number;
@@ -105,6 +109,8 @@ export const EditCableEntryDialog = ({
           .maybeSingle();
 
         if (schedule?.project_id) {
+          setProjectId(schedule.project_id);
+          
           const { data: tenantsData } = await supabase
             .from("tenants")
             .select("id, shop_number, shop_name, db_size_allowance")
@@ -207,7 +213,7 @@ export const EditCableEntryDialog = ({
     console.log("Cable calc triggered:", { loadAmps, voltage, totalLength, userQuantity });
 
     // Calculate if we have at least load and voltage
-    if (loadAmps && voltage) {
+    if (loadAmps && voltage && calcSettings) {
       const material = formData.cable_type?.toLowerCase() === "copper" ? "copper" : "aluminium";
       
       // Call calculator with FULL load - it will determine parallel cables automatically
@@ -218,6 +224,8 @@ export const EditCableEntryDialog = ({
         deratingFactor: 1.0,
         material: material as "copper" | "aluminium",
         installationMethod: formData.installation_method as 'air' | 'ducts' | 'ground',
+        safetyMargin: calcSettings.cable_safety_margin,
+        voltageDropLimit: voltage >= 400 ? calcSettings.voltage_drop_limit_400v : calcSettings.voltage_drop_limit_230v,
       });
 
       if (result) {
@@ -268,7 +276,7 @@ export const EditCableEntryDialog = ({
         }
       }
     }
-  }, [formData.load_amps, formData.voltage, formData.total_length, formData.cable_type, formData.installation_method, formData.quantity, manualOverride]);
+  }, [formData.load_amps, formData.voltage, formData.total_length, formData.cable_type, formData.installation_method, formData.quantity, manualOverride, calcSettings]);
 
   // Calculate volt drop and costs based on manual cable size selection
   useEffect(() => {
