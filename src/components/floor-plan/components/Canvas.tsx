@@ -6,7 +6,7 @@ import { type PurposeConfig } from '../purpose.config';
 import { TOOL_COLORS, EQUIPMENT_REAL_WORLD_SIZES, CONTAINMENT_COLORS } from '../constants';
 import { getZoneColor } from '../utils/styleUtils';
 import { PVArrayConfig } from './PVArrayModal';
-import { findSnap, isPointInPolygon } from '../utils/geometry';
+import { findSnap, isPointInPolygon, isPointNearPolyline } from '../utils/geometry';
 import { renderMarkupsToContext, drawPvArray, drawEquipmentIcon } from '../utils/drawing';
 
 
@@ -703,6 +703,16 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
         if (clickedZone) {
             setSelectedItemId(clickedZone.id);
             setIsDraggingItem(true);
+            return;
+        }
+        
+        // Check if clicked on a cable/line
+        const CLICK_THRESHOLD = 10 / viewState.zoom; // 10 pixels in world units
+        const clickedLine = lines.slice().reverse().find(line => 
+            isPointNearPolyline(worldPos, line.points, CLICK_THRESHOLD)
+        );
+        if (clickedLine) {
+            setSelectedItemId(clickedLine.id);
             return;
         }
         

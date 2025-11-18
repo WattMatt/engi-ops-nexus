@@ -248,6 +248,18 @@ export function renderMarkupsToContext(ctx: CanvasRenderingContext2D, params: Re
 
     // Draw lines
     lines.forEach(line => {
+      const isSelected = line.id === selectedItemId;
+      
+      // Draw selection glow if selected
+      if (isSelected) {
+        ctx.beginPath();
+        line.points.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));
+        ctx.strokeStyle = '#34D399'; // Emerald-400 for selection glow
+        ctx.lineWidth = 6 / zoom;
+        ctx.stroke();
+      }
+      
+      // Draw the line
       ctx.beginPath();
       line.points.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));
       if (line.type === 'mv') ctx.strokeStyle = TOOL_COLORS.LINE_MV;
@@ -255,6 +267,19 @@ export function renderMarkupsToContext(ctx: CanvasRenderingContext2D, params: Re
       else ctx.strokeStyle = line.cableType ? getCableColor(line.cableType) : TOOL_COLORS.LINE_LV;
       ctx.lineWidth = 3 / zoom;
       ctx.stroke();
+      
+      // Draw selection handles on line points if selected
+      if (isSelected) {
+        line.points.forEach(p => {
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, 5 / zoom, 0, 2 * Math.PI);
+          ctx.fillStyle = '#FFFFFF';
+          ctx.fill();
+          ctx.strokeStyle = '#34D399';
+          ctx.lineWidth = 2 / zoom;
+          ctx.stroke();
+        });
+      }
 
       if (line.label && line.points.length >= 2) {
           // Find the longest segment to place the label on

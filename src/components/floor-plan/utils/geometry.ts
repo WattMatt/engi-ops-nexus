@@ -76,6 +76,54 @@ export const getPVArrayCorners = (
 const distance = (p1: Point, p2: Point) => Math.hypot(p1.x - p2.x, p1.y - p2.y);
 
 /**
+ * Checks if a point is near a polyline (cable/line path).
+ * @param point The point to check.
+ * @param linePoints The points defining the polyline path.
+ * @param threshold Maximum distance in world units to consider "near".
+ * @returns True if the point is within threshold distance of any segment.
+ */
+export const isPointNearPolyline = (point: Point, linePoints: Point[], threshold: number): boolean => {
+    for (let i = 0; i < linePoints.length - 1; i++) {
+        const segmentStart = linePoints[i];
+        const segmentEnd = linePoints[i + 1];
+        
+        // Calculate distance from point to line segment
+        const distToSegment = distanceToLineSegment(point, segmentStart, segmentEnd);
+        
+        if (distToSegment <= threshold) {
+            return true;
+        }
+    }
+    return false;
+};
+
+/**
+ * Calculate distance from a point to a line segment.
+ */
+const distanceToLineSegment = (point: Point, segStart: Point, segEnd: Point): number => {
+    const dx = segEnd.x - segStart.x;
+    const dy = segEnd.y - segStart.y;
+    const lengthSquared = dx * dx + dy * dy;
+    
+    if (lengthSquared === 0) {
+        // Segment is a point
+        return distance(point, segStart);
+    }
+    
+    // Calculate projection of point onto line segment (clamped to [0, 1])
+    let t = ((point.x - segStart.x) * dx + (point.y - segStart.y) * dy) / lengthSquared;
+    t = Math.max(0, Math.min(1, t));
+    
+    // Find closest point on segment
+    const closestPoint = {
+        x: segStart.x + t * dx,
+        y: segStart.y + t * dy
+    };
+    
+    return distance(point, closestPoint);
+};
+
+/**
  * Finds the best snap point for a PV array being placed.
  * @returns An object with the snapped position and guide lines, or null.
  */
