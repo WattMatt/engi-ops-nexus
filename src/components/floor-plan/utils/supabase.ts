@@ -276,7 +276,7 @@ export interface DesignListing {
     project_id: string | null;
 }
 
-export const listDesigns = async (showAll: boolean = false, projectId?: string | null): Promise<DesignListing[]> => {
+export const listDesigns = async (showAll: boolean = false, projectId?: string | null, excludeDesignPurposes?: string[]): Promise<DesignListing[]> => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error("User not authenticated");
 
@@ -295,13 +295,21 @@ export const listDesigns = async (showAll: boolean = false, projectId?: string |
   const { data, error } = await query;
   
   if (error) throw error;
-  return data.map(d => ({ 
+  
+  // Filter out excluded design purposes client-side
+  let designs = data.map(d => ({ 
     id: d.id, 
     name: d.name, 
     createdAt: d.created_at, 
     design_purpose: d.design_purpose,
     project_id: d.project_id 
   }));
+  
+  if (excludeDesignPurposes && excludeDesignPurposes.length > 0) {
+    designs = designs.filter(d => !d.design_purpose || !excludeDesignPurposes.includes(d.design_purpose));
+  }
+  
+  return designs;
 };
 
 export const assignDesignToProject = async (designId: string, projectId: string): Promise<void> => {
