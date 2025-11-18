@@ -1,5 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
-import { DesignPurpose, EquipmentItem, SupplyLine, SupplyZone, ScaleInfo, Containment, PVPanelConfig, RoofMask, PVArrayItem, Task } from '../types';
+import { DesignPurpose, EquipmentItem, SupplyLine, SupplyZone, ScaleInfo, Containment, Walkway, PVPanelConfig, RoofMask, PVArrayItem, Task } from '../types';
 import { generatePdf } from './pdfGenerator';
 
 const BUCKET_NAME = 'floor-plans';
@@ -9,6 +9,7 @@ export interface DesignDataForSave {
     lines: SupplyLine[];
     zones: SupplyZone[];
     containment: Containment[];
+    walkways: Walkway[];
     roofMasks: RoofMask[];
     pvArrays: PVArrayItem[];
     tasks: Task[];
@@ -323,6 +324,7 @@ export interface FullDesignData {
     lines: any[];
     zones: SupplyZone[];
     containment: Containment[];
+    walkways: Walkway[];
     roof_masks: RoofMask[];
     pv_arrays: PVArrayItem[];
     tasks: any[];
@@ -398,6 +400,15 @@ export const loadDesign = async (designId: string): Promise<{ designData: FullDe
         length: c.length_meters
     }));
 
+    // Walkways are stored in state_json for now (no dedicated DB table yet)
+    const stateJson = project.state_json as any || {};
+    const transformedWalkways = (stateJson.walkways || []).map((w: any) => ({
+        id: w.id,
+        points: w.points,
+        length: w.length,
+        width: w.width || 0.55
+    }));
+
     const transformedRoofs = (roofs || []).map((r: any) => ({
         id: r.id,
         points: r.mask_points,
@@ -426,7 +437,6 @@ export const loadDesign = async (designId: string): Promise<{ designData: FullDe
         assignedTo: t.assignee
     }));
 
-    const stateJson = project.state_json as any || {};
     const designData: FullDesignData = {
         id: project.id,
         name: project.name,
@@ -445,6 +455,7 @@ export const loadDesign = async (designId: string): Promise<{ designData: FullDe
         lines: transformedLines,
         zones: transformedZones,
         containment: transformedContainment,
+        walkways: transformedWalkways,
         roof_masks: transformedRoofs,
         pv_arrays: transformedArrays,
         tasks: transformedTasks

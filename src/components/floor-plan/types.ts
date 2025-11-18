@@ -75,6 +75,7 @@ export enum Tool {
   LINE_LV = 'line_lv', // Also used for general AC
   LINE_DC = 'line_dc',
   ZONE = 'zone',
+  TOOL_WALKWAY = 'tool_walkway',
   
   // General Equipment
   PLACE_RMU = 'place_rmu',
@@ -208,6 +209,13 @@ export interface Containment {
   size: string;
   points: Point[];
   length: number;
+}
+
+export interface Walkway {
+  id: string;
+  points: Point[];
+  length: number; // in meters
+  width: number; // fixed at 0.55m (550mm)
 }
 
 export interface ViewState {

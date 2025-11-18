@@ -75,6 +75,7 @@ const toolIconMap: Partial<Record<Tool, React.ElementType<LucideProps>>> = {
     [Tool.TOOL_SLEEVES]: Route, [Tool.TOOL_POWERSKIRTING]: Route,
     [Tool.TOOL_P2000_TRUNKING]: Route, [Tool.TOOL_P8000_TRUNKING]: Route, [Tool.TOOL_P9000_TRUNKING]: Route,
     [Tool.TOOL_ROOF_MASK]: Square, [Tool.TOOL_PV_ARRAY]: LayoutGrid,
+    [Tool.TOOL_WALKWAY]: Route,
 };
 
 const categoryLabels: Record<MarkupToolCategory, { label: string; icon: React.ElementType<LucideProps> }> = {

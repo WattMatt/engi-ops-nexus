@@ -1,7 +1,7 @@
 
 import React, { useRef, useEffect, useState, useCallback, useImperativeHandle, forwardRef } from 'react';
 import type { PDFDocumentProxy, PageViewport } from 'pdfjs-dist';
-import { Tool, type ViewState, type Point, type EquipmentItem, type SupplyLine, type SupplyZone, type ScaleInfo, EquipmentType, type Containment, ContainmentType, PVPanelConfig, RoofMask, PVArrayItem, PanelOrientation, Task } from '../types';
+import { Tool, type ViewState, type Point, type EquipmentItem, type SupplyLine, type SupplyZone, type ScaleInfo, EquipmentType, type Containment, type Walkway, ContainmentType, PVPanelConfig, RoofMask, PVArrayItem, PanelOrientation, Task } from '../types';
 import { type PurposeConfig } from '../purpose.config';
 import { TOOL_COLORS, EQUIPMENT_REAL_WORLD_SIZES, CONTAINMENT_COLORS } from '../constants';
 import { getZoneColor } from '../utils/styleUtils';
@@ -31,11 +31,14 @@ interface CanvasProps {
   setZones: (updater: (prev: SupplyZone[]) => SupplyZone[], commit?: boolean) => void;
   containment: Containment[];
   setContainment: (updater: (prev: Containment[]) => Containment[], commit?: boolean) => void;
+  walkways: Walkway[];
+  setWalkways: (updater: (prev: Walkway[]) => Walkway[], commit?: boolean) => void;
   scaleInfo: ScaleInfo;
   onScaleLabelPositionChange: (position: Point | null) => void;
   onScalingComplete: (line: {start: Point, end: Point}) => void;
   onLvLineComplete: (line: { points: Point[], length: number }) => void;
   onContainmentDrawComplete: (line: { points: Point[], length: number; type: ContainmentType; }) => void;
+  onWalkwayDrawComplete: (line: { points: Point[], length: number; }) => void;
   scaleLine: {start: Point, end: Point} | null;
   onInitialViewCalculated: (vs: ViewState) => void;
   selectedItemId: string | null;
@@ -59,8 +62,8 @@ interface CanvasProps {
 
 const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
   pdfDoc, activeTool, viewState, setViewState,
-  equipment, setEquipment, lines, setLines, zones, setZones, containment, setContainment,
-  scaleInfo, onScaleLabelPositionChange, onScalingComplete, onLvLineComplete, onContainmentDrawComplete, scaleLine, onInitialViewCalculated,
+  equipment, setEquipment, lines, setLines, zones, setZones, containment, setContainment, walkways, setWalkways,
+  scaleInfo, onScaleLabelPositionChange, onScalingComplete, onLvLineComplete, onContainmentDrawComplete, onWalkwayDrawComplete, scaleLine, onInitialViewCalculated,
   selectedItemId, setSelectedItemId, placementRotation, purposeConfig,
   pvPanelConfig, roofMasks, pvArrays, setPvArrays, onRoofMaskDrawComplete, pendingPvArrayConfig, onPlacePvArray, isSnappingEnabled,
   pendingRoofMask, onRoofDirectionSet, onCancelRoofCreation, tasks
@@ -540,6 +543,8 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
                     else if ([Tool.LINE_MV, Tool.LINE_DC].includes(activeTool)) {
                         const type = activeTool === Tool.LINE_MV ? 'mv' : 'dc';
                         setLines(prev => [...prev, { id: `line-${Date.now()}`, type, points: currentDrawing, length: lineLength, name: `${type.toUpperCase()} line` }]);
+                    } else if (activeTool === Tool.TOOL_WALKWAY) {
+                        onWalkwayDrawComplete({ points: currentDrawing, length: lineLength });
                     } else if(purposeConfig.toolToContainmentMap[activeTool]) {
                         onContainmentDrawComplete({ points: currentDrawing, length: lineLength, type: purposeConfig.toolToContainmentMap[activeTool]! });
                     }
