@@ -92,6 +92,8 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
       return sorted;
     },
     enabled: !!scheduleId,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
 
   const formatCurrency = (value: number | null) => {
