@@ -19,6 +19,34 @@ export const isPointInPolygon = (point: Point, polygon: Point[]): boolean => {
     return inside;
 };
 
+/**
+ * Calculates the rotation angle for a PV array to be perpendicular (90°) to the roof's azimuth.
+ * @param position The position where the array will be placed.
+ * @param roofMasks Array of roof masks to check against.
+ * @param manualRotation The user's manual rotation setting (fallback if not on a roof).
+ * @returns The calculated rotation angle in degrees.
+ */
+export const calculateArrayRotationForRoof = (
+    position: Point,
+    roofMasks: RoofMask[],
+    manualRotation: number
+): number => {
+    // Find which roof mask the position is on
+    const roofMask = roofMasks.find(mask => isPointInPolygon(position, mask.points));
+    
+    if (!roofMask) {
+        // Not on a roof, use manual rotation
+        return manualRotation;
+    }
+    
+    // Calculate perpendicular angle to roof direction
+    // Roof direction is azimuth (0° = North, 90° = East, 180° = South, 270° = West)
+    // We want panels perpendicular (90°) to this direction
+    const perpendicularAngle = (roofMask.direction + 90) % 360;
+    
+    return perpendicularAngle;
+};
+
 
 /**
  * Calculates the four corners of a PV array in world coordinates.
