@@ -561,8 +561,50 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
   const [activeTab, setActiveTab] = useState<EquipmentPanelTab>('summary');
   const [expandedAssignees, setExpandedAssignees] = useState<Record<string, boolean>>({});
 
-  // Calculate cable summary from the canvas lines directly
-  const lvCablesFromCanvas = useMemo(() => lines.filter(l => l.type === 'lv' && l.cableType), [lines]);
+  // Fetch all cable entries for this project from the database
+  const { data: cableEntries = [], isLoading: loadingCables } = useQuery({
+    queryKey: ['cable-entries-floor-plan', projectId],
+    queryFn: async () => {
+      if (!projectId) return [];
+      
+      // Get all floor plan IDs for this project
+      const { data: floorPlans } = await supabase
+        .from('floor_plan_projects')
+        .select('id')
+        .eq('project_id', projectId);
+      
+      const floorPlanIds = floorPlans?.map(fp => fp.id) || [];
+      
+      // Get all cable schedule IDs for this project
+      const { data: schedules } = await supabase
+        .from('cable_schedules')
+        .select('id')
+        .eq('project_id', projectId);
+      
+      const scheduleIds = schedules?.map(s => s.id) || [];
+      
+      if (floorPlanIds.length === 0 && scheduleIds.length === 0) return [];
+      
+      // Fetch cable entries linked to either floor plans or schedules
+      const orConditions = [];
+      if (floorPlanIds.length > 0) {
+        orConditions.push(`floor_plan_id.in.(${floorPlanIds.join(',')})`);
+      }
+      if (scheduleIds.length > 0) {
+        orConditions.push(`schedule_id.in.(${scheduleIds.join(',')})`);
+      }
+      
+      const { data, error } = await supabase
+        .from('cable_entries')
+        .select('*')
+        .or(orConditions.join(','))
+        .order('cable_number', { ascending: true });
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!projectId,
+  });
 
   const toggleAssigneeExpansion = (assigneeName: string) => {
     setExpandedAssignees(prev => ({
@@ -571,43 +613,39 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
     }));
   };
 
-  // Calculate cable summary from canvas lines
+  // Calculate cable summary from database entries
   const cableSummary = useMemo(() => {
-    const summary = new Map<string, { type: string; count: number; totalLength: number }>();
+    const summary = new Map<string, { type: string; size: string; count: number; totalLength: number; totalCost: number }>();
     
-    lvCablesFromCanvas.forEach(line => {
-      const cableType = line.cableType || 'Unknown';
-      const existing = summary.get(cableType) || { 
-        type: cableType, 
+    cableEntries.forEach(entry => {
+      const key = `${entry.cable_type || 'Unknown'}_${entry.cable_size || 'N/A'}`;
+      const existing = summary.get(key) || { 
+        type: entry.cable_type || 'Unknown', 
+        size: entry.cable_size || 'N/A', 
         count: 0, 
-        totalLength: 0
+        totalLength: 0,
+        totalCost: 0 
       };
       
-      const isGpWire = line.cableType?.includes('GP');
-      const pathLen = line.pathLength ?? line.length;
-      const startH = line.startHeight ?? 0;
-      const endH = line.endHeight ?? 0;
-      const calculatedLength = isGpWire ? (pathLen * 3) + startH + endH : line.length;
+      existing.count += entry.quantity || 1;
+      existing.totalLength += (entry.total_length || 0) * (entry.quantity || 1);
+      existing.totalCost += entry.total_cost || 0;
       
-      existing.count += 1;
-      existing.totalLength += calculatedLength;
-      
-      summary.set(cableType, existing);
+      summary.set(key, existing);
     });
     
-    return Array.from(summary.values()).sort((a, b) => a.type.localeCompare(b.type));
-  }, [lvCablesFromCanvas]);
+    return Array.from(summary.values()).sort((a, b) => 
+      a.type.localeCompare(b.type) || a.size.localeCompare(b.size)
+    );
+  }, [cableEntries]);
 
   const totalCableLength = useMemo(() => 
-    lvCablesFromCanvas.reduce((sum, line) => {
-      const isGpWire = line.cableType?.includes('GP');
-      const pathLen = line.pathLength ?? line.length;
-      const startH = line.startHeight ?? 0;
-      const endH = line.endHeight ?? 0;
-      const calculatedLength = isGpWire ? (pathLen * 3) + startH + endH : line.length;
-      return sum + calculatedLength;
-    }, 0)
-  , [lvCablesFromCanvas]);
+    cableEntries.reduce((sum, entry) => sum + ((entry.total_length || 0) * (entry.quantity || 1)), 0)
+  , [cableEntries]);
+
+  const totalCableCost = useMemo(() => 
+    cableEntries.reduce((sum, entry) => sum + (entry.total_cost || 0), 0)
+  , [cableEntries]);
 
   const {itemDictionary, equipmentCounts, containmentSummary, tasksByStatus, tasksByAssignee} = useMemo(() => {
     const eqCounts = new Map<EquipmentType, number>();
@@ -686,7 +724,7 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
       return lines.find(l => l.id === selectedItemId) || null;
   }, [selectedItemId, lines]);
 
-  const hasLvCables = useMemo(() => lines.some(l => l.type === 'lv' && l.cableType), [lines]);
+  const hasCables = useMemo(() => cableEntries.length > 0 || lines.some(l => l.type === 'lv' && l.cableType), [cableEntries, lines]);
 
   const renderSummaryTab = () => {
     switch(designPurpose) {
@@ -749,7 +787,7 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
             <nav className="-mb-px flex flex-wrap" aria-label="Tabs">
                 <TabButton tabId="summary" label="Summary" />
                 <TabButton tabId="equipment" label="Equipment" />
-                <TabButton tabId="cables" label="Cables" disabled={!hasLvCables} />
+                <TabButton tabId="cables" label="Cables" disabled={!hasCables} />
                 <TabButton tabId="containment" label="Containment" />
                 <TabButton tabId="zones" label="Zones" />
                 <TabButton tabId="tasks" label="Tasks" count={tasks.length} />
@@ -774,30 +812,38 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
                 </div>
             </div>
              <div style={{display: activeTab === 'cables' ? 'block' : 'none'}}>
-                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Cable Layout Summary</h3>
-                {lvCablesFromCanvas.length > 0 ? (
+                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Cable Schedule</h3>
+                {loadingCables ? (
+                  <p className="text-gray-500 text-xs text-center p-4">Loading cables...</p>
+                ) : cableEntries.length > 0 ? (
                   <div className="space-y-4 max-h-[60vh] overflow-y-auto pr-2">
                     {/* Summary Totals Card */}
                     <div className="bg-gradient-to-br from-primary/20 to-primary/5 border border-primary/30 rounded-lg p-3 space-y-2">
                       <div className="flex justify-between items-center text-xs">
                         <span className="text-gray-300 font-medium">Total Cables:</span>
-                        <span className="font-bold text-primary">{lvCablesFromCanvas.length}</span>
+                        <span className="font-bold text-primary">{cableEntries.length}</span>
                       </div>
                       <div className="flex justify-between items-center text-xs">
                         <span className="text-gray-300 font-medium">Total Length:</span>
                         <span className="font-bold text-amber-400">{totalCableLength.toFixed(2)}m</span>
                       </div>
+                      {totalCableCost > 0 && (
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-gray-300 font-medium">Total Cost:</span>
+                          <span className="font-bold text-green-400">R {totalCableCost.toFixed(2)}</span>
+                        </div>
+                      )}
                     </div>
 
                     {/* Cable Type Breakdown */}
                     <div className="space-y-2">
-                      <h4 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Breakdown by Type</h4>
+                      <h4 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Breakdown by Type & Size</h4>
                       {cableSummary.map((summary) => (
-                        <div key={summary.type} className="bg-gray-700/50 p-2.5 rounded-md">
+                        <div key={`${summary.type}_${summary.size}`} className="bg-gray-700/50 p-2.5 rounded-md">
                           <div className="flex justify-between items-start mb-2">
-                            <div className="flex items-center gap-2 flex-1">
-                              <div className="w-3 h-3 rounded-full" style={{backgroundColor: getCableColor(summary.type)}}></div>
+                            <div className="flex-1">
                               <div className="font-semibold text-sm text-gray-200">{summary.type}</div>
+                              <div className="text-[10px] text-gray-400">Size: {summary.size}</div>
                             </div>
                             <div className="text-right">
                               <div className="text-xs font-bold text-amber-400">{summary.count} cables</div>
@@ -805,6 +851,9 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
                           </div>
                           <div className="flex justify-between items-center text-[10px] text-gray-400">
                             <span>Total Length: <span className="text-gray-300 font-mono">{summary.totalLength.toFixed(2)}m</span></span>
+                            {summary.totalCost > 0 && (
+                              <span>Cost: <span className="text-green-400 font-mono">R {summary.totalCost.toFixed(2)}</span></span>
+                            )}
                           </div>
                         </div>
                       ))}
@@ -812,40 +861,29 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
 
                     {/* Individual Entries */}
                     <div className="space-y-2">
-                      <h4 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Individual Cables ({lvCablesFromCanvas.length})</h4>
-                      {lvCablesFromCanvas.map(line => {
-                        const isGpWire = line.cableType?.includes('GP');
-                        const pathLen = line.pathLength ?? line.length;
-                        const startH = line.startHeight ?? 0;
-                        const endH = line.endHeight ?? 0;
-                        const calculatedLength = isGpWire ? (pathLen * 3) + startH + endH : line.length;
-                        
-                        return (
-                          <div key={line.id} className="bg-gray-700/30 p-2 rounded-md space-y-1 border border-gray-600/30">
-                            <div className="flex justify-between items-center">
-                              <div className="flex items-center gap-2">
-                                <div className="w-3 h-3 rounded-full" style={{backgroundColor: getCableColor(line.cableType || '')}}></div>
-                                <span className="font-semibold text-amber-400 text-xs">{line.cableType || 'N/A'}</span>
-                              </div>
-                              {line.terminationCount && line.terminationCount > 0 && (
-                                <span className="text-gray-400 font-mono text-[10px]">{line.terminationCount}x Term.</span>
+                      <h4 className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">Individual Cables ({cableEntries.length})</h4>
+                      {cableEntries.map(entry => (
+                        <div key={entry.id} className="bg-gray-700/30 p-2 rounded-md space-y-1 border border-gray-600/30">
+                          <div className="flex justify-between items-center">
+                            <span className="font-semibold text-amber-400 text-xs">{entry.cable_tag}</span>
+                            <span className="text-gray-400 font-mono text-[10px]">{entry.cable_type} {entry.cable_size || 'N/A'}</span>
+                          </div>
+                          <div className="text-gray-400 text-[10px] space-y-0.5">
+                            <div>From: <span className="text-gray-300">{entry.from_location}</span></div>
+                            <div>To: <span className="text-gray-300">{entry.to_location}</span></div>
+                            <div className="flex justify-between items-center pt-1 border-t border-gray-600/30">
+                              <span>Length: <span className="text-gray-300 font-mono">{entry.total_length?.toFixed(2) || 0}m</span></span>
+                              {entry.total_cost && entry.total_cost > 0 && (
+                                <span>Cost: <span className="text-green-400 font-mono">R {entry.total_cost.toFixed(2)}</span></span>
                               )}
                             </div>
-                            <div className="text-gray-400 text-[10px] space-y-0.5">
-                              <div>From: <span className="text-gray-300">{line.from || 'N/A'}</span></div>
-                              <div>To: <span className="text-gray-300">{line.to || 'N/A'}</span></div>
-                              {line.label && <div>Label: <span className="text-gray-300">{line.label}</span></div>}
-                              <div className="flex justify-between items-center pt-1 border-t border-gray-600/30">
-                                <span>Length: <span className="text-gray-300 font-mono">{calculatedLength.toFixed(2)}m</span></span>
-                              </div>
-                            </div>
                           </div>
-                        );
-                      })}
+                        </div>
+                      ))}
                     </div>
                   </div>
                 ) : (
-                  <p className="text-gray-500 text-xs text-center p-4">No cables drawn on layout.</p>
+                  <p className="text-gray-500 text-xs text-center p-4">No cables in schedule for this project.</p>
                 )}
             </div>
              <div style={{display: activeTab === 'containment' ? 'block' : 'none'}}>
