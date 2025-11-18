@@ -191,6 +191,7 @@ export interface SupplyLine {
   terminationCount?: number;
   startHeight?: number;
   endHeight?: number;
+  cableEntryId?: string; // Link to cable_entries table when saved to schedule
 }
 
 export interface SupplyZone {

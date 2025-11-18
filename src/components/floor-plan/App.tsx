@@ -598,7 +598,8 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
       const newLine: SupplyLine = {
           id: `line-${Date.now()}`, name: `${details.from} to ${details.to}`, type: 'lv' as const, points: pendingLine.points, 
           length: totalLength, pathLength: pathLength, from: details.from, to: details.to, cableType: details.cableType,
-          terminationCount: details.terminationCount, startHeight: details.startHeight, endHeight: details.endHeight, label: details.label
+          terminationCount: details.terminationCount, startHeight: details.startHeight, endHeight: details.endHeight, label: details.label,
+          cableEntryId: details.cableEntryId
       };
       setLines(prev => [...prev, newLine]);
       setIsCableModalOpen(false);

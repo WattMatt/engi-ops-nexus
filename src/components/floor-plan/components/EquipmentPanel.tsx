@@ -271,6 +271,14 @@ const DetailedCableSchedule: React.FC<{ lines: SupplyLine[] }> = ({ lines }) => 
                             <div className="flex items-center gap-2">
                                 <div className="w-3 h-3 rounded-full" style={{backgroundColor: line.cableType ? getCableColor(line.cableType) : 'gray'}}></div>
                                 <span className="font-bold text-gray-200">{line.cableType || 'N/A'}</span>
+                                {line.cableEntryId && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] bg-green-900/30 text-green-400 border border-green-700">
+                                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        Linked
+                                    </span>
+                                )}
                             </div>
                             <div className="flex items-center gap-3">
                               {line.terminationCount && line.terminationCount > 0 && <span className="font-mono text-amber-400">{line.terminationCount}x Term.</span>}
