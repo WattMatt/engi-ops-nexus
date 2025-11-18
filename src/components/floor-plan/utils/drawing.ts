@@ -247,21 +247,95 @@ export function renderMarkupsToContext(ctx: CanvasRenderingContext2D, params: Re
         ctx.setLineDash([]);
     });
 
-    // Draw walkways (550mm wide paths with actual width)
+    // Draw walkways (550mm wide paths with deviation/ladder pattern)
     walkways.forEach(walkway => {
-        if (scaleInfo.ratio) {
+        if (scaleInfo.ratio && walkway.points.length >= 2) {
             // Calculate actual width in pixels (0.55m walkway)
             const walkwayWidthPx = walkway.width / scaleInfo.ratio;
             
+            // Draw the main walkway path with light fill
             ctx.beginPath();
             walkway.points.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
-            ctx.strokeStyle = TOOL_COLORS.WALKWAY;
+            ctx.strokeStyle = `${TOOL_COLORS.WALKWAY}40`; // Light fill
             ctx.lineWidth = walkwayWidthPx;
             ctx.lineCap = 'round';
             ctx.lineJoin = 'round';
-            ctx.setLineDash([10 / zoom, 5 / zoom]);
             ctx.stroke();
+            
+            // Draw walkway edges (boundary lines)
+            ctx.strokeStyle = TOOL_COLORS.WALKWAY;
+            ctx.lineWidth = 1.5 / zoom;
             ctx.setLineDash([]);
+            
+            // Draw both edges
+            for (let edge = -1; edge <= 1; edge += 2) {
+                ctx.beginPath();
+                for (let i = 0; i < walkway.points.length; i++) {
+                    const p = walkway.points[i];
+                    let offsetX = 0, offsetY = 0;
+                    
+                    if (i < walkway.points.length - 1) {
+                        const next = walkway.points[i + 1];
+                        const dx = next.x - p.x;
+                        const dy = next.y - p.y;
+                        const len = Math.sqrt(dx * dx + dy * dy);
+                        if (len > 0) {
+                            // Perpendicular offset
+                            offsetX = (-dy / len) * (walkwayWidthPx / 2) * edge;
+                            offsetY = (dx / len) * (walkwayWidthPx / 2) * edge;
+                        }
+                    } else if (i > 0) {
+                        const prev = walkway.points[i - 1];
+                        const dx = p.x - prev.x;
+                        const dy = p.y - prev.y;
+                        const len = Math.sqrt(dx * dx + dy * dy);
+                        if (len > 0) {
+                            offsetX = (-dy / len) * (walkwayWidthPx / 2) * edge;
+                            offsetY = (dx / len) * (walkwayWidthPx / 2) * edge;
+                        }
+                    }
+                    
+                    if (i === 0) {
+                        ctx.moveTo(p.x + offsetX, p.y + offsetY);
+                    } else {
+                        ctx.lineTo(p.x + offsetX, p.y + offsetY);
+                    }
+                }
+                ctx.stroke();
+            }
+            
+            // Draw perpendicular deviation lines across the walkway (ladder pattern)
+            const spacing = 0.4 / scaleInfo.ratio; // 400mm spacing between lines
+            for (let i = 0; i < walkway.points.length - 1; i++) {
+                const p1 = walkway.points[i];
+                const p2 = walkway.points[i + 1];
+                const dx = p2.x - p1.x;
+                const dy = p2.y - p1.y;
+                const segmentLength = Math.sqrt(dx * dx + dy * dy);
+                
+                if (segmentLength > 0) {
+                    const numLines = Math.floor(segmentLength / spacing);
+                    
+                    for (let j = 0; j <= numLines; j++) {
+                        const t = j / Math.max(numLines, 1);
+                        const px = p1.x + dx * t;
+                        const py = p1.y + dy * t;
+                        
+                        // Perpendicular direction
+                        const perpX = -dy / segmentLength;
+                        const perpY = dx / segmentLength;
+                        
+                        const halfWidth = walkwayWidthPx / 2;
+                        
+                        ctx.beginPath();
+                        ctx.moveTo(px + perpX * halfWidth * 0.7, py + perpY * halfWidth * 0.7);
+                        ctx.lineTo(px - perpX * halfWidth * 0.7, py - perpY * halfWidth * 0.7);
+                        ctx.strokeStyle = TOOL_COLORS.WALKWAY;
+                        ctx.lineWidth = 1 / zoom;
+                        ctx.stroke();
+                    }
+                }
+            }
         }
     });
 
