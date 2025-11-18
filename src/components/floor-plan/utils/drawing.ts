@@ -247,15 +247,22 @@ export function renderMarkupsToContext(ctx: CanvasRenderingContext2D, params: Re
         ctx.setLineDash([]);
     });
 
-    // Draw walkways (550mm wide paths)
+    // Draw walkways (550mm wide paths with actual width)
     walkways.forEach(walkway => {
-        ctx.beginPath();
-        walkway.points.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
-        ctx.strokeStyle = TOOL_COLORS.WALKWAY;
-        ctx.lineWidth = 5 / zoom;
-        ctx.setLineDash([10 / zoom, 5 / zoom]);
-        ctx.stroke();
-        ctx.setLineDash([]);
+        if (scaleInfo.ratio) {
+            // Calculate actual width in pixels (0.55m walkway)
+            const walkwayWidthPx = walkway.width / scaleInfo.ratio;
+            
+            ctx.beginPath();
+            walkway.points.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+            ctx.strokeStyle = TOOL_COLORS.WALKWAY;
+            ctx.lineWidth = walkwayWidthPx;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.setLineDash([10 / zoom, 5 / zoom]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+        }
     });
 
     // Draw lines
