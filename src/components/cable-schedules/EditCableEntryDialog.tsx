@@ -144,13 +144,17 @@ export const EditCableEntryDialog = ({
     const loadAmps = parseFloat(formData.load_amps);
     const voltage = parseFloat(formData.voltage);
     const totalLength = parseFloat(formData.total_length);
+    const quantity = parseInt(formData.quantity) || 1;
 
     // Calculate if we have at least load and voltage
     if (loadAmps && voltage) {
       const material = formData.cable_type?.toLowerCase() === "copper" ? "copper" : "aluminium";
       
+      // If multiple cables in parallel, divide current by quantity
+      const effectiveLoad = loadAmps / quantity;
+      
       const result = calculateCableSize({
-        loadAmps,
+        loadAmps: effectiveLoad,
         voltage,
         totalLength: totalLength || 0,
         deratingFactor: 1.0, // Use 1.0 for accurate sizing (was 0.8)
@@ -164,12 +168,12 @@ export const EditCableEntryDialog = ({
           cable_size: result.recommendedSize,
           ohm_per_km: result.ohmPerKm.toString(),
           volt_drop: totalLength ? result.voltDrop.toString() : "0",
-          supply_cost: result.supplyCost.toString(),
-          install_cost: result.installCost.toString(),
+          supply_cost: (result.supplyCost * quantity).toString(),
+          install_cost: (result.installCost * quantity).toString(),
         }));
       }
     }
-  }, [formData.load_amps, formData.voltage, formData.total_length, formData.cable_type, formData.installation_method]);
+  }, [formData.load_amps, formData.voltage, formData.total_length, formData.cable_type, formData.installation_method, formData.quantity]);
 
   // Auto-calculate total_cost
   useEffect(() => {
@@ -192,6 +196,7 @@ export const EditCableEntryDialog = ({
           cable_tag: formData.cable_tag,
           from_location: formData.from_location,
           to_location: formData.to_location,
+          quantity: formData.quantity ? parseInt(formData.quantity) : 1,
           voltage: formData.voltage ? parseFloat(formData.voltage) : null,
           load_amps: formData.load_amps ? parseFloat(formData.load_amps) : null,
           cable_type: formData.cable_type || null,
