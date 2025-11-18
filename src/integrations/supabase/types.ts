@@ -655,91 +655,136 @@ export type Database = {
       }
       cable_entries: {
         Row: {
+          ambient_temperature: number | null
           cable_number: number | null
           cable_size: string | null
           cable_tag: string
           cable_type: string | null
+          calculation_method: string | null
+          circuit_type: string | null
+          core_configuration: string | null
           created_at: string
           created_from: string | null
           display_order: number
+          earth_fault_loop_impedance: number | null
           extra_length: number | null
+          fault_level: number | null
           floor_plan_cable_id: string | null
           floor_plan_id: string | null
           from_location: string
+          grouping_factor: number | null
           id: string
           install_cost: number | null
           installation_method: string
+          insulation_type: string | null
           load_amps: number | null
+          max_demand_factor: number | null
           measured_length: number | null
           notes: string | null
+          number_of_phases: number | null
           ohm_per_km: number | null
+          power_factor: number | null
+          protection_device_rating: number | null
           quantity: number
           schedule_id: string | null
+          starting_current: number | null
           supply_cost: number | null
+          thermal_insulation_factor: number | null
           to_location: string
           total_cost: number | null
           total_length: number | null
           updated_at: string
           volt_drop: number | null
           voltage: number | null
+          voltage_drop_limit: number | null
         }
         Insert: {
+          ambient_temperature?: number | null
           cable_number?: number | null
           cable_size?: string | null
           cable_tag: string
           cable_type?: string | null
+          calculation_method?: string | null
+          circuit_type?: string | null
+          core_configuration?: string | null
           created_at?: string
           created_from?: string | null
           display_order?: number
+          earth_fault_loop_impedance?: number | null
           extra_length?: number | null
+          fault_level?: number | null
           floor_plan_cable_id?: string | null
           floor_plan_id?: string | null
           from_location: string
+          grouping_factor?: number | null
           id?: string
           install_cost?: number | null
           installation_method?: string
+          insulation_type?: string | null
           load_amps?: number | null
+          max_demand_factor?: number | null
           measured_length?: number | null
           notes?: string | null
+          number_of_phases?: number | null
           ohm_per_km?: number | null
+          power_factor?: number | null
+          protection_device_rating?: number | null
           quantity?: number
           schedule_id?: string | null
+          starting_current?: number | null
           supply_cost?: number | null
+          thermal_insulation_factor?: number | null
           to_location: string
           total_cost?: number | null
           total_length?: number | null
           updated_at?: string
           volt_drop?: number | null
           voltage?: number | null
+          voltage_drop_limit?: number | null
         }
         Update: {
+          ambient_temperature?: number | null
           cable_number?: number | null
           cable_size?: string | null
           cable_tag?: string
           cable_type?: string | null
+          calculation_method?: string | null
+          circuit_type?: string | null
+          core_configuration?: string | null
           created_at?: string
           created_from?: string | null
           display_order?: number
+          earth_fault_loop_impedance?: number | null
           extra_length?: number | null
+          fault_level?: number | null
           floor_plan_cable_id?: string | null
           floor_plan_id?: string | null
           from_location?: string
+          grouping_factor?: number | null
           id?: string
           install_cost?: number | null
           installation_method?: string
+          insulation_type?: string | null
           load_amps?: number | null
+          max_demand_factor?: number | null
           measured_length?: number | null
           notes?: string | null
+          number_of_phases?: number | null
           ohm_per_km?: number | null
+          power_factor?: number | null
+          protection_device_rating?: number | null
           quantity?: number
           schedule_id?: string | null
+          starting_current?: number | null
           supply_cost?: number | null
+          thermal_insulation_factor?: number | null
           to_location?: string
           total_cost?: number | null
           total_length?: number | null
           updated_at?: string
           volt_drop?: number | null
           voltage?: number | null
+          voltage_drop_limit?: number | null
         }
         Relationships: [
           {

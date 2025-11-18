@@ -68,6 +68,22 @@ export const AddCableEntryDialog = ({
     supply_cost: "",
     install_cost: "",
     total_cost: "",
+    // Engineering parameters
+    power_factor: "0.85",
+    ambient_temperature: "30",
+    grouping_factor: "1.0",
+    thermal_insulation_factor: "1.0",
+    voltage_drop_limit: "5.0",
+    circuit_type: "power",
+    number_of_phases: "3",
+    core_configuration: "3-core",
+    protection_device_rating: "",
+    max_demand_factor: "1.0",
+    starting_current: "",
+    fault_level: "",
+    earth_fault_loop_impedance: "",
+    calculation_method: "SANS 10142-1",
+    insulation_type: "PVC",
   });
 
   // Fetch tenants when dialog opens
@@ -241,6 +257,7 @@ export const AddCableEntryDialog = ({
           installation_method: formData.installation_method || 'air',
           ohm_per_km: formData.ohm_per_km ? parseFloat(formData.ohm_per_km) : null,
           cable_number: i + 1, // Number cables 1, 2, 3, 4...
+          quantity: cablesInParallel,
           extra_length: formData.extra_length ? parseFloat(formData.extra_length) : 0,
           measured_length: formData.measured_length ? parseFloat(formData.measured_length) : 0,
           total_length: formData.total_length ? parseFloat(formData.total_length) : 0,
@@ -252,6 +269,22 @@ export const AddCableEntryDialog = ({
           supply_cost: formData.supply_cost ? parseFloat(formData.supply_cost) : 0,
           install_cost: formData.install_cost ? parseFloat(formData.install_cost) : 0,
           total_cost: formData.total_cost ? parseFloat(formData.total_cost) : 0,
+          // Engineering parameters
+          power_factor: formData.power_factor ? parseFloat(formData.power_factor) : 0.85,
+          ambient_temperature: formData.ambient_temperature ? parseInt(formData.ambient_temperature) : 30,
+          grouping_factor: formData.grouping_factor ? parseFloat(formData.grouping_factor) : 1.0,
+          thermal_insulation_factor: formData.thermal_insulation_factor ? parseFloat(formData.thermal_insulation_factor) : 1.0,
+          voltage_drop_limit: formData.voltage_drop_limit ? parseFloat(formData.voltage_drop_limit) : 5.0,
+          circuit_type: formData.circuit_type || 'power',
+          number_of_phases: formData.number_of_phases ? parseInt(formData.number_of_phases) : 3,
+          core_configuration: formData.core_configuration || '3-core',
+          protection_device_rating: formData.protection_device_rating ? parseFloat(formData.protection_device_rating) : null,
+          max_demand_factor: formData.max_demand_factor ? parseFloat(formData.max_demand_factor) : 1.0,
+          starting_current: formData.starting_current ? parseFloat(formData.starting_current) : null,
+          fault_level: formData.fault_level ? parseFloat(formData.fault_level) : null,
+          earth_fault_loop_impedance: formData.earth_fault_loop_impedance ? parseFloat(formData.earth_fault_loop_impedance) : null,
+          calculation_method: formData.calculation_method || 'SANS 10142-1',
+          insulation_type: formData.insulation_type || 'PVC',
         });
       }
 
@@ -287,6 +320,22 @@ export const AddCableEntryDialog = ({
         supply_cost: "",
         install_cost: "",
         total_cost: "",
+        // Engineering parameters
+        power_factor: "0.85",
+        ambient_temperature: "30",
+        grouping_factor: "1.0",
+        thermal_insulation_factor: "1.0",
+        voltage_drop_limit: "5.0",
+        circuit_type: "power",
+        number_of_phases: "3",
+        core_configuration: "3-core",
+        protection_device_rating: "",
+        max_demand_factor: "1.0",
+        starting_current: "",
+        fault_level: "",
+        earth_fault_loop_impedance: "",
+        calculation_method: "SANS 10142-1",
+        insulation_type: "PVC",
       });
       setCablesInParallel(1);
       setLoadPerCable(null);
