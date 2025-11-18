@@ -76,6 +76,22 @@ export const EditCableEntryDialog = ({
     supply_cost: "",
     install_cost: "",
     total_cost: "",
+    // Engineering parameters
+    power_factor: "0.85",
+    ambient_temperature: "30",
+    grouping_factor: "1.0",
+    thermal_insulation_factor: "1.0",
+    voltage_drop_limit: "5.0",
+    circuit_type: "power",
+    number_of_phases: "3",
+    core_configuration: "3-core",
+    protection_device_rating: "",
+    max_demand_factor: "1.0",
+    starting_current: "",
+    fault_level: "",
+    earth_fault_loop_impedance: "",
+    calculation_method: "SANS 10142-1",
+    insulation_type: "PVC",
   });
 
   // Fetch tenants for auto-population
@@ -128,6 +144,22 @@ export const EditCableEntryDialog = ({
         supply_cost: entry.supply_cost?.toString() || "",
         install_cost: entry.install_cost?.toString() || "",
         total_cost: entry.total_cost?.toString() || "",
+        // Engineering parameters
+        power_factor: entry.power_factor?.toString() || "0.85",
+        ambient_temperature: entry.ambient_temperature?.toString() || "30",
+        grouping_factor: entry.grouping_factor?.toString() || "1.0",
+        thermal_insulation_factor: entry.thermal_insulation_factor?.toString() || "1.0",
+        voltage_drop_limit: entry.voltage_drop_limit?.toString() || "5.0",
+        circuit_type: entry.circuit_type || "power",
+        number_of_phases: entry.number_of_phases?.toString() || "3",
+        core_configuration: entry.core_configuration || "3-core",
+        protection_device_rating: entry.protection_device_rating?.toString() || "",
+        max_demand_factor: entry.max_demand_factor?.toString() || "1.0",
+        starting_current: entry.starting_current?.toString() || "",
+        fault_level: entry.fault_level?.toString() || "",
+        earth_fault_loop_impedance: entry.earth_fault_loop_impedance?.toString() || "",
+        calculation_method: entry.calculation_method || "SANS 10142-1",
+        insulation_type: entry.insulation_type || "PVC",
       });
     }
   }, [entry?.id, open]); // Only re-init when entry ID changes or dialog opens
@@ -322,6 +354,22 @@ export const EditCableEntryDialog = ({
           supply_cost: formData.supply_cost ? parseFloat(formData.supply_cost) : 0,
           install_cost: formData.install_cost ? parseFloat(formData.install_cost) : 0,
           total_cost: formData.total_cost ? parseFloat(formData.total_cost) : 0,
+          // Engineering parameters
+          power_factor: formData.power_factor ? parseFloat(formData.power_factor) : 0.85,
+          ambient_temperature: formData.ambient_temperature ? parseInt(formData.ambient_temperature) : 30,
+          grouping_factor: formData.grouping_factor ? parseFloat(formData.grouping_factor) : 1.0,
+          thermal_insulation_factor: formData.thermal_insulation_factor ? parseFloat(formData.thermal_insulation_factor) : 1.0,
+          voltage_drop_limit: formData.voltage_drop_limit ? parseFloat(formData.voltage_drop_limit) : 5.0,
+          circuit_type: formData.circuit_type || 'power',
+          number_of_phases: formData.number_of_phases ? parseInt(formData.number_of_phases) : 3,
+          core_configuration: formData.core_configuration || '3-core',
+          protection_device_rating: formData.protection_device_rating ? parseFloat(formData.protection_device_rating) : null,
+          max_demand_factor: formData.max_demand_factor ? parseFloat(formData.max_demand_factor) : 1.0,
+          starting_current: formData.starting_current ? parseFloat(formData.starting_current) : null,
+          fault_level: formData.fault_level ? parseFloat(formData.fault_level) : null,
+          earth_fault_loop_impedance: formData.earth_fault_loop_impedance ? parseFloat(formData.earth_fault_loop_impedance) : null,
+          calculation_method: formData.calculation_method || 'SANS 10142-1',
+          insulation_type: formData.insulation_type || 'PVC',
         })
         .eq("id", entry.id);
 
@@ -532,6 +580,372 @@ export const EditCableEntryDialog = ({
                       </SelectContent>
                     </Select>
                   </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Zap className="h-4 w-4 text-blue-500" />
+                  Derating & Environmental Factors
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Label htmlFor="ambient_temperature" className="cursor-help">Ambient Temp (°C)</Label>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Design ambient temperature - affects derating</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <Input
+                      id="ambient_temperature"
+                      type="number"
+                      value={formData.ambient_temperature}
+                      onChange={(e) =>
+                        setFormData({ ...formData, ambient_temperature: e.target.value })
+                      }
+                      className="font-mono"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Label htmlFor="grouping_factor" className="cursor-help">Grouping Factor</Label>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Derating for grouped circuits (1.0 = single circuit)</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <Input
+                      id="grouping_factor"
+                      type="number"
+                      step="0.01"
+                      value={formData.grouping_factor}
+                      onChange={(e) =>
+                        setFormData({ ...formData, grouping_factor: e.target.value })
+                      }
+                      className="font-mono"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Label htmlFor="thermal_insulation_factor" className="cursor-help">Thermal Insulation</Label>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Derating for thermal insulation (1.0 = none)</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <Input
+                      id="thermal_insulation_factor"
+                      type="number"
+                      step="0.01"
+                      value={formData.thermal_insulation_factor}
+                      onChange={(e) =>
+                        setFormData({ ...formData, thermal_insulation_factor: e.target.value })
+                      }
+                      className="font-mono"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Calculator className="h-4 w-4 text-purple-500" />
+                  Circuit Configuration
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="number_of_phases">Phases</Label>
+                    <Select
+                      value={formData.number_of_phases}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, number_of_phases: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="1">Single Phase</SelectItem>
+                        <SelectItem value="3">Three Phase</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="core_configuration">Core Config</Label>
+                    <Select
+                      value={formData.core_configuration}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, core_configuration: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="3-core">3-Core</SelectItem>
+                        <SelectItem value="4-core">4-Core</SelectItem>
+                        <SelectItem value="single-core">Single Core</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="insulation_type">Insulation</Label>
+                    <Select
+                      value={formData.insulation_type}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, insulation_type: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="PVC">PVC</SelectItem>
+                        <SelectItem value="XLPE">XLPE</SelectItem>
+                        <SelectItem value="EPR">EPR</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="circuit_type">Circuit Type</Label>
+                    <Select
+                      value={formData.circuit_type}
+                      onValueChange={(value) =>
+                        setFormData({ ...formData, circuit_type: value })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="power">Power</SelectItem>
+                        <SelectItem value="lighting">Lighting</SelectItem>
+                        <SelectItem value="motor">Motor</SelectItem>
+                        <SelectItem value="hvac">HVAC</SelectItem>
+                        <SelectItem value="ups">UPS</SelectItem>
+                        <SelectItem value="data">Data/IT</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Label htmlFor="power_factor" className="cursor-help">Power Factor</Label>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Typical: 0.85 (power), 0.95 (lighting), 0.80 (motors)</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <Input
+                      id="power_factor"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="1"
+                      value={formData.power_factor}
+                      onChange={(e) =>
+                        setFormData({ ...formData, power_factor: e.target.value })
+                      }
+                      className="font-mono"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Label htmlFor="max_demand_factor" className="cursor-help">Demand Factor</Label>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Load diversity factor (1.0 = full load)</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <Input
+                      id="max_demand_factor"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="1"
+                      value={formData.max_demand_factor}
+                      onChange={(e) =>
+                        setFormData({ ...formData, max_demand_factor: e.target.value })
+                      }
+                      className="font-mono"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <AlertCircle className="h-4 w-4 text-orange-500" />
+                  Protection & Fault Parameters
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Label htmlFor="protection_device_rating" className="cursor-help">Protection (A)</Label>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Overcurrent protection device rating</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <Input
+                      id="protection_device_rating"
+                      type="number"
+                      step="0.1"
+                      value={formData.protection_device_rating}
+                      onChange={(e) =>
+                        setFormData({ ...formData, protection_device_rating: e.target.value })
+                      }
+                      className="font-mono"
+                      placeholder="e.g., 630"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Label htmlFor="fault_level" className="cursor-help">Fault Level (kA)</Label>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Prospective short circuit current</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <Input
+                      id="fault_level"
+                      type="number"
+                      step="0.1"
+                      value={formData.fault_level}
+                      onChange={(e) =>
+                        setFormData({ ...formData, fault_level: e.target.value })
+                      }
+                      className="font-mono"
+                      placeholder="e.g., 25"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Label htmlFor="earth_fault_loop_impedance" className="cursor-help">EFLI (Ω)</Label>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Earth fault loop impedance</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <Input
+                      id="earth_fault_loop_impedance"
+                      type="number"
+                      step="0.0001"
+                      value={formData.earth_fault_loop_impedance}
+                      onChange={(e) =>
+                        setFormData({ ...formData, earth_fault_loop_impedance: e.target.value })
+                      }
+                      className="font-mono"
+                      placeholder="e.g., 0.35"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Label htmlFor="starting_current" className="cursor-help">Starting Current (A)</Label>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Motor starting current if applicable</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <Input
+                      id="starting_current"
+                      type="number"
+                      step="0.1"
+                      value={formData.starting_current}
+                      onChange={(e) =>
+                        setFormData({ ...formData, starting_current: e.target.value })
+                      }
+                      className="font-mono"
+                      placeholder="For motor circuits"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Label htmlFor="voltage_drop_limit" className="cursor-help">Max V-Drop (%)</Label>
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p>Maximum allowable voltage drop percentage</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <Input
+                      id="voltage_drop_limit"
+                      type="number"
+                      step="0.1"
+                      value={formData.voltage_drop_limit}
+                      onChange={(e) =>
+                        setFormData({ ...formData, voltage_drop_limit: e.target.value })
+                      }
+                      className="font-mono"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="calculation_method">Calculation Standard</Label>
+                  <Select
+                    value={formData.calculation_method}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, calculation_method: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="SANS 10142-1">SANS 10142-1</SelectItem>
+                      <SelectItem value="IEC 60364">IEC 60364</SelectItem>
+                      <SelectItem value="BS 7671">BS 7671</SelectItem>
+                      <SelectItem value="NEC">NEC (USA)</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
               </CardContent>
             </Card>
