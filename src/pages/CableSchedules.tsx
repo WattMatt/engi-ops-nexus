@@ -24,6 +24,7 @@ import { CableRatesManager } from "@/components/cable-schedules/CableRatesManage
 import { CableCostsSummary } from "@/components/cable-schedules/CableCostsSummary";
 import { CableSizingReferenceView } from "@/components/cable-schedules/CableSizingReferenceView";
 import { EditableCableSizingReference } from "@/components/cable-schedules/EditableCableSizingReference";
+import { CableCalculationFormulas } from "@/components/cable-schedules/CableCalculationFormulas";
 
 const CableSchedules = () => {
   const navigate = useNavigate();
@@ -109,7 +110,7 @@ const CableSchedules = () => {
       <Tabs defaultValue="schedules" className="w-full">
         <TabsList className="grid w-full grid-cols-5 h-12">
           <TabsTrigger value="schedules" className="text-base">Existing Schedules</TabsTrigger>
-          <TabsTrigger value="cables" className="text-base">Cable Tables</TabsTrigger>
+          <TabsTrigger value="overview" className="text-base">Overview</TabsTrigger>
           <TabsTrigger value="saved" className="text-base">Saved Reports</TabsTrigger>
           <TabsTrigger value="rates" className="text-base">Rates</TabsTrigger>
           <TabsTrigger value="costs" className="text-base">Costs</TabsTrigger>
@@ -180,11 +181,8 @@ const CableSchedules = () => {
           )}
         </TabsContent>
         
-        <TabsContent value="cables" className="mt-6">
-          <div className="space-y-6">
-            <EditableCableSizingReference />
-            {projectId && <AllCableEntriesView projectId={projectId} />}
-          </div>
+        <TabsContent value="overview" className="mt-6">
+          <CableCalculationFormulas schedule={{}} />
         </TabsContent>
         
         <TabsContent value="saved" className="mt-6">
