@@ -46,9 +46,15 @@ export const EditCableEntryDialog = ({
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [tenants, setTenants] = useState<any[]>([]);
+  const [warning, setWarning] = useState<string>("");
   
-  // Store base costs (per single cable) for quantity multiplication
-  const baseCostsRef = useRef<{ supply: number; install: number }>({ supply: 0, install: 0 });
+  // Store the recommended cable configuration from calculation
+  const calculationRef = useRef<{ 
+    cableSize: string; 
+    recommendedQuantity: number;
+    maxCurrent: number;
+    baseCosts: { supply: number; install: number };
+  } | null>(null);
   const [formData, setFormData] = useState({
     cable_tag: "",
     from_location: "",
@@ -157,20 +163,17 @@ export const EditCableEntryDialog = ({
     const loadAmps = parseFloat(formData.load_amps);
     const voltage = parseFloat(formData.voltage);
     const totalLength = parseFloat(formData.total_length);
-    const quantity = parseInt(formData.quantity) || 1;
+    const userQuantity = parseInt(formData.quantity) || 1;
 
-    console.log("Cable calc triggered:", { loadAmps, voltage, totalLength, quantity });
+    console.log("Cable calc triggered:", { loadAmps, voltage, totalLength, userQuantity });
 
     // Calculate if we have at least load and voltage
     if (loadAmps && voltage) {
       const material = formData.cable_type?.toLowerCase() === "copper" ? "copper" : "aluminium";
       
-      // For parallel cables: each cable carries load/quantity
-      // Cable must be sized for the current it actually carries
-      const currentPerCable = loadAmps / quantity;
-      
+      // Call calculator with FULL load - it will determine parallel cables automatically
       const result = calculateCableSize({
-        loadAmps: currentPerCable, // Size each cable for current it carries
+        loadAmps: loadAmps, // Full load, not divided
         voltage,
         totalLength: totalLength || 0,
         deratingFactor: 1.0,
@@ -179,35 +182,54 @@ export const EditCableEntryDialog = ({
       });
 
       if (result) {
-        console.log("Updating with calculated values:", {
+        console.log("Calculation result:", {
           size: result.recommendedSize,
+          recommendedParallel: result.cablesInParallel,
+          loadPerCable: result.loadPerCable,
           voltDrop: result.voltDrop,
-          quantity,
-          currentPerCable
+          userQuantity
         });
         
-        // Store base costs (for 1 cable)
-        baseCostsRef.current = {
-          supply: result.supplyCost,
-          install: result.installCost
+        // Store recommended configuration
+        const baseCostPerCable = result.supplyCost / result.cablesInParallel;
+        const baseInstallPerCable = result.installCost / result.cablesInParallel;
+        
+        calculationRef.current = {
+          cableSize: result.recommendedSize,
+          recommendedQuantity: result.cablesInParallel,
+          maxCurrent: result.loadPerCable * result.cablesInParallel,
+          baseCosts: {
+            supply: baseCostPerCable,
+            install: baseInstallPerCable
+          }
         };
         
-        // Volt drop is calculated correctly by calculateCableSize for the current per cable
-        // In parallel, all cables have the same volt drop (it's not divided or multiplied)
+        // Check if user's quantity matches recommendation
+        let warningMsg = "";
+        if (userQuantity < result.cablesInParallel) {
+          warningMsg = `⚠️ ${userQuantity} cable(s) insufficient! Minimum ${result.cablesInParallel} required for ${loadAmps}A`;
+        } else if (userQuantity > result.cablesInParallel) {
+          warningMsg = `ℹ️ ${userQuantity} cables will be oversized. ${result.cablesInParallel} sufficient for ${loadAmps}A`;
+        }
+        setWarning(warningMsg);
+        
+        // Use user's quantity for costs, but show the calculated cable size
         setFormData((prev) => ({
           ...prev,
           cable_size: result.recommendedSize,
           ohm_per_km: result.ohmPerKm.toString(),
           volt_drop: result.voltDrop.toString(),
-          supply_cost: (result.supplyCost * quantity).toString(),
-          install_cost: (result.installCost * quantity).toString(),
+          supply_cost: (baseCostPerCable * userQuantity).toString(),
+          install_cost: (baseInstallPerCable * userQuantity).toString(),
         }));
+        
+        // Auto-update quantity to recommended if user still has default value
+        if (userQuantity === 1 && result.cablesInParallel > 1) {
+          setFormData(prev => ({ ...prev, quantity: result.cablesInParallel.toString() }));
+        }
       }
     }
   }, [formData.load_amps, formData.voltage, formData.total_length, formData.cable_type, formData.installation_method, formData.quantity]);
-  
-  // Update costs when quantity changes (using stored base costs)
-  // No separate effect needed - quantity is now in main calculation dependencies
 
   // Auto-calculate total_cost
   useEffect(() => {
@@ -535,9 +557,23 @@ export const EditCableEntryDialog = ({
                 <CardTitle className="text-sm flex items-center gap-2">
                   <Calculator className="h-4 w-4" />
                   Calculated Results
+                  {calculationRef.current && (
+                    <Badge variant="secondary" className="text-[10px] ml-auto">
+                      Recommended: {calculationRef.current.recommendedQuantity}× cables
+                    </Badge>
+                  )}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                {warning && (
+                  <div className={`p-3 rounded-lg border text-xs font-medium ${
+                    warning.includes('insufficient') 
+                      ? 'bg-destructive/10 border-destructive/30 text-destructive' 
+                      : 'bg-blue-500/10 border-blue-500/30 text-blue-600 dark:text-blue-400'
+                  }`}>
+                    {warning}
+                  </div>
+                )}
                 <div className="space-y-3">
                   <div className="p-3 bg-background rounded-lg border">
                     <div className="text-xs text-muted-foreground mb-1">Cable Size</div>
@@ -577,7 +613,7 @@ export const EditCableEntryDialog = ({
                     </div>
                   </div>
 
-                    {formData.quantity && parseInt(formData.quantity) > 1 && (
+                    {formData.quantity && parseInt(formData.quantity) > 1 && calculationRef.current && (
                       <div className="p-3 bg-blue-500/10 rounded-lg border border-blue-500/20">
                         <div className="text-xs text-blue-600 dark:text-blue-400 font-semibold mb-1">
                           Parallel Configuration
@@ -587,6 +623,11 @@ export const EditCableEntryDialog = ({
                           <div className="text-xs text-muted-foreground">
                             {formData.load_amps && `${(parseFloat(formData.load_amps) / parseInt(formData.quantity)).toFixed(1)}A per cable`}
                           </div>
+                          {calculationRef.current.recommendedQuantity !== parseInt(formData.quantity) && (
+                            <div className="text-[10px] pt-1 border-t border-blue-500/20 mt-1">
+                              System recommends: {calculationRef.current.recommendedQuantity}× cables
+                            </div>
+                          )}
                         </div>
                       </div>
                     )}
