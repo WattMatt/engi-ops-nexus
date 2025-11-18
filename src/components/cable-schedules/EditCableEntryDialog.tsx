@@ -22,7 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Calculator, Zap, DollarSign, AlertCircle, Info } from "lucide-react";
+import { Calculator, Zap, DollarSign, AlertCircle, Info, FileText } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import {
   Tooltip,
@@ -30,6 +30,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { EditableCableSizingReference } from "./EditableCableSizingReference";
 
 interface EditCableEntryDialogProps {
   open: boolean;
@@ -50,6 +51,7 @@ export const EditCableEntryDialog = ({
   const [warning, setWarning] = useState<string>("");
   const [manualOverride, setManualOverride] = useState(false);
   const [projectId, setProjectId] = useState<string | null>(null);
+  const [showSizingReference, setShowSizingReference] = useState(false);
   
   // Fetch calculation settings
   const { data: calcSettings } = useCalculationSettings(projectId);
@@ -59,6 +61,8 @@ export const EditCableEntryDialog = ({
     recommendedQuantity: number;
     maxCurrent: number;
     baseCosts: { supply: number; install: number };
+    validationWarnings?: Array<{ type: 'error' | 'warning' | 'info'; message: string; field?: string }>;
+    requiresEngineerVerification?: boolean;
   } | null>(null);
   const [formData, setFormData] = useState({
     cable_tag: "",
@@ -248,7 +252,9 @@ export const EditCableEntryDialog = ({
           baseCosts: {
             supply: baseCostPerCable,
             install: baseInstallPerCable
-          }
+          },
+          validationWarnings: result.validationWarnings,
+          requiresEngineerVerification: result.requiresEngineerVerification
         };
         
         // Check if user's quantity matches recommendation
@@ -1039,6 +1045,47 @@ export const EditCableEntryDialog = ({
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
+                {/* Validation Warnings */}
+                {calculationRef.current?.validationWarnings && calculationRef.current.validationWarnings.length > 0 && (
+                  <div className="space-y-2">
+                    {calculationRef.current.validationWarnings.map((warn, idx) => (
+                      <div 
+                        key={idx}
+                        className={`p-3 rounded-lg border text-xs font-medium ${
+                          warn.type === 'error' 
+                            ? 'bg-destructive/10 border-destructive/30 text-destructive' 
+                            : warn.type === 'warning'
+                            ? 'bg-amber-500/10 border-amber-500/30 text-amber-600 dark:text-amber-400'
+                            : 'bg-blue-500/10 border-blue-500/30 text-blue-600 dark:text-blue-400'
+                        }`}
+                      >
+                        <div className="flex items-start gap-2">
+                          <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                          <div>
+                            <div className="font-semibold">{warn.type.toUpperCase()}</div>
+                            <div className="mt-1">{warn.message}</div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Engineer Verification Required */}
+                {calculationRef.current?.requiresEngineerVerification && (
+                  <div className="p-4 rounded-lg border-2 border-amber-500 bg-amber-500/5">
+                    <div className="flex items-start gap-3">
+                      <AlertCircle className="h-5 w-5 text-amber-500 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <div className="font-bold text-amber-600 dark:text-amber-400">Engineer Verification Required</div>
+                        <div className="text-xs text-muted-foreground mt-1">
+                          This calculation requires verification by a qualified electrical engineer against SANS 10142-1 Edition 3 (2020).
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {warning && (
                   <div className={`p-3 rounded-lg border text-xs font-medium ${
                     warning.includes('insufficient') 
@@ -1200,6 +1247,16 @@ export const EditCableEntryDialog = ({
           </Button>
         </div>
       </DialogContent>
+
+      {/* SANS Cable Sizing Reference Dialog */}
+      <Dialog open={showSizingReference} onOpenChange={setShowSizingReference}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>SANS 10142-1 Cable Sizing Reference</DialogTitle>
+          </DialogHeader>
+          <EditableCableSizingReference />
+        </DialogContent>
+      </Dialog>
     </Dialog>
   );
 };
