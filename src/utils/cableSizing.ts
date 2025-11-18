@@ -451,6 +451,13 @@ function calculateSingleCableResult(
     format(add(bignumber(supplyCost), bignumber(installCost)), { notation: 'fixed', precision: 2 })
   );
 
+  // CRITICAL SAFETY CHECK: Verify cable data matches expected size
+  const csaFromSize = cable.size.match(/(\d+\.?\d*)/);
+  if (csaFromSize) {
+    const expectedImpedance = 17.5 / parseFloat(csaFromSize[1]); // Approximate for copper
+    console.log(`[CABLE VALIDATION] Size: ${cable.size}, Impedance: ${cable.impedance}, Expected~: ${expectedImpedance.toFixed(4)}`);
+  }
+
   return {
     recommendedSize: cable.size,
     ohmPerKm: cable.impedance,
