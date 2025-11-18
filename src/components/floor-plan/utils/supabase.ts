@@ -534,6 +534,7 @@ export const saveMarkedUpPdf = async (
         lines: designData.lines,
         zones: designData.zones,
         containment: designData.containment,
+        walkways: designData.walkways,
         scaleInfo: designData.scaleInfo,
         roofMasks: designData.roofMasks,
         pvPanelConfig: designData.pvPanelConfig,

@@ -176,6 +176,7 @@ export interface RenderMarkupsParams {
     lines: SupplyLine[];
     zones: SupplyZone[];
     containment: Containment[];
+    walkways: Walkway[];
     scaleInfo: ScaleInfo;
     roofMasks: RoofMask[];
     pvPanelConfig?: PVPanelConfig | null;
@@ -191,7 +192,7 @@ export interface RenderMarkupsParams {
  */
 // FIX: Export function directly
 export function renderMarkupsToContext(ctx: CanvasRenderingContext2D, params: RenderMarkupsParams) {
-    const { equipment, lines, zones, containment, scaleInfo, roofMasks, pvPanelConfig, pvArrays, zoom, selectedItemId, tasks } = params;
+    const { equipment, lines, zones, containment, walkways, scaleInfo, roofMasks, pvPanelConfig, pvArrays, zoom, selectedItemId, tasks } = params;
 
     const itemsWithOpenTasks = new Set(
         tasks.filter(t => t.status !== TaskStatus.DONE).map(t => t.linkedItemId)
