@@ -7,7 +7,6 @@ import { CableScheduleOverview } from "@/components/cable-schedules/CableSchedul
 import { CableEntriesManager } from "@/components/cable-schedules/CableEntriesManager";
 import { CableCalculationFormulas } from "@/components/cable-schedules/CableCalculationFormulas";
 import { CableCostsSummary } from "@/components/cable-schedules/CableCostsSummary";
-import { CableSizeCalculator } from "@/components/cable-schedules/CableSizeCalculator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CableScheduleExportPDFButton } from "@/components/cable-schedules/CableScheduleExportPDFButton";
 import { TestCalculationSettings } from "@/components/cable-schedules/TestCalculationSettings";
@@ -80,15 +79,10 @@ const CableScheduleDetail = () => {
       </div>
 
       {/* Main Content Tabs */}
-      <Tabs defaultValue="calculator" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
-          <TabsTrigger value="calculator" className="gap-2">
-            <Calculator className="h-4 w-4" />
-            <span className="hidden sm:inline">Calculator</span>
-            <span className="sm:hidden">Calc</span>
-          </TabsTrigger>
+      <Tabs defaultValue="cables" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-4 lg:w-auto lg:inline-grid">
           <TabsTrigger value="cables" className="gap-2">
-            <FileText className="h-4 w-4" />
+            <Calculator className="h-4 w-4" />
             <span className="hidden sm:inline">Cable Schedule</span>
             <span className="sm:hidden">Cables</span>
           </TabsTrigger>
@@ -108,11 +102,6 @@ const CableScheduleDetail = () => {
             <span className="sm:hidden">Config</span>
           </TabsTrigger>
         </TabsList>
-
-        {/* Calculator Tab */}
-        <TabsContent value="calculator" className="space-y-6">
-          <CableSizeCalculator projectId={schedule.project_id} />
-        </TabsContent>
 
         {/* Cable Entries Tab */}
         <TabsContent value="cables" className="space-y-6">
