@@ -6,7 +6,7 @@ import { type PurposeConfig } from '../purpose.config';
 import { TOOL_COLORS, EQUIPMENT_REAL_WORLD_SIZES, CONTAINMENT_COLORS } from '../constants';
 import { getZoneColor } from '../utils/styleUtils';
 import { PVArrayConfig } from './PVArrayModal';
-import { findSnap, isPointInPolygon, isPointNearPolyline } from '../utils/geometry';
+import { findSnap, isPointInPolygon, isPointNearPolyline, calculateArrayRotationForRoof } from '../utils/geometry';
 import { renderMarkupsToContext, drawPvArray, drawEquipmentIcon } from '../utils/drawing';
 
 
@@ -741,9 +741,11 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
     
     if (activeTool === Tool.TOOL_PV_ARRAY && pendingPvArrayConfig) {
         const finalPosition = previewPvArray ? previewPvArray.position : worldPos;
+        // Calculate rotation to be perpendicular to roof direction if on a roof
+        const calculatedRotation = calculateArrayRotationForRoof(finalPosition, roofMasks, placementRotation);
         onPlacePvArray({
             position: finalPosition,
-            rotation: placementRotation,
+            rotation: calculatedRotation,
             ...pendingPvArrayConfig
         });
         return;
@@ -1004,7 +1006,9 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
     }
     
     if (activeTool === Tool.TOOL_PV_ARRAY && pendingPvArrayConfig && pvPanelConfig && scaleInfo.ratio) {
-        const arrayToPlaceConfig = { ...pendingPvArrayConfig, rotation: placementRotation };
+        // Calculate rotation to be perpendicular to roof direction if on a roof
+        const calculatedRotation = calculateArrayRotationForRoof(worldPos, roofMasks, placementRotation);
+        const arrayToPlaceConfig = { ...pendingPvArrayConfig, rotation: calculatedRotation };
         if (isSnappingEnabled) {
             const snapResult = findSnap(
                 worldPos, arrayToPlaceConfig, pvArrays, 
@@ -1023,7 +1027,7 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
              setSnapLines([]);
         }
         setPreviewEquipment(null);
-    } 
+    }
     else {
         const equipmentType = (Object.keys(purposeConfig.equipmentToToolMap) as EquipmentType[]).find(key => purposeConfig.equipmentToToolMap[key] === activeTool);
         if (equipmentType && scaleInfo.ratio) {
