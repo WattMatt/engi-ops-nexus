@@ -109,8 +109,8 @@ export function calculateCableSize(
     totalLength, 
     deratingFactor = 1.0, 
     material = "copper",
-    maxAmpsPerCable = 300, // Don't exceed 300A per cable
-    preferredAmpsPerCable = 200, // Prefer 200A per cable for parallel runs
+    maxAmpsPerCable = 400, // Don't exceed 400A per cable for safety
+    preferredAmpsPerCable = 300, // Prefer 300A per cable for parallel runs
     installationMethod = 'air' // Default to Air installation
   } = params;
 
@@ -123,8 +123,8 @@ export function calculateCableSize(
 
   // If load is low enough for single cable, use standard calculation
   if (loadAmps <= maxAmpsPerCable) {
-    // Apply derating factor to get required current rating
-    const requiredRating = loadAmps / deratingFactor;
+    // Apply derating factor to get required current rating with 15% safety margin
+    const requiredRating = (loadAmps / deratingFactor) * 1.15;
     
     // Find the smallest cable that can handle the required current based on installation method
     let selectedCable = cableTable.find((cable) => {
@@ -233,7 +233,8 @@ function evaluateParallelOptions(
     // Skip if load per cable still exceeds max
     if (loadPerCable > maxAmpsPerCable) continue;
 
-    const requiredRatingPerCable = loadPerCable / deratingFactor;
+    // Apply 15% safety margin to required rating
+    const requiredRatingPerCable = (loadPerCable / deratingFactor) * 1.15;
     
     // Find smallest cable that can handle this current based on installation method
     let selectedCable = cableTable.find(cable => {
