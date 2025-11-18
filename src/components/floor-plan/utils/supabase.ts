@@ -286,8 +286,10 @@ export const listDesigns = async (showAll: boolean = false, projectId?: string |
     .eq('user_id', user.id)
     .order('created_at', { ascending: false });
   
+  // When filtering by project: show designs for THIS project OR unassigned designs
+  // This prevents showing designs from OTHER projects while still allowing assignment
   if (!showAll && projectId) {
-    query = query.eq('project_id', projectId);
+    query = query.or(`project_id.eq.${projectId},project_id.is.null`);
   }
   
   const { data, error } = await query;
