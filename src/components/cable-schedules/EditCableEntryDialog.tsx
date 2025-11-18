@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { calculateCableSize } from "@/utils/cableSizing";
+import { calculateCableSize, COPPER_CABLE_TABLE, ALUMINIUM_CABLE_TABLE } from "@/utils/cableSizing";
 import {
   Select,
   SelectContent,
@@ -282,9 +282,7 @@ export const EditCableEntryDialog = ({
     if (!loadAmps || !voltage || !totalLength) return;
 
     const material = formData.cable_type?.toLowerCase() === "copper" ? "copper" : "aluminium";
-    const cableTable = material === "copper" ? 
-      require("@/utils/cableSizing").COPPER_CABLE_TABLE : 
-      require("@/utils/cableSizing").ALUMINIUM_CABLE_TABLE;
+    const cableTable = material === "copper" ? COPPER_CABLE_TABLE : ALUMINIUM_CABLE_TABLE;
 
     const selectedCable = cableTable.find((c: any) => c.size === formData.cable_size);
     if (!selectedCable) return;
