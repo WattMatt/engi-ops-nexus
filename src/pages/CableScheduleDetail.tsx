@@ -23,6 +23,8 @@ const CableScheduleDetail = () => {
       return data;
     },
     enabled: !!scheduleId,
+    refetchOnWindowFocus: true,
+    refetchOnMount: true,
   });
 
   if (isLoading) {
