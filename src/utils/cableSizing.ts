@@ -1,9 +1,8 @@
 // SANS 10142-1 Cable Sizing Data
 // Simplified table for copper and aluminium conductors, PVC insulated cables
-import Decimal from 'decimal.js';
+import { bignumber, add, subtract, multiply, divide, sqrt, abs, format } from 'mathjs';
 
-// Configure Decimal.js for precision electrical calculations
-Decimal.set({ precision: 20, rounding: Decimal.ROUND_HALF_UP });
+// Math.js configured for high-precision electrical calculations
 
 export interface CableData {
   size: string;
@@ -195,10 +194,9 @@ export function calculateCableSize(
     current.totalCost > max.totalCost ? current : max
   );
 
-  const costSavings = new Decimal(mostExpensive.totalCost)
-    .minus(recommended.totalCost)
-    .toDecimalPlaces(2)
-    .toNumber();
+  const costSavings = Number(
+    subtract(bignumber(mostExpensive.totalCost), bignumber(recommended.totalCost)).toFixed(2)
+  );
 
   // Find the cable details for the recommended option
   const recommendedCable = cableTable.find(c => c.size === recommended.cableSize)!;
@@ -273,37 +271,36 @@ function evaluateParallelOptions(
         totalLength
       );
       
-      // Calculate voltage drop percentage using proper SANS values with Decimal.js
+      // Calculate voltage drop percentage using proper SANS values with math.js
       const voltDrop = calculateVoltDrop(loadPerCable, voltage, totalLength, selectedCable);
-      const voltDropPercentage = new Decimal(voltDrop).dividedBy(voltage).times(100).toNumber();
+      const voltDropPercentage = Number(
+        format(multiply(divide(bignumber(voltDrop), bignumber(voltage)), 100), { notation: 'fixed', precision: 2 })
+      );
       
       // Skip if voltage drop is still too high
       if (voltDropPercentage > maxVoltDropPercentage) continue;
     }
 
-    // Calculate total costs for this configuration using Decimal.js
-    const supplyCostPerCable = new Decimal(selectedCable.supplyCost)
-      .times(totalLength || 0)
-      .toNumber();
-    const installCostPerCable = new Decimal(selectedCable.installCost)
-      .times(totalLength || 0)
-      .toNumber();
-    const totalSupplyCost = new Decimal(supplyCostPerCable)
-      .times(numCables)
-      .toDecimalPlaces(2)
-      .toNumber();
-    const totalInstallCost = new Decimal(installCostPerCable)
-      .times(numCables)
-      .toDecimalPlaces(2)
-      .toNumber();
-    const totalCost = new Decimal(totalSupplyCost)
-      .plus(totalInstallCost)
-      .toDecimalPlaces(2)
-      .toNumber();
+    // Calculate total costs for this configuration using math.js
+    const supplyCostPerCable = Number(
+      format(multiply(bignumber(selectedCable.supplyCost), bignumber(totalLength || 0)), { notation: 'fixed', precision: 2 })
+    );
+    const installCostPerCable = Number(
+      format(multiply(bignumber(selectedCable.installCost), bignumber(totalLength || 0)), { notation: 'fixed', precision: 2 })
+    );
+    const totalSupplyCost = Number(
+      format(multiply(bignumber(supplyCostPerCable), bignumber(numCables)), { notation: 'fixed', precision: 2 })
+    );
+    const totalInstallCost = Number(
+      format(multiply(bignumber(installCostPerCable), bignumber(numCables)), { notation: 'fixed', precision: 2 })
+    );
+    const totalCost = Number(
+      format(add(bignumber(totalSupplyCost), bignumber(totalInstallCost)), { notation: 'fixed', precision: 2 })
+    );
 
     const voltDrop = calculateVoltDrop(loadPerCable, voltage, totalLength, selectedCable);
     const voltDropPercentage = totalLength > 0 
-      ? new Decimal(voltDrop).dividedBy(voltage).times(100).toDecimalPlaces(2).toNumber() 
+      ? Number(format(multiply(divide(bignumber(voltDrop), bignumber(voltage)), 100), { notation: 'fixed', precision: 2 }))
       : 0;
 
     alternatives.push({
@@ -337,11 +334,10 @@ function findCableWithAcceptableVoltDrop(
   while (cableIndex < cableTable.length) {
     const testCable = cableTable[cableIndex];
     const voltDrop = calculateVoltDrop(loadAmps, voltage, totalLength, testCable);
-    // Use Decimal.js for voltage drop percentage calculation
-    const voltDropPercentage = new Decimal(voltDrop)
-      .dividedBy(voltage)
-      .times(100)
-      .toNumber();
+    // Use math.js for voltage drop percentage calculation
+    const voltDropPercentage = Number(
+      format(multiply(divide(bignumber(voltDrop), bignumber(voltage)), 100), { notation: 'fixed', precision: 2 })
+    );
 
     if (voltDropPercentage <= maxVoltDropPercentage) {
       return testCable;
@@ -365,14 +361,18 @@ function calculateVoltDrop(
   
   // If passed a CableData object, use the proper voltage drop values
   if (typeof cableData === 'object') {
-    // Use SANS voltage drop values (mV/A/m) with Decimal.js precision
+    // Use SANS voltage drop values (mV/A/m) with math.js precision
     const voltDropPerAmpPerMeter = voltage === 400 ? cableData.voltDrop3Phase : cableData.voltDrop1Phase;
     // Convert mV to V: (mV/A/m) * A * m / 1000
-    return new Decimal(voltDropPerAmpPerMeter)
-      .times(loadAmps)
-      .times(totalLength)
-      .dividedBy(1000)
-      .toNumber();
+    return Number(
+      format(
+        divide(
+          multiply(multiply(bignumber(voltDropPerAmpPerMeter), bignumber(loadAmps)), bignumber(totalLength)),
+          bignumber(1000)
+        ),
+        { notation: 'fixed', precision: 2 }
+      )
+    );
   } else {
     // Legacy: if just impedance value is passed
     const impedance = cableData;
@@ -394,30 +394,27 @@ function calculateSingleCableResult(
   totalLength: number
 ): Omit<CableCalculationResult, 'cablesInParallel' | 'loadPerCable'> {
   const voltDrop = calculateVoltDrop(loadAmps, voltage, totalLength, cable);
-  // Use Decimal.js for percentage calculation
+  // Use math.js for percentage calculation
   const voltDropPercentage = totalLength > 0 
-    ? new Decimal(voltDrop).dividedBy(voltage).times(100).toNumber() 
+    ? Number(format(multiply(divide(bignumber(voltDrop), bignumber(voltage)), 100), { notation: 'fixed', precision: 2 }))
     : 0;
   
-  // Use Decimal.js for cost calculations
-  const supplyCost = new Decimal(cable.supplyCost)
-    .times(totalLength || 0)
-    .toDecimalPlaces(2)
-    .toNumber();
-  const installCost = new Decimal(cable.installCost)
-    .times(totalLength || 0)
-    .toDecimalPlaces(2)
-    .toNumber();
-  const totalCost = new Decimal(supplyCost)
-    .plus(installCost)
-    .toDecimalPlaces(2)
-    .toNumber();
+  // Use math.js for cost calculations
+  const supplyCost = Number(
+    format(multiply(bignumber(cable.supplyCost), bignumber(totalLength || 0)), { notation: 'fixed', precision: 2 })
+  );
+  const installCost = Number(
+    format(multiply(bignumber(cable.installCost), bignumber(totalLength || 0)), { notation: 'fixed', precision: 2 })
+  );
+  const totalCost = Number(
+    format(add(bignumber(supplyCost), bignumber(installCost)), { notation: 'fixed', precision: 2 })
+  );
 
   return {
     recommendedSize: cable.size,
     ohmPerKm: cable.impedance,
-    voltDrop: new Decimal(voltDrop).toDecimalPlaces(2).toNumber(),
-    voltDropPercentage: new Decimal(voltDropPercentage).toDecimalPlaces(2).toNumber(),
+    voltDrop: Number(format(bignumber(voltDrop), { notation: 'fixed', precision: 2 })),
+    voltDropPercentage: Number(format(bignumber(voltDropPercentage), { notation: 'fixed', precision: 2 })),
     supplyCost,
     installCost,
     totalCost,
