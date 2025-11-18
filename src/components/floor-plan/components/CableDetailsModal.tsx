@@ -53,7 +53,7 @@ const CableDetailsModal: React.FC<CableDetailsModalProps> = ({
   calculatedLength,
   projectId 
 }) => {
-  const [mode, setMode] = useState<'new' | 'existing'>('new');
+  const [mode, setMode] = useState<'new' | 'existing'>('existing');
   const [schedules, setSchedules] = useState<CableSchedule[]>([]);
   const [selectedSchedule, setSelectedSchedule] = useState('');
   const [cableEntries, setCableEntries] = useState<CableEntry[]>([]);
@@ -73,22 +73,26 @@ const CableDetailsModal: React.FC<CableDetailsModalProps> = ({
     return Array.from(combined).sort((a,b) => a.localeCompare(b, undefined, { numeric: true }));
   }, [existingCableTypes, purposeConfig]);
 
-  // Fetch cable schedules
+  // Fetch cable schedules and auto-select the latest one
   useEffect(() => {
     if (isOpen && projectId) {
       const fetchSchedules = async () => {
         console.log('Fetching cable schedules for project:', projectId);
         const { data, error } = await supabase
           .from('cable_schedules')
-          .select('id, schedule_name, schedule_number')
+          .select('id, schedule_name, schedule_number, created_at')
           .eq('project_id', projectId)
-          .order('schedule_number');
+          .order('created_at', { ascending: false });
         
         if (error) {
           console.error('Error fetching cable schedules:', error);
         } else {
           console.log('Fetched cable schedules:', data);
           setSchedules(data || []);
+          // Auto-select the most recent schedule
+          if (data && data.length > 0) {
+            setSelectedSchedule(data[0].id);
+          }
         }
       };
       fetchSchedules();
@@ -161,7 +165,7 @@ const CableDetailsModal: React.FC<CableDetailsModalProps> = ({
   useEffect(() => {
     if (isOpen) {
       // Reset fields when modal opens
-      setMode('new');
+      setMode('existing');
       setSelectedSchedule('');
       setSelectedEntry('');
       setFrom('');
@@ -225,7 +229,7 @@ const CableDetailsModal: React.FC<CableDetailsModalProps> = ({
                     : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                 }`}
               >
-                New Cable
+                New Cable Entry
               </button>
               <button
                 type="button"
@@ -236,9 +240,12 @@ const CableDetailsModal: React.FC<CableDetailsModalProps> = ({
                     : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                 }`}
               >
-                Link to Schedule
+                Link to Schedule (Default)
               </button>
             </div>
+            <p className="text-xs text-gray-400">
+              💡 Linking to the latest schedule is recommended for consistency
+            </p>
           </div>
 
           {/* Schedule and Entry Selection (only for existing mode) */}
