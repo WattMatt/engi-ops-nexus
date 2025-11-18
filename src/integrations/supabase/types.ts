@@ -653,6 +653,101 @@ export type Database = {
           },
         ]
       }
+      cable_calculation_settings: {
+        Row: {
+          ambient_temp_baseline: number | null
+          cable_safety_margin: number | null
+          calculation_standard: string | null
+          created_at: string | null
+          default_cable_material: string | null
+          default_core_configuration: string | null
+          default_installation_method: string | null
+          default_insulation_type: string | null
+          derating_temp_correction: Json | null
+          grouping_factor_2_circuits: number | null
+          grouping_factor_3_circuits: number | null
+          grouping_factor_4plus_circuits: number | null
+          id: string
+          k_factor_aluminium: number | null
+          k_factor_copper: number | null
+          max_amps_per_cable: number | null
+          power_factor_hvac: number | null
+          power_factor_lighting: number | null
+          power_factor_motor: number | null
+          power_factor_power: number | null
+          preferred_amps_per_cable: number | null
+          project_id: string
+          thermal_insulation_factor_default: number | null
+          updated_at: string | null
+          voltage_drop_limit_230v: number | null
+          voltage_drop_limit_400v: number | null
+        }
+        Insert: {
+          ambient_temp_baseline?: number | null
+          cable_safety_margin?: number | null
+          calculation_standard?: string | null
+          created_at?: string | null
+          default_cable_material?: string | null
+          default_core_configuration?: string | null
+          default_installation_method?: string | null
+          default_insulation_type?: string | null
+          derating_temp_correction?: Json | null
+          grouping_factor_2_circuits?: number | null
+          grouping_factor_3_circuits?: number | null
+          grouping_factor_4plus_circuits?: number | null
+          id?: string
+          k_factor_aluminium?: number | null
+          k_factor_copper?: number | null
+          max_amps_per_cable?: number | null
+          power_factor_hvac?: number | null
+          power_factor_lighting?: number | null
+          power_factor_motor?: number | null
+          power_factor_power?: number | null
+          preferred_amps_per_cable?: number | null
+          project_id: string
+          thermal_insulation_factor_default?: number | null
+          updated_at?: string | null
+          voltage_drop_limit_230v?: number | null
+          voltage_drop_limit_400v?: number | null
+        }
+        Update: {
+          ambient_temp_baseline?: number | null
+          cable_safety_margin?: number | null
+          calculation_standard?: string | null
+          created_at?: string | null
+          default_cable_material?: string | null
+          default_core_configuration?: string | null
+          default_installation_method?: string | null
+          default_insulation_type?: string | null
+          derating_temp_correction?: Json | null
+          grouping_factor_2_circuits?: number | null
+          grouping_factor_3_circuits?: number | null
+          grouping_factor_4plus_circuits?: number | null
+          id?: string
+          k_factor_aluminium?: number | null
+          k_factor_copper?: number | null
+          max_amps_per_cable?: number | null
+          power_factor_hvac?: number | null
+          power_factor_lighting?: number | null
+          power_factor_motor?: number | null
+          power_factor_power?: number | null
+          preferred_amps_per_cable?: number | null
+          project_id?: string
+          thermal_insulation_factor_default?: number | null
+          updated_at?: string | null
+          voltage_drop_limit_230v?: number | null
+          voltage_drop_limit_400v?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cable_calculation_settings_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: true
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       cable_entries: {
         Row: {
           ambient_temperature: number | null

@@ -25,6 +25,7 @@ import { CableCostsSummary } from "@/components/cable-schedules/CableCostsSummar
 import { CableSizingReferenceView } from "@/components/cable-schedules/CableSizingReferenceView";
 import { EditableCableSizingReference } from "@/components/cable-schedules/EditableCableSizingReference";
 import { CableCalculationFormulas } from "@/components/cable-schedules/CableCalculationFormulas";
+import { EditableCalculationSettings } from "@/components/cable-schedules/EditableCalculationSettings";
 
 const CableSchedules = () => {
   const navigate = useNavigate();
@@ -191,7 +192,7 @@ const CableSchedules = () => {
         </TabsContent>
         
         <TabsContent value="calculations" className="mt-6">
-          <CableCalculationFormulas schedule={{}} />
+          {projectId && <EditableCalculationSettings projectId={projectId} />}
         </TabsContent>
         
         <TabsContent value="saved" className="mt-6">

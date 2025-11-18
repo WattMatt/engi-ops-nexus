@@ -64,9 +64,11 @@ export interface CableCalculationParams {
   cableType?: string; // for future expansion (e.g., "3C", "4C")
   deratingFactor?: number; // default 1.0
   material?: "copper" | "aluminium"; // default copper
-  maxAmpsPerCable?: number; // Maximum amps per cable (default 300A)
-  preferredAmpsPerCable?: number; // Preferred amps per cable for parallel runs (default 200A)
+  maxAmpsPerCable?: number; // Maximum amps per cable (default 400A)
+  preferredAmpsPerCable?: number; // Preferred amps per cable for parallel runs (default 300A)
   installationMethod?: 'air' | 'ducts' | 'ground'; // Installation method (default 'air')
+  safetyMargin?: number; // Safety margin multiplier (e.g., 1.15 for 15% margin)
+  voltageDropLimit?: number; // Custom voltage drop limit percentage
 }
 
 export interface CableCalculationResult {
@@ -111,20 +113,25 @@ export function calculateCableSize(
     material = "copper",
     maxAmpsPerCable = 400, // Don't exceed 400A per cable for safety
     preferredAmpsPerCable = 300, // Prefer 300A per cable for parallel runs
-    installationMethod = 'air' // Default to Air installation
+    installationMethod = 'air', // Default to Air installation
+    safetyMargin = 1.15, // Default 15% safety margin
+    voltageDropLimit // Custom voltage drop limit
   } = params;
 
   if (!loadAmps || loadAmps <= 0 || !voltage || voltage <= 0) {
     return null;
   }
 
+  // Determine voltage drop limit based on voltage if not specified
+  const maxVoltDropPercentage = voltageDropLimit || (voltage === 400 ? 5 : 3);
+
   // Select appropriate cable table based on material
   const cableTable = material === "aluminium" ? ALUMINIUM_CABLE_TABLE : COPPER_CABLE_TABLE;
 
   // If load is low enough for single cable, use standard calculation
   if (loadAmps <= maxAmpsPerCable) {
-    // Apply derating factor to get required current rating with 15% safety margin
-    const requiredRating = (loadAmps / deratingFactor) * 1.15;
+    // Apply derating factor and safety margin to get required current rating
+    const requiredRating = (loadAmps / deratingFactor) * safetyMargin;
     
     // Find the smallest cable that can handle the required current based on installation method
     let selectedCable = cableTable.find((cable) => {
@@ -166,7 +173,9 @@ export function calculateCableSize(
     maxAmpsPerCable,
     preferredAmpsPerCable,
     cableTable,
-    installationMethod
+    installationMethod,
+    safetyMargin,
+    maxVoltDropPercentage
   );
 
   if (alternatives.length === 0) {
@@ -216,10 +225,11 @@ function evaluateParallelOptions(
   maxAmpsPerCable: number,
   preferredAmpsPerCable: number,
   cableTable: CableData[],
-  installationMethod: 'air' | 'ducts' | 'ground' = 'air'
+  installationMethod: 'air' | 'ducts' | 'ground' = 'air',
+  safetyMargin: number = 1.15,
+  maxVoltDropPercentage: number = 5
 ): CableAlternative[] {
   const alternatives: CableAlternative[] = [];
-  const maxVoltDropPercentage = voltage === 400 ? 5 : 3;
 
   // Calculate minimum number of cables needed to stay under max amps
   const minCables = Math.ceil(totalLoad / maxAmpsPerCable);
@@ -233,8 +243,8 @@ function evaluateParallelOptions(
     // Skip if load per cable still exceeds max
     if (loadPerCable > maxAmpsPerCable) continue;
 
-    // Apply 15% safety margin to required rating
-    const requiredRatingPerCable = (loadPerCable / deratingFactor) * 1.15;
+    // Apply safety margin to required rating
+    const requiredRatingPerCable = (loadPerCable / deratingFactor) * safetyMargin;
     
     // Find smallest cable that can handle this current based on installation method
     let selectedCable = cableTable.find(cable => {
