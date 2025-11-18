@@ -103,8 +103,8 @@ const TenantTracker = () => {
   };
 
   return (
-    <div className="h-full flex flex-col p-4 md:p-8 pt-6">
-      <div className="flex justify-between items-center mb-4 flex-shrink-0">
+    <div className="h-full flex flex-col">
+      <div className="flex justify-between items-center mb-6 px-6 pt-6 flex-shrink-0">
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-3xl font-bold">Tenant Tracker</h1>
@@ -122,8 +122,8 @@ const TenantTracker = () => {
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-visible">
-        <TabsList className="flex-shrink-0">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden px-6">
+        <TabsList className="flex-shrink-0 mb-4">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="tenants">Tenant Schedule</TabsTrigger>
           <TabsTrigger value="documents">Documents</TabsTrigger>
@@ -136,7 +136,7 @@ const TenantTracker = () => {
 
         {/* Documents View Toggle - only shown when on documents tab */}
         {activeTab === "documents" && (
-          <div className="flex gap-2 mt-2 mb-4 flex-shrink-0">
+          <div className="flex gap-2 mb-4 flex-shrink-0">
             <Button
               variant={documentsView === "by-tenant" ? "default" : "outline"}
               onClick={() => setDocumentsView("by-tenant")}
@@ -156,7 +156,7 @@ const TenantTracker = () => {
         
         <div className={activeTab !== "documents" ? "mt-4" : ""}></div>
         
-        <TabsContent value="overview" className="mt-4 space-y-6">
+        <TabsContent value="overview" className="mt-0 space-y-6 overflow-auto pb-6">
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
               <p className="text-muted-foreground">Loading data...</p>
@@ -166,7 +166,7 @@ const TenantTracker = () => {
           )}
         </TabsContent>
         
-        <TabsContent value="tenants" className="flex-1 overflow-auto pr-4 space-y-4">
+        <TabsContent value="tenants" className="flex-1 overflow-auto pb-6 space-y-4">
           <div className="bg-background border rounded-lg p-4 shadow-sm">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-sm font-semibold">Legend:</span>
@@ -200,7 +200,7 @@ const TenantTracker = () => {
           </div>
         </TabsContent>
         
-        <TabsContent value="documents" className="flex-1 overflow-auto">
+        <TabsContent value="documents" className="flex-1 overflow-auto pb-6">
           <TenantDocumentsTab 
             projectId={projectId || ""} 
             tenants={tenants}
@@ -208,29 +208,29 @@ const TenantTracker = () => {
           />
         </TabsContent>
         
-        <TabsContent value="report-status" className="flex-1 overflow-auto pr-4">
+        <TabsContent value="report-status" className="flex-1 overflow-auto pb-6">
           {projectId && <OutdatedReportsIndicator projectId={projectId} />}
         </TabsContent>
         
-        <TabsContent value="change-history" className="flex-1 overflow-auto pr-4">
+        <TabsContent value="change-history" className="flex-1 overflow-auto pb-6">
           {projectId && <TenantChangeAuditLog projectId={projectId} />}
         </TabsContent>
         
-        <TabsContent value="reports" className="flex-1 overflow-auto pr-4">
+        <TabsContent value="reports" className="flex-1 overflow-auto pb-6">
           <SavedReportsList 
             projectId={projectId || ""} 
             projectName={projectName || undefined}
           />
         </TabsContent>
         
-        <TabsContent value="floor-plan" className="flex-1 overflow-hidden flex flex-col">
+        <TabsContent value="floor-plan" className="flex-1 overflow-hidden flex flex-col pb-6">
           <FloorPlanMasking 
             key={`floor-plan-${activeTab === 'floor-plan' ? Date.now() : 'cached'}`}
             projectId={projectId || ""} 
           />
         </TabsContent>
         
-        <TabsContent value="settings" className="flex-1 overflow-auto pr-4">
+        <TabsContent value="settings" className="flex-1 overflow-auto pb-6">
           <DBSizingRulesSettings projectId={projectId || ""} />
         </TabsContent>
       </Tabs>

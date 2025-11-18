@@ -37,7 +37,7 @@ const CostReportDetail = () => {
 
   if (isLoading) {
     return (
-      <div className="flex-1 p-8">
+      <div className="flex-1 px-6 pt-6 pb-6">
         <div className="animate-pulse space-y-4">
           <div className="h-8 bg-muted rounded w-1/3"></div>
           <div className="h-64 bg-muted rounded"></div>
@@ -48,7 +48,7 @@ const CostReportDetail = () => {
 
   if (!report) {
     return (
-      <div className="flex-1 p-8">
+      <div className="flex-1 px-6 pt-6 pb-6">
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <p className="text-muted-foreground">Cost report not found</p>
@@ -67,7 +67,7 @@ const CostReportDetail = () => {
   }
 
   return (
-    <div className="flex-1 space-y-4 p-4 md:p-8 pt-6">
+    <div className="flex-1 space-y-4 px-6 pt-6 pb-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Button
