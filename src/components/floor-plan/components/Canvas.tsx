@@ -72,7 +72,7 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
 
   const [isPanning, setIsPanning] = useState(false);
   const [isDraggingItem, setIsDraggingItem] = useState(false);
-  const [draggedHandle, setDraggedHandle] = useState<{zoneId: string, pointIndex: number} | null>(null);
+  const [draggedHandle, setDraggedHandle] = useState<{zoneId?: string, lineId?: string, pointIndex: number} | null>(null);
   const [isDrawingShape, setIsDrawingShape] = useState(false);
   const [currentDrawing, setCurrentDrawing] = useState<Point[]>([]);
   const [previewPoint, setPreviewPoint] = useState<Point | null>(null);
@@ -669,6 +669,20 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
                     }
                 }
             }
+            
+            // Check if clicked on a cable point handle
+            const selectedLine = lines.find(l => l.id === selectedItemId);
+            if (selectedLine) {
+                for (let i = 0; i < selectedLine.points.length; i++) {
+                    const point = selectedLine.points[i];
+                    const handleRadius = 7 / viewState.zoom;
+                    if (Math.hypot(worldPos.x - point.x, worldPos.y - point.y) < handleRadius) {
+                        setIsDraggingItem(true);
+                        setDraggedHandle({ lineId: selectedLine.id, pointIndex: i });
+                        return;
+                    }
+                }
+            }
         }
 
         const clickedEquipmentOrArray = [...equipment, ...pvArrays].reverse().find(item => {
@@ -882,6 +896,22 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
                 }
             }
         }
+        
+        // Check if over a cable point handle
+        if (!overHandle) {
+            const selectedLine = lines.find(l => l.id === selectedItemId);
+            if (selectedLine) {
+                for (let i = 0; i < selectedLine.points.length; i++) {
+                    const point = selectedLine.points[i];
+                    const handleRadius = 7 / viewState.zoom;
+                    if (Math.hypot(worldPos.x - point.x, worldPos.y - point.y) < handleRadius) {
+                        overHandle = true;
+                        break;
+                    }
+                }
+            }
+        }
+        
         setIsOverHandle(overHandle);
     } else if (isOverHandle) {
         setIsOverHandle(false);
@@ -902,14 +932,47 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
     } else if (isDraggingItem && selectedItemId) {
         const commitChange = false; // Do not create history entries for every mouse move
         if (draggedHandle) {
-            setZones(prevZones => prevZones.map(zone => {
-                if (zone.id === draggedHandle.zoneId) {
-                    const newPoints = [...zone.points];
-                    newPoints[draggedHandle.pointIndex] = worldPos;
-                    return { ...zone, points: newPoints, area: calculatePolygonArea(newPoints) };
-                }
-                return zone;
-            }), commitChange);
+            // Dragging a zone handle
+            if (draggedHandle.zoneId) {
+                setZones(prevZones => prevZones.map(zone => {
+                    if (zone.id === draggedHandle.zoneId) {
+                        const newPoints = [...zone.points];
+                        newPoints[draggedHandle.pointIndex] = worldPos;
+                        return { ...zone, points: newPoints, area: calculatePolygonArea(newPoints) };
+                    }
+                    return zone;
+                }), commitChange);
+            }
+            // Dragging a cable handle
+            else if (draggedHandle.lineId) {
+                setLines(prevLines => prevLines.map(line => {
+                    if (line.id === draggedHandle.lineId) {
+                        const newPoints = [...line.points];
+                        newPoints[draggedHandle.pointIndex] = worldPos;
+                        
+                        // Recalculate the cable length
+                        let totalLength = 0;
+                        for (let i = 0; i < newPoints.length - 1; i++) {
+                            const p1 = newPoints[i];
+                            const p2 = newPoints[i + 1];
+                            totalLength += Math.hypot(p2.x - p1.x, p2.y - p1.y);
+                        }
+                        
+                        // Convert to meters if scale is set
+                        const lengthInMeters = scaleInfo.ratio ? totalLength * scaleInfo.ratio : totalLength;
+                        const pathLength = lengthInMeters;
+                        const totalLengthWithRiseDrop = pathLength + (line.startHeight || 0) + (line.endHeight || 0);
+                        
+                        return { 
+                            ...line, 
+                            points: newPoints, 
+                            pathLength: pathLength,
+                            length: totalLengthWithRiseDrop
+                        };
+                    }
+                    return line;
+                }), commitChange);
+            }
         } else {
             const lastWorldPos = toWorld(lastMousePos);
             const dx = worldPos.x - lastWorldPos.x;
@@ -1066,6 +1129,7 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
         if (zones.some(z => z.id === selectedItemId)) setZones(finalUpdater, true);
         else if (equipment.some(eq => eq.id === selectedItemId)) setEquipment(finalUpdater, true);
         else if (pvArrays.some(arr => arr.id === selectedItemId)) setPvArrays(finalUpdater, true);
+        else if (lines.some(l => l.id === selectedItemId)) setLines(finalUpdater, true);
     }
 
     setIsPanning(false);
