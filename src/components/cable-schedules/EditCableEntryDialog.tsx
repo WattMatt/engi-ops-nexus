@@ -410,9 +410,12 @@ export const EditCableEntryDialog = ({
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Calculator className="h-5 w-5 text-primary" />
-            Interactive Cable Calculator
+            <Zap className="h-5 w-5 text-primary" />
+            Edit Cable Entry - {entry?.cable_tag || "Cable"}
           </DialogTitle>
+          <p className="text-sm text-muted-foreground mt-1">
+            Instant SANS 10142-1 compliant calculations as you type
+          </p>
         </DialogHeader>
         
         <div className="grid grid-cols-3 gap-4">
