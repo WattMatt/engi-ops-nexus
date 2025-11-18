@@ -165,10 +165,12 @@ export const EditCableEntryDialog = ({
     if (loadAmps && voltage) {
       const material = formData.cable_type?.toLowerCase() === "copper" ? "copper" : "aluminium";
       
-      // Calculate cable size for the FULL load (not divided by quantity)
-      // Quantity just means "how many cables" not "parallel sizing"
+      // For parallel cables: each cable carries load/quantity
+      // Cable must be sized for the current it actually carries
+      const currentPerCable = loadAmps / quantity;
+      
       const result = calculateCableSize({
-        loadAmps: loadAmps, // Use full load, not divided
+        loadAmps: currentPerCable, // Size each cable for current it carries
         voltage,
         totalLength: totalLength || 0,
         deratingFactor: 1.0,
@@ -177,7 +179,12 @@ export const EditCableEntryDialog = ({
       });
 
       if (result) {
-        console.log("Updating with calculated values:", result.recommendedSize);
+        console.log("Updating with calculated values:", {
+          size: result.recommendedSize,
+          voltDrop: result.voltDrop,
+          quantity,
+          currentPerCable
+        });
         
         // Store base costs (for 1 cable)
         baseCostsRef.current = {
@@ -185,32 +192,22 @@ export const EditCableEntryDialog = ({
           install: result.installCost
         };
         
-        const quantity = parseInt(formData.quantity) || 1;
-        
+        // Volt drop is calculated correctly by calculateCableSize for the current per cable
+        // In parallel, all cables have the same volt drop (it's not divided or multiplied)
         setFormData((prev) => ({
           ...prev,
           cable_size: result.recommendedSize,
           ohm_per_km: result.ohmPerKm.toString(),
-          volt_drop: totalLength ? result.voltDrop.toString() : "0",
+          volt_drop: result.voltDrop.toString(),
           supply_cost: (result.supplyCost * quantity).toString(),
           install_cost: (result.installCost * quantity).toString(),
         }));
       }
     }
-  }, [formData.load_amps, formData.voltage, formData.total_length, formData.cable_type, formData.installation_method]);
+  }, [formData.load_amps, formData.voltage, formData.total_length, formData.cable_type, formData.installation_method, formData.quantity]);
   
   // Update costs when quantity changes (using stored base costs)
-  useEffect(() => {
-    const quantity = parseInt(formData.quantity) || 1;
-    
-    if (baseCostsRef.current.supply > 0 || baseCostsRef.current.install > 0) {
-      setFormData((prev) => ({
-        ...prev,
-        supply_cost: (baseCostsRef.current.supply * quantity).toString(),
-        install_cost: (baseCostsRef.current.install * quantity).toString(),
-      }));
-    }
-  }, [formData.quantity]);
+  // No separate effect needed - quantity is now in main calculation dependencies
 
   // Auto-calculate total_cost
   useEffect(() => {
@@ -583,10 +580,13 @@ export const EditCableEntryDialog = ({
                     {formData.quantity && parseInt(formData.quantity) > 1 && (
                       <div className="p-3 bg-blue-500/10 rounded-lg border border-blue-500/20">
                         <div className="text-xs text-blue-600 dark:text-blue-400 font-semibold mb-1">
-                          Multiple Cables
+                          Parallel Configuration
                         </div>
-                        <div className="text-sm">
-                          {formData.quantity}× {formData.cable_size || "cables"} required
+                        <div className="text-sm space-y-0.5">
+                          <div>{formData.quantity}× {formData.cable_size || "cables"} in parallel</div>
+                          <div className="text-xs text-muted-foreground">
+                            {formData.load_amps && `${(parseFloat(formData.load_amps) / parseInt(formData.quantity)).toFixed(1)}A per cable`}
+                          </div>
                         </div>
                       </div>
                     )}
