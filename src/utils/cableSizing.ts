@@ -1,17 +1,20 @@
 // SANS 10142-1 Cable Sizing Data
+// ⚠️ CRITICAL: These tables MUST be verified against SANS 10142-1 Edition 3 (2020)
+// Last verification: UNVERIFIED - Requires qualified electrical engineer sign-off
 // Simplified table for copper and aluminium conductors, PVC insulated cables
 import { bignumber, add, subtract, multiply, divide, sqrt, abs, format } from 'mathjs';
+import { validateCableCalculation } from './cableValidation';
 
 // Math.js configured for high-precision electrical calculations
 
 export interface CableData {
   size: string;
-  currentRatingGround: number; // Ground (A)
-  currentRatingDucts: number; // Ducts (A)
-  currentRatingAir: number; // Air (A)
-  impedance: number; // Ω/km at 20°C
-  voltDrop3Phase: number; // 3φ Volt drop (mV/A/m)
-  voltDrop1Phase: number; // 1φ Volt drop (mV/A/m)
+  currentRatingGround: number; // Ground (A) - VERIFY AGAINST SANS 10142-1
+  currentRatingDucts: number; // Ducts (A) - VERIFY AGAINST SANS 10142-1
+  currentRatingAir: number; // Air (A) - VERIFY AGAINST SANS 10142-1
+  impedance: number; // Ω/km at 20°C - VERIFY AGAINST SANS 10142-1
+  voltDrop3Phase: number; // 3φ Volt drop (mV/A/m) - VERIFY AGAINST SANS 10142-1
+  voltDrop1Phase: number; // 1φ Volt drop (mV/A/m) - VERIFY AGAINST SANS 10142-1
   d1_3c: number; // Nominal Diameter D1 - 3 core (mm)
   d1_4c: number; // Nominal Diameter D1 - 4 core (mm)
   d_3c: number; // Nominal Diameter d - 3 core (mm)
@@ -22,6 +25,40 @@ export interface CableData {
   mass_4c: number; // Approx. Mass 4 core (kg/km)
   supplyCost: number; // Cost per meter (R)
   installCost: number; // Installation cost per meter (R)
+}
+
+export interface ValidationWarning {
+  type: 'error' | 'warning' | 'info';
+  message: string;
+  field?: string;
+}
+
+export interface CableCalculationResult {
+  recommendedSize: string;
+  recommendedQuantity?: number;
+  ohmPerKm: number;
+  voltDrop: number;
+  voltDropPercentage: number;
+  supplyCost: number;
+  installCost: number;
+  totalCost: number;
+  cablesInParallel?: number;
+  loadPerCable?: number;
+  validationWarnings?: ValidationWarning[];
+  requiresEngineerVerification?: boolean;
+  alternatives?: CableAlternative[]; // Other cost-effective options
+  costSavings?: number; // Savings vs most expensive option
+}
+
+export interface CableAlternative {
+  cableSize: string;
+  cablesInParallel: number;
+  loadPerCable: number;
+  voltDropPercentage: number;
+  totalCost: number;
+  supplyCost: number;
+  installCost: number;
+  isRecommended: boolean;
 }
 
 // Standard copper cable sizes from SANS 1507-3 Table 6.2
@@ -74,19 +111,6 @@ export interface CableCalculationParams {
   voltageDropLimit?: number; // Custom voltage drop limit percentage
 }
 
-export interface CableCalculationResult {
-  recommendedSize: string;
-  ohmPerKm: number;
-  voltDrop: number;
-  voltDropPercentage: number;
-  supplyCost: number;
-  installCost: number;
-  totalCost: number;
-  cablesInParallel: number; // Number of cables needed in parallel
-  loadPerCable: number; // Load carried by each cable
-  alternatives?: CableAlternative[]; // Other cost-effective options
-  costSavings?: number; // Savings vs most expensive option
-}
 
 export interface CableAlternative {
   cableSize: string;
@@ -163,10 +187,24 @@ export function calculateCableSize(
     }
 
     const result = calculateSingleCableResult(selectedCable, loadAmps, voltage, totalLength);
+    
+    // Add validation warnings
+    const validation = validateCableCalculation(
+      selectedCable,
+      loadAmps,
+      voltage,
+      totalLength,
+      result.voltDropPercentage,
+      installationMethod,
+      deratingFactor
+    );
+    
     return {
       ...result,
       cablesInParallel: 1,
       loadPerCable: loadAmps,
+      validationWarnings: validation.warnings,
+      requiresEngineerVerification: validation.requiresVerification
     };
   }
 
