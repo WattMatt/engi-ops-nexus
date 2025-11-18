@@ -983,7 +983,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
 
         autoTable(doc, {
           startY: tableY,
-          margin: { left: 20, right: 20 },
+          margin: { left: 10, right: 10 },
           head: [tableData.headers],
           body: tableRows,
           theme: 'striped',
