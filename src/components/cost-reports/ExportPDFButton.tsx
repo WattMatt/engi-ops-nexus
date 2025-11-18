@@ -1197,7 +1197,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
                 data.cell.styles.fillColor = [34, 197, 218];
                 data.cell.styles.textColor = [0, 0, 0];
                 data.cell.styles.fontStyle = 'bold';
-                data.cell.styles.fontSize = 9;
+                data.cell.styles.fontSize = 8;
                 data.cell.styles.halign = data.column.index === 0 ? 'center' : (data.column.index === 1 ? 'left' : 'right');
               }
             },
