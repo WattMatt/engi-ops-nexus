@@ -1,5 +1,5 @@
 
-import { Point, PVArrayItem, PVPanelConfig, RoofMask, ScaleInfo, EquipmentItem, SupplyLine, SupplyZone, Containment, EquipmentType, Task, TaskStatus } from '../types';
+import { Point, PVArrayItem, PVPanelConfig, RoofMask, ScaleInfo, EquipmentItem, SupplyLine, SupplyZone, Containment, Walkway, EquipmentType, Task, TaskStatus } from '../types';
 import { TOOL_COLORS, EQUIPMENT_REAL_WORLD_SIZES } from '../constants';
 import { getCableColor, getZoneColor, getContainmentStyle } from './styleUtils';
 import { isPointInPolygon } from './geometry';
@@ -242,6 +242,17 @@ export function renderMarkupsToContext(ctx: CanvasRenderingContext2D, params: Re
         ctx.strokeStyle = style.color;
         ctx.lineWidth = 3 / zoom;
         ctx.setLineDash(style.dash.map(d => d / zoom));
+        ctx.stroke();
+        ctx.setLineDash([]);
+    });
+
+    // Draw walkways (550mm wide paths)
+    walkways.forEach(walkway => {
+        ctx.beginPath();
+        walkway.points.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+        ctx.strokeStyle = TOOL_COLORS.WALKWAY;
+        ctx.lineWidth = 5 / zoom;
+        ctx.setLineDash([10 / zoom, 5 / zoom]);
         ctx.stroke();
         ctx.setLineDash([]);
     });

@@ -8,6 +8,7 @@ export const TOOL_COLORS = {
   ZONE: 'rgba(255, 255, 0, 0.3)', // Yellow for zones
   SCALE: '#39e600',
   ROOF_MASK: 'rgba(148, 112, 216, 0.3)', // A purplish color for roof masks
+  WALKWAY: '#94a3b8', // Slate gray for walkways
 };
 
 export const CONTAINMENT_COLORS: Record<ContainmentType, string> = {

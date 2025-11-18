@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useRef, useMemo, createContext
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist/build/pdf.mjs';
 import { User } from '@supabase/supabase-js';
-import { Tool, type EquipmentItem, type SupplyLine, type SupplyZone, type ScaleInfo, type ViewState, type Point, type Containment, ContainmentType, DesignPurpose, PVPanelConfig, RoofMask, PVArrayItem, Task, TaskStatus } from './types';
+import { Tool, type EquipmentItem, type SupplyLine, type SupplyZone, type ScaleInfo, type ViewState, type Point, type Containment, ContainmentType, type Walkway, DesignPurpose, PVPanelConfig, RoofMask, PVArrayItem, Task, TaskStatus } from './types';
 import { purposeConfigs, type PurposeConfig } from './purpose.config';
 import Toolbar from './components/Toolbar';
 import Canvas, { type CanvasHandles } from './components/Canvas';
@@ -44,6 +44,7 @@ interface DesignState {
     lines: SupplyLine[];
     zones: SupplyZone[];
     containment: Containment[];
+    walkways: Walkway[];
     roofMasks: RoofMask[];
     pvArrays: PVArrayItem[];
     tasks: Task[];
@@ -54,6 +55,7 @@ const initialDesignState: DesignState = {
     lines: [],
     zones: [],
     containment: [],
+    walkways: [],
     roofMasks: [],
     pvArrays: [],
   tasks: [],
@@ -82,7 +84,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
   const canUndo = historyIndex > 0;
   const canRedo = historyIndex < history.length - 1;
   const currentDesign = history[historyIndex];
-  const { equipment, lines, zones, containment, roofMasks, pvArrays, tasks } = currentDesign;
+  const { equipment, lines, zones, containment, walkways, roofMasks, pvArrays, tasks } = currentDesign;
 
   const setState = useCallback((updater: (prevState: DesignState) => DesignState, commit: boolean = true) => {
     const currentState = history[historyIndex];
@@ -108,6 +110,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
   const setLines = (updater: (prev: SupplyLine[]) => SupplyLine[], commit: boolean = true) => setState(s => ({ ...s, lines: updater(s.lines) }), commit);
   const setZones = (updater: (prev: SupplyZone[]) => SupplyZone[], commit: boolean = true) => setState(s => ({ ...s, zones: updater(s.zones) }), commit);
   const setContainment = (updater: (prev: Containment[]) => Containment[], commit: boolean = true) => setState(s => ({ ...s, containment: updater(s.containment) }), commit);
+  const setWalkways = (updater: (prev: Walkway[]) => Walkway[], commit: boolean = true) => setState(s => ({ ...s, walkways: updater(s.walkways) }), commit);
   const setRoofMasks = (updater: (prev: RoofMask[]) => RoofMask[], commit: boolean = true) => setState(s => ({ ...s, roofMasks: updater(s.roofMasks) }), commit);
   const setPvArrays = (updater: (prev: PVArrayItem[]) => PVArrayItem[], commit: boolean = true) => setState(s => ({ ...s, pvArrays: updater(s.pvArrays) }), commit);
   const setTasks = (updater: (prev: Task[]) => Task[], commit: boolean = true) => setState(s => ({ ...s, tasks: updater(s.tasks) }), commit);
@@ -360,6 +363,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
               lines: designData.lines || [],
               zones: designData.zones || [],
               containment: designData.containment || [],
+              walkways: designData.walkways || [],
               roofMasks: designData.roof_masks || [],
               pvArrays: designData.pv_arrays || [],
               tasks: designData.tasks || [],
@@ -560,6 +564,15 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
       }
   }, []);
 
+  const handleWalkwayDrawComplete = useCallback((line: { points: Point[]; length: number; }) => {
+      setWalkways(prev => [...prev, { 
+        id: `walkway-${Date.now()}`, 
+        points: line.points, 
+        length: line.length,
+        width: 0.55 // Fixed 550mm width
+      }]);
+  }, []);
+
   const handleCableDetailsSubmit = async (details: { 
     from: string, 
     to: string, 
@@ -751,8 +764,9 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
                   ref={canvasApiRef} pdfDoc={pdfDoc} activeTool={activeTool} viewState={viewState} setViewState={setViewState}
                   equipment={equipment} setEquipment={setEquipment} lines={lines} setLines={setLines}
                   zones={zones} setZones={setZones} containment={containment} setContainment={setContainment}
+                  walkways={walkways} setWalkways={setWalkways}
                   scaleInfo={scaleInfo} onScaleLabelPositionChange={handleScaleLabelPositionChange} onScalingComplete={completeScaling} onLvLineComplete={handleLvLineComplete}
-                  onContainmentDrawComplete={handleContainmentDrawComplete} scaleLine={scaleLine} onInitialViewCalculated={handleInitialViewCalculated}
+                  onContainmentDrawComplete={handleContainmentDrawComplete} onWalkwayDrawComplete={handleWalkwayDrawComplete} scaleLine={scaleLine} onInitialViewCalculated={handleInitialViewCalculated}
                   selectedItemId={selectedItemId} setSelectedItemId={setSelectedItemId} placementRotation={placementRotation}
                   purposeConfig={purposeConfig} pvPanelConfig={pvPanelConfig} roofMasks={roofMasks} onRoofMaskDrawComplete={handleRoofMaskDrawComplete}
                   pendingPvArrayConfig={pendingPvArrayConfig} onPlacePvArray={handlePlacePvArray} isSnappingEnabled={isSnappingEnabled}
