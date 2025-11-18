@@ -5,6 +5,8 @@ import { EquipmentItem, SupplyLine, SupplyZone, Containment, EquipmentType, Desi
 import { PurposeConfig } from '../purpose.config';
 import { EquipmentIcon } from './EquipmentIcon';
 import { getCableColor, getContainmentStyle, calculateLvCableSummary } from '../utils/styleUtils';
+import { supabase } from '@/integrations/supabase/client';
+import { useQuery } from '@tanstack/react-query';
 
 interface EquipmentPanelProps {
   equipment: EquipmentItem[];
@@ -28,6 +30,8 @@ interface EquipmentPanelProps {
   onOpenTaskModal: (task: Partial<Task> | null) => void;
   // Zones Props
   onJumpToZone: (zone: SupplyZone) => void;
+  // Project ID
+  projectId?: string;
 }
 
 type EquipmentPanelTab = 'summary' | 'equipment' | 'cables' | 'containment' | 'zones' | 'tasks';
@@ -552,9 +556,55 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
     equipment, lines, zones, containment, selectedItemId, setSelectedItemId,
     onEquipmentUpdate, onZoneUpdate, onDeleteItem, purposeConfig, designPurpose,
     pvPanelConfig, pvArrays, tasks, onOpenTaskModal, onJumpToZone, modulesPerString, onModulesPerStringChange,
+    projectId,
 }) => {
   const [activeTab, setActiveTab] = useState<EquipmentPanelTab>('summary');
   const [expandedAssignees, setExpandedAssignees] = useState<Record<string, boolean>>({});
+
+  // Fetch all cable entries for this project from the database
+  const { data: cableEntries = [], isLoading: loadingCables } = useQuery({
+    queryKey: ['cable-entries-floor-plan', projectId],
+    queryFn: async () => {
+      if (!projectId) return [];
+      
+      // Get all floor plan IDs for this project
+      const { data: floorPlans } = await supabase
+        .from('floor_plan_projects')
+        .select('id')
+        .eq('project_id', projectId);
+      
+      const floorPlanIds = floorPlans?.map(fp => fp.id) || [];
+      
+      // Get all cable schedule IDs for this project
+      const { data: schedules } = await supabase
+        .from('cable_schedules')
+        .select('id')
+        .eq('project_id', projectId);
+      
+      const scheduleIds = schedules?.map(s => s.id) || [];
+      
+      if (floorPlanIds.length === 0 && scheduleIds.length === 0) return [];
+      
+      // Fetch cable entries linked to either floor plans or schedules
+      const orConditions = [];
+      if (floorPlanIds.length > 0) {
+        orConditions.push(`floor_plan_id.in.(${floorPlanIds.join(',')})`);
+      }
+      if (scheduleIds.length > 0) {
+        orConditions.push(`schedule_id.in.(${scheduleIds.join(',')})`);
+      }
+      
+      const { data, error } = await supabase
+        .from('cable_entries')
+        .select('*')
+        .or(orConditions.join(','))
+        .order('cable_number', { ascending: true });
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!projectId,
+  });
 
   const toggleAssigneeExpansion = (assigneeName: string) => {
     setExpandedAssignees(prev => ({
@@ -728,8 +778,28 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
                 </div>
             </div>
              <div style={{display: activeTab === 'cables' ? 'block' : 'none'}}>
-                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">LV/AC Cable Schedule</h3>
-                <DetailedCableSchedule lines={lines} />
+                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Cable Schedule ({cableEntries.length})</h3>
+                {loadingCables ? (
+                  <p className="text-gray-500 text-xs text-center p-4">Loading cables...</p>
+                ) : cableEntries.length > 0 ? (
+                  <div className="space-y-1.5 text-xs max-h-[60vh] overflow-y-auto pr-2">
+                    {cableEntries.map(entry => (
+                      <div key={entry.id} className="bg-gray-700/50 p-2 rounded-md space-y-1">
+                        <div className="flex justify-between items-center">
+                          <span className="font-semibold text-amber-400">{entry.cable_tag}</span>
+                          <span className="text-gray-400 font-mono">{entry.cable_size || 'N/A'}</span>
+                        </div>
+                        <div className="text-gray-400 text-[10px]">
+                          <div>From: {entry.from_location}</div>
+                          <div>To: {entry.to_location}</div>
+                          <div>Length: {entry.total_length?.toFixed(2) || 0}m</div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-gray-500 text-xs text-center p-4">No cables found for this project.</p>
+                )}
             </div>
              <div style={{display: activeTab === 'containment' ? 'block' : 'none'}}>
                 <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Containment Schedule</h3>
