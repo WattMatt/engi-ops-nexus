@@ -205,7 +205,7 @@ const CableDetailsModal: React.FC<CableDetailsModalProps> = ({
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-50">
+    <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-[9999]">
       <div className="bg-gray-800 rounded-lg shadow-xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <h2 className="text-2xl font-bold text-white mb-4">LV/AC Cable Details</h2>
         <p className="text-gray-400 mb-6">
