@@ -117,14 +117,11 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
 
     const theme = colorThemes[options.kpiAppearance.colorTheme];
     
-    // Header section
-    doc.setFillColor(theme.header[0], theme.header[1], theme.header[2]);
-    doc.rect(0, 0, pageWidth, spacing.headerHeight, 'F');
-    
-    doc.setTextColor(255, 255, 255);
+    // Header section - simple without color
+    doc.setTextColor(0, 0, 0);
     doc.setFontSize(fontSize.title);
     doc.setFont("helvetica", "bold");
-    doc.text("Project Overview & KPIs", 20, spacing.headerHeight / 2 + 3);
+    doc.text("Project Overview & KPIs", 20, 20);
 
     // Calculate metrics
     const totalTenants = tenants.length;
@@ -142,7 +139,7 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
     const sowReceived = tenants.filter(t => t.sow_received).length;
     const layoutReceived = tenants.filter(t => t.layout_received).length;
 
-    let yPos = spacing.headerHeight + (isCompact ? 10 : 15);
+    let yPos = 30;
 
     // KPI Cards in 2-column grid
     const cardWidth = (pageWidth - 50) / 2;
