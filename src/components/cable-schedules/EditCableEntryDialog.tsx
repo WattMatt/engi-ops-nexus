@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { sortTenantsByShopNumber } from "@/utils/tenantSorting";
@@ -46,6 +46,9 @@ export const EditCableEntryDialog = ({
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [tenants, setTenants] = useState<any[]>([]);
+  
+  // Store base costs (per single cable) for quantity multiplication
+  const baseCostsRef = useRef<{ supply: number; install: number }>({ supply: 0, install: 0 });
   const [formData, setFormData] = useState({
     cable_tag: "",
     from_location: "",
@@ -162,11 +165,10 @@ export const EditCableEntryDialog = ({
     if (loadAmps && voltage) {
       const material = formData.cable_type?.toLowerCase() === "copper" ? "copper" : "aluminium";
       
-      // If multiple cables in parallel, divide current by quantity
-      const effectiveLoad = loadAmps / quantity;
-      
+      // Calculate cable size for the FULL load (not divided by quantity)
+      // Quantity just means "how many cables" not "parallel sizing"
       const result = calculateCableSize({
-        loadAmps: effectiveLoad,
+        loadAmps: loadAmps, // Use full load, not divided
         voltage,
         totalLength: totalLength || 0,
         deratingFactor: 1.0,
@@ -176,6 +178,15 @@ export const EditCableEntryDialog = ({
 
       if (result) {
         console.log("Updating with calculated values:", result.recommendedSize);
+        
+        // Store base costs (for 1 cable)
+        baseCostsRef.current = {
+          supply: result.supplyCost,
+          install: result.installCost
+        };
+        
+        const quantity = parseInt(formData.quantity) || 1;
+        
         setFormData((prev) => ({
           ...prev,
           cable_size: result.recommendedSize,
@@ -186,7 +197,20 @@ export const EditCableEntryDialog = ({
         }));
       }
     }
-  }, [formData.load_amps, formData.voltage, formData.total_length, formData.cable_type, formData.installation_method, formData.quantity]);
+  }, [formData.load_amps, formData.voltage, formData.total_length, formData.cable_type, formData.installation_method]);
+  
+  // Update costs when quantity changes (using stored base costs)
+  useEffect(() => {
+    const quantity = parseInt(formData.quantity) || 1;
+    
+    if (baseCostsRef.current.supply > 0 || baseCostsRef.current.install > 0) {
+      setFormData((prev) => ({
+        ...prev,
+        supply_cost: (baseCostsRef.current.supply * quantity).toString(),
+        install_cost: (baseCostsRef.current.install * quantity).toString(),
+      }));
+    }
+  }, [formData.quantity]);
 
   // Auto-calculate total_cost
   useEffect(() => {
@@ -556,16 +580,16 @@ export const EditCableEntryDialog = ({
                     </div>
                   </div>
 
-                  {formData.quantity && parseInt(formData.quantity) > 1 && (
-                    <div className="p-3 bg-blue-500/10 rounded-lg border border-blue-500/20">
-                      <div className="text-xs text-blue-600 dark:text-blue-400 font-semibold mb-1">
-                        Parallel Configuration
+                    {formData.quantity && parseInt(formData.quantity) > 1 && (
+                      <div className="p-3 bg-blue-500/10 rounded-lg border border-blue-500/20">
+                        <div className="text-xs text-blue-600 dark:text-blue-400 font-semibold mb-1">
+                          Multiple Cables
+                        </div>
+                        <div className="text-sm">
+                          {formData.quantity}× {formData.cable_size || "cables"} required
+                        </div>
                       </div>
-                      <div className="text-sm">
-                        {formData.quantity}× cables @ {formData.load_amps && (parseFloat(formData.load_amps) / parseInt(formData.quantity)).toFixed(1)}A each
-                      </div>
-                    </div>
-                  )}
+                    )}
                 </div>
               </CardContent>
             </Card>
