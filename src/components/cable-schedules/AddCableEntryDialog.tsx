@@ -11,8 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { calculateCableSize } from "@/utils/cableSizing";
-import { useCalculationSettings } from "@/hooks/useCalculationSettings";
+import { COPPER_CABLE_TABLE, ALUMINIUM_CABLE_TABLE } from "@/utils/cableSizing";
 import {
   Select,
   SelectContent,
@@ -20,6 +19,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Badge } from "@/components/ui/badge";
+import { AlertCircle } from "lucide-react";
 
 interface AddCableEntryDialogProps {
   open: boolean;
@@ -44,15 +45,10 @@ export const AddCableEntryDialog = ({
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
   const [tenants, setTenants] = useState<Tenant[]>([]);
-  const [useCustomToLocation, setUseCustomToLocation] = useState(false);
-  const [cablesInParallel, setCablesInParallel] = useState(1);
-  const [loadPerCable, setLoadPerCable] = useState<number | null>(null);
-  const [costAlternatives, setCostAlternatives] = useState<any[]>([]);
-  const [costSavings, setCostSavings] = useState<number>(0);
   const [projectId, setProjectId] = useState<string | null>(null);
-  
-  // Fetch calculation settings for the project
-  const { data: calcSettings } = useCalculationSettings(projectId);
+  const [suggestedCableSize, setSuggestedCableSize] = useState<string>("");
+  const [calculatedVoltDrop, setCalculatedVoltDrop] = useState<number | null>(null);
+  const [voltDropWarning, setVoltDropWarning] = useState<string>("");
   
   const [formData, setFormData] = useState({
     cable_tag: "",
@@ -60,35 +56,11 @@ export const AddCableEntryDialog = ({
     to_location: "",
     voltage: "400",
     load_amps: "",
-    cable_type: calcSettings?.default_cable_material || "Aluminium",
-    installation_method: calcSettings?.default_installation_method || "air",
-    ohm_per_km: "",
-    cable_number: "1",
-    quantity: "1",
-    extra_length: "",
-    measured_length: "",
-    total_length: "",
-    volt_drop: "",
-    notes: "",
+    cable_type: "Aluminium",
+    installation_method: "air",
     cable_size: "",
-    supply_cost: "",
-    install_cost: "",
-    total_cost: "",
-    power_factor: calcSettings?.power_factor_power?.toString() || "0.85",
-    ambient_temperature: calcSettings?.ambient_temp_baseline?.toString() || "30",
-    grouping_factor: "1.0",
-    thermal_insulation_factor: "1.0",
-    voltage_drop_limit: calcSettings?.voltage_drop_limit_400v?.toString() || "5.0",
-    circuit_type: "power",
-    number_of_phases: "3",
-    core_configuration: "3-core",
-    protection_device_rating: "",
-    max_demand_factor: "1.0",
-    starting_current: "",
-    fault_level: "",
-    earth_fault_loop_impedance: "",
-    calculation_method: calcSettings?.calculation_standard || "SANS 10142-1",
-    insulation_type: calcSettings?.default_insulation_type || "PVC",
+    measured_length: "",
+    notes: "",
   });
 
   useEffect(() => {
