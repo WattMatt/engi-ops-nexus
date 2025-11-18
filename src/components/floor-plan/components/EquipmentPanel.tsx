@@ -177,6 +177,66 @@ const PvArrayDetails: React.FC<{
     );
 };
 
+const CableDetails: React.FC<{
+    item: SupplyLine;
+    onDelete: () => void;
+    tasks: Task[];
+    onOpenTaskModal: (task: Partial<Task> | null) => void;
+}> = ({ item, onDelete, tasks, onOpenTaskModal }) => {
+    const isGpWire = item.cableType?.includes('GP');
+    const calculatedLength = isGpWire ? item.length * 3 : item.length;
+    
+    return (
+        <div className="mb-6 p-3 bg-muted rounded-lg border border-border">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Cable Details</h3>
+            <div className='flex items-center gap-3 mb-3'>
+                <div className="w-4 h-4 rounded-full flex-shrink-0" style={{backgroundColor: item.cableType ? getCableColor(item.cableType) : '#6B7280'}}></div>
+                <span className="text-foreground font-bold">{item.cableType || 'Cable'}</span>
+            </div>
+            <div className="space-y-2 text-sm text-foreground">
+                <div className="flex justify-between">
+                    <span>From:</span> 
+                    <span className='font-mono'>{item.from || 'N/A'}</span>
+                </div>
+                <div className="flex justify-between">
+                    <span>To:</span> 
+                    <span className='font-mono'>{item.to || 'N/A'}</span>
+                </div>
+                {item.label && (
+                    <div className="flex justify-between">
+                        <span>Label:</span> 
+                        <span className='font-mono'>{item.label}</span>
+                    </div>
+                )}
+                <div className="flex justify-between">
+                    <span>Length:</span> 
+                    <span className='font-mono font-semibold text-primary'>{calculatedLength.toFixed(2)}m</span>
+                </div>
+                {item.terminationCount && item.terminationCount > 0 && (
+                    <div className="flex justify-between">
+                        <span>Terminations:</span> 
+                        <span className='font-mono'>{item.terminationCount}x</span>
+                    </div>
+                )}
+                {(item.startHeight || item.endHeight) && (
+                    <div className="flex justify-between">
+                        <span>Rise/Drop:</span> 
+                        <span className='font-mono text-xs'>
+                            {item.startHeight?.toFixed(1) || 0}m / {item.endHeight?.toFixed(1) || 0}m
+                        </span>
+                    </div>
+                )}
+            </div>
+            <ItemTasks itemId={item.id} tasks={tasks} onOpenTaskModal={onOpenTaskModal} />
+            <div className="mt-4">
+                <button onClick={onDelete} className="w-full text-center px-4 py-2 bg-destructive/20 text-destructive hover:bg-destructive/40 rounded-md text-sm font-semibold transition-colors">
+                    Delete Cable
+                </button>
+            </div>
+        </div>
+    );
+};
+
 const DetailedCableSchedule: React.FC<{ lines: SupplyLine[] }> = ({ lines }) => {
     const lvLines = useMemo(() => lines.filter(l => l.type === 'lv'), [lines]);
 
@@ -566,6 +626,11 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
       if (!selectedItemId) return null;
       return pvArrays.find(p => p.id === selectedItemId) || null;
   }, [selectedItemId, pvArrays]);
+  
+  const selectedLine = useMemo(() => {
+      if (!selectedItemId) return null;
+      return lines.find(l => l.id === selectedItemId) || null;
+  }, [selectedItemId, lines]);
 
   const hasLvCables = useMemo(() => lines.some(l => l.type === 'lv' && l.cableType), [lines]);
 
@@ -623,6 +688,7 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
             {selectedEquipment && <SelectionDetails item={selectedEquipment} onUpdate={onEquipmentUpdate} onDelete={onDeleteItem} tasks={tasks} onOpenTaskModal={onOpenTaskModal} />}
             {selectedZone && <ZoneDetails item={selectedZone} onUpdate={onZoneUpdate} onDelete={onDeleteItem} tasks={tasks} onOpenTaskModal={onOpenTaskModal} />}
             {selectedPvArray && <PvArrayDetails item={selectedPvArray} pvPanelConfig={pvPanelConfig} onDelete={onDeleteItem} />}
+            {selectedLine && <CableDetails item={selectedLine} onDelete={onDeleteItem} tasks={tasks} onOpenTaskModal={onOpenTaskModal} />}
         </div>
         
         <div className="border-b border-border px-2 flex-shrink-0">
