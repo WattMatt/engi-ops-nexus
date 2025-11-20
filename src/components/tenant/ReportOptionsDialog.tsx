@@ -39,7 +39,6 @@ import {
 export interface ReportOptions {
   includeCoverPage: boolean;
   includeTableOfContents: boolean;
-  includeTenantDocumentIndex: boolean;
   includeKPIPage: boolean;
   includeTenantSchedule: boolean;
   includeFloorPlan: boolean;
@@ -94,7 +93,6 @@ export const ReportOptionsDialog = ({
   const [options, setOptions] = useState<ReportOptions>({
     includeCoverPage: true,
     includeTableOfContents: true,
-    includeTenantDocumentIndex: true,
     includeKPIPage: true,
     includeTenantSchedule: true,
     includeFloorPlan: true,
@@ -130,7 +128,6 @@ export const ReportOptionsDialog = ({
     setOptions({
       includeCoverPage: true,
       includeTableOfContents: true,
-      includeTenantDocumentIndex: true,
       includeKPIPage: true,
       includeTenantSchedule: true,
       includeFloorPlan: true,
@@ -268,7 +265,6 @@ export const ReportOptionsDialog = ({
     setOptions({
       includeCoverPage: false,
       includeTableOfContents: false,
-      includeTenantDocumentIndex: false,
       includeKPIPage: false,
       includeTenantSchedule: false,
       includeFloorPlan: false,
@@ -398,19 +394,6 @@ export const ReportOptionsDialog = ({
                 />
                 <Label htmlFor="tableOfContents" className="cursor-pointer">
                   Table of Contents
-                </Label>
-              </div>
-
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="tenantDocumentIndex"
-                  checked={options.includeTenantDocumentIndex}
-                  onCheckedChange={(checked) =>
-                    setOptions({ ...options, includeTenantDocumentIndex: checked as boolean })
-                  }
-                />
-                <Label htmlFor="tenantDocumentIndex" className="cursor-pointer">
-                  Tenant Document Index
                 </Label>
               </div>
 
