@@ -973,6 +973,17 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
       const companyDetails = await fetchCompanyDetails();
       console.log('[TENANT REPORT] Company details fetched:', companyDetails);
 
+      // Fetch project contact for "Prepared For" section
+      const { data: projectContact } = await supabase
+        .from("project_contacts")
+        .select("id")
+        .eq("project_id", projectId)
+        .limit(1)
+        .maybeSingle();
+      
+      const contactId = projectContact?.id;
+      console.log('[TENANT REPORT] Project contact ID:', contactId);
+
       // Generate pages based on options
       if (options.includeCoverPage) {
         console.log('[TENANT REPORT] Generating standardized cover page');
@@ -981,7 +992,7 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
           projectName: projectName,
           subtitle: "Tenant Schedule & Progress Analysis",
           revision: `Rev.${nextRevision}`,
-        }, companyDetails);
+        }, companyDetails, contactId);
         console.log('[TENANT REPORT] Standardized cover page generated successfully');
       }
       
