@@ -6208,6 +6208,7 @@ export type Database = {
           cost_reported: boolean | null
           created_at: string | null
           custom_fields: Json | null
+          db_by_tenant: boolean | null
           db_cost: number | null
           db_ordered: boolean | null
           db_size_allowance: string | null
@@ -6219,6 +6220,7 @@ export type Database = {
           last_modified_at: string | null
           last_modified_by: string | null
           layout_received: boolean | null
+          lighting_by_tenant: boolean | null
           lighting_cost: number | null
           lighting_ordered: boolean | null
           manual_kw_override: number | null
@@ -6240,6 +6242,7 @@ export type Database = {
           cost_reported?: boolean | null
           created_at?: string | null
           custom_fields?: Json | null
+          db_by_tenant?: boolean | null
           db_cost?: number | null
           db_ordered?: boolean | null
           db_size_allowance?: string | null
@@ -6251,6 +6254,7 @@ export type Database = {
           last_modified_at?: string | null
           last_modified_by?: string | null
           layout_received?: boolean | null
+          lighting_by_tenant?: boolean | null
           lighting_cost?: number | null
           lighting_ordered?: boolean | null
           manual_kw_override?: number | null
@@ -6272,6 +6276,7 @@ export type Database = {
           cost_reported?: boolean | null
           created_at?: string | null
           custom_fields?: Json | null
+          db_by_tenant?: boolean | null
           db_cost?: number | null
           db_ordered?: boolean | null
           db_size_allowance?: string | null
@@ -6283,6 +6288,7 @@ export type Database = {
           last_modified_at?: string | null
           last_modified_by?: string | null
           layout_received?: boolean | null
+          lighting_by_tenant?: boolean | null
           lighting_cost?: number | null
           lighting_ordered?: boolean | null
           manual_kw_override?: number | null
