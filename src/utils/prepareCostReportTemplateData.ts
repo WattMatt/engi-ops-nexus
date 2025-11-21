@@ -49,7 +49,13 @@ export async function prepareCostReportTemplateData(
 
   const { data: variations } = await supabase
     .from("cost_variations")
-    .select("*")
+    .select(`
+      *,
+      tenants (
+        shop_name,
+        shop_number
+      )
+    `)
     .eq("cost_report_id", reportId)
     .order("display_order");
 
@@ -105,9 +111,10 @@ export async function prepareCostReportTemplateData(
   }));
 
   // Prepare variations array for table loops
-  const variationsData = (variations || []).map(v => ({
+  const variationsData = (variations || []).map((v: any) => ({
     code: v.code,
     description: v.description,
+    tenant_name: v.tenants ? `${v.tenants.shop_number} - ${v.tenants.shop_name}` : "",
     type: v.is_credit ? "Credit" : "Extra",
     amount: Math.abs(v.amount || 0).toFixed(2)
   }));
