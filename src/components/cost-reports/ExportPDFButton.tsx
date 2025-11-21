@@ -357,24 +357,55 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       if (sortedVariations && sortedVariations.length > 0) {
         contentDoc.addPage();
         tocSections.push({ title: "Variation Order Sheets", page: contentDoc.getCurrentPageInfo().pageNumber });
-        yPos = contentStartY;
         
         // Display each variation with its line items
         for (const variation of sortedVariations) {
-          yPos = checkPageBreak(contentDoc, yPos, 40);
+          // Start each variation on a new page
+          if (contentDoc.getCurrentPageInfo().pageNumber > tocSections[tocSections.length - 1].page) {
+            contentDoc.addPage();
+          }
+          yPos = contentStartY;
           
-          // Variation header with tenant info
+          // TENANT ACCOUNT Header
+          contentDoc.setFontSize(18);
+          contentDoc.setFont("helvetica", "bold");
+          contentDoc.setTextColor(0, 0, 0);
+          contentDoc.text("TENANT ACCOUNT", pageWidth / 2, yPos, { align: "center" });
+          yPos += 15;
+          
+          // Project and Date Info
+          contentDoc.setFontSize(10);
+          contentDoc.setFont("helvetica", "bold");
+          contentDoc.text("PROJECT:", contentStartX, yPos);
+          contentDoc.setFont("helvetica", "normal");
+          contentDoc.text(report.project_name, contentStartX + 25, yPos);
+          
+          contentDoc.setFont("helvetica", "bold");
+          contentDoc.text("DATE:", pageWidth - STANDARD_MARGINS.right - 60, yPos);
+          contentDoc.setFont("helvetica", "normal");
+          contentDoc.text(format(new Date(report.report_date), "dd MMM yy"), pageWidth - STANDARD_MARGINS.right - 35, yPos);
+          yPos += 7;
+          
+          // Variation Order Number and Revision
+          contentDoc.setFont("helvetica", "bold");
+          contentDoc.text("VARIATION ORDER NO.:", contentStartX, yPos);
+          contentDoc.setFont("helvetica", "normal");
+          contentDoc.text(variation.code, contentStartX + 50, yPos);
+          
+          contentDoc.setFont("helvetica", "bold");
+          contentDoc.text("REVISION:", pageWidth - STANDARD_MARGINS.right - 60, yPos);
+          contentDoc.setFont("helvetica", "normal");
+          contentDoc.text("0", pageWidth - STANDARD_MARGINS.right - 35, yPos);
+          yPos += 12;
+          
+          // Shop Name in highlighted box
+          contentDoc.setFillColor(220, 220, 220);
+          contentDoc.rect(contentStartX, yPos - 5, pageWidth - STANDARD_MARGINS.left - STANDARD_MARGINS.right, 10, 'F');
           contentDoc.setFontSize(12);
           contentDoc.setFont("helvetica", "bold");
-          contentDoc.setTextColor(30, 58, 138);
-          const varHeader = `${variation.code} - ${variation.tenants ? `${variation.tenants.shop_number} ${variation.tenants.shop_name}` : variation.description}`;
-          contentDoc.text(varHeader, contentStartX, yPos);
-          yPos += 2;
-          
-          contentDoc.setDrawColor(30, 58, 138);
-          contentDoc.setLineWidth(0.5);
-          contentDoc.line(contentStartX, yPos, pageWidth - STANDARD_MARGINS.right, yPos);
-          yPos += 8;
+          const shopName = variation.tenants ? `${variation.tenants.shop_name}` : variation.description;
+          contentDoc.text(shopName, pageWidth / 2, yPos, { align: "center" });
+          yPos += 15;
           
           // Line items table
           const lineItems = variation.variation_line_items || [];
