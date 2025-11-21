@@ -108,6 +108,24 @@ export const updateDesign = async (designId: string, designData: DesignDataForSa
 };
 
 /**
+ * Updates only the name of a floor plan design
+ */
+export const updateDesignName = async (designId: string, name: string): Promise<void> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("User not authenticated.");
+
+    const { error } = await supabase
+        .from('floor_plan_projects')
+        .update({ 
+            name,
+            updated_at: new Date().toISOString()
+        })
+        .eq('id', designId);
+
+    if (error) throw error;
+};
+
+/**
  * Helper function to insert all design components
  */
 const insertDesignComponents = async (floorPlanId: string, designData: DesignDataForSave): Promise<void> => {
