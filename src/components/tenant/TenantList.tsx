@@ -861,7 +861,7 @@ export const TenantList = ({
                       <Input
                         type="number"
                         step="0.01"
-                        value={tenant.cost_report_amount || ""}
+                        value={(tenant as any).cost_report_amount || ""}
                         onChange={(e) => handleFieldUpdate(tenant.id, 'cost_report_amount', e.target.value ? parseFloat(e.target.value) : null)}
                         onFocus={() => setEditing(tenant.id)}
                         onBlur={() => setEditing(null)}
