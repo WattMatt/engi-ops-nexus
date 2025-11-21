@@ -283,7 +283,6 @@ export const listDesigns = async (showAll: boolean = false, projectId?: string |
   let query = supabase
     .from('floor_plan_projects')
     .select('id, name, created_at, design_purpose, project_id')
-    .eq('user_id', user.id)
     .order('created_at', { ascending: false });
   
   // When filtering by project: show designs for THIS project OR unassigned designs
