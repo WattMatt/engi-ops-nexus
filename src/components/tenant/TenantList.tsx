@@ -31,8 +31,10 @@ interface Tenant {
   layout_received: boolean;
   db_ordered: boolean;
   db_cost: number | null;
+  db_by_tenant: boolean;
   lighting_ordered: boolean;
   lighting_cost: number | null;
+  lighting_by_tenant: boolean;
   cost_reported: boolean;
   opening_date: string | null;
   beneficial_occupation_days: number | null;
@@ -239,14 +241,19 @@ export const TenantList = ({
   );
   
   const isTenantComplete = (tenant: Tenant) => {
-    return tenant.sow_received &&
-           tenant.layout_received &&
-           tenant.db_ordered &&
-           tenant.lighting_ordered &&
-           tenant.cost_reported &&
-           tenant.area !== null &&
-           tenant.db_cost !== null &&
-           tenant.lighting_cost !== null;
+    // Basic required fields
+    const basicComplete = tenant.sow_received &&
+                          tenant.layout_received &&
+                          tenant.cost_reported &&
+                          tenant.area !== null;
+    
+    // DB requirements (skip if by tenant)
+    const dbComplete = tenant.db_by_tenant || (tenant.db_ordered && tenant.db_cost !== null);
+    
+    // Lighting requirements (skip if by tenant)
+    const lightingComplete = tenant.lighting_by_tenant || (tenant.lighting_ordered && tenant.lighting_cost !== null);
+    
+    return basicComplete && dbComplete && lightingComplete;
   };
 
   const getDeadlineStatus = (tenant: Tenant) => {
