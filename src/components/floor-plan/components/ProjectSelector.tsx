@@ -23,8 +23,7 @@ export const ProjectSelector = ({ value, onChange, userId }: ProjectSelectorProp
     const fetchProjects = async () => {
       const { data, error } = await supabase
         .from('project_members')
-        .select('project_id, projects(id, project_name, project_number)')
-        .eq('user_id', userId);
+        .select('project_id, projects(id, project_name, project_number)');
 
       if (!error && data) {
         const projectList = data

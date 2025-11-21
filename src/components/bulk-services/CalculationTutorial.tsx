@@ -88,7 +88,6 @@ export const CalculationTutorial = ({
       const { data, error } = await supabase
         .from("bulk_services_tutorial_progress")
         .select("*")
-        .eq("user_id", user.id)
         .eq("document_id", documentId)
         .eq("calculation_type", calculationType)
         .maybeSingle();
@@ -185,7 +184,6 @@ export const CalculationTutorial = ({
       const { error } = await supabase
         .from("bulk_services_tutorial_progress")
         .delete()
-        .eq("user_id", user.id)
         .eq("document_id", documentId)
         .eq("calculation_type", calculationType);
 

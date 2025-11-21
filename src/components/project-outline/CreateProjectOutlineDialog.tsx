@@ -90,7 +90,6 @@ export const CreateProjectOutlineDialog = ({
       const { data, error } = await supabase
         .from("employees")
         .select("*")
-        .eq("user_id", user.id)
         .maybeSingle();
       
       if (error) {
