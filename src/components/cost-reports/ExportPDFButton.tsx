@@ -403,7 +403,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           contentDoc.rect(contentStartX, yPos - 5, pageWidth - STANDARD_MARGINS.left - STANDARD_MARGINS.right, 10, 'F');
           contentDoc.setFontSize(12);
           contentDoc.setFont("helvetica", "bold");
-          const shopName = variation.tenants ? `${variation.tenants.shop_name}` : variation.description;
+          const shopName = variation.tenants ? `${variation.tenants.shop_number} - ${variation.tenants.shop_name}` : variation.description;
           contentDoc.text(shopName, pageWidth / 2, yPos, { align: "center" });
           yPos += 15;
           
