@@ -115,6 +115,7 @@ export async function prepareCostReportTemplateData(
     code: v.code,
     description: v.description,
     tenant_name: v.tenants ? `${v.tenants.shop_number} - ${v.tenants.shop_name}` : "",
+    is_credit: v.is_credit,
     type: v.is_credit ? "Credit" : "Extra",
     amount: Math.abs(v.amount || 0).toFixed(2)
   }));
