@@ -82,12 +82,11 @@ export const updateDesign = async (designId: string, designData: DesignDataForSa
                 scaleInfo: designData.scaleInfo,
                 pvPanelConfig: designData.pvPanelConfig,
                 modulesPerString: designData.modulesPerString,
-                scaleLine: designData.scaleLine
-            } as any,
-            updated_at: new Date().toISOString()
-        })
-        .eq('id', designId)
-        .eq('user_id', user.id);
+            scaleLine: designData.scaleLine
+        } as any,
+        updated_at: new Date().toISOString()
+    })
+    .eq('id', designId);
 
     if (projectError) throw projectError;
 
