@@ -174,6 +174,22 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
             category: zone.category
           }));
           setZones(loadedZones);
+          
+          // Update zone colors in database when tenant status changes
+          if (data.length > 0) {
+            const updatedZones = data.map(zone => ({
+              id: zone.id,
+              color: getZoneColor(zone.tenant_id)
+            }));
+            
+            // Update each zone's color in the database
+            updatedZones.forEach(async (zone) => {
+              await supabase
+                .from('tenant_floor_plan_zones')
+                .update({ color: zone.color })
+                .eq('id', zone.id);
+            });
+          }
         }
       } catch (error) {
         console.error('Error loading zones:', error);
