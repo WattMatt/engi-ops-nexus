@@ -38,6 +38,12 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
   const [optionsDialogOpen, setOptionsDialogOpen] = useState(false);
   const queryClient = useQueryClient();
 
+  // Debug logging
+  console.log('[TenantReportGenerator] tenants:', tenants);
+  console.log('[TenantReportGenerator] tenants.length:', tenants.length);
+  console.log('[TenantReportGenerator] isGenerating:', isGenerating);
+  console.log('[TenantReportGenerator] button disabled:', isGenerating || tenants.length === 0);
+
   const getCategoryLabel = (category: string) => {
     const labels = {
       standard: "Standard",
