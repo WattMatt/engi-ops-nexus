@@ -618,7 +618,7 @@ export const TenantList = ({
                   </div>
                 </TableHead>
                 <TableHead className="text-right">Light Cost</TableHead>
-                <TableHead className="text-right">Cost Report</TableHead>
+                <TableHead className="text-center">Cost Report</TableHead>
                 <TableHead className="text-center">
                   <div className="flex items-center justify-center gap-1">
                     <TooltipProvider>
@@ -857,16 +857,11 @@ export const TenantList = ({
                         />
                       )}
                     </TableCell>
-                    <TableCell className="text-right">
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={(tenant as any).cost_report_amount || ""}
-                        onChange={(e) => handleFieldUpdate(tenant.id, 'cost_report_amount', e.target.value ? parseFloat(e.target.value) : null)}
-                        onFocus={() => setEditing(tenant.id)}
-                        onBlur={() => setEditing(null)}
-                        className="h-8 w-28 text-right"
-                        placeholder="0.00"
+                    <TableCell className="text-center">
+                      <StatusIcon 
+                        checked={tenant.cost_reported}
+                        onClick={() => handleBooleanToggle(tenant.id, 'cost_reported', tenant.cost_reported)}
+                        autoSynced={false}
                       />
                     </TableCell>
                     <TableCell className="text-center">
