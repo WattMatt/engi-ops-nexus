@@ -6676,6 +6676,10 @@ export type Database = {
         Returns: number
       }
       get_next_employee_number: { Args: never; Returns: string }
+      has_project_access: {
+        Args: { project_id: string; user_id: string }
+        Returns: boolean
+      }
       has_role: {
         Args: {
           _role: Database["public"]["Enums"]["app_role"]
@@ -6687,6 +6691,7 @@ export type Database = {
         Args: { p_change_summary: string; p_project_id: string }
         Returns: string
       }
+      is_admin: { Args: { user_id: string }; Returns: boolean }
       is_project_member: {
         Args: { _project_id: string; _user_id: string }
         Returns: boolean
