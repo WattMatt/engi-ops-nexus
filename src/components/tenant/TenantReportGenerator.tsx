@@ -440,6 +440,7 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
     const layoutReceived = tenants.filter(t => t.layout_received).length;
     const dbOrdered = tenants.filter(t => t.db_ordered).length;
     const lightingOrdered = tenants.filter(t => t.lighting_ordered).length;
+    const costReported = tenants.filter(t => t.cost_reported).length;
 
     // Calculate overall completion percentage
     let totalCompleted = 0;
@@ -519,6 +520,10 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
         doc.text(`Lighting: ${lightingOrdered}/${totalTenants}`, xPos, yPos);
         xPos += 35;
       }
+      if (options.tenantFields.costReported) {
+        doc.text(`Cost Rpt: ${costReported}/${totalTenants}`, xPos, yPos);
+        xPos += 40;
+      }
       
       // Add percentage
       doc.setTextColor(100, 116, 139);
@@ -544,6 +549,11 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
       if (options.tenantFields.lightingOrdered) {
         const pct = ((lightingOrdered / totalTenants) * 100).toFixed(0);
         doc.text(`(${pct}%)`, xPos, yPos2);
+        xPos += 35;
+      }
+      if (options.tenantFields.costReported) {
+        const pct = ((costReported / totalTenants) * 100).toFixed(0);
+        doc.text(`(${pct}%)`, xPos, yPos2);
       }
       
       tableStartY = 70;
@@ -565,6 +575,7 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
     if (options.tenantFields.dbCost) { headers.push('DB Cost'); fieldKeys.push('dbCost'); }
     if (options.tenantFields.lightingOrdered) { headers.push('Light Ord'); fieldKeys.push('lightingOrdered'); }
     if (options.tenantFields.lightingCost) { headers.push('Light Cost'); fieldKeys.push('lightingCost'); }
+    if (options.tenantFields.costReported) { headers.push('Cost Rpt'); fieldKeys.push('costReported'); }
 
     const tableData = tenants.map(tenant => {
       const row: string[] = [];
@@ -594,6 +605,7 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
               row.push(tenant.lighting_cost ? `R${tenant.lighting_cost.toFixed(2)}` : '-');
             }
             break;
+          case 'costReported': row.push(tenant.cost_reported ? '✓' : '✗'); break;
         }
       });
       return row;
@@ -617,7 +629,7 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
         // Make checkbox columns narrower and centered
         ...Object.fromEntries(
           fieldKeys.map((key, index) => {
-            if (['sowReceived', 'layoutReceived', 'dbOrdered', 'lightingOrdered'].includes(key)) {
+            if (['sowReceived', 'layoutReceived', 'dbOrdered', 'lightingOrdered', 'costReported'].includes(key)) {
               return [index, { halign: 'center', cellWidth: 15 }];
             }
             return [index, {}];
@@ -628,7 +640,7 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
         // Clear text for checkbox columns - we'll draw them manually
         if (data.section === 'body') {
           const key = fieldKeys[data.column.index];
-          if (['sowReceived', 'layoutReceived', 'dbOrdered', 'lightingOrdered'].includes(key)) {
+          if (['sowReceived', 'layoutReceived', 'dbOrdered', 'lightingOrdered', 'costReported'].includes(key)) {
             data.cell.text = [''];
           }
         }
@@ -636,7 +648,7 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
       didDrawCell: (data) => {
         // Custom rendering for checkbox cells
         const key = fieldKeys[data.column.index];
-        if (['sowReceived', 'layoutReceived', 'dbOrdered', 'lightingOrdered'].includes(key) && data.section === 'body') {
+        if (['sowReceived', 'layoutReceived', 'dbOrdered', 'lightingOrdered', 'costReported'].includes(key) && data.section === 'body') {
           const cellValue = data.cell.raw as string;
           if (cellValue === '✓' || cellValue === '✗') {
             const isChecked = cellValue === '✓';
