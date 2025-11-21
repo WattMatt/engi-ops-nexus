@@ -1,11 +1,6 @@
 import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,19 +8,9 @@ import { Plus, Trash2, Save, Edit, Trash, FileSpreadsheet } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { EditVariationDialog } from "./EditVariationDialog";
 import * as XLSX from "xlsx";
-
 interface VariationSheetDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -34,7 +19,6 @@ interface VariationSheetDialogProps {
   projectId: string;
   onSuccess: () => void;
 }
-
 interface LineItem {
   id?: string;
   line_number: number;
@@ -44,104 +28,104 @@ interface LineItem {
   rate: string;
   amount: number;
 }
-
 export const VariationSheetDialog = ({
   open,
   onOpenChange,
   variationId,
   costReportId,
   projectId,
-  onSuccess,
+  onSuccess
 }: VariationSheetDialogProps) => {
-  const { toast } = useToast();
+  const {
+    toast
+  } = useToast();
   const queryClient = useQueryClient();
   const [saving, setSaving] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [lineItems, setLineItems] = useState<LineItem[]>([
-    { line_number: 1, description: "", comments: "", quantity: "0", rate: "0", amount: 0 },
-  ]);
-
-  const { data: variation } = useQuery({
+  const [lineItems, setLineItems] = useState<LineItem[]>([{
+    line_number: 1,
+    description: "",
+    comments: "",
+    quantity: "0",
+    rate: "0",
+    amount: 0
+  }]);
+  const {
+    data: variation
+  } = useQuery({
     queryKey: ["variation-detail", variationId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("cost_variations")
-        .select(`
+      const {
+        data,
+        error
+      } = await supabase.from("cost_variations").select(`
           *,
           tenants (
             shop_name,
             shop_number
           )
-        `)
-        .eq("id", variationId)
-        .single();
+        `).eq("id", variationId).single();
       if (error) throw error;
       return data;
     },
-    enabled: !!variationId && open,
+    enabled: !!variationId && open
   });
-
-  const { data: costReport } = useQuery({
+  const {
+    data: costReport
+  } = useQuery({
     queryKey: ["cost-report-basic", costReportId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("cost_reports")
-        .select("project_name, report_date")
-        .eq("id", costReportId)
-        .single();
+      const {
+        data,
+        error
+      } = await supabase.from("cost_reports").select("project_name, report_date").eq("id", costReportId).single();
       if (error) throw error;
       return data;
     },
-    enabled: !!costReportId && open,
+    enabled: !!costReportId && open
   });
-
-  const { data: existingLineItems, refetch: refetchLineItems } = useQuery({
+  const {
+    data: existingLineItems,
+    refetch: refetchLineItems
+  } = useQuery({
     queryKey: ["variation-line-items", variationId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("variation_line_items")
-        .select("*")
-        .eq("variation_id", variationId)
-        .order("line_number");
+      const {
+        data,
+        error
+      } = await supabase.from("variation_line_items").select("*").eq("variation_id", variationId).order("line_number");
       if (error) throw error;
       return data || [];
     },
-    enabled: !!variationId && open,
+    enabled: !!variationId && open
   });
 
   // Load existing line items when they're fetched
   useEffect(() => {
     if (existingLineItems && existingLineItems.length > 0) {
-      setLineItems(
-        existingLineItems.map((item) => ({
-          id: item.id,
-          line_number: item.line_number,
-          description: item.description,
-          comments: item.comments || "",
-          quantity: item.quantity.toString(),
-          rate: item.rate.toString(),
-          amount: Number(item.amount),
-        }))
-      );
+      setLineItems(existingLineItems.map(item => ({
+        id: item.id,
+        line_number: item.line_number,
+        description: item.description,
+        comments: item.comments || "",
+        quantity: item.quantity.toString(),
+        rate: item.rate.toString(),
+        amount: Number(item.amount)
+      })));
     }
   }, [existingLineItems]);
-
   const addLineItem = () => {
-    setLineItems([
-      ...lineItems,
-      {
-        line_number: lineItems.length + 1,
-        description: "",
-        comments: "",
-        quantity: "0",
-        rate: "0",
-        amount: 0,
-      },
-    ]);
+    setLineItems([...lineItems, {
+      line_number: lineItems.length + 1,
+      description: "",
+      comments: "",
+      quantity: "0",
+      rate: "0",
+      amount: 0
+    }]);
   };
-
   const removeLineItem = (index: number) => {
     const newItems = lineItems.filter((_, i) => i !== index);
     // Renumber items
@@ -150,10 +134,12 @@ export const VariationSheetDialog = ({
     });
     setLineItems(newItems);
   };
-
   const updateLineItem = (index: number, field: keyof LineItem, value: string) => {
     const newItems = [...lineItems];
-    newItems[index] = { ...newItems[index], [field]: value };
+    newItems[index] = {
+      ...newItems[index],
+      [field]: value
+    };
 
     // Calculate amount if quantity or rate changed
     if (field === "quantity" || field === "rate") {
@@ -161,19 +147,16 @@ export const VariationSheetDialog = ({
       const rate = parseFloat(field === "rate" ? value : newItems[index].rate) || 0;
       newItems[index].amount = qty * rate;
     }
-
     setLineItems(newItems);
   };
-
   const handleSave = async () => {
     setSaving(true);
     try {
       // Delete existing line items
       if (existingLineItems && existingLineItems.length > 0) {
-        const { error: deleteError } = await supabase
-          .from("variation_line_items")
-          .delete()
-          .eq("variation_id", variationId);
+        const {
+          error: deleteError
+        } = await supabase.from("variation_line_items").delete().eq("variation_id", variationId);
         if (deleteError) throw deleteError;
       }
 
@@ -186,47 +169,48 @@ export const VariationSheetDialog = ({
         quantity: parseFloat(item.quantity) || 0,
         rate: parseFloat(item.rate) || 0,
         amount: item.amount,
-        display_order: index,
+        display_order: index
       }));
-
-      const { error: insertError } = await supabase
-        .from("variation_line_items")
-        .insert(itemsToInsert);
-
+      const {
+        error: insertError
+      } = await supabase.from("variation_line_items").insert(itemsToInsert);
       if (insertError) throw insertError;
 
       // Update variation total amount
       const total = lineItems.reduce((sum, item) => sum + item.amount, 0);
-      const { error: updateError } = await supabase
-        .from("cost_variations")
-        .update({ amount: total })
-        .eq("id", variationId);
-
+      const {
+        error: updateError
+      } = await supabase.from("cost_variations").update({
+        amount: total
+      }).eq("id", variationId);
       if (updateError) throw updateError;
-
       toast({
         title: "Success",
-        description: "Variation sheet saved successfully",
+        description: "Variation sheet saved successfully"
       });
 
       // Invalidate all related queries to update totals across the app
-      queryClient.invalidateQueries({ queryKey: ["cost-variations", costReportId] });
-      queryClient.invalidateQueries({ queryKey: ["cost-variations-overview", costReportId] });
-      queryClient.invalidateQueries({ queryKey: ["variation-line-items", variationId] });
-      
+      queryClient.invalidateQueries({
+        queryKey: ["cost-variations", costReportId]
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["cost-variations-overview", costReportId]
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["variation-line-items", variationId]
+      });
       refetchLineItems();
       onSuccess();
     } catch (error: any) {
       toast({
         title: "Error",
         description: error.message,
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setSaving(false);
     }
   };
-
   const handleDelete = async () => {
     setDeleting(true);
     try {
@@ -234,97 +218,72 @@ export const VariationSheetDialog = ({
       const deletedTenantId = variation?.tenant_id;
 
       // Delete line items first
-      const { error: lineItemsError } = await supabase
-        .from("variation_line_items")
-        .delete()
-        .eq("variation_id", variationId);
-
+      const {
+        error: lineItemsError
+      } = await supabase.from("variation_line_items").delete().eq("variation_id", variationId);
       if (lineItemsError) throw lineItemsError;
 
       // Delete the variation
-      const { error } = await supabase
-        .from("cost_variations")
-        .delete()
-        .eq("id", variationId);
-
+      const {
+        error
+      } = await supabase.from("cost_variations").delete().eq("id", variationId);
       if (error) throw error;
 
       // If variation had a tenant, check if tenant has other variations
       if (deletedTenantId) {
-        const { data: otherVariations } = await supabase
-          .from("cost_variations")
-          .select("id")
-          .eq("tenant_id", deletedTenantId);
-        
+        const {
+          data: otherVariations
+        } = await supabase.from("cost_variations").select("id").eq("tenant_id", deletedTenantId);
+
         // If no other variations, unset cost_reported
         if (!otherVariations || otherVariations.length === 0) {
-          await supabase
-            .from("tenants")
-            .update({ cost_reported: false })
-            .eq("id", deletedTenantId);
+          await supabase.from("tenants").update({
+            cost_reported: false
+          }).eq("id", deletedTenantId);
         }
       }
-
       toast({
         title: "Success",
-        description: "Variation deleted successfully",
+        description: "Variation deleted successfully"
       });
-
-      queryClient.invalidateQueries({ queryKey: ["cost-variations", costReportId] });
-      queryClient.invalidateQueries({ queryKey: ["cost-variations-overview", costReportId] });
-      
+      queryClient.invalidateQueries({
+        queryKey: ["cost-variations", costReportId]
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["cost-variations-overview", costReportId]
+      });
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
       toast({
         title: "Error",
         description: error.message,
-        variant: "destructive",
+        variant: "destructive"
       });
     } finally {
       setDeleting(false);
       setDeleteDialogOpen(false);
     }
   };
-
   const total = lineItems.reduce((sum, item) => sum + item.amount, 0);
   const isNegative = total < 0;
   const displayTotal = total;
-
   const exportToExcel = () => {
     const wb = XLSX.utils.book_new();
-    
+
     // Create worksheet data matching your Excel format
-    const wsData: any[][] = [
-      ["TENANT ACCOUNT"],
-      [],
-      [],
-      [],
-      [],
-      ["PROJECT:", "", costReport?.project_name || "", "", "", "DATE:", "", costReport?.report_date ? new Date(costReport.report_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' }) : ""],
-      [],
-      ["VARIATION ORDER NO.:", "", variation?.code || "", "", "", "REVISION:", "", "0"],
-      [],
-      [variation?.tenants ? `${variation.tenants.shop_number} - ${variation.tenants.shop_name}` : variation?.description || ""],
-      [],
-      [],
-      [],
-      ["NO", "DESCRIPTION", "COMMENTS/ DETAIL", "", "", "QTY:", "RATE:", "AMOUNT:"],
-      []
-    ];
+    const wsData: any[][] = [["TENANT ACCOUNT"], [], [], [], [], ["PROJECT:", "", costReport?.project_name || "", "", "", "DATE:", "", costReport?.report_date ? new Date(costReport.report_date).toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: '2-digit'
+    }) : ""], [], ["VARIATION ORDER NO.:", "", variation?.code || "", "", "", "REVISION:", "", "0"], [], [variation?.tenants ? `${variation.tenants.shop_number} - ${variation.tenants.shop_name}` : variation?.description || ""], [], [], [], ["NO", "DESCRIPTION", "COMMENTS/ DETAIL", "", "", "QTY:", "RATE:", "AMOUNT:"], []];
 
     // Add line items
     lineItems.forEach(item => {
-      wsData.push([
-        item.line_number,
-        item.description,
-        item.comments,
-        "",
-        "",
-        item.quantity,
-        `R${parseFloat(item.rate).toFixed(2)}`,
-        `R${item.amount.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-      ]);
+      wsData.push([item.line_number, item.description, item.comments, "", "", item.quantity, `R${parseFloat(item.rate).toFixed(2)}`, `R${item.amount.toLocaleString('en-ZA', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      })}`]);
       wsData.push([]); // Empty row after each item
     });
 
@@ -334,61 +293,68 @@ export const VariationSheetDialog = ({
     }
 
     // Add total
-    wsData.push(["", "", "", "", "", "", "TOTAL ADDITIONAL WORKS EXCLUSIVE OF VAT", `R${displayTotal.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`]);
-
+    wsData.push(["", "", "", "", "", "", "TOTAL ADDITIONAL WORKS EXCLUSIVE OF VAT", `R${displayTotal.toLocaleString('en-ZA', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    })}`]);
     const ws = XLSX.utils.aoa_to_sheet(wsData);
 
     // Set column widths
-    ws['!cols'] = [
-      { wch: 5 },   // NO
-      { wch: 40 },  // DESCRIPTION
-      { wch: 20 },  // COMMENTS
-      { wch: 3 },   // empty
-      { wch: 3 },   // empty
-      { wch: 10 },  // QTY
-      { wch: 12 },  // RATE
-      { wch: 15 }   // AMOUNT
+    ws['!cols'] = [{
+      wch: 5
+    },
+    // NO
+    {
+      wch: 40
+    },
+    // DESCRIPTION
+    {
+      wch: 20
+    },
+    // COMMENTS
+    {
+      wch: 3
+    },
+    // empty
+    {
+      wch: 3
+    },
+    // empty
+    {
+      wch: 10
+    },
+    // QTY
+    {
+      wch: 12
+    },
+    // RATE
+    {
+      wch: 15
+    } // AMOUNT
     ];
-
     XLSX.utils.book_append_sheet(wb, ws, "Variation Sheet");
-    
     const fileName = `${variation?.code || 'Variation'}_${variation?.tenants?.shop_name || 'Sheet'}.xlsx`;
     XLSX.writeFile(wb, fileName);
-    
     toast({
       title: "Success",
-      description: "Excel file exported successfully",
+      description: "Excel file exported successfully"
     });
   };
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+  return <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <div className="flex items-center justify-between">
             <DialogTitle>Variation Sheet - {variation?.code}</DialogTitle>
             <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={exportToExcel}
-              >
+              <Button size="sm" variant="outline" onClick={exportToExcel}>
                 <FileSpreadsheet className="mr-2 h-4 w-4" />
                 Export Excel
               </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => setEditDialogOpen(true)}
-              >
+              <Button size="sm" variant="outline" onClick={() => setEditDialogOpen(true)}>
                 <Edit className="mr-2 h-4 w-4" />
                 Edit Details
               </Button>
-              <Button
-                size="sm"
-                variant="destructive"
-                onClick={() => setDeleteDialogOpen(true)}
-              >
+              <Button size="sm" variant="destructive" onClick={() => setDeleteDialogOpen(true)}>
                 <Trash className="mr-2 h-4 w-4" />
                 Delete
               </Button>
@@ -415,13 +381,11 @@ export const VariationSheetDialog = ({
               <div className="flex gap-2">
                 <span className="font-bold uppercase">DATE:</span>
                 <span className="flex-1">
-                  {costReport?.report_date
-                    ? new Date(costReport.report_date).toLocaleDateString('en-GB', {
-                        day: '2-digit',
-                        month: 'short',
-                        year: '2-digit'
-                      })
-                    : ""}
+                  {costReport?.report_date ? new Date(costReport.report_date).toLocaleDateString('en-GB', {
+                  day: '2-digit',
+                  month: 'short',
+                  year: '2-digit'
+                }) : ""}
                 </span>
               </div>
             </div>
@@ -439,11 +403,9 @@ export const VariationSheetDialog = ({
           </div>
 
           {/* Tenant/Shop Title */}
-          <div className="text-center py-4 bg-muted/20">
+          <div className="text-center py-4 bg-stone-200 rounded-lg shadow-lg">
             <h3 className="text-lg font-bold uppercase tracking-wide">
-              {variation?.tenants 
-                ? `${variation.tenants.shop_name}` 
-                : variation?.description || ""}
+              {variation?.tenants ? `${variation.tenants.shop_name}` : variation?.description || ""}
             </h3>
           </div>
         </div>
@@ -464,59 +426,32 @@ export const VariationSheetDialog = ({
                 </tr>
               </thead>
               <tbody>
-                {lineItems.map((item, index) => (
-                  <tr key={index} className="hover:bg-muted/20">
+                {lineItems.map((item, index) => <tr key={index} className="hover:bg-muted/20">
                     <td className="border border-border p-3 text-center font-semibold">{item.line_number}</td>
                     <td className="border border-border p-2">
-                      <Input
-                        value={item.description}
-                        onChange={(e) => updateLineItem(index, "description", e.target.value)}
-                        placeholder="Description"
-                        className="h-10 border-0 focus-visible:ring-0 bg-transparent text-sm"
-                      />
+                      <Input value={item.description} onChange={e => updateLineItem(index, "description", e.target.value)} placeholder="Description" className="h-10 border-0 focus-visible:ring-0 bg-transparent text-sm" />
                     </td>
                     <td className="border border-border p-2">
-                      <Input
-                        value={item.comments}
-                        onChange={(e) => updateLineItem(index, "comments", e.target.value)}
-                        placeholder="Comments"
-                        className="h-10 border-0 focus-visible:ring-0 bg-transparent text-sm"
-                      />
+                      <Input value={item.comments} onChange={e => updateLineItem(index, "comments", e.target.value)} placeholder="Comments" className="h-10 border-0 focus-visible:ring-0 bg-transparent text-sm" />
                     </td>
                     <td className="border border-border p-2">
-                      <Input
-                        type="number"
-                        step="1"
-                        value={item.quantity}
-                        onChange={(e) => updateLineItem(index, "quantity", e.target.value)}
-                        className="h-10 text-right border-0 focus-visible:ring-0 bg-transparent text-sm font-medium"
-                      />
+                      <Input type="number" step="1" value={item.quantity} onChange={e => updateLineItem(index, "quantity", e.target.value)} className="h-10 text-right border-0 focus-visible:ring-0 bg-transparent text-sm font-medium" />
                     </td>
                     <td className="border border-border p-2">
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={item.rate}
-                        onChange={(e) => updateLineItem(index, "rate", e.target.value)}
-                        className="h-10 text-right border-0 focus-visible:ring-0 bg-transparent text-sm font-medium"
-                      />
+                      <Input type="number" step="0.01" value={item.rate} onChange={e => updateLineItem(index, "rate", e.target.value)} className="h-10 text-right border-0 focus-visible:ring-0 bg-transparent text-sm font-medium" />
                     </td>
                     <td className="border border-border p-3 text-right font-semibold text-sm">
-                      R{item.amount.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      R{item.amount.toLocaleString('en-ZA', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                  })}
                     </td>
                     <td className="border border-border p-2 text-center">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => removeLineItem(index)}
-                        disabled={lineItems.length === 1}
-                        className="h-8 w-8 p-0"
-                      >
+                      <Button variant="ghost" size="sm" onClick={() => removeLineItem(index)} disabled={lineItems.length === 1} className="h-8 w-8 p-0">
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </td>
-                  </tr>
-                ))}
+                  </tr>)}
               </tbody>
             </table>
           </div>
@@ -534,7 +469,10 @@ export const VariationSheetDialog = ({
               TOTAL ADDITIONAL WORKS EXCLUSIVE OF VAT
             </div>
             <div className="text-xl font-bold min-w-[150px] text-right">
-              R{displayTotal.toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              R{displayTotal.toLocaleString('en-ZA', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2
+            })}
             </div>
           </div>
         </div>
@@ -551,17 +489,15 @@ export const VariationSheetDialog = ({
         </div>
       </DialogContent>
 
-      <EditVariationDialog
-        open={editDialogOpen}
-        onOpenChange={setEditDialogOpen}
-        variationId={variationId}
-        projectId={projectId}
-        onSuccess={() => {
-          queryClient.invalidateQueries({ queryKey: ["variation-detail", variationId] });
-          queryClient.invalidateQueries({ queryKey: ["cost-variations", costReportId] });
-          onSuccess();
-        }}
-      />
+      <EditVariationDialog open={editDialogOpen} onOpenChange={setEditDialogOpen} variationId={variationId} projectId={projectId} onSuccess={() => {
+      queryClient.invalidateQueries({
+        queryKey: ["variation-detail", variationId]
+      });
+      queryClient.invalidateQueries({
+        queryKey: ["cost-variations", costReportId]
+      });
+      onSuccess();
+    }} />
 
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
@@ -574,16 +510,11 @@ export const VariationSheetDialog = ({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
-              disabled={deleting}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
+            <AlertDialogAction onClick={handleDelete} disabled={deleting} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
               {deleting ? "Deleting..." : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Dialog>
-  );
+    </Dialog>;
 };
