@@ -36,6 +36,7 @@ interface MaskingCanvasProps {
   zones: Zone[];
   onZonesChange: (zones: Zone[]) => void;
   tenants: any[];
+  zoneOpacity?: number;
 }
 
 export const MaskingCanvas = ({ 
@@ -52,7 +53,8 @@ export const MaskingCanvas = ({
   onZoneSelected,
   zones,
   onZonesChange,
-  tenants
+  tenants,
+  zoneOpacity = 0.5
 }: MaskingCanvasProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const pdfCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -141,7 +143,16 @@ export const MaskingCanvas = ({
         ctx.beginPath();
         zone.points.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));
         ctx.closePath();
-        ctx.fillStyle = `${zone.color}40`; // 25% opacity
+        
+        // Convert hex color to rgba with 50% opacity for saved composite
+        const hexToRgba = (hex: string, alpha: number) => {
+          const r = parseInt(hex.slice(1, 3), 16);
+          const g = parseInt(hex.slice(3, 5), 16);
+          const b = parseInt(hex.slice(5, 7), 16);
+          return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+        };
+        
+        ctx.fillStyle = hexToRgba(zone.color, 0.5);
         ctx.fill();
         ctx.strokeStyle = zone.color;
         ctx.lineWidth = 2;
@@ -431,7 +442,16 @@ export const MaskingCanvas = ({
       ctx.beginPath();
       zone.points.forEach((p, i) => (i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y)));
       ctx.closePath();
-      ctx.fillStyle = `${zone.color}40`; // 25% opacity
+      
+      // Convert hex color to rgba with dynamic opacity
+      const hexToRgba = (hex: string, alpha: number) => {
+        const r = parseInt(hex.slice(1, 3), 16);
+        const g = parseInt(hex.slice(3, 5), 16);
+        const b = parseInt(hex.slice(5, 7), 16);
+        return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+      };
+      
+      ctx.fillStyle = hexToRgba(zone.color, zoneOpacity);
       ctx.fill();
       
       const isSelected = zone.id === selectedZoneId;
@@ -590,7 +610,7 @@ export const MaskingCanvas = ({
     }
 
     ctx.restore();
-  }, [viewState, scaleLine, currentZoneDrawing, zones, selectedZoneId, existingScale]);
+  }, [viewState, scaleLine, currentZoneDrawing, zones, selectedZoneId, existingScale, zoneOpacity]);
 
   useEffect(() => {
     drawOverlay();

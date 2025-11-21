@@ -40,6 +40,7 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
   const [selectedZoneTenantId, setSelectedZoneTenantId] = useState<string | null>(null);
   const [assignTenantDialogOpen, setAssignTenantDialogOpen] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [zoneOpacity, setZoneOpacity] = useState(0.5);
   const [zones, setZones] = useState<Array<{
     id: string;
     points: Array<{ x: number; y: number }>;
@@ -517,6 +518,8 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
             onSave={async () => await handleSaveZones(false)}
             onSaveAs={async () => await handleSaveZones(true)}
             isSaving={isSaving}
+            zoneOpacity={zoneOpacity}
+            onZoneOpacityChange={setZoneOpacity}
           />
         )}
         
@@ -594,6 +597,7 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
                 zones={zones}
                 onZonesChange={setZones}
                 tenants={tenants}
+                zoneOpacity={zoneOpacity}
               />
             ) : isEditMode ? (
               <div className="h-full flex items-center justify-center text-muted-foreground">

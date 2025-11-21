@@ -1,5 +1,7 @@
 import React from 'react';
 import { MousePointer, Hand, Ruler, Pencil, Square, Save, FolderOpen, Eye, Upload, SaveAll } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { Slider } from '@/components/ui/slider';
 
 interface ToolbarProps {
   activeTool: 'select' | 'pan' | 'scale' | 'zone';
@@ -13,6 +15,8 @@ interface ToolbarProps {
   scaleSet: boolean;
   scaleValue?: number | null;
   isSaving?: boolean;
+  zoneOpacity?: number;
+  onZoneOpacityChange?: (opacity: number) => void;
 }
 
 interface ToolButtonProps {
@@ -67,7 +71,9 @@ export const MaskingToolbar: React.FC<ToolbarProps> = ({
   isPdfLoaded,
   scaleSet,
   scaleValue,
-  isSaving
+  isSaving,
+  zoneOpacity = 0.5,
+  onZoneOpacityChange
 }) => {
   return (
     <div className="w-64 bg-card border-r border-border flex flex-col h-full">
@@ -167,6 +173,30 @@ export const MaskingToolbar: React.FC<ToolbarProps> = ({
           />
         </div>
       </div>
+
+      {/* Zone Appearance Settings */}
+      {isPdfLoaded && (
+        <div className="p-3 border-b border-border">
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase mb-2">Zone Appearance</h3>
+          <div className="space-y-3">
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <Label htmlFor="zone-opacity" className="text-xs">Opacity</Label>
+                <span className="text-xs text-muted-foreground">{Math.round(zoneOpacity * 100)}%</span>
+              </div>
+              <Slider
+                id="zone-opacity"
+                min={0.1}
+                max={1}
+                step={0.05}
+                value={[zoneOpacity]}
+                onValueChange={(values) => onZoneOpacityChange?.(values[0])}
+                className="w-full"
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Instructions */}
       {isPdfLoaded && (
