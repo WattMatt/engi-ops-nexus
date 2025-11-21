@@ -618,6 +618,7 @@ export const TenantList = ({
                   </div>
                 </TableHead>
                 <TableHead className="text-right">Light Cost</TableHead>
+                <TableHead className="text-right">Cost Report</TableHead>
                 <TableHead className="text-center">
                   <div className="flex items-center justify-center gap-1">
                     <TooltipProvider>
@@ -641,7 +642,7 @@ export const TenantList = ({
             <TableBody>
               {group.tenants.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={17} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={18} className="text-center py-8 text-muted-foreground">
                     {searchQuery || categoryFilter || statusFilter !== "all" 
                       ? "No tenants match the current filters" 
                       : "No tenants found"}
@@ -855,6 +856,18 @@ export const TenantList = ({
                           placeholder="0.00"
                         />
                       )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={tenant.cost_report_amount || ""}
+                        onChange={(e) => handleFieldUpdate(tenant.id, 'cost_report_amount', e.target.value ? parseFloat(e.target.value) : null)}
+                        onFocus={() => setEditing(tenant.id)}
+                        onBlur={() => setEditing(null)}
+                        className="h-8 w-28 text-right"
+                        placeholder="0.00"
+                      />
                     </TableCell>
                     <TableCell className="text-center">
                       {handoverLinkStatus?.linkedTenantIds.includes(tenant.id) ? (

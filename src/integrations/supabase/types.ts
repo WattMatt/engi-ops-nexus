@@ -6204,6 +6204,7 @@ export type Database = {
         Row: {
           area: number | null
           beneficial_occupation_days: number | null
+          cost_report_amount: number | null
           cost_reported: boolean | null
           created_at: string | null
           custom_fields: Json | null
@@ -6235,6 +6236,7 @@ export type Database = {
         Insert: {
           area?: number | null
           beneficial_occupation_days?: number | null
+          cost_report_amount?: number | null
           cost_reported?: boolean | null
           created_at?: string | null
           custom_fields?: Json | null
@@ -6266,6 +6268,7 @@ export type Database = {
         Update: {
           area?: number | null
           beneficial_occupation_days?: number | null
+          cost_report_amount?: number | null
           cost_reported?: boolean | null
           created_at?: string | null
           custom_fields?: Json | null
