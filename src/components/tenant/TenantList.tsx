@@ -243,6 +243,7 @@ export const TenantList = ({
            tenant.layout_received &&
            tenant.db_ordered &&
            tenant.lighting_ordered &&
+           tenant.cost_reported &&
            tenant.area !== null &&
            tenant.db_cost !== null &&
            tenant.lighting_cost !== null;
