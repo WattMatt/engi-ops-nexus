@@ -67,6 +67,7 @@ export interface ReportOptions {
     dbCost: boolean;
     lightingOrdered: boolean;
     lightingCost: boolean;
+    costReported: boolean;
   };
 }
 
@@ -121,6 +122,7 @@ export const ReportOptionsDialog = ({
       dbCost: true,
       lightingOrdered: true,
       lightingCost: true,
+      costReported: true,
     },
   });
 
@@ -156,6 +158,7 @@ export const ReportOptionsDialog = ({
         dbCost: true,
         lightingOrdered: true,
         lightingCost: true,
+        costReported: true,
       },
     });
   };
@@ -293,6 +296,7 @@ export const ReportOptionsDialog = ({
         dbCost: false,
         lightingOrdered: false,
         lightingCost: false,
+        costReported: false,
       },
     });
   };
@@ -875,6 +879,21 @@ export const ReportOptionsDialog = ({
                 />
                 <Label htmlFor="lightingCost" className="cursor-pointer">
                   Lighting Cost
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="costReported"
+                  checked={options.tenantFields.costReported}
+                  onCheckedChange={(checked) =>
+                    setOptions({
+                      ...options,
+                      tenantFields: { ...options.tenantFields, costReported: checked as boolean },
+                    })
+                  }
+                />
+                <Label htmlFor="costReported" className="cursor-pointer">
+                  Cost Reported
                 </Label>
               </div>
             </div>
