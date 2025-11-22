@@ -175,28 +175,34 @@ Deno.serve(async (req) => {
           const relationshipXml = `<Relationship Id="${relId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${imageFileName}"/>`;
           relsXml = relsXml.replace('</Relationships>', `${relationshipXml}</Relationships>`);
           
-          // Replace placeholder with image XML (logo sized appropriately)
-          // Size: 1905000 EMUs = 2 inches width, maintain aspect ratio
+          // Replace placeholder with image XML
           const imageXml = `<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="1905000" cy="1905000"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${imageCounter}" name="Logo ${imageCounter}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${imageCounter}" name="Logo ${imageCounter}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${relId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="1905000" cy="1905000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
           
-          // Find and replace the placeholder text (handles both {key} and {{key}} formats)
-          const placeholderPattern1 = new RegExp(`\\{${placeholderKey}\\}`, 'g');
-          const placeholderPattern2 = new RegExp(`\\{\\{${placeholderKey}\\}\\}`, 'g');
+          // Strategy 1: Replace text placeholders
+          const textPattern1 = new RegExp(`\\{${placeholderKey}\\}`, 'g');
+          const textPattern2 = new RegExp(`\\{\\{${placeholderKey}\\}\\}`, 'g');
           let replacements = 0;
           
-          documentXml = documentXml.replace(placeholderPattern1, () => {
+          documentXml = documentXml.replace(textPattern1, () => {
             replacements++;
             return imageXml;
           });
           
-          documentXml = documentXml.replace(placeholderPattern2, () => {
+          documentXml = documentXml.replace(textPattern2, () => {
             replacements++;
             return imageXml;
           });
           
-          console.log(`Replaced ${replacements} occurrences of {${placeholderKey}}`);
+          // Strategy 2: Find and replace entire shapes containing the placeholder
+          // Look for <wps:wsp> tags (Word Processing Shape) that contain the placeholder text
+          const shapePattern = new RegExp(`<wps:wsp[^>]*>.*?${placeholderKey}.*?</wps:wsp>`, 'gs');
+          documentXml = documentXml.replace(shapePattern, (match) => {
+            replacements++;
+            console.log(`Replacing shape containing ${placeholderKey}`);
+            return imageXml;
+          });
           
-          console.log(`Replaced {${placeholderKey}} with image XML`);
+          console.log(`Replaced ${replacements} occurrences of {${placeholderKey}} (text + shapes)`);
           
           imageCounter++;
           relIdCounter++;
