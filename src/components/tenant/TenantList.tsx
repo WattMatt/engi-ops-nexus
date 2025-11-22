@@ -260,19 +260,7 @@ export const TenantList = ({
                             (tenant.lighting_ordered === true && tenant.lighting_cost !== null && tenant.lighting_cost > 0);
     
     // ALL three must be true for completion
-    const isComplete = basicComplete && dbComplete && lightingComplete;
-    
-    if (tenant.shop_name === 'Shoprite Liquor' && tenant.shop_number === 'Shop 2') {
-      console.log('Shoprite Liquor Shop 2 completion check:', {
-        basicComplete,
-        dbComplete,
-        lightingComplete,
-        isComplete,
-        tenant
-      });
-    }
-    
-    return isComplete;
+    return basicComplete && dbComplete && lightingComplete;
   };
 
   const getDeadlineStatus = (tenant: Tenant) => {
