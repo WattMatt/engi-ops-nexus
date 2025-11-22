@@ -203,32 +203,6 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
   };
 
   const exportPDF = async () => {
-    // Validate totals first
-    const { data: categories } = await supabase
-      .from("cost_categories")
-      .select("*, cost_line_items(*)")
-      .eq("cost_report_id", report.id)
-      .order("display_order");
-
-    const { data: variations } = await supabase
-      .from("cost_variations")
-      .select("*")
-      .eq("cost_report_id", report.id);
-
-    const validationResult = validateTotals(
-      categories || [],
-      variations || []
-    );
-
-    if (!validationResult.isValid && !pendingExport) {
-      setValidationMismatches(validationResult.mismatches);
-      setValidationDialogOpen(true);
-      setPendingExport(true);
-      return;
-    }
-
-    setPendingExport(false);
-
     setLoading(true);
     setCurrentSection("Initializing PDF export...");
 
@@ -290,12 +264,16 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         .eq("cost_report_id", report.id)
         .order("display_order");
 
-      // Calculate totals using the utility (pass empty arrays for lineItems and variations separately)
-      const pdfCategoryTotals = calculateCategoryTotals(categoriesData || [], [], sortedVariations || []);
-      const pdfGrandTotals = calculateGrandTotals(categoriesData || [], sortedVariations || []);
+      // Extract line items from categories
+      const allLineItems = (categoriesData || []).flatMap(cat => cat.cost_line_items || []);
+
+      // Calculate totals using the utility
+      const pdfCategoryTotals = calculateCategoryTotals(categoriesData || [], allLineItems, sortedVariations || []);
+      const pdfGrandTotals = calculateGrandTotals(pdfCategoryTotals);
 
       // Initialize PDF document
       setCurrentSection("Initializing PDF document...");
+      const exportOptions: PDFExportOptions = { quality: 'standard', orientation: 'portrait' };
       const doc = new jsPDF({
         orientation: 'portrait',
         unit: 'mm',
@@ -554,7 +532,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         
         xPos += cardWidth + cardPadding;
         cardsInRow++;
-        trackPageContent(doc, `Category Card: ${cat.code} - ${cat.description}`);
+        trackPageContent(`Category Card: ${cat.code} - ${cat.description}`);
       });
       }
 
@@ -1170,7 +1148,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
             doc.text("No line items for this variation", contentStartX, yPos);
           }
           
-          trackPageContent(doc, `Variation Sheet: ${variation.code}`);
+          trackPageContent(`Variation Sheet: ${variation.code}`);
         });
         
         // Add summary entry to TOC for all variation sheets
@@ -1282,14 +1260,14 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
   const handleValidationProceed = () => {
     setValidationDialogOpen(false);
     // Re-run export with validation skipped
-    handleExport(margins, sections, true);
+    exportPDF();
   };
 
   return (
     <>
       <div className="space-y-3">
         <div className="flex gap-2">
-          <Button onClick={() => handleExport()} disabled={loading}>
+          <Button onClick={() => useTemplate ? exportWithTemplate() : exportPDF()} disabled={loading}>
             {loading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -1329,7 +1307,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         onMarginsChange={setMargins}
         sections={sections}
         onSectionsChange={setSections}
-        onApply={() => handleExport()}
+        onApply={() => useTemplate ? exportWithTemplate() : exportPDF()}
         projectId={report.project_id}
         selectedContactId={selectedContactId}
         onContactChange={setSelectedContactId}
