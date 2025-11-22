@@ -104,6 +104,8 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
 
       // Prepare placeholder data using existing utility
       const { placeholderData, imagePlaceholders } = await prepareCostReportTemplateData(report.id);
+      
+      console.log('BEFORE EDGE FUNCTION - imagePlaceholders:', JSON.stringify(imagePlaceholders, null, 2));
 
       // Use existing convert-word-to-pdf function
       const { data, error } = await supabase.functions.invoke('convert-word-to-pdf', {
