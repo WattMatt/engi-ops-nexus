@@ -104,7 +104,9 @@ export const VariationSheetDialog = ({
 
   // Load existing line items when they're fetched
   useEffect(() => {
+    console.log('[VARIATION SHEET] Loading line items:', existingLineItems);
     if (existingLineItems && existingLineItems.length > 0) {
+      console.log('[VARIATION SHEET] Setting', existingLineItems.length, 'line items');
       setLineItems(existingLineItems.map(item => ({
         id: item.id,
         line_number: item.line_number,
@@ -114,6 +116,8 @@ export const VariationSheetDialog = ({
         rate: item.rate.toString(),
         amount: Number(item.amount)
       })));
+    } else {
+      console.log('[VARIATION SHEET] No existing line items found, keeping default empty row');
     }
   }, [existingLineItems]);
   const addLineItem = () => {
