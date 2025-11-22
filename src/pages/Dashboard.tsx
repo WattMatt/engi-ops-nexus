@@ -202,35 +202,6 @@ const Dashboard = () => {
               </div>
             </CardContent>
           </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                Quick Actions
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-3 md:grid-cols-2">
-                <Button variant="outline" onClick={() => navigate("/dashboard/cost-reports")}>
-                  <FileText className="h-4 w-4 mr-2" />
-                  New Cost Report
-                </Button>
-                <Button variant="outline" onClick={() => navigate("/dashboard/budgets/electrical")}>
-                  <DollarSign className="h-4 w-4 mr-2" />
-                  New Budget
-                </Button>
-                <Button variant="outline" onClick={() => navigate("/dashboard/cable-schedules")}>
-                  <Cable className="h-4 w-4 mr-2" />
-                  New Cable Schedule
-                </Button>
-                <Button variant="outline" onClick={() => navigate("/dashboard/site-diary")}>
-                  <Calendar className="h-4 w-4 mr-2" />
-                  Site Diary
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
         </div>
 
         {/* Empty space columns for layout */}
