@@ -1,10 +1,21 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.75.1";
-import { Resend } from "https://esm.sh/resend@2.0.0";
+import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+const smtpClient = new SMTPClient({
+  connection: {
+    hostname: "smtp.gmail.com",
+    port: 465,
+    tls: true,
+    auth: {
+      username: Deno.env.get("GMAIL_USER")!,
+      password: Deno.env.get("GMAIL_APP_PASSWORD")!,
+    },
+  },
+});
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -57,10 +68,11 @@ serve(async (req) => {
     const appUrl = Deno.env.get("SUPABASE_URL")?.replace("supabase.co", "lovable.app") || "https://app.lovable.app";
     const messageLink = `${appUrl}/messages?conversation=${conversationId}`;
 
-    const emailResponse = await resend.emails.send({
-      from: "noreply@send.watsonmattheus.com",
-      to: [profile.email],
+    await smtpClient.send({
+      from: Deno.env.get("GMAIL_USER")!,
+      to: profile.email,
       subject: `${senderName} mentioned you in a message`,
+      content: "auto",
       html: `
         <!DOCTYPE html>
         <html>
@@ -103,7 +115,7 @@ serve(async (req) => {
       `,
     });
 
-    console.log("Email sent successfully:", emailResponse);
+    console.log("Email sent successfully via Gmail");
 
     // Update notification as email sent
     await supabase
