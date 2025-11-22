@@ -105,9 +105,10 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       // Prepare placeholder data using existing utility
       const { placeholderData, imagePlaceholders } = await prepareCostReportTemplateData(report.id);
       
-      console.log('BEFORE EDGE FUNCTION - imagePlaceholders:', JSON.stringify(imagePlaceholders, null, 2));
+      console.log('Template-based export - Using uploaded Word template only');
+      console.log('Image placeholders:', JSON.stringify(imagePlaceholders, null, 2));
 
-      // Use existing convert-word-to-pdf function
+      // Use existing convert-word-to-pdf function - this IS the only source of truth
       const { data, error } = await supabase.functions.invoke('convert-word-to-pdf', {
         body: { 
           templateUrl: template.file_url,
@@ -134,138 +135,148 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       
       console.log('PDF generated successfully:', data.pdfUrl);
       
-      // Step 1: Fetch the converted cover page PDF
-      setCurrentSection("Fetching cover page...");
-      const coverResponse = await fetch(data.pdfUrl);
-      if (!coverResponse.ok) throw new Error('Failed to fetch cover PDF');
-      const coverBlob = await coverResponse.blob();
-      const coverArrayBuffer = await coverBlob.arrayBuffer();
+      setCurrentSection("Saving PDF...");
       
-      // Step 2: Generate report content using standard PDF export
-      setCurrentSection("Generating report content...");
+      // Save the generated PDF directly to cost_report_pdfs
+      const fileName = `${report.project_name.replace(/[^a-zA-Z0-9]/g, '_')}_Report_${report.report_number}.pdf`;
+      const filePath = `${report.project_id}/${fileName}`;
       
-      // Fetch all data needed for content
-      const { data: categories } = await supabase
-        .from("cost_categories")
-        .select("*, cost_line_items(*)")
-        .eq("cost_report_id", report.id)
-        .order("display_order");
-
-      const { data: variations } = await supabase
-        .from("cost_variations")
-        .select(`
-          *,
-          tenants(shop_name, shop_number),
-          variation_line_items(*)
-        `)
-        .eq("cost_report_id", report.id)
-        .order("display_order");
+      // Download the PDF
+      const pdfResponse = await fetch(data.pdfUrl);
+      if (!pdfResponse.ok) throw new Error('Failed to fetch generated PDF');
+      const pdfBlob = await pdfResponse.blob();
       
-      // Sort variations by extracting numeric part from code (e.g., G1, G2, G10)
-      const sortedVariations = (variations || []).sort((a, b) => {
-        const aMatch = a.code.match(/\d+/);
-        const bMatch = b.code.match(/\d+/);
-        const aNum = aMatch ? parseInt(aMatch[0], 10) : 0;
-        const bNum = bMatch ? parseInt(bMatch[0], 10) : 0;
-        return aNum - bNum;
+      // Upload to storage
+      const { error: uploadError } = await supabase.storage
+        .from('cost-report-pdfs')
+        .upload(filePath, pdfBlob, {
+          contentType: 'application/pdf',
+          upsert: true
+        });
+      
+      if (uploadError) throw uploadError;
+      
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('cost-report-pdfs')
+        .getPublicUrl(filePath);
+      
+      // Save to database
+      const { data: pdfRecord, error: dbError } = await supabase
+        .from('cost_report_pdfs')
+        .insert({
+          cost_report_id: report.id,
+          project_id: report.project_id,
+          file_path: filePath,
+          file_name: fileName,
+          generated_by: (await supabase.auth.getUser()).data.user?.id
+        })
+        .select()
+        .single();
+      
+      if (dbError) throw dbError;
+      
+      setPreviewReport({
+        file_path: publicUrl,
+        report_name: fileName,
+        generated_at: new Date().toISOString()
       });
+      
+      onReportGenerated?.();
+      
+      toast({
+        title: "Success",
+        description: "Cost report PDF generated successfully from template",
+      });
+      
+    } catch (error: any) {
+      console.error('Template PDF export error:', error);
+      toast({
+        title: "Export Failed",
+        description: error.message || "Failed to export PDF",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+      setCurrentSection("");
+    }
+  };
 
-      const { data: details } = await supabase
-        .from("cost_report_details")
+  const exportPDF = async () => {
+    // Validate totals first
+    const { data: categories } = await supabase
+      .from("cost_categories")
+      .select("*, cost_line_items(*)")
+      .eq("cost_report_id", report.id)
+      .order("display_order");
+
+    const { data: variations } = await supabase
+      .from("cost_variations")
+      .select("*")
+      .eq("cost_report_id", report.id);
+
+    const mismatches = validateTotals(
+      categories || [],
+      variations || []
+    );
+
+    if (mismatches.length > 0 && !pendingExport) {
+      setValidationMismatches(mismatches);
+      setValidationDialogOpen(true);
+      setPendingExport(true);
+      return;
+    }
+
+    setPendingExport(false);
+
+    setLoading(true);
+    setCurrentSection("Initializing PDF export...");
+
+    try {
+      const { data: company } = await supabase
+        .from("company_settings")
         .select("*")
-        .eq("cost_report_id", report.id)
-        .order("display_order");
+        .limit(1)
+        .maybeSingle();
 
-      // Create content PDF using jsPDF
-      const contentDoc = initializePDF({ quality: 'standard', orientation: 'portrait' });
-      const pageWidth = contentDoc.internal.pageSize.width;
-      const pageHeight = contentDoc.internal.pageSize.height;
-      const contentStartX = STANDARD_MARGINS.left;
-      const contentStartY = STANDARD_MARGINS.top;
-      const tocSections: { title: string; page: number }[] = [];
-      let yPos = contentStartY;
-      
-      // ========== TABLE OF CONTENTS (INDEX) ==========
-      contentDoc.setFontSize(18);
-      contentDoc.setFont("helvetica", "bold");
-      contentDoc.text("TABLE OF CONTENTS", pageWidth / 2, yPos, { align: "center" });
-      contentDoc.setLineWidth(0.5);
-      contentDoc.setDrawColor(200, 200, 200);
-      contentDoc.line(contentStartX, yPos + 3, pageWidth - STANDARD_MARGINS.right, yPos + 3);
-      const tocPage = contentDoc.getCurrentPageInfo().pageNumber;
-      const tocStartY = yPos + 15;
-      
-      // ========== REPORT DETAILS ==========
-      contentDoc.addPage();
-      tocSections.push({ title: "Project Information", page: contentDoc.getCurrentPageInfo().pageNumber });
-      yPos = contentStartY;
-      yPos = addSectionHeader(contentDoc, "PROJECT INFORMATION", yPos);
-      yPos += 5;
-      
-      yPos = addKeyValue(contentDoc, "Project Name:", report.project_name, contentStartX, yPos);
-      yPos = addKeyValue(contentDoc, "Client Name:", report.client_name, contentStartX, yPos);
-      yPos = addKeyValue(contentDoc, "Project Number:", report.project_number, contentStartX, yPos);
-      yPos = addKeyValue(contentDoc, "Report Date:", format(new Date(report.report_date), "dd MMMM yyyy"), contentStartX, yPos);
-      yPos = addKeyValue(contentDoc, "Report Number:", report.report_number.toString(), contentStartX, yPos);
-      
-      yPos += 10;
-      contentDoc.setFontSize(12);
-      contentDoc.setFont("helvetica", "bold");
-      contentDoc.text("CONTRACTORS", contentStartX, yPos);
-      yPos += 7;
-      
-      if (report.electrical_contractor) yPos = addKeyValue(contentDoc, "Electrical Contractor:", report.electrical_contractor, contentStartX, yPos);
-      if (report.cctv_contractor) yPos = addKeyValue(contentDoc, "CCTV Contractor:", report.cctv_contractor, contentStartX, yPos);
-      if (report.standby_plants_contractor) yPos = addKeyValue(contentDoc, "Standby Plants:", report.standby_plants_contractor, contentStartX, yPos);
-      if (report.earthing_contractor) yPos = addKeyValue(contentDoc, "Earthing Contractor:", report.earthing_contractor, contentStartX, yPos);
-      
-      // ========== EXECUTIVE SUMMARY ==========
-      contentDoc.addPage();
-      tocSections.push({ title: "Executive Summary", page: contentDoc.getCurrentPageInfo().pageNumber });
-      yPos = contentStartY;
-      yPos = addSectionHeader(contentDoc, "EXECUTIVE SUMMARY", yPos);
-      yPos += 5;
-      
-      // Calculate totals for executive summary
-      const categoryTotals = categories?.map(cat => {
-        const lineItemsTotal = cat.cost_line_items?.reduce((sum: number, item: any) => 
-          sum + (item.anticipated_final || 0), 0) || 0;
-        return {
-          code: cat.code,
-          description: cat.description,
-          originalBudget: cat.original_budget || 0,
-          anticipatedFinal: lineItemsTotal || cat.anticipated_final || 0
-        };
-      }) || [];
-      
-      const grandTotals = {
-        originalBudget: categoryTotals.reduce((sum, cat) => sum + cat.originalBudget, 0),
-        anticipatedFinal: categoryTotals.reduce((sum, cat) => sum + cat.anticipatedFinal, 0)
+      const companyDetails = company || {
+        company_name: "Company Name",
+        company_logo_url: null,
       };
+
+      const contactId = selectedContactId || (contacts && contacts.length > 0 ? contacts[0].id : null);
+
+      const useSections = {
+        ...DEFAULT_SECTIONS,
+        ...sections,
+      };
+
+      const colors = {
+        primary: [59, 130, 246] as [number, number, number],
+        secondary: [16, 185, 129] as [number, number, number],
+        success: [34, 197, 94] as [number, number, number],
+        warning: [251, 191, 36] as [number, number, number],
+        danger: [239, 68, 68] as [number, number, number],
+        neutral: [71, 85, 105] as [number, number, number],
+        light: [241, 245, 249] as [number, number, number],
+        white: [255, 255, 255] as [number, number, number],
+        text: [15, 23, 42] as [number, number, number]
+      };
+
+      setCurrentSection("Generating cover page...");
+      // ========== COVER PAGE (ONLY FOR NON-TEMPLATE EXPORT) ==========
+      // Template export does not use this - it uses the Word template as the only source
+      const doc = initializePDF({ quality: 'standard', orientation: 'portrait' });
       
-      const tableData = categoryTotals.map(cat => [
-        cat.code,
-        cat.description,
-        `R ${cat.originalBudget.toFixed(2)}`,
-        `R ${cat.anticipatedFinal.toFixed(2)}`
-      ]);
-      
-      autoTable(contentDoc, {
-        startY: yPos,
-        head: [['Code', 'Description', 'Original Budget', 'Anticipated Final']],
-        body: tableData,
-        foot: [[
-          'TOTAL',
-          '',
-          `R ${grandTotals.originalBudget.toFixed(2)}`,
-          `R ${grandTotals.anticipatedFinal.toFixed(2)}`
-        ]],
-        theme: 'grid',
-        headStyles: { fillColor: [30, 58, 138] as [number, number, number], textColor: [255, 255, 255] as [number, number, number] },
-        footStyles: { fillColor: [240, 240, 240] as [number, number, number], fontStyle: 'bold' }
-      });
-      
-      yPos = (contentDoc as any).lastAutoTable.finalY + 15;
+      if (useSections.coverPage) {
+        await generateCoverPage(doc, {
+          title: "Cost Report",
+          projectName: report.project_name,
+          subtitle: `Report #${report.report_number}`,
+          revision: `Report ${report.report_number}`,
+          date: format(new Date(), "dd MMMM yyyy"),
+        }, companyDetails, contactId || undefined);
+      }
       
       // ========== CATEGORY PERFORMANCE CARDS ==========
       contentDoc.addPage();
