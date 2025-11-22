@@ -834,7 +834,7 @@ export const TenantList = ({
                       />
                     </TableCell>
                     <TableCell className="text-right">
-                      {tenant.db_ordered && !tenant.db_cost ? (
+                      {tenant.db_by_tenant ? (
                         <span className="text-muted-foreground italic">By Tenant</span>
                       ) : (
                         <Input
@@ -857,7 +857,7 @@ export const TenantList = ({
                       />
                     </TableCell>
                     <TableCell className="text-right">
-                      {tenant.lighting_ordered && !tenant.lighting_cost ? (
+                      {tenant.lighting_by_tenant ? (
                         <span className="text-muted-foreground italic">By Tenant</span>
                       ) : (
                         <Input
