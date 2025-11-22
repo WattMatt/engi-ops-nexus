@@ -56,7 +56,7 @@ Deno.serve(async (req) => {
 
     // If placeholderData is provided, use docxtemplater to fill the template
     if ((placeholderData && Object.keys(placeholderData).length > 0) || (imagePlaceholders && Object.keys(imagePlaceholders).length > 0)) {
-      console.log('Processing template with docxtemplater');
+      console.log('Processing template with placeholders');
       
       // Step 1: Download the original template
       const templateResponse = await fetch(templateUrl);
@@ -65,8 +65,34 @@ Deno.serve(async (req) => {
       }
       const templateArrayBuffer = await templateResponse.arrayBuffer();
       
-      // Step 2: First, replace text placeholders with docxtemplater
+      // Step 2: Load ZIP and pre-process image placeholders BEFORE docxtemplater
       let zip = new PizZip(templateArrayBuffer);
+      
+      if (imagePlaceholders && Object.keys(imagePlaceholders).length > 0) {
+        console.log('Pre-processing image placeholders to avoid docxtemplater errors');
+        
+        // Get document XML
+        const docFile = zip.file('word/document.xml');
+        if (!docFile) {
+          throw new Error('document.xml not found in template');
+        }
+        let documentXml = docFile.asText();
+        
+        // Remove problematic image placeholders from the XML to prevent docxtemplater errors
+        // We'll replace them after docxtemplater runs
+        for (const placeholderKey of Object.keys(imagePlaceholders)) {
+          // Replace both {{key}} and {key} patterns with a safe marker
+          const marker = `IMAGE_PLACEHOLDER_${placeholderKey}`;
+          documentXml = documentXml.replace(new RegExp(`\\{\\{${placeholderKey}\\}\\}`, 'g'), marker);
+          documentXml = documentXml.replace(new RegExp(`\\{${placeholderKey}\\}`, 'g'), marker);
+        }
+        
+        // Update the document.xml with safe markers
+        zip.file('word/document.xml', documentXml);
+        console.log('Image placeholders replaced with safe markers');
+      }
+      
+      // Step 3: Now use docxtemplater for text placeholders only
       const doc = new Docxtemplater(zip, {
         paragraphLoop: true,
         linebreaks: true,
@@ -109,9 +135,9 @@ Deno.serve(async (req) => {
         throw new Error(`Template processing failed: ${errorMessage}. Please check your template syntax and ensure all required placeholders are present.`);
       }
       
-      // Step 3: Handle image placeholders by manipulating the ZIP directly
+      // Step 4: Replace safe markers with actual images
       if (imagePlaceholders && Object.keys(imagePlaceholders).length > 0) {
-        console.log('Processing image placeholders...');
+        console.log('Replacing safe markers with actual images...');
         
         // Get the modified zip from docxtemplater
         zip = doc.getZip();
@@ -152,7 +178,12 @@ Deno.serve(async (req) => {
             hasRels = true;
           }
         } catch (e) {
-          console.log('No existing relationships file');
+          console.log('No existing relationships file, will create one');
+        }
+        
+        if (!hasRels) {
+          relsXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
+          hasRels = true;
         }
         
         let imageCounter = 1;
@@ -161,56 +192,25 @@ Deno.serve(async (req) => {
         for (const [placeholderKey, imageBuffer] of Object.entries(imageBuffers)) {
           const imageFileName = `image${imageCounter}.png`;
           const relId = `rId${relIdCounter}`;
+          const marker = `IMAGE_PLACEHOLDER_${placeholderKey}`;
           
           // Add image to media folder
           zip.file(`word/media/${imageFileName}`, imageBuffer);
           console.log(`Added ${imageFileName} to document`);
           
           // Add relationship
-          if (!hasRels) {
-            relsXml = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>';
-            hasRels = true;
-          }
-          
           const relationshipXml = `<Relationship Id="${relId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${imageFileName}"/>`;
           relsXml = relsXml.replace('</Relationships>', `${relationshipXml}</Relationships>`);
           
-          // Replace placeholder with image XML
+          // Replace marker with image XML (logo sized at 2 inches)
           const imageXml = `<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="1905000" cy="1905000"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${imageCounter}" name="Logo ${imageCounter}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${imageCounter}" name="Logo ${imageCounter}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${relId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="1905000" cy="1905000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
           
-          // Strategy 1: Replace text placeholders
-          const textPattern1 = new RegExp(`\\{${placeholderKey}\\}`, 'g');
-          const textPattern2 = new RegExp(`\\{\\{${placeholderKey}\\}\\}`, 'g');
-          let replacements = 0;
+          // Replace the marker
+          const markerPattern = new RegExp(marker, 'g');
+          const replacements = (documentXml.match(markerPattern) || []).length;
+          documentXml = documentXml.replace(markerPattern, imageXml);
           
-          documentXml = documentXml.replace(textPattern1, () => {
-            replacements++;
-            return imageXml;
-          });
-          
-          documentXml = documentXml.replace(textPattern2, () => {
-            replacements++;
-            return imageXml;
-          });
-          
-          // Strategy 2: Find and replace entire shapes containing the placeholder
-          // Look for <wps:wsp> tags (Word Processing Shape) that contain the placeholder text
-          const shapePattern = new RegExp(`<wps:wsp[^>]*>.*?\\{\\{?${placeholderKey}\\}?\\}.*?</wps:wsp>`, 'gs');
-          documentXml = documentXml.replace(shapePattern, (match) => {
-            replacements++;
-            console.log(`Replacing shape containing ${placeholderKey}`);
-            return imageXml;
-          });
-          
-          // Strategy 3: Also look for v:shape tags (older Word format shapes)
-          const vShapePattern = new RegExp(`<v:shape[^>]*>.*?\\{\\{?${placeholderKey}\\}?\\}.*?</v:shape>`, 'gs');
-          documentXml = documentXml.replace(vShapePattern, (match) => {
-            replacements++;
-            console.log(`Replacing v:shape containing ${placeholderKey}`);
-            return imageXml;
-          });
-          
-          console.log(`Replaced ${replacements} occurrences of {${placeholderKey}} (text + shapes)`);
+          console.log(`Replaced ${replacements} occurrences of ${marker} with image`);
           
           imageCounter++;
           relIdCounter++;
@@ -218,9 +218,7 @@ Deno.serve(async (req) => {
         
         // Update the document.xml and rels
         zip.file('word/document.xml', documentXml);
-        if (hasRels) {
-          zip.file('word/_rels/document.xml.rels', relsXml);
-        }
+        zip.file('word/_rels/document.xml.rels', relsXml);
         
         console.log('Image placeholders processed successfully');
       }
@@ -231,7 +229,7 @@ Deno.serve(async (req) => {
         compression: 'DEFLATE',
       });
       
-      // Step 4: Upload the filled document to temporary storage with sanitized filename
+      // Step 5: Upload the filled document to temporary storage with sanitized filename
       const timestamp = Date.now();
       const sanitizedFileName = fileName.replace(/\s+/g, '_');
       tempFilePath = `temp/${timestamp}-filled-${sanitizedFileName}`;
