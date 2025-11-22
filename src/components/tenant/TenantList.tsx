@@ -616,6 +616,7 @@ export const TenantList = ({
                     </TooltipProvider>
                   </div>
                 </TableHead>
+                <TableHead className="text-center">DB by Tenant</TableHead>
                 <TableHead className="text-right">DB Cost</TableHead>
                 <TableHead className="text-center">
                   <div className="flex items-center justify-center gap-1">
@@ -632,6 +633,7 @@ export const TenantList = ({
                     </TooltipProvider>
                   </div>
                 </TableHead>
+                <TableHead className="text-center">Light by Tenant</TableHead>
                 <TableHead className="text-right">Light Cost</TableHead>
                 <TableHead className="text-center">Cost Report</TableHead>
                 <TableHead className="text-center">
@@ -833,6 +835,13 @@ export const TenantList = ({
                         autoSynced={true}
                       />
                     </TableCell>
+                    <TableCell className="text-center">
+                      <StatusIcon 
+                        checked={tenant.db_by_tenant}
+                        onClick={() => handleBooleanToggle(tenant.id, 'db_by_tenant', tenant.db_by_tenant)}
+                        autoSynced={false}
+                      />
+                    </TableCell>
                     <TableCell className="text-right">
                       {tenant.db_by_tenant ? (
                         <span className="text-muted-foreground italic">By Tenant</span>
@@ -854,6 +863,13 @@ export const TenantList = ({
                         checked={tenant.lighting_ordered}
                         autoSynced={true}
                         onClick={() => handleBooleanToggle(tenant.id, 'lighting_ordered', tenant.lighting_ordered)}
+                      />
+                    </TableCell>
+                    <TableCell className="text-center">
+                      <StatusIcon 
+                        checked={tenant.lighting_by_tenant}
+                        onClick={() => handleBooleanToggle(tenant.id, 'lighting_by_tenant', tenant.lighting_by_tenant)}
+                        autoSynced={false}
                       />
                     </TableCell>
                     <TableCell className="text-right">
