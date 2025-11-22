@@ -1,6 +1,17 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
-const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+const smtpClient = new SMTPClient({
+  connection: {
+    hostname: "smtp.gmail.com",
+    port: 465,
+    tls: true,
+    auth: {
+      username: Deno.env.get("GMAIL_USER")!,
+      password: Deno.env.get("GMAIL_APP_PASSWORD")!,
+    },
+  },
+});
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -22,14 +33,6 @@ serve(async (req) => {
 
   try {
     const { userEmail, userName, itemTitle, response, type }: FeedbackResponse = await req.json();
-
-    if (!RESEND_API_KEY) {
-      console.warn("RESEND_API_KEY not configured, skipping email");
-      return new Response(
-        JSON.stringify({ message: "Email service not configured" }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 200 }
-      );
-    }
 
     const typeLabel = type === 'issue' ? 'Issue Report' : 'Suggestion';
     const subject = `Response to your ${typeLabel}: ${itemTitle}`;
@@ -74,28 +77,17 @@ serve(async (req) => {
       </html>
     `;
 
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${RESEND_API_KEY}`,
-      },
-      body: JSON.stringify({
-        from: "Feedback Team <noreply@yourdomain.com>",
-        to: [userEmail],
-        subject,
-        html: htmlContent,
-      }),
+    await smtpClient.send({
+      from: Deno.env.get("GMAIL_USER")!,
+      to: userEmail,
+      subject,
+      content: "auto",
+      html: htmlContent,
     });
 
-    if (!res.ok) {
-      const error = await res.text();
-      throw new Error(`Failed to send email: ${error}`);
-    }
+    console.log("Feedback response email sent successfully via Gmail");
 
-    const data = await res.json();
-
-    return new Response(JSON.stringify({ success: true, data }), {
+    return new Response(JSON.stringify({ success: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
