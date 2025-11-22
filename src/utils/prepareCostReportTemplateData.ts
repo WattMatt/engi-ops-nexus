@@ -144,10 +144,12 @@ export async function prepareCostReportTemplateData(
     // Company Information (Prepared By)
     company_name: companySettings?.company_name || "",
     company_tagline: companySettings?.company_tagline || "",
+    company_logo_url: companySettings?.company_logo_url || "",
     contact_name: "", // Could be fetched from user profile
     contact_phone: "", // Could be fetched from company settings
 
     // Client Contact (Prepared For)
+    client_logo_url: companySettings?.client_logo_url || "",
     prepared_for_name: projectContacts?.organization_name || report.client_name || "",
     prepared_for_contact: projectContacts?.contact_person_name || "",
     prepared_for_address1: projectContacts?.address_line1 || "",
