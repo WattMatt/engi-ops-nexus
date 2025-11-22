@@ -20,8 +20,10 @@ interface Tenant {
   layout_received: boolean;
   db_ordered: boolean;
   db_cost: number | null;
+  db_by_tenant: boolean;
   lighting_ordered: boolean;
   lighting_cost: number | null;
+  lighting_by_tenant: boolean;
   shop_category: string;
   cost_reported: boolean;
   opening_date: string | null;
@@ -51,8 +53,10 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
     layout_received: tenant?.layout_received || false,
     db_ordered: tenant?.db_ordered || false,
     db_cost: tenant?.db_cost?.toString() || "",
+    db_by_tenant: tenant?.db_by_tenant || false,
     lighting_ordered: tenant?.lighting_ordered || false,
     lighting_cost: tenant?.lighting_cost?.toString() || "",
+    lighting_by_tenant: tenant?.lighting_by_tenant || false,
     cost_reported: tenant?.cost_reported || false,
     opening_date: tenant?.opening_date || "",
     beneficial_occupation_days: tenant?.beneficial_occupation_days?.toString() || "90",
@@ -76,8 +80,10 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
           layout_received: false,
           db_ordered: false,
           db_cost: "",
+          db_by_tenant: false,
           lighting_ordered: false,
           lighting_cost: "",
+          lighting_by_tenant: false,
           cost_reported: false,
           opening_date: "",
           beneficial_occupation_days: "90",
@@ -96,8 +102,10 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
           layout_received: tenant.layout_received || false,
           db_ordered: tenant.db_ordered || false,
           db_cost: tenant.db_cost?.toString() || "",
+          db_by_tenant: tenant.db_by_tenant || false,
           lighting_ordered: tenant.lighting_ordered || false,
           lighting_cost: tenant.lighting_cost?.toString() || "",
+          lighting_by_tenant: tenant.lighting_by_tenant || false,
           cost_reported: tenant.cost_reported || false,
           opening_date: tenant.opening_date || "",
           beneficial_occupation_days: tenant.beneficial_occupation_days?.toString() || "90",
@@ -221,8 +229,10 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
         layout_received: formData.layout_received,
         db_ordered: formData.db_ordered,
         db_cost: formData.db_cost ? parseFloat(formData.db_cost) : null,
+        db_by_tenant: formData.db_by_tenant,
         lighting_ordered: formData.lighting_ordered,
         lighting_cost: formData.lighting_cost ? parseFloat(formData.lighting_cost) : null,
+        lighting_by_tenant: formData.lighting_by_tenant,
         cost_reported: formData.cost_reported,
         opening_date: formData.opening_date || null,
         beneficial_occupation_days: formData.beneficial_occupation_days ? parseInt(formData.beneficial_occupation_days) : 90,
@@ -495,6 +505,16 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
               </div>
               <div className="flex items-center space-x-2">
                 <Checkbox
+                  id="db_by_tenant"
+                  checked={formData.db_by_tenant}
+                  onCheckedChange={(checked) => 
+                    setFormData({ ...formData, db_by_tenant: checked as boolean })
+                  }
+                />
+                <Label htmlFor="db_by_tenant" className="font-normal">DB by Tenant</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
                   id="lighting_ordered"
                   checked={formData.lighting_ordered}
                   onCheckedChange={(checked) => 
@@ -502,6 +522,16 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
                   }
                 />
                 <Label htmlFor="lighting_ordered" className="font-normal">Lighting Ordered</Label>
+              </div>
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="lighting_by_tenant"
+                  checked={formData.lighting_by_tenant}
+                  onCheckedChange={(checked) => 
+                    setFormData({ ...formData, lighting_by_tenant: checked as boolean })
+                  }
+                />
+                <Label htmlFor="lighting_by_tenant" className="font-normal">Lighting by Tenant</Label>
               </div>
               <div className="flex items-center space-x-2">
                 <Checkbox
