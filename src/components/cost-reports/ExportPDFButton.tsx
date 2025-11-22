@@ -103,14 +103,15 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       setCurrentSection("Processing template and data...");
 
       // Prepare placeholder data using existing utility
-      const { placeholderData } = await prepareCostReportTemplateData(report.id);
+      const { placeholderData, imagePlaceholders } = await prepareCostReportTemplateData(report.id);
 
       // Use existing convert-word-to-pdf function
       const { data, error } = await supabase.functions.invoke('convert-word-to-pdf', {
         body: { 
           templateUrl: template.file_url,
           templateId: template.id,
-          placeholderData 
+          placeholderData,
+          imagePlaceholders 
         }
       });
       

@@ -3,6 +3,7 @@ import { format } from "date-fns";
 
 export interface CostReportTemplateData {
   placeholderData: Record<string, any>;
+  imagePlaceholders?: Record<string, string>;
 }
 
 export async function prepareCostReportTemplateData(
@@ -144,12 +145,10 @@ export async function prepareCostReportTemplateData(
     // Company Information (Prepared By)
     company_name: companySettings?.company_name || "",
     company_tagline: companySettings?.company_tagline || "",
-    company_logo_url: companySettings?.company_logo_url || "",
     contact_name: "", // Could be fetched from user profile
     contact_phone: "", // Could be fetched from company settings
 
     // Client Contact (Prepared For)
-    client_logo_url: companySettings?.client_logo_url || "",
     prepared_for_name: projectContacts?.organization_name || report.client_name || "",
     prepared_for_contact: projectContacts?.contact_person_name || "",
     prepared_for_address1: projectContacts?.address_line1 || "",
@@ -173,5 +172,16 @@ export async function prepareCostReportTemplateData(
     variations: variationsData,
   };
 
-  return { placeholderData };
+  // Prepare image placeholders separately
+  const imagePlaceholders: Record<string, string> = {};
+  
+  if (companySettings?.company_logo_url) {
+    imagePlaceholders.company_logo = companySettings.company_logo_url;
+  }
+  
+  if (companySettings?.client_logo_url) {
+    imagePlaceholders.client_logo = companySettings.client_logo_url;
+  }
+
+  return { placeholderData, imagePlaceholders };
 }
