@@ -245,19 +245,24 @@ export const TenantList = ({
   );
   
   const isTenantComplete = (tenant: Tenant) => {
-    // Basic required fields
-    const basicComplete = tenant.sow_received &&
-                          tenant.layout_received &&
-                          tenant.cost_reported &&
+    // Basic required fields - MUST all be true
+    const basicComplete = tenant.sow_received === true &&
+                          tenant.layout_received === true &&
+                          tenant.cost_reported === true &&
                           tenant.area !== null;
     
-    // DB requirements (skip if by tenant)
-    const dbComplete = tenant.db_by_tenant || (tenant.db_ordered && tenant.db_cost !== null);
+    // DB requirements: Either "by tenant" checked OR (ordered AND has cost)
+    const dbComplete = tenant.db_by_tenant === true || 
+                      (tenant.db_ordered === true && tenant.db_cost !== null && tenant.db_cost > 0);
     
-    // Lighting requirements (skip if by tenant)
-    const lightingComplete = tenant.lighting_by_tenant || (tenant.lighting_ordered && tenant.lighting_cost !== null);
+    // Lighting requirements: Either "by tenant" checked OR (ordered AND has cost)
+    const lightingComplete = tenant.lighting_by_tenant === true || 
+                            (tenant.lighting_ordered === true && tenant.lighting_cost !== null && tenant.lighting_cost > 0);
     
-    return basicComplete && dbComplete && lightingComplete;
+    // ALL three must be true for completion
+    const isComplete = basicComplete && dbComplete && lightingComplete;
+    
+    return isComplete;
   };
 
   const getDeadlineStatus = (tenant: Tenant) => {
