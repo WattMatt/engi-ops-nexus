@@ -195,10 +195,18 @@ Deno.serve(async (req) => {
           
           // Strategy 2: Find and replace entire shapes containing the placeholder
           // Look for <wps:wsp> tags (Word Processing Shape) that contain the placeholder text
-          const shapePattern = new RegExp(`<wps:wsp[^>]*>.*?${placeholderKey}.*?</wps:wsp>`, 'gs');
+          const shapePattern = new RegExp(`<wps:wsp[^>]*>.*?\\{\\{?${placeholderKey}\\}?\\}.*?</wps:wsp>`, 'gs');
           documentXml = documentXml.replace(shapePattern, (match) => {
             replacements++;
             console.log(`Replacing shape containing ${placeholderKey}`);
+            return imageXml;
+          });
+          
+          // Strategy 3: Also look for v:shape tags (older Word format shapes)
+          const vShapePattern = new RegExp(`<v:shape[^>]*>.*?\\{\\{?${placeholderKey}\\}?\\}.*?</v:shape>`, 'gs');
+          documentXml = documentXml.replace(vShapePattern, (match) => {
+            replacements++;
+            console.log(`Replacing v:shape containing ${placeholderKey}`);
             return imageXml;
           });
           

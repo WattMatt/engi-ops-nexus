@@ -172,18 +172,21 @@ export async function prepareCostReportTemplateData(
     variations: variationsData,
   };
 
-  // Prepare image placeholders separately
+  // Prepare image placeholders separately - support multiple placeholder naming conventions
   const imagePlaceholders: Record<string, string> = {};
   
   if (companySettings?.company_logo_url) {
     imagePlaceholders.company_logo = companySettings.company_logo_url;
+    imagePlaceholders.company_image = companySettings.company_logo_url;
   }
   
   // Use company logo as fallback for client logo if client logo is not set
   if (companySettings?.client_logo_url) {
     imagePlaceholders.client_logo = companySettings.client_logo_url;
+    imagePlaceholders.client_image = companySettings.client_logo_url;
   } else if (companySettings?.company_logo_url) {
     imagePlaceholders.client_logo = companySettings.company_logo_url;
+    imagePlaceholders.client_image = companySettings.company_logo_url;
   }
 
   return { placeholderData, imagePlaceholders };
