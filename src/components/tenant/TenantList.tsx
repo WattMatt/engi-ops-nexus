@@ -112,14 +112,10 @@ export const TenantList = ({
         prev.map(t => t.id === tenantId ? { ...t, [field]: value } : t)
       );
     },
-    onSuccess: () => {
-      // Always refetch from parent to ensure data consistency
-      onUpdate();
-    },
     onError: (error, variables) => {
-      // Rollback on error by refetching from parent
+      // Rollback on error by reverting optimistic update
       toast.error("Failed to update");
-      onUpdate();
+      setLocalTenants(tenants); // Revert to original data
     }
   });
 
