@@ -215,13 +215,13 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       .select("*")
       .eq("cost_report_id", report.id);
 
-    const mismatches = validateTotals(
+    const validationResult = validateTotals(
       categories || [],
       variations || []
     );
 
-    if (mismatches.length > 0 && !pendingExport) {
-      setValidationMismatches(mismatches);
+    if (!validationResult.isValid && !pendingExport) {
+      setValidationMismatches(validationResult.mismatches);
       setValidationDialogOpen(true);
       setPendingExport(true);
       return;
@@ -239,8 +239,8 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         .limit(1)
         .maybeSingle();
 
-      const companyDetails = company || {
-        company_name: "Company Name",
+      const companyDetails: any = company || {
+        companyName: "Company Name",
         company_logo_url: null,
       };
 
@@ -251,507 +251,79 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         ...sections,
       };
 
-      const colors = {
-        primary: [59, 130, 246] as [number, number, number],
-        secondary: [16, 185, 129] as [number, number, number],
-        success: [34, 197, 94] as [number, number, number],
-        warning: [251, 191, 36] as [number, number, number],
-        danger: [239, 68, 68] as [number, number, number],
-        neutral: [71, 85, 105] as [number, number, number],
-        light: [241, 245, 249] as [number, number, number],
-        white: [255, 255, 255] as [number, number, number],
-        text: [15, 23, 42] as [number, number, number]
+      const useMargins = {
+        ...STANDARD_MARGINS,
+        ...margins,
       };
 
-      setCurrentSection("Generating cover page...");
-      // ========== COVER PAGE (ONLY FOR NON-TEMPLATE EXPORT) ==========
-      // Template export does not use this - it uses the Word template as the only source
-      const doc = initializePDF({ quality: 'standard', orientation: 'portrait' });
+      // Fetch all necessary data
+      setCurrentSection("Fetching report data...");
       
-      if (useSections.coverPage) {
-        await generateCoverPage(doc, {
-          title: "Cost Report",
-          projectName: report.project_name,
-          subtitle: `Report #${report.report_number}`,
-          revision: `Report ${report.report_number}`,
-          date: format(new Date(), "dd MMMM yyyy"),
-        }, companyDetails, contactId || undefined);
-      }
-      
-      // ========== CATEGORY PERFORMANCE CARDS ==========
-      contentDoc.addPage();
-      tocSections.push({ title: "Category Performance", page: contentDoc.getCurrentPageInfo().pageNumber });
-      yPos = contentStartY;
-      yPos = addSectionHeader(contentDoc, "CATEGORY PERFORMANCE", yPos);
-      yPos += 10;
-      
-      // Generate category cards programmatically
-      contentDoc.setFontSize(10);
-      contentDoc.text("Category performance details with visual indicators", contentStartX, yPos);
-      yPos += 15;
-      
-      // ========== CATEGORIES AND LINE ITEMS ==========
-      contentDoc.addPage();
-      tocSections.push({ title: "Categories & Line Items", page: contentDoc.getCurrentPageInfo().pageNumber });
-      yPos = contentStartY;
-      yPos = addSectionHeader(contentDoc, "CATEGORIES & LINE ITEMS", yPos);
-      yPos += 5;
-      
-      // Add category details with line items
-      for (const category of categories || []) {
-        yPos = checkPageBreak(contentDoc, yPos);
-        
-        contentDoc.setFontSize(14);
-        contentDoc.setFont("helvetica", "bold");
-        contentDoc.setTextColor(30, 58, 138);
-        contentDoc.text(`${category.code} - ${category.description}`, contentStartX, yPos);
-        contentDoc.setDrawColor(59, 130, 246);
-        contentDoc.setLineWidth(0.3);
-        contentDoc.line(contentStartX, yPos + 2, pageWidth - STANDARD_MARGINS.right, yPos + 2);
-        yPos += 10;
-        
-        if (category.cost_line_items && category.cost_line_items.length > 0) {
-          const lineItemData = category.cost_line_items.map((item: any) => [
-            item.code,
-            item.description,
-            `R ${item.original_budget.toFixed(2)}`,
-            `R ${item.anticipated_final.toFixed(2)}`
-          ]);
-          
-          autoTable(contentDoc, {
-            startY: yPos,
-            head: [['Code', 'Description', 'Original', 'Anticipated']],
-            body: lineItemData,
-            theme: 'grid',
-            headStyles: { fillColor: [59, 130, 246] as [number, number, number] }
-          });
-          yPos = (contentDoc as any).lastAutoTable.finalY + 15;
-        }
-      }
-      
-      // Add VARIATIONS as a category detail (like other categories)
-      if (sortedVariations && sortedVariations.length > 0) {
-        console.log('[PDF EXPORT] Adding G - VARIATIONS section with', sortedVariations.length, 'variations');
-        yPos = checkPageBreak(contentDoc, yPos);
-        
-        contentDoc.setFontSize(14);
-        contentDoc.setFont("helvetica", "bold");
-        contentDoc.setTextColor(30, 58, 138);
-        contentDoc.text("G - VARIATIONS", contentStartX, yPos);
-        contentDoc.setDrawColor(59, 130, 246);
-        contentDoc.setLineWidth(0.3);
-        contentDoc.line(contentStartX, yPos + 2, pageWidth - STANDARD_MARGINS.right, yPos + 2);
-        yPos += 10;
-        
-        // Show variations in same format as category line items
-        const variationsLineItemData = sortedVariations.map(v => {
-          console.log('[PDF EXPORT] Adding variation:', v.code, v.description, v.amount);
-          return [
-            v.code,
-            v.description,
-            'R 0.00', // Original budget for variations is always 0
-            `R ${Math.abs(v.amount).toFixed(2)}`
-          ];
-        });
-        
-        autoTable(contentDoc, {
-          startY: yPos,
-          head: [['Code', 'Description', 'Original Budget', 'Anticipated Final']],
-          body: variationsLineItemData,
-          theme: 'grid',
-          headStyles: { fillColor: [59, 130, 246] as [number, number, number] }
-        });
-        yPos = (contentDoc as any).lastAutoTable.finalY + 15;
-        console.log('[PDF EXPORT] G - VARIATIONS section completed');
-      } else {
-        console.log('[PDF EXPORT] No variations to add - sortedVariations:', sortedVariations);
-      }
-      
-      // ========== DETAILED VARIATION ORDER SHEETS ==========
-      if (sortedVariations && sortedVariations.length > 0) {
-        contentDoc.addPage();
-        tocSections.push({ title: "Variation Order Sheets", page: contentDoc.getCurrentPageInfo().pageNumber });
-        
-        // Display each variation with its line items
-        for (const variation of sortedVariations) {
-          // Start each variation on a new page
-          if (contentDoc.getCurrentPageInfo().pageNumber > tocSections[tocSections.length - 1].page) {
-            contentDoc.addPage();
-          }
-          yPos = contentStartY;
-          
-          // TENANT ACCOUNT Header
-          contentDoc.setFontSize(18);
-          contentDoc.setFont("helvetica", "bold");
-          contentDoc.setTextColor(0, 0, 0);
-          contentDoc.text("TENANT ACCOUNT", pageWidth / 2, yPos, { align: "center" });
-          yPos += 15;
-          
-          // Project and Date Info
-          contentDoc.setFontSize(10);
-          contentDoc.setFont("helvetica", "bold");
-          contentDoc.text("PROJECT:", contentStartX, yPos);
-          contentDoc.setFont("helvetica", "normal");
-          contentDoc.text(report.project_name, contentStartX + 25, yPos);
-          
-          contentDoc.setFont("helvetica", "bold");
-          contentDoc.text("DATE:", pageWidth - STANDARD_MARGINS.right - 60, yPos);
-          contentDoc.setFont("helvetica", "normal");
-          contentDoc.text(format(new Date(report.report_date), "dd MMM yy"), pageWidth - STANDARD_MARGINS.right - 35, yPos);
-          yPos += 7;
-          
-          // Variation Order Number and Revision
-          contentDoc.setFont("helvetica", "bold");
-          contentDoc.text("VARIATION ORDER NO.:", contentStartX, yPos);
-          contentDoc.setFont("helvetica", "normal");
-          contentDoc.text(variation.code, contentStartX + 50, yPos);
-          
-          contentDoc.setFont("helvetica", "bold");
-          contentDoc.text("REVISION:", pageWidth - STANDARD_MARGINS.right - 60, yPos);
-          contentDoc.setFont("helvetica", "normal");
-          contentDoc.text("0", pageWidth - STANDARD_MARGINS.right - 35, yPos);
-          yPos += 12;
-          
-          // Shop Name in highlighted box
-          contentDoc.setFillColor(220, 220, 220);
-          contentDoc.rect(contentStartX, yPos - 5, pageWidth - STANDARD_MARGINS.left - STANDARD_MARGINS.right, 10, 'F');
-          contentDoc.setFontSize(12);
-          contentDoc.setFont("helvetica", "bold");
-          const shopName = variation.tenants ? `${variation.tenants.shop_number} - ${variation.tenants.shop_name}` : variation.description;
-          contentDoc.text(shopName, pageWidth / 2, yPos, { align: "center" });
-          yPos += 15;
-          
-          // Line items table
-          const lineItems = variation.variation_line_items || [];
-          if (lineItems.length > 0) {
-            const sortedLineItems = lineItems.sort((a: any, b: any) => a.line_number - b.line_number);
-            const lineItemsData = sortedLineItems.map((item: any) => [
-              item.line_number,
-              item.description,
-              item.comments || '',
-              item.quantity,
-              `R${Number(item.rate).toFixed(2)}`,
-              `R${Number(item.amount).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-            ]);
-            
-            autoTable(contentDoc, {
-              startY: yPos,
-              head: [['NO', 'DESCRIPTION', 'COMMENTS/ DETAIL', 'QTY:', 'RATE:', 'AMOUNT:']],
-              body: lineItemsData,
-              foot: [[
-                '', '', '', '', 'TOTAL ADDITIONAL WORKS EXCLUSIVE OF VAT',
-                `R${Number(variation.amount).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-              ]],
-              theme: 'grid',
-              headStyles: { 
-                fillColor: [240, 240, 240] as [number, number, number],
-                textColor: [0, 0, 0] as [number, number, number],
-                fontStyle: 'bold',
-                fontSize: 9
-              },
-              bodyStyles: {
-                fontSize: 9
-              },
-              footStyles: {
-                fillColor: [255, 255, 255] as [number, number, number],
-                textColor: [0, 0, 0] as [number, number, number],
-                fontStyle: 'bold',
-                fontSize: 9,
-                lineWidth: { top: 0.5 },
-                lineColor: [0, 0, 0] as [number, number, number]
-              },
-              columnStyles: {
-                0: { cellWidth: 15 },
-                1: { cellWidth: 60 },
-                2: { cellWidth: 45 },
-                3: { cellWidth: 20, halign: 'right' },
-                4: { cellWidth: 25, halign: 'right' },
-                5: { cellWidth: 30, halign: 'right' }
-              }
-            });
-            
-            yPos = (contentDoc as any).lastAutoTable.finalY + 15;
-          } else {
-            // If no line items, show summary
-            contentDoc.setFontSize(10);
-            contentDoc.setFont("helvetica", "normal");
-            contentDoc.setTextColor(0, 0, 0);
-            contentDoc.text(`Amount: R${Number(variation.amount).toFixed(2)}`, contentStartX, yPos);
-            yPos += 15;
-          }
-        }
-      }
-      
-      // ========== UPDATE TABLE OF CONTENTS ==========
-      const currentPage = contentDoc.getCurrentPageInfo().pageNumber;
-      contentDoc.setPage(tocPage);
-      yPos = tocStartY;
-      
-      contentDoc.setFontSize(11);
-      contentDoc.setTextColor(0, 0, 0);
-      
-      tocSections.forEach((section) => {
-        contentDoc.setFont("helvetica", "normal");
-        contentDoc.text(section.title, contentStartX, yPos);
-        
-        const pageNumText = String(section.page);
-        const pageNumWidth = contentDoc.getTextWidth(pageNumText);
-        contentDoc.text(pageNumText, pageWidth - STANDARD_MARGINS.right - pageNumWidth, yPos);
-        
-        // Draw dotted line
-        const titleWidth = contentDoc.getTextWidth(section.title);
-        const dotsStartX = contentStartX + titleWidth + 3;
-        const dotsEndX = pageWidth - STANDARD_MARGINS.right - pageNumWidth - 3;
-        (contentDoc as any).setLineDash([1, 2]);
-        contentDoc.setDrawColor(150, 150, 150);
-        contentDoc.line(dotsStartX, yPos - 1, dotsEndX, yPos - 1);
-        (contentDoc as any).setLineDash([]);
-        
-        yPos += 8;
-      });
-      
-      contentDoc.setPage(currentPage);
-      
-      // Add page numbers to content
-      addPageNumbers(contentDoc, 1);
-      
-      // Step 3: Merge cover page with content using pdf-lib
-      setCurrentSection("Merging PDFs...");
-      const PDFLib = await import('pdf-lib');
-      
-      const coverPdf = await PDFLib.PDFDocument.load(coverArrayBuffer);
-      const contentPdfBytes = contentDoc.output('arraybuffer');
-      const contentPdf = await PDFLib.PDFDocument.load(contentPdfBytes);
-      
-      const mergedPdf = await PDFLib.PDFDocument.create();
-      
-      // Copy cover page
-      const coverPages = await mergedPdf.copyPages(coverPdf, coverPdf.getPageIndices());
-      coverPages.forEach(page => mergedPdf.addPage(page));
-      
-      // Copy content pages
-      const contentPages = await mergedPdf.copyPages(contentPdf, contentPdf.getPageIndices());
-      contentPages.forEach(page => mergedPdf.addPage(page));
-      
-      const mergedPdfBytes = await mergedPdf.save();
-      const mergedBlob = new Blob([new Uint8Array(mergedPdfBytes)], { type: 'application/pdf' });
-      
-      // Step 4: Upload merged PDF to storage
-      setCurrentSection("Saving PDF to storage...");
-      const fileName = `Cost_Report_${report.report_number}_${format(new Date(), 'yyyyMMdd_HHmmss')}.pdf`;
-      const filePath = `cost-reports/${report.project_id}/${fileName}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('cost-report-pdfs')
-        .upload(filePath, mergedBlob, {
-          contentType: 'application/pdf',
-          upsert: false
-        });
-      
-      if (uploadError) {
-        console.error('Upload error:', uploadError);
-        toast({
-          title: "Upload Failed",
-          description: "Failed to save PDF to storage",
-          variant: "destructive",
-        });
-        setLoading(false);
-        return;
-      }
-      
-      // Get the public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('cost-report-pdfs')
-        .getPublicUrl(filePath);
-      
-      // Save record to database
-      const { error: dbError } = await supabase
-        .from('cost_report_pdfs')
-        .insert({
-          cost_report_id: report.id,
-          project_id: report.project_id,
-          file_name: fileName,
-          file_path: filePath,
-          revision: `R${report.report_number}`,
-          notes: 'Generated with Word template cover page'
-        });
-      
-      if (dbError) {
-        console.error('Database error:', dbError);
-      }
-      
-      // Show preview dialog
-      setPreviewReport({
-        ...report,
-        pdf_url: publicUrl,
-        file_name: fileName
-      });
+      const { data: categoriesData } = await supabase
+        .from("cost_categories")
+        .select("*, cost_line_items(*)")
+        .eq("cost_report_id", report.id)
+        .order("display_order");
 
-      toast({
-        title: "Success",
-        description: "PDF with cover page generated. Preview before downloading.",
-      });
-
-      if (onReportGenerated) {
-        onReportGenerated();
-      }
-    } catch (error) {
-      console.error("Template PDF export error:", error);
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to generate PDF from template",
-        variant: "destructive",
-      });
-    } finally {
-      setLoading(false);
-      setCurrentSection("");
-    }
-  };
-
-  const handleExport = async (useMargins: PDFMargins = margins, useSections: PDFSectionOptions = sections, skipValidation: boolean = false, contactId: string = selectedContactId) => {
-    // If template mode is enabled, use template export
-    if (useTemplate) {
-      return exportWithTemplate();
-    }
-
-    // Otherwise use legacy direct PDF generation
-    setLoading(true);
-    setCurrentSection("Fetching data...");
-    
-    // Initialize page content map to track what goes on each page
-    const pageContentMap: Record<number, string[]> = {};
-    
-    // Helper to add content to pageContentMap
-    const trackPageContent = (docInstance: jsPDF, content: string) => {
-      const currentPage = docInstance.getCurrentPageInfo().pageNumber;
-      if (!pageContentMap[currentPage]) {
-        pageContentMap[currentPage] = [];
-      }
-      const trimmed = content.trim();
-      if (trimmed.length > 0) {
-        pageContentMap[currentPage].push(trimmed);
-      }
-    };
-    
-    try {
-      // Fetch all data
-      const [categoriesResult, variationsResult, detailsResult, allLineItemsResult] = await Promise.all([
-        supabase
-          .from("cost_categories")
-          .select(`*, cost_line_items (*)`)
-          .eq("cost_report_id", report.id)
-          .order("display_order"),
-        supabase
-          .from("cost_variations")
-          .select("*")
-          .eq("cost_report_id", report.id)
-          .order("display_order"),
-        supabase
-          .from("cost_report_details")
-          .select("*")
-          .eq("cost_report_id", report.id)
-          .order("display_order"),
-        supabase
-          .from("cost_line_items")
-          .select("*, cost_categories!inner(cost_report_id)")
-          .eq("cost_categories.cost_report_id", report.id)
-      ]);
-
-      if (categoriesResult.error) throw categoriesResult.error;
-      if (variationsResult.error) throw variationsResult.error;
-      if (detailsResult.error) throw detailsResult.error;
-      if (allLineItemsResult.error) throw allLineItemsResult.error;
-
-      const categories = categoriesResult.data || [];
-      const variations = variationsResult.data || [];
-      const details = detailsResult.data || [];
-      const allLineItems = allLineItemsResult.data || [];
-      
-      // Sort categories alphabetically by code for consistent ordering
-      const sortedCategories = [...categories].sort((a, b) => a.code.localeCompare(b.code));
+      const { data: variationsData } = await supabase
+        .from("cost_variations")
+        .select(`
+          *,
+          tenants(shop_name, shop_number),
+          variation_line_items(*)
+        `)
+        .eq("cost_report_id", report.id)
+        .order("display_order");
       
       // Sort variations by extracting numeric part from code (e.g., G1, G2, G10)
-      const sortedVariations = [...variations].sort((a, b) => {
+      const sortedVariations = (variationsData || []).sort((a, b) => {
         const aMatch = a.code.match(/\d+/);
         const bMatch = b.code.match(/\d+/);
         const aNum = aMatch ? parseInt(aMatch[0], 10) : 0;
         const bNum = bMatch ? parseInt(bMatch[0], 10) : 0;
         return aNum - bNum;
       });
-      
-      // Calculate totals using shared utility and sort alphabetically
-      const pdfCategoryTotals = calculateCategoryTotals(sortedCategories, allLineItems, sortedVariations)
-        .sort((a, b) => a.code.localeCompare(b.code));
-      const pdfGrandTotals = calculateGrandTotals(pdfCategoryTotals);
-      
-      // Validate totals if not skipping validation
-      if (!skipValidation) {
-        // Calculate UI totals from flat line items list and sort alphabetically
-        const uiCategoryTotals = calculateCategoryTotals(sortedCategories, allLineItems, sortedVariations)
-          .sort((a, b) => a.code.localeCompare(b.code));
-        const uiGrandTotals = calculateGrandTotals(uiCategoryTotals);
-        
-        const validation = validateTotals(uiGrandTotals, pdfGrandTotals);
-        
-        if (!validation.isValid) {
-          setValidationMismatches(validation.mismatches);
-          setValidationDialogOpen(true);
-          setPendingExport(true);
-          setLoading(false);
-          return;
-        }
-      }
-      
-      setCurrentSection("Preparing company details...");
-      const companyDetails = await fetchCompanyDetails();
 
+      const { data: details } = await supabase
+        .from("cost_report_details")
+        .select("*")
+        .eq("cost_report_id", report.id)
+        .order("display_order");
+
+      // Calculate totals using the utility (pass empty arrays for lineItems and variations separately)
+      const pdfCategoryTotals = calculateCategoryTotals(categoriesData || [], [], sortedVariations || []);
+      const pdfGrandTotals = calculateGrandTotals(categoriesData || [], sortedVariations || []);
+
+      // Initialize PDF document
       setCurrentSection("Initializing PDF document...");
-      // Create PDF with standardized quality settings
-      const exportOptions: PDFExportOptions = { quality: 'standard', orientation: 'portrait' };
-      const doc = initializePDF(exportOptions);
-      
-      // Wrap doc.text to capture all content
-      const originalText = doc.text.bind(doc);
-      (doc as any).text = function(...args: any[]) {
-        let textContent = '';
-        if (typeof args[0] === 'string') {
-          textContent = args[0];
-        } else if (Array.isArray(args[0])) {
-          // Join array elements without adding spaces - preserve original formatting
-          textContent = args[0].join('');
-        }
-        if (textContent.trim()) {
-          trackPageContent(doc, textContent);
-        }
-        return originalText(...args);
-      };
+      const doc = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4',
+        compress: true,
+      });
 
-      // Wrap autoTable to capture table content
+      // Custom autoTable to prevent page numbers from being overwritten
       const originalAutoTable = (doc as any).autoTable;
       (doc as any).autoTable = function(options: any) {
-        const currentPage = doc.getCurrentPageInfo().pageNumber;
+        // Store current page numbers
+        const currentPageInfo = doc.getCurrentPageInfo();
+        const totalPages = doc.getNumberOfPages();
         
-        // Capture header content
-        if (options.head && Array.isArray(options.head)) {
-          options.head.forEach((row: any[]) => {
-            row.forEach((cell: any) => {
-              const text = typeof cell === 'string' ? cell : cell?.content || '';
-              if (text.trim()) trackPageContent(doc, text);
-            });
-          });
+        // Call original autoTable
+        const result = originalAutoTable.call(this, options);
+        
+        // Only re-add page numbers if they were there before and got overwritten
+        if (currentPageInfo.pageNumber > 0) {
+          const newTotalPages = doc.getNumberOfPages();
+          // If new pages were added by autoTable, they need page numbers
+          for (let i = currentPageInfo.pageNumber; i <= newTotalPages; i++) {
+            doc.setPage(i);
+            // Don't add page number here, let the final step handle it
+          }
         }
         
-        // Capture body content
-        if (options.body && Array.isArray(options.body)) {
-          options.body.forEach((row: any[]) => {
-            row.forEach((cell: any) => {
-              const text = typeof cell === 'string' ? cell : cell?.content || '';
-              if (text.trim()) trackPageContent(doc, text);
-            });
-          });
-        }
-        
-        return originalAutoTable.call(this, options);
+        return result;
       };
       
       const pageWidth = doc.internal.pageSize.width;
@@ -762,6 +334,19 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       const contentWidth = pageWidth - useMargins.left - useMargins.right;
       const contentStartX = useMargins.left;
       const contentStartY = useMargins.top;
+      
+      // Track page content for mapping
+      const pageContentMap: Record<number, string[]> = {};
+      const trackPageContent = (content: string) => {
+        const currentPage = doc.getCurrentPageInfo().pageNumber;
+        if (!pageContentMap[currentPage]) {
+          pageContentMap[currentPage] = [];
+        }
+        pageContentMap[currentPage].push(content);
+      };
+      
+      // Sort categories by display order
+      const sortedCategories = [...(categoriesData || [])].sort((a, b) => a.display_order - b.display_order);
       
       // Professional color palette
       const colors = {
