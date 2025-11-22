@@ -6068,6 +6068,68 @@ export type Database = {
           },
         ]
       }
+      tenant_notification_settings: {
+        Row: {
+          bo_critical_days: number | null
+          bo_info_days: number | null
+          bo_warning_days: number | null
+          cost_entry_critical_days: number | null
+          cost_entry_warning_days: number | null
+          created_at: string | null
+          email_frequency: string | null
+          email_notifications_enabled: boolean | null
+          id: string
+          inactive_tenant_days: number | null
+          notification_cooldown_hours: number | null
+          notification_email: string | null
+          notifications_enabled: boolean | null
+          project_id: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          bo_critical_days?: number | null
+          bo_info_days?: number | null
+          bo_warning_days?: number | null
+          cost_entry_critical_days?: number | null
+          cost_entry_warning_days?: number | null
+          created_at?: string | null
+          email_frequency?: string | null
+          email_notifications_enabled?: boolean | null
+          id?: string
+          inactive_tenant_days?: number | null
+          notification_cooldown_hours?: number | null
+          notification_email?: string | null
+          notifications_enabled?: boolean | null
+          project_id?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          bo_critical_days?: number | null
+          bo_info_days?: number | null
+          bo_warning_days?: number | null
+          cost_entry_critical_days?: number | null
+          cost_entry_warning_days?: number | null
+          created_at?: string | null
+          email_frequency?: string | null
+          email_notifications_enabled?: boolean | null
+          id?: string
+          inactive_tenant_days?: number | null
+          notification_cooldown_hours?: number | null
+          notification_email?: string | null
+          notifications_enabled?: boolean | null
+          project_id?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_notification_settings_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: true
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tenant_report_templates: {
         Row: {
           created_at: string
@@ -6210,6 +6272,7 @@ export type Database = {
           custom_fields: Json | null
           db_by_tenant: boolean | null
           db_cost: number | null
+          db_order_date: string | null
           db_ordered: boolean | null
           db_size_allowance: string | null
           db_size_scope_of_work: string | null
@@ -6219,9 +6282,11 @@ export type Database = {
           id: string
           last_modified_at: string | null
           last_modified_by: string | null
+          last_notification_sent: string | null
           layout_received: boolean | null
           lighting_by_tenant: boolean | null
           lighting_cost: number | null
+          lighting_order_date: string | null
           lighting_ordered: boolean | null
           manual_kw_override: number | null
           opening_date: string | null
@@ -6244,6 +6309,7 @@ export type Database = {
           custom_fields?: Json | null
           db_by_tenant?: boolean | null
           db_cost?: number | null
+          db_order_date?: string | null
           db_ordered?: boolean | null
           db_size_allowance?: string | null
           db_size_scope_of_work?: string | null
@@ -6253,9 +6319,11 @@ export type Database = {
           id?: string
           last_modified_at?: string | null
           last_modified_by?: string | null
+          last_notification_sent?: string | null
           layout_received?: boolean | null
           lighting_by_tenant?: boolean | null
           lighting_cost?: number | null
+          lighting_order_date?: string | null
           lighting_ordered?: boolean | null
           manual_kw_override?: number | null
           opening_date?: string | null
@@ -6278,6 +6346,7 @@ export type Database = {
           custom_fields?: Json | null
           db_by_tenant?: boolean | null
           db_cost?: number | null
+          db_order_date?: string | null
           db_ordered?: boolean | null
           db_size_allowance?: string | null
           db_size_scope_of_work?: string | null
@@ -6287,9 +6356,11 @@ export type Database = {
           id?: string
           last_modified_at?: string | null
           last_modified_by?: string | null
+          last_notification_sent?: string | null
           layout_received?: boolean | null
           lighting_by_tenant?: boolean | null
           lighting_cost?: number | null
+          lighting_order_date?: string | null
           lighting_ordered?: boolean | null
           manual_kw_override?: number | null
           opening_date?: string | null

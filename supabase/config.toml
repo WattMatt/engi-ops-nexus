@@ -56,3 +56,7 @@ verify_jwt = true
 
 [functions.convert-word-to-pdf]
 verify_jwt = false
+
+[functions.check-tenant-notifications]
+verify_jwt = false
+
