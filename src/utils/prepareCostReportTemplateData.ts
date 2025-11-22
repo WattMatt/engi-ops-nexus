@@ -175,13 +175,23 @@ export async function prepareCostReportTemplateData(
   // Prepare image placeholders separately
   const imagePlaceholders: Record<string, string> = {};
   
+  console.log('=== IMAGE PLACEHOLDER DEBUG ===');
+  console.log('Company Settings:', companySettings);
+  console.log('Company Logo URL:', companySettings?.company_logo_url);
+  console.log('Client Logo URL:', companySettings?.client_logo_url);
+  
   if (companySettings?.company_logo_url) {
     imagePlaceholders.company_logo = companySettings.company_logo_url;
+    console.log('Added company_logo to imagePlaceholders');
   }
   
   if (companySettings?.client_logo_url) {
     imagePlaceholders.client_logo = companySettings.client_logo_url;
+    console.log('Added client_logo to imagePlaceholders');
   }
+
+  console.log('Final imagePlaceholders:', imagePlaceholders);
+  console.log('=== END DEBUG ===');
 
   return { placeholderData, imagePlaceholders };
 }
