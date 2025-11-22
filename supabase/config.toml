@@ -60,3 +60,6 @@ verify_jwt = false
 [functions.check-tenant-notifications]
 verify_jwt = false
 
+[functions.notify-admin-feedback]
+verify_jwt = false
+

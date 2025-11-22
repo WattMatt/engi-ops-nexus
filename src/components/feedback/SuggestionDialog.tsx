@@ -272,7 +272,7 @@ export function SuggestionDialog({ open, onOpenChange, screenshot }: SuggestionD
       const legacyScreenshotUrl = uploadedAttachments.find(a => a.type.startsWith('image/'))?.url || screenshotUrl;
 
       // Insert suggestion
-      const { error: insertError } = await supabase
+      const { data: newSuggestion, error: insertError } = await supabase
         .from('suggestions')
         .insert({
           reported_by: user.id,
@@ -287,9 +287,30 @@ export function SuggestionDialog({ open, onOpenChange, screenshot }: SuggestionD
           additional_context: additionalContext.trim() || null,
           page_url: window.location.href,
           browser_info: browserInfo,
-        });
+        })
+        .select()
+        .single();
 
       if (insertError) throw insertError;
+
+      // Notify admin via email
+      try {
+        await supabase.functions.invoke('notify-admin-feedback', {
+          body: {
+            feedbackId: newSuggestion.id,
+            type: 'suggestion',
+            title: title.trim(),
+            description: description.trim(),
+            submittedBy: profile?.full_name || 'Unknown User',
+            userEmail: profile?.email || user.email || '',
+            priority: priority,
+            category: category,
+          },
+        });
+      } catch (emailError) {
+        console.error('Failed to send admin notification:', emailError);
+        // Don't fail the whole submission if email fails
+      }
 
       toast.success("Suggestion submitted successfully! Thank you for your feedback.");
       

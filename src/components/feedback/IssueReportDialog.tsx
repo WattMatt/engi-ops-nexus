@@ -251,7 +251,7 @@ export function IssueReportDialog({ open, onOpenChange, screenshot }: IssueRepor
       const legacyScreenshotUrl = uploadedAttachments.find(a => a.type.startsWith('image/'))?.url || null;
 
       // Insert issue report
-      const { error: insertError } = await supabase
+      const { data: newIssue, error: insertError } = await supabase
         .from('issue_reports')
         .insert({
           reported_by: user.id,
@@ -266,9 +266,30 @@ export function IssueReportDialog({ open, onOpenChange, screenshot }: IssueRepor
           additional_context: additionalContext.trim() || null,
           page_url: window.location.href,
           browser_info: browserInfo,
-        });
+        })
+        .select()
+        .single();
 
       if (insertError) throw insertError;
+
+      // Notify admin via email
+      try {
+        await supabase.functions.invoke('notify-admin-feedback', {
+          body: {
+            feedbackId: newIssue.id,
+            type: 'issue',
+            title: description.trim().substring(0, 100),
+            description: description.trim(),
+            submittedBy: profile?.full_name || 'Unknown User',
+            userEmail: profile?.email || user.email || '',
+            priority: severity,
+            category: category,
+          },
+        });
+      } catch (emailError) {
+        console.error('Failed to send admin notification:', emailError);
+        // Don't fail the whole submission if email fails
+      }
 
       toast.success("Issue reported successfully! We'll look into it.");
       
