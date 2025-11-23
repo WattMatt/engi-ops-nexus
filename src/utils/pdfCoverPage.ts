@@ -587,17 +587,20 @@ export async function generateCoverPage(
   const blob = await response.blob();
   console.log('📦 Converted PDF blob size:', blob.size, 'bytes');
   
-  // Use PDF.js to render the PDF to a canvas with proper cleanup
+  // Use PDF.js to render the PDF to a canvas - use bundled worker
   try {
     const arrayBuffer = await blob.arrayBuffer();
     console.log('📋 ArrayBuffer created, size:', arrayBuffer.byteLength);
     
+    // Import both the library and the worker
     const pdfjs = await import('pdfjs-dist');
+    const pdfjsWorker = await import('pdfjs-dist/build/pdf.worker.mjs?url');
+    
     console.log('📚 PDF.js version:', pdfjs.version);
     
-    // Set worker source to match installed version dynamically
-    pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
-    console.log('🔧 Worker source set:', pdfjs.GlobalWorkerOptions.workerSrc);
+    // Use the bundled worker instead of CDN
+    pdfjs.GlobalWorkerOptions.workerSrc = pdfjsWorker.default;
+    console.log('🔧 Worker source set to bundled worker');
     
     const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
     console.log('⏳ Loading PDF document...');
