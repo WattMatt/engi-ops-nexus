@@ -93,11 +93,6 @@ const CostReportDetail = () => {
         </div>
       </div>
 
-      {/* Overview is the landing page - visible by default */}
-      <div className={activeTab ? "hidden" : ""}>
-        <CostReportOverview report={report} />
-      </div>
-
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
           <TabsTrigger value="generate">Generate Reports</TabsTrigger>
@@ -106,6 +101,11 @@ const CostReportDetail = () => {
           <TabsTrigger value="variations">Variations</TabsTrigger>
           <TabsTrigger value="history">Report History</TabsTrigger>
         </TabsList>
+
+        {/* Overview is the landing page - visible by default */}
+        <div className={activeTab ? "hidden" : ""}>
+          <CostReportOverview report={report} />
+        </div>
 
         <TabsContent value="generate">
           <Card>
