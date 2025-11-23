@@ -65,34 +65,58 @@ Deno.serve(async (req) => {
       }
       const templateArrayBuffer = await templateResponse.arrayBuffer();
       
-      // Step 2: Load ZIP and pre-process image placeholders BEFORE docxtemplater
+      // Step 2: Load ZIP and fix split placeholders BEFORE docxtemplater
       let zip = new PizZip(templateArrayBuffer);
       
+      // Fix split placeholders in document.xml
+      const docFile = zip.file('word/document.xml');
+      if (!docFile) {
+        throw new Error('document.xml not found in template');
+      }
+      let documentXml = docFile.asText();
+      
+      console.log('Original XML length:', documentXml.length);
+      
+      // Remove all formatting tags between placeholder parts to fix split tags
+      // This regex finds patterns like: {</w:t></w:r><w:r><w:t>{  or  }</w:t></w:r><w:r><w:t>}
+      // and collapses them back into proper {{  or  }} tags
+      documentXml = documentXml.replace(
+        /\{(<\/w:t><\/w:r><w:r[^>]*><w:t[^>]*>)*\{/g,
+        '{{'
+      );
+      documentXml = documentXml.replace(
+        /\}(<\/w:t><\/w:r><w:r[^>]*><w:t[^>]*>)*\}/g,
+        '}}'
+      );
+      
+      // Also handle cases where placeholder parts are split with formatting
+      // Example: {<w:r>...</w:r>client<w:r>...</w:r>_<w:r>...</w:r>image}
+      documentXml = documentXml.replace(
+        /\{(<\/w:t><\/w:r><w:r[^>]*><w:t[^>]*>)+([a-zA-Z_]+)(<\/w:t><\/w:r><w:r[^>]*><w:t[^>]*>)+\}/g,
+        '{$2}'
+      );
+      
+      console.log('Fixed XML length:', documentXml.length);
+      
+      // Update the document.xml with fixed placeholders
+      zip.file('word/document.xml', documentXml);
+      
+      // Step 3: Handle image placeholders by replacing with safe markers
       if (imagePlaceholders && Object.keys(imagePlaceholders).length > 0) {
         console.log('Pre-processing image placeholders to avoid docxtemplater errors');
         
-        // Get document XML
-        const docFile = zip.file('word/document.xml');
-        if (!docFile) {
-          throw new Error('document.xml not found in template');
-        }
-        let documentXml = docFile.asText();
-        
-        // Remove problematic image placeholders from the XML to prevent docxtemplater errors
-        // We'll replace them after docxtemplater runs
         for (const placeholderKey of Object.keys(imagePlaceholders)) {
-          // Replace both {{key}} and {key} patterns with a safe marker
+          // Replace image placeholders with safe markers
           const marker = `IMAGE_PLACEHOLDER_${placeholderKey}`;
           documentXml = documentXml.replace(new RegExp(`\\{\\{${placeholderKey}\\}\\}`, 'g'), marker);
           documentXml = documentXml.replace(new RegExp(`\\{${placeholderKey}\\}`, 'g'), marker);
         }
         
-        // Update the document.xml with safe markers
         zip.file('word/document.xml', documentXml);
         console.log('Image placeholders replaced with safe markers');
       }
       
-      // Step 3: Now use docxtemplater for text placeholders only
+      // Step 4: Now use docxtemplater for text placeholders only
       const doc = new Docxtemplater(zip, {
         paragraphLoop: true,
         linebreaks: true,
