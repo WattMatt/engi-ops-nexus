@@ -31,6 +31,10 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
     report_date: report.report_date,
     site_handover_date: report.site_handover_date,
     practical_completion_date: report.practical_completion_date,
+    electrical_contractor: report.electrical_contractor,
+    earthing_contractor: report.earthing_contractor,
+    standby_plants_contractor: report.standby_plants_contractor,
+    cctv_contractor: report.cctv_contractor,
   });
 
   const updateReportMutation = useMutation({
@@ -69,6 +73,10 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
       report_date: report.report_date,
       site_handover_date: report.site_handover_date,
       practical_completion_date: report.practical_completion_date,
+      electrical_contractor: report.electrical_contractor,
+      earthing_contractor: report.earthing_contractor,
+      standby_plants_contractor: report.standby_plants_contractor,
+      cctv_contractor: report.cctv_contractor,
     });
     setEditingField(null);
   };
@@ -662,9 +670,14 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
         </Card>
       )}
 
-      <Card id="cost-report-project-info" className="shadow-sm">
+      <Card id="cost-report-project-info" className="shadow-sm group/card hover:shadow-md transition-shadow">
         <CardHeader className="pb-4 border-b">
-          <CardTitle className="text-xl">Project Information</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-xl">Project Information</CardTitle>
+            <span className="text-xs text-muted-foreground opacity-0 group-hover/card:opacity-100 transition-opacity">
+              Click fields to edit
+            </span>
+          </div>
         </CardHeader>
         <CardContent className="pt-6">
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
@@ -838,44 +851,147 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
         </CardContent>
       </Card>
 
-      {(report.electrical_contractor ||
-        report.earthing_contractor ||
-        report.standby_plants_contractor ||
-        report.cctv_contractor) && (
-        <Card id="cost-report-contractors" className="shadow-sm">
-          <CardHeader className="pb-4 border-b">
+      <Card id="cost-report-contractors" className="shadow-sm group/card hover:shadow-md transition-shadow">
+        <CardHeader className="pb-4 border-b">
+          <div className="flex items-center justify-between">
             <CardTitle className="text-xl">Contractors</CardTitle>
-          </CardHeader>
-          <CardContent className="pt-6">
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {report.electrical_contractor && (
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Electrical</p>
-                  <p className="text-base font-semibold">{report.electrical_contractor}</p>
+            <span className="text-xs text-muted-foreground opacity-0 group-hover/card:opacity-100 transition-opacity">
+              Click fields to edit
+            </span>
+          </div>
+        </CardHeader>
+        <CardContent className="pt-6">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {/* Electrical Contractor */}
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Electrical</p>
+              {editingField === 'electrical_contractor' ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={editValues.electrical_contractor || ''}
+                    onChange={(e) => setEditValues({ ...editValues, electrical_contractor: e.target.value })}
+                    className="h-8"
+                  />
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleSave('electrical_contractor')}>
+                    <Check className="h-4 w-4" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={handleCancel}>
+                    <X className="h-4 w-4" />
+                  </Button>
                 </div>
-              )}
-              {report.earthing_contractor && (
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Earthing & Lightning</p>
-                  <p className="text-base font-semibold">{report.earthing_contractor}</p>
-                </div>
-              )}
-              {report.standby_plants_contractor && (
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Standby Plants</p>
-                  <p className="text-base font-semibold">{report.standby_plants_contractor}</p>
-                </div>
-              )}
-              {report.cctv_contractor && (
-                <div className="space-y-2">
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">CCTV & Access Control</p>
-                  <p className="text-base font-semibold">{report.cctv_contractor}</p>
+              ) : (
+                <div className="flex items-center gap-2 group">
+                  <p className="text-base font-semibold">{report.electrical_contractor || "Not set"}</p>
+                  <Button 
+                    size="icon" 
+                    variant="ghost" 
+                    className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => setEditingField('electrical_contractor')}
+                  >
+                    <Edit2 className="h-3 w-3" />
+                  </Button>
                 </div>
               )}
             </div>
-          </CardContent>
-        </Card>
-      )}
+
+            {/* Earthing Contractor */}
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Earthing & Lightning</p>
+              {editingField === 'earthing_contractor' ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={editValues.earthing_contractor || ''}
+                    onChange={(e) => setEditValues({ ...editValues, earthing_contractor: e.target.value })}
+                    className="h-8"
+                  />
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleSave('earthing_contractor')}>
+                    <Check className="h-4 w-4" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={handleCancel}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 group">
+                  <p className="text-base font-semibold">{report.earthing_contractor || "Not set"}</p>
+                  <Button 
+                    size="icon" 
+                    variant="ghost" 
+                    className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => setEditingField('earthing_contractor')}
+                  >
+                    <Edit2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* Standby Plants Contractor */}
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Standby Plants</p>
+              {editingField === 'standby_plants_contractor' ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={editValues.standby_plants_contractor || ''}
+                    onChange={(e) => setEditValues({ ...editValues, standby_plants_contractor: e.target.value })}
+                    className="h-8"
+                  />
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleSave('standby_plants_contractor')}>
+                    <Check className="h-4 w-4" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={handleCancel}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 group">
+                  <p className="text-base font-semibold">{report.standby_plants_contractor || "Not set"}</p>
+                  <Button 
+                    size="icon" 
+                    variant="ghost" 
+                    className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => setEditingField('standby_plants_contractor')}
+                  >
+                    <Edit2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* CCTV Contractor */}
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">CCTV & Access Control</p>
+              {editingField === 'cctv_contractor' ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={editValues.cctv_contractor || ''}
+                    onChange={(e) => setEditValues({ ...editValues, cctv_contractor: e.target.value })}
+                    className="h-8"
+                  />
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleSave('cctv_contractor')}>
+                    <Check className="h-4 w-4" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={handleCancel}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 group">
+                  <p className="text-base font-semibold">{report.cctv_contractor || "Not set"}</p>
+                  <Button 
+                    size="icon" 
+                    variant="ghost" 
+                    className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => setEditingField('cctv_contractor')}
+                  >
+                    <Edit2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {report.notes && (
         <Card className="shadow-sm">
