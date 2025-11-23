@@ -507,7 +507,7 @@ async function generateDefaultCoverPage(
 
 /**
  * Main function to generate a cover page.
- * Handles Word templates, PDF templates, image templates, and default generation.
+ * Always uses the default code-generated cover page (no template support).
  */
 export async function generateCoverPage(
   doc: jsPDF,
@@ -516,9 +516,6 @@ export async function generateCoverPage(
   contactId?: string,
   skipTemplate: boolean = false
 ): Promise<void> {
-  const pageWidth = doc.internal.pageSize.width;
-  const pageHeight = doc.internal.pageSize.height;
-  
   // Fetch contact information if contactId is provided
   let contactDetails = null;
   if (contactId) {
@@ -534,175 +531,7 @@ export async function generateCoverPage(
     }
   }
   
-  // Skip template lookup if skipTemplate flag is true
-  if (skipTemplate) {
-    console.log("⚡ Skipping template lookup, using default code-generated cover page");
-    await generateDefaultCoverPage(doc, options, companyDetails, contactDetails);
-    return;
-  }
-  
-  console.log("Fetching default cover page template...");
-  
-  // First, try the dedicated cover_page_templates table
-  let { data: defaultTemplate } = await supabase
-    .from("cover_page_templates" as any)
-    .select("*")
-    .eq("is_default", true)
-    .maybeSingle();
-  
-  // If no template in cover_page_templates, check document_templates
-  if (!defaultTemplate) {
-    console.log("No template in cover_page_templates, checking document_templates...");
-    
-    let { data: docTemplate } = await supabase
-      .from("document_templates" as any)
-      .select("*")
-      .eq('is_default_cover', true)
-      .maybeSingle();
-    
-    if (!docTemplate) {
-      const { data: fallbackTemplate } = await supabase
-        .from("document_templates" as any)
-        .select("*")
-        .or('template_type.eq.cover_page,template_type.eq.custom')
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      docTemplate = fallbackTemplate;
-    }
-    
-    if (docTemplate && typeof docTemplate === 'object' && !Array.isArray(docTemplate) && 'name' in docTemplate) {
-      defaultTemplate = {
-        file_path: (docTemplate as any).file_url,
-        file_name: (docTemplate as any).file_name,
-        name: (docTemplate as any).name,
-        is_url: true,
-      } as any;
-    }
-  }
-
-  // If a template exists, process it
-  if (defaultTemplate) {
-    try {
-      const template = defaultTemplate as any;
-      console.log("🎨 Loading cover template:", {
-        name: template.name,
-        file_name: template.file_name,
-        file_path: template.file_path,
-        is_url: template.is_url
-      });
-      
-      let templateUrl: string;
-      
-      if (template.is_url || template.file_path?.startsWith('http')) {
-        templateUrl = template.file_path;
-        console.log("📍 Using direct URL:", templateUrl);
-      } else {
-        const { data } = supabase.storage
-          .from("cover-page-templates")
-          .getPublicUrl(template.file_path);
-        templateUrl = data.publicUrl;
-        console.log("📍 Generated public URL:", templateUrl);
-      }
-      
-      if (templateUrl) {
-        const fileName = template.file_name?.toLowerCase() || '';
-        const isWordDoc = fileName.endsWith('.docx') || fileName.endsWith('.doc');
-        const isPdf = fileName.endsWith('.pdf');
-        const isImage = fileName.endsWith('.jpg') || fileName.endsWith('.jpeg') || 
-                       fileName.endsWith('.png') || fileName.endsWith('.webp');
-        
-        console.log("📄 File detection:", {
-          fileName,
-          isWordDoc,
-          isPdf,
-          isImage
-        });
-        
-        if (isWordDoc) {
-          // Word template: Fill placeholders and convert to PDF
-          console.log('✏️ Detected Word template, filling placeholders...');
-          const placeholderData = createPlaceholderData(options, companyDetails, contactDetails);
-          console.log('📝 Placeholder data:', placeholderData);
-          
-          // Prepare image placeholders
-          const imagePlaceholders: Record<string, string> = {};
-          if (companyDetails.clientLogoUrl) {
-            imagePlaceholders['client_image'] = companyDetails.clientLogoUrl;
-            console.log('📷 Adding client logo:', companyDetails.clientLogoUrl);
-          }
-          
-          const convertedPdfUrl = await convertWordTemplateToPDF(templateUrl, placeholderData, imagePlaceholders);
-          console.log('✅ Word template converted to PDF:', convertedPdfUrl);
-          
-          // Load the converted PDF and render it as a canvas
-          const response = await fetch(convertedPdfUrl);
-          if (!response.ok) {
-            throw new Error(`Failed to fetch converted PDF: ${response.statusText}`);
-          }
-          const blob = await response.blob();
-          console.log('📦 Converted PDF blob size:', blob.size, 'bytes');
-          
-          // Use PDF.js to render the PDF to a canvas
-          const arrayBuffer = await blob.arrayBuffer();
-          const { getDocument } = await import('pdfjs-dist');
-          const pdfDoc = await getDocument({ data: arrayBuffer }).promise;
-          const page = await pdfDoc.getPage(1);
-          
-          // Scale to A4 size at high quality
-          const viewport = page.getViewport({ scale: 3 });
-          const canvas = document.createElement('canvas');
-          const context = canvas.getContext('2d');
-          if (!context) throw new Error('Could not get canvas context');
-          
-          canvas.width = viewport.width;
-          canvas.height = viewport.height;
-          
-          await page.render({
-            canvasContext: context,
-            viewport: viewport,
-            canvas: canvas
-          }).promise;
-          
-          // Convert canvas to image and add to PDF
-          const imageData = canvas.toDataURL('image/jpeg', 0.95);
-          doc.addImage(imageData, "JPEG", 0, 0, pageWidth, pageHeight);
-          console.log('🎉 Word template converted and loaded successfully');
-          return;
-          
-        } else if (isPdf || isImage) {
-          // PDF or image template: Load directly
-          console.log(`Detected ${isPdf ? 'PDF' : 'image'} template, loading directly...`);
-          const response = await fetch(templateUrl);
-          if (!response.ok) {
-            throw new Error(`Failed to fetch template: ${response.statusText}`);
-          }
-          
-          const blob = await response.blob();
-          const dataUrl = await new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.readAsDataURL(blob);
-          });
-
-          const imageType = isPdf ? "PDF" : "JPEG";
-          doc.addImage(dataUrl, imageType, 0, 0, pageWidth, pageHeight);
-          
-          // Add overlay text on PDF/image templates
-          addOverlayText(doc, options, companyDetails, contactDetails);
-          console.log(`${isPdf ? 'PDF' : 'Image'} template loaded successfully`);
-          return;
-          
-        } else {
-          console.error(`Unsupported template format: ${fileName}`);
-          throw new Error(`Template must be Word, PDF, or image format. Found: ${fileName}`);
-        }
-      }
-    } catch (error) {
-      console.error('Error loading custom template, falling back to default:', error);
-    }
-  }
-
-  // Fallback to default modern cover page
+  // Always use default code-generated cover page
+  console.log("⚡ Using default code-generated cover page");
   await generateDefaultCoverPage(doc, options, companyDetails, contactDetails);
 }
