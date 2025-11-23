@@ -79,7 +79,7 @@ Deno.serve(async (req) => {
       
       console.log('Fixing split placeholders with aggressive XML stripping...');
       
-      // Step 1: Aggressively merge split {{ and }} by removing ANY XML between them
+      // Aggressively merge split delimiters by removing ANY XML between them
       let previousXml = '';
       let iterations = 0;
       const maxIterations = 20;
@@ -89,30 +89,30 @@ Deno.serve(async (req) => {
         iterations++;
         
         // Remove ANY tags between { and { to form {{
-        documentXml = documentXml.replace(
-          /\{(<[^>]+>)+\{/g,
-          '{{'
-        );
+        documentXml = documentXml.replace(/\{(<[^>]+>)+\{/g, '{{');
         
         // Remove ANY tags between } and } to form }}
-        documentXml = documentXml.replace(
-          /\}(<[^>]+>)+\}/g,
-          '}}'
-        );
+        documentXml = documentXml.replace(/\}(<[^>]+>)+\}/g, '}}');
+        
+        // Also collapse any consecutive delimiters created by the above
+        documentXml = documentXml.replace(/\{\{+/g, '{{');
+        documentXml = documentXml.replace(/\}\}+/g, '}}');
       }
       
       console.log(`Merged delimiters in ${iterations} iterations`);
       
-      // Step 2: Now fix placeholder names - remove XML tags from within {{...}}
-      // Match {{anything}} and clean the content between the delimiters
+      // Clean placeholder names - remove XML tags from within {{...}}
       documentXml = documentXml.replace(
         /\{\{([^}]*)\}\}/g,
         (match, content) => {
-          // Remove all XML tags from the content
           const cleanContent = content.replace(/<[^>]+>/g, '');
           return `{{${cleanContent}}}`;
         }
       );
+      
+      // Final safety: ensure no triple+ delimiters exist
+      documentXml = documentXml.replace(/\{\{+/g, '{{');
+      documentXml = documentXml.replace(/\}\}+/g, '}}');
       
       console.log('Cleaned placeholder content');
       
