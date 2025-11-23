@@ -36,6 +36,8 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 const mainModules = [
   {
@@ -50,13 +52,6 @@ const mainModules = [
   },
 ];
 
-const reportsModule = {
-  title: "Cost Reports",
-  icon: PieChart,
-  items: [
-    { title: "All Cost Reports", url: "/dashboard/cost-reports" },
-  ],
-};
 
 const bulkServicesModule = {
   title: "Bulk Services",
@@ -144,6 +139,31 @@ export function AppSidebar() {
   const { state } = useSidebar();
   const location = useLocation();
   const currentPath = location.pathname;
+  const projectId = localStorage.getItem("selectedProjectId");
+
+  // Fetch cost reports for the current project
+  const { data: costReports = [] } = useQuery({
+    queryKey: ["sidebar-cost-reports", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("cost_reports")
+        .select("*")
+        .eq("project_id", projectId)
+        .order("report_number", { ascending: false });
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!projectId,
+  });
+
+  const costReportsModule = {
+    title: "Cost Reports",
+    icon: PieChart,
+    items: costReports.map((report) => ({
+      title: `Report #${report.report_number}`,
+      url: `/dashboard/cost-reports/${report.id}`,
+    })),
+  };
 
   const isActive = (path: string) => {
     if (path === "/dashboard") {
@@ -199,19 +219,19 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               ))}
 
-              {/* Reports - Collapsible */}
-              <Collapsible defaultOpen={isGroupActive(reportsModule.items)}>
+              {/* Cost Reports - Collapsible */}
+              <Collapsible defaultOpen={isGroupActive(costReportsModule.items)}>
                 <SidebarMenuItem>
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton className="hover:bg-muted/50">
-                      <reportsModule.icon className="h-4 w-4" />
-                      {!collapsed && <span>{reportsModule.title}</span>}
+                      <costReportsModule.icon className="h-4 w-4" />
+                      {!collapsed && <span>{costReportsModule.title}</span>}
                       {!collapsed && <ChevronDown className="ml-auto h-4 w-4" />}
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <SidebarMenuSub>
-                      {reportsModule.items.map((item) => (
+                      {costReportsModule.items.map((item) => (
                         <SidebarMenuSubItem key={item.title}>
                           <SidebarMenuSubButton asChild>
                             <NavLink to={item.url} className={getNavCls(item.url)}>
