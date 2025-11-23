@@ -213,9 +213,11 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         .limit(1)
         .maybeSingle();
 
-      const companyDetails: any = company || {
-        companyName: "Company Name",
-        company_logo_url: null,
+      const companyDetails = {
+        companyName: company?.company_name || "Company Name",
+        contactName: company?.client_name || "",
+        contactPhone: company?.client_phone || "",
+        company_logo_url: company?.company_logo_url || null,
       };
 
       const contactId = selectedContactId || (contacts && contacts.length > 0 ? contacts[0].id : null);
