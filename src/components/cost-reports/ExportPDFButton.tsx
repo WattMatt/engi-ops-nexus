@@ -48,24 +48,34 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
   const [pendingExport, setPendingExport] = useState(false);
   const [selectedContactId, setSelectedContactId] = useState<string>('');
 
-  // Check for Word template availability
-  const { data: template } = useQuery({
-    queryKey: ["cost-report-template"],
+  // Check for Word template availability (both cover page and full report)
+  const { data: templates } = useQuery({
+    queryKey: ["cost-report-templates"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("document_templates")
         .select("*")
-        .eq("template_type", "cost_report")
+        .in("template_type", ["cost_report", "cover_page"])
         .eq("is_active", true)
         .order("is_default_cover", { ascending: false })
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
+        .order("created_at", { ascending: false });
       
       if (error) console.error("Template fetch error:", error);
-      return data;
+      
+      // Separate templates by type
+      const costReportTemplate = data?.find(t => t.template_type === "cost_report");
+      const coverPageTemplate = data?.find(t => t.template_type === "cover_page");
+      
+      return {
+        costReport: costReportTemplate,
+        coverPage: coverPageTemplate,
+        hasCostReport: !!costReportTemplate,
+        hasCoverPage: !!coverPageTemplate
+      };
     },
   });
+
+  const template = templates?.costReport; // For backward compatibility
 
   // Fetch project contacts and set primary contact as default
   const { data: contacts } = useQuery({
