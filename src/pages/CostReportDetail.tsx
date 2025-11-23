@@ -19,7 +19,7 @@ const CostReportDetail = () => {
   const { reportId } = useParams();
   const navigate = useNavigate();
   const [historyKey, setHistoryKey] = useState(0);
-  const [activeTab, setActiveTab] = useState("generate");
+  const [activeTab, setActiveTab] = useState("");
 
   const { data: report, isLoading, refetch } = useQuery({
     queryKey: ["cost-report", reportId],
@@ -93,8 +93,8 @@ const CostReportDetail = () => {
         </div>
       </div>
 
-      {/* Overview is the landing page - always visible for PDF capture */}
-      <div className={activeTab === "generate" || activeTab === "details" || activeTab === "categories" || activeTab === "variations" || activeTab === "history" ? "hidden" : ""}>
+      {/* Overview is the landing page - visible by default */}
+      <div className={activeTab ? "hidden" : ""}>
         <CostReportOverview report={report} />
       </div>
 
