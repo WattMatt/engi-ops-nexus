@@ -591,8 +591,8 @@ export async function generateCoverPage(
   const arrayBuffer = await blob.arrayBuffer();
   const { getDocument, GlobalWorkerOptions } = await import('pdfjs-dist');
   
-  // Set worker source to avoid worker init issues
-  GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;
+  // Set worker source to match installed version (5.4.296)
+  GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/5.4.296/pdf.worker.min.js`;
   
   const loadingTask = getDocument({ data: arrayBuffer });
   const pdfDoc = await loadingTask.promise;
