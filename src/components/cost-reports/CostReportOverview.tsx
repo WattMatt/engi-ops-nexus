@@ -393,7 +393,7 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
                           style={{ backgroundColor: entry.color }}
                         />
                         <div className="flex-1 min-w-0">
-                          <div className="font-medium truncate">{entry.name.split(' - ')[0]}</div>
+                          <div className="font-medium truncate">{entry.name}</div>
                           <div className="text-xs text-muted-foreground">
                             {percentage}% • R{entry.value.toLocaleString('en-ZA', { minimumFractionDigits: 0 })}
                           </div>
