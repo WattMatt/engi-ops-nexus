@@ -63,53 +63,50 @@ const CostReports = () => {
           </CardContent>
         </Card>
       ) : (
-        <>
-          {/* Project Overview - always visible as landing */}
-          <div className={activeTab !== "overview" ? "hidden" : ""}>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+          <TabsList>
+            <TabsTrigger value="overview">Project Overview</TabsTrigger>
+            <TabsTrigger value="reports">All Reports</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="overview">
             {latestReport && <CostReportOverview report={latestReport} />}
-          </div>
+          </TabsContent>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-            <TabsList>
-              <TabsTrigger value="overview">Project Overview</TabsTrigger>
-              <TabsTrigger value="reports">All Reports</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="reports">
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                {reports.map((report) => (
-                  <Card
-                    key={report.id}
-                    className="cursor-pointer hover:bg-accent transition-colors"
-                    onClick={() => navigate(`/dashboard/cost-reports/${report.id}`)}
-                  >
-                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                      <CardTitle className="text-sm font-medium">
-                        Cost Report #{report.report_number}
-                      </CardTitle>
-                      <FileText className="h-4 w-4 text-muted-foreground" />
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-2xl font-bold">{report.project_name}</div>
-                      <div className="space-y-1 mt-2">
-                        <p className="text-xs text-muted-foreground flex items-center">
-                          <Calendar className="mr-1 h-3 w-3" />
-                          {format(new Date(report.report_date), "dd MMM yyyy")}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Client: {report.client_name}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Project: {report.project_number}
-                        </p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </TabsContent>
-          </Tabs>
-        </>
+          <TabsContent value="reports">
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {reports.map((report) => (
+                <Card
+                  key={report.id}
+                  className="cursor-pointer hover:bg-accent transition-colors"
+                  onClick={() => navigate(`/dashboard/cost-reports/${report.id}`)}
+                >
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">
+                      Cost Report #{report.report_number}
+                    </CardTitle>
+                    <FileText className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{report.project_name}</div>
+                    <div className="space-y-1 mt-2">
+                      <p className="text-xs text-muted-foreground flex items-center">
+                        <Calendar className="mr-1 h-3 w-3" />
+                        {format(new Date(report.report_date), "dd MMM yyyy")}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Client: {report.client_name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Project: {report.project_number}
+                      </p>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </TabsContent>
+        </Tabs>
       )}
 
       <CreateCostReportDialog
