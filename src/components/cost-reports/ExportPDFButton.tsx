@@ -47,7 +47,25 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
   const [validationMismatches, setValidationMismatches] = useState<string[]>([]);
   const [pendingExport, setPendingExport] = useState(false);
   const [selectedContactId, setSelectedContactId] = useState<string>('');
-  const [useTemplate, setUseTemplate] = useState(false);
+
+  // Check for Word template availability
+  const { data: template } = useQuery({
+    queryKey: ["cost-report-template"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("document_templates")
+        .select("*")
+        .eq("template_type", "cost_report")
+        .eq("is_active", true)
+        .order("is_default_cover", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      
+      if (error) console.error("Template fetch error:", error);
+      return data;
+    },
+  });
 
   // Fetch project contacts and set primary contact as default
   const { data: contacts } = useQuery({
@@ -80,20 +98,10 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
     try {
       console.log('Starting template-based PDF export for report:', report.id);
       
-      // Get default cost report template
-      const { data: template, error: templateError } = await supabase
-        .from('document_templates')
-        .select('*')
-        .eq('template_type', 'cost_report')
-        .eq('is_active', true)
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      if (templateError || !template) {
+      if (!template) {
         toast({
-          title: "No Default Template",
-          description: "Please upload and set a default cost report template in Settings → PDF Templates",
+          title: "No Template Found",
+          description: "Please upload a cost report template in Settings → PDF Templates",
           variant: "destructive",
         });
         setLoading(false);
@@ -1272,7 +1280,11 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
     <>
       <div className="space-y-3">
         <div className="flex gap-2">
-          <Button onClick={() => useTemplate ? exportWithTemplate() : exportPDF()} disabled={loading}>
+          <Button 
+            onClick={() => template ? exportWithTemplate() : exportPDF()} 
+            disabled={loading}
+            title={template ? `Using template: ${template.name}` : "Using built-in PDF generation"}
+          >
             {loading ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -1281,7 +1293,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
             ) : (
               <>
                 <Download className="mr-2 h-4 w-4" />
-                Export PDF
+                {template ? "Export with Template" : "Export PDF"}
               </>
             )}
           </Button>
@@ -1312,8 +1324,9 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         onMarginsChange={setMargins}
         sections={sections}
         onSectionsChange={setSections}
-        onApply={() => useTemplate ? exportWithTemplate() : exportPDF()}
+        onApply={() => template ? exportWithTemplate() : exportPDF()}
         projectId={report.project_id}
+        hasTemplate={!!template}
         selectedContactId={selectedContactId}
         onContactChange={setSelectedContactId}
       />

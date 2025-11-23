@@ -47,6 +47,7 @@ interface PDFExportSettingsProps {
   projectId: string;
   selectedContactId?: string;
   onContactChange?: (contactId: string) => void;
+  hasTemplate?: boolean;
 }
 
 type MarginPreset = 'normal' | 'narrow' | 'wide' | 'custom';
@@ -96,6 +97,7 @@ export const PDFExportSettings = ({
   projectId,
   selectedContactId,
   onContactChange,
+  hasTemplate = false
 }: PDFExportSettingsProps) => {
   const [localMargins, setLocalMargins] = useState<PDFMargins>(margins);
   const [localSections, setLocalSections] = useState<PDFSectionOptions>(sections);
@@ -195,7 +197,10 @@ export const PDFExportSettings = ({
         <DialogHeader>
           <DialogTitle>PDF Export Settings</DialogTitle>
           <DialogDescription>
-            Choose which sections to include and configure page margins for the PDF export.
+            {hasTemplate 
+              ? "✓ Using Word template for export. Configure settings below."
+              : "Choose which sections to include and configure page margins for the PDF export."
+            }
           </DialogDescription>
         </DialogHeader>
         
