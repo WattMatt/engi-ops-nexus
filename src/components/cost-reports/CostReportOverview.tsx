@@ -1,13 +1,15 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { format } from "date-fns";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { DollarSign, TrendingDown, TrendingUp, Download } from "lucide-react";
+import { DollarSign, TrendingDown, TrendingUp, Download, Edit2, Check, X } from "lucide-react";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip, BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid } from "recharts";
 import { calculateCategoryTotals, calculateGrandTotals } from "@/utils/costReportCalculations";
 import html2canvas from "html2canvas";
 import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,6 +23,55 @@ interface CostReportOverviewProps {
 
 export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [editingField, setEditingField] = useState<string | null>(null);
+  const [editValues, setEditValues] = useState({
+    project_number: report.project_number,
+    client_name: report.client_name,
+    report_date: report.report_date,
+    site_handover_date: report.site_handover_date,
+    practical_completion_date: report.practical_completion_date,
+  });
+
+  const updateReportMutation = useMutation({
+    mutationFn: async (updates: any) => {
+      const { error } = await supabase
+        .from("cost_reports")
+        .update(updates)
+        .eq("id", report.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["cost-report", report.id] });
+      toast({
+        title: "Success",
+        description: "Report details updated successfully",
+      });
+      setEditingField(null);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to update report details",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSave = (field: string) => {
+    updateReportMutation.mutate({ [field]: editValues[field as keyof typeof editValues] });
+  };
+
+  const handleCancel = () => {
+    setEditValues({
+      project_number: report.project_number,
+      client_name: report.client_name,
+      report_date: report.report_date,
+      site_handover_date: report.site_handover_date,
+      practical_completion_date: report.practical_completion_date,
+    });
+    setEditingField(null);
+  };
   
   const { data: categories = [] } = useQuery({
     queryKey: ["cost-categories", report.id],
@@ -617,34 +668,172 @@ export const CostReportOverview = ({ report }: CostReportOverviewProps) => {
         </CardHeader>
         <CardContent className="pt-6">
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {/* Project Number */}
             <div className="space-y-2">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Project Number</p>
-              <p className="text-base font-semibold">{report.project_number}</p>
+              {editingField === 'project_number' ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={editValues.project_number}
+                    onChange={(e) => setEditValues({ ...editValues, project_number: e.target.value })}
+                    className="h-8"
+                  />
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleSave('project_number')}>
+                    <Check className="h-4 w-4" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={handleCancel}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 group">
+                  <p className="text-base font-semibold">{report.project_number}</p>
+                  <Button 
+                    size="icon" 
+                    variant="ghost" 
+                    className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => setEditingField('project_number')}
+                  >
+                    <Edit2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
             </div>
+
+            {/* Client */}
             <div className="space-y-2">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Client</p>
-              <p className="text-base font-semibold">{report.client_name}</p>
+              {editingField === 'client_name' ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={editValues.client_name}
+                    onChange={(e) => setEditValues({ ...editValues, client_name: e.target.value })}
+                    className="h-8"
+                  />
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleSave('client_name')}>
+                    <Check className="h-4 w-4" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={handleCancel}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 group">
+                  <p className="text-base font-semibold">{report.client_name}</p>
+                  <Button 
+                    size="icon" 
+                    variant="ghost" 
+                    className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => setEditingField('client_name')}
+                  >
+                    <Edit2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
             </div>
+
+            {/* Report Date */}
             <div className="space-y-2">
               <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Report Date</p>
-              <p className="text-base font-semibold">{format(new Date(report.report_date), "dd MMM yyyy")}</p>
+              {editingField === 'report_date' ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="date"
+                    value={editValues.report_date}
+                    onChange={(e) => setEditValues({ ...editValues, report_date: e.target.value })}
+                    className="h-8"
+                  />
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleSave('report_date')}>
+                    <Check className="h-4 w-4" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={handleCancel}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 group">
+                  <p className="text-base font-semibold">{format(new Date(report.report_date), "dd MMM yyyy")}</p>
+                  <Button 
+                    size="icon" 
+                    variant="ghost" 
+                    className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => setEditingField('report_date')}
+                  >
+                    <Edit2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
             </div>
-            {report.site_handover_date && (
-              <div className="space-y-2">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Site Handover</p>
-                <p className="text-base font-semibold">
-                  {format(new Date(report.site_handover_date), "dd MMM yyyy")}
-                </p>
-              </div>
-            )}
-            {report.practical_completion_date && (
-              <div className="space-y-2">
-                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Practical Completion</p>
-                <p className="text-base font-semibold">
-                  {format(new Date(report.practical_completion_date), "dd MMM yyyy")}
-                </p>
-              </div>
-            )}
+
+            {/* Site Handover */}
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Site Handover</p>
+              {editingField === 'site_handover_date' ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="date"
+                    value={editValues.site_handover_date || ''}
+                    onChange={(e) => setEditValues({ ...editValues, site_handover_date: e.target.value })}
+                    className="h-8"
+                  />
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleSave('site_handover_date')}>
+                    <Check className="h-4 w-4" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={handleCancel}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 group">
+                  <p className="text-base font-semibold">
+                    {report.site_handover_date ? format(new Date(report.site_handover_date), "dd MMM yyyy") : "Not set"}
+                  </p>
+                  <Button 
+                    size="icon" 
+                    variant="ghost" 
+                    className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => setEditingField('site_handover_date')}
+                  >
+                    <Edit2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
+            </div>
+
+            {/* Practical Completion */}
+            <div className="space-y-2">
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Practical Completion</p>
+              {editingField === 'practical_completion_date' ? (
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="date"
+                    value={editValues.practical_completion_date || ''}
+                    onChange={(e) => setEditValues({ ...editValues, practical_completion_date: e.target.value })}
+                    className="h-8"
+                  />
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={() => handleSave('practical_completion_date')}>
+                    <Check className="h-4 w-4" />
+                  </Button>
+                  <Button size="icon" variant="ghost" className="h-8 w-8" onClick={handleCancel}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 group">
+                  <p className="text-base font-semibold">
+                    {report.practical_completion_date ? format(new Date(report.practical_completion_date), "dd MMM yyyy") : "Not set"}
+                  </p>
+                  <Button 
+                    size="icon" 
+                    variant="ghost" 
+                    className="h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                    onClick={() => setEditingField('practical_completion_date')}
+                  >
+                    <Edit2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              )}
+            </div>
           </div>
         </CardContent>
       </Card>
