@@ -77,37 +77,44 @@ Deno.serve(async (req) => {
       
       console.log('Original XML length:', documentXml.length);
       
-      // Aggressively fix split placeholders by repeatedly collapsing formatting tags
-      // This handles deeply nested/repeated formatting that splits placeholder delimiters
+      console.log('Fixing split placeholders with aggressive XML stripping...');
+      
+      // Step 1: Aggressively merge split {{ and }} by removing ANY XML between them
       let previousXml = '';
       let iterations = 0;
-      const maxIterations = 10;
+      const maxIterations = 20;
       
       while (previousXml !== documentXml && iterations < maxIterations) {
         previousXml = documentXml;
         iterations++;
         
-        // Collapse any { followed by XML formatting followed by another {
+        // Remove ANY tags between { and { to form {{
         documentXml = documentXml.replace(
-          /\{(<\/w:t><\/w:r><w:r[^>]*><w:t[^>]*>)+\{/g,
+          /\{(<[^>]+>)+\{/g,
           '{{'
         );
         
-        // Collapse any } followed by XML formatting followed by another }
+        // Remove ANY tags between } and } to form }}
         documentXml = documentXml.replace(
-          /\}(<\/w:t><\/w:r><w:r[^>]*><w:t[^>]*>)+\}/g,
+          /\}(<[^>]+>)+\}/g,
           '}}'
-        );
-        
-        // Remove formatting within placeholder names
-        // Matches {any_text<formatting>more_text} and removes the formatting
-        documentXml = documentXml.replace(
-          /\{([a-zA-Z0-9_]*)(<\/w:t><\/w:r><w:r[^>]*><w:t[^>]*>)+([a-zA-Z0-9_]*)\}/g,
-          '{$1$3}'
         );
       }
       
-      console.log(`Fixed placeholders in ${iterations} iterations`);
+      console.log(`Merged delimiters in ${iterations} iterations`);
+      
+      // Step 2: Now fix placeholder names - remove XML tags from within {{...}}
+      // Match {{anything}} and clean the content between the delimiters
+      documentXml = documentXml.replace(
+        /\{\{([^}]*)\}\}/g,
+        (match, content) => {
+          // Remove all XML tags from the content
+          const cleanContent = content.replace(/<[^>]+>/g, '');
+          return `{{${cleanContent}}}`;
+        }
+      );
+      
+      console.log('Cleaned placeholder content');
       
       console.log('Fixed XML length:', documentXml.length);
       
