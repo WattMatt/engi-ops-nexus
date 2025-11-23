@@ -96,10 +96,7 @@ Deno.serve(async (req) => {
       const doc = new Docxtemplater(zip, {
         paragraphLoop: true,
         linebreaks: true,
-        delimiters: {
-          start: '{',
-          end: '}'
-        }
+        nullGetter: () => '', // Return empty string for missing placeholders
       });
       
       // Set the text data for replacement
