@@ -361,18 +361,127 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       };
 
       setCurrentSection("Generating cover page...");
-      // ========== COVER PAGE (SIMPLE jsPDF) ==========
+      // ========== COVER PAGE ==========
       if (useSections.coverPage) {
-        await generateCoverPage(doc, {
-          project_name: report.project_name,
-          client_name: "Client Name",
-          report_title: "Cost Report",
-          report_date: format(new Date(), "dd MMMM yyyy"),
-          revision: `Report ${report.report_number}`,
-          subtitle: `Report #${report.report_number}`,
-          project_id: report.project_id,
-          contact_id: contactId || undefined
-        });
+        // Check if we have a cover page template
+        if (templates?.coverPage) {
+          console.log('Using Word template for cover page:', templates.coverPage.name);
+          
+          // Prepare minimal cover page data
+          const coverPageData = {
+            project_name: report.project_name,
+            client_name: report.client_name,
+            report_title: "COST REPORT",
+            report_date: format(new Date(report.report_date), "dd MMMM yyyy"),
+            date: format(new Date(), "dd MMMM yyyy"),
+            revision: `Report ${report.report_number}`,
+            subtitle: `Report #${report.report_number}`,
+            company_name: companyDetails.companyName,
+            prepared_for_name: "",
+            prepared_for_contact: "",
+            prepared_for_address1: "",
+            prepared_for_address2: "",
+            prepared_for_phone: "",
+            prepared_for_email: "",
+          };
+          
+          // Fetch contact if selected
+          if (contactId) {
+            const { data: contact } = await supabase
+              .from("project_contacts")
+              .select("*")
+              .eq("id", contactId)
+              .single();
+            
+            if (contact) {
+              coverPageData.prepared_for_name = contact.organization_name || "";
+              coverPageData.prepared_for_contact = contact.contact_person_name || "";
+              coverPageData.prepared_for_address1 = contact.address_line1 || "";
+              coverPageData.prepared_for_address2 = contact.address_line2 || "";
+              coverPageData.prepared_for_phone = contact.phone || "";
+              coverPageData.prepared_for_email = contact.email || "";
+            }
+          }
+          
+          // Prepare image placeholders
+          const imagePlaceholders: Record<string, string> = {};
+          if (companyDetails.company_logo_url) {
+            imagePlaceholders.company_logo = companyDetails.company_logo_url;
+            imagePlaceholders.company_image = companyDetails.company_logo_url;
+          }
+          
+          // Convert Word template to PDF
+          const { data: coverPdfData, error: coverError } = await supabase.functions.invoke('convert-word-to-pdf', {
+            body: { 
+              templateUrl: templates.coverPage.file_url,
+              placeholderData: coverPageData,
+              imagePlaceholders 
+            }
+          });
+          
+          if (coverError || !coverPdfData?.pdfUrl) {
+            console.error('Failed to generate cover from template, falling back to jsPDF');
+            await generateCoverPage(doc, {
+              project_name: report.project_name,
+              client_name: report.client_name,
+              report_title: "Cost Report",
+              report_date: format(new Date(), "dd MMMM yyyy"),
+              revision: `Report ${report.report_number}`,
+              subtitle: `Report #${report.report_number}`,
+              project_id: report.project_id,
+              contact_id: contactId || undefined
+            });
+          } else {
+            console.log('Cover page PDF generated from template:', coverPdfData.pdfUrl);
+            
+            // Download the cover PDF
+            const coverResponse = await fetch(coverPdfData.pdfUrl);
+            const coverArrayBuffer = await coverResponse.arrayBuffer();
+            
+            // Save current jsPDF content
+            const currentPdfBlob = doc.output('blob');
+            const currentPdfBuffer = await currentPdfBlob.arrayBuffer();
+            
+            // Load both PDFs using pdf-lib
+            const { PDFDocument } = await import('pdf-lib');
+            const coverPdfDoc = await PDFDocument.load(coverArrayBuffer);
+            const mainPdfDoc = await PDFDocument.load(currentPdfBuffer);
+            
+            // Create new merged document
+            const mergedPdf = await PDFDocument.create();
+            
+            // Copy cover pages first
+            const coverPages = await mergedPdf.copyPages(coverPdfDoc, coverPdfDoc.getPageIndices());
+            coverPages.forEach(page => mergedPdf.addPage(page));
+            
+            // Then copy main content pages (skip the first blank page from jsPDF)
+            const mainPages = await mergedPdf.copyPages(mainPdfDoc, mainPdfDoc.getPageIndices().slice(1));
+            mainPages.forEach(page => mergedPdf.addPage(page));
+            
+            // Save merged PDF
+            const mergedPdfBytes = await mergedPdf.save();
+            
+            // Replace jsPDF document with merged content
+            // We'll continue building the rest of the report with jsPDF
+            // and merge again at the end
+            console.log('Cover page will be merged at final export');
+            
+            // Store cover PDF bytes for final merge
+            (doc as any)._coverPdfBytes = mergedPdfBytes;
+          }
+        } else {
+          // No template, use jsPDF cover page
+          await generateCoverPage(doc, {
+            project_name: report.project_name,
+            client_name: report.client_name,
+            report_title: "Cost Report",
+            report_date: format(new Date(), "dd MMMM yyyy"),
+            revision: `Report ${report.report_number}`,
+            subtitle: `Report #${report.report_number}`,
+            project_id: report.project_id,
+            contact_id: contactId || undefined
+          });
+        }
       }
 
       setCurrentSection("Creating table of contents...");
@@ -1230,14 +1339,48 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       addPageNumbers(doc, 2, exportOptions.quality);
 
       setCurrentSection("Saving PDF...");
-      // Save PDF
-      const pdfBlob = doc.output("blob");
+      
+      // Check if we need to merge cover page from template
+      let finalPdfBlob: Blob;
+      
+      if ((doc as any)._coverPdfBytes) {
+        console.log('Merging template cover page with generated content...');
+        
+        // Get the main content PDF
+        const mainPdfBlob = doc.output("blob");
+        const mainPdfBuffer = await mainPdfBlob.arrayBuffer();
+        
+        // Load both PDFs
+        const { PDFDocument } = await import('pdf-lib');
+        const mainPdfDoc = await PDFDocument.load(mainPdfBuffer);
+        const coverPdfDoc = await PDFDocument.load((doc as any)._coverPdfBytes);
+        
+        // Create merged document
+        const mergedPdf = await PDFDocument.create();
+        
+        // Copy cover pages first
+        const coverPages = await mergedPdf.copyPages(coverPdfDoc, [0]); // Just the cover page
+        coverPages.forEach(page => mergedPdf.addPage(page));
+        
+        // Then copy main content (skip first page if it was blank)
+        const mainPageIndices = mainPdfDoc.getPageIndices();
+        const mainPages = await mergedPdf.copyPages(mainPdfDoc, useSections.coverPage ? mainPageIndices.slice(1) : mainPageIndices);
+        mainPages.forEach(page => mergedPdf.addPage(page));
+        
+        const mergedPdfBytes = await mergedPdf.save();
+        finalPdfBlob = new Blob([new Uint8Array(mergedPdfBytes)], { type: 'application/pdf' });
+        console.log('Cover page merged successfully');
+      } else {
+        // No cover template, use jsPDF output directly
+        finalPdfBlob = doc.output("blob");
+      }
+      
       const fileName = `Cost_Report_${report.report_number}_${Date.now()}.pdf`;
       const filePath = `${report.project_id}/${fileName}`;
 
       const { error: uploadError } = await supabase.storage
         .from("cost-report-pdfs")
-        .upload(filePath, pdfBlob);
+        .upload(filePath, finalPdfBlob);
 
       if (uploadError) throw uploadError;
 
@@ -1249,7 +1392,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           project_id: report.project_id,
           file_path: filePath,
           file_name: fileName,
-          file_size: pdfBlob.size,
+          file_size: finalPdfBlob.size,
           revision: `Report ${report.report_number}`,
           generated_by: (await supabase.auth.getUser()).data.user?.id
         })
