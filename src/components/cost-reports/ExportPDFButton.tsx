@@ -367,22 +367,41 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         if (templates?.coverPage) {
           console.log('Using Word template for cover page:', templates.coverPage.name);
           
-          // Prepare minimal cover page data
-          const coverPageData = {
-            project_name: report.project_name,
-            client_name: report.client_name,
+          // Prepare cover page data with exact placeholder names from template
+          const coverPageData: Record<string, string> = {
             report_title: "COST REPORT",
+            project_title: "COST REPORT",
+            project_name: report.project_name || "",
+            project_number: report.project_number || "",
+            client_name: report.client_name || "",
+            date: format(new Date(report.report_date), "dd MMMM yyyy"),
             report_date: format(new Date(report.report_date), "dd MMMM yyyy"),
-            date: format(new Date(), "dd MMMM yyyy"),
             revision: `Report ${report.report_number}`,
-            subtitle: `Report #${report.report_number}`,
-            company_name: companyDetails.companyName,
-            prepared_for_name: "",
+            report_number: `Report ${report.report_number}`,
+            
+            // Initialize Prepared For section (will be filled from contact)
+            prepared_for_company: report.client_name || "",
+            prepared_for_address: "",
+            prepared_for_tel: "",
             prepared_for_contact: "",
-            prepared_for_address1: "",
-            prepared_for_address2: "",
-            prepared_for_phone: "",
-            prepared_for_email: "",
+            
+            // Prepared By section (Company details)
+            prepared_by_company: companyDetails.companyName || "",
+            prepared_by_address: "",
+            prepared_by_tel: "",
+            prepared_by_contact: "",
+            
+            // Additional fields
+            electrical_contractor: report.electrical_contractor || "",
+            cctv_contractor: report.cctv_contractor || "",
+            earthing_contractor: report.earthing_contractor || "",
+            standby_plants_contractor: report.standby_plants_contractor || "",
+            practical_completion_date: report.practical_completion_date 
+              ? format(new Date(report.practical_completion_date), "dd MMMM yyyy")
+              : "",
+            site_handover_date: report.site_handover_date
+              ? format(new Date(report.site_handover_date), "dd MMMM yyyy")
+              : "",
           };
           
           // Fetch contact if selected
@@ -394,12 +413,13 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
               .single();
             
             if (contact) {
-              coverPageData.prepared_for_name = contact.organization_name || "";
+              coverPageData.prepared_for_company = contact.organization_name || report.client_name || "";
               coverPageData.prepared_for_contact = contact.contact_person_name || "";
-              coverPageData.prepared_for_address1 = contact.address_line1 || "";
-              coverPageData.prepared_for_address2 = contact.address_line2 || "";
-              coverPageData.prepared_for_phone = contact.phone || "";
-              coverPageData.prepared_for_email = contact.email || "";
+              coverPageData.prepared_for_address = [
+                contact.address_line1,
+                contact.address_line2
+              ].filter(Boolean).join('\n');
+              coverPageData.prepared_for_tel = contact.phone || "";
             }
           }
           
