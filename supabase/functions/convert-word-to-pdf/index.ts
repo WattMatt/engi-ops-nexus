@@ -77,24 +77,37 @@ Deno.serve(async (req) => {
       
       console.log('Original XML length:', documentXml.length);
       
-      // Remove all formatting tags between placeholder parts to fix split tags
-      // This regex finds patterns like: {</w:t></w:r><w:r><w:t>{  or  }</w:t></w:r><w:r><w:t>}
-      // and collapses them back into proper {{  or  }} tags
-      documentXml = documentXml.replace(
-        /\{(<\/w:t><\/w:r><w:r[^>]*><w:t[^>]*>)*\{/g,
-        '{{'
-      );
-      documentXml = documentXml.replace(
-        /\}(<\/w:t><\/w:r><w:r[^>]*><w:t[^>]*>)*\}/g,
-        '}}'
-      );
+      // Aggressively fix split placeholders by repeatedly collapsing formatting tags
+      // This handles deeply nested/repeated formatting that splits placeholder delimiters
+      let previousXml = '';
+      let iterations = 0;
+      const maxIterations = 10;
       
-      // Also handle cases where placeholder parts are split with formatting
-      // Example: {<w:r>...</w:r>client<w:r>...</w:r>_<w:r>...</w:r>image}
-      documentXml = documentXml.replace(
-        /\{(<\/w:t><\/w:r><w:r[^>]*><w:t[^>]*>)+([a-zA-Z_]+)(<\/w:t><\/w:r><w:r[^>]*><w:t[^>]*>)+\}/g,
-        '{$2}'
-      );
+      while (previousXml !== documentXml && iterations < maxIterations) {
+        previousXml = documentXml;
+        iterations++;
+        
+        // Collapse any { followed by XML formatting followed by another {
+        documentXml = documentXml.replace(
+          /\{(<\/w:t><\/w:r><w:r[^>]*><w:t[^>]*>)+\{/g,
+          '{{'
+        );
+        
+        // Collapse any } followed by XML formatting followed by another }
+        documentXml = documentXml.replace(
+          /\}(<\/w:t><\/w:r><w:r[^>]*><w:t[^>]*>)+\}/g,
+          '}}'
+        );
+        
+        // Remove formatting within placeholder names
+        // Matches {any_text<formatting>more_text} and removes the formatting
+        documentXml = documentXml.replace(
+          /\{([a-zA-Z0-9_]*)(<\/w:t><\/w:r><w:r[^>]*><w:t[^>]*>)+([a-zA-Z0-9_]*)\}/g,
+          '{$1$3}'
+        );
+      }
+      
+      console.log(`Fixed placeholders in ${iterations} iterations`);
       
       console.log('Fixed XML length:', documentXml.length);
       
