@@ -587,29 +587,40 @@ export async function generateCoverPage(
   const blob = await response.blob();
   console.log('📦 Converted PDF blob size:', blob.size, 'bytes');
   
-  // Use PDF.js to render the PDF to a canvas
+  // Use PDF.js to render the PDF to a canvas with proper cleanup
   const arrayBuffer = await blob.arrayBuffer();
-  const { getDocument } = await import('pdfjs-dist');
-  const pdfDoc = await getDocument({ data: arrayBuffer }).promise;
-  const page = await pdfDoc.getPage(1);
+  const { getDocument, GlobalWorkerOptions } = await import('pdfjs-dist');
   
-  // Scale to A4 size at high quality
-  const viewport = page.getViewport({ scale: 3 });
-  const canvas = document.createElement('canvas');
-  const context = canvas.getContext('2d');
-  if (!context) throw new Error('Could not get canvas context');
+  // Set worker source to avoid worker init issues
+  GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;
   
-  canvas.width = viewport.width;
-  canvas.height = viewport.height;
+  const loadingTask = getDocument({ data: arrayBuffer });
+  const pdfDoc = await loadingTask.promise;
   
-  await page.render({
-    canvasContext: context,
-    viewport: viewport,
-    canvas: canvas
-  }).promise;
-  
-  // Convert canvas to image and add to PDF
-  const imageData = canvas.toDataURL('image/jpeg', 0.95);
-  doc.addImage(imageData, "JPEG", 0, 0, pageWidth, pageHeight);
-  console.log('🎉 Word template cover page loaded successfully');
+  try {
+    const page = await pdfDoc.getPage(1);
+    
+    // Scale to A4 size at high quality
+    const viewport = page.getViewport({ scale: 3 });
+    const canvas = document.createElement('canvas');
+    const context = canvas.getContext('2d');
+    if (!context) throw new Error('Could not get canvas context');
+    
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    
+    await page.render({
+      canvasContext: context,
+      viewport: viewport,
+      canvas: canvas
+    }).promise;
+    
+    // Convert canvas to image and add to PDF
+    const imageData = canvas.toDataURL('image/jpeg', 0.95);
+    doc.addImage(imageData, "JPEG", 0, 0, pageWidth, pageHeight);
+    console.log('🎉 Word template cover page loaded successfully');
+  } finally {
+    // Clean up to prevent memory leaks
+    pdfDoc.destroy();
+  }
 }
