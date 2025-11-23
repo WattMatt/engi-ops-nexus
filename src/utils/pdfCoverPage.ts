@@ -507,7 +507,7 @@ async function generateDefaultCoverPage(
 
 /**
  * Main function to generate a cover page.
- * Always uses the default code-generated cover page (no template support).
+ * ALWAYS uses Word template from database.
  */
 export async function generateCoverPage(
   doc: jsPDF,
@@ -516,6 +516,9 @@ export async function generateCoverPage(
   contactId?: string,
   skipTemplate: boolean = false
 ): Promise<void> {
+  const pageWidth = doc.internal.pageSize.width;
+  const pageHeight = doc.internal.pageSize.height;
+  
   // Fetch contact information if contactId is provided
   let contactDetails = null;
   if (contactId) {
@@ -531,7 +534,82 @@ export async function generateCoverPage(
     }
   }
   
-  // Always use default code-generated cover page
-  console.log("⚡ Using default code-generated cover page");
-  await generateDefaultCoverPage(doc, options, companyDetails, contactDetails);
+  console.log("Fetching Word template for cover page...");
+  
+  // Get Word template from document_templates
+  let { data: docTemplate } = await supabase
+    .from("document_templates" as any)
+    .select("*")
+    .eq('is_default_cover', true)
+    .maybeSingle();
+  
+  if (!docTemplate) {
+    const { data: fallbackTemplate } = await supabase
+      .from("document_templates" as any)
+      .select("*")
+      .eq('template_type', 'cover_page')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    docTemplate = fallbackTemplate;
+  }
+  
+  if (!docTemplate) {
+    throw new Error('No cover page template found. Please upload a Word template in Settings → PDF Templates');
+  }
+  
+  const templateUrl = (docTemplate as any).file_url;
+  const fileName = (docTemplate as any).file_name?.toLowerCase() || '';
+  
+  console.log("📄 Using template:", fileName, templateUrl);
+  
+  // Prepare placeholder data
+  const placeholderData = createPlaceholderData(options, companyDetails, contactDetails);
+  console.log('📝 Placeholder data:', placeholderData);
+  
+  // Prepare image placeholders
+  const imagePlaceholders: Record<string, string> = {};
+  if (contactDetails?.logo_url || companyDetails.clientLogoUrl) {
+    imagePlaceholders['client_logo'] = contactDetails?.logo_url || companyDetails.clientLogoUrl;
+    imagePlaceholders['client_image'] = contactDetails?.logo_url || companyDetails.clientLogoUrl;
+    console.log('📷 Adding client logo:', imagePlaceholders['client_logo']);
+  }
+  
+  // Convert Word template to PDF
+  const convertedPdfUrl = await convertWordTemplateToPDF(templateUrl, placeholderData, imagePlaceholders);
+  console.log('✅ Word template converted to PDF:', convertedPdfUrl);
+  
+  // Load the converted PDF and render it
+  const response = await fetch(convertedPdfUrl);
+  if (!response.ok) {
+    throw new Error(`Failed to fetch converted PDF: ${response.statusText}`);
+  }
+  const blob = await response.blob();
+  console.log('📦 Converted PDF blob size:', blob.size, 'bytes');
+  
+  // Use PDF.js to render the PDF to a canvas
+  const arrayBuffer = await blob.arrayBuffer();
+  const { getDocument } = await import('pdfjs-dist');
+  const pdfDoc = await getDocument({ data: arrayBuffer }).promise;
+  const page = await pdfDoc.getPage(1);
+  
+  // Scale to A4 size at high quality
+  const viewport = page.getViewport({ scale: 3 });
+  const canvas = document.createElement('canvas');
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('Could not get canvas context');
+  
+  canvas.width = viewport.width;
+  canvas.height = viewport.height;
+  
+  await page.render({
+    canvasContext: context,
+    viewport: viewport,
+    canvas: canvas
+  }).promise;
+  
+  // Convert canvas to image and add to PDF
+  const imageData = canvas.toDataURL('image/jpeg', 0.95);
+  doc.addImage(imageData, "JPEG", 0, 0, pageWidth, pageHeight);
+  console.log('🎉 Word template cover page loaded successfully');
 }
