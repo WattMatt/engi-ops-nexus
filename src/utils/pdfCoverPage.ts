@@ -589,12 +589,12 @@ export async function generateCoverPage(
   
   // Use PDF.js to render the PDF to a canvas with proper cleanup
   const arrayBuffer = await blob.arrayBuffer();
-  const { getDocument, GlobalWorkerOptions } = await import('pdfjs-dist');
+  const pdfjs = await import('pdfjs-dist');
   
-  // Set worker source to match installed version (5.4.296)
-  GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/5.4.296/pdf.worker.min.js`;
+  // Set worker source to match installed version dynamically
+  pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
   
-  const loadingTask = getDocument({ data: arrayBuffer });
+  const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
   const pdfDoc = await loadingTask.promise;
   
   try {
