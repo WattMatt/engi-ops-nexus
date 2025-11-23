@@ -7,11 +7,14 @@ import { Plus, FileText, Calendar } from "lucide-react";
 import { CreateCostReportDialog } from "@/components/cost-reports/CreateCostReportDialog";
 import { useNavigate } from "react-router-dom";
 import { format } from "date-fns";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CostReportOverview } from "@/components/cost-reports/CostReportOverview";
 
 const CostReports = () => {
   const navigate = useNavigate();
   const projectId = localStorage.getItem("selectedProjectId");
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState("overview");
 
   const { data: reports = [], refetch } = useQuery({
     queryKey: ["cost-reports", projectId],
@@ -26,6 +29,9 @@ const CostReports = () => {
     },
     enabled: !!projectId,
   });
+
+  // Get the latest report for the overview
+  const latestReport = reports[0];
 
   return (
     <div className="flex-1 space-y-4 px-6 pt-6 pb-6">
@@ -42,39 +48,7 @@ const CostReports = () => {
         </Button>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {reports.map((report) => (
-          <Card
-            key={report.id}
-            className="cursor-pointer hover:bg-accent transition-colors"
-            onClick={() => navigate(`/dashboard/cost-reports/${report.id}`)}
-          >
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Cost Report #{report.report_number}
-              </CardTitle>
-              <FileText className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{report.project_name}</div>
-              <div className="space-y-1 mt-2">
-                <p className="text-xs text-muted-foreground flex items-center">
-                  <Calendar className="mr-1 h-3 w-3" />
-                  {format(new Date(report.report_date), "dd MMM yyyy")}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Client: {report.client_name}
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  Project: {report.project_number}
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {reports.length === 0 && (
+      {reports.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12">
             <FileText className="h-12 w-12 text-muted-foreground mb-4" />
@@ -88,6 +62,54 @@ const CostReports = () => {
             </Button>
           </CardContent>
         </Card>
+      ) : (
+        <>
+          {/* Project Overview - always visible as landing */}
+          <div className={activeTab !== "overview" ? "hidden" : ""}>
+            {latestReport && <CostReportOverview report={latestReport} />}
+          </div>
+
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
+            <TabsList>
+              <TabsTrigger value="overview">Project Overview</TabsTrigger>
+              <TabsTrigger value="reports">All Reports</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="reports">
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {reports.map((report) => (
+                  <Card
+                    key={report.id}
+                    className="cursor-pointer hover:bg-accent transition-colors"
+                    onClick={() => navigate(`/dashboard/cost-reports/${report.id}`)}
+                  >
+                    <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                      <CardTitle className="text-sm font-medium">
+                        Cost Report #{report.report_number}
+                      </CardTitle>
+                      <FileText className="h-4 w-4 text-muted-foreground" />
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-2xl font-bold">{report.project_name}</div>
+                      <div className="space-y-1 mt-2">
+                        <p className="text-xs text-muted-foreground flex items-center">
+                          <Calendar className="mr-1 h-3 w-3" />
+                          {format(new Date(report.report_date), "dd MMM yyyy")}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Client: {report.client_name}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          Project: {report.project_number}
+                        </p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            </TabsContent>
+          </Tabs>
+        </>
       )}
 
       <CreateCostReportDialog
