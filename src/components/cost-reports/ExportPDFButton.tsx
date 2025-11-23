@@ -6,7 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchCompanyDetails, generateCoverPage } from "@/utils/pdfCoverPage";
+import { generateCoverPage } from "@/utils/pdfCoverPageSimple";
 import { StandardReportPreview } from "@/components/shared/StandardReportPreview";
 import { PDFExportSettings, DEFAULT_MARGINS, DEFAULT_SECTIONS, type PDFMargins, type PDFSectionOptions } from "./PDFExportSettings";
 import { calculateCategoryTotals, calculateGrandTotals, validateTotals } from "@/utils/costReportCalculations";
@@ -343,15 +343,18 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       };
 
       setCurrentSection("Generating cover page...");
-      // ========== COVER PAGE (STANDARD jsPDF) ==========
+      // ========== COVER PAGE (SIMPLE jsPDF) ==========
       if (useSections.coverPage) {
         await generateCoverPage(doc, {
-          title: "Cost Report",
-          projectName: report.project_name,
-          subtitle: `Report #${report.report_number}`,
+          project_name: report.project_name,
+          client_name: "Client Name",
+          report_title: "Cost Report",
+          report_date: format(new Date(), "dd MMMM yyyy"),
           revision: `Report ${report.report_number}`,
-          date: format(new Date(), "dd MMMM yyyy"),
-        }, companyDetails, contactId || undefined);
+          subtitle: `Report #${report.report_number}`,
+          project_id: report.project_id,
+          contact_id: contactId || undefined
+        });
       }
 
       setCurrentSection("Creating table of contents...");
