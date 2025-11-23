@@ -19,7 +19,7 @@ const CostReportDetail = () => {
   const { reportId } = useParams();
   const navigate = useNavigate();
   const [historyKey, setHistoryKey] = useState(0);
-  const [activeTab, setActiveTab] = useState("overview");
+  const [activeTab, setActiveTab] = useState("generate");
 
   const { data: report, isLoading, refetch } = useQuery({
     queryKey: ["cost-report", reportId],
@@ -90,26 +90,39 @@ const CostReportDetail = () => {
             currentReportId={report.id}
             projectId={report.project_id}
           />
-          <ExportPDFButton 
-            report={report} 
-            onReportGenerated={() => setHistoryKey(prev => prev + 1)}
-          />
         </div>
+      </div>
+
+      {/* Overview is the landing page - always visible for PDF capture */}
+      <div className={activeTab === "generate" || activeTab === "details" || activeTab === "categories" || activeTab === "variations" || activeTab === "history" ? "hidden" : ""}>
+        <CostReportOverview report={report} />
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="generate">Generate Reports</TabsTrigger>
           <TabsTrigger value="details">Report Details</TabsTrigger>
           <TabsTrigger value="categories">Categories & Line Items</TabsTrigger>
           <TabsTrigger value="variations">Variations</TabsTrigger>
           <TabsTrigger value="history">Report History</TabsTrigger>
         </TabsList>
 
-        {/* Always render Overview in DOM for PDF capture, show/hide based on tab */}
-        <div className={activeTab !== "overview" ? "hidden" : ""}>
-          <CostReportOverview report={report} />
-        </div>
+        <TabsContent value="generate">
+          <Card>
+            <CardContent className="pt-6 space-y-4">
+              <div>
+                <h3 className="text-lg font-semibold mb-2">Generate PDF Report</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Export your cost report as a professional PDF document
+                </p>
+              </div>
+              <ExportPDFButton 
+                report={report} 
+                onReportGenerated={() => setHistoryKey(prev => prev + 1)}
+              />
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="details">
           <ReportDetailsManager report={report} />
