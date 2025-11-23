@@ -588,39 +588,60 @@ export async function generateCoverPage(
   console.log('📦 Converted PDF blob size:', blob.size, 'bytes');
   
   // Use PDF.js to render the PDF to a canvas with proper cleanup
-  const arrayBuffer = await blob.arrayBuffer();
-  const pdfjs = await import('pdfjs-dist');
-  
-  // Set worker source to match installed version dynamically
-  pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
-  
-  const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
-  const pdfDoc = await loadingTask.promise;
-  
   try {
-    const page = await pdfDoc.getPage(1);
+    const arrayBuffer = await blob.arrayBuffer();
+    console.log('📋 ArrayBuffer created, size:', arrayBuffer.byteLength);
     
-    // Scale to A4 size at high quality
-    const viewport = page.getViewport({ scale: 3 });
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d');
-    if (!context) throw new Error('Could not get canvas context');
+    const pdfjs = await import('pdfjs-dist');
+    console.log('📚 PDF.js version:', pdfjs.version);
     
-    canvas.width = viewport.width;
-    canvas.height = viewport.height;
+    // Set worker source to match installed version dynamically
+    pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
+    console.log('🔧 Worker source set:', pdfjs.GlobalWorkerOptions.workerSrc);
     
-    await page.render({
-      canvasContext: context,
-      viewport: viewport,
-      canvas: canvas
-    }).promise;
+    const loadingTask = pdfjs.getDocument({ data: arrayBuffer });
+    console.log('⏳ Loading PDF document...');
     
-    // Convert canvas to image and add to PDF
-    const imageData = canvas.toDataURL('image/jpeg', 0.95);
-    doc.addImage(imageData, "JPEG", 0, 0, pageWidth, pageHeight);
-    console.log('🎉 Word template cover page loaded successfully');
-  } finally {
-    // Clean up to prevent memory leaks
-    pdfDoc.destroy();
+    const pdfDoc = await loadingTask.promise;
+    console.log('✅ PDF document loaded, pages:', pdfDoc.numPages);
+    
+    try {
+      const page = await pdfDoc.getPage(1);
+      console.log('📄 Got page 1');
+      
+      // Scale to A4 size at high quality
+      const viewport = page.getViewport({ scale: 3 });
+      console.log('🖼️ Viewport created:', viewport.width, 'x', viewport.height);
+      
+      const canvas = document.createElement('canvas');
+      const context = canvas.getContext('2d');
+      if (!context) throw new Error('Could not get canvas context');
+      
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      console.log('🎨 Canvas created:', canvas.width, 'x', canvas.height);
+      
+      console.log('🖌️ Starting render...');
+      await page.render({
+        canvasContext: context,
+        viewport: viewport,
+        canvas: canvas
+      }).promise;
+      console.log('✅ Render complete');
+      
+      // Convert canvas to image and add to PDF
+      const imageData = canvas.toDataURL('image/jpeg', 0.95);
+      console.log('📸 Canvas converted to image, length:', imageData.length);
+      
+      doc.addImage(imageData, "JPEG", 0, 0, pageWidth, pageHeight);
+      console.log('🎉 Word template cover page loaded successfully');
+    } finally {
+      // Clean up to prevent memory leaks
+      pdfDoc.destroy();
+      console.log('🧹 PDF document destroyed');
+    }
+  } catch (error) {
+    console.error('❌ Error rendering PDF cover page:', error);
+    throw new Error(`Failed to render PDF cover page: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
