@@ -241,13 +241,11 @@ const TenantTracker = () => {
             </TabsContent>
             
             <TabsContent value="floor-plan" className="h-full m-0 data-[state=active]:block">
-              <div className="h-full overflow-hidden px-6 py-6">
-                <div className="h-full">
-                  <FloorPlanMasking 
-                    key={`floor-plan-${activeTab === 'floor-plan' ? Date.now() : 'cached'}`}
-                    projectId={projectId || ""} 
-                  />
-                </div>
+              <div className="h-full">
+                <FloorPlanMasking 
+                  key={`floor-plan-${activeTab === 'floor-plan' ? Date.now() : 'cached'}`}
+                  projectId={projectId || ""}
+                />
               </div>
             </TabsContent>
             
