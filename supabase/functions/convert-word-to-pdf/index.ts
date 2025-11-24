@@ -277,6 +277,7 @@ Deno.serve(async (req) => {
                 relsXml = relsXml.replace('</Relationships>', `${relationshipXml}</Relationships>`);
                 
                 // Update both the embed reference AND the dimensions to maintain aspect ratio
+                // Also ensure aspect ratio lock is enabled
                 let newDrawingXml = drawingXml
                   .replace(
                     /<a:blip r:embed="[^"]+"/,
@@ -287,9 +288,24 @@ Deno.serve(async (req) => {
                     `<wp:extent cx="${imageWidth}" cy="${imageHeight}"/>`
                   )
                   .replace(
-                    /<a:ext cx="\d+" cy="\d+"\/>/,
+                    /<a:ext cx="\d+" cy="\d+"\/>/g,
                     `<a:ext cx="${imageWidth}" cy="${imageHeight}"/>`
                   );
+                
+                // Ensure aspect ratio lock is set in the picture properties
+                if (!newDrawingXml.includes('noChangeAspect="1"')) {
+                  newDrawingXml = newDrawingXml.replace(
+                    /<pic:cNvPicPr>/,
+                    `<pic:cNvPicPr><a:picLocks noChangeAspect="1"/></pic:cNvPicPr><pic:cNvPicPr>`
+                  );
+                  // If that didn't work, try adding to existing cNvPicPr
+                  if (!newDrawingXml.includes('noChangeAspect="1"')) {
+                    newDrawingXml = newDrawingXml.replace(
+                      /<pic:cNvPicPr\/>/,
+                      `<pic:cNvPicPr><a:picLocks noChangeAspect="1"/></pic:cNvPicPr>`
+                    );
+                  }
+                }
                 
                 // Replace in document
                 documentXml = documentXml.replace(drawingXml, newDrawingXml);
