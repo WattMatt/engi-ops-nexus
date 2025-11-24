@@ -13,33 +13,27 @@ interface SavedDesign {
   design_purpose: string | null;
 }
 
-interface GroupedDesigns {
-  [projectId: string]: {
-    projectName: string;
-    projectNumber: string;
-    designs: SavedDesign[];
-  };
-}
-
 interface SavedDesignsGalleryProps {
   onLoadDesign: (designId: string) => void;
   onNewDesign: () => void;
+  currentProjectId?: string | null;
 }
 
 export const SavedDesignsGallery: React.FC<SavedDesignsGalleryProps> = ({ 
   onLoadDesign,
-  onNewDesign 
+  onNewDesign,
+  currentProjectId
 }) => {
   const [designs, setDesigns] = useState<SavedDesign[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchDesigns();
-  }, []);
+  }, [currentProjectId]);
 
   const fetchDesigns = async () => {
     try {
-      const { data, error } = await supabase
+      let query = supabase
         .from('floor_plan_projects')
         .select(`
           id,
@@ -51,8 +45,14 @@ export const SavedDesignsGallery: React.FC<SavedDesignsGalleryProps> = ({
             name,
             project_number
           )
-        `)
-        .order('created_at', { ascending: false });
+        `);
+
+      // Filter by current project if provided
+      if (currentProjectId) {
+        query = query.eq('project_id', currentProjectId);
+      }
+
+      const { data, error } = await query.order('created_at', { ascending: false });
 
       if (error) throw error;
 
@@ -74,19 +74,6 @@ export const SavedDesignsGallery: React.FC<SavedDesignsGalleryProps> = ({
     }
   };
 
-  const groupedDesigns: GroupedDesigns = designs.reduce((acc, design) => {
-    const key = design.project_id || 'unassigned';
-    if (!acc[key]) {
-      acc[key] = {
-        projectName: design.project_name || 'Unassigned Designs',
-        projectNumber: design.project_number || '',
-        designs: [],
-      };
-    }
-    acc[key].designs.push(design);
-    return acc;
-  }, {} as GroupedDesigns);
-
   if (loading) {
     return (
       <div className="flex-1 flex justify-center items-center bg-muted/30">
@@ -103,8 +90,14 @@ export const SavedDesignsGallery: React.FC<SavedDesignsGalleryProps> = ({
       <div className="flex-1 flex justify-center items-center bg-muted/30">
         <div className="text-center p-8 border-2 border-dashed border-border rounded-lg max-w-md">
           <Building className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-          <h2 className="text-2xl font-semibold text-foreground">Load a PDF Floor Plan</h2>
-          <p className="mt-2 text-muted-foreground">Use the toolbar on the left to begin your project.</p>
+          <h2 className="text-2xl font-semibold text-foreground">
+            {currentProjectId ? 'No Designs for This Project' : 'Load a PDF Floor Plan'}
+          </h2>
+          <p className="mt-2 text-muted-foreground">
+            {currentProjectId 
+              ? 'Start a new floor plan markup for this project.' 
+              : 'Use the toolbar on the left to begin your project.'}
+          </p>
           <button 
             onClick={onNewDesign}
             className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
@@ -121,7 +114,9 @@ export const SavedDesignsGallery: React.FC<SavedDesignsGalleryProps> = ({
       <div className="max-w-7xl mx-auto">
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Your Floor Plan Designs</h1>
+            <h1 className="text-3xl font-bold text-foreground">
+              {currentProjectId ? 'Project Floor Plan Designs' : 'Your Floor Plan Designs'}
+            </h1>
             <p className="text-muted-foreground mt-1">Select a design to continue working or start a new one</p>
           </div>
           <button 
@@ -132,60 +127,33 @@ export const SavedDesignsGallery: React.FC<SavedDesignsGalleryProps> = ({
           </button>
         </div>
 
-        <div className="space-y-8">
-          {Object.entries(groupedDesigns).map(([projectId, group]) => (
-            <div key={projectId} className="bg-card rounded-lg border border-border p-6 shadow-sm">
-              {/* Project Header */}
-              <div className="flex items-start gap-3 mb-4 pb-4 border-b border-border">
-                <div className="p-2 bg-primary/10 rounded-lg">
-                  <BuildingIcon className="h-5 w-5 text-primary" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {designs.map((design) => (
+            <button
+              key={design.id}
+              onClick={() => onLoadDesign(design.id)}
+              className="group relative flex flex-col p-4 rounded-lg bg-card hover:bg-accent transition-all duration-200 text-left border border-border hover:border-primary hover:shadow-md"
+            >
+              <div className="flex items-start gap-3 mb-3">
+                <div className="p-2 bg-primary/10 rounded group-hover:bg-primary/20 transition-colors">
+                  <FolderOpen className="h-5 w-5 text-primary" />
                 </div>
-                <div className="flex-1">
-                  <h2 className="text-xl font-semibold text-foreground">
-                    {group.projectName}
-                  </h2>
-                  {group.projectNumber && (
-                    <p className="text-sm text-muted-foreground">
-                      Project #{group.projectNumber}
-                    </p>
+                <div className="flex-1 min-w-0">
+                  <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors truncate">
+                    {design.name}
+                  </h3>
+                  {design.design_purpose && (
+                    <span className="inline-block mt-1 text-xs px-2 py-0.5 bg-primary/20 text-primary rounded-full">
+                      {design.design_purpose}
+                    </span>
                   )}
                 </div>
-                <div className="text-sm text-muted-foreground bg-muted px-3 py-1 rounded-full">
-                  {group.designs.length} {group.designs.length === 1 ? 'design' : 'designs'}
-                </div>
               </div>
-
-              {/* Designs Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {group.designs.map((design) => (
-                  <button
-                    key={design.id}
-                    onClick={() => onLoadDesign(design.id)}
-                    className="group relative flex flex-col p-4 rounded-lg bg-muted hover:bg-accent transition-all duration-200 text-left border border-border hover:border-primary hover:shadow-md"
-                  >
-                    <div className="flex items-start gap-3 mb-3">
-                      <div className="p-2 bg-primary/10 rounded group-hover:bg-primary/20 transition-colors">
-                        <FolderOpen className="h-5 w-5 text-primary" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors truncate">
-                          {design.name}
-                        </h3>
-                        {design.design_purpose && (
-                          <span className="inline-block mt-1 text-xs px-2 py-0.5 bg-primary/20 text-primary rounded-full">
-                            {design.design_purpose}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground mt-auto">
-                      <Calendar className="h-3 w-3" />
-                      {new Date(design.created_at).toLocaleDateString()}
-                    </div>
-                  </button>
-                ))}
+              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-auto">
+                <Calendar className="h-3 w-3" />
+                {new Date(design.created_at).toLocaleDateString()}
               </div>
-            </div>
+            </button>
           ))}
         </div>
       </div>

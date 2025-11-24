@@ -746,6 +746,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
               <SavedDesignsGallery 
                 onLoadDesign={handleLoadFromCloud}
                 onNewDesign={handleOpenLoadModal}
+                currentProjectId={currentProjectId}
               />
             ) : (
               <div className="flex-1 flex justify-center items-center bg-muted/30">
