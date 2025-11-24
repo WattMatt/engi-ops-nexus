@@ -299,9 +299,6 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
                       <TableHead className="px-4 py-3 min-w-[130px]">Install Method</TableHead>
                       <TableHead className="px-4 py-3 min-w-[100px]">Cable Size</TableHead>
                       <TableHead className="px-4 py-3 min-w-[100px]">Length (m)</TableHead>
-                      <TableHead className="px-4 py-3 min-w-[120px] text-right">Supply Cost</TableHead>
-                      <TableHead className="px-4 py-3 min-w-[120px] text-right">Install Cost</TableHead>
-                      <TableHead className="px-4 py-3 min-w-[120px] text-right">Total Cost</TableHead>
                       <TableHead className="px-4 py-3 min-w-[180px]">Notes</TableHead>
                       <TableHead className="px-4 py-3 min-w-[100px] text-right">Actions</TableHead>
                     </TableRow>
@@ -335,9 +332,6 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
                               <TableCell className="px-4 py-4">
                                 {(entry.total_length || (entry.measured_length || 0) + (entry.extra_length || 0)).toFixed(2)}
                               </TableCell>
-                              <TableCell className="px-4 py-4 text-right tabular-nums">{formatCurrency(entry.supply_cost)}</TableCell>
-                              <TableCell className="px-4 py-4 text-right tabular-nums">{formatCurrency(entry.install_cost)}</TableCell>
-                              <TableCell className="px-4 py-4 text-right tabular-nums font-medium">{formatCurrency(entry.total_cost)}</TableCell>
                               <TableCell className="px-4 py-4 text-sm text-muted-foreground">{entry.notes || "-"}</TableCell>
                               <TableCell className="px-4 py-4 text-right">
                                 <div className="flex justify-end gap-1">
