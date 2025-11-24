@@ -209,40 +209,52 @@ const TenantTracker = () => {
               )}
             </TabsContent>
             
-            <TabsContent value="documents" className="h-full overflow-auto px-6 py-6">
-              <TenantDocumentsTab 
-                projectId={projectId || ""} 
-                tenants={tenants}
-                activeView={documentsView}
-              />
-            </TabsContent>
-            
-            <TabsContent value="report-status" className="h-full overflow-auto px-6 py-6">
-              {projectId && <OutdatedReportsIndicator projectId={projectId} />}
-            </TabsContent>
-            
-            <TabsContent value="change-history" className="h-full overflow-auto px-6 py-6">
-              {projectId && <TenantChangeAuditLog projectId={projectId} />}
-            </TabsContent>
-            
-            <TabsContent value="reports" className="h-full overflow-auto px-6 py-6">
-              <SavedReportsList 
-                projectId={projectId || ""} 
-                projectName={projectName || undefined}
-              />
-            </TabsContent>
-            
-            <TabsContent value="floor-plan" className="h-full px-6 py-6">
-              <div className="h-full">
-                <FloorPlanMasking 
-                  key={`floor-plan-${activeTab === 'floor-plan' ? Date.now() : 'cached'}`}
+            <TabsContent value="documents" className="h-full m-0 data-[state=active]:flex data-[state=active]:flex-col">
+              <div className="flex-1 overflow-auto px-6 py-6">
+                <TenantDocumentsTab 
                   projectId={projectId || ""} 
+                  tenants={tenants}
+                  activeView={documentsView}
                 />
               </div>
             </TabsContent>
             
-            <TabsContent value="settings" className="h-full overflow-auto px-6 py-6">
-              <DBSizingRulesSettings projectId={projectId || ""} />
+            <TabsContent value="report-status" className="h-full m-0 data-[state=active]:flex data-[state=active]:flex-col">
+              <div className="flex-1 overflow-auto px-6 py-6">
+                {projectId && <OutdatedReportsIndicator projectId={projectId} />}
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="change-history" className="h-full m-0 data-[state=active]:flex data-[state=active]:flex-col">
+              <div className="flex-1 overflow-auto px-6 py-6">
+                {projectId && <TenantChangeAuditLog projectId={projectId} />}
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="reports" className="h-full m-0 data-[state=active]:flex data-[state=active]:flex-col">
+              <div className="flex-1 overflow-auto px-6 py-6">
+                <SavedReportsList 
+                  projectId={projectId || ""} 
+                  projectName={projectName || undefined}
+                />
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="floor-plan" className="h-full m-0 data-[state=active]:flex data-[state=active]:flex-col">
+              <div className="flex-1 overflow-hidden px-6 py-6">
+                <div className="h-full">
+                  <FloorPlanMasking 
+                    key={`floor-plan-${activeTab === 'floor-plan' ? Date.now() : 'cached'}`}
+                    projectId={projectId || ""} 
+                  />
+                </div>
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="settings" className="h-full m-0 data-[state=active]:flex data-[state=active]:flex-col">
+              <div className="flex-1 overflow-auto px-6 py-6">
+                <DBSizingRulesSettings projectId={projectId || ""} />
+              </div>
             </TabsContent>
           </div>
         </Tabs>
