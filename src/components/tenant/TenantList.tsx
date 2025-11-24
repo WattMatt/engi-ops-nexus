@@ -114,8 +114,8 @@ export const TenantList = ({
       );
     },
     onSuccess: () => {
-      // Notify parent to refresh data
-      onUpdate();
+      // Real-time subscription will handle the refresh automatically
+      // No need to call onUpdate() here as it causes duplicate refreshes
     },
     onError: (error: any, variables) => {
       // Rollback on error by reverting optimistic update
