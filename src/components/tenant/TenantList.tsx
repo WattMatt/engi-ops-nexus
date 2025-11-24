@@ -547,9 +547,10 @@ export const TenantList = ({
         </div>
       </div>
       {/* Table Section - Scrollable with Fixed Header */}
-      <div className="flex-1 min-h-0 border rounded-lg bg-background overflow-auto">
-        <Table>
-          <TableHeader className="sticky top-0 bg-background z-20 border-b shadow-sm">
+      <div className="flex-1 min-h-0 border rounded-lg overflow-hidden">
+        <div className="h-full overflow-auto">
+          <Table>
+            <TableHeader className="sticky top-0 bg-background z-20 border-b shadow-sm backdrop-blur-sm">
               <TableRow>
                 <TableHead className="h-12">Shop #</TableHead>
                 <TableHead className="h-12">Shop Name</TableHead>
@@ -803,7 +804,8 @@ export const TenantList = ({
               </React.Fragment>
             ))}
           </TableBody>
-        </Table>
+          </Table>
+        </div>
       </div>
 
       {tenantToDelete && (
