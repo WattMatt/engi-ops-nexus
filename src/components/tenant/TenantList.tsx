@@ -546,12 +546,13 @@ export const TenantList = ({
         </Button>
         </div>
       </div>
-      <div className="flex-1 min-h-0 overflow-hidden">
-        <div className="h-full overflow-x-auto border rounded-lg">
-          <Table>
-            <TableHeader className="sticky top-0 bg-muted/50 z-10">
-              <TableRow>
-                <TableHead className="sticky left-0 bg-muted/50 z-20 min-w-[120px]">Shop #</TableHead>
+      <div className="flex-1 min-h-0 border rounded-lg overflow-hidden bg-background">
+        <div className="h-full overflow-auto">
+          <div className="min-w-full inline-block align-middle">
+            <Table>
+              <TableHeader className="sticky top-0 bg-muted/80 backdrop-blur-sm z-10 border-b">
+                <TableRow className="hover:bg-transparent">
+                <TableHead className="sticky left-0 bg-muted/80 backdrop-blur-sm z-20 border-r min-w-[140px]">Shop #</TableHead>
                 <TableHead className="min-w-[200px]">Shop Name</TableHead>
                 <TableHead className="min-w-[120px]">Category</TableHead>
                 <TableHead className="min-w-[120px]">Opening</TableHead>
@@ -643,15 +644,15 @@ export const TenantList = ({
                     </TooltipProvider>
                   </div>
                 </TableHead>
-                <TableHead className="text-right sticky right-0 bg-muted/50 z-20 min-w-[100px]">Actions</TableHead>
+                <TableHead className="text-right sticky right-0 bg-muted/80 backdrop-blur-sm z-20 border-l min-w-[120px]">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {groupedTenants().map((group) => (
                 <React.Fragment key={group.key}>
                   {group.label && (
-                    <TableRow>
-                      <TableCell colSpan={23} className="bg-muted/30 font-semibold py-2 sticky left-0">
+                    <TableRow className="hover:bg-transparent">
+                      <TableCell colSpan={23} className="bg-muted/50 font-semibold py-2 sticky left-0 border-b">
                         {group.label} ({group.tenants.length})
                       </TableCell>
                     </TableRow>
@@ -675,7 +676,7 @@ export const TenantList = ({
                       
                       return (
                         <TableRow key={tenant.id} className={getRowClassName(tenant)}>
-                          <TableCell className="font-medium sticky left-0 bg-inherit z-10">
+                          <TableCell className="font-medium sticky left-0 bg-inherit z-10 border-r">
                             <div className="flex items-center gap-2">
                               <Input
                                 value={tenant.shop_number}
@@ -860,7 +861,7 @@ export const TenantList = ({
                               <span className="text-muted-foreground text-xs">-</span>
                             )}
                           </TableCell>
-                          <TableCell className="text-right sticky right-0 bg-inherit z-10">
+                          <TableCell className="text-right sticky right-0 bg-inherit z-10 border-l">
                             <div className="flex justify-end gap-1">
                               <TenantDialog projectId={projectId} tenant={tenant} onSuccess={onUpdate} />
                               <Button variant="ghost" size="sm" onClick={() => handleDeleteClick(tenant)}>
@@ -876,6 +877,7 @@ export const TenantList = ({
               ))}
             </TableBody>
           </Table>
+          </div>
         </div>
       </div>
 
