@@ -291,6 +291,7 @@ Deno.serve(async (req) => {
     }
 
     // Convert to PDF
+    console.log('Starting CloudConvert job with template:', finalTemplateUrl);
     const tasks: any = {
       'import-file': {
         operation: 'import/url',
@@ -321,11 +322,13 @@ Deno.serve(async (req) => {
 
     if (!createJobResponse.ok) {
       const errorText = await createJobResponse.text();
+      console.error('CloudConvert job creation failed:', errorText);
       throw new Error(`Job creation failed: ${errorText}`);
     }
 
     const jobData = await createJobResponse.json();
     const jobId = jobData.data.id;
+    console.log('CloudConvert job created:', jobId);
 
     // Poll for completion
     let jobComplete = false;
@@ -344,18 +347,27 @@ Deno.serve(async (req) => {
       if (statusResponse.ok) {
         const statusData = await statusResponse.json();
         const status = statusData.data.status;
+        
+        if (attempts % 10 === 0) {
+          console.log(`CloudConvert status check ${attempts}: ${status}`);
+        }
 
         if (status === 'finished') {
           jobComplete = true;
           exportTask = statusData.data.tasks.find((task: any) => task.name === 'export-file');
+          console.log('CloudConvert job finished successfully');
         } else if (status === 'error') {
           const failedTask = statusData.data.tasks.find((task: any) => task.status === 'error');
-          throw new Error(`Conversion failed: ${failedTask?.message || 'Unknown error'}`);
+          console.error('CloudConvert task failed:', failedTask);
+          throw new Error(`Conversion failed: ${failedTask?.message || JSON.stringify(failedTask) || 'Unknown error'}`);
         }
+      } else {
+        console.error('CloudConvert status check failed:', statusResponse.status);
       }
     }
 
     if (!jobComplete || !exportTask) {
+      console.error(`CloudConvert timeout after ${attempts} attempts`);
       throw new Error('Conversion timed out');
     }
 
@@ -417,11 +429,17 @@ Deno.serve(async (req) => {
     );
 
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Error in convert-word-to-pdf:', error);
+    console.error('Error details:', { 
+      message: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      type: typeof error
+    });
     return new Response(
       JSON.stringify({
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
+        details: error instanceof Error ? error.stack : String(error),
       }),
       {
         status: 500,
