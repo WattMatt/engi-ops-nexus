@@ -299,8 +299,6 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
                       <TableHead className="px-4 py-3 min-w-[130px]">Install Method</TableHead>
                       <TableHead className="px-4 py-3 min-w-[100px]">Cable Size</TableHead>
                       <TableHead className="px-4 py-3 min-w-[100px]">Length (m)</TableHead>
-                      <TableHead className="px-4 py-3 min-w-[180px]">Notes</TableHead>
-                      <TableHead className="px-4 py-3 min-w-[100px] text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody
@@ -337,27 +335,6 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
                           <TableCell className="px-4 py-4" style={{ width: '100px' }}>{entry.cable_size || "-"}</TableCell>
                           <TableCell className="px-4 py-4" style={{ width: '100px' }}>
                             {(entry.total_length || (entry.measured_length || 0) + (entry.extra_length || 0)).toFixed(2)}
-                          </TableCell>
-                          <TableCell className="px-4 py-4 text-sm text-muted-foreground" style={{ width: '180px' }}>{entry.notes || "-"}</TableCell>
-                          <TableCell className="px-4 py-4 text-right" style={{ width: '100px' }}>
-                            <div className="flex justify-end gap-1">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => handleEdit(entry)}
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                                onClick={() => handleDeleteClick(entry)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
                           </TableCell>
                         </TableRow>
                       );
