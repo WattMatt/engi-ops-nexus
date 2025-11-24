@@ -390,7 +390,7 @@ export const TenantList = ({
   };
 
   return (
-    <div className="h-full flex flex-col gap-4 overflow-hidden">
+    <div className="flex flex-col gap-4 h-full overflow-hidden">
       {/* Filters and Actions */}
       <div className="flex flex-col gap-3 flex-shrink-0 px-1">
         {/* Search and Filters */}
@@ -547,10 +547,9 @@ export const TenantList = ({
         </div>
       </div>
       {/* Table Section - Scrollable with Fixed Header */}
-      <div className="flex-1 border rounded-lg bg-background overflow-hidden flex flex-col">
-        <div className="flex-1 overflow-auto">
-          <Table>
-            <TableHeader className="sticky top-0 bg-background z-20 border-b shadow-sm after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-border">
+      <div className="flex-1 min-h-0 border rounded-lg bg-background overflow-auto">
+        <Table>
+          <TableHeader className="sticky top-0 bg-background z-20 border-b shadow-sm">
               <TableRow>
                 <TableHead className="h-12">Shop #</TableHead>
                 <TableHead className="h-12">Shop Name</TableHead>
@@ -805,7 +804,6 @@ export const TenantList = ({
             ))}
           </TableBody>
         </Table>
-        </div>
       </div>
 
       {tenantToDelete && (
