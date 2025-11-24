@@ -161,10 +161,10 @@ const TenantTracker = () => {
             )}
           </div>
 
-          {/* Tab Content with ScrollArea */}
-          <div className="flex-1 overflow-auto">
-            <div className="px-6 py-6">
-              <TabsContent value="overview" className="mt-0 space-y-6">
+          {/* Tab Content - No outer scroll, each tab manages its own */}
+          <div className="flex-1 overflow-hidden">
+            <TabsContent value="overview" className="h-full">
+              <div className="h-full overflow-auto px-6 py-6">
                 {isLoading ? (
                   <div className="flex items-center justify-center py-8">
                     <p className="text-muted-foreground">Loading data...</p>
@@ -172,78 +172,76 @@ const TenantTracker = () => {
                 ) : (
                   <TenantOverview tenants={tenants} projectId={projectId || ""} />
                 )}
-              </TabsContent>
-              
-              <TabsContent value="tenants" className="mt-0 space-y-4">
-                <div className="bg-background border rounded-lg p-4 shadow-sm">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-semibold">Legend:</span>
-                    <Badge variant="outline" className="bg-blue-500 text-white border-blue-600">
-                      Standard
-                    </Badge>
-                    <Badge variant="outline" className="bg-red-500 text-white border-red-600">
-                      Fast Food
-                    </Badge>
-                    <Badge variant="outline" className="bg-emerald-500 text-white border-emerald-600">
-                      Restaurant
-                    </Badge>
-                    <Badge variant="outline" className="bg-purple-600 text-white border-purple-700">
-                      National
-                    </Badge>
-                  </div>
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="tenants" className="h-full px-6 py-6 flex flex-col gap-4">
+              <div className="bg-background border rounded-lg p-4 shadow-sm flex-shrink-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm font-semibold">Legend:</span>
+                  <Badge variant="outline" className="bg-blue-500 text-white border-blue-600">
+                    Standard
+                  </Badge>
+                  <Badge variant="outline" className="bg-red-500 text-white border-red-600">
+                    Fast Food
+                  </Badge>
+                  <Badge variant="outline" className="bg-emerald-500 text-white border-emerald-600">
+                    Restaurant
+                  </Badge>
+                  <Badge variant="outline" className="bg-purple-600 text-white border-purple-700">
+                    National
+                  </Badge>
                 </div>
-                
-                <div className="border rounded-lg">
-                  {isLoading ? (
-                    <div className="flex items-center justify-center py-8">
-                      <p className="text-muted-foreground">Loading tenants...</p>
-                    </div>
-                  ) : (
-                    <TenantList
-                      tenants={tenants}
-                      projectId={projectId || ""}
-                      onUpdate={handleUpdate}
-                    />
-                  )}
-                </div>
-              </TabsContent>
+              </div>
               
-              <TabsContent value="documents" className="mt-0">
-                <TenantDocumentsTab 
-                  projectId={projectId || ""} 
+              {isLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <p className="text-muted-foreground">Loading tenants...</p>
+                </div>
+              ) : (
+                <TenantList
                   tenants={tenants}
-                  activeView={documentsView}
+                  projectId={projectId || ""}
+                  onUpdate={handleUpdate}
                 />
-              </TabsContent>
-              
-              <TabsContent value="report-status" className="mt-0">
-                {projectId && <OutdatedReportsIndicator projectId={projectId} />}
-              </TabsContent>
-              
-              <TabsContent value="change-history" className="mt-0">
-                {projectId && <TenantChangeAuditLog projectId={projectId} />}
-              </TabsContent>
-              
-              <TabsContent value="reports" className="mt-0">
-                <SavedReportsList 
+              )}
+            </TabsContent>
+            
+            <TabsContent value="documents" className="h-full overflow-auto px-6 py-6">
+              <TenantDocumentsTab 
+                projectId={projectId || ""} 
+                tenants={tenants}
+                activeView={documentsView}
+              />
+            </TabsContent>
+            
+            <TabsContent value="report-status" className="h-full overflow-auto px-6 py-6">
+              {projectId && <OutdatedReportsIndicator projectId={projectId} />}
+            </TabsContent>
+            
+            <TabsContent value="change-history" className="h-full overflow-auto px-6 py-6">
+              {projectId && <TenantChangeAuditLog projectId={projectId} />}
+            </TabsContent>
+            
+            <TabsContent value="reports" className="h-full overflow-auto px-6 py-6">
+              <SavedReportsList 
+                projectId={projectId || ""} 
+                projectName={projectName || undefined}
+              />
+            </TabsContent>
+            
+            <TabsContent value="floor-plan" className="h-full px-6 py-6">
+              <div className="h-full">
+                <FloorPlanMasking 
+                  key={`floor-plan-${activeTab === 'floor-plan' ? Date.now() : 'cached'}`}
                   projectId={projectId || ""} 
-                  projectName={projectName || undefined}
                 />
-              </TabsContent>
-              
-              <TabsContent value="floor-plan" className="mt-0">
-                <div className="h-[calc(100vh-300px)]">
-                  <FloorPlanMasking 
-                    key={`floor-plan-${activeTab === 'floor-plan' ? Date.now() : 'cached'}`}
-                    projectId={projectId || ""} 
-                  />
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="settings" className="mt-0">
-                <DBSizingRulesSettings projectId={projectId || ""} />
-              </TabsContent>
-            </div>
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="settings" className="h-full overflow-auto px-6 py-6">
+              <DBSizingRulesSettings projectId={projectId || ""} />
+            </TabsContent>
           </div>
         </Tabs>
       </div>
