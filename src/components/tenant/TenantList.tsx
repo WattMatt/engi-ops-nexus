@@ -390,9 +390,9 @@ export const TenantList = ({
   };
 
   return (
-    <div className="h-full flex flex-col gap-4">
+    <div className="h-full flex flex-col gap-4 overflow-hidden">
       {/* Filters and Actions */}
-      <div className="flex flex-col gap-3 flex-shrink-0">
+      <div className="flex flex-col gap-3 flex-shrink-0 px-1">
         {/* Search and Filters */}
         <div className="flex gap-2 items-center flex-wrap bg-muted/30 p-3 rounded-lg border">
           {/* Search */}
@@ -546,13 +546,12 @@ export const TenantList = ({
         </Button>
         </div>
       </div>
-      <div className="flex-1 min-h-0 border rounded-lg overflow-hidden bg-background">
-        <div className="h-full overflow-auto">
-          <div className="min-w-full inline-block align-middle">
-            <Table>
-              <TableHeader className="sticky top-0 bg-muted/80 backdrop-blur-sm z-10 border-b">
-                <TableRow className="hover:bg-transparent">
-                <TableHead className="sticky left-0 bg-muted/80 backdrop-blur-sm z-20 border-r min-w-[140px]">Shop #</TableHead>
+      {/* Table Section - Contains scrolling */}
+      <div className="flex-1 min-h-0 border rounded-lg overflow-auto bg-background">
+        <Table className="relative">
+          <TableHeader className="sticky top-0 z-10 bg-background border-b shadow-sm">
+            <TableRow className="hover:bg-transparent bg-muted/50">
+                <TableHead className="sticky left-0 bg-muted/90 backdrop-blur-sm z-20 border-r shadow-sm min-w-[140px]">Shop #</TableHead>
                 <TableHead className="min-w-[200px]">Shop Name</TableHead>
                 <TableHead className="min-w-[120px]">Category</TableHead>
                 <TableHead className="min-w-[120px]">Opening</TableHead>
@@ -644,70 +643,70 @@ export const TenantList = ({
                     </TooltipProvider>
                   </div>
                 </TableHead>
-                <TableHead className="text-right sticky right-0 bg-muted/80 backdrop-blur-sm z-20 border-l min-w-[120px]">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {groupedTenants().map((group) => (
-                <React.Fragment key={group.key}>
-                  {group.label && (
-                    <TableRow className="hover:bg-transparent">
-                      <TableCell colSpan={23} className="bg-muted/50 font-semibold py-2 sticky left-0 border-b">
-                        {group.label} ({group.tenants.length})
-                      </TableCell>
-                    </TableRow>
-                  )}
-                  {group.tenants.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={23} className="text-center py-8 text-muted-foreground">
-                        {searchQuery || categoryFilter || statusFilter !== "all" 
-                          ? "No tenants match the current filters" 
-                          : "No tenants found"}
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    group.tenants.map((tenant) => {
-                      const deadlineStatus = getDeadlineStatus(tenant);
-                      const beneficialDate = tenant.opening_date 
-                        ? addDays(new Date(tenant.opening_date), -(tenant.beneficial_occupation_days || 90))
-                        : null;
-                      const daysUntil = beneficialDate ? differenceInDays(beneficialDate, new Date()) : null;
-                      const editingUser = getEditingUser(tenant.id);
-                      
-                      return (
-                        <TableRow key={tenant.id} className={getRowClassName(tenant)}>
-                          <TableCell className="font-medium sticky left-0 bg-inherit z-10 border-r">
-                            <div className="flex items-center gap-2">
-                              <Input
-                                value={tenant.shop_number}
-                                onChange={(e) => handleFieldUpdate(tenant.id, 'shop_number', e.target.value)}
-                                onFocus={() => setEditing(tenant.id)}
-                                onBlur={() => setEditing(null)}
-                                className="h-8 w-24"
-                              />
-                              {editingUser && (
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <div className="flex items-center gap-1 text-primary animate-pulse">
-                                        <User className="h-3 w-3" />
-                                      </div>
-                                    </TooltipTrigger>
-                                    <TooltipContent>
-                                      <p className="text-xs">{editingUser.userName} is editing</p>
-                                    </TooltipContent>
-                                  </Tooltip>
-                                </TooltipProvider>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell>
+              <TableHead className="text-right sticky right-0 bg-muted/90 backdrop-blur-sm z-20 border-l shadow-sm min-w-[120px]">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {groupedTenants().map((group) => (
+              <React.Fragment key={group.key}>
+                {group.label && (
+                  <TableRow className="hover:bg-transparent bg-muted/30">
+                    <TableCell colSpan={23} className="font-semibold py-2 sticky left-0 bg-muted/30 border-b">
+                      {group.label} ({group.tenants.length})
+                    </TableCell>
+                  </TableRow>
+                )}
+                {group.tenants.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={23} className="text-center py-8 text-muted-foreground">
+                      {searchQuery || categoryFilter || statusFilter !== "all" 
+                        ? "No tenants match the current filters" 
+                        : "No tenants found"}
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  group.tenants.map((tenant) => {
+                    const deadlineStatus = getDeadlineStatus(tenant);
+                    const beneficialDate = tenant.opening_date
+                      ? addDays(new Date(tenant.opening_date), -(tenant.beneficial_occupation_days || 90))
+                      : null;
+                    const daysUntil = beneficialDate ? differenceInDays(beneficialDate, new Date()) : null;
+                    const editingUser = getEditingUser(tenant.id);
+                    
+                    return (
+                      <TableRow key={tenant.id} className={getRowClassName(tenant)}>
+                        <TableCell className="font-medium sticky left-0 bg-inherit z-10 border-r shadow-sm">
+                          <div className="flex items-center gap-2">
                             <Input
-                              value={tenant.shop_name}
-                              onChange={(e) => handleFieldUpdate(tenant.id, 'shop_name', e.target.value)}
-                              className="h-8"
+                              value={tenant.shop_number}
+                              onChange={(e) => handleFieldUpdate(tenant.id, 'shop_number', e.target.value)}
+                              onFocus={() => setEditing(tenant.id)}
+                              onBlur={() => setEditing(null)}
+                              className="h-8 w-24"
                             />
-                          </TableCell>
+                            {editingUser && (
+                              <TooltipProvider>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <div className="flex items-center gap-1 text-primary animate-pulse">
+                                      <User className="h-3 w-3" />
+                                    </div>
+                                  </TooltipTrigger>
+                                  <TooltipContent>
+                                    <p className="text-xs">{editingUser.userName} is editing</p>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Input
+                            value={tenant.shop_name}
+                            onChange={(e) => handleFieldUpdate(tenant.id, 'shop_name', e.target.value)}
+                            className="h-8"
+                          />
+                        </TableCell>
                           <TableCell>
                             <Select
                               value={tenant.shop_category}
@@ -861,24 +860,22 @@ export const TenantList = ({
                               <span className="text-muted-foreground text-xs">-</span>
                             )}
                           </TableCell>
-                          <TableCell className="text-right sticky right-0 bg-inherit z-10 border-l">
-                            <div className="flex justify-end gap-1">
-                              <TenantDialog projectId={projectId} tenant={tenant} onSuccess={onUpdate} />
-                              <Button variant="ghost" size="sm" onClick={() => handleDeleteClick(tenant)}>
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                  )}
-                </React.Fragment>
-              ))}
-            </TableBody>
-          </Table>
-          </div>
-        </div>
+                          <TableCell className="text-right sticky right-0 bg-inherit z-10 border-l shadow-sm">
+                          <div className="flex justify-end gap-1">
+                            <TenantDialog projectId={projectId} tenant={tenant} onSuccess={onUpdate} />
+                            <Button variant="ghost" size="sm" onClick={() => handleDeleteClick(tenant)}>
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
+                )}
+              </React.Fragment>
+            ))}
+          </TableBody>
+        </Table>
       </div>
 
       {tenantToDelete && (
