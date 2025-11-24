@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { AlertCircle } from "lucide-react";
+import { InputWithSuffix } from "@/components/ui/input-with-suffix";
 
 interface AddCableEntryDialogProps {
   open: boolean;
@@ -310,10 +311,11 @@ export const AddCableEntryDialog = ({
             </div>
 
             <div>
-              <Label htmlFor="load_amps">Load (Amps) *</Label>
-              <Input
+              <Label htmlFor="load_amps">Load *</Label>
+              <InputWithSuffix
                 id="load_amps"
                 type="number"
+                suffix="A"
                 value={formData.load_amps}
                 onChange={(e) => setFormData({ ...formData, load_amps: e.target.value })}
                 placeholder="e.g., 32"
@@ -375,10 +377,11 @@ export const AddCableEntryDialog = ({
 
           {/* Length */}
           <div>
-            <Label htmlFor="measured_length">Cable Length (m)</Label>
-            <Input
+            <Label htmlFor="measured_length">Cable Length</Label>
+            <InputWithSuffix
               id="measured_length"
               type="number"
+              suffix="m"
               value={formData.measured_length}
               onChange={(e) => setFormData({ ...formData, measured_length: e.target.value })}
               placeholder="e.g., 50"
