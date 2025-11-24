@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,6 +45,8 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
   const [selectedEntry, setSelectedEntry] = useState<any>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [recalculating, setRecalculating] = useState(false);
+  
+  const parentRef = useRef<HTMLDivElement>(null);
   
   // Fetch calculation settings
   const { data: calcSettings } = useCalculationSettings(projectId);
@@ -121,6 +124,13 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
   };
 
   const totalCost = entries?.reduce((sum, entry) => sum + (entry.total_cost || 0), 0) || 0;
+
+  const rowVirtualizer = useVirtualizer({
+    count: entries?.length || 0,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 53,
+    overscan: 10,
+  });
 
   const handleEdit = (entry: any) => {
     setSelectedEntry(entry);
@@ -270,9 +280,13 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
             </p>
           ) : (
             <div className="space-y-4">
-              <div className="rounded-md border overflow-x-auto">
+              <div 
+                ref={parentRef}
+                className="rounded-md border overflow-auto"
+                style={{ height: '600px' }}
+              >
                 <Table>
-                  <TableHeader>
+                  <TableHeader className="sticky top-0 bg-background z-10">
                     <TableRow>
                       <TableHead>Cable #</TableHead>
                       <TableHead>Cable Tag</TableHead>
@@ -293,45 +307,61 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {entries.map((entry) => (
-                      <TableRow key={entry.id}>
-                        <TableCell className="font-medium">{entry.cable_number || "1"}</TableCell>
-                        <TableCell className="font-medium">{entry.cable_tag}</TableCell>
-                        <TableCell>{entry.from_location}</TableCell>
-                        <TableCell>{entry.to_location}</TableCell>
-                        <TableCell className="font-medium">{entry.quantity || 1}</TableCell>
-                        <TableCell>{entry.voltage || "-"}</TableCell>
-                        <TableCell>{entry.load_amps || "-"}</TableCell>
-                        <TableCell>{entry.cable_type || "-"}</TableCell>
-                        <TableCell className="capitalize">{entry.installation_method || "air"}</TableCell>
-                        <TableCell>{entry.cable_size || "-"}</TableCell>
-                        <TableCell>
-                          {(entry.total_length || (entry.measured_length || 0) + (entry.extra_length || 0)).toFixed(2)}
-                        </TableCell>
-                        <TableCell>{formatCurrency(entry.supply_cost)}</TableCell>
-                        <TableCell>{formatCurrency(entry.install_cost)}</TableCell>
-                        <TableCell>{formatCurrency(entry.total_cost)}</TableCell>
-                        <TableCell>{entry.notes || "-"}</TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleEdit(entry)}
+                    <tr style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
+                      <td style={{ position: 'relative' }}>
+                        {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                          const entry = entries[virtualRow.index];
+                          return (
+                            <TableRow
+                              key={entry.id}
+                              style={{
+                                position: 'absolute',
+                                top: 0,
+                                left: 0,
+                                width: '100%',
+                                transform: `translateY(${virtualRow.start}px)`,
+                              }}
                             >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDeleteClick(entry)}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                              <TableCell className="font-medium">{entry.cable_number || "1"}</TableCell>
+                              <TableCell className="font-medium">{entry.cable_tag}</TableCell>
+                              <TableCell>{entry.from_location}</TableCell>
+                              <TableCell>{entry.to_location}</TableCell>
+                              <TableCell className="font-medium">{entry.quantity || 1}</TableCell>
+                              <TableCell>{entry.voltage || "-"}</TableCell>
+                              <TableCell>{entry.load_amps || "-"}</TableCell>
+                              <TableCell>{entry.cable_type || "-"}</TableCell>
+                              <TableCell className="capitalize">{entry.installation_method || "air"}</TableCell>
+                              <TableCell>{entry.cable_size || "-"}</TableCell>
+                              <TableCell>
+                                {(entry.total_length || (entry.measured_length || 0) + (entry.extra_length || 0)).toFixed(2)}
+                              </TableCell>
+                              <TableCell>{formatCurrency(entry.supply_cost)}</TableCell>
+                              <TableCell>{formatCurrency(entry.install_cost)}</TableCell>
+                              <TableCell>{formatCurrency(entry.total_cost)}</TableCell>
+                              <TableCell>{entry.notes || "-"}</TableCell>
+                              <TableCell className="text-right">
+                                <div className="flex justify-end gap-2">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleEdit(entry)}
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleDeleteClick(entry)}
+                                  >
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </td>
+                    </tr>
                   </TableBody>
                 </Table>
               </div>
