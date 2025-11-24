@@ -128,7 +128,7 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
   const rowVirtualizer = useVirtualizer({
     count: entries?.length || 0,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 53,
+    estimateSize: () => 60,
     overscan: 10,
   });
 
@@ -288,22 +288,22 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
                 <Table>
                   <TableHeader className="sticky top-0 bg-background z-10">
                     <TableRow>
-                      <TableHead>Cable #</TableHead>
-                      <TableHead>Cable Tag</TableHead>
-                      <TableHead>From</TableHead>
-                      <TableHead>To</TableHead>
-                      <TableHead>Qty</TableHead>
-                      <TableHead>Voltage</TableHead>
-                      <TableHead>Load (A)</TableHead>
-                      <TableHead>Cable Type</TableHead>
-                      <TableHead>Install Method</TableHead>
-                      <TableHead>Cable Size</TableHead>
-                      <TableHead>Length (m)</TableHead>
-                      <TableHead>Supply Cost</TableHead>
-                      <TableHead>Install Cost</TableHead>
-                      <TableHead>Total Cost</TableHead>
-                      <TableHead>Notes</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                      <TableHead className="px-4 py-3 min-w-[80px]">Cable #</TableHead>
+                      <TableHead className="px-4 py-3 min-w-[180px]">Cable Tag</TableHead>
+                      <TableHead className="px-4 py-3 min-w-[160px]">From</TableHead>
+                      <TableHead className="px-4 py-3 min-w-[160px]">To</TableHead>
+                      <TableHead className="px-4 py-3 min-w-[60px] text-center">Qty</TableHead>
+                      <TableHead className="px-4 py-3 min-w-[90px]">Voltage</TableHead>
+                      <TableHead className="px-4 py-3 min-w-[90px]">Load (A)</TableHead>
+                      <TableHead className="px-4 py-3 min-w-[110px]">Cable Type</TableHead>
+                      <TableHead className="px-4 py-3 min-w-[130px]">Install Method</TableHead>
+                      <TableHead className="px-4 py-3 min-w-[100px]">Cable Size</TableHead>
+                      <TableHead className="px-4 py-3 min-w-[100px]">Length (m)</TableHead>
+                      <TableHead className="px-4 py-3 min-w-[120px] text-right">Supply Cost</TableHead>
+                      <TableHead className="px-4 py-3 min-w-[120px] text-right">Install Cost</TableHead>
+                      <TableHead className="px-4 py-3 min-w-[120px] text-right">Total Cost</TableHead>
+                      <TableHead className="px-4 py-3 min-w-[180px]">Notes</TableHead>
+                      <TableHead className="px-4 py-3 min-w-[100px] text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -322,28 +322,29 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
                                 transform: `translateY(${virtualRow.start}px)`,
                               }}
                             >
-                              <TableCell className="font-medium">{entry.cable_number || "1"}</TableCell>
-                              <TableCell className="font-medium">{entry.cable_tag}</TableCell>
-                              <TableCell>{entry.from_location}</TableCell>
-                              <TableCell>{entry.to_location}</TableCell>
-                              <TableCell className="font-medium">{entry.quantity || 1}</TableCell>
-                              <TableCell>{entry.voltage || "-"}</TableCell>
-                              <TableCell>{entry.load_amps || "-"}</TableCell>
-                              <TableCell>{entry.cable_type || "-"}</TableCell>
-                              <TableCell className="capitalize">{entry.installation_method || "air"}</TableCell>
-                              <TableCell>{entry.cable_size || "-"}</TableCell>
-                              <TableCell>
+                              <TableCell className="px-4 py-4 font-medium">{entry.cable_number || "1"}</TableCell>
+                              <TableCell className="px-4 py-4 font-medium">{entry.cable_tag}</TableCell>
+                              <TableCell className="px-4 py-4">{entry.from_location}</TableCell>
+                              <TableCell className="px-4 py-4">{entry.to_location}</TableCell>
+                              <TableCell className="px-4 py-4 font-medium text-center">{entry.quantity || 1}</TableCell>
+                              <TableCell className="px-4 py-4">{entry.voltage || "-"}</TableCell>
+                              <TableCell className="px-4 py-4">{entry.load_amps || "-"}</TableCell>
+                              <TableCell className="px-4 py-4">{entry.cable_type || "-"}</TableCell>
+                              <TableCell className="px-4 py-4 capitalize">{entry.installation_method || "air"}</TableCell>
+                              <TableCell className="px-4 py-4">{entry.cable_size || "-"}</TableCell>
+                              <TableCell className="px-4 py-4">
                                 {(entry.total_length || (entry.measured_length || 0) + (entry.extra_length || 0)).toFixed(2)}
                               </TableCell>
-                              <TableCell>{formatCurrency(entry.supply_cost)}</TableCell>
-                              <TableCell>{formatCurrency(entry.install_cost)}</TableCell>
-                              <TableCell>{formatCurrency(entry.total_cost)}</TableCell>
-                              <TableCell>{entry.notes || "-"}</TableCell>
-                              <TableCell className="text-right">
-                                <div className="flex justify-end gap-2">
+                              <TableCell className="px-4 py-4 text-right tabular-nums">{formatCurrency(entry.supply_cost)}</TableCell>
+                              <TableCell className="px-4 py-4 text-right tabular-nums">{formatCurrency(entry.install_cost)}</TableCell>
+                              <TableCell className="px-4 py-4 text-right tabular-nums font-medium">{formatCurrency(entry.total_cost)}</TableCell>
+                              <TableCell className="px-4 py-4 text-sm text-muted-foreground">{entry.notes || "-"}</TableCell>
+                              <TableCell className="px-4 py-4 text-right">
+                                <div className="flex justify-end gap-1">
                                   <Button
                                     variant="ghost"
                                     size="icon"
+                                    className="h-8 w-8"
                                     onClick={() => handleEdit(entry)}
                                   >
                                     <Pencil className="h-4 w-4" />
@@ -351,6 +352,7 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
                                   <Button
                                     variant="ghost"
                                     size="icon"
+                                    className="h-8 w-8"
                                     onClick={() => handleDeleteClick(entry)}
                                   >
                                     <Trash2 className="h-4 w-4" />
