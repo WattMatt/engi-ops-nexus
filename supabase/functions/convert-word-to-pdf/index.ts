@@ -219,7 +219,11 @@ Deno.serve(async (req) => {
                         imageWidth = Math.round(frameHeight * aspectRatio);
                       }
                       
-                      console.log(`PNG dimensions: ${width}x${height}px, scaled to ${imageWidth}x${imageHeight} EMUs (frame: ${frameWidth}x${frameHeight})`);
+                console.log(`PNG dimensions: ${width}x${height}px, scaled to ${imageWidth}x${imageHeight} EMUs (frame: ${frameWidth}x${frameHeight})`);
+                      
+                      // IMPORTANT: Store original drawing to remove it later
+                      // We'll replace the entire drawing, not just modify it
+                      const shouldReplaceEntireDrawing = true;
                     }
                   } else if (imageData.ext === 'jpg' || imageData.ext === 'jpeg') {
                     // JPEG: Find SOF0 marker
@@ -261,10 +265,6 @@ Deno.serve(async (req) => {
                   console.log(`Could not extract image dimensions: ${errorMsg}, using frame size`);
                 }
                 
-                // Extract the existing relationship ID
-                const embedMatch = drawingXml.match(/<a:blip r:embed="([^"]+)"/);
-                const oldRelId = embedMatch ? embedMatch[1] : null;
-                
                 // Generate new image filename and relationship ID
                 const imageFileName = `image${imageCounter}.${imageData.ext}`;
                 const newRelId = `rId${relIdCounter}`;
@@ -276,52 +276,17 @@ Deno.serve(async (req) => {
                 const relationshipXml = `<Relationship Id="${newRelId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${imageFileName}"/>`;
                 relsXml = relsXml.replace('</Relationships>', `${relationshipXml}</Relationships>`);
                 
-                // Update both the embed reference AND the dimensions to maintain aspect ratio
-                // Also ensure aspect ratio lock is enabled
-                let newDrawingXml = drawingXml
-                  .replace(
-                    /<a:blip r:embed="[^"]+"/,
-                    `<a:blip r:embed="${newRelId}"`
-                  )
-                  .replace(
-                    /<wp:extent cx="\d+" cy="\d+"\/>/,
-                    `<wp:extent cx="${imageWidth}" cy="${imageHeight}"/>`
-                  )
-                  .replace(
-                    /<a:ext cx="\d+" cy="\d+"\/>/g,
-                    `<a:ext cx="${imageWidth}" cy="${imageHeight}"/>`
-                  );
+                // Create a completely NEW inline image with proper aspect ratio
+                // This avoids CloudConvert's frame-stretching behavior
+                const newImageXml = `<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${imageWidth}" cy="${imageHeight}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${imageCounter}" name="Picture ${imageCounter}" descr="${placeholderKey}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${imageCounter}" name="Picture ${imageCounter}"/><pic:cNvPicPr><a:picLocks noChangeAspect="1"/></pic:cNvPicPr></pic:nvPicPr><pic:blipFill><a:blip r:embed="${newRelId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${imageWidth}" cy="${imageHeight}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
                 
-                // Ensure aspect ratio lock is set in the picture properties
-                if (!newDrawingXml.includes('noChangeAspect="1"')) {
-                  newDrawingXml = newDrawingXml.replace(
-                    /<pic:cNvPicPr>/,
-                    `<pic:cNvPicPr><a:picLocks noChangeAspect="1"/></pic:cNvPicPr><pic:cNvPicPr>`
-                  );
-                  // If that didn't work, try adding to existing cNvPicPr
-                  if (!newDrawingXml.includes('noChangeAspect="1"')) {
-                    newDrawingXml = newDrawingXml.replace(
-                      /<pic:cNvPicPr\/>/,
-                      `<pic:cNvPicPr><a:picLocks noChangeAspect="1"/></pic:cNvPicPr>`
-                    );
-                  }
-                }
-                
-                // Replace in document
-                documentXml = documentXml.replace(drawingXml, newDrawingXml);
+                // Replace the ENTIRE drawing (including frame) with new inline image
+                documentXml = documentXml.replace(drawingXml, newImageXml);
                 
                 console.log(`Replaced frame image: ${placeholderKey} (${imageWidth}x${imageHeight} EMUs)`);
                 framesReplaced++;
                 imageCounter++;
                 relIdCounter++;
-                
-                // Remove old relationship if it exists
-                if (oldRelId) {
-                  relsXml = relsXml.replace(
-                    new RegExp(`<Relationship[^>]+Id="${oldRelId}"[^>]*/>`, 'g'),
-                    ''
-                  );
-                }
                 
                 break; // Only replace the first matching frame for this placeholder
               }
