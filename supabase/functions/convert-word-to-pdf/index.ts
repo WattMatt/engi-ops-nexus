@@ -182,8 +182,84 @@ Deno.serve(async (req) => {
                 
                 // Extract dimensions from the existing frame
                 const extentMatch = drawingXml.match(/<wp:extent cx="(\d+)" cy="(\d+)"\/>/);
-                const imageWidth = extentMatch ? extentMatch[1] : '1440000';
-                const imageHeight = extentMatch ? extentMatch[2] : '1080000';
+                const frameWidth = extentMatch ? parseInt(extentMatch[1]) : 1440000;
+                const frameHeight = extentMatch ? parseInt(extentMatch[2]) : 1080000;
+                
+                // Get image dimensions from buffer
+                let imageWidth = frameWidth;
+                let imageHeight = frameHeight;
+                
+                try {
+                  // Try to extract actual image dimensions
+                  const buffer = imageData.buffer;
+                  
+                  if (imageData.ext === 'png') {
+                    // PNG: Read IHDR chunk
+                    const view = new DataView(buffer.buffer);
+                    if (buffer[0] === 137 && buffer[1] === 80) { // PNG signature
+                      const width = view.getUint32(16, false);
+                      const height = view.getUint32(20, false);
+                      
+                      // Convert pixels to EMUs (assuming 96 DPI)
+                      // 1 inch = 914400 EMUs, 96 DPI
+                      const actualWidth = Math.round(width * 914400 / 96);
+                      const actualHeight = Math.round(height * 914400 / 96);
+                      
+                      // Scale to fit within frame while maintaining aspect ratio
+                      const aspectRatio = actualWidth / actualHeight;
+                      const frameAspectRatio = frameWidth / frameHeight;
+                      
+                      if (aspectRatio > frameAspectRatio) {
+                        // Image is wider - fit to width
+                        imageWidth = frameWidth;
+                        imageHeight = Math.round(frameWidth / aspectRatio);
+                      } else {
+                        // Image is taller - fit to height
+                        imageHeight = frameHeight;
+                        imageWidth = Math.round(frameHeight * aspectRatio);
+                      }
+                      
+                      console.log(`PNG dimensions: ${width}x${height}px, scaled to ${imageWidth}x${imageHeight} EMUs (frame: ${frameWidth}x${frameHeight})`);
+                    }
+                  } else if (imageData.ext === 'jpg' || imageData.ext === 'jpeg') {
+                    // JPEG: Find SOF0 marker
+                    let i = 0;
+                    while (i < buffer.length - 4) {
+                      if (buffer[i] === 0xFF) {
+                        const marker = buffer[i + 1];
+                        if (marker >= 0xC0 && marker <= 0xCF && marker !== 0xC4 && marker !== 0xC8 && marker !== 0xCC) {
+                          const height = (buffer[i + 5] << 8) | buffer[i + 6];
+                          const width = (buffer[i + 7] << 8) | buffer[i + 8];
+                          
+                          // Convert pixels to EMUs (assuming 96 DPI)
+                          const actualWidth = Math.round(width * 914400 / 96);
+                          const actualHeight = Math.round(height * 914400 / 96);
+                          
+                          // Scale to fit within frame while maintaining aspect ratio
+                          const aspectRatio = actualWidth / actualHeight;
+                          const frameAspectRatio = frameWidth / frameHeight;
+                          
+                          if (aspectRatio > frameAspectRatio) {
+                            imageWidth = frameWidth;
+                            imageHeight = Math.round(frameWidth / aspectRatio);
+                          } else {
+                            imageHeight = frameHeight;
+                            imageWidth = Math.round(frameHeight * aspectRatio);
+                          }
+                          
+                          console.log(`JPEG dimensions: ${width}x${height}px, scaled to ${imageWidth}x${imageHeight} EMUs (frame: ${frameWidth}x${frameHeight})`);
+                          break;
+                        }
+                        i += 2 + ((buffer[i + 2] << 8) | buffer[i + 3]);
+                      } else {
+                        i++;
+                      }
+                    }
+                  }
+                } catch (e) {
+                  const errorMsg = e instanceof Error ? e.message : String(e);
+                  console.log(`Could not extract image dimensions: ${errorMsg}, using frame size`);
+                }
                 
                 // Extract the existing relationship ID
                 const embedMatch = drawingXml.match(/<a:blip r:embed="([^"]+)"/);
@@ -200,11 +276,20 @@ Deno.serve(async (req) => {
                 const relationshipXml = `<Relationship Id="${newRelId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${imageFileName}"/>`;
                 relsXml = relsXml.replace('</Relationships>', `${relationshipXml}</Relationships>`);
                 
-                // Replace the r:embed reference in the drawing XML
-                const newDrawingXml = drawingXml.replace(
-                  /<a:blip r:embed="[^"]+"/,
-                  `<a:blip r:embed="${newRelId}"`
-                );
+                // Update both the embed reference AND the dimensions to maintain aspect ratio
+                let newDrawingXml = drawingXml
+                  .replace(
+                    /<a:blip r:embed="[^"]+"/,
+                    `<a:blip r:embed="${newRelId}"`
+                  )
+                  .replace(
+                    /<wp:extent cx="\d+" cy="\d+"\/>/,
+                    `<wp:extent cx="${imageWidth}" cy="${imageHeight}"/>`
+                  )
+                  .replace(
+                    /<a:ext cx="\d+" cy="\d+"\/>/,
+                    `<a:ext cx="${imageWidth}" cy="${imageHeight}"/>`
+                  );
                 
                 // Replace in document
                 documentXml = documentXml.replace(drawingXml, newDrawingXml);
