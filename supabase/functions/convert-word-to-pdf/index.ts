@@ -152,35 +152,127 @@ Deno.serve(async (req) => {
         let imageCounter = 1;
         let relIdCounter = 100;
         
+        // Step 1: Try to find and replace existing image frames based on Alt Text
+        let framesReplaced = 0;
+        
         for (const [placeholderKey, imageData] of Object.entries(imageBuffers)) {
-          const imageFileName = `image${imageCounter}.${imageData.ext}`;
-          const relId = `rId${relIdCounter}`;
+          // Look for alt text matches (e.g., "client_logo", "company_logo")
+          const altTextVariations = [
+            placeholderKey,
+            placeholderKey.replace(/_/g, ''),
+            placeholderKey.toLowerCase(),
+            placeholderKey.toLowerCase().replace(/_/g, ''),
+          ];
           
-          zip.file(`word/media/${imageFileName}`, imageData.buffer);
+          // Find all drawing elements with matching alt text
+          const drawingRegex = /<w:drawing>[\s\S]*?<\/w:drawing>/g;
+          let match;
           
-          const relationshipXml = `<Relationship Id="${relId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${imageFileName}"/>`;
-          relsXml = relsXml.replace('</Relationships>', `${relationshipXml}</Relationships>`);
-          
-          // Client logos sized to match company logo visual appearance
-          const isClientImage = placeholderKey.toLowerCase().includes('client');
-          const imageWidth = isClientImage ? 1620000 : 1440000;   // Client: ~45mm, Company: ~40mm
-          const imageHeight = isClientImage ? 1620000 : 1080000;  // Client: ~45mm (square), Company: ~30mm
-          
-          const imageXml = `<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${imageWidth}" cy="${imageHeight}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${imageCounter}" name="Image ${imageCounter}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${imageCounter}" name="Image ${imageCounter}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${relId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${imageWidth}" cy="${imageHeight}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
+          while ((match = drawingRegex.exec(documentXml)) !== null) {
+            const drawingXml = match[0];
+            
+            // Extract alt text from wp:docPr descr attribute
+            const descrMatch = drawingXml.match(/<wp:docPr[^>]+descr="([^"]*)"/);
+            if (descrMatch) {
+              const altText = descrMatch[1].toLowerCase().replace(/\s+/g, '');
+              
+              // Check if this alt text matches any of our variations
+              if (altTextVariations.some(v => altText.includes(v.toLowerCase()))) {
+                console.log(`Found frame with alt text: ${descrMatch[1]} for ${placeholderKey}`);
+                
+                // Extract dimensions from the existing frame
+                const extentMatch = drawingXml.match(/<wp:extent cx="(\d+)" cy="(\d+)"\/>/);
+                const imageWidth = extentMatch ? extentMatch[1] : '1440000';
+                const imageHeight = extentMatch ? extentMatch[2] : '1080000';
+                
+                // Extract the existing relationship ID
+                const embedMatch = drawingXml.match(/<a:blip r:embed="([^"]+)"/);
+                const oldRelId = embedMatch ? embedMatch[1] : null;
+                
+                // Generate new image filename and relationship ID
+                const imageFileName = `image${imageCounter}.${imageData.ext}`;
+                const newRelId = `rId${relIdCounter}`;
+                
+                // Add image to zip
+                zip.file(`word/media/${imageFileName}`, imageData.buffer);
+                
+                // Add new relationship
+                const relationshipXml = `<Relationship Id="${newRelId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${imageFileName}"/>`;
+                relsXml = relsXml.replace('</Relationships>', `${relationshipXml}</Relationships>`);
+                
+                // Replace the r:embed reference in the drawing XML
+                const newDrawingXml = drawingXml.replace(
+                  /<a:blip r:embed="[^"]+"/,
+                  `<a:blip r:embed="${newRelId}"`
+                );
+                
+                // Replace in document
+                documentXml = documentXml.replace(drawingXml, newDrawingXml);
+                
+                console.log(`Replaced frame image: ${placeholderKey} (${imageWidth}x${imageHeight} EMUs)`);
+                framesReplaced++;
+                imageCounter++;
+                relIdCounter++;
+                
+                // Remove old relationship if it exists
+                if (oldRelId) {
+                  relsXml = relsXml.replace(
+                    new RegExp(`<Relationship[^>]+Id="${oldRelId}"[^>]*/>`, 'g'),
+                    ''
+                  );
+                }
+                
+                break; // Only replace the first matching frame for this placeholder
+              }
+            }
+          }
+        }
+        
+        console.log(`Replaced ${framesReplaced} image frames based on Alt Text`);
+        
+        // Step 2: Fall back to text placeholder replacement for any remaining images
+        for (const [placeholderKey, imageData] of Object.entries(imageBuffers)) {
+          // Check if we already replaced this via frame detection
+          const alreadyReplaced = documentXml.match(new RegExp(`Alt Text[^>]*${placeholderKey}`, 'i'));
           
           const patterns = [
             new RegExp(`\\{\\{${placeholderKey}\\}\\}`, 'gi'),
             new RegExp(`\\{${placeholderKey}\\}`, 'gi'),
           ];
           
+          let foundTextPlaceholder = false;
           patterns.forEach(pattern => {
-            const count = (documentXml.match(pattern) || []).length;
-            documentXml = documentXml.replace(pattern, imageXml);
-            if (count > 0) console.log(`Replaced ${count} ${placeholderKey} with image`);
+            if (documentXml.match(pattern)) {
+              foundTextPlaceholder = true;
+            }
           });
           
-          imageCounter++;
-          relIdCounter++;
+          // Only do text replacement if we haven't already replaced via frame AND text placeholder exists
+          if (!alreadyReplaced && foundTextPlaceholder) {
+            const imageFileName = `image${imageCounter}.${imageData.ext}`;
+            const relId = `rId${relIdCounter}`;
+            
+            zip.file(`word/media/${imageFileName}`, imageData.buffer);
+            
+            const relationshipXml = `<Relationship Id="${relId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${imageFileName}"/>`;
+            relsXml = relsXml.replace('</Relationships>', `${relationshipXml}</Relationships>`);
+            
+            // Use default sizes for text placeholder replacement
+            const isClientImage = placeholderKey.toLowerCase().includes('client');
+            const imageWidth = isClientImage ? 1620000 : 1440000;
+            const imageHeight = isClientImage ? 1620000 : 1080000;
+            
+            const imageXml = `<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${imageWidth}" cy="${imageHeight}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${imageCounter}" name="Image ${imageCounter}" descr="${placeholderKey}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${imageCounter}" name="Image ${imageCounter}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${relId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${imageWidth}" cy="${imageHeight}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
+            
+            patterns.forEach(pattern => {
+              const count = (documentXml.match(pattern) || []).length;
+              documentXml = documentXml.replace(pattern, imageXml);
+              if (count > 0) console.log(`Replaced ${count} text placeholder ${placeholderKey} with image`);
+            });
+            
+            imageCounter++;
+            relIdCounter++;
+          }
         }
         
         zip.file('word/_rels/document.xml.rels', relsXml);
