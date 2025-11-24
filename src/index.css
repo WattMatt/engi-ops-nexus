@@ -67,6 +67,21 @@ All colors MUST be HSL.
     /* Transitions */
     --transition-base: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+    /* Chart Colors - Professional palette */
+    --chart-1: 214 95% 50%;  /* Primary blue */
+    --chart-2: 142 76% 45%;  /* Success green */
+    --chart-3: 38 92% 50%;   /* Warning amber */
+    --chart-4: 0 84% 60%;    /* Error red */
+    --chart-5: 262 83% 58%;  /* Accent purple */
+    --chart-6: 340 82% 52%;  /* Pink */
+    --chart-7: 198 93% 60%;  /* Cyan */
+    --chart-8: 48 96% 53%;   /* Yellow */
+    
+    /* Chart gradients */
+    --chart-gradient-1: linear-gradient(180deg, hsl(214 95% 50% / 0.8) 0%, hsl(214 95% 50% / 0.2) 100%);
+    --chart-gradient-2: linear-gradient(180deg, hsl(142 76% 45% / 0.8) 0%, hsl(142 76% 45% / 0.2) 100%);
+    --chart-gradient-3: linear-gradient(180deg, hsl(38 92% 50% / 0.8) 0%, hsl(38 92% 50% / 0.2) 100%);
   }
 
   .delay-0 {
