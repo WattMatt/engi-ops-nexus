@@ -32,8 +32,7 @@ export function TenantChangeAuditLog({ projectId }: TenantChangeAuditLogProps) {
         .from("tenant_change_audit_log")
         .select(`
           *,
-          version:tenant_schedule_versions(version_number, change_summary),
-          changed_by_user:profiles!tenant_change_audit_log_changed_by_fkey(full_name, email)
+          version:tenant_schedule_versions(version_number, change_summary)
         `)
         .eq("project_id", projectId);
 
@@ -219,13 +218,12 @@ export function TenantChangeAuditLog({ projectId }: TenantChangeAuditLogProps) {
       return;
     }
 
-    const headers = ["Date", "Change Type", "Version", "Summary", "Changed By", "Changed Fields"];
+    const headers = ["Date", "Change Type", "Version", "Summary", "Changed Fields"];
     const rows = auditLogs.map((log: any) => [
       format(new Date(log.changed_at), "yyyy-MM-dd HH:mm:ss"),
       log.change_type,
       log.version?.version_number || "N/A",
       log.version?.change_summary || "N/A",
-      log.changed_by_user?.full_name || log.changed_by_user?.email || "Unknown",
       log.changed_fields?.changed_fields?.join(", ") || "N/A"
     ]);
 
@@ -398,14 +396,6 @@ export function TenantChangeAuditLog({ projectId }: TenantChangeAuditLogProps) {
                               <span className="flex items-center gap-1">
                                 {format(new Date(log.changed_at), "MMM d, yyyy 'at' h:mm a")}
                               </span>
-                              {log.changed_by_user && (
-                                <>
-                                  <Separator orientation="vertical" className="h-3" />
-                                  <span>
-                                    by {log.changed_by_user.full_name || log.changed_by_user.email}
-                                  </span>
-                                </>
-                              )}
                             </div>
                           </div>
                           {hasDetails && (
