@@ -103,7 +103,7 @@ export const TenantOverview = ({ tenants, projectId }: TenantOverviewProps) => {
             </div>
             <Progress value={overallProgress} className="h-3" />
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-3 pt-2">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 pt-2">
             <div className="text-center">
               <p className="text-xs text-muted-foreground">SOW</p>
               <p className="text-lg font-semibold">{sowProgress.toFixed(0)}%</p>
@@ -120,15 +120,15 @@ export const TenantOverview = ({ tenants, projectId }: TenantOverviewProps) => {
               <p className="text-xs text-muted-foreground">Lighting</p>
               <p className="text-lg font-semibold">{lightingProgress.toFixed(0)}%</p>
             </div>
-          <div className="text-center">
-            <p className="text-xs text-muted-foreground">Costing</p>
-            <p className="text-lg font-semibold">{costProgress.toFixed(0)}%</p>
+            <div className="text-center">
+              <p className="text-xs text-muted-foreground">Costing</p>
+              <p className="text-lg font-semibold">{costProgress.toFixed(0)}%</p>
+            </div>
+            <div className="text-center">
+              <p className="text-xs text-muted-foreground">Handover Links</p>
+              <p className="text-lg font-semibold">{handoverLinkProgress.toFixed(0)}%</p>
+            </div>
           </div>
-          <div className="text-center">
-            <p className="text-xs text-muted-foreground">Handover Links</p>
-            <p className="text-lg font-semibold">{handoverLinkProgress.toFixed(0)}%</p>
-          </div>
-        </div>
         </CardContent>
       </Card>
 
