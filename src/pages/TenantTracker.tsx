@@ -128,7 +128,7 @@ const TenantTracker = () => {
       {/* Scrollable Content Area */}
       <div className="flex-1 overflow-hidden">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
-          <div className="border-b bg-background px-6">
+          <div className="border-b bg-background px-6 flex-shrink-0">
             <TabsList className="my-3">
               <TabsTrigger value="overview">Overview</TabsTrigger>
               <TabsTrigger value="tenants">Tenant Schedule</TabsTrigger>
@@ -162,7 +162,7 @@ const TenantTracker = () => {
           </div>
 
           {/* Tab Content with ScrollArea */}
-          <ScrollArea className="flex-1">
+          <div className="flex-1 overflow-auto">
             <div className="px-6 py-6">
               <TabsContent value="overview" className="mt-0 space-y-6">
                 {isLoading ? (
@@ -244,7 +244,7 @@ const TenantTracker = () => {
                 <DBSizingRulesSettings projectId={projectId || ""} />
               </TabsContent>
             </div>
-          </ScrollArea>
+          </div>
         </Tabs>
       </div>
     </div>
