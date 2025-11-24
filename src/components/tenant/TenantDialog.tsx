@@ -8,6 +8,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Plus, Edit, Sparkles, PencilLine } from "lucide-react";
+import { InputWithSuffix } from "@/components/ui/input-with-suffix";
 
 interface Tenant {
   id: string;
@@ -321,11 +322,12 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
               )}
             </div>
             <div>
-              <Label htmlFor="area">Area (m²)</Label>
-              <Input
+              <Label htmlFor="area">Area</Label>
+              <InputWithSuffix
                 id="area"
                 type="number"
                 step="0.01"
+                suffix="m²"
                 value={formData.area}
                 onChange={(e) => handleAreaChange(e.target.value)}
                 placeholder="Enter shop area"
@@ -406,21 +408,23 @@ export const TenantDialog = ({ projectId, tenant, onSuccess }: TenantDialogProps
               </p>
             </div>
             <div>
-              <Label htmlFor="db_cost">DB Cost (R)</Label>
-              <Input
+              <Label htmlFor="db_cost">DB Cost</Label>
+              <InputWithSuffix
                 id="db_cost"
                 type="number"
                 step="0.01"
+                suffix="R"
                 value={formData.db_cost}
                 onChange={(e) => setFormData({ ...formData, db_cost: e.target.value })}
               />
             </div>
             <div>
-              <Label htmlFor="lighting_cost">Lighting Cost (R)</Label>
-              <Input
+              <Label htmlFor="lighting_cost">Lighting Cost</Label>
+              <InputWithSuffix
                 id="lighting_cost"
                 type="number"
                 step="0.01"
+                suffix="R"
                 value={formData.lighting_cost}
                 onChange={(e) => setFormData({ ...formData, lighting_cost: e.target.value })}
               />

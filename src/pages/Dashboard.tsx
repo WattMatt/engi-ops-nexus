@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -39,7 +40,7 @@ const Dashboard = () => {
     return () => window.removeEventListener('projectChanged', handleProjectChange);
   }, []);
 
-  const { data: costReports = [] } = useQuery({
+  const { data: costReports = [], isLoading: costReportsLoading } = useQuery({
     queryKey: ["cost-reports", projectId],
     queryFn: async () => {
       if (!projectId) return [];
@@ -53,7 +54,7 @@ const Dashboard = () => {
     enabled: !!projectId,
   });
 
-  const { data: budgets = [] } = useQuery({
+  const { data: budgets = [], isLoading: budgetsLoading } = useQuery({
     queryKey: ["budgets", projectId],
     queryFn: async () => {
       if (!projectId) return [];
@@ -67,7 +68,7 @@ const Dashboard = () => {
     enabled: !!projectId,
   });
 
-  const { data: cableSchedules = [] } = useQuery({
+  const { data: cableSchedules = [], isLoading: cableSchedulesLoading } = useQuery({
     queryKey: ["cable-schedules", projectId],
     queryFn: async () => {
       if (!projectId) return [];
@@ -82,6 +83,28 @@ const Dashboard = () => {
   });
 
   const totalDocuments = costReports.length + budgets.length;
+  const isLoading = costReportsLoading || budgetsLoading || cableSchedulesLoading;
+
+  if (isLoading) {
+    return (
+      <div className="flex-1 space-y-4 px-6 pt-6 pb-6">
+        <Skeleton className="h-12 w-64 mb-6" />
+        <Skeleton className="h-32 mb-6" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          <Skeleton className="h-28" />
+          <Skeleton className="h-28" />
+          <Skeleton className="h-28" />
+          <Skeleton className="h-28" />
+        </div>
+        <Skeleton className="h-48 mb-6" />
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <Skeleton className="h-64" />
+          <Skeleton className="h-64" />
+          <Skeleton className="h-64" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex-1 space-y-4 px-6 pt-6 pb-6">
