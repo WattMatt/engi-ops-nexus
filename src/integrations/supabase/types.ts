@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      application_reviews: {
+        Row: {
+          created_at: string
+          focus_areas: string[]
+          id: string
+          overall_score: number
+          review_data: Json
+          review_date: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          focus_areas: string[]
+          id?: string
+          overall_score: number
+          review_data: Json
+          review_date?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          focus_areas?: string[]
+          id?: string
+          overall_score?: number
+          review_data?: Json
+          review_date?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       approval_workflows: {
         Row: {
           approver_id: string

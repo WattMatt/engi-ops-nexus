@@ -66,3 +66,6 @@ verify_jwt = false
 [functions.generate-infographic]
 verify_jwt = false
 
+[functions.ai-review-application]
+verify_jwt = false
+
