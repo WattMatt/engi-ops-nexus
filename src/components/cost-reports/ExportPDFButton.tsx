@@ -397,6 +397,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
             ].join('\n'),
             prepared_by_tel: "",
             prepared_by_contact: "Wessel Marais",
+            contact_name: "Wessel Marais",  // Add this for {contact_name} placeholder
             prepared_by_email: "info@wm.co.za",
             
             // Additional fields
