@@ -486,8 +486,8 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
         className="hidden"
       />
       
-      {/* Preview Image and Legend at Top (when not in edit mode and zones exist) */}
-      {!isEditMode && zones.length > 0 && floorPlanRecord?.composite_image_url?.endsWith('.png') && (
+      {/* Preview Image and Legend at Top (when not in edit mode and floor plan exists) */}
+      {!isEditMode && floorPlanRecord?.composite_image_url?.endsWith('.png') && (
         <div className="border-b p-4 bg-muted/20">
           <div className="flex gap-4 items-start">
             <div className="flex-1 flex items-center justify-center">
@@ -497,11 +497,13 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
                 className="max-w-full max-h-[500px] object-contain shadow-lg rounded-lg"
               />
             </div>
-            <div className="w-80 flex-shrink-0">
-              <div className="max-h-[500px] overflow-y-auto rounded-lg border bg-card">
-                <FloorPlanLegend zones={zones} tenants={tenants} />
+            {zones.length > 0 && (
+              <div className="w-80 flex-shrink-0">
+                <div className="max-h-[500px] overflow-y-auto rounded-lg border bg-card">
+                  <FloorPlanLegend zones={zones} tenants={tenants} />
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       )}
@@ -571,9 +573,13 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
           </div>
           
           <div className="flex-1 overflow-hidden flex gap-4">
-            {!isEditMode && zones.length > 0 ? (
+            {!isEditMode && floorPlanRecord ? (
               <div className="flex-1 p-4">
-                {/* Content area - legend is now at top with preview */}
+                {zones.length === 0 && (
+                  <div className="text-center text-muted-foreground">
+                    <p>Floor plan uploaded. Click "Edit Floor Plan" to draw zones.</p>
+                  </div>
+                )}
               </div>
             ) : isEditMode && pdfDoc ? (
               <MaskingCanvas 
