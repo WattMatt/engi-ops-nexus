@@ -9,15 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, Plus, Pencil, Trash2, Building2, Upload, Star, FileText, Library } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
+import { Loader2, Plus, Pencil, Trash2, Building2 } from "lucide-react";
 
-interface ProjectContactsProps {
-  projectId: string;
-}
-
-interface ProjectContact {
+interface GlobalContact {
   id: string;
   contact_type: string;
   organization_name: string;
@@ -27,7 +21,6 @@ interface ProjectContact {
   address_line1: string | null;
   address_line2: string | null;
   logo_url: string | null;
-  is_primary: boolean;
   notes: string | null;
 }
 
@@ -41,13 +34,11 @@ const CONTACT_TYPES = [
   { value: "other", label: "Other" },
 ];
 
-export function ProjectContacts({ projectId }: ProjectContactsProps) {
+export function GlobalContactsManager() {
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingContact, setEditingContact] = useState<ProjectContact | null>(null);
+  const [editingContact, setEditingContact] = useState<GlobalContact | null>(null);
   const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [useGlobalContact, setUseGlobalContact] = useState(false);
-  const [selectedGlobalContactId, setSelectedGlobalContactId] = useState<string>("");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -60,11 +51,10 @@ export function ProjectContacts({ projectId }: ProjectContactsProps) {
     address_line1: "",
     address_line2: "",
     logo_url: "",
-    is_primary: false,
     notes: "",
   });
 
-  const { data: globalContacts = [] } = useQuery({
+  const { data: contacts, isLoading } = useQuery({
     queryKey: ["global-contacts"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -74,24 +64,8 @@ export function ProjectContacts({ projectId }: ProjectContactsProps) {
         .order("organization_name");
       
       if (error) throw error;
-      return data;
+      return data as GlobalContact[];
     },
-  });
-
-  const { data: contacts, isLoading } = useQuery({
-    queryKey: ["project-contacts", projectId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("project_contacts")
-        .select("*")
-        .eq("project_id", projectId)
-        .order("contact_type")
-        .order("is_primary", { ascending: false });
-      
-      if (error) throw error;
-      return data as ProjectContact[];
-    },
-    enabled: !!projectId,
   });
 
   const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -134,25 +108,6 @@ export function ProjectContacts({ projectId }: ProjectContactsProps) {
     }
   };
 
-  const handleGlobalContactSelect = (contactId: string) => {
-    const contact = globalContacts.find(c => c.id === contactId);
-    if (!contact) return;
-
-    setSelectedGlobalContactId(contactId);
-    setFormData({
-      contact_type: contact.contact_type,
-      organization_name: contact.organization_name,
-      contact_person_name: contact.contact_person_name || "",
-      email: contact.email || "",
-      phone: contact.phone || "",
-      address_line1: contact.address_line1 || "",
-      address_line2: contact.address_line2 || "",
-      logo_url: contact.logo_url || "",
-      is_primary: false,
-      notes: contact.notes || "",
-    });
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
@@ -160,7 +115,7 @@ export function ProjectContacts({ projectId }: ProjectContactsProps) {
     try {
       if (editingContact) {
         const { error } = await supabase
-          .from('project_contacts')
+          .from('global_contacts')
           .update({
             contact_type: formData.contact_type,
             organization_name: formData.organization_name,
@@ -170,9 +125,7 @@ export function ProjectContacts({ projectId }: ProjectContactsProps) {
             address_line1: formData.address_line1 || null,
             address_line2: formData.address_line2 || null,
             logo_url: formData.logo_url || null,
-            is_primary: formData.is_primary,
             notes: formData.notes || null,
-            global_contact_id: useGlobalContact ? selectedGlobalContactId : null,
           })
           .eq('id', editingContact.id);
 
@@ -184,9 +137,8 @@ export function ProjectContacts({ projectId }: ProjectContactsProps) {
         });
       } else {
         const { error } = await supabase
-          .from('project_contacts')
+          .from('global_contacts')
           .insert({
-            project_id: projectId,
             contact_type: formData.contact_type,
             organization_name: formData.organization_name,
             contact_person_name: formData.contact_person_name || null,
@@ -195,20 +147,18 @@ export function ProjectContacts({ projectId }: ProjectContactsProps) {
             address_line1: formData.address_line1 || null,
             address_line2: formData.address_line2 || null,
             logo_url: formData.logo_url || null,
-            is_primary: formData.is_primary,
             notes: formData.notes || null,
-            global_contact_id: useGlobalContact ? selectedGlobalContactId : null,
           });
 
         if (error) throw error;
 
         toast({
           title: "Success",
-          description: "Contact added successfully",
+          description: "Contact added to library",
         });
       }
 
-      queryClient.invalidateQueries({ queryKey: ["project-contacts", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["global-contacts"] });
       setDialogOpen(false);
       resetForm();
     } catch (error: any) {
@@ -224,11 +174,11 @@ export function ProjectContacts({ projectId }: ProjectContactsProps) {
   };
 
   const handleDelete = async (contactId: string) => {
-    if (!confirm("Are you sure you want to delete this contact?")) return;
+    if (!confirm("Are you sure you want to delete this contact from the library? It will still remain linked to existing projects.")) return;
 
     try {
       const { error } = await supabase
-        .from('project_contacts')
+        .from('global_contacts')
         .delete()
         .eq('id', contactId);
 
@@ -236,10 +186,10 @@ export function ProjectContacts({ projectId }: ProjectContactsProps) {
 
       toast({
         title: "Success",
-        description: "Contact deleted successfully",
+        description: "Contact removed from library",
       });
 
-      queryClient.invalidateQueries({ queryKey: ["project-contacts", projectId] });
+      queryClient.invalidateQueries({ queryKey: ["global-contacts"] });
     } catch (error: any) {
       console.error("Delete error:", error);
       toast({
@@ -250,7 +200,7 @@ export function ProjectContacts({ projectId }: ProjectContactsProps) {
     }
   };
 
-  const openEditDialog = (contact: ProjectContact) => {
+  const openEditDialog = (contact: GlobalContact) => {
     setEditingContact(contact);
     setFormData({
       contact_type: contact.contact_type,
@@ -261,7 +211,6 @@ export function ProjectContacts({ projectId }: ProjectContactsProps) {
       address_line1: contact.address_line1 || "",
       address_line2: contact.address_line2 || "",
       logo_url: contact.logo_url || "",
-      is_primary: contact.is_primary,
       notes: contact.notes || "",
     });
     setDialogOpen(true);
@@ -269,8 +218,6 @@ export function ProjectContacts({ projectId }: ProjectContactsProps) {
 
   const resetForm = () => {
     setEditingContact(null);
-    setUseGlobalContact(false);
-    setSelectedGlobalContactId("");
     setFormData({
       contact_type: "client",
       organization_name: "",
@@ -280,7 +227,6 @@ export function ProjectContacts({ projectId }: ProjectContactsProps) {
       address_line1: "",
       address_line2: "",
       logo_url: "",
-      is_primary: false,
       notes: "",
     });
   };
@@ -304,9 +250,9 @@ export function ProjectContacts({ projectId }: ProjectContactsProps) {
       <CardHeader>
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle>Project Contacts</CardTitle>
+            <CardTitle>Global Contacts Library</CardTitle>
             <CardDescription>
-              Manage project stakeholders (clients, quantity surveyors, architects, etc.) for reports and documentation
+              Manage your contacts library for quick selection across all projects
             </CardDescription>
           </div>
           <Dialog open={dialogOpen} onOpenChange={(open) => {
@@ -323,62 +269,11 @@ export function ProjectContacts({ projectId }: ProjectContactsProps) {
               <DialogHeader>
                 <DialogTitle>{editingContact ? "Edit Contact" : "Add New Contact"}</DialogTitle>
                 <DialogDescription>
-                  Select from your contacts library or add a new contact manually
+                  Add a contact to your global library for easy reuse across projects
                 </DialogDescription>
               </DialogHeader>
               <form onSubmit={handleSubmit} className="space-y-4">
-                {!editingContact && (
-                  <div className="space-y-3 p-4 border rounded-lg bg-muted/30">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <Library className="h-4 w-4" />
-                        <Label className="mb-0">Select from Library</Label>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setUseGlobalContact(!useGlobalContact);
-                          if (useGlobalContact) {
-                            setSelectedGlobalContactId("");
-                            resetForm();
-                          }
-                        }}
-                      >
-                        {useGlobalContact ? "Enter Manually" : "Use Library"}
-                      </Button>
-                    </div>
-                    
-                    {useGlobalContact && (
-                      <Select
-                        value={selectedGlobalContactId}
-                        onValueChange={handleGlobalContactSelect}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a contact from library" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {globalContacts.map((contact) => (
-                            <SelectItem key={contact.id} value={contact.id}>
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium">{contact.organization_name}</span>
-                                <span className="text-xs text-muted-foreground">
-                                  ({CONTACT_TYPES.find(t => t.value === contact.contact_type)?.label})
-                                </span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    )}
-                  </div>
-                )}
-
-                {(useGlobalContact && selectedGlobalContactId) || !useGlobalContact ? (
-                  <>
-                    {useGlobalContact && <Separator />}
-                    <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="contact_type">Contact Type *</Label>
                     <Select
@@ -498,19 +393,6 @@ export function ProjectContacts({ projectId }: ProjectContactsProps) {
                   />
                 </div>
 
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="checkbox"
-                    id="is_primary"
-                    checked={formData.is_primary}
-                    onChange={(e) => setFormData(prev => ({ ...prev, is_primary: e.target.checked }))}
-                    className="h-4 w-4"
-                  />
-                  <Label htmlFor="is_primary" className="cursor-pointer">
-                    Set as primary contact for this type
-                  </Label>
-                </div>
-
                 <div className="flex justify-end gap-2">
                   <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>
                     Cancel
@@ -526,107 +408,64 @@ export function ProjectContacts({ projectId }: ProjectContactsProps) {
                     )}
                   </Button>
                 </div>
-                  </>
-                ) : null}
               </form>
             </DialogContent>
           </Dialog>
         </div>
       </CardHeader>
       <CardContent className="space-y-4">
-        {/* Placeholder Guide */}
-        <div className="rounded-lg bg-muted/50 p-4 border border-border/50">
-          <h4 className="text-sm font-semibold mb-2 flex items-center gap-2">
-            <FileText className="h-4 w-4" />
-            Word Template Placeholders
-          </h4>
-          <p className="text-xs text-muted-foreground mb-2">
-            When using Word templates, contact information will be available using these placeholders:
-          </p>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs font-mono">
-            <code className="text-primary">{"{prepared_for_company}"}</code>
-            <span className="text-muted-foreground">Organization name</span>
-            <code className="text-primary">{"{prepared_for_contact}"}</code>
-            <span className="text-muted-foreground">Contact person</span>
-            <code className="text-primary">{"{prepared_for_address}"}</code>
-            <span className="text-muted-foreground">Address line 1</span>
-            <code className="text-primary">{"{prepared_for_address2}"}</code>
-            <span className="text-muted-foreground">Address line 2</span>
-            <code className="text-primary">{"{prepared_for_tel}"}</code>
-            <span className="text-muted-foreground">Phone number</span>
-            <code className="text-primary">{"{prepared_for_email}"}</code>
-            <span className="text-muted-foreground">Email address</span>
-          </div>
-        </div>
-        
         {!contacts || contacts.length === 0 ? (
           <div className="text-center py-8 text-muted-foreground">
             <Building2 className="h-12 w-12 mx-auto mb-4 opacity-50" />
-            <p>No contacts added yet</p>
-            <p className="text-sm">Add contacts to use them in reports and documentation</p>
+            <p>No contacts in library yet</p>
+            <p className="text-sm">Add contacts to quickly assign them to projects</p>
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2">
             {contacts.map((contact) => (
               <div key={contact.id} className="border rounded-lg p-4 hover:bg-accent/50 transition-colors">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-4 flex-1">
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center gap-3">
                     {contact.logo_url && (
                       <img
                         src={contact.logo_url}
                         alt={contact.organization_name}
-                        className="h-16 w-16 object-contain border rounded p-1"
+                        className="h-10 w-auto object-contain"
                       />
                     )}
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h4 className="font-semibold">{contact.organization_name}</h4>
-                        <Badge variant="outline">{getContactTypeLabel(contact.contact_type)}</Badge>
-                        {contact.is_primary && (
-                          <Badge variant="secondary" className="gap-1">
-                            <Star className="h-3 w-3" />
-                            Primary
-                          </Badge>
-                        )}
-                      </div>
-                      {contact.contact_person_name && (
-                        <p className="text-sm text-muted-foreground">{contact.contact_person_name}</p>
-                      )}
-                      <div className="mt-2 text-sm space-y-1">
-                        {contact.email && (
-                          <p className="text-muted-foreground">📧 {contact.email}</p>
-                        )}
-                        {contact.phone && (
-                          <p className="text-muted-foreground">📞 {contact.phone}</p>
-                        )}
-                        {contact.address_line1 && (
-                          <p className="text-muted-foreground">
-                            📍 {contact.address_line1}
-                            {contact.address_line2 && `, ${contact.address_line2}`}
-                          </p>
-                        )}
-                        {contact.notes && (
-                          <p className="text-muted-foreground italic">💬 {contact.notes}</p>
-                        )}
-                      </div>
+                    <div>
+                      <h4 className="font-semibold">{contact.organization_name}</h4>
+                      <p className="text-sm text-muted-foreground">{getContactTypeLabel(contact.contact_type)}</p>
                     </div>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-1">
                     <Button
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
                       onClick={() => openEditDialog(contact)}
                     >
                       <Pencil className="h-4 w-4" />
                     </Button>
                     <Button
-                      variant="outline"
+                      variant="ghost"
                       size="sm"
                       onClick={() => handleDelete(contact.id)}
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
+                </div>
+                
+                <div className="space-y-1 text-sm">
+                  {contact.contact_person_name && (
+                    <p className="text-muted-foreground">Contact: {contact.contact_person_name}</p>
+                  )}
+                  {contact.email && (
+                    <p className="text-muted-foreground">Email: {contact.email}</p>
+                  )}
+                  {contact.phone && (
+                    <p className="text-muted-foreground">Phone: {contact.phone}</p>
+                  )}
                 </div>
               </div>
             ))}

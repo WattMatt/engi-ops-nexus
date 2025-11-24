@@ -2651,6 +2651,51 @@ export type Database = {
         }
         Relationships: []
       }
+      global_contacts: {
+        Row: {
+          address_line1: string | null
+          address_line2: string | null
+          contact_person_name: string | null
+          contact_type: string
+          created_at: string | null
+          email: string | null
+          id: string
+          logo_url: string | null
+          notes: string | null
+          organization_name: string
+          phone: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          address_line1?: string | null
+          address_line2?: string | null
+          contact_person_name?: string | null
+          contact_type: string
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          logo_url?: string | null
+          notes?: string | null
+          organization_name: string
+          phone?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          address_line1?: string | null
+          address_line2?: string | null
+          contact_person_name?: string | null
+          contact_type?: string
+          created_at?: string | null
+          email?: string | null
+          id?: string
+          logo_url?: string | null
+          notes?: string | null
+          organization_name?: string
+          phone?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       handover_document_exclusions: {
         Row: {
           created_at: string | null
@@ -3962,6 +4007,7 @@ export type Database = {
           created_at: string | null
           created_by: string | null
           email: string | null
+          global_contact_id: string | null
           id: string
           is_primary: boolean | null
           logo_url: string | null
@@ -3979,6 +4025,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           email?: string | null
+          global_contact_id?: string | null
           id?: string
           is_primary?: boolean | null
           logo_url?: string | null
@@ -3996,6 +4043,7 @@ export type Database = {
           created_at?: string | null
           created_by?: string | null
           email?: string | null
+          global_contact_id?: string | null
           id?: string
           is_primary?: boolean | null
           logo_url?: string | null
@@ -4006,6 +4054,13 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "project_contacts_global_contact_id_fkey"
+            columns: ["global_contact_id"]
+            isOneToOne: false
+            referencedRelation: "global_contacts"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "project_contacts_project_id_fkey"
             columns: ["project_id"]

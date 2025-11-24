@@ -19,6 +19,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { LogoUpload } from "@/components/LogoUpload";
 import { ProjectMembers } from "@/components/settings/ProjectMembers";
 import { ProjectContacts } from "@/components/settings/ProjectContacts";
+import { GlobalContactsManager } from "@/components/settings/GlobalContactsManager";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 
@@ -186,7 +187,8 @@ export default function ProjectSettings() {
       <Tabs defaultValue="settings" className="space-y-6">
         <TabsList>
           <TabsTrigger value="settings">Project Settings</TabsTrigger>
-          <TabsTrigger value="contacts">Contacts</TabsTrigger>
+          <TabsTrigger value="contacts">Project Contacts</TabsTrigger>
+          <TabsTrigger value="global-contacts">Contacts Library</TabsTrigger>
           <TabsTrigger value="members">Team Members</TabsTrigger>
         </TabsList>
 
@@ -671,6 +673,10 @@ export default function ProjectSettings() {
 
         <TabsContent value="contacts">
           {projectId && <ProjectContacts projectId={projectId} />}
+        </TabsContent>
+
+        <TabsContent value="global-contacts">
+          <GlobalContactsManager />
         </TabsContent>
 
         <TabsContent value="members">
