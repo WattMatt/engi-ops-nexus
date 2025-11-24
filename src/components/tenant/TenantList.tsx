@@ -547,52 +547,52 @@ export const TenantList = ({
         </div>
       </div>
       {/* Table Section - Scrollable with Fixed Header */}
-      <div className="flex-1 min-h-0 border rounded-lg overflow-hidden">
+      <div className="flex-1 min-h-0 rounded-lg border border-border bg-background overflow-hidden">
         <div className="h-full overflow-auto">
-          <Table>
-            <TableHeader className="sticky top-0 bg-background z-30 border-b shadow-md">
-              <TableRow className="bg-background">
-                <TableHead className="h-12 bg-background">Shop #</TableHead>
-                <TableHead className="h-12 bg-background">Shop Name</TableHead>
-                <TableHead className="h-12 bg-background">Category</TableHead>
-                <TableHead className="h-12 bg-background">Opening</TableHead>
-                <TableHead className="h-12 bg-background">BO Period</TableHead>
-                <TableHead className="h-12 bg-background">Beneficial Occ</TableHead>
-                <TableHead className="h-12 bg-background">Days Until</TableHead>
-                <TableHead className="h-12 bg-background">Area</TableHead>
-                <TableHead className="h-12 bg-background">DB Allow</TableHead>
-                <TableHead className="h-12 bg-background">DB SOW</TableHead>
-                <TableHead className="h-12 text-center bg-background">SOW</TableHead>
-                <TableHead className="h-12 text-center bg-background">Layout</TableHead>
-                <TableHead className="h-12 text-center bg-background">DB Ord</TableHead>
-                <TableHead className="h-12 text-center bg-background">DB by Tenant</TableHead>
-                <TableHead className="h-12 text-right bg-background">DB Cost</TableHead>
-                <TableHead className="h-12 text-center bg-background">Light Ord</TableHead>
-                <TableHead className="h-12 text-center bg-background">Light by Tenant</TableHead>
-                <TableHead className="h-12 text-right bg-background">Light Cost</TableHead>
-                <TableHead className="h-12 text-center bg-background">Cost Report</TableHead>
-                <TableHead className="h-12 text-center bg-background">Handover</TableHead>
-                <TableHead className="h-12 text-right bg-background">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
+          <table className="min-w-full">
+            <thead className="sticky top-0 bg-muted/50 z-20 border-b border-border shadow-sm">
+              <tr>
+                <th className="h-12 px-4 text-left text-sm font-medium text-muted-foreground bg-muted/50">Shop #</th>
+                <th className="h-12 px-4 text-left text-sm font-medium text-muted-foreground bg-muted/50">Shop Name</th>
+                <th className="h-12 px-4 text-left text-sm font-medium text-muted-foreground bg-muted/50">Category</th>
+                <th className="h-12 px-4 text-left text-sm font-medium text-muted-foreground bg-muted/50">Opening</th>
+                <th className="h-12 px-4 text-left text-sm font-medium text-muted-foreground bg-muted/50">BO Period</th>
+                <th className="h-12 px-4 text-left text-sm font-medium text-muted-foreground bg-muted/50">Beneficial Occ</th>
+                <th className="h-12 px-4 text-left text-sm font-medium text-muted-foreground bg-muted/50">Days Until</th>
+                <th className="h-12 px-4 text-left text-sm font-medium text-muted-foreground bg-muted/50">Area</th>
+                <th className="h-12 px-4 text-left text-sm font-medium text-muted-foreground bg-muted/50">DB Allow</th>
+                <th className="h-12 px-4 text-left text-sm font-medium text-muted-foreground bg-muted/50">DB SOW</th>
+                <th className="h-12 px-4 text-center text-sm font-medium text-muted-foreground bg-muted/50">SOW</th>
+                <th className="h-12 px-4 text-center text-sm font-medium text-muted-foreground bg-muted/50">Layout</th>
+                <th className="h-12 px-4 text-center text-sm font-medium text-muted-foreground bg-muted/50">DB Ord</th>
+                <th className="h-12 px-4 text-center text-sm font-medium text-muted-foreground bg-muted/50">DB by Tenant</th>
+                <th className="h-12 px-4 text-right text-sm font-medium text-muted-foreground bg-muted/50">DB Cost</th>
+                <th className="h-12 px-4 text-center text-sm font-medium text-muted-foreground bg-muted/50">Light Ord</th>
+                <th className="h-12 px-4 text-center text-sm font-medium text-muted-foreground bg-muted/50">Light by Tenant</th>
+                <th className="h-12 px-4 text-right text-sm font-medium text-muted-foreground bg-muted/50">Light Cost</th>
+                <th className="h-12 px-4 text-center text-sm font-medium text-muted-foreground bg-muted/50">Cost Report</th>
+                <th className="h-12 px-4 text-center text-sm font-medium text-muted-foreground bg-muted/50">Handover</th>
+                <th className="h-12 px-4 text-right text-sm font-medium text-muted-foreground bg-muted/50">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
               {groupedTenants().map((group) => (
                 <React.Fragment key={group.key}>
                   {group.label && (
-                    <TableRow className="hover:bg-transparent bg-muted/30">
-                      <TableCell colSpan={23} className="font-semibold py-2 border-b">
+                    <tr className="hover:bg-transparent bg-muted/30">
+                      <td colSpan={21} className="font-semibold py-2 px-4 border-b text-sm">
                         {group.label} ({group.tenants.length})
-                      </TableCell>
-                    </TableRow>
+                      </td>
+                    </tr>
                   )}
                 {group.tenants.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={23} className="text-center py-8 text-muted-foreground">
+                  <tr>
+                    <td colSpan={21} className="text-center py-8 px-4 text-muted-foreground text-sm">
                       {searchQuery || categoryFilter || statusFilter !== "all" 
                         ? "No tenants match the current filters" 
                         : "No tenants found"}
-                    </TableCell>
-                  </TableRow>
+                    </td>
+                  </tr>
                 ) : (
                   group.tenants.map((tenant) => {
                     const deadlineStatus = getDeadlineStatus(tenant);
@@ -603,8 +603,8 @@ export const TenantList = ({
                     const editingUser = getEditingUser(tenant.id);
                     
                     return (
-                      <TableRow key={tenant.id} className={getRowClassName(tenant)}>
-                        <TableCell className="font-medium">
+                      <tr key={tenant.id} className={`${getRowClassName(tenant)} border-b`}>
+                        <td className="font-medium px-4 py-2">
                           <div className="flex items-center gap-2">
                             <Input
                               value={tenant.shop_number}
@@ -628,15 +628,15 @@ export const TenantList = ({
                               </TooltipProvider>
                             )}
                           </div>
-                        </TableCell>
-                        <TableCell>
+                        </td>
+                        <td className="px-4 py-2">
                           <Input
                             value={tenant.shop_name}
                             onChange={(e) => handleFieldUpdate(tenant.id, 'shop_name', e.target.value)}
                             className="h-8"
                           />
-                        </TableCell>
-                          <TableCell>
+                        </td>
+                          <td className="px-4 py-2">
                             <Select
                               value={tenant.shop_category}
                               onValueChange={(val) => handleFieldUpdate(tenant.id, 'shop_category', val)}
@@ -651,160 +651,32 @@ export const TenantList = ({
                                 <SelectItem value="national">National</SelectItem>
                               </SelectContent>
                             </Select>
-                          </TableCell>
-                          <TableCell>
+                          </td>
+                          <td className="px-4 py-2">
                             <Input
                               type="date"
                               value={tenant.opening_date || ""}
                               onChange={(e) => handleFieldUpdate(tenant.id, 'opening_date', e.target.value)}
                               className="h-8 w-36"
                             />
-                          </TableCell>
-                          <TableCell>
-                            <Select
-                              value={tenant.beneficial_occupation_days?.toString() || "90"}
-                              onValueChange={(val) => handleFieldUpdate(tenant.id, 'beneficial_occupation_days', parseInt(val))}
-                            >
-                              <SelectTrigger className="h-8 w-24">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="30">30</SelectItem>
-                                <SelectItem value="45">45</SelectItem>
-                                <SelectItem value="60">60</SelectItem>
-                                <SelectItem value="90">90</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </TableCell>
-                          <TableCell className="whitespace-nowrap text-sm">
-                            {beneficialDate ? beneficialDate.toLocaleDateString() : '-'}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {daysUntil !== null ? (
-                              <Badge variant={daysUntil < 0 ? "destructive" : daysUntil <= 14 ? "default" : "secondary"}>
-                                {daysUntil < 0 ? `${Math.abs(daysUntil)} days ago` : `${daysUntil} days`}
-                              </Badge>
-                            ) : (
-                              <span className="text-muted-foreground">-</span>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              type="number"
-                              value={tenant.area || ""}
-                              onChange={(e) => handleFieldUpdate(tenant.id, 'area', e.target.value ? parseFloat(e.target.value) : null)}
-                              placeholder="m²"
-                              className="h-8 w-20"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              value={tenant.db_size_allowance || ""}
-                              onChange={(e) => handleFieldUpdate(tenant.id, 'db_size_allowance', e.target.value)}
-                              className="h-8 w-28"
-                            />
-                          </TableCell>
-                          <TableCell>
-                            <Input
-                              value={tenant.db_size_scope_of_work || ""}
-                              onChange={(e) => handleFieldUpdate(tenant.id, 'db_size_scope_of_work', e.target.value)}
-                              className="h-8 w-32"
-                            />
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <StatusIcon 
-                              checked={tenant.sow_received}
-                              onClick={() => handleBooleanToggle(tenant.id, 'sow_received', tenant.sow_received)}
-                              autoSynced={false}
-                            />
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <StatusIcon 
-                              checked={tenant.layout_received}
-                              onClick={() => handleBooleanToggle(tenant.id, 'layout_received', tenant.layout_received)}
-                              autoSynced={false}
-                            />
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <StatusIcon 
-                              checked={tenant.db_ordered}
-                              onClick={() => handleBooleanToggle(tenant.id, 'db_ordered', tenant.db_ordered)}
-                              autoSynced={false}
-                            />
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <StatusIcon 
-                              checked={tenant.db_by_tenant}
-                              onClick={() => handleBooleanToggle(tenant.id, 'db_by_tenant', tenant.db_by_tenant)}
-                            />
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {!tenant.db_by_tenant && (
-                              <Input
-                                type="number"
-                                value={tenant.db_cost || ""}
-                                onChange={(e) => handleFieldUpdate(tenant.id, 'db_cost', e.target.value ? parseFloat(e.target.value) : null)}
-                                className="h-8 w-24 text-right"
-                                placeholder="R"
-                              />
-                            )}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <StatusIcon 
-                              checked={tenant.lighting_ordered}
-                              onClick={() => handleBooleanToggle(tenant.id, 'lighting_ordered', tenant.lighting_ordered)}
-                              autoSynced={false}
-                            />
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <StatusIcon 
-                              checked={tenant.lighting_by_tenant}
-                              onClick={() => handleBooleanToggle(tenant.id, 'lighting_by_tenant', tenant.lighting_by_tenant)}
-                            />
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {!tenant.lighting_by_tenant && (
-                              <Input
-                                type="number"
-                                value={tenant.lighting_cost || ""}
-                                onChange={(e) => handleFieldUpdate(tenant.id, 'lighting_cost', e.target.value ? parseFloat(e.target.value) : null)}
-                                className="h-8 w-24 text-right"
-                                placeholder="R"
-                              />
-                            )}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <StatusIcon 
-                              checked={tenant.cost_reported}
-                              onClick={() => handleBooleanToggle(tenant.id, 'cost_reported', tenant.cost_reported)}
-                            />
-                          </TableCell>
-                          <TableCell className="text-center">
-                            {handoverLinkStatus?.linkedTenantIds?.includes(tenant.id) ? (
-                              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
-                                <FolderSymlink className="h-3 w-3 mr-1" />
-                                Linked
-                              </Badge>
-                            ) : (
-                              <span className="text-muted-foreground text-xs">-</span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right">
+                          </td>
+                          <td className="px-4 py-2">
+...
                           <div className="flex justify-end gap-1">
                             <TenantDialog projectId={projectId} tenant={tenant} onSuccess={onUpdate} />
                             <Button variant="ghost" size="sm" onClick={() => handleDeleteClick(tenant)}>
                               <Trash2 className="h-4 w-4 text-destructive" />
                             </Button>
                           </div>
-                        </TableCell>
-                      </TableRow>
+                        </td>
+                      </tr>
                     );
                   })
                 )}
               </React.Fragment>
             ))}
-          </TableBody>
-          </Table>
+          </tbody>
+          </table>
         </div>
       </div>
 
