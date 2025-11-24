@@ -455,6 +455,13 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           }
           
           // Convert Word template to PDF
+          console.log('📋 Sending to edge function:', {
+            placeholderCount: Object.keys(coverPageData).length,
+            imageCount: Object.keys(imagePlaceholders).length,
+            placeholders: coverPageData,
+            images: Object.keys(imagePlaceholders)
+          });
+          
           const { data: coverPdfData, error: coverError } = await supabase.functions.invoke('convert-word-to-pdf', {
             body: { 
               templateUrl: templates.coverPage.file_url,
