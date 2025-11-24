@@ -613,9 +613,14 @@ export const TenantList = ({
                           <div className="flex items-center gap-2">
                             <Input
                               value={tenant.shop_number}
-                              onChange={(e) => handleFieldUpdate(tenant.id, 'shop_number', e.target.value)}
+                              onChange={(e) => setLocalTenants(prev => 
+                                prev.map(t => t.id === tenant.id ? { ...t, shop_number: e.target.value } : t)
+                              )}
                               onFocus={() => setEditing(tenant.id)}
-                              onBlur={() => setEditing(null)}
+                              onBlur={(e) => {
+                                setEditing(null);
+                                handleFieldUpdate(tenant.id, 'shop_number', e.target.value);
+                              }}
                               className="h-8 w-24"
                             />
                             {editingUser && (
@@ -637,7 +642,10 @@ export const TenantList = ({
                         <td className="px-4 py-2">
                           <Input
                             value={tenant.shop_name}
-                            onChange={(e) => handleFieldUpdate(tenant.id, 'shop_name', e.target.value)}
+                            onChange={(e) => setLocalTenants(prev => 
+                              prev.map(t => t.id === tenant.id ? { ...t, shop_name: e.target.value } : t)
+                            )}
+                            onBlur={(e) => handleFieldUpdate(tenant.id, 'shop_name', e.target.value)}
                             className="h-8"
                           />
                         </td>
@@ -661,7 +669,10 @@ export const TenantList = ({
                             <Input
                               type="date"
                               value={tenant.opening_date || ""}
-                              onChange={(e) => handleFieldUpdate(tenant.id, 'opening_date', e.target.value)}
+                              onChange={(e) => setLocalTenants(prev => 
+                                prev.map(t => t.id === tenant.id ? { ...t, opening_date: e.target.value } : t)
+                              )}
+                              onBlur={(e) => handleFieldUpdate(tenant.id, 'opening_date', e.target.value)}
                               className="h-8 w-36"
                             />
                           </td>
@@ -697,7 +708,10 @@ export const TenantList = ({
                             <Input
                               type="number"
                               value={tenant.area || ""}
-                              onChange={(e) => handleFieldUpdate(tenant.id, 'area', e.target.value ? parseFloat(e.target.value) : null)}
+                              onChange={(e) => setLocalTenants(prev => 
+                                prev.map(t => t.id === tenant.id ? { ...t, area: e.target.value ? parseFloat(e.target.value) : null } : t)
+                              )}
+                              onBlur={(e) => handleFieldUpdate(tenant.id, 'area', e.target.value ? parseFloat(e.target.value) : null)}
                               placeholder="m²"
                               className="h-8 w-20"
                             />
@@ -705,14 +719,20 @@ export const TenantList = ({
                           <td className="px-4 py-2">
                             <Input
                               value={tenant.db_size_allowance || ""}
-                              onChange={(e) => handleFieldUpdate(tenant.id, 'db_size_allowance', e.target.value)}
+                              onChange={(e) => setLocalTenants(prev => 
+                                prev.map(t => t.id === tenant.id ? { ...t, db_size_allowance: e.target.value } : t)
+                              )}
+                              onBlur={(e) => handleFieldUpdate(tenant.id, 'db_size_allowance', e.target.value)}
                               className="h-8 w-28"
                             />
                           </td>
                           <td className="px-4 py-2">
                             <Input
                               value={tenant.db_size_scope_of_work || ""}
-                              onChange={(e) => handleFieldUpdate(tenant.id, 'db_size_scope_of_work', e.target.value)}
+                              onChange={(e) => setLocalTenants(prev => 
+                                prev.map(t => t.id === tenant.id ? { ...t, db_size_scope_of_work: e.target.value } : t)
+                              )}
+                              onBlur={(e) => handleFieldUpdate(tenant.id, 'db_size_scope_of_work', e.target.value)}
                               className="h-8 w-32"
                             />
                           </td>
@@ -748,7 +768,10 @@ export const TenantList = ({
                               <Input
                                 type="number"
                                 value={tenant.db_cost || ""}
-                                onChange={(e) => handleFieldUpdate(tenant.id, 'db_cost', e.target.value ? parseFloat(e.target.value) : null)}
+                                onChange={(e) => setLocalTenants(prev => 
+                                  prev.map(t => t.id === tenant.id ? { ...t, db_cost: e.target.value ? parseFloat(e.target.value) : null } : t)
+                                )}
+                                onBlur={(e) => handleFieldUpdate(tenant.id, 'db_cost', e.target.value ? parseFloat(e.target.value) : null)}
                                 className="h-8 w-24 text-right"
                                 placeholder="R"
                               />
@@ -772,7 +795,10 @@ export const TenantList = ({
                               <Input
                                 type="number"
                                 value={tenant.lighting_cost || ""}
-                                onChange={(e) => handleFieldUpdate(tenant.id, 'lighting_cost', e.target.value ? parseFloat(e.target.value) : null)}
+                                onChange={(e) => setLocalTenants(prev => 
+                                  prev.map(t => t.id === tenant.id ? { ...t, lighting_cost: e.target.value ? parseFloat(e.target.value) : null } : t)
+                                )}
+                                onBlur={(e) => handleFieldUpdate(tenant.id, 'lighting_cost', e.target.value ? parseFloat(e.target.value) : null)}
                                 className="h-8 w-24 text-right"
                                 placeholder="R"
                               />
