@@ -1,7 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { FolderOpen, Building as BuildingIcon, Calendar, Loader } from 'lucide-react';
+import { FolderOpen, Building as BuildingIcon, Calendar, Loader, MoreVertical, Pencil, Trash2, Archive } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Building } from 'lucide-react';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
+import { deleteDesign, updateDesignName } from '../utils/supabase';
 
 interface SavedDesign {
   id: string;
@@ -26,6 +32,9 @@ export const SavedDesignsGallery: React.FC<SavedDesignsGalleryProps> = ({
 }) => {
   const [designs, setDesigns] = useState<SavedDesign[]>([]);
   const [loading, setLoading] = useState(true);
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [selectedDesign, setSelectedDesign] = useState<SavedDesign | null>(null);
+  const [newName, setNewName] = useState('');
 
   useEffect(() => {
     fetchDesigns();
@@ -72,6 +81,45 @@ export const SavedDesignsGallery: React.FC<SavedDesignsGalleryProps> = ({
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRename = (design: SavedDesign) => {
+    setSelectedDesign(design);
+    setNewName(design.name);
+    setRenameDialogOpen(true);
+  };
+
+  const handleRenameSubmit = async () => {
+    if (!selectedDesign || !newName.trim()) return;
+    
+    try {
+      await updateDesignName(selectedDesign.id, newName.trim());
+      toast.success('Design renamed successfully');
+      setRenameDialogOpen(false);
+      fetchDesigns();
+    } catch (error) {
+      console.error('Error renaming design:', error);
+      toast.error('Failed to rename design');
+    }
+  };
+
+  const handleDelete = async (design: SavedDesign) => {
+    if (!confirm(`Are you sure you want to delete "${design.name}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      await deleteDesign(design.id);
+      toast.success('Design deleted successfully');
+      fetchDesigns();
+    } catch (error) {
+      console.error('Error deleting design:', error);
+      toast.error('Failed to delete design');
+    }
+  };
+
+  const handleArchive = async (design: SavedDesign) => {
+    toast.info('Archive functionality coming soon');
   };
 
   if (loading) {
@@ -129,33 +177,91 @@ export const SavedDesignsGallery: React.FC<SavedDesignsGalleryProps> = ({
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {designs.map((design) => (
-            <button
+            <div
               key={design.id}
-              onClick={() => onLoadDesign(design.id)}
-              className="group relative flex flex-col p-4 rounded-lg bg-card hover:bg-accent transition-all duration-200 text-left border border-border hover:border-primary hover:shadow-md"
+              className="group relative flex flex-col p-4 rounded-lg bg-card hover:bg-accent transition-all duration-200 border border-border hover:border-primary hover:shadow-md"
             >
-              <div className="flex items-start gap-3 mb-3">
-                <div className="p-2 bg-primary/10 rounded group-hover:bg-primary/20 transition-colors">
-                  <FolderOpen className="h-5 w-5 text-primary" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors truncate">
-                    {design.name}
-                  </h3>
-                  {design.design_purpose && (
-                    <span className="inline-block mt-1 text-xs px-2 py-0.5 bg-primary/20 text-primary rounded-full">
-                      {design.design_purpose}
-                    </span>
-                  )}
-                </div>
+              <div className="absolute top-2 right-2 z-10">
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button 
+                      className="p-1 rounded hover:bg-background/80 transition-colors"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <MoreVertical className="h-4 w-4 text-muted-foreground" />
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => handleRename(design)}>
+                      <Pencil className="h-4 w-4 mr-2" />
+                      Rename
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => handleArchive(design)}>
+                      <Archive className="h-4 w-4 mr-2" />
+                      Archive
+                    </DropdownMenuItem>
+                    <DropdownMenuItem 
+                      onClick={() => handleDelete(design)}
+                      className="text-destructive focus:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Delete
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
-              <div className="flex items-center gap-1 text-xs text-muted-foreground mt-auto">
-                <Calendar className="h-3 w-3" />
-                {new Date(design.created_at).toLocaleDateString()}
-              </div>
-            </button>
+              
+              <button
+                onClick={() => onLoadDesign(design.id)}
+                className="flex-1 flex flex-col text-left"
+              >
+                <div className="flex items-start gap-3 mb-3">
+                  <div className="p-2 bg-primary/10 rounded group-hover:bg-primary/20 transition-colors">
+                    <FolderOpen className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="flex-1 min-w-0 pr-6">
+                    <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors truncate">
+                      {design.name}
+                    </h3>
+                    {design.design_purpose && (
+                      <span className="inline-block mt-1 text-xs px-2 py-0.5 bg-primary/20 text-primary rounded-full">
+                        {design.design_purpose}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="flex items-center gap-1 text-xs text-muted-foreground mt-auto">
+                  <Calendar className="h-3 w-3" />
+                  {new Date(design.created_at).toLocaleDateString()}
+                </div>
+              </button>
+            </div>
           ))}
         </div>
+
+        <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Rename Design</DialogTitle>
+            </DialogHeader>
+            <Input
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              placeholder="Enter new name"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleRenameSubmit();
+              }}
+            />
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setRenameDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleRenameSubmit}>
+                Rename
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
