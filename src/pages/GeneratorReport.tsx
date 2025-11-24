@@ -17,9 +17,9 @@ import { GeneratorSavedReportsList } from "@/components/tenant/GeneratorSavedRep
 import { OutdatedReportsIndicator } from "@/components/tenant/OutdatedReportsIndicator";
 import { TenantVersionBadge } from "@/components/tenant/TenantVersionBadge";
 import { KwOverrideAuditLog } from "@/components/tenant/KwOverrideAuditLog";
-import { LoadDistributionChart } from "@/components/tenant/charts/LoadDistributionChart";
-import { CostBreakdownChart } from "@/components/tenant/charts/CostBreakdownChart";
-import { RecoveryProjectionChart } from "@/components/tenant/charts/RecoveryProjectionChart";
+import { LoadDistributionChart } from "@/components/tenant/charts/EnhancedLoadDistributionChart";
+import { CostBreakdownChart } from "@/components/tenant/charts/EnhancedCostBreakdownChart";
+import { RecoveryProjectionChart } from "@/components/tenant/charts/EnhancedRecoveryProjectionChart";
 import { ChevronDown } from "lucide-react";
 
 const GeneratorReport = () => {
