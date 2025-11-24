@@ -270,9 +270,9 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
             </p>
           ) : (
             <div className="space-y-4">
-              <div className="rounded-md border max-h-[600px] overflow-auto">
+              <div className="rounded-md border max-h-[600px] overflow-auto relative">
                 <Table>
-                  <TableHeader className="sticky top-0 bg-background z-10">
+                  <TableHeader className="sticky top-0 bg-background z-20 shadow-sm border-b">
                     <TableRow>
                       <TableHead className="px-4 py-3 w-20">Cable #</TableHead>
                       <TableHead className="px-4 py-3 w-44">Cable Tag</TableHead>
