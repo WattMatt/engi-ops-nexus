@@ -68,7 +68,7 @@ const CableDetailsModal: React.FC<CableDetailsModalProps> = ({
     const startH = parseFloat(startHeight);
     const endH = parseFloat(endHeight);
 
-    if (from.trim() && to.trim() && finalCableType && !isNaN(count) && count >= 0 && !isNaN(startH) && startH >= 0 && !isNaN(endH) && endH >= 0) {
+    if (from.trim() && to.trim() && !isNaN(count) && count >= 0 && !isNaN(startH) && startH >= 0 && !isNaN(endH) && endH >= 0) {
       onSubmit({ 
         from, 
         to, 
@@ -80,7 +80,7 @@ const CableDetailsModal: React.FC<CableDetailsModalProps> = ({
         calculatedLength
       });
     } else {
-      alert('Please fill in all fields with valid values.');
+      alert('Please fill in all required fields with valid values.');
     }
   };
 
