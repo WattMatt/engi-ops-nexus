@@ -547,11 +547,13 @@ export const TenantList = ({
         </div>
       </div>
       {/* Table Section - Contains scrolling */}
-      <div className="flex-1 min-h-0 border rounded-lg overflow-auto bg-background">
-        <Table className="relative">
-          <TableHeader className="sticky top-0 z-10 bg-background border-b shadow-sm">
-            <TableRow className="hover:bg-transparent bg-muted/50">
-                <TableHead className="sticky left-0 bg-muted/90 backdrop-blur-sm z-20 border-r shadow-sm min-w-[140px]">Shop #</TableHead>
+      <div className="flex-1 min-h-0 border rounded-lg bg-background flex flex-col overflow-hidden">
+        {/* Fixed Header */}
+        <div className="flex-shrink-0 border-b bg-muted/50">
+          <Table>
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead className="min-w-[140px]">Shop #</TableHead>
                 <TableHead className="min-w-[200px]">Shop Name</TableHead>
                 <TableHead className="min-w-[120px]">Category</TableHead>
                 <TableHead className="min-w-[120px]">Opening</TableHead>
@@ -643,19 +645,25 @@ export const TenantList = ({
                     </TooltipProvider>
                   </div>
                 </TableHead>
-              <TableHead className="text-right sticky right-0 bg-muted/90 backdrop-blur-sm z-20 border-l shadow-sm min-w-[120px]">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {groupedTenants().map((group) => (
-              <React.Fragment key={group.key}>
-                {group.label && (
-                  <TableRow className="hover:bg-transparent bg-muted/30">
-                    <TableCell colSpan={23} className="font-semibold py-2 sticky left-0 bg-muted/30 border-b">
-                      {group.label} ({group.tenants.length})
-                    </TableCell>
-                  </TableRow>
-                )}
+                <TableHead className="text-right min-w-[120px]">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+          </Table>
+        </div>
+        
+        {/* Scrollable Body */}
+        <div className="flex-1 overflow-auto">
+          <Table>
+            <TableBody>
+              {groupedTenants().map((group) => (
+                <React.Fragment key={group.key}>
+                  {group.label && (
+                    <TableRow className="hover:bg-transparent bg-muted/30">
+                      <TableCell colSpan={23} className="font-semibold py-2 border-b">
+                        {group.label} ({group.tenants.length})
+                      </TableCell>
+                    </TableRow>
+                  )}
                 {group.tenants.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={23} className="text-center py-8 text-muted-foreground">
@@ -675,7 +683,7 @@ export const TenantList = ({
                     
                     return (
                       <TableRow key={tenant.id} className={getRowClassName(tenant)}>
-                        <TableCell className="font-medium sticky left-0 bg-inherit z-10 border-r shadow-sm">
+                        <TableCell className="font-medium">
                           <div className="flex items-center gap-2">
                             <Input
                               value={tenant.shop_number}
@@ -860,7 +868,7 @@ export const TenantList = ({
                               <span className="text-muted-foreground text-xs">-</span>
                             )}
                           </TableCell>
-                          <TableCell className="text-right sticky right-0 bg-inherit z-10 border-l shadow-sm">
+                          <TableCell className="text-right">
                           <div className="flex justify-end gap-1">
                             <TenantDialog projectId={projectId} tenant={tenant} onSuccess={onUpdate} />
                             <Button variant="ghost" size="sm" onClick={() => handleDeleteClick(tenant)}>
@@ -876,6 +884,7 @@ export const TenantList = ({
             ))}
           </TableBody>
         </Table>
+        </div>
       </div>
 
       {tenantToDelete && (
