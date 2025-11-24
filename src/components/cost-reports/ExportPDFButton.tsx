@@ -415,6 +415,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           console.log('Cover page data prepared:', coverPageData);
           
           // Fetch contact if selected
+          let contactLogoUrl = null;
           if (contactId) {
             const { data: contact } = await supabase
               .from("project_contacts")
@@ -430,7 +431,15 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
                 contact.address_line2
               ].filter(Boolean).join(', ');
               coverPageData.prepared_for_tel = contact.phone || "";
-              console.log('Contact data added:', { company: coverPageData.prepared_for_company, contact: coverPageData.prepared_for_contact });
+              
+              // Get logo from contact if available
+              contactLogoUrl = contact.logo_url;
+              
+              console.log('Contact data added:', { 
+                company: coverPageData.prepared_for_company, 
+                contact: coverPageData.prepared_for_contact,
+                hasLogo: !!contactLogoUrl 
+              });
             }
           }
           
@@ -449,7 +458,11 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
             imagePlaceholders.company_logo = companyDetails.company_logo_url;
             imagePlaceholders.company_image = companyDetails.company_logo_url;
           }
-          if (companyDetails.client_logo_url) {
+          // Use contact logo as client logo
+          if (contactLogoUrl) {
+            imagePlaceholders.client_logo = contactLogoUrl;
+            imagePlaceholders.client_image = contactLogoUrl;
+          } else if (companyDetails.client_logo_url) {
             imagePlaceholders.client_logo = companyDetails.client_logo_url;
             imagePlaceholders.client_image = companyDetails.client_logo_url;
           }
