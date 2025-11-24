@@ -379,8 +379,8 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
             revision: `Report ${report.report_number}`,
             report_number: `Report ${report.report_number}`,
             
-            // Initialize Prepared For section (will be filled from contact)
-            prepared_for_company: report.client_name || "",
+            // Initialize Prepared For section
+            prepared_for_company: "",
             prepared_for_address: "",
             prepared_for_tel: "",
             prepared_for_contact: "",
@@ -390,6 +390,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
             prepared_by_address: "",
             prepared_by_tel: "",
             prepared_by_contact: "",
+            prepared_by_email: "",
             
             // Additional fields
             electrical_contractor: report.electrical_contractor || "",
@@ -403,6 +404,8 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
               ? format(new Date(report.site_handover_date), "dd MMMM yyyy")
               : "",
           };
+          
+          console.log('Cover page data prepared:', coverPageData);
           
           // Fetch contact if selected
           if (contactId) {
@@ -418,10 +421,20 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
               coverPageData.prepared_for_address = [
                 contact.address_line1,
                 contact.address_line2
-              ].filter(Boolean).join('\n');
+              ].filter(Boolean).join(', ');
               coverPageData.prepared_for_tel = contact.phone || "";
+              console.log('Contact data added:', { company: coverPageData.prepared_for_company, contact: coverPageData.prepared_for_contact });
             }
           }
+          
+          console.log('Sending to convert-word-to-pdf:', { 
+            templateUrl: templates.coverPage.file_url,
+            placeholderDataKeys: Object.keys(coverPageData),
+            sampleData: {
+              project_name: coverPageData.project_name,
+              prepared_for_company: coverPageData.prepared_for_company
+            }
+          });
           
           // Prepare image placeholders
           const imagePlaceholders: Record<string, string> = {};
