@@ -390,7 +390,7 @@ export const TenantList = ({
   };
 
   return (
-    <div className="flex flex-col gap-4 h-full overflow-hidden">
+    <div className="flex flex-col gap-4 h-full overflow-hidden py-6">
       {/* Filters and Actions */}
       <div className="flex flex-col gap-3 flex-shrink-0 px-1">
         {/* Search and Filters */}
