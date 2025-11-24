@@ -549,34 +549,59 @@ export const TenantList = ({
       {/* Table Section - Fixed Header + Scrollable Body */}
       <div className="flex-1 flex flex-col border rounded-lg bg-background overflow-hidden">
         {/* Fixed Header */}
-        <div className="flex-shrink-0 border-b bg-muted/50 overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b">
-                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground min-w-[140px]">Shop #</th>
-                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground min-w-[200px]">Shop Name</th>
-                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground min-w-[120px]">Category</th>
-                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground min-w-[120px]">Opening</th>
-                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground min-w-[100px]">BO Period</th>
-                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground min-w-[140px]">Beneficial Occ</th>
-                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground min-w-[100px]">Days Until</th>
-                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground min-w-[100px]">Area</th>
-                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground min-w-[120px]">DB Allow</th>
-                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground min-w-[200px]">DB SOW</th>
-                <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground min-w-[80px]">SOW</th>
-                <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground min-w-[80px]">Layout</th>
-                <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground min-w-[80px]">DB Ord</th>
-                <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground min-w-[120px]">DB by Tenant</th>
-                <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground min-w-[100px]">DB Cost</th>
-                <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground min-w-[80px]">Light Ord</th>
-                <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground min-w-[120px]">Light by Tenant</th>
-                <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground min-w-[100px]">Light Cost</th>
-                <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground min-w-[100px]">Cost Report</th>
-                <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground min-w-[100px]">Handover</th>
-                <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground min-w-[120px]">Actions</th>
-              </tr>
-            </thead>
-          </table>
+        <div className="flex-shrink-0 border-b bg-muted/50">
+          <div className="overflow-x-auto">
+            <table className="w-full" style={{ tableLayout: 'fixed', width: '100%' }}>
+              <colgroup>
+                <col style={{ width: '140px' }} />
+                <col style={{ width: '200px' }} />
+                <col style={{ width: '120px' }} />
+                <col style={{ width: '120px' }} />
+                <col style={{ width: '100px' }} />
+                <col style={{ width: '140px' }} />
+                <col style={{ width: '100px' }} />
+                <col style={{ width: '100px' }} />
+                <col style={{ width: '120px' }} />
+                <col style={{ width: '200px' }} />
+                <col style={{ width: '80px' }} />
+                <col style={{ width: '80px' }} />
+                <col style={{ width: '80px' }} />
+                <col style={{ width: '120px' }} />
+                <col style={{ width: '100px' }} />
+                <col style={{ width: '80px' }} />
+                <col style={{ width: '120px' }} />
+                <col style={{ width: '100px' }} />
+                <col style={{ width: '100px' }} />
+                <col style={{ width: '100px' }} />
+                <col style={{ width: '120px' }} />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Shop #</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Shop Name</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Category</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Opening</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">BO Period</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Beneficial Occ</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Days Until</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Area</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">DB Allow</th>
+                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">DB SOW</th>
+                  <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">SOW</th>
+                  <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Layout</th>
+                  <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">DB Ord</th>
+                  <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">DB by Tenant</th>
+                  <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">DB Cost</th>
+                  <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Light Ord</th>
+                  <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Light by Tenant</th>
+                  <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">Light Cost</th>
+                  <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Cost Report</th>
+                  <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Handover</th>
+                  <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">Actions</th>
+                </tr>
+              </thead>
+            </table>
+          </div>
         </div>
         
         {/* Scrollable Body */}
