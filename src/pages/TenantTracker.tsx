@@ -103,137 +103,150 @@ const TenantTracker = () => {
   };
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="flex justify-between items-center mb-6 px-6 pt-6 flex-shrink-0">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-3xl font-bold">Tenant Tracker</h1>
-            {projectId && <TenantVersionBadge projectId={projectId} />}
+    <div className="h-screen flex flex-col overflow-hidden">
+      {/* Fixed Header */}
+      <div className="border-b bg-background">
+        <div className="flex justify-between items-center px-6 py-4">
+          <div>
+            <div className="flex items-center gap-3">
+              <h1 className="text-3xl font-bold">Tenant Tracker</h1>
+              {projectId && <TenantVersionBadge projectId={projectId} />}
+            </div>
+            <p className="text-muted-foreground mt-1">{projectName || "No project selected"}</p>
           </div>
-          <p className="text-muted-foreground mt-1">{projectName || "No project selected"}</p>
-        </div>
-        <div className="flex gap-2">
-          <TenantReportGenerator 
-            tenants={tenants} 
-            projectId={projectId || ""} 
-            projectName={projectName || "Project"} 
-          />
-          <TenantDialog projectId={projectId || ""} onSuccess={handleUpdate} />
+          <div className="flex gap-2">
+            <TenantReportGenerator 
+              tenants={tenants} 
+              projectId={projectId || ""} 
+              projectName={projectName || "Project"} 
+            />
+            <TenantDialog projectId={projectId || ""} onSuccess={handleUpdate} />
+          </div>
         </div>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col overflow-hidden px-6">
-        <TabsList className="flex-shrink-0 mb-4">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="tenants">Tenant Schedule</TabsTrigger>
-          <TabsTrigger value="documents">Documents</TabsTrigger>
-          <TabsTrigger value="report-status">Report Status</TabsTrigger>
-          <TabsTrigger value="change-history">Change History</TabsTrigger>
-          <TabsTrigger value="floor-plan">Floor Plan Masking</TabsTrigger>
-          <TabsTrigger value="settings">DB Sizing Rules</TabsTrigger>
-          <TabsTrigger value="reports">Saved Reports</TabsTrigger>
-        </TabsList>
+      {/* Scrollable Content Area */}
+      <div className="flex-1 overflow-hidden">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full flex flex-col">
+          <div className="border-b bg-background px-6">
+            <TabsList className="my-3">
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="tenants">Tenant Schedule</TabsTrigger>
+              <TabsTrigger value="documents">Documents</TabsTrigger>
+              <TabsTrigger value="report-status">Report Status</TabsTrigger>
+              <TabsTrigger value="change-history">Change History</TabsTrigger>
+              <TabsTrigger value="floor-plan">Floor Plan Masking</TabsTrigger>
+              <TabsTrigger value="settings">DB Sizing Rules</TabsTrigger>
+              <TabsTrigger value="reports">Saved Reports</TabsTrigger>
+            </TabsList>
 
-        {/* Documents View Toggle - only shown when on documents tab */}
-        {activeTab === "documents" && (
-          <div className="flex gap-2 mb-4 flex-shrink-0">
-            <Button
-              variant={documentsView === "by-tenant" ? "default" : "outline"}
-              onClick={() => setDocumentsView("by-tenant")}
-              size="sm"
-            >
-              By Tenant
-            </Button>
-            <Button
-              variant={documentsView === "status-report" ? "default" : "outline"}
-              onClick={() => setDocumentsView("status-report")}
-              size="sm"
-            >
-              Status Report
-            </Button>
-          </div>
-        )}
-        
-        <div className={activeTab !== "documents" ? "mt-4" : ""}></div>
-        
-        <TabsContent value="overview" className="mt-0 space-y-6 overflow-auto pb-6">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8">
-              <p className="text-muted-foreground">Loading data...</p>
-            </div>
-          ) : (
-            <TenantOverview tenants={tenants} projectId={projectId || ""} />
-          )}
-        </TabsContent>
-        
-        <TabsContent value="tenants" className="flex-1 overflow-auto pb-6 space-y-4">
-          <div className="bg-background border rounded-lg p-4 shadow-sm">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-semibold">Legend:</span>
-              <Badge variant="outline" className="bg-blue-500 text-white border-blue-600">
-                Standard
-              </Badge>
-              <Badge variant="outline" className="bg-red-500 text-white border-red-600">
-                Fast Food
-              </Badge>
-              <Badge variant="outline" className="bg-emerald-500 text-white border-emerald-600">
-                Restaurant
-              </Badge>
-              <Badge variant="outline" className="bg-purple-600 text-white border-purple-700">
-                National
-              </Badge>
-            </div>
-          </div>
-          
-          <div className="border rounded-lg">
-            {isLoading ? (
-              <div className="flex items-center justify-center py-8">
-                <p className="text-muted-foreground">Loading tenants...</p>
+            {/* Documents View Toggle - only shown when on documents tab */}
+            {activeTab === "documents" && (
+              <div className="flex gap-2 pb-3">
+                <Button
+                  variant={documentsView === "by-tenant" ? "default" : "outline"}
+                  onClick={() => setDocumentsView("by-tenant")}
+                  size="sm"
+                >
+                  By Tenant
+                </Button>
+                <Button
+                  variant={documentsView === "status-report" ? "default" : "outline"}
+                  onClick={() => setDocumentsView("status-report")}
+                  size="sm"
+                >
+                  Status Report
+                </Button>
               </div>
-            ) : (
-              <TenantList
-                tenants={tenants}
-                projectId={projectId || ""}
-                onUpdate={handleUpdate}
-              />
             )}
           </div>
-        </TabsContent>
-        
-        <TabsContent value="documents" className="flex-1 overflow-auto pb-6">
-          <TenantDocumentsTab 
-            projectId={projectId || ""} 
-            tenants={tenants}
-            activeView={documentsView}
-          />
-        </TabsContent>
-        
-        <TabsContent value="report-status" className="flex-1 overflow-auto pb-6">
-          {projectId && <OutdatedReportsIndicator projectId={projectId} />}
-        </TabsContent>
-        
-        <TabsContent value="change-history" className="flex-1 overflow-auto pb-6">
-          {projectId && <TenantChangeAuditLog projectId={projectId} />}
-        </TabsContent>
-        
-        <TabsContent value="reports" className="flex-1 overflow-auto pb-6">
-          <SavedReportsList 
-            projectId={projectId || ""} 
-            projectName={projectName || undefined}
-          />
-        </TabsContent>
-        
-        <TabsContent value="floor-plan" className="flex-1 overflow-hidden flex flex-col pb-6">
-          <FloorPlanMasking 
-            key={`floor-plan-${activeTab === 'floor-plan' ? Date.now() : 'cached'}`}
-            projectId={projectId || ""} 
-          />
-        </TabsContent>
-        
-        <TabsContent value="settings" className="flex-1 overflow-auto pb-6">
-          <DBSizingRulesSettings projectId={projectId || ""} />
-        </TabsContent>
-      </Tabs>
+
+          {/* Tab Content with ScrollArea */}
+          <ScrollArea className="flex-1">
+            <div className="px-6 py-6">
+              <TabsContent value="overview" className="mt-0 space-y-6">
+                {isLoading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <p className="text-muted-foreground">Loading data...</p>
+                  </div>
+                ) : (
+                  <TenantOverview tenants={tenants} projectId={projectId || ""} />
+                )}
+              </TabsContent>
+              
+              <TabsContent value="tenants" className="mt-0 space-y-4">
+                <div className="bg-background border rounded-lg p-4 shadow-sm">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-semibold">Legend:</span>
+                    <Badge variant="outline" className="bg-blue-500 text-white border-blue-600">
+                      Standard
+                    </Badge>
+                    <Badge variant="outline" className="bg-red-500 text-white border-red-600">
+                      Fast Food
+                    </Badge>
+                    <Badge variant="outline" className="bg-emerald-500 text-white border-emerald-600">
+                      Restaurant
+                    </Badge>
+                    <Badge variant="outline" className="bg-purple-600 text-white border-purple-700">
+                      National
+                    </Badge>
+                  </div>
+                </div>
+                
+                <div className="border rounded-lg">
+                  {isLoading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <p className="text-muted-foreground">Loading tenants...</p>
+                    </div>
+                  ) : (
+                    <TenantList
+                      tenants={tenants}
+                      projectId={projectId || ""}
+                      onUpdate={handleUpdate}
+                    />
+                  )}
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="documents" className="mt-0">
+                <TenantDocumentsTab 
+                  projectId={projectId || ""} 
+                  tenants={tenants}
+                  activeView={documentsView}
+                />
+              </TabsContent>
+              
+              <TabsContent value="report-status" className="mt-0">
+                {projectId && <OutdatedReportsIndicator projectId={projectId} />}
+              </TabsContent>
+              
+              <TabsContent value="change-history" className="mt-0">
+                {projectId && <TenantChangeAuditLog projectId={projectId} />}
+              </TabsContent>
+              
+              <TabsContent value="reports" className="mt-0">
+                <SavedReportsList 
+                  projectId={projectId || ""} 
+                  projectName={projectName || undefined}
+                />
+              </TabsContent>
+              
+              <TabsContent value="floor-plan" className="mt-0">
+                <div className="h-[calc(100vh-300px)]">
+                  <FloorPlanMasking 
+                    key={`floor-plan-${activeTab === 'floor-plan' ? Date.now() : 'cached'}`}
+                    projectId={projectId || ""} 
+                  />
+                </div>
+              </TabsContent>
+              
+              <TabsContent value="settings" className="mt-0">
+                <DBSizingRulesSettings projectId={projectId || ""} />
+              </TabsContent>
+            </div>
+          </ScrollArea>
+        </Tabs>
+      </div>
     </div>
   );
 };
