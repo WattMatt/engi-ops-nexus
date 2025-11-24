@@ -1,3 +1,4 @@
+import React from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -545,29 +546,22 @@ export const TenantList = ({
         </Button>
         </div>
       </div>
-      <div className="flex-1 min-h-0 border rounded-lg overflow-hidden">
-        <ScrollArea className="h-full">
-          {groupedTenants().map((group) => (
-            <div key={group.key}>
-              {group.label && (
-                <div className="sticky top-0 bg-muted px-4 py-2 font-semibold text-sm border-b z-20">
-                  {group.label} ({group.tenants.length})
-                </div>
-              )}
-              <Table>
-            <TableHeader className="sticky top-0 bg-background z-10">
+      <div className="flex-1 min-h-0 overflow-hidden">
+        <div className="h-full overflow-x-auto border rounded-lg">
+          <Table>
+            <TableHeader className="sticky top-0 bg-muted/50 z-10">
               <TableRow>
-                <TableHead>Shop #</TableHead>
-                <TableHead>Shop Name</TableHead>
-                <TableHead>Category</TableHead>
-                <TableHead>Opening</TableHead>
-                <TableHead>BO Period</TableHead>
-                <TableHead>Beneficial Occ</TableHead>
-                <TableHead>Days Until</TableHead>
-                <TableHead>Area</TableHead>
-                <TableHead>DB Allow</TableHead>
-                <TableHead>DB SOW</TableHead>
-                <TableHead className="text-center">
+                <TableHead className="sticky left-0 bg-muted/50 z-20 min-w-[120px]">Shop #</TableHead>
+                <TableHead className="min-w-[200px]">Shop Name</TableHead>
+                <TableHead className="min-w-[120px]">Category</TableHead>
+                <TableHead className="min-w-[120px]">Opening</TableHead>
+                <TableHead className="min-w-[100px]">BO Period</TableHead>
+                <TableHead className="min-w-[140px]">Beneficial Occ</TableHead>
+                <TableHead className="min-w-[100px]">Days Until</TableHead>
+                <TableHead className="min-w-[100px]">Area</TableHead>
+                <TableHead className="min-w-[120px]">DB Allow</TableHead>
+                <TableHead className="min-w-[200px]">DB SOW</TableHead>
+                <TableHead className="text-center min-w-[80px]">
                   <div className="flex items-center justify-center gap-1">
                     SOW
                     <TooltipProvider>
@@ -582,7 +576,7 @@ export const TenantList = ({
                     </TooltipProvider>
                   </div>
                 </TableHead>
-                <TableHead className="text-center">
+                <TableHead className="text-center min-w-[80px]">
                   <div className="flex items-center justify-center gap-1">
                     Layout
                     <TooltipProvider>
@@ -597,7 +591,7 @@ export const TenantList = ({
                     </TooltipProvider>
                   </div>
                 </TableHead>
-                <TableHead className="text-center">
+                <TableHead className="text-center min-w-[80px]">
                   <div className="flex items-center justify-center gap-1">
                     DB Ord
                     <TooltipProvider>
@@ -612,9 +606,9 @@ export const TenantList = ({
                     </TooltipProvider>
                   </div>
                 </TableHead>
-                <TableHead className="text-center">DB by Tenant</TableHead>
-                <TableHead className="text-right">DB Cost</TableHead>
-                <TableHead className="text-center">
+                <TableHead className="text-center min-w-[120px]">DB by Tenant</TableHead>
+                <TableHead className="text-right min-w-[100px]">DB Cost</TableHead>
+                <TableHead className="text-center min-w-[80px]">
                   <div className="flex items-center justify-center gap-1">
                     Light Ord
                     <TooltipProvider>
@@ -629,10 +623,10 @@ export const TenantList = ({
                     </TooltipProvider>
                   </div>
                 </TableHead>
-                <TableHead className="text-center">Light by Tenant</TableHead>
-                <TableHead className="text-right">Light Cost</TableHead>
-                <TableHead className="text-center">Cost Report</TableHead>
-                <TableHead className="text-center">
+                <TableHead className="text-center min-w-[120px]">Light by Tenant</TableHead>
+                <TableHead className="text-right min-w-[100px]">Light Cost</TableHead>
+                <TableHead className="text-center min-w-[100px]">Cost Report</TableHead>
+                <TableHead className="text-center min-w-[100px]">
                   <div className="flex items-center justify-center gap-1">
                     <TooltipProvider>
                       <Tooltip>
@@ -649,287 +643,241 @@ export const TenantList = ({
                     </TooltipProvider>
                   </div>
                 </TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+                <TableHead className="text-right sticky right-0 bg-muted/50 z-20 min-w-[100px]">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {group.tenants.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={18} className="text-center py-8 text-muted-foreground">
-                    {searchQuery || categoryFilter || statusFilter !== "all" 
-                      ? "No tenants match the current filters" 
-                      : "No tenants found"}
-                  </TableCell>
-                </TableRow>
-              ) : (
-                group.tenants.map((tenant) => {
-                  const deadlineStatus = getDeadlineStatus(tenant);
-                  const beneficialDate = tenant.opening_date 
-                    ? addDays(new Date(tenant.opening_date), -(tenant.beneficial_occupation_days || 90))
-                    : null;
-                  const daysUntil = beneficialDate ? differenceInDays(beneficialDate, new Date()) : null;
-                  const editingUser = getEditingUser(tenant.id);
-                  
-                  return (
-                    <TableRow key={tenant.id} className={getRowClassName(tenant)}>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
-                        <Input
-                          value={tenant.shop_number}
-                          onChange={(e) => handleFieldUpdate(tenant.id, 'shop_number', e.target.value)}
-                          onFocus={() => setEditing(tenant.id)}
-                          onBlur={() => setEditing(null)}
-                          className="h-8 w-24"
-                        />
-                        {editingUser && (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
-                                <div className="flex items-center gap-1 text-primary animate-pulse">
-                                  <User className="h-3 w-3" />
-                                </div>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p className="text-xs">{editingUser.userName} is editing</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        )}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        value={tenant.shop_name}
-                        onChange={(e) => handleFieldUpdate(tenant.id, 'shop_name', e.target.value)}
-                        onFocus={() => setEditing(tenant.id)}
-                        onBlur={() => setEditing(null)}
-                        className="h-8 min-w-[150px]"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Select value={tenant.shop_category} onValueChange={value => handleFieldUpdate(tenant.id, 'shop_category', value)}>
-                        <SelectTrigger className="w-[140px] h-8">
-                          <SelectValue>
-                            <Badge variant="outline" className={getCategoryVariant(tenant.shop_category)}>
-                              {getCategoryLabel(tenant.shop_category)}
-                            </Badge>
-                          </SelectValue>
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="standard">
-                            <Badge variant="outline" className={getCategoryVariant("standard")}>
-                              Standard
-                            </Badge>
-                          </SelectItem>
-                          <SelectItem value="fast_food">
-                            <Badge variant="outline" className={getCategoryVariant("fast_food")}>
-                              Fast Food
-                            </Badge>
-                          </SelectItem>
-                          <SelectItem value="restaurant">
-                            <Badge variant="outline" className={getCategoryVariant("restaurant")}>
-                              Restaurant
-                            </Badge>
-                          </SelectItem>
-                          <SelectItem value="national">
-                            <Badge variant="outline" className={getCategoryVariant("national")}>
-                              National
-                            </Badge>
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="date"
-                        value={tenant.opening_date || ""}
-                        onChange={(e) => handleFieldUpdate(tenant.id, 'opening_date', e.target.value || null)}
-                        onFocus={() => setEditing(tenant.id)}
-                        onBlur={() => setEditing(null)}
-                        className="h-8 w-[140px]"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Select 
-                        value={tenant.beneficial_occupation_days?.toString() || "90"} 
-                        onValueChange={value => handleFieldUpdate(tenant.id, 'beneficial_occupation_days', parseInt(value))}
-                      >
-                        <SelectTrigger className="w-[100px] h-8">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="30">30 days</SelectItem>
-                          <SelectItem value="45">45 days</SelectItem>
-                          <SelectItem value="60">60 days</SelectItem>
-                          <SelectItem value="90">90 days</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </TableCell>
-                    <TableCell>
-                      {beneficialDate ? beneficialDate.toLocaleDateString() : "-"}
-                    </TableCell>
-                    <TableCell>
-                      {daysUntil !== null ? (
-                        <div className="flex items-center gap-1">
-                          {daysUntil < 0 && <AlertTriangle className="h-4 w-4 text-destructive" />}
-                          {daysUntil >= 0 && daysUntil <= 14 && <Clock className="h-4 w-4 text-amber-600" />}
-                          <span className={daysUntil < 0 ? "text-destructive font-semibold" : ""}>
-                            {daysUntil} days
-                          </span>
-                        </div>
-                      ) : "-"}
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        type="number"
-                        step="0.01"
-                        value={tenant.area || ""}
-                        onChange={(e) => handleFieldUpdate(tenant.id, 'area', e.target.value ? parseFloat(e.target.value) : null)}
-                        onFocus={() => setEditing(tenant.id)}
-                        onBlur={() => setEditing(null)}
-                        className="h-8 w-24"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        value={tenant.db_size_allowance || ""}
-                        onChange={(e) => handleFieldUpdate(tenant.id, 'db_size_allowance', e.target.value || null)}
-                        onFocus={() => setEditing(tenant.id)}
-                        onBlur={() => setEditing(null)}
-                        className="h-8 w-24"
-                        placeholder="e.g. 100A"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Input
-                        value={tenant.db_size_scope_of_work || ""}
-                        onChange={(e) => handleFieldUpdate(tenant.id, 'db_size_scope_of_work', e.target.value || null)}
-                        onFocus={() => setEditing(tenant.id)}
-                        onBlur={() => setEditing(null)}
-                        className="h-8 w-24"
-                        placeholder="e.g. 80A TP"
-                      />
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <StatusIcon 
-                        checked={tenant.sow_received} 
-                        onClick={() => handleBooleanToggle(tenant.id, 'sow_received', tenant.sow_received)}
-                        autoSynced={true}
-                      />
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <StatusIcon 
-                        checked={tenant.layout_received}
-                        onClick={() => handleBooleanToggle(tenant.id, 'layout_received', tenant.layout_received)}
-                        autoSynced={true}
-                      />
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <StatusIcon 
-                        checked={tenant.db_ordered}
-                        onClick={() => handleBooleanToggle(tenant.id, 'db_ordered', tenant.db_ordered)}
-                        autoSynced={true}
-                      />
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <StatusIcon 
-                        checked={tenant.db_by_tenant}
-                        onClick={() => handleBooleanToggle(tenant.id, 'db_by_tenant', tenant.db_by_tenant)}
-                        autoSynced={false}
-                      />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {tenant.db_by_tenant ? (
-                        <span className="text-muted-foreground italic">By Tenant</span>
-                      ) : (
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={tenant.db_cost || ""}
-                          onChange={(e) => handleFieldUpdate(tenant.id, 'db_cost', e.target.value ? parseFloat(e.target.value) : null)}
-                          onFocus={() => setEditing(tenant.id)}
-                          onBlur={() => setEditing(null)}
-                          className="h-8 w-28 text-right"
-                          placeholder="0.00"
-                        />
-                      )}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <StatusIcon 
-                        checked={tenant.lighting_ordered}
-                        autoSynced={true}
-                        onClick={() => handleBooleanToggle(tenant.id, 'lighting_ordered', tenant.lighting_ordered)}
-                      />
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <StatusIcon 
-                        checked={tenant.lighting_by_tenant}
-                        onClick={() => handleBooleanToggle(tenant.id, 'lighting_by_tenant', tenant.lighting_by_tenant)}
-                        autoSynced={false}
-                      />
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {tenant.lighting_by_tenant ? (
-                        <span className="text-muted-foreground italic">By Tenant</span>
-                      ) : (
-                        <Input
-                          type="number"
-                          step="0.01"
-                          value={tenant.lighting_cost || ""}
-                          onChange={(e) => handleFieldUpdate(tenant.id, 'lighting_cost', e.target.value ? parseFloat(e.target.value) : null)}
-                          onFocus={() => setEditing(tenant.id)}
-                          onBlur={() => setEditing(null)}
-                          className="h-8 w-28 text-right"
-                          placeholder="0.00"
-                        />
-                      )}
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <StatusIcon 
-                        checked={tenant.cost_reported}
-                        onClick={() => handleBooleanToggle(tenant.id, 'cost_reported', tenant.cost_reported)}
-                        autoSynced={false}
-                      />
-                    </TableCell>
-                    <TableCell className="text-center">
-                      {handoverLinkStatus?.linkedTenantIds.includes(tenant.id) ? (
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className="flex items-center justify-center">
-                                <Badge variant="default" className="bg-emerald-600">
-                                  <FolderSymlink className="h-3 w-3 mr-1" />
-                                  Linked
-                                </Badge>
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent>
-                              <p className="text-xs">Documents linked to handover folders</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      ) : (
-                        <span className="text-muted-foreground text-xs">-</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <div className="flex justify-end gap-1">
-                        <TenantDialog projectId={projectId} tenant={tenant} onSuccess={onUpdate} />
-                        <Button variant="ghost" size="sm" onClick={() => handleDeleteClick(tenant)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                  );
-                })
-              )}
+              {groupedTenants().map((group) => (
+                <React.Fragment key={group.key}>
+                  {group.label && (
+                    <TableRow>
+                      <TableCell colSpan={23} className="bg-muted/30 font-semibold py-2 sticky left-0">
+                        {group.label} ({group.tenants.length})
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {group.tenants.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={23} className="text-center py-8 text-muted-foreground">
+                        {searchQuery || categoryFilter || statusFilter !== "all" 
+                          ? "No tenants match the current filters" 
+                          : "No tenants found"}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    group.tenants.map((tenant) => {
+                      const deadlineStatus = getDeadlineStatus(tenant);
+                      const beneficialDate = tenant.opening_date 
+                        ? addDays(new Date(tenant.opening_date), -(tenant.beneficial_occupation_days || 90))
+                        : null;
+                      const daysUntil = beneficialDate ? differenceInDays(beneficialDate, new Date()) : null;
+                      const editingUser = getEditingUser(tenant.id);
+                      
+                      return (
+                        <TableRow key={tenant.id} className={getRowClassName(tenant)}>
+                          <TableCell className="font-medium sticky left-0 bg-inherit z-10">
+                            <div className="flex items-center gap-2">
+                              <Input
+                                value={tenant.shop_number}
+                                onChange={(e) => handleFieldUpdate(tenant.id, 'shop_number', e.target.value)}
+                                onFocus={() => setEditing(tenant.id)}
+                                onBlur={() => setEditing(null)}
+                                className="h-8 w-24"
+                              />
+                              {editingUser && (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <div className="flex items-center gap-1 text-primary animate-pulse">
+                                        <User className="h-3 w-3" />
+                                      </div>
+                                    </TooltipTrigger>
+                                    <TooltipContent>
+                                      <p className="text-xs">{editingUser.userName} is editing</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              value={tenant.shop_name}
+                              onChange={(e) => handleFieldUpdate(tenant.id, 'shop_name', e.target.value)}
+                              className="h-8"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Select
+                              value={tenant.shop_category}
+                              onValueChange={(val) => handleFieldUpdate(tenant.id, 'shop_category', val)}
+                            >
+                              <SelectTrigger className="h-8">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="standard">Standard</SelectItem>
+                                <SelectItem value="fast_food">Fast Food</SelectItem>
+                                <SelectItem value="restaurant">Restaurant</SelectItem>
+                                <SelectItem value="national">National</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="date"
+                              value={tenant.opening_date || ""}
+                              onChange={(e) => handleFieldUpdate(tenant.id, 'opening_date', e.target.value)}
+                              className="h-8 w-36"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Select
+                              value={tenant.beneficial_occupation_days?.toString() || "90"}
+                              onValueChange={(val) => handleFieldUpdate(tenant.id, 'beneficial_occupation_days', parseInt(val))}
+                            >
+                              <SelectTrigger className="h-8 w-24">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="30">30</SelectItem>
+                                <SelectItem value="45">45</SelectItem>
+                                <SelectItem value="60">60</SelectItem>
+                                <SelectItem value="90">90</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </TableCell>
+                          <TableCell className="whitespace-nowrap text-sm">
+                            {beneficialDate ? beneficialDate.toLocaleDateString() : '-'}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {daysUntil !== null ? (
+                              <Badge variant={daysUntil < 0 ? "destructive" : daysUntil <= 14 ? "default" : "secondary"}>
+                                {daysUntil < 0 ? `${Math.abs(daysUntil)} days ago` : `${daysUntil} days`}
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              type="number"
+                              value={tenant.area || ""}
+                              onChange={(e) => handleFieldUpdate(tenant.id, 'area', e.target.value ? parseFloat(e.target.value) : null)}
+                              placeholder="m²"
+                              className="h-8 w-20"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              value={tenant.db_size_allowance || ""}
+                              onChange={(e) => handleFieldUpdate(tenant.id, 'db_size_allowance', e.target.value)}
+                              className="h-8"
+                            />
+                          </TableCell>
+                          <TableCell>
+                            <Input
+                              value={tenant.db_size_scope_of_work || ""}
+                              onChange={(e) => handleFieldUpdate(tenant.id, 'db_size_scope_of_work', e.target.value)}
+                              className="h-8"
+                            />
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <StatusIcon 
+                              checked={tenant.sow_received}
+                              onClick={() => handleBooleanToggle(tenant.id, 'sow_received', tenant.sow_received)}
+                              autoSynced={false}
+                            />
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <StatusIcon 
+                              checked={tenant.layout_received}
+                              onClick={() => handleBooleanToggle(tenant.id, 'layout_received', tenant.layout_received)}
+                              autoSynced={false}
+                            />
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <StatusIcon 
+                              checked={tenant.db_ordered}
+                              onClick={() => handleBooleanToggle(tenant.id, 'db_ordered', tenant.db_ordered)}
+                              autoSynced={false}
+                            />
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <StatusIcon 
+                              checked={tenant.db_by_tenant}
+                              onClick={() => handleBooleanToggle(tenant.id, 'db_by_tenant', tenant.db_by_tenant)}
+                            />
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {!tenant.db_by_tenant && (
+                              <Input
+                                type="number"
+                                value={tenant.db_cost || ""}
+                                onChange={(e) => handleFieldUpdate(tenant.id, 'db_cost', e.target.value ? parseFloat(e.target.value) : null)}
+                                className="h-8 w-24 text-right"
+                                placeholder="R"
+                              />
+                            )}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <StatusIcon 
+                              checked={tenant.lighting_ordered}
+                              onClick={() => handleBooleanToggle(tenant.id, 'lighting_ordered', tenant.lighting_ordered)}
+                              autoSynced={false}
+                            />
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <StatusIcon 
+                              checked={tenant.lighting_by_tenant}
+                              onClick={() => handleBooleanToggle(tenant.id, 'lighting_by_tenant', tenant.lighting_by_tenant)}
+                            />
+                          </TableCell>
+                          <TableCell className="text-right">
+                            {!tenant.lighting_by_tenant && (
+                              <Input
+                                type="number"
+                                value={tenant.lighting_cost || ""}
+                                onChange={(e) => handleFieldUpdate(tenant.id, 'lighting_cost', e.target.value ? parseFloat(e.target.value) : null)}
+                                className="h-8 w-24 text-right"
+                                placeholder="R"
+                              />
+                            )}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <StatusIcon 
+                              checked={tenant.cost_reported}
+                              onClick={() => handleBooleanToggle(tenant.id, 'cost_reported', tenant.cost_reported)}
+                            />
+                          </TableCell>
+                          <TableCell className="text-center">
+                            {handoverLinkStatus?.linkedTenantIds?.includes(tenant.id) ? (
+                              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                                <FolderSymlink className="h-3 w-3 mr-1" />
+                                Linked
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right sticky right-0 bg-inherit z-10">
+                            <div className="flex justify-end gap-1">
+                              <TenantDialog projectId={projectId} tenant={tenant} onSuccess={onUpdate} />
+                              <Button variant="ghost" size="sm" onClick={() => handleDeleteClick(tenant)}>
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
+                  )}
+                </React.Fragment>
+              ))}
             </TableBody>
           </Table>
-          </div>
-        ))}
-      </ScrollArea>
-    </div>
+        </div>
+      </div>
 
       {tenantToDelete && (
         <DeleteTenantDialog
