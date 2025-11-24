@@ -550,7 +550,7 @@ export const TenantList = ({
       <div className="flex-1 border rounded-lg bg-background overflow-hidden flex flex-col">
         <div className="flex-1 overflow-auto">
           <Table>
-            <TableHeader className="sticky top-0 bg-muted/50 z-10 border-b shadow-sm">
+            <TableHeader className="sticky top-0 bg-background z-20 border-b shadow-sm after:absolute after:inset-x-0 after:bottom-0 after:h-px after:bg-border">
               <TableRow>
                 <TableHead className="h-12">Shop #</TableHead>
                 <TableHead className="h-12">Shop Name</TableHead>
