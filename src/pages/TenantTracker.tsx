@@ -175,8 +175,8 @@ const TenantTracker = () => {
               </div>
             </TabsContent>
             
-            <TabsContent value="tenants" className="h-full px-6 py-6 flex flex-col gap-4">
-              <div className="bg-background border rounded-lg p-4 shadow-sm flex-shrink-0">
+            <TabsContent value="tenants" className="h-full overflow-hidden flex flex-col gap-4">
+              <div className="bg-background border rounded-lg p-4 shadow-sm flex-shrink-0 mx-6">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-sm font-semibold">Legend:</span>
                   <Badge variant="outline" className="bg-blue-500 text-white border-blue-600">
@@ -199,11 +199,13 @@ const TenantTracker = () => {
                   <p className="text-muted-foreground">Loading tenants...</p>
                 </div>
               ) : (
-                <TenantList
-                  tenants={tenants}
-                  projectId={projectId || ""}
-                  onUpdate={handleUpdate}
-                />
+                <div className="flex-1 min-h-0 px-6">
+                  <TenantList
+                    tenants={tenants}
+                    projectId={projectId || ""}
+                    onUpdate={handleUpdate}
+                  />
+                </div>
               )}
             </TabsContent>
             
