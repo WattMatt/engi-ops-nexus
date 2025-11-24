@@ -1,4 +1,6 @@
+import { useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useVirtualizer } from "@tanstack/react-virtual";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -17,6 +19,7 @@ interface AllCableEntriesViewProps {
 
 export const AllCableEntriesView = ({ projectId }: AllCableEntriesViewProps) => {
   const navigate = useNavigate();
+  const parentRef = useRef<HTMLDivElement>(null);
 
   const { data: entries, isLoading } = useQuery({
     queryKey: ["all-cable-entries", projectId],
@@ -60,6 +63,13 @@ export const AllCableEntriesView = ({ projectId }: AllCableEntriesViewProps) => 
 
   const totalCost = entries?.reduce((sum, entry) => sum + (entry.total_cost || 0), 0) || 0;
 
+  const rowVirtualizer = useVirtualizer({
+    count: entries?.length || 0,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => 53,
+    overscan: 10,
+  });
+
   if (isLoading) {
     return <div>Loading cable entries...</div>;
   }
@@ -76,9 +86,13 @@ export const AllCableEntriesView = ({ projectId }: AllCableEntriesViewProps) => 
           </p>
         ) : (
           <div className="space-y-4">
-            <div className="rounded-md border overflow-x-auto">
+            <div 
+              ref={parentRef}
+              className="rounded-md border overflow-auto"
+              style={{ height: '600px' }}
+            >
               <Table>
-                <TableHeader>
+                <TableHeader className="sticky top-0 bg-background z-10">
                   <TableRow>
                     <TableHead>Revision</TableHead>
                     <TableHead>Cable #</TableHead>
@@ -97,28 +111,42 @@ export const AllCableEntriesView = ({ projectId }: AllCableEntriesViewProps) => 
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {entries.map((entry) => (
-                    <TableRow 
-                      key={entry.id}
-                      className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => navigate(`/dashboard/cable-schedules/${entry.schedule_id}`)}
-                    >
-                      <TableCell className="font-medium">{entry.revision}</TableCell>
-                      <TableCell className="font-medium">{entry.cable_number || "1"}</TableCell>
-                      <TableCell>{entry.cable_tag}</TableCell>
-                      <TableCell>{entry.from_location}</TableCell>
-                      <TableCell>{entry.to_location}</TableCell>
-                      <TableCell>{entry.voltage || "-"}</TableCell>
-                      <TableCell>{entry.load_amps || "-"}</TableCell>
-                      <TableCell>{entry.cable_type || "-"}</TableCell>
-                      <TableCell>{entry.cable_size || "-"}</TableCell>
-                      <TableCell>{entry.total_length?.toFixed(2) || "0.00"}</TableCell>
-                      <TableCell>{formatCurrency(entry.supply_cost)}</TableCell>
-                      <TableCell>{formatCurrency(entry.install_cost)}</TableCell>
-                      <TableCell>{formatCurrency(entry.total_cost)}</TableCell>
-                      <TableCell>{entry.notes || "-"}</TableCell>
-                    </TableRow>
-                  ))}
+                  <tr style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
+                    <td style={{ position: 'relative' }}>
+                      {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                        const entry = entries[virtualRow.index];
+                        return (
+                          <TableRow 
+                            key={entry.id}
+                            className="cursor-pointer hover:bg-muted/50"
+                            onClick={() => navigate(`/dashboard/cable-schedules/${entry.schedule_id}`)}
+                            style={{
+                              position: 'absolute',
+                              top: 0,
+                              left: 0,
+                              width: '100%',
+                              transform: `translateY(${virtualRow.start}px)`,
+                            }}
+                          >
+                            <TableCell className="font-medium">{entry.revision}</TableCell>
+                            <TableCell className="font-medium">{entry.cable_number || "1"}</TableCell>
+                            <TableCell>{entry.cable_tag}</TableCell>
+                            <TableCell>{entry.from_location}</TableCell>
+                            <TableCell>{entry.to_location}</TableCell>
+                            <TableCell>{entry.voltage || "-"}</TableCell>
+                            <TableCell>{entry.load_amps || "-"}</TableCell>
+                            <TableCell>{entry.cable_type || "-"}</TableCell>
+                            <TableCell>{entry.cable_size || "-"}</TableCell>
+                            <TableCell>{entry.total_length?.toFixed(2) || "0.00"}</TableCell>
+                            <TableCell>{formatCurrency(entry.supply_cost)}</TableCell>
+                            <TableCell>{formatCurrency(entry.install_cost)}</TableCell>
+                            <TableCell>{formatCurrency(entry.total_cost)}</TableCell>
+                            <TableCell>{entry.notes || "-"}</TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </td>
+                  </tr>
                 </TableBody>
               </Table>
             </div>
