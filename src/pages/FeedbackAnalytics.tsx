@@ -18,6 +18,7 @@ import {
   ThumbsDown
 } from "lucide-react";
 import { formatDistanceToNow, differenceInHours, format, subDays, startOfDay } from "date-fns";
+import { ReviewNotificationTrigger } from "@/components/admin/ReviewNotificationTrigger";
 
 interface AnalyticsData {
   totalIssues: number;
@@ -219,6 +220,9 @@ const FeedbackAnalytics = () => {
           </TabsList>
         </Tabs>
       </div>
+
+      {/* AI Review & Email Notifications */}
+      <ReviewNotificationTrigger />
 
       {/* Key Metrics */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
