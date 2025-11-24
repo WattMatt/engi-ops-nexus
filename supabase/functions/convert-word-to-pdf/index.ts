@@ -60,6 +60,29 @@ Deno.serve(async (req) => {
       if (placeholderData && Object.keys(placeholderData).length > 0) {
         console.log('Replacing text placeholders');
         
+        // First pass: Remove formatting tags within placeholders to make them matchable
+        // This handles cases where Word splits {placeholder} across multiple XML elements
+        documentXml = documentXml.replace(
+          /\{([^}]*?)<[^>]+>([^}]*?)\}/g,
+          (match, before, after) => {
+            // Extract just the text content
+            const cleanBefore = before.replace(/<[^>]+>/g, '');
+            const cleanAfter = after.replace(/<[^>]+>/g, '');
+            return `{${cleanBefore}${cleanAfter}}`;
+          }
+        );
+        
+        // Also handle double braces
+        documentXml = documentXml.replace(
+          /\{\{([^}]*?)<[^>]+>([^}]*?)\}\}/g,
+          (match, before, after) => {
+            const cleanBefore = before.replace(/<[^>]+>/g, '');
+            const cleanAfter = after.replace(/<[^>]+>/g, '');
+            return `{{${cleanBefore}${cleanAfter}}}`;
+          }
+        );
+        
+        // Now replace with actual values
         for (const [key, value] of Object.entries(placeholderData)) {
           if (value && typeof value === 'string') {
             const escapedValue = value
@@ -73,14 +96,19 @@ Deno.serve(async (req) => {
             const patterns = [
               new RegExp(`\\{\\{${key}\\}\\}`, 'gi'),
               new RegExp(`\\{${key}\\}`, 'gi'),
-              new RegExp(`\\{(<[^>]+>)*\\{(<[^>]+>)*${key}(<[^>]+>)*\\}(<[^>]+>)*\\}`, 'gi'),
             ];
             
+            let replaced = false;
             patterns.forEach(pattern => {
-              documentXml = documentXml.replace(pattern, escapedValue);
+              if (documentXml.match(pattern)) {
+                documentXml = documentXml.replace(pattern, escapedValue);
+                replaced = true;
+              }
             });
             
-            console.log(`Replaced: ${key}`);
+            if (replaced) {
+              console.log(`Replaced: ${key} = ${value.substring(0, 50)}`);
+            }
           }
         }
       }
