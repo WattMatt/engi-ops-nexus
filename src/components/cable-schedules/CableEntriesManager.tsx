@@ -282,8 +282,8 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
             <div className="space-y-4">
               <div 
                 ref={parentRef}
-                className="rounded-md border overflow-auto"
-                style={{ height: '600px' }}
+                className="rounded-md border"
+                style={{ height: '600px', overflow: 'auto' }}
               >
                 <Table>
                   <TableHeader className="sticky top-0 bg-background z-10">
@@ -302,11 +302,21 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
                       <TableHead className="px-4 py-3 w-24 text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
-                  <TableBody>
+                  <TableBody style={{ height: `${rowVirtualizer.getTotalSize()}px`, position: 'relative' }}>
                     {rowVirtualizer.getVirtualItems().map((virtualRow) => {
                       const entry = entries[virtualRow.index];
                       return (
-                        <TableRow key={entry.id}>
+                        <TableRow 
+                          key={entry.id}
+                          style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            width: '100%',
+                            height: `${virtualRow.size}px`,
+                            transform: `translateY(${virtualRow.start}px)`,
+                          }}
+                        >
                           <TableCell className="px-4 py-4 font-medium">{entry.cable_number || "1"}</TableCell>
                           <TableCell className="px-4 py-4 font-medium">{entry.cable_tag}</TableCell>
                           <TableCell className="px-4 py-4">{entry.from_location}</TableCell>
