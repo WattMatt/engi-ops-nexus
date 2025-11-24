@@ -236,6 +236,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         contactName: company?.client_name || "",
         contactPhone: company?.client_phone || "",
         company_logo_url: company?.company_logo_url || null,
+        client_logo_url: company?.client_logo_url || null,
       };
 
       const contactId = selectedContactId || (contacts && contacts.length > 0 ? contacts[0].id : null);
@@ -387,10 +388,16 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
             
             // Prepared By section (Company details)
             prepared_by_company: companyDetails.companyName || "",
-            prepared_by_address: "",
+            prepared_by_address: [
+              "141 Witch Hazel ave",
+              "Highveld Techno Park",
+              "Buliding : 4A",
+              "Centurion (pretoria)",
+              "info@wm.co.za"
+            ].join('\n'),
             prepared_by_tel: "",
-            prepared_by_contact: "",
-            prepared_by_email: "",
+            prepared_by_contact: "Wessel Marais",
+            prepared_by_email: "info@wm.co.za",
             
             // Additional fields
             electrical_contractor: report.electrical_contractor || "",
@@ -441,6 +448,10 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           if (companyDetails.company_logo_url) {
             imagePlaceholders.company_logo = companyDetails.company_logo_url;
             imagePlaceholders.company_image = companyDetails.company_logo_url;
+          }
+          if (companyDetails.client_logo_url) {
+            imagePlaceholders.client_logo = companyDetails.client_logo_url;
+            imagePlaceholders.client_image = companyDetails.client_logo_url;
           }
           
           // Convert Word template to PDF
