@@ -303,61 +303,65 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
                       <TableHead className="px-4 py-3 min-w-[100px] text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
-                  <TableBody>
-                    <tr style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
-                      <td style={{ position: 'relative' }}>
-                        {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                          const entry = entries[virtualRow.index];
-                          return (
-                            <TableRow
-                              key={entry.id}
-                              style={{
-                                position: 'absolute',
-                                top: 0,
-                                left: 0,
-                                width: '100%',
-                                transform: `translateY(${virtualRow.start}px)`,
-                              }}
-                            >
-                              <TableCell className="px-4 py-4 font-medium">{entry.cable_number || "1"}</TableCell>
-                              <TableCell className="px-4 py-4 font-medium">{entry.cable_tag}</TableCell>
-                              <TableCell className="px-4 py-4">{entry.from_location}</TableCell>
-                              <TableCell className="px-4 py-4">{entry.to_location}</TableCell>
-                              <TableCell className="px-4 py-4 font-medium text-center">{entry.quantity || 1}</TableCell>
-                              <TableCell className="px-4 py-4">{entry.voltage || "-"}</TableCell>
-                              <TableCell className="px-4 py-4">{entry.load_amps || "-"}</TableCell>
-                              <TableCell className="px-4 py-4">{entry.cable_type || "-"}</TableCell>
-                              <TableCell className="px-4 py-4 capitalize">{entry.installation_method || "air"}</TableCell>
-                              <TableCell className="px-4 py-4">{entry.cable_size || "-"}</TableCell>
-                              <TableCell className="px-4 py-4">
-                                {(entry.total_length || (entry.measured_length || 0) + (entry.extra_length || 0)).toFixed(2)}
-                              </TableCell>
-                              <TableCell className="px-4 py-4 text-sm text-muted-foreground">{entry.notes || "-"}</TableCell>
-                              <TableCell className="px-4 py-4 text-right">
-                                <div className="flex justify-end gap-1">
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8"
-                                    onClick={() => handleEdit(entry)}
-                                  >
-                                    <Pencil className="h-4 w-4" />
-                                  </Button>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="h-8 w-8"
-                                    onClick={() => handleDeleteClick(entry)}
-                                  >
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </div>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })}
-                      </td>
-                    </tr>
+                  <TableBody
+                    style={{
+                      height: `${rowVirtualizer.getTotalSize()}px`,
+                      position: 'relative',
+                    }}
+                  >
+                    {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+                      const entry = entries[virtualRow.index];
+                      return (
+                        <TableRow
+                          key={entry.id}
+                          style={{
+                            position: 'absolute',
+                            top: 0,
+                            left: 0,
+                            width: '100%',
+                            height: `${virtualRow.size}px`,
+                            transform: `translateY(${virtualRow.start}px)`,
+                            display: 'table',
+                            tableLayout: 'fixed',
+                          }}
+                        >
+                          <TableCell className="px-4 py-4 font-medium" style={{ width: '80px' }}>{entry.cable_number || "1"}</TableCell>
+                          <TableCell className="px-4 py-4 font-medium" style={{ width: '180px' }}>{entry.cable_tag}</TableCell>
+                          <TableCell className="px-4 py-4" style={{ width: '160px' }}>{entry.from_location}</TableCell>
+                          <TableCell className="px-4 py-4" style={{ width: '160px' }}>{entry.to_location}</TableCell>
+                          <TableCell className="px-4 py-4 font-medium text-center" style={{ width: '60px' }}>{entry.quantity || 1}</TableCell>
+                          <TableCell className="px-4 py-4" style={{ width: '90px' }}>{entry.voltage || "-"}</TableCell>
+                          <TableCell className="px-4 py-4" style={{ width: '90px' }}>{entry.load_amps || "-"}</TableCell>
+                          <TableCell className="px-4 py-4" style={{ width: '110px' }}>{entry.cable_type || "-"}</TableCell>
+                          <TableCell className="px-4 py-4 capitalize" style={{ width: '130px' }}>{entry.installation_method || "air"}</TableCell>
+                          <TableCell className="px-4 py-4" style={{ width: '100px' }}>{entry.cable_size || "-"}</TableCell>
+                          <TableCell className="px-4 py-4" style={{ width: '100px' }}>
+                            {(entry.total_length || (entry.measured_length || 0) + (entry.extra_length || 0)).toFixed(2)}
+                          </TableCell>
+                          <TableCell className="px-4 py-4 text-sm text-muted-foreground" style={{ width: '180px' }}>{entry.notes || "-"}</TableCell>
+                          <TableCell className="px-4 py-4 text-right" style={{ width: '100px' }}>
+                            <div className="flex justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => handleEdit(entry)}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => handleDeleteClick(entry)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
