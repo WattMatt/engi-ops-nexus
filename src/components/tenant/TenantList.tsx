@@ -550,29 +550,29 @@ export const TenantList = ({
       <div className="flex-1 min-h-0 border rounded-lg overflow-hidden">
         <div className="h-full overflow-auto">
           <Table>
-            <TableHeader className="sticky top-0 bg-background z-20 border-b shadow-sm backdrop-blur-sm">
-              <TableRow>
-                <TableHead className="h-12">Shop #</TableHead>
-                <TableHead className="h-12">Shop Name</TableHead>
-                <TableHead className="h-12">Category</TableHead>
-                <TableHead className="h-12">Opening</TableHead>
-                <TableHead className="h-12">BO Period</TableHead>
-                <TableHead className="h-12">Beneficial Occ</TableHead>
-                <TableHead className="h-12">Days Until</TableHead>
-                <TableHead className="h-12">Area</TableHead>
-                <TableHead className="h-12">DB Allow</TableHead>
-                <TableHead className="h-12">DB SOW</TableHead>
-                <TableHead className="h-12 text-center">SOW</TableHead>
-                <TableHead className="h-12 text-center">Layout</TableHead>
-                <TableHead className="h-12 text-center">DB Ord</TableHead>
-                <TableHead className="h-12 text-center">DB by Tenant</TableHead>
-                <TableHead className="h-12 text-right">DB Cost</TableHead>
-                <TableHead className="h-12 text-center">Light Ord</TableHead>
-                <TableHead className="h-12 text-center">Light by Tenant</TableHead>
-                <TableHead className="h-12 text-right">Light Cost</TableHead>
-                <TableHead className="h-12 text-center">Cost Report</TableHead>
-                <TableHead className="h-12 text-center">Handover</TableHead>
-                <TableHead className="h-12 text-right">Actions</TableHead>
+            <TableHeader className="sticky top-0 bg-background z-30 border-b shadow-md">
+              <TableRow className="bg-background">
+                <TableHead className="h-12 bg-background">Shop #</TableHead>
+                <TableHead className="h-12 bg-background">Shop Name</TableHead>
+                <TableHead className="h-12 bg-background">Category</TableHead>
+                <TableHead className="h-12 bg-background">Opening</TableHead>
+                <TableHead className="h-12 bg-background">BO Period</TableHead>
+                <TableHead className="h-12 bg-background">Beneficial Occ</TableHead>
+                <TableHead className="h-12 bg-background">Days Until</TableHead>
+                <TableHead className="h-12 bg-background">Area</TableHead>
+                <TableHead className="h-12 bg-background">DB Allow</TableHead>
+                <TableHead className="h-12 bg-background">DB SOW</TableHead>
+                <TableHead className="h-12 text-center bg-background">SOW</TableHead>
+                <TableHead className="h-12 text-center bg-background">Layout</TableHead>
+                <TableHead className="h-12 text-center bg-background">DB Ord</TableHead>
+                <TableHead className="h-12 text-center bg-background">DB by Tenant</TableHead>
+                <TableHead className="h-12 text-right bg-background">DB Cost</TableHead>
+                <TableHead className="h-12 text-center bg-background">Light Ord</TableHead>
+                <TableHead className="h-12 text-center bg-background">Light by Tenant</TableHead>
+                <TableHead className="h-12 text-right bg-background">Light Cost</TableHead>
+                <TableHead className="h-12 text-center bg-background">Cost Report</TableHead>
+                <TableHead className="h-12 text-center bg-background">Handover</TableHead>
+                <TableHead className="h-12 text-right bg-background">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
