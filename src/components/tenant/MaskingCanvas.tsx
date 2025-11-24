@@ -425,6 +425,20 @@ export const MaskingCanvas = ({
     }
   }, [isZoneMode]);
 
+  // Keep overlay canvas sized to match container for mouse events
+  useEffect(() => {
+    const updateOverlaySize = () => {
+      if (overlayCanvasRef.current && containerRef.current) {
+        overlayCanvasRef.current.width = containerRef.current.clientWidth;
+        overlayCanvasRef.current.height = containerRef.current.clientHeight;
+      }
+    };
+    
+    updateOverlaySize();
+    window.addEventListener('resize', updateOverlaySize);
+    return () => window.removeEventListener('resize', updateOverlaySize);
+  }, []);
+
   // Draw overlay (scale line, etc.)
   const drawOverlay = useCallback(() => {
     const canvas = overlayCanvasRef.current;
@@ -870,10 +884,8 @@ export const MaskingCanvas = ({
           }}
         />
         <canvas 
-          ref={overlayCanvasRef} 
-          width={containerRef.current?.clientWidth} 
-          height={containerRef.current?.clientHeight} 
-          className="absolute top-0 left-0" 
+          ref={overlayCanvasRef}
+          className="absolute top-0 left-0 w-full h-full"
         />
       </div>
 
