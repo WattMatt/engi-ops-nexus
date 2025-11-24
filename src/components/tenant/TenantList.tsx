@@ -715,7 +715,7 @@ export const TenantList = ({
                             <Input
                               value={tenant.db_size_scope_of_work || ""}
                               onChange={(e) => handleFieldUpdate(tenant.id, 'db_size_scope_of_work', e.target.value)}
-                              className="h-8"
+                              className="h-8 w-32"
                             />
                           </TableCell>
                           <TableCell className="text-center">
