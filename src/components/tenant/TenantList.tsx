@@ -546,67 +546,35 @@ export const TenantList = ({
         </Button>
         </div>
       </div>
-      {/* Table Section - Fixed Header + Scrollable Body */}
-      <div className="flex-1 flex flex-col border rounded-lg bg-background overflow-hidden">
-        {/* Fixed Header */}
-        <div className="flex-shrink-0 border-b bg-muted/50">
-          <div className="overflow-x-auto">
-            <table className="w-full" style={{ tableLayout: 'fixed', width: '100%' }}>
-              <colgroup>
-                <col style={{ width: '140px' }} />
-                <col style={{ width: '200px' }} />
-                <col style={{ width: '120px' }} />
-                <col style={{ width: '120px' }} />
-                <col style={{ width: '100px' }} />
-                <col style={{ width: '140px' }} />
-                <col style={{ width: '100px' }} />
-                <col style={{ width: '100px' }} />
-                <col style={{ width: '120px' }} />
-                <col style={{ width: '200px' }} />
-                <col style={{ width: '80px' }} />
-                <col style={{ width: '80px' }} />
-                <col style={{ width: '80px' }} />
-                <col style={{ width: '120px' }} />
-                <col style={{ width: '100px' }} />
-                <col style={{ width: '80px' }} />
-                <col style={{ width: '120px' }} />
-                <col style={{ width: '100px' }} />
-                <col style={{ width: '100px' }} />
-                <col style={{ width: '100px' }} />
-                <col style={{ width: '120px' }} />
-              </colgroup>
-              <thead>
-                <tr>
-                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Shop #</th>
-                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Shop Name</th>
-                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Category</th>
-                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Opening</th>
-                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">BO Period</th>
-                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Beneficial Occ</th>
-                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Days Until</th>
-                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">Area</th>
-                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">DB Allow</th>
-                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">DB SOW</th>
-                  <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">SOW</th>
-                  <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Layout</th>
-                  <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">DB Ord</th>
-                  <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">DB by Tenant</th>
-                  <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">DB Cost</th>
-                  <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Light Ord</th>
-                  <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Light by Tenant</th>
-                  <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">Light Cost</th>
-                  <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Cost Report</th>
-                  <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground">Handover</th>
-                  <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">Actions</th>
-                </tr>
-              </thead>
-            </table>
-          </div>
-        </div>
-        
-        {/* Scrollable Body */}
-        <div className="flex-1 overflow-auto">
+      {/* Table Section - Scrollable with Fixed Header */}
+      <div className="flex-1 border rounded-lg bg-background overflow-hidden">
+        <ScrollArea className="h-full">
           <Table>
+            <TableHeader className="sticky top-0 bg-muted/50 z-10 border-b">
+              <TableRow>
+                <TableHead className="h-12">Shop #</TableHead>
+                <TableHead className="h-12">Shop Name</TableHead>
+                <TableHead className="h-12">Category</TableHead>
+                <TableHead className="h-12">Opening</TableHead>
+                <TableHead className="h-12">BO Period</TableHead>
+                <TableHead className="h-12">Beneficial Occ</TableHead>
+                <TableHead className="h-12">Days Until</TableHead>
+                <TableHead className="h-12">Area</TableHead>
+                <TableHead className="h-12">DB Allow</TableHead>
+                <TableHead className="h-12">DB SOW</TableHead>
+                <TableHead className="h-12 text-center">SOW</TableHead>
+                <TableHead className="h-12 text-center">Layout</TableHead>
+                <TableHead className="h-12 text-center">DB Ord</TableHead>
+                <TableHead className="h-12 text-center">DB by Tenant</TableHead>
+                <TableHead className="h-12 text-right">DB Cost</TableHead>
+                <TableHead className="h-12 text-center">Light Ord</TableHead>
+                <TableHead className="h-12 text-center">Light by Tenant</TableHead>
+                <TableHead className="h-12 text-right">Light Cost</TableHead>
+                <TableHead className="h-12 text-center">Cost Report</TableHead>
+                <TableHead className="h-12 text-center">Handover</TableHead>
+                <TableHead className="h-12 text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
             <TableBody>
               {groupedTenants().map((group) => (
                 <React.Fragment key={group.key}>
@@ -837,7 +805,7 @@ export const TenantList = ({
             ))}
           </TableBody>
         </Table>
-        </div>
+        </ScrollArea>
       </div>
 
       {tenantToDelete && (
