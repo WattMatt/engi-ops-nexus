@@ -1,9 +1,0 @@
-<svg width="512" height="512" xmlns="http://www.w3.org/2000/svg">
-  <rect width="512" height="512" fill="#4A5568"/>
-  <circle cx="256" cy="256" r="120" fill="none" stroke="#FFFFFF" stroke-width="8"/>
-  <rect x="216" y="176" width="80" height="160" fill="#FFFFFF"/>
-  <rect x="196" y="216" width="120" height="20" fill="#FFFFFF"/>
-  <rect x="196" y="256" width="120" height="20" fill="#FFFFFF"/>
-  <rect x="196" y="296" width="120" height="20" fill="#FFFFFF"/>
-  <text x="256" y="420" font-family="Arial, sans-serif" font-size="32" fill="#FFFFFF" text-anchor="middle">LOGO</text>
-</svg>
