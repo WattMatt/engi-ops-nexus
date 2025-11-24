@@ -130,7 +130,7 @@ Generate professional content for this section following the guidelines above. F
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: "google/gemini-3-pro-preview",
         messages: [
           {
             role: "system",
