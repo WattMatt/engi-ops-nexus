@@ -161,10 +161,10 @@ Deno.serve(async (req) => {
           const relationshipXml = `<Relationship Id="${relId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${imageFileName}"/>`;
           relsXml = relsXml.replace('</Relationships>', `${relationshipXml}</Relationships>`);
           
-          // Client logos sized appropriately to be visible on the cover page
+          // Client logos sized to match company logo visual appearance
           const isClientImage = placeholderKey.toLowerCase().includes('client');
-          const imageWidth = isClientImage ? 1440000 : 1440000;   // Both: ~40mm
-          const imageHeight = isClientImage ? 1080000 : 1080000;  // Both: ~30mm
+          const imageWidth = isClientImage ? 1620000 : 1440000;   // Client: ~45mm, Company: ~40mm
+          const imageHeight = isClientImage ? 1620000 : 1080000;  // Client: ~45mm (square), Company: ~30mm
           
           const imageXml = `<w:r><w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0"><wp:extent cx="${imageWidth}" cy="${imageHeight}"/><wp:effectExtent l="0" t="0" r="0" b="0"/><wp:docPr id="${imageCounter}" name="Image ${imageCounter}"/><wp:cNvGraphicFramePr><a:graphicFrameLocks xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" noChangeAspect="1"/></wp:cNvGraphicFramePr><a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"><a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture"><pic:nvPicPr><pic:cNvPr id="${imageCounter}" name="Image ${imageCounter}"/><pic:cNvPicPr/></pic:nvPicPr><pic:blipFill><a:blip r:embed="${relId}"/><a:stretch><a:fillRect/></a:stretch></pic:blipFill><pic:spPr><a:xfrm><a:off x="0" y="0"/><a:ext cx="${imageWidth}" cy="${imageHeight}"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom></pic:spPr></pic:pic></a:graphicData></a:graphic></wp:inline></w:drawing></w:r>`;
           
