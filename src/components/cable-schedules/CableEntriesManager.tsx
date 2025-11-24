@@ -1,6 +1,5 @@
-import { useState, useRef } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { useVirtualizer } from "@tanstack/react-virtual";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -45,8 +44,6 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
   const [selectedEntry, setSelectedEntry] = useState<any>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [recalculating, setRecalculating] = useState(false);
-  
-  const parentRef = useRef<HTMLDivElement>(null);
   
   // Fetch calculation settings
   const { data: calcSettings } = useCalculationSettings(projectId);
@@ -124,13 +121,6 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
   };
 
   const totalCost = entries?.reduce((sum, entry) => sum + (entry.total_cost || 0), 0) || 0;
-
-  const rowVirtualizer = useVirtualizer({
-    count: entries?.length || 0,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => 60,
-    overscan: 10,
-  });
 
   const handleEdit = (entry: any) => {
     setSelectedEntry(entry);
@@ -280,11 +270,7 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
             </p>
           ) : (
             <div className="space-y-4">
-              <div 
-                ref={parentRef}
-                className="rounded-md border"
-                style={{ height: '600px', overflow: 'auto' }}
-              >
+              <div className="rounded-md border max-h-[600px] overflow-auto">
                 <Table>
                   <TableHeader className="sticky top-0 bg-background z-10">
                     <TableRow>
@@ -302,21 +288,9 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
                       <TableHead className="px-4 py-3 w-24 text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
-                  <TableBody style={{ height: `${rowVirtualizer.getTotalSize()}px`, position: 'relative' }}>
-                    {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-                      const entry = entries[virtualRow.index];
-                      return (
-                        <TableRow 
-                          key={entry.id}
-                          style={{
-                            position: 'absolute',
-                            top: 0,
-                            left: 0,
-                            width: '100%',
-                            height: `${virtualRow.size}px`,
-                            transform: `translateY(${virtualRow.start}px)`,
-                          }}
-                        >
+                  <TableBody>
+                    {entries.map((entry) => (
+                      <TableRow key={entry.id}>
                           <TableCell className="px-4 py-4 font-medium">{entry.cable_number || "1"}</TableCell>
                           <TableCell className="px-4 py-4 font-medium">{entry.cable_tag}</TableCell>
                           <TableCell className="px-4 py-4">{entry.from_location}</TableCell>
@@ -345,12 +319,11 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
                                 onClick={() => handleDeleteClick(entry)}
                               >
                                 <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                    ))}
                   </TableBody>
                 </Table>
               </div>
