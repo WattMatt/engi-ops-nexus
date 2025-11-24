@@ -569,6 +569,14 @@ export async function generateCoverPage(
   
   // Prepare image placeholders
   const imagePlaceholders: Record<string, string> = {};
+  
+  // Add company logo
+  if (companyDetails.logoUrl) {
+    imagePlaceholders['company_logo'] = companyDetails.logoUrl;
+    console.log('📷 Adding company logo:', imagePlaceholders['company_logo']);
+  }
+  
+  // Add client logo (for "Prepared For" section)
   if (contactDetails?.logo_url || companyDetails.clientLogoUrl) {
     imagePlaceholders['client_logo'] = contactDetails?.logo_url || companyDetails.clientLogoUrl;
     imagePlaceholders['client_image'] = contactDetails?.logo_url || companyDetails.clientLogoUrl;
