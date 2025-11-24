@@ -163,7 +163,7 @@ const TenantTracker = () => {
 
           {/* Tab Content - No outer scroll, each tab manages its own */}
           <div className="flex-1 overflow-hidden">
-            <TabsContent value="overview" className="h-full">
+            <TabsContent value="overview" className="h-full m-0 data-[state=active]:block">
               <div className="h-full overflow-auto px-6 py-6">
                 {isLoading ? (
                   <div className="flex items-center justify-center py-8">
@@ -175,7 +175,7 @@ const TenantTracker = () => {
               </div>
             </TabsContent>
             
-            <TabsContent value="tenants" className="h-full overflow-hidden flex flex-col gap-4">
+            <TabsContent value="tenants" className="h-full m-0 data-[state=active]:flex data-[state=active]:flex-col gap-4">
               <div className="bg-background border rounded-lg p-4 shadow-sm flex-shrink-0 mx-6">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-sm font-semibold">Legend:</span>
@@ -209,8 +209,8 @@ const TenantTracker = () => {
               )}
             </TabsContent>
             
-            <TabsContent value="documents" className="h-full m-0 data-[state=active]:flex data-[state=active]:flex-col">
-              <div className="flex-1 overflow-auto px-6 py-6">
+            <TabsContent value="documents" className="h-full m-0 data-[state=active]:block">
+              <div className="h-full overflow-auto px-6 py-6">
                 <TenantDocumentsTab 
                   projectId={projectId || ""} 
                   tenants={tenants}
@@ -219,20 +219,20 @@ const TenantTracker = () => {
               </div>
             </TabsContent>
             
-            <TabsContent value="report-status" className="h-full m-0 data-[state=active]:flex data-[state=active]:flex-col">
-              <div className="flex-1 overflow-auto px-6 py-6">
+            <TabsContent value="report-status" className="h-full m-0 data-[state=active]:block">
+              <div className="h-full overflow-auto px-6 py-6">
                 {projectId && <OutdatedReportsIndicator projectId={projectId} />}
               </div>
             </TabsContent>
             
-            <TabsContent value="change-history" className="h-full m-0 data-[state=active]:flex data-[state=active]:flex-col">
-              <div className="flex-1 overflow-auto px-6 py-6">
+            <TabsContent value="change-history" className="h-full m-0 data-[state=active]:block">
+              <div className="h-full overflow-auto px-6 py-6">
                 {projectId && <TenantChangeAuditLog projectId={projectId} />}
               </div>
             </TabsContent>
             
-            <TabsContent value="reports" className="h-full m-0 data-[state=active]:flex data-[state=active]:flex-col">
-              <div className="flex-1 overflow-auto px-6 py-6">
+            <TabsContent value="reports" className="h-full m-0 data-[state=active]:block">
+              <div className="h-full overflow-auto px-6 py-6">
                 <SavedReportsList 
                   projectId={projectId || ""} 
                   projectName={projectName || undefined}
@@ -240,8 +240,8 @@ const TenantTracker = () => {
               </div>
             </TabsContent>
             
-            <TabsContent value="floor-plan" className="h-full m-0 data-[state=active]:flex data-[state=active]:flex-col">
-              <div className="flex-1 overflow-hidden px-6 py-6">
+            <TabsContent value="floor-plan" className="h-full m-0 data-[state=active]:block">
+              <div className="h-full overflow-hidden px-6 py-6">
                 <div className="h-full">
                   <FloorPlanMasking 
                     key={`floor-plan-${activeTab === 'floor-plan' ? Date.now() : 'cached'}`}
@@ -251,8 +251,8 @@ const TenantTracker = () => {
               </div>
             </TabsContent>
             
-            <TabsContent value="settings" className="h-full m-0 data-[state=active]:flex data-[state=active]:flex-col">
-              <div className="flex-1 overflow-auto px-6 py-6">
+            <TabsContent value="settings" className="h-full m-0 data-[state=active]:block">
+              <div className="h-full overflow-auto px-6 py-6">
                 <DBSizingRulesSettings projectId={projectId || ""} />
               </div>
             </TabsContent>
