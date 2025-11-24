@@ -113,9 +113,14 @@ export const TenantList = ({
         prev.map(t => t.id === tenantId ? { ...t, [field]: value } : t)
       );
     },
-    onError: (error, variables) => {
+    onSuccess: () => {
+      // Notify parent to refresh data
+      onUpdate();
+    },
+    onError: (error: any, variables) => {
       // Rollback on error by reverting optimistic update
-      toast.error("Failed to update");
+      console.error("Failed to update tenant:", error);
+      toast.error(`Failed to update: ${error.message || 'Unknown error'}`);
       setLocalTenants(tenants); // Revert to original data
     }
   });
