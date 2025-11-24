@@ -547,10 +547,10 @@ export const TenantList = ({
         </div>
       </div>
       {/* Table Section - Scrollable with Fixed Header */}
-      <div className="flex-1 border rounded-lg bg-background overflow-hidden">
-        <ScrollArea className="h-full">
+      <div className="flex-1 border rounded-lg bg-background overflow-hidden flex flex-col">
+        <div className="flex-1 overflow-auto">
           <Table>
-            <TableHeader className="sticky top-0 bg-muted/50 z-10 border-b">
+            <TableHeader className="sticky top-0 bg-muted/50 z-10 border-b shadow-sm">
               <TableRow>
                 <TableHead className="h-12">Shop #</TableHead>
                 <TableHead className="h-12">Shop Name</TableHead>
@@ -805,7 +805,7 @@ export const TenantList = ({
             ))}
           </TableBody>
         </Table>
-        </ScrollArea>
+        </div>
       </div>
 
       {tenantToDelete && (
