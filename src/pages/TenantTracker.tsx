@@ -86,9 +86,12 @@ const TenantTracker = () => {
           table: 'tenants',
           filter: `project_id=eq.${projectId}`
         },
-        () => {
-          // Refetch tenants when any change occurs
-          refetch();
+        (payload) => {
+          // Only refetch on INSERT and DELETE to add/remove tenants
+          // UPDATE events are handled by optimistic updates in TenantList
+          if (payload.eventType === 'INSERT' || payload.eventType === 'DELETE') {
+            refetch();
+          }
         }
       )
       .subscribe();
