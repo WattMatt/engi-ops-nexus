@@ -299,6 +299,7 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
                       <TableHead className="px-4 py-3 w-32">Install Method</TableHead>
                       <TableHead className="px-4 py-3 w-28">Cable Size</TableHead>
                       <TableHead className="px-4 py-3 w-28">Length (m)</TableHead>
+                      <TableHead className="px-4 py-3 w-24 text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -318,6 +319,24 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
                           <TableCell className="px-4 py-4">{entry.cable_size || "-"}</TableCell>
                           <TableCell className="px-4 py-4">
                             {(entry.total_length || (entry.measured_length || 0) + (entry.extra_length || 0)).toFixed(2)}
+                          </TableCell>
+                          <TableCell className="px-4 py-4">
+                            <div className="flex items-center justify-end gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEdit(entry)}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleDeleteClick(entry)}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </TableCell>
                         </TableRow>
                       );
