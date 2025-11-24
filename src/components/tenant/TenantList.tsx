@@ -661,7 +661,135 @@ export const TenantList = ({
                             />
                           </td>
                           <td className="px-4 py-2">
-...
+                            <Select
+                              value={tenant.beneficial_occupation_days?.toString() || "90"}
+                              onValueChange={(val) => handleFieldUpdate(tenant.id, 'beneficial_occupation_days', parseInt(val))}
+                            >
+                              <SelectTrigger className="h-8 w-24">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="30">30</SelectItem>
+                                <SelectItem value="45">45</SelectItem>
+                                <SelectItem value="60">60</SelectItem>
+                                <SelectItem value="90">90</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </td>
+                          <td className="whitespace-nowrap text-sm px-4 py-2">
+                            {beneficialDate ? beneficialDate.toLocaleDateString() : '-'}
+                          </td>
+                          <td className="text-center px-4 py-2">
+                            {daysUntil !== null ? (
+                              <Badge variant={daysUntil < 0 ? "destructive" : daysUntil <= 14 ? "default" : "secondary"}>
+                                {daysUntil < 0 ? `${Math.abs(daysUntil)} days ago` : `${daysUntil} days`}
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-2">
+                            <Input
+                              type="number"
+                              value={tenant.area || ""}
+                              onChange={(e) => handleFieldUpdate(tenant.id, 'area', e.target.value ? parseFloat(e.target.value) : null)}
+                              placeholder="m²"
+                              className="h-8 w-20"
+                            />
+                          </td>
+                          <td className="px-4 py-2">
+                            <Input
+                              value={tenant.db_size_allowance || ""}
+                              onChange={(e) => handleFieldUpdate(tenant.id, 'db_size_allowance', e.target.value)}
+                              className="h-8 w-28"
+                            />
+                          </td>
+                          <td className="px-4 py-2">
+                            <Input
+                              value={tenant.db_size_scope_of_work || ""}
+                              onChange={(e) => handleFieldUpdate(tenant.id, 'db_size_scope_of_work', e.target.value)}
+                              className="h-8 w-32"
+                            />
+                          </td>
+                          <td className="text-center px-4 py-2">
+                            <StatusIcon 
+                              checked={tenant.sow_received}
+                              onClick={() => handleBooleanToggle(tenant.id, 'sow_received', tenant.sow_received)}
+                              autoSynced={false}
+                            />
+                          </td>
+                          <td className="text-center px-4 py-2">
+                            <StatusIcon 
+                              checked={tenant.layout_received}
+                              onClick={() => handleBooleanToggle(tenant.id, 'layout_received', tenant.layout_received)}
+                              autoSynced={false}
+                            />
+                          </td>
+                          <td className="text-center px-4 py-2">
+                            <StatusIcon 
+                              checked={tenant.db_ordered}
+                              onClick={() => handleBooleanToggle(tenant.id, 'db_ordered', tenant.db_ordered)}
+                              autoSynced={false}
+                            />
+                          </td>
+                          <td className="text-center px-4 py-2">
+                            <StatusIcon 
+                              checked={tenant.db_by_tenant}
+                              onClick={() => handleBooleanToggle(tenant.id, 'db_by_tenant', tenant.db_by_tenant)}
+                            />
+                          </td>
+                          <td className="text-right px-4 py-2">
+                            {!tenant.db_by_tenant && (
+                              <Input
+                                type="number"
+                                value={tenant.db_cost || ""}
+                                onChange={(e) => handleFieldUpdate(tenant.id, 'db_cost', e.target.value ? parseFloat(e.target.value) : null)}
+                                className="h-8 w-24 text-right"
+                                placeholder="R"
+                              />
+                            )}
+                          </td>
+                          <td className="text-center px-4 py-2">
+                            <StatusIcon 
+                              checked={tenant.lighting_ordered}
+                              onClick={() => handleBooleanToggle(tenant.id, 'lighting_ordered', tenant.lighting_ordered)}
+                              autoSynced={false}
+                            />
+                          </td>
+                          <td className="text-center px-4 py-2">
+                            <StatusIcon 
+                              checked={tenant.lighting_by_tenant}
+                              onClick={() => handleBooleanToggle(tenant.id, 'lighting_by_tenant', tenant.lighting_by_tenant)}
+                            />
+                          </td>
+                          <td className="text-right px-4 py-2">
+                            {!tenant.lighting_by_tenant && (
+                              <Input
+                                type="number"
+                                value={tenant.lighting_cost || ""}
+                                onChange={(e) => handleFieldUpdate(tenant.id, 'lighting_cost', e.target.value ? parseFloat(e.target.value) : null)}
+                                className="h-8 w-24 text-right"
+                                placeholder="R"
+                              />
+                            )}
+                          </td>
+                          <td className="text-center px-4 py-2">
+                            <StatusIcon 
+                              checked={tenant.cost_reported}
+                              onClick={() => handleBooleanToggle(tenant.id, 'cost_reported', tenant.cost_reported)}
+                            />
+                          </td>
+                          <td className="text-center px-4 py-2">
+                            {handoverLinkStatus?.linkedTenantIds?.includes(tenant.id) ? (
+                              <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                                <FolderSymlink className="h-3 w-3 mr-1" />
+                                Linked
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground text-xs">-</span>
+                            )}
+                          </td>
+                          <td className="text-right px-4 py-2">
                           <div className="flex justify-end gap-1">
                             <TenantDialog projectId={projectId} tenant={tenant} onSuccess={onUpdate} />
                             <Button variant="ghost" size="sm" onClick={() => handleDeleteClick(tenant)}>
