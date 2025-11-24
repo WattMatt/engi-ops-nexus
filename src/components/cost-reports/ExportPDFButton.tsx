@@ -369,6 +369,17 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           console.log('Using Word template for cover page:', templates.coverPage.name);
           
           // Prepare cover page data with exact placeholder names from template
+          
+          // Fetch current user's profile for contact name
+          const { data: { user: currentUser } } = await supabase.auth.getUser();
+          const { data: profileData } = await supabase
+            .from("profiles")
+            .select("full_name")
+            .eq("id", currentUser?.id)
+            .maybeSingle();
+          
+          const contactPersonName = profileData?.full_name || currentUser?.email?.split("@")[0] || "Contact Person";
+          
           const coverPageData: Record<string, string> = {
             report_title: "COST REPORT",
             project_title: "COST REPORT",
@@ -396,8 +407,8 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
               "info@wm.co.za"
             ].join('\n'),
             prepared_by_tel: "",
-            prepared_by_contact: "Wessel Marais",
-            contact_name: "Wessel Marais",  // Add this for {contact_name} placeholder
+            prepared_by_contact: contactPersonName,
+            contact_name: contactPersonName,  // For {contact_name} placeholder
             prepared_by_email: "info@wm.co.za",
             
             // Additional fields
