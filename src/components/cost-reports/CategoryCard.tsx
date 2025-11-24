@@ -65,7 +65,7 @@ export const CategoryCard = ({ category, onUpdate }: CategoryCardProps) => {
     return [...variationsData].sort((a, b) => compareShopNumbers(a.code, b.code));
   }, [variationsData]);
 
-  const { data: lineItems = [], refetch: refetchLineItems } = useQuery({
+  const { data: lineItemsData = [], refetch: refetchLineItems } = useQuery({
     queryKey: ["cost-line-items", category.id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -78,6 +78,11 @@ export const CategoryCard = ({ category, onUpdate }: CategoryCardProps) => {
     },
     enabled: !isVariationsCategory,
   });
+
+  // Sort line items using natural sort order by code
+  const lineItems = useMemo(() => {
+    return [...lineItemsData].sort((a, b) => compareShopNumbers(a.code, b.code));
+  }, [lineItemsData]);
 
   // Calculate category totals
   let categoryOriginalBudget = 0;
