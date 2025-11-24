@@ -546,23 +546,21 @@ export const TenantList = ({
         </Button>
         </div>
       </div>
-      {/* Table Section - Contains scrolling */}
-      <div className="flex-1 min-h-0 border rounded-lg bg-background flex flex-col overflow-hidden">
-        {/* Fixed Header */}
-        <div className="flex-shrink-0 border-b bg-muted/50">
-          <Table>
-            <TableHeader>
-              <TableRow className="hover:bg-transparent">
-                <TableHead className="min-w-[140px]">Shop #</TableHead>
-                <TableHead className="min-w-[200px]">Shop Name</TableHead>
-                <TableHead className="min-w-[120px]">Category</TableHead>
-                <TableHead className="min-w-[120px]">Opening</TableHead>
-                <TableHead className="min-w-[100px]">BO Period</TableHead>
-                <TableHead className="min-w-[140px]">Beneficial Occ</TableHead>
-                <TableHead className="min-w-[100px]">Days Until</TableHead>
-                <TableHead className="min-w-[100px]">Area</TableHead>
-                <TableHead className="min-w-[120px]">DB Allow</TableHead>
-                <TableHead className="min-w-[200px]">DB SOW</TableHead>
+      {/* Table Section - Simple Scrollable Window */}
+      <div className="flex-1 overflow-auto border rounded-lg bg-background">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="min-w-[140px]">Shop #</TableHead>
+              <TableHead className="min-w-[200px]">Shop Name</TableHead>
+              <TableHead className="min-w-[120px]">Category</TableHead>
+              <TableHead className="min-w-[120px]">Opening</TableHead>
+              <TableHead className="min-w-[100px]">BO Period</TableHead>
+              <TableHead className="min-w-[140px]">Beneficial Occ</TableHead>
+              <TableHead className="min-w-[100px]">Days Until</TableHead>
+              <TableHead className="min-w-[100px]">Area</TableHead>
+              <TableHead className="min-w-[120px]">DB Allow</TableHead>
+              <TableHead className="min-w-[200px]">DB SOW</TableHead>
                 <TableHead className="text-center min-w-[80px]">
                   <div className="flex items-center justify-center gap-1">
                     SOW
@@ -884,7 +882,6 @@ export const TenantList = ({
             ))}
           </TableBody>
         </Table>
-        </div>
       </div>
 
       {tenantToDelete && (
