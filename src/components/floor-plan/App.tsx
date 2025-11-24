@@ -31,6 +31,7 @@ import {
 } from './utils/supabase';
 import { Building, Loader } from 'lucide-react';
 import { SavedReportsList } from './components/SavedReportsList';
+import { SavedDesignsGallery } from './components/SavedDesignsGallery';
 import { supabase } from '@/integrations/supabase/client';
 
 
@@ -741,21 +742,20 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
       {/* Center - Canvas Area */}
       <main ref={mainContainerRef} className="flex-1 min-w-0 flex flex-col relative overflow-hidden bg-background">
           {!pdfDoc ? (
-             <div className="flex-1 flex justify-center items-center bg-muted/30">
+            user ? (
+              <SavedDesignsGallery 
+                onLoadDesign={handleLoadFromCloud}
+                onNewDesign={handleOpenLoadModal}
+              />
+            ) : (
+              <div className="flex-1 flex justify-center items-center bg-muted/30">
                 <div className="text-center p-8 border-2 border-dashed border-border rounded-lg animate-fade-in max-w-md">
-                    <Building className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
-                    <h2 className="text-2xl font-semibold text-foreground">Load a PDF Floor Plan</h2>
-                    <p className="mt-2 text-muted-foreground">Use the toolbar on the left to begin your project.</p>
-                    {user && (
-                      <button 
-                        onClick={handleOpenLoadModal}
-                        className="mt-4 px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors"
-                      >
-                        View My Saved Designs
-                      </button>
-                    )}
+                  <Building className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
+                  <h2 className="text-2xl font-semibold text-foreground">Load a PDF Floor Plan</h2>
+                  <p className="mt-2 text-muted-foreground">Sign in to save and access your designs.</p>
                 </div>
-            </div>
+              </div>
+            )
           ) : !purposeConfig ? (
             <DesignPurposeSelector onSelectPurpose={handleSelectPurpose} />
           ) : (
