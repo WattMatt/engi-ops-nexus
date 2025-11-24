@@ -546,107 +546,37 @@ export const TenantList = ({
         </Button>
         </div>
       </div>
-      {/* Table Section - Simple Scrollable Window */}
-      <div className="flex-1 overflow-auto border rounded-lg bg-background">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="min-w-[140px]">Shop #</TableHead>
-              <TableHead className="min-w-[200px]">Shop Name</TableHead>
-              <TableHead className="min-w-[120px]">Category</TableHead>
-              <TableHead className="min-w-[120px]">Opening</TableHead>
-              <TableHead className="min-w-[100px]">BO Period</TableHead>
-              <TableHead className="min-w-[140px]">Beneficial Occ</TableHead>
-              <TableHead className="min-w-[100px]">Days Until</TableHead>
-              <TableHead className="min-w-[100px]">Area</TableHead>
-              <TableHead className="min-w-[120px]">DB Allow</TableHead>
-              <TableHead className="min-w-[200px]">DB SOW</TableHead>
-                <TableHead className="text-center min-w-[80px]">
-                  <div className="flex items-center justify-center gap-1">
-                    SOW
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Link2 className="h-3 w-3 text-primary" />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p className="text-xs">Auto-synced from document uploads</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                </TableHead>
-                <TableHead className="text-center min-w-[80px]">
-                  <div className="flex items-center justify-center gap-1">
-                    Layout
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Link2 className="h-3 w-3 text-primary" />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p className="text-xs">Auto-synced from document uploads</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                </TableHead>
-                <TableHead className="text-center min-w-[80px]">
-                  <div className="flex items-center justify-center gap-1">
-                    DB Ord
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Link2 className="h-3 w-3 text-primary" />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p className="text-xs">Auto-synced from document uploads</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                </TableHead>
-                <TableHead className="text-center min-w-[120px]">DB by Tenant</TableHead>
-                <TableHead className="text-right min-w-[100px]">DB Cost</TableHead>
-                <TableHead className="text-center min-w-[80px]">
-                  <div className="flex items-center justify-center gap-1">
-                    Light Ord
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Link2 className="h-3 w-3 text-primary" />
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p className="text-xs">Auto-synced from document uploads</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                </TableHead>
-                <TableHead className="text-center min-w-[120px]">Light by Tenant</TableHead>
-                <TableHead className="text-right min-w-[100px]">Light Cost</TableHead>
-                <TableHead className="text-center min-w-[100px]">Cost Report</TableHead>
-                <TableHead className="text-center min-w-[100px]">
-                  <div className="flex items-center justify-center gap-1">
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <div className="flex items-center gap-1">
-                            <FolderSymlink className="h-4 w-4" />
-                            <span>Handover</span>
-                          </div>
-                        </TooltipTrigger>
-                        <TooltipContent>
-                          <p className="text-xs">Documents linked to handover folders</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                  </div>
-                </TableHead>
-                <TableHead className="text-right min-w-[120px]">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-          </Table>
+      {/* Table Section - Fixed Header + Scrollable Body */}
+      <div className="flex-1 flex flex-col border rounded-lg bg-background overflow-hidden">
+        {/* Fixed Header */}
+        <div className="flex-shrink-0 border-b bg-muted/50 overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b">
+                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground min-w-[140px]">Shop #</th>
+                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground min-w-[200px]">Shop Name</th>
+                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground min-w-[120px]">Category</th>
+                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground min-w-[120px]">Opening</th>
+                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground min-w-[100px]">BO Period</th>
+                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground min-w-[140px]">Beneficial Occ</th>
+                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground min-w-[100px]">Days Until</th>
+                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground min-w-[100px]">Area</th>
+                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground min-w-[120px]">DB Allow</th>
+                <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground min-w-[200px]">DB SOW</th>
+                <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground min-w-[80px]">SOW</th>
+                <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground min-w-[80px]">Layout</th>
+                <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground min-w-[80px]">DB Ord</th>
+                <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground min-w-[120px]">DB by Tenant</th>
+                <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground min-w-[100px]">DB Cost</th>
+                <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground min-w-[80px]">Light Ord</th>
+                <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground min-w-[120px]">Light by Tenant</th>
+                <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground min-w-[100px]">Light Cost</th>
+                <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground min-w-[100px]">Cost Report</th>
+                <th className="h-12 px-4 text-center align-middle font-medium text-muted-foreground min-w-[100px]">Handover</th>
+                <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground min-w-[120px]">Actions</th>
+              </tr>
+            </thead>
+          </table>
         </div>
         
         {/* Scrollable Body */}
@@ -882,6 +812,7 @@ export const TenantList = ({
             ))}
           </TableBody>
         </Table>
+        </div>
       </div>
 
       {tenantToDelete && (
