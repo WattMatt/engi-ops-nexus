@@ -199,7 +199,7 @@ const TenantTracker = () => {
                   <p className="text-muted-foreground">Loading tenants...</p>
                 </div>
               ) : (
-                <div className="flex-1 min-h-0 px-6">
+                <div className="flex-1 min-h-0 px-6 max-w-full overflow-hidden">
                   <TenantList
                     tenants={tenants}
                     projectId={projectId || ""}

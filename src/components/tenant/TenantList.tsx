@@ -390,7 +390,7 @@ export const TenantList = ({
   };
 
   return (
-    <div className="flex flex-col gap-4 h-full overflow-hidden py-6">
+    <div className="flex flex-col gap-4 h-full overflow-hidden py-6 max-w-full">
       {/* Filters and Actions */}
       <div className="flex flex-col gap-3 flex-shrink-0 px-1">
         {/* Search and Filters */}
@@ -547,8 +547,8 @@ export const TenantList = ({
         </div>
       </div>
       {/* Table Section - Scrollable with Fixed Header */}
-      <div className="flex-1 min-h-0 rounded-lg border border-border bg-background overflow-hidden">
-        <div className="h-full overflow-auto">
+      <div className="flex-1 min-h-0 rounded-lg border border-border bg-background overflow-hidden max-w-full">
+        <div className="h-full w-full overflow-auto">
           <table className="min-w-full">
             <thead className="sticky top-0 bg-muted/50 z-20 border-b border-border shadow-sm">
               <tr>
