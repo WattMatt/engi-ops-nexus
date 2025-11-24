@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import { memo } from "react";
 
 interface CostBreakdownChartProps {
   costs: {
@@ -19,7 +20,7 @@ const COLORS = [
   'hsl(var(--chart-5))',
 ];
 
-export function CostBreakdownChart({ costs }: CostBreakdownChartProps) {
+export const CostBreakdownChart = memo(function CostBreakdownChart({ costs }: CostBreakdownChartProps) {
   const data = [
     { name: 'Generator Equipment', value: costs.generatorCost },
     { name: 'Tenant Distribution Boards', value: costs.tenantDBsCost },
@@ -115,4 +116,4 @@ export function CostBreakdownChart({ costs }: CostBreakdownChartProps) {
       </CardContent>
     </Card>
   );
-}
+});

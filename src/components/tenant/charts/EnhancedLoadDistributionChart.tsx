@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import { memo } from "react";
 
 interface LoadDistributionChartProps {
   zones: Array<{
@@ -18,7 +19,7 @@ const COLORS = [
   'hsl(var(--chart-6))',
 ];
 
-export function LoadDistributionChart({ zones }: LoadDistributionChartProps) {
+export const LoadDistributionChart = memo(function LoadDistributionChart({ zones }: LoadDistributionChartProps) {
   const data = zones.map(zone => ({
     name: zone.zone_name,
     value: Number(zone.loading.toFixed(2)),
@@ -110,4 +111,4 @@ export function LoadDistributionChart({ zones }: LoadDistributionChartProps) {
       </CardContent>
     </Card>
   );
-}
+});

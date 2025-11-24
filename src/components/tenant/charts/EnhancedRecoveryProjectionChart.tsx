@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, BarChart, Bar, Area, AreaChart } from "recharts";
+import { memo } from "react";
 
 interface RecoveryProjectionChartProps {
   monthlyCapitalRecovery: number;
@@ -7,7 +8,7 @@ interface RecoveryProjectionChartProps {
   years?: number;
 }
 
-export function RecoveryProjectionChart({ 
+export const RecoveryProjectionChart = memo(function RecoveryProjectionChart({ 
   monthlyCapitalRecovery, 
   monthlyRunningRecovery,
   years = 10 
@@ -186,4 +187,4 @@ export function RecoveryProjectionChart({
       </CardContent>
     </Card>
   );
-}
+});

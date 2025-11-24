@@ -12,6 +12,7 @@ import {
   addPageNumbers,
   type PDFExportOptions 
 } from "@/utils/pdfExportBase";
+import { generateStandardizedPDFFilename, generateStorageFilename } from "@/utils/pdfFilenameGenerator";
 
 interface CableScheduleExportPDFButtonProps {
   schedule: any;
@@ -36,6 +37,13 @@ export const CableScheduleExportPDFButton = ({ schedule }: CableScheduleExportPD
         .order("cable_tag");
 
       if (error) throw error;
+
+      // Fetch project details for filename
+      const { data: project } = await supabase
+        .from("projects")
+        .select("project_number")
+        .eq("id", schedule.project_id)
+        .single();
 
       // Create high-quality PDF with standardized settings
       const exportOptions: PDFExportOptions = { quality: 'standard', orientation: 'landscape' };
@@ -148,8 +156,23 @@ export const CableScheduleExportPDFButton = ({ schedule }: CableScheduleExportPD
 
       // Convert PDF to blob
       const pdfBlob = doc.output("blob");
-      const fileName = `${schedule.schedule_name}_${schedule.revision}_${Date.now()}.pdf`;
-      const filePath = `${schedule.id}/${fileName}`;
+      
+      // Generate standardized filenames
+      const downloadFilename = generateStandardizedPDFFilename({
+        projectNumber: project?.project_number,
+        reportType: 'CableSch',
+        reportNumber: schedule.schedule_number,
+        revision: schedule.revision,
+      });
+      
+      const storageFilename = generateStorageFilename({
+        projectNumber: project?.project_number,
+        reportType: 'CableSch',
+        reportNumber: schedule.schedule_number,
+        revision: schedule.revision,
+      });
+      
+      const filePath = `${schedule.id}/${storageFilename}`;
 
       // Upload to storage
       const { error: uploadError } = await supabase.storage
@@ -176,7 +199,7 @@ export const CableScheduleExportPDFButton = ({ schedule }: CableScheduleExportPD
       if (dbError) throw dbError;
 
       // Also download the file
-      doc.save(`${schedule.schedule_name}_${schedule.revision}.pdf`);
+      doc.save(downloadFilename);
 
       toast({
         title: "Success",

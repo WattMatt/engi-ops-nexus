@@ -29,6 +29,7 @@ import {
   addHighQualityImage
 } from "@/utils/pdfQualitySettings";
 import { prepareCostReportTemplateData } from "@/utils/prepareCostReportTemplateData";
+import { generateStandardizedPDFFilename, generateStorageFilename } from "@/utils/pdfFilenameGenerator";
 
 interface ExportPDFButtonProps {
   report: any;
@@ -1451,8 +1452,20 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         finalPdfBlob = doc.output("blob");
       }
       
-      const fileName = `Cost_Report_${report.report_number}_${Date.now()}.pdf`;
-      const filePath = `${report.project_id}/${fileName}`;
+      // Generate standardized filenames
+      const downloadFilename = generateStandardizedPDFFilename({
+        projectNumber: report.project_number,
+        reportType: 'CostReport',
+        reportNumber: report.report_number,
+      });
+      
+      const storageFilename = generateStorageFilename({
+        projectNumber: report.project_number,
+        reportType: 'CostReport',
+        reportNumber: report.report_number,
+      });
+      
+      const filePath = `${report.project_id}/${storageFilename}`;
 
       const { error: uploadError } = await supabase.storage
         .from("cost-report-pdfs")
@@ -1467,7 +1480,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           cost_report_id: report.id,
           project_id: report.project_id,
           file_path: filePath,
-          file_name: fileName,
+          file_name: downloadFilename,
           file_size: finalPdfBlob.size,
           revision: `Report ${report.report_number}`,
           generated_by: (await supabase.auth.getUser()).data.user?.id
