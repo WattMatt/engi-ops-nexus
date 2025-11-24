@@ -117,48 +117,24 @@ Deno.serve(async (req) => {
       if (imagePlaceholders && Object.keys(imagePlaceholders).length > 0) {
         console.log('Processing images');
         
-        // Fetch placeholder logo once
-        const placeholderLogoUrl = 'https://rsdisaisxdglmdmzmkyw.supabase.co/storage/v1/object/public/document-templates/placeholder-logo.png';
-        let placeholderBuffer: Uint8Array | null = null;
-        
-        try {
-          const placeholderResponse = await fetch(placeholderLogoUrl);
-          if (placeholderResponse.ok) {
-            placeholderBuffer = new Uint8Array(await placeholderResponse.arrayBuffer());
-            console.log('Loaded placeholder logo');
-          }
-        } catch (error) {
-          console.error('Error loading placeholder logo:', error);
-        }
-        
         const imageBuffers: Record<string, { buffer: Uint8Array; ext: string }> = {};
         for (const [key, imageUrl] of Object.entries(imagePlaceholders)) {
-          // Use placeholder if no URL provided
-          const effectiveUrl = imageUrl || placeholderLogoUrl;
-          const isPlaceholder = !imageUrl && placeholderBuffer;
-          
-          try {
-            if (isPlaceholder && placeholderBuffer) {
-              // Use cached placeholder
-              imageBuffers[key] = {
-                buffer: placeholderBuffer,
-                ext: 'png'
-              };
-              console.log(`Using placeholder for ${key}`);
-            } else if (effectiveUrl) {
-              const imageResponse = await fetch(effectiveUrl);
+          // Only process if URL is provided
+          if (imageUrl) {
+            try {
+              const imageResponse = await fetch(imageUrl);
               if (imageResponse.ok) {
                 const imageBuffer = await imageResponse.arrayBuffer();
-                const ext = effectiveUrl.toLowerCase().match(/\.(jpg|jpeg|png)$/)?.[1] || 'png';
+                const ext = imageUrl.toLowerCase().match(/\.(jpg|jpeg|png)$/)?.[1] || 'png';
                 imageBuffers[key] = {
                   buffer: new Uint8Array(imageBuffer),
                   ext: ext === 'jpg' ? 'jpeg' : ext
                 };
                 console.log(`Fetched ${key}: ${imageBuffer.byteLength} bytes`);
               }
+            } catch (error) {
+              console.error(`Error fetching ${key}:`, error);
             }
-          } catch (error) {
-            console.error(`Error fetching ${key}:`, error);
           }
         }
         
