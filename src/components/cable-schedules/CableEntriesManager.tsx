@@ -270,22 +270,22 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
             </p>
           ) : (
             <div className="space-y-4">
-              <div className="rounded-md border max-h-[600px] overflow-auto relative">
+              <div className="rounded-md border max-h-[600px] overflow-auto">
                 <Table>
-                  <TableHeader className="sticky top-0 bg-background z-20 shadow-sm border-b">
+                  <TableHeader>
                     <TableRow>
-                      <TableHead className="px-4 py-3 w-20">Cable #</TableHead>
-                      <TableHead className="px-4 py-3 w-44">Cable Tag</TableHead>
-                      <TableHead className="px-4 py-3 w-40">From</TableHead>
-                      <TableHead className="px-4 py-3 w-40">To</TableHead>
-                      <TableHead className="px-4 py-3 w-16 text-center">Qty</TableHead>
-                      <TableHead className="px-4 py-3 w-24">Voltage</TableHead>
-                      <TableHead className="px-4 py-3 w-24">Load (A)</TableHead>
-                      <TableHead className="px-4 py-3 w-28">Cable Type</TableHead>
-                      <TableHead className="px-4 py-3 w-32">Install Method</TableHead>
-                      <TableHead className="px-4 py-3 w-28">Cable Size</TableHead>
-                      <TableHead className="px-4 py-3 w-28">Length (m)</TableHead>
-                      <TableHead className="px-4 py-3 w-24 text-right">Actions</TableHead>
+                      <TableHead className="sticky top-0 bg-background z-20 px-4 py-3 w-20 border-b">Cable #</TableHead>
+                      <TableHead className="sticky top-0 bg-background z-20 px-4 py-3 w-44 border-b">Cable Tag</TableHead>
+                      <TableHead className="sticky top-0 bg-background z-20 px-4 py-3 w-40 border-b">From</TableHead>
+                      <TableHead className="sticky top-0 bg-background z-20 px-4 py-3 w-40 border-b">To</TableHead>
+                      <TableHead className="sticky top-0 bg-background z-20 px-4 py-3 w-16 text-center border-b">Qty</TableHead>
+                      <TableHead className="sticky top-0 bg-background z-20 px-4 py-3 w-24 border-b">Voltage</TableHead>
+                      <TableHead className="sticky top-0 bg-background z-20 px-4 py-3 w-24 border-b">Load (A)</TableHead>
+                      <TableHead className="sticky top-0 bg-background z-20 px-4 py-3 w-28 border-b">Cable Type</TableHead>
+                      <TableHead className="sticky top-0 bg-background z-20 px-4 py-3 w-32 border-b">Install Method</TableHead>
+                      <TableHead className="sticky top-0 bg-background z-20 px-4 py-3 w-28 border-b">Cable Size</TableHead>
+                      <TableHead className="sticky top-0 bg-background z-20 px-4 py-3 w-28 border-b">Length (m)</TableHead>
+                      <TableHead className="sticky top-0 bg-background z-20 px-4 py-3 w-24 text-right border-b">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
