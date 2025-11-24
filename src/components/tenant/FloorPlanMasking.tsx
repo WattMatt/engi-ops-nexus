@@ -599,9 +599,24 @@ export const FloorPlanMasking = ({ projectId }: { projectId: string }) => {
                 tenants={tenants}
                 zoneOpacity={zoneOpacity}
               />
-            ) : isEditMode ? (
+            ) : isEditMode && !pdfDoc ? (
               <div className="h-full flex items-center justify-center text-muted-foreground">
-                <Loader2 className="w-8 h-8 animate-spin" />
+                <div className="text-center">
+                  <p className="mb-4">No floor plan loaded. Upload a PDF to start marking zones.</p>
+                  <Button onClick={() => fileInputRef.current?.click()} disabled={isUploading}>
+                    {isUploading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="w-4 h-4 mr-2" />
+                        Upload PDF Floor Plan
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
             ) : (
               <div className="h-full flex items-center justify-center text-muted-foreground">
