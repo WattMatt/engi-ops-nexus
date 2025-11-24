@@ -285,23 +285,23 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
                 className="rounded-md border overflow-auto"
                 style={{ height: '600px' }}
               >
-                <Table>
-                  <TableHeader className="sticky top-0 bg-background z-10">
-                    <TableRow>
-                      <TableHead className="px-4 py-3 min-w-[80px]">Cable #</TableHead>
-                      <TableHead className="px-4 py-3 min-w-[180px]">Cable Tag</TableHead>
-                      <TableHead className="px-4 py-3 min-w-[160px]">From</TableHead>
-                      <TableHead className="px-4 py-3 min-w-[160px]">To</TableHead>
-                      <TableHead className="px-4 py-3 min-w-[60px] text-center">Qty</TableHead>
-                      <TableHead className="px-4 py-3 min-w-[90px]">Voltage</TableHead>
-                      <TableHead className="px-4 py-3 min-w-[90px]">Load (A)</TableHead>
-                      <TableHead className="px-4 py-3 min-w-[110px]">Cable Type</TableHead>
-                      <TableHead className="px-4 py-3 min-w-[130px]">Install Method</TableHead>
-                      <TableHead className="px-4 py-3 min-w-[100px]">Cable Size</TableHead>
-                      <TableHead className="px-4 py-3 min-w-[100px]">Length (m)</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody
+                <table className="w-full">
+                  <thead className="sticky top-0 bg-background z-10">
+                    <tr className="border-b">
+                      <th className="px-4 py-3 min-w-[80px] text-left text-sm font-medium">Cable #</th>
+                      <th className="px-4 py-3 min-w-[180px] text-left text-sm font-medium">Cable Tag</th>
+                      <th className="px-4 py-3 min-w-[160px] text-left text-sm font-medium">From</th>
+                      <th className="px-4 py-3 min-w-[160px] text-left text-sm font-medium">To</th>
+                      <th className="px-4 py-3 min-w-[60px] text-center text-sm font-medium">Qty</th>
+                      <th className="px-4 py-3 min-w-[90px] text-left text-sm font-medium">Voltage</th>
+                      <th className="px-4 py-3 min-w-[90px] text-left text-sm font-medium">Load (A)</th>
+                      <th className="px-4 py-3 min-w-[110px] text-left text-sm font-medium">Cable Type</th>
+                      <th className="px-4 py-3 min-w-[130px] text-left text-sm font-medium">Install Method</th>
+                      <th className="px-4 py-3 min-w-[100px] text-left text-sm font-medium">Cable Size</th>
+                      <th className="px-4 py-3 min-w-[100px] text-left text-sm font-medium">Length (m)</th>
+                    </tr>
+                  </thead>
+                  <tbody
                     style={{
                       height: `${rowVirtualizer.getTotalSize()}px`,
                       position: 'relative',
@@ -310,8 +310,9 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
                     {rowVirtualizer.getVirtualItems().map((virtualRow) => {
                       const entry = entries[virtualRow.index];
                       return (
-                        <TableRow
+                        <tr
                           key={entry.id}
+                          className="border-b"
                           style={{
                             position: 'absolute',
                             top: 0,
@@ -323,24 +324,24 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
                             tableLayout: 'fixed',
                           }}
                         >
-                          <TableCell className="px-4 py-4 font-medium" style={{ width: '80px' }}>{entry.cable_number || "1"}</TableCell>
-                          <TableCell className="px-4 py-4 font-medium" style={{ width: '180px' }}>{entry.cable_tag}</TableCell>
-                          <TableCell className="px-4 py-4" style={{ width: '160px' }}>{entry.from_location}</TableCell>
-                          <TableCell className="px-4 py-4" style={{ width: '160px' }}>{entry.to_location}</TableCell>
-                          <TableCell className="px-4 py-4 font-medium text-center" style={{ width: '60px' }}>{entry.quantity || 1}</TableCell>
-                          <TableCell className="px-4 py-4" style={{ width: '90px' }}>{entry.voltage || "-"}</TableCell>
-                          <TableCell className="px-4 py-4" style={{ width: '90px' }}>{entry.load_amps || "-"}</TableCell>
-                          <TableCell className="px-4 py-4" style={{ width: '110px' }}>{entry.cable_type || "-"}</TableCell>
-                          <TableCell className="px-4 py-4 capitalize" style={{ width: '130px' }}>{entry.installation_method || "air"}</TableCell>
-                          <TableCell className="px-4 py-4" style={{ width: '100px' }}>{entry.cable_size || "-"}</TableCell>
-                          <TableCell className="px-4 py-4" style={{ width: '100px' }}>
+                          <td className="px-4 py-4 font-medium text-sm" style={{ width: '80px' }}>{entry.cable_number || "1"}</td>
+                          <td className="px-4 py-4 font-medium text-sm" style={{ width: '180px' }}>{entry.cable_tag}</td>
+                          <td className="px-4 py-4 text-sm" style={{ width: '160px' }}>{entry.from_location}</td>
+                          <td className="px-4 py-4 text-sm" style={{ width: '160px' }}>{entry.to_location}</td>
+                          <td className="px-4 py-4 font-medium text-center text-sm" style={{ width: '60px' }}>{entry.quantity || 1}</td>
+                          <td className="px-4 py-4 text-sm" style={{ width: '90px' }}>{entry.voltage || "-"}</td>
+                          <td className="px-4 py-4 text-sm" style={{ width: '90px' }}>{entry.load_amps || "-"}</td>
+                          <td className="px-4 py-4 text-sm" style={{ width: '110px' }}>{entry.cable_type || "-"}</td>
+                          <td className="px-4 py-4 capitalize text-sm" style={{ width: '130px' }}>{entry.installation_method || "air"}</td>
+                          <td className="px-4 py-4 text-sm" style={{ width: '100px' }}>{entry.cable_size || "-"}</td>
+                          <td className="px-4 py-4 text-sm" style={{ width: '100px' }}>
                             {(entry.total_length || (entry.measured_length || 0) + (entry.extra_length || 0)).toFixed(2)}
-                          </TableCell>
-                        </TableRow>
+                          </td>
+                        </tr>
                       );
                     })}
-                  </TableBody>
-                </Table>
+                  </tbody>
+                </table>
               </div>
               <div className="flex justify-end">
                 <Card className="w-64">
