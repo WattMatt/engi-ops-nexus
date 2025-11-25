@@ -201,7 +201,7 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
           .map(alt => {
             const altCostBreakdown = calculateCostBreakdown(
               alt.cableSize,
-              params.material === "copper" ? "Cu" : "Al",
+              entry.cable_type || "",  // Use the same cable_type format as stored in database
               entry.total_length,
               alt.cablesInParallel
             );
