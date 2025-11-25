@@ -113,13 +113,8 @@ export const EditCableEntryDialog = ({
         
         if (result) {
           setSuggestedCableSize(result.recommendedSize);
-          if (result.cablesInParallel && result.cablesInParallel > 1) {
-            setParallelCablesInfo(`${result.cablesInParallel}× ${result.recommendedSize} in parallel (${result.loadPerCable?.toFixed(0)}A each)`);
-          } else {
-            setParallelCablesInfo("");
-          }
+          setParallelCablesInfo("");
         } else {
-          // Clear stale suggestions when calculation fails
           setSuggestedCableSize("");
           setParallelCablesInfo("");
         }
@@ -337,15 +332,6 @@ export const EditCableEntryDialog = ({
               <Badge variant="secondary" className="ml-2">
                 Suggested: {suggestedCableSize}
               </Badge>
-            )}
-            {parallelCablesInfo && (
-              <div className="mt-1 p-2 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded text-sm">
-                <div className="flex items-center gap-2 text-blue-700 dark:text-blue-300">
-                  <AlertCircle className="w-4 h-4" />
-                  <span className="font-medium">Parallel Cables Required:</span>
-                </div>
-                <p className="mt-1 text-blue-600 dark:text-blue-400">{parallelCablesInfo}</p>
-              </div>
             )}
             <Select
               value={formData.cable_size}
