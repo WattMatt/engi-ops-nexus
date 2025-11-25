@@ -87,234 +87,358 @@ export const TenantOverview = ({ tenants, projectId }: TenantOverviewProps) => {
 
   return (
     <div className="space-y-6">
-      {/* Overall Progress Card */}
-      <Card className="border-primary/20">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <TrendingUp className="h-5 w-5 text-primary" />
-            Overall Project Completion
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-sm font-medium">Project Progress</span>
-              <span className="text-2xl font-bold text-primary">{overallProgress.toFixed(1)}%</span>
-            </div>
-            <Progress value={overallProgress} className="h-3" />
-          </div>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 pt-2">
-            <div className="text-center">
-              <p className="text-xs text-muted-foreground">SOW</p>
-              <p className="text-lg font-semibold">{sowProgress.toFixed(0)}%</p>
-            </div>
-            <div className="text-center">
-              <p className="text-xs text-muted-foreground">Layouts</p>
-              <p className="text-lg font-semibold">{layoutProgress.toFixed(0)}%</p>
-            </div>
-            <div className="text-center">
-              <p className="text-xs text-muted-foreground">DB Orders</p>
-              <p className="text-lg font-semibold">{dbProgress.toFixed(0)}%</p>
-            </div>
-            <div className="text-center">
-              <p className="text-xs text-muted-foreground">Lighting</p>
-              <p className="text-lg font-semibold">{lightingProgress.toFixed(0)}%</p>
-            </div>
-            <div className="text-center">
-              <p className="text-xs text-muted-foreground">Costing</p>
-              <p className="text-lg font-semibold">{costProgress.toFixed(0)}%</p>
-            </div>
-            <div className="text-center">
-              <p className="text-xs text-muted-foreground">Handover Links</p>
-              <p className="text-lg font-semibold">{handoverLinkProgress.toFixed(0)}%</p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Key Metrics */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Tenants</CardTitle>
-            <Building2 className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalTenants}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Across {Object.keys(categoryCounts).length} categories
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Area</CardTitle>
-            <Calculator className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{totalArea.toLocaleString()} m²</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Avg {totalTenants > 0 ? (totalArea / totalTenants).toFixed(1) : 0} m² per tenant
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Project Cost</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">R{totalCost.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {tenantsWithCosts}/{totalTenants} tenants costed
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg Cost/Tenant</CardTitle>
-            <PercentIcon className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">R{avgCostPerTenant.toLocaleString(undefined, { maximumFractionDigits: 0 })}</div>
-            <p className="text-xs text-muted-foreground mt-1">
-              R{avgCostPerSqm.toFixed(2)}/m²
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Financial Breakdown */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Cost Breakdown</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <Package className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Distribution Boards</span>
-                </div>
-                <span className="font-bold">R{totalDbCost.toLocaleString()}</span>
-              </div>
-              <Progress 
-                value={totalCost > 0 ? (totalDbCost / totalCost) * 100 : 0} 
-                className="h-2"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                {totalCost > 0 ? ((totalDbCost / totalCost) * 100).toFixed(1) : 0}% of total cost
-              </p>
-            </div>
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-2">
-                  <Lightbulb className="h-4 w-4 text-muted-foreground" />
-                  <span className="text-sm font-medium">Lighting</span>
-                </div>
-                <span className="font-bold">R{totalLightingCost.toLocaleString()}</span>
-              </div>
-              <Progress 
-                value={totalCost > 0 ? (totalLightingCost / totalCost) * 100 : 0} 
-                className="h-2"
-              />
-              <p className="text-xs text-muted-foreground mt-1">
-                {totalCost > 0 ? ((totalLightingCost / totalCost) * 100).toFixed(1) : 0}% of total cost
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-amber-500" />
-              Pending Actions
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            {pendingSOW > 0 && (
-              <div className="flex items-center justify-between p-2 bg-muted/50 rounded">
-                <span className="text-sm">SOW Documents</span>
-                <Badge variant="secondary">{pendingSOW} pending</Badge>
-              </div>
-            )}
-            {pendingLayouts > 0 && (
-              <div className="flex items-center justify-between p-2 bg-muted/50 rounded">
-                <span className="text-sm">Layout Drawings</span>
-                <Badge variant="secondary">{pendingLayouts} pending</Badge>
-              </div>
-            )}
-            {pendingDBOrders > 0 && (
-              <div className="flex items-center justify-between p-2 bg-muted/50 rounded">
-                <span className="text-sm">DB Orders</span>
-                <Badge variant="secondary">{pendingDBOrders} pending</Badge>
-              </div>
-            )}
-            {pendingLightingOrders > 0 && (
-              <div className="flex items-center justify-between p-2 bg-muted/50 rounded">
-                <span className="text-sm">Lighting Orders</span>
-                <Badge variant="secondary">{pendingLightingOrders} pending</Badge>
-              </div>
-            )}
-            {pendingSOW === 0 && pendingLayouts === 0 && pendingDBOrders === 0 && pendingLightingOrders === 0 && (
-              <div className="text-center py-4 text-muted-foreground">
-                <CheckCircle2 className="h-8 w-8 mx-auto mb-2 text-green-600" />
-                <p className="text-sm">All actions completed!</p>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FolderSymlink className="h-5 w-5" />
-              Handover Link Status
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-medium">Tenants Linked</span>
-                <span className="font-bold text-emerald-600">
-                  {tenantsLinkedToHandover} / {totalTenants}
-                </span>
-              </div>
-              <Progress value={handoverLinkProgress} className="h-2" />
-              <p className="text-xs text-muted-foreground mt-1">
-                {handoverLinkProgress.toFixed(1)}% of tenants have documents linked to handover folders
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Category Breakdown */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Category Distribution</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {Object.entries(categoryCounts).map(([category, count]) => (
-              <div key={category} className="text-center p-3 bg-muted/30 rounded-lg">
-                <Badge variant="outline" className={`${getCategoryColor(category)} mb-2`}>
-                  {getCategoryLabel(category)}
-                </Badge>
-                <p className="text-2xl font-bold">{count}</p>
+      {/* Hero Stats Row */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        {/* Total Tenants - Large Metric Card */}
+        <Card className="relative overflow-hidden border-l-4 border-l-primary shadow-md">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16" />
+          <CardContent className="pt-6">
+            <div className="flex items-start justify-between">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">Total Tenants</p>
+                <p className="text-4xl font-bold text-foreground">{totalTenants}</p>
                 <p className="text-xs text-muted-foreground">
-                  {totalTenants > 0 ? ((count / totalTenants) * 100).toFixed(1) : 0}% of total
+                  {Object.keys(categoryCounts).length} categories
                 </p>
               </div>
-            ))}
+              <div className="bg-primary/10 p-3 rounded-lg">
+                <Building2 className="h-6 w-6 text-primary" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Total Area - Large Metric Card */}
+        <Card className="relative overflow-hidden border-l-4 border-l-blue-500 shadow-md">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full -mr-16 -mt-16" />
+          <CardContent className="pt-6">
+            <div className="flex items-start justify-between">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">Total Area</p>
+                <p className="text-4xl font-bold text-foreground">{totalArea.toLocaleString()}</p>
+                <p className="text-xs text-muted-foreground">
+                  {totalTenants > 0 ? (totalArea / totalTenants).toFixed(1) : 0} m² avg
+                </p>
+              </div>
+              <div className="bg-blue-500/10 p-3 rounded-lg">
+                <Calculator className="h-6 w-6 text-blue-500" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Total Cost - Large Metric Card */}
+        <Card className="relative overflow-hidden border-l-4 border-l-emerald-500 shadow-md">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full -mr-16 -mt-16" />
+          <CardContent className="pt-6">
+            <div className="flex items-start justify-between">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">Total Cost</p>
+                <p className="text-4xl font-bold text-foreground">R{(totalCost / 1000).toFixed(0)}k</p>
+                <p className="text-xs text-muted-foreground">
+                  {tenantsWithCosts}/{totalTenants} costed
+                </p>
+              </div>
+              <div className="bg-emerald-500/10 p-3 rounded-lg">
+                <DollarSign className="h-6 w-6 text-emerald-500" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Overall Progress - Circular Card */}
+        <Card className="relative overflow-hidden border-l-4 border-l-amber-500 shadow-md">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-amber-500/5 rounded-full -mr-16 -mt-16" />
+          <CardContent className="pt-6">
+            <div className="flex items-start justify-between">
+              <div className="space-y-1">
+                <p className="text-sm font-medium text-muted-foreground">Completion</p>
+                <p className="text-4xl font-bold text-foreground">{overallProgress.toFixed(0)}%</p>
+                <p className="text-xs text-muted-foreground">
+                  Overall progress
+                </p>
+              </div>
+              <div className="bg-amber-500/10 p-3 rounded-lg">
+                <TrendingUp className="h-6 w-6 text-amber-500" />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Progress Tracker Grid */}
+      <Card className="shadow-md">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <LayoutGrid className="h-5 w-5" />
+            Task Progress Tracker
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {/* SOW Progress */}
+            <div className="space-y-3 p-4 rounded-lg bg-muted/30">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-md bg-primary/10">
+                    <FileText className="h-4 w-4 text-primary" />
+                  </div>
+                  <span className="font-medium text-sm">SOW Documents</span>
+                </div>
+                <Badge variant={sowProgress === 100 ? "default" : "secondary"}>
+                  {sowReceived}/{totalTenants}
+                </Badge>
+              </div>
+              <Progress value={sowProgress} className="h-2" />
+              <p className="text-xs text-muted-foreground text-right">{sowProgress.toFixed(0)}% complete</p>
+            </div>
+
+            {/* Layout Progress */}
+            <div className="space-y-3 p-4 rounded-lg bg-muted/30">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-md bg-blue-500/10">
+                    <LayoutGrid className="h-4 w-4 text-blue-500" />
+                  </div>
+                  <span className="font-medium text-sm">Layout Plans</span>
+                </div>
+                <Badge variant={layoutProgress === 100 ? "default" : "secondary"}>
+                  {layoutReceived}/{totalTenants}
+                </Badge>
+              </div>
+              <Progress value={layoutProgress} className="h-2" />
+              <p className="text-xs text-muted-foreground text-right">{layoutProgress.toFixed(0)}% complete</p>
+            </div>
+
+            {/* DB Orders Progress */}
+            <div className="space-y-3 p-4 rounded-lg bg-muted/30">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-md bg-emerald-500/10">
+                    <Package className="h-4 w-4 text-emerald-500" />
+                  </div>
+                  <span className="font-medium text-sm">DB Orders</span>
+                </div>
+                <Badge variant={dbProgress === 100 ? "default" : "secondary"}>
+                  {dbOrdered}/{totalTenants}
+                </Badge>
+              </div>
+              <Progress value={dbProgress} className="h-2" />
+              <p className="text-xs text-muted-foreground text-right">{dbProgress.toFixed(0)}% complete</p>
+            </div>
+
+            {/* Lighting Progress */}
+            <div className="space-y-3 p-4 rounded-lg bg-muted/30">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-md bg-amber-500/10">
+                    <Lightbulb className="h-4 w-4 text-amber-500" />
+                  </div>
+                  <span className="font-medium text-sm">Lighting Orders</span>
+                </div>
+                <Badge variant={lightingProgress === 100 ? "default" : "secondary"}>
+                  {lightingOrdered}/{totalTenants}
+                </Badge>
+              </div>
+              <Progress value={lightingProgress} className="h-2" />
+              <p className="text-xs text-muted-foreground text-right">{lightingProgress.toFixed(0)}% complete</p>
+            </div>
+
+            {/* Cost Reports Progress */}
+            <div className="space-y-3 p-4 rounded-lg bg-muted/30">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-md bg-purple-500/10">
+                    <Calculator className="h-4 w-4 text-purple-500" />
+                  </div>
+                  <span className="font-medium text-sm">Cost Reports</span>
+                </div>
+                <Badge variant={costProgress === 100 ? "default" : "secondary"}>
+                  {costReported}/{totalTenants}
+                </Badge>
+              </div>
+              <Progress value={costProgress} className="h-2" />
+              <p className="text-xs text-muted-foreground text-right">{costProgress.toFixed(0)}% complete</p>
+            </div>
+
+            {/* Handover Links Progress */}
+            <div className="space-y-3 p-4 rounded-lg bg-muted/30">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className="p-2 rounded-md bg-rose-500/10">
+                    <FolderSymlink className="h-4 w-4 text-rose-500" />
+                  </div>
+                  <span className="font-medium text-sm">Handover Links</span>
+                </div>
+                <Badge variant={handoverLinkProgress === 100 ? "default" : "secondary"}>
+                  {tenantsLinkedToHandover}/{totalTenants}
+                </Badge>
+              </div>
+              <Progress value={handoverLinkProgress} className="h-2" />
+              <p className="text-xs text-muted-foreground text-right">{handoverLinkProgress.toFixed(0)}% complete</p>
+            </div>
           </div>
         </CardContent>
       </Card>
+
+      {/* Financial Breakdown & Category Distribution */}
+      <div className="grid gap-6 md:grid-cols-2">
+        {/* Cost Breakdown Card */}
+        <Card className="shadow-md">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <DollarSign className="h-5 w-5" />
+              Financial Breakdown
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-4">
+              {/* Distribution Boards */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-emerald-500" />
+                    <span className="text-sm font-medium">Distribution Boards</span>
+                  </div>
+                  <span className="text-lg font-bold">R{(totalDbCost / 1000).toFixed(0)}k</span>
+                </div>
+                <Progress 
+                  value={totalCost > 0 ? (totalDbCost / totalCost) * 100 : 0} 
+                  className="h-2 bg-emerald-500/20"
+                />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>{totalCost > 0 ? ((totalDbCost / totalCost) * 100).toFixed(1) : 0}% of total</span>
+                  <span>R{totalDbCost.toLocaleString()}</span>
+                </div>
+              </div>
+
+              {/* Lighting */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-3 h-3 rounded-full bg-amber-500" />
+                    <span className="text-sm font-medium">Lighting</span>
+                  </div>
+                  <span className="text-lg font-bold">R{(totalLightingCost / 1000).toFixed(0)}k</span>
+                </div>
+                <Progress 
+                  value={totalCost > 0 ? (totalLightingCost / totalCost) * 100 : 0} 
+                  className="h-2 bg-amber-500/20"
+                />
+                <div className="flex justify-between text-xs text-muted-foreground">
+                  <span>{totalCost > 0 ? ((totalLightingCost / totalCost) * 100).toFixed(1) : 0}% of total</span>
+                  <span>R{totalLightingCost.toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Cost Per Metrics */}
+            <div className="grid grid-cols-2 gap-4 pt-4 border-t">
+              <div className="text-center p-3 rounded-lg bg-muted/30">
+                <p className="text-xs text-muted-foreground mb-1">Per Tenant</p>
+                <p className="text-xl font-bold">R{(avgCostPerTenant / 1000).toFixed(1)}k</p>
+              </div>
+              <div className="text-center p-3 rounded-lg bg-muted/30">
+                <p className="text-xs text-muted-foreground mb-1">Per m²</p>
+                <p className="text-xl font-bold">R{avgCostPerSqm.toFixed(0)}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Category Distribution */}
+        <Card className="shadow-md">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <LayoutGrid className="h-5 w-5" />
+              Category Distribution
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-4">
+              {Object.entries(categoryCounts).map(([category, count]) => {
+                const percentage = totalTenants > 0 ? ((count / totalTenants) * 100) : 0;
+                return (
+                  <div key={category} className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Badge variant="outline" className={getCategoryColor(category)}>
+                          {getCategoryLabel(category)}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm text-muted-foreground">{percentage.toFixed(1)}%</span>
+                        <span className="text-lg font-bold">{count}</span>
+                      </div>
+                    </div>
+                    <Progress value={percentage} className="h-2" />
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Total Summary */}
+            <div className="mt-6 pt-4 border-t">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-medium">Total Units</span>
+                <span className="text-2xl font-bold text-primary">{totalTenants}</span>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Pending Actions Alert */}
+      {(pendingSOW > 0 || pendingLayouts > 0 || pendingDBOrders > 0 || pendingLightingOrders > 0) && (
+        <Card className="border-amber-500/50 bg-amber-500/5 shadow-md">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-amber-700">
+              <AlertCircle className="h-5 w-5" />
+              Outstanding Actions Required
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {pendingSOW > 0 && (
+                <div className="flex items-center gap-2 p-3 bg-background rounded-lg">
+                  <FileText className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium">SOW Docs</p>
+                    <p className="text-xs text-muted-foreground">{pendingSOW} pending</p>
+                  </div>
+                </div>
+              )}
+              {pendingLayouts > 0 && (
+                <div className="flex items-center gap-2 p-3 bg-background rounded-lg">
+                  <LayoutGrid className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium">Layouts</p>
+                    <p className="text-xs text-muted-foreground">{pendingLayouts} pending</p>
+                  </div>
+                </div>
+              )}
+              {pendingDBOrders > 0 && (
+                <div className="flex items-center gap-2 p-3 bg-background rounded-lg">
+                  <Package className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium">DB Orders</p>
+                    <p className="text-xs text-muted-foreground">{pendingDBOrders} pending</p>
+                  </div>
+                </div>
+              )}
+              {pendingLightingOrders > 0 && (
+                <div className="flex items-center gap-2 p-3 bg-background rounded-lg">
+                  <Lightbulb className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium">Lighting</p>
+                    <p className="text-xs text-muted-foreground">{pendingLightingOrders} pending</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };
