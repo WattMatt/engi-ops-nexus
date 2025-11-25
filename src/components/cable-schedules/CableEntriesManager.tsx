@@ -281,6 +281,7 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="sticky top-0 bg-background z-20 px-4 py-3 w-16 text-center border-b">Status</TableHead>
                       <TableHead className="sticky top-0 bg-background z-20 px-4 py-3 w-20 border-b">Cable #</TableHead>
                       <TableHead className="sticky top-0 bg-background z-20 px-4 py-3 w-44 border-b">Cable Tag</TableHead>
                       <TableHead className="sticky top-0 bg-background z-20 px-4 py-3 w-40 border-b">From</TableHead>
@@ -296,8 +297,17 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {entries.map((entry) => (
+                    {entries.map((entry) => {
+                      const hasCompleteData = entry.voltage && entry.load_amps && entry.cable_size;
+                      return (
                       <TableRow key={entry.id}>
+                          <TableCell className="px-4 py-4 text-center">
+                            {hasCompleteData ? (
+                              <span className="inline-flex h-2 w-2 rounded-full bg-green-500" title="Complete" />
+                            ) : (
+                              <span className="inline-flex h-2 w-2 rounded-full bg-yellow-500" title="Incomplete - needs voltage, load, or cable size" />
+                            )}
+                          </TableCell>
                           <TableCell className="px-4 py-4 font-medium">{entry.cable_number || "1"}</TableCell>
                           <TableCell className="px-4 py-4 font-medium">{entry.cable_tag}</TableCell>
                           <TableCell className="px-4 py-4">{entry.from_location}</TableCell>
@@ -338,7 +348,8 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
                             </div>
                           </TableCell>
                     </TableRow>
-                    ))}
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
