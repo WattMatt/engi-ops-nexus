@@ -2,11 +2,13 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Calculator, FileText, Settings, Download, Tag, TrendingDown, File } from "lucide-react";
+import { ArrowLeft, Calculator, FileText, Settings, Download, Tag, TrendingDown, File, BarChart3, DollarSign } from "lucide-react";
 import { CableScheduleOverview } from "@/components/cable-schedules/CableScheduleOverview";
+import { CableSchedulesOverview } from "@/components/cable-schedules/CableSchedulesOverview";
 import { CableEntriesManager } from "@/components/cable-schedules/CableEntriesManager";
 import { CableCalculationFormulas } from "@/components/cable-schedules/CableCalculationFormulas";
 import { CableCostsSummary } from "@/components/cable-schedules/CableCostsSummary";
+import { CableRatesManager } from "@/components/cable-schedules/CableRatesManager";
 import { CableTagSchedule } from "@/components/cable-schedules/CableTagSchedule";
 import { CableSizingOptimizer } from "@/components/cable-schedules/CableSizingOptimizer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -81,8 +83,13 @@ const CableScheduleDetail = () => {
       </div>
 
       {/* Main Content Tabs */}
-      <Tabs defaultValue="cables" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-7 lg:w-auto lg:inline-grid">
+      <Tabs defaultValue="overview" className="space-y-6">
+        <TabsList className="grid w-full grid-cols-4 md:grid-cols-8 lg:w-auto lg:inline-grid">
+          <TabsTrigger value="overview" className="gap-2">
+            <BarChart3 className="h-4 w-4" />
+            <span className="hidden sm:inline">Overview</span>
+            <span className="sm:hidden">Overview</span>
+          </TabsTrigger>
           <TabsTrigger value="cables" className="gap-2">
             <Calculator className="h-4 w-4" />
             <span className="hidden sm:inline">Cable Schedule</span>
@@ -103,22 +110,29 @@ const CableScheduleDetail = () => {
             <span className="hidden sm:inline">Reports</span>
             <span className="sm:hidden">Reports</span>
           </TabsTrigger>
-          <TabsTrigger value="overview" className="gap-2">
-            <FileText className="h-4 w-4" />
-            <span className="hidden sm:inline">Overview</span>
-            <span className="sm:hidden">Info</span>
+          <TabsTrigger value="rates" className="gap-2">
+            <DollarSign className="h-4 w-4" />
+            <span className="hidden sm:inline">Rates</span>
+            <span className="sm:hidden">Rates</span>
           </TabsTrigger>
           <TabsTrigger value="costs" className="gap-2">
             <Download className="h-4 w-4" />
-            <span className="hidden sm:inline">Cost Summary</span>
+            <span className="hidden sm:inline">Costs</span>
             <span className="sm:hidden">Costs</span>
           </TabsTrigger>
           <TabsTrigger value="settings" className="gap-2">
             <Settings className="h-4 w-4" />
             <span className="hidden sm:inline">Settings</span>
-            <span className="sm:hidden">Config</span>
+            <span className="sm:hidden">Settings</span>
           </TabsTrigger>
         </TabsList>
+
+        {/* Overview Tab */}
+        <TabsContent value="overview" className="space-y-6">
+          <CableSchedulesOverview projectId={schedule.project_id} />
+          <CableScheduleOverview schedule={schedule} />
+          <CableCalculationFormulas schedule={schedule} />
+        </TabsContent>
 
         {/* Cable Entries Tab */}
         <TabsContent value="cables" className="space-y-6">
@@ -140,10 +154,9 @@ const CableScheduleDetail = () => {
           <CableScheduleReports schedule={schedule} />
         </TabsContent>
 
-        {/* Overview Tab */}
-        <TabsContent value="overview" className="space-y-6">
-          <CableScheduleOverview schedule={schedule} />
-          <CableCalculationFormulas schedule={schedule} />
+        {/* Rates Tab */}
+        <TabsContent value="rates">
+          <CableRatesManager projectId={schedule.project_id} />
         </TabsContent>
 
         {/* Cost Summary Tab */}
