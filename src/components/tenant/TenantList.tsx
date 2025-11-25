@@ -101,11 +101,18 @@ export const TenantList = ({
   // Mutation for optimistic updates
   const updateMutation = useMutation({
     mutationFn: async ({ tenantId, field, value }: { tenantId: string; field: string; value: any }) => {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("tenants")
         .update({ [field]: value })
-        .eq("id", tenantId);
-      if (error) throw error;
+        .eq("id", tenantId)
+        .select()
+        .single();
+      
+      if (error) {
+        console.error("Mutation error:", error);
+        throw error;
+      }
+      return data;
     },
     onMutate: async ({ tenantId, field, value }) => {
       // Optimistically update local state
@@ -113,9 +120,9 @@ export const TenantList = ({
         prev.map(t => t.id === tenantId ? { ...t, [field]: value } : t)
       );
     },
-    onSuccess: () => {
-      // Real-time subscription will handle the refresh automatically
-      // No need to call onUpdate() here as it causes duplicate refreshes
+    onSuccess: (data) => {
+      // Trigger parent refresh to sync with database
+      onUpdate();
     },
     onError: (error: any, variables) => {
       // Rollback on error by reverting optimistic update
@@ -126,6 +133,7 @@ export const TenantList = ({
   });
 
   const handleFieldUpdate = (tenantId: string, field: string, value: any) => {
+    console.log("Updating tenant:", { tenantId, field, value });
     updateMutation.mutate({ tenantId, field, value });
   };
 
@@ -767,11 +775,19 @@ export const TenantList = ({
                             {!tenant.db_by_tenant && (
                               <Input
                                 type="number"
-                                value={tenant.db_cost || ""}
-                                onChange={(e) => setLocalTenants(prev => 
-                                  prev.map(t => t.id === tenant.id ? { ...t, db_cost: e.target.value ? parseFloat(e.target.value) : null } : t)
-                                )}
-                                onBlur={(e) => handleFieldUpdate(tenant.id, 'db_cost', e.target.value ? parseFloat(e.target.value) : null)}
+                                value={tenant.db_cost ?? ""}
+                                onChange={(e) => {
+                                  const newValue = e.target.value ? parseFloat(e.target.value) : null;
+                                  setLocalTenants(prev => 
+                                    prev.map(t => t.id === tenant.id ? { ...t, db_cost: newValue } : t)
+                                  );
+                                }}
+                                onBlur={() => {
+                                  const currentTenant = localTenants.find(t => t.id === tenant.id);
+                                  if (currentTenant) {
+                                    handleFieldUpdate(tenant.id, 'db_cost', currentTenant.db_cost);
+                                  }
+                                }}
                                 className="h-8 w-24 text-right"
                                 placeholder="R"
                               />
@@ -794,11 +810,19 @@ export const TenantList = ({
                             {!tenant.lighting_by_tenant && (
                               <Input
                                 type="number"
-                                value={tenant.lighting_cost || ""}
-                                onChange={(e) => setLocalTenants(prev => 
-                                  prev.map(t => t.id === tenant.id ? { ...t, lighting_cost: e.target.value ? parseFloat(e.target.value) : null } : t)
-                                )}
-                                onBlur={(e) => handleFieldUpdate(tenant.id, 'lighting_cost', e.target.value ? parseFloat(e.target.value) : null)}
+                                value={tenant.lighting_cost ?? ""}
+                                onChange={(e) => {
+                                  const newValue = e.target.value ? parseFloat(e.target.value) : null;
+                                  setLocalTenants(prev => 
+                                    prev.map(t => t.id === tenant.id ? { ...t, lighting_cost: newValue } : t)
+                                  );
+                                }}
+                                onBlur={() => {
+                                  const currentTenant = localTenants.find(t => t.id === tenant.id);
+                                  if (currentTenant) {
+                                    handleFieldUpdate(tenant.id, 'lighting_cost', currentTenant.lighting_cost);
+                                  }
+                                }}
                                 className="h-8 w-24 text-right"
                                 placeholder="R"
                               />
