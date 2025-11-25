@@ -7,7 +7,7 @@ import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { ReportOptionsDialog, ReportOptions } from "./ReportOptionsDialog";
-import { fetchCompanyDetails, generateCoverPage } from "@/utils/pdfCoverPage";
+import { generateCoverPage } from "@/utils/pdfCoverPageSimple";
 
 interface Tenant {
   id: string;
