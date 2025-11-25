@@ -1,13 +1,14 @@
+import { useState } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Route3DViewer } from './Route3DViewer';
 import { ComplianceChecker } from './ComplianceChecker';
 import { MaterialTakeoffReport } from './MaterialTakeoffReport';
+import { TestingCommissioningChecklist } from './TestingCommissioningChecklist';
 import { CostBreakdown } from './CostBreakdown';
 import { CostTemplateManager } from './CostTemplateManager';
 import { RouteVersionHistory } from './RouteVersionHistory';
-import { TestingCommissioningChecklist } from './TestingCommissioningChecklist';
+import { ClashDetection } from './ClashDetection';
 import { CableRoute, CostTemplate, RouteVersion } from './types';
-import { useState } from 'react';
 
 interface CableRouteAnalysisProps {
   route: CableRoute;
@@ -40,6 +41,7 @@ export function CableRouteAnalysis({ route, onRouteUpdate }: CableRouteAnalysisP
       <Tabs defaultValue="3d-view" className="w-full">
         <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="3d-view">3D View</TabsTrigger>
+          <TabsTrigger value="clash">Clash Detection</TabsTrigger>
           <TabsTrigger value="compliance">Compliance</TabsTrigger>
           <TabsTrigger value="materials">Materials</TabsTrigger>
           <TabsTrigger value="testing">Testing</TabsTrigger>
@@ -78,15 +80,19 @@ export function CableRouteAnalysis({ route, onRouteUpdate }: CableRouteAnalysisP
           </div>
         </TabsContent>
 
-        <TabsContent value="compliance">
+        <TabsContent value="clash" className="mt-6">
+          <ClashDetection points={route.points} cableDiameter={route.diameter} />
+        </TabsContent>
+
+        <TabsContent value="compliance" className="mt-6">
           <ComplianceChecker route={route} />
         </TabsContent>
 
-        <TabsContent value="materials">
+        <TabsContent value="materials" className="mt-6">
           <MaterialTakeoffReport route={route} template={costTemplate || undefined} />
         </TabsContent>
 
-        <TabsContent value="testing">
+        <TabsContent value="testing" className="mt-6">
           <TestingCommissioningChecklist />
         </TabsContent>
 
