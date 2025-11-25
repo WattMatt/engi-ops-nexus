@@ -13,42 +13,12 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { Loader2, TrendingDown, AlertCircle, CheckCircle2 } from "lucide-react";
-import { calculateCableSize, CableCalculationParams } from "@/utils/cableSizing";
 import { useCalculationSettings } from "@/hooks/useCalculationSettings";
 import { useToast } from "@/hooks/use-toast";
+import { analyzeCableOptimizations, type OptimizationResult } from "@/utils/cableOptimization";
 
 interface CableSizingOptimizerProps {
   projectId: string;
-}
-
-interface OptimizationResult {
-  cableId: string;
-  cableTag: string;
-  fromLocation: string;
-  toLocation: string;
-  totalLength: number;
-  currentConfig: {
-    size: string;
-    parallelCount: number;
-    totalCost: number;
-    supplyCost: number;
-    installCost: number;
-    terminationCost: number;
-    voltage: number;
-    loadAmps: number;
-  };
-  alternatives: Array<{
-    size: string;
-    parallelCount: number;
-    totalCost: number;
-    supplyCost: number;
-    installCost: number;
-    terminationCost: number;
-    savings: number;
-    savingsPercent: number;
-    voltDrop: number;
-    isCurrentConfig?: boolean;
-  }>;
 }
 
 export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) => {
@@ -95,30 +65,6 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
     enabled: !!projectId,
   });
 
-  const calculateCostBreakdown = (
-    cableSize: string,
-    cableType: string,
-    lengthMeters: number,
-    parallelCount: number
-  ): { total: number; supply: number; install: number; termination: number } => {
-    const rate = cableRates?.find(
-      r => r.cable_size === cableSize && r.cable_type === cableType
-    );
-
-    if (!rate) return { total: 0, supply: 0, install: 0, termination: 0 };
-
-    const supply = rate.supply_rate_per_meter * lengthMeters * parallelCount;
-    const install = rate.install_rate_per_meter * lengthMeters * parallelCount;
-    const termination = rate.termination_cost_per_end * 2 * parallelCount; // Both ends
-
-    return {
-      total: supply + install + termination,
-      supply,
-      install,
-      termination,
-    };
-  };
-
   const analyzeOptimizations = async () => {
     if (!cableEntries || cableEntries.length === 0) {
       toast({
@@ -148,169 +94,13 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
     }
 
     setAnalyzing(true);
-    const optimizations: OptimizationResult[] = [];
 
     try {
-      // Group cables by parallel_group_id or base_cable_tag to avoid analyzing each parallel cable separately
-      const cableGroups = new Map<string, typeof cableEntries[0]>();
-      
-      for (const entry of cableEntries) {
-        const groupKey = entry.parallel_group_id || entry.base_cable_tag || entry.cable_tag;
-        
-        // Only keep the first entry from each parallel group
-        if (!cableGroups.has(groupKey)) {
-          cableGroups.set(groupKey, entry);
-        }
-      }
-      
-      const uniqueCables = Array.from(cableGroups.values());
-      console.log(`Analyzing ${uniqueCables.length} unique cable groups (from ${cableEntries.length} total entries)...`);
-      
-      for (const entry of uniqueCables) {
-        const currentParallelCount = entry.parallel_total_count || 1;
-        console.log(`Processing cable group: ${entry.base_cable_tag || entry.cable_tag}, Total Load: ${entry.load_amps}A, Current Config: ${currentParallelCount}x${entry.cable_size}`);
-        
-        if (!entry.voltage || !entry.total_length) {
-          console.log(`Skipping ${entry.cable_tag} - missing required data`);
-          continue;
-        }
-        
-        // Use protection device rating as the target capacity
-        // This is what the parallel cable configuration was designed to achieve
-        // e.g., 2x240mm² for a 600A breaker, or 5x240mm² for a 1600A breaker
-        const targetAmpacity = entry.protection_device_rating;
-        
-        if (!targetAmpacity || targetAmpacity === 0) {
-          console.log(`Skipping ${entry.cable_tag} - no protection device rating specified`);
-          continue;
-        }
-        
-        console.log(`Target capacity: ${targetAmpacity}A (Circuit breaker rating) - Current config: ${currentParallelCount}x${entry.cable_size}`);
-
-
-
-        const material = entry.cable_type?.includes("Cu") ? "copper" : 
-                        entry.cable_type?.includes("Al") ? "aluminium" : 
-                        (calcSettings.default_cable_material.toLowerCase() as "copper" | "aluminium");
-
-        // Calculate current configuration cost (total for all parallel cables)
-        const currentCostBreakdown = calculateCostBreakdown(
-          entry.cable_size || "",
-          entry.cable_type || "",
-          entry.total_length,
-          currentParallelCount
-        );
-
-        console.log(`Current config: ${currentParallelCount}x${entry.cable_size}, Total Cost: R${currentCostBreakdown.total.toFixed(2)}`);
-
-        // Test different NEW parallel configurations to achieve the target load
-        // This replaces the entire current parallel group with a new configuration
-        const testedAlternatives: Array<{
-          size: string;
-          parallelCount: number;
-          totalCost: number;
-          supplyCost: number;
-          installCost: number;
-          terminationCost: number;
-          savings: number;
-          savingsPercent: number;
-          voltDrop: number;
-          isCurrentConfig?: boolean;
-        }> = [];
-
-        // Set practical limits for parallel cable configurations
-        const maxPracticalParallel = currentParallelCount > 1 
-          ? Math.min(6, currentParallelCount + 1) // If already parallel, allow max +1 more cable
-          : 6; // If single cable, allow up to 6 parallel
-        
-        const minPracticalParallel = currentParallelCount > 1
-          ? Math.max(1, currentParallelCount - 2) // If already parallel, allow reducing by max 2 cables
-          : 1;
-
-        for (let newParallelCount = minPracticalParallel; newParallelCount <= maxPracticalParallel; newParallelCount++) {
-          // Calculate what ampacity each cable needs to achieve the target total ampacity
-          const ampacityPerCable = targetAmpacity / newParallelCount;
-          
-          // Skip if ampacity per cable is too low (impractical) or too high
-          if (ampacityPerCable < 50 || ampacityPerCable > calcSettings.max_amps_per_cable) continue;
-          
-          const testParams: CableCalculationParams = {
-            loadAmps: ampacityPerCable,
-            voltage: entry.voltage,
-            totalLength: entry.total_length,
-            material,
-            deratingFactor: entry.grouping_factor || 1.0,
-            installationMethod: (entry.installation_method || calcSettings.default_installation_method) as 'air' | 'ducts' | 'ground',
-            safetyMargin: calcSettings.cable_safety_margin,
-            maxAmpsPerCable: calcSettings.max_amps_per_cable,
-            preferredAmpsPerCable: calcSettings.preferred_amps_per_cable,
-            voltageDropLimit: entry.voltage >= 380 ? 
-              calcSettings.voltage_drop_limit_400v : 
-              calcSettings.voltage_drop_limit_230v,
-          };
-
-          const result = calculateCableSize(testParams);
-          
-          if (!result) continue;
-
-        // Calculate total cost for this alternative configuration
-          const altCostBreakdown = calculateCostBreakdown(
-            result.recommendedSize,
-            entry.cable_type || "",
-            entry.total_length,
-            newParallelCount
-          );
-
-          const savings = currentCostBreakdown.total - altCostBreakdown.total;
-          
-          // Mark if this is the current configuration
-          const isCurrentConfig = result.recommendedSize === entry.cable_size && 
-                                   newParallelCount === currentParallelCount;
-          
-          testedAlternatives.push({
-            size: result.recommendedSize,
-            parallelCount: newParallelCount,
-            totalCost: altCostBreakdown.total,
-            supplyCost: altCostBreakdown.supply,
-            installCost: altCostBreakdown.install,
-            terminationCost: altCostBreakdown.termination,
-            savings,
-            savingsPercent: currentCostBreakdown.total > 0 ? 
-              (savings / currentCostBreakdown.total) * 100 : 0,
-            voltDrop: result.voltDropPercentage,
-            isCurrentConfig,
-          });
-          
-          console.log(`  Alternative: ${newParallelCount}x${result.recommendedSize} = R${altCostBreakdown.total.toFixed(2)} (${savings > 0 ? 'saves' : 'costs'} R${Math.abs(savings).toFixed(2)})`);
-        }
-
-        console.log(`Found ${testedAlternatives.length} configurations for ${entry.base_cable_tag || entry.cable_tag}`);
-
-        // Sort alternatives by total cost (cheapest first)
-        testedAlternatives.sort((a, b) => a.totalCost - b.totalCost);
-
-        // Always include if we have configurations to show (even if just current config)
-        if (testedAlternatives.length > 0) {
-          optimizations.push({
-            cableId: entry.id,
-            cableTag: entry.base_cable_tag || entry.cable_tag,
-            fromLocation: entry.from_location,
-            toLocation: entry.to_location,
-            totalLength: entry.total_length,
-            currentConfig: {
-              size: entry.cable_size || "",
-              parallelCount: currentParallelCount,
-              totalCost: currentCostBreakdown.total,
-              supplyCost: currentCostBreakdown.supply,
-              installCost: currentCostBreakdown.install,
-              terminationCost: currentCostBreakdown.termination,
-              voltage: entry.voltage,
-              loadAmps: targetAmpacity,
-            },
-            alternatives: testedAlternatives, // Show all configurations
-          });
-        }
-      }
+      const optimizations = analyzeCableOptimizations(
+        cableEntries as any,
+        cableRates as any,
+        calcSettings
+      );
 
       setResults(optimizations);
       

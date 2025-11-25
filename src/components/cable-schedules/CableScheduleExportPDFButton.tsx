@@ -10,11 +10,14 @@ import {
   initializePDF, 
   getStandardTableStyles, 
   addPageNumbers,
+  addSectionHeader,
   type PDFExportOptions 
 } from "@/utils/pdfExportBase";
 import { generateStandardizedPDFFilename, generateStorageFilename } from "@/utils/pdfFilenameGenerator";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { ContactSelector } from "@/components/shared/ContactSelector";
+import { analyzeCableOptimizations } from "@/utils/cableOptimization";
+import { useCalculationSettings } from "@/hooks/useCalculationSettings";
 
 interface CableScheduleExportPDFButtonProps {
   schedule: any;
@@ -25,6 +28,7 @@ export const CableScheduleExportPDFButton = ({ schedule }: CableScheduleExportPD
   const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [selectedContactId, setSelectedContactId] = useState("");
+  const { data: calcSettings } = useCalculationSettings(schedule.project_id);
 
   const handleExport = async () => {
     setLoading(true);
@@ -150,14 +154,154 @@ export const CableScheduleExportPDFButton = ({ schedule }: CableScheduleExportPD
       doc.text(`Total Cable Length: ${totalLength?.toFixed(2) || 0} m`, 14, finalY + 7);
       doc.text(`Total Cost: R${totalCost?.toFixed(2) || 0}`, 14, finalY + 14);
 
-      // Footer
-      doc.setFontSize(8);
-      doc.text(
-        "Designed in accordance with SANS 10142-1",
-        pageWidth / 2,
-        doc.internal.pageSize.height - 10,
-        { align: "center" }
-      );
+      // ========== OPTIMIZATION RECOMMENDATIONS ==========
+      // Fetch cable rates for optimization
+      const { data: cableRates } = await supabase
+        .from("cable_rates")
+        .select("*")
+        .eq("project_id", schedule.project_id);
+
+      if (cableRates && cableRates.length > 0 && calcSettings && entries && entries.length > 0) {
+        // Filter cables with protection device rating (ready for optimization)
+        const analyzableCables = entries.filter(e => 
+          e.protection_device_rating && 
+          e.protection_device_rating >= 100
+        );
+
+        if (analyzableCables.length > 0) {
+          const optimizations = analyzeCableOptimizations(
+            analyzableCables as any,
+            cableRates as any,
+            calcSettings
+          );
+
+          if (optimizations.length > 0) {
+            // Add new page for recommendations
+            doc.addPage();
+            yPos = 20;
+
+            // Section header
+            yPos = addSectionHeader(doc, "Cable Sizing Recommendations", yPos);
+            yPos += 5;
+
+            doc.setFontSize(9);
+            doc.text(
+              "The following recommendations show cost-effective alternatives for achieving the same circuit capacity.",
+              14,
+              yPos
+            );
+            yPos += 10;
+
+            // Calculate total potential savings
+            const totalSavings = optimizations.reduce((sum, opt) => {
+              const bestAlt = opt.alternatives.find(alt => !alt.isCurrentConfig);
+              return sum + (bestAlt && bestAlt.savings > 0 ? bestAlt.savings : 0);
+            }, 0);
+
+            if (totalSavings > 0) {
+              doc.setFontSize(10);
+              doc.setFont("helvetica", "bold");
+              doc.text(`Total Potential Savings: R${totalSavings.toFixed(2)}`, 14, yPos);
+              yPos += 10;
+            }
+
+            // Create recommendations table
+            for (const opt of optimizations) {
+              const recommended = opt.alternatives.find(alt => !alt.isCurrentConfig) || opt.alternatives[0];
+              const current = opt.alternatives.find(alt => alt.isCurrentConfig);
+              
+              if (!current) continue;
+
+              const savings = recommended.savings;
+              
+              // Only show if there are savings
+              if (savings <= 0) continue;
+
+              // Check if we need a new page
+              if (yPos > doc.internal.pageSize.height - 60) {
+                doc.addPage();
+                yPos = 20;
+              }
+
+              // Cable header
+              doc.setFontSize(10);
+              doc.setFont("helvetica", "bold");
+              doc.text(`${opt.cableTag}`, 14, yPos);
+              yPos += 5;
+              
+              doc.setFontSize(8);
+              doc.setFont("helvetica", "normal");
+              doc.text(
+                `${opt.fromLocation} → ${opt.toLocation} | ${opt.totalLength.toFixed(1)}m | Target: ${opt.currentConfig.loadAmps}A`,
+                14,
+                yPos
+              );
+              yPos += 7;
+
+              // Comparison table
+              const comparisonData = [
+                [
+                  `${current.parallelCount}x${current.size}`,
+                  `R${current.supplyCost.toFixed(2)}`,
+                  `R${current.installCost.toFixed(2)}`,
+                  `R${current.terminationCost.toFixed(2)}`,
+                  `R${current.totalCost.toFixed(2)}`,
+                  `${current.voltDrop.toFixed(2)}%`,
+                  "CURRENT",
+                ],
+                [
+                  `${recommended.parallelCount}x${recommended.size}`,
+                  `R${recommended.supplyCost.toFixed(2)}`,
+                  `R${recommended.installCost.toFixed(2)}`,
+                  `R${recommended.terminationCost.toFixed(2)}`,
+                  `R${recommended.totalCost.toFixed(2)}`,
+                  `${recommended.voltDrop.toFixed(2)}%`,
+                  `SAVE R${savings.toFixed(2)} (${recommended.savingsPercent.toFixed(1)}%)`,
+                ],
+              ];
+
+              autoTable(doc, {
+                startY: yPos,
+                head: [["Config", "Supply", "Install", "Termination", "Total", "V.Drop", "Savings"]],
+                body: comparisonData,
+                theme: "striped",
+                headStyles: { fillColor: [34, 197, 94], fontSize: 7 },
+                bodyStyles: { fontSize: 7 },
+                columnStyles: {
+                  0: { cellWidth: 30 },
+                  1: { cellWidth: 25 },
+                  2: { cellWidth: 25 },
+                  3: { cellWidth: 30 },
+                  4: { cellWidth: 28 },
+                  5: { cellWidth: 20 },
+                  6: { cellWidth: 'auto' },
+                },
+                didParseCell: (data) => {
+                  if (data.row.index === 1 && data.section === 'body') {
+                    data.cell.styles.textColor = [34, 197, 94];
+                    data.cell.styles.fontStyle = 'bold';
+                  }
+                },
+              });
+
+              yPos = (doc as any).lastAutoTable.finalY + 10;
+            }
+          }
+        }
+      }
+
+      // Footer on all pages
+      const totalPages = doc.getNumberOfPages();
+      for (let i = 1; i <= totalPages; i++) {
+        doc.setPage(i);
+        doc.setFontSize(8);
+        doc.text(
+          "Designed in accordance with SANS 10142-1",
+          pageWidth / 2,
+          doc.internal.pageSize.height - 10,
+          { align: "center" }
+        );
+      }
 
       // Convert PDF to blob
       const pdfBlob = doc.output("blob");
@@ -234,7 +378,7 @@ export const CableScheduleExportPDFButton = ({ schedule }: CableScheduleExportPD
         <DialogHeader>
           <DialogTitle>Export Cable Schedule PDF</DialogTitle>
           <DialogDescription>
-            Select which contact should appear on the cover page
+            Select which contact should appear on the cover page. The PDF will include cable entries and optimization recommendations.
           </DialogDescription>
         </DialogHeader>
         
