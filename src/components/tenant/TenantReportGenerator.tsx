@@ -123,27 +123,23 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
 
     const theme = colorThemes[options.kpiAppearance.colorTheme];
     
-    // Professional header with underline
-    doc.setTextColor(0, 0, 0);
-    doc.setFontSize(18);
+    // Modern header
+    doc.setTextColor(30, 41, 59);
+    doc.setFontSize(20);
     doc.setFont("helvetica", "bold");
-    doc.text("Project Overview & Key Performance Indicators", 20, 22);
-    
-    // Subtle underline
-    doc.setDrawColor(200, 200, 200);
-    doc.setLineWidth(0.5);
-    doc.line(20, 25, 190, 25);
+    doc.text("Project Overview", 20, 20);
     
     doc.setFontSize(9);
     doc.setFont("helvetica", "normal");
     doc.setTextColor(100, 116, 139);
-    doc.text("Real-time project metrics and completion tracking", 20, 31);
+    doc.text("Key Performance Indicators & Progress Metrics", 20, 27);
 
     // Calculate metrics
     const totalTenants = tenants.length;
     const totalArea = tenants.reduce((sum, t) => sum + (t.area || 0), 0);
     const totalDbCost = tenants.reduce((sum, t) => sum + (t.db_cost || 0), 0);
     const totalLightingCost = tenants.reduce((sum, t) => sum + (t.lighting_cost || 0), 0);
+    const totalCost = totalDbCost + totalLightingCost;
 
     const categoryCounts = tenants.reduce((acc, t) => {
       acc[t.shop_category] = (acc[t.shop_category] || 0) + 1;
@@ -155,139 +151,82 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
     const sowReceived = tenants.filter(t => t.sow_received).length;
     const layoutReceived = tenants.filter(t => t.layout_received).length;
 
-    let yPos = 40;
+    let yPos = 36;
 
-    // Professional metric cards with borders and icons
-    const drawMetricCard = (x: number, y: number, label: string, value: string, sublabel: string, iconLetter: string, color: [number, number, number]) => {
-      const cardWidth = 45;
-      const cardHeight = 28;
+    // Large KPI Cards - Modern design with shadow effect
+    const drawModernCard = (x: number, y: number, value: string, label: string, sublabel: string, accentColor: [number, number, number]) => {
+      const cardWidth = 42;
+      const cardHeight = 35;
+      
+      // Card shadow effect
+      doc.setFillColor(230, 230, 230);
+      doc.roundedRect(x + 0.5, y + 0.5, cardWidth, cardHeight, 3, 3, 'F');
+      
+      // Main card background
+      doc.setFillColor(255, 255, 255);
+      doc.roundedRect(x, y, cardWidth, cardHeight, 3, 3, 'F');
       
       // Card border
-      doc.setDrawColor(220, 220, 220);
+      doc.setDrawColor(240, 240, 240);
       doc.setLineWidth(0.5);
-      doc.roundedRect(x, y, cardWidth, cardHeight, 2, 2, 'S');
+      doc.roundedRect(x, y, cardWidth, cardHeight, 3, 3, 'S');
       
-      // Top accent line
-      doc.setDrawColor(color[0], color[1], color[2]);
-      doc.setLineWidth(2);
-      doc.line(x, y, x + cardWidth, y);
-      
-      // Icon circle
-      doc.setFillColor(color[0], color[1], color[2]);
-      doc.setDrawColor(color[0], color[1], color[2]);
-      doc.setLineWidth(0.3);
-      doc.circle(x + 8, y + 10, 4.5, 'FD');
-      
-      // Icon letter
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(10);
-      doc.setFont("helvetica", "bold");
-      doc.text(iconLetter, x + 8, y + 12, { align: 'center' });
-      
-      // Label
-      doc.setTextColor(100, 116, 139);
-      doc.setFontSize(7);
-      doc.setFont("helvetica", "normal");
-      doc.text(label, x + 16, y + 8);
+      // Top accent bar
+      doc.setFillColor(accentColor[0], accentColor[1], accentColor[2]);
+      doc.roundedRect(x, y, cardWidth, 3, 3, 3, 'F');
       
       // Value
-      doc.setTextColor(15, 23, 42);
-      doc.setFontSize(14);
+      doc.setTextColor(30, 41, 59);
+      doc.setFontSize(18);
       doc.setFont("helvetica", "bold");
-      const displayValue = value.length > 11 ? value.substring(0, 9) + '...' : value;
-      doc.text(displayValue, x + 16, y + 16);
+      const displayValue = value.length > 10 ? value.substring(0, 8) + '...' : value;
+      doc.text(displayValue, x + cardWidth / 2, y + 18, { align: 'center' });
+      
+      // Label
+      doc.setTextColor(71, 85, 105);
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "bold");
+      doc.text(label, x + cardWidth / 2, y + 25, { align: 'center' });
       
       // Sublabel
-      doc.setTextColor(120, 120, 120);
-      doc.setFontSize(6);
+      doc.setTextColor(148, 163, 184);
+      doc.setFontSize(7);
       doc.setFont("helvetica", "normal");
-      doc.text(sublabel, x + 16, y + 21);
+      doc.text(sublabel, x + cardWidth / 2, y + 30, { align: 'center' });
     };
 
-    // Draw metric cards in grid
+    // Draw metric cards
     if (options.kpiCards.totalTenants) {
-      drawMetricCard(20, yPos, "TOTAL TENANTS", totalTenants.toString(), "Active units", "T", [59, 130, 246]);
+      drawModernCard(20, yPos, totalTenants.toString(), "TOTAL UNITS", "Active tenants", [59, 130, 246]);
     }
     if (options.kpiCards.totalArea) {
-      drawMetricCard(70, yPos, "TOTAL AREA", totalArea.toFixed(0), "Square meters", "A", [34, 197, 94]);
+      drawModernCard(68, yPos, totalArea.toFixed(0), "TOTAL AREA", "Square meters", [34, 197, 94]);
     }
-    if (options.kpiCards.totalDbCost) {
-      const costK = (totalDbCost / 1000).toFixed(0);
-      drawMetricCard(120, yPos, "DB COST", `R${costK}k`, "Distribution boards", "D", [168, 85, 247]);
+    if (options.kpiCards.totalDbCost || options.kpiCards.totalLightingCost) {
+      const costK = (totalCost / 1000).toFixed(0);
+      drawModernCard(116, yPos, `R${costK}k`, "TOTAL COST", "DB & Lighting", [168, 85, 247]);
     }
-    if (options.kpiCards.totalLightingCost) {
-      const costK = (totalLightingCost / 1000).toFixed(0);
-      drawMetricCard(170, yPos, "LIGHTING COST", `R${costK}k`, "Lighting fixtures", "L", [251, 191, 36]);
-    }
-
-    yPos += 38;
-
-    // Section divider
-    doc.setDrawColor(230, 230, 230);
-    doc.setLineWidth(0.3);
-    doc.line(20, yPos, 190, yPos);
-    yPos += 10;
-
-    // Overall completion gauge
+    
+    // Overall completion gauge card
     const totalProgress = (sowReceived + layoutReceived + dbOrdered + lightingOrdered) / (totalTenants * 4);
     const progressPercent = (totalProgress * 100);
-    
-    doc.setTextColor(15, 23, 42);
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
-    doc.text("Overall Project Completion", 20, yPos);
-    
-    yPos += 4;
-    
-    // Large progress bar
-    const barX = 20;
-    const barWidth = 100;
-    const barHeight = 12;
-    
-    // Background
-    doc.setFillColor(240, 240, 240);
-    doc.roundedRect(barX, yPos, barWidth, barHeight, 2, 2, 'F');
-    
-    // Progress fill
-    const fillWidth = (progressPercent / 100) * barWidth;
-    if (fillWidth > 0) {
-      let progressColor: [number, number, number];
-      if (progressPercent >= 75) progressColor = [34, 197, 94];
-      else if (progressPercent >= 50) progressColor = [59, 130, 246];
-      else if (progressPercent >= 25) progressColor = [251, 191, 36];
-      else progressColor = [239, 68, 68];
-      
-      doc.setFillColor(progressColor[0], progressColor[1], progressColor[2]);
-      doc.roundedRect(barX, yPos, fillWidth, barHeight, 2, 2, 'F');
-    }
-    
-    // Percentage text on bar
-    doc.setTextColor(255, 255, 255);
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "bold");
-    if (fillWidth > 15) {
-      doc.text(`${progressPercent.toFixed(1)}%`, barX + fillWidth - 2, yPos + 8, { align: 'right' });
-    } else {
-      doc.setTextColor(60, 60, 60);
-      doc.text(`${progressPercent.toFixed(1)}%`, barX + fillWidth + 2, yPos + 8);
-    }
-    
-    // Status label
-    doc.setTextColor(100, 116, 139);
-    doc.setFontSize(7);
-    doc.setFont("helvetica", "normal");
-    doc.text("Complete", barX + barWidth + 4, yPos + 8);
+    drawModernCard(164, yPos, `${progressPercent.toFixed(0)}%`, "COMPLETE", "Overall progress", [251, 146, 60]);
 
-    yPos += 20;
+    yPos += 46;
 
-    // Category distribution (if enabled)
+    // Two-column layout for charts
+    const leftColX = 20;
+    const rightColX = 110;
+    const chartYStart = yPos;
+
+    // LEFT: Category Distribution Donut Chart
     if (options.tenantFields.category && Object.keys(categoryCounts).length > 0) {
-      doc.setTextColor(15, 23, 42);
-      doc.setFontSize(10);
+      doc.setTextColor(30, 41, 59);
+      doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
-      doc.text("Category Distribution", 20, yPos);
+      doc.text("Category Distribution", leftColX, yPos);
       
-      yPos += 8;
+      yPos += 10;
       
       const categoryColors: Record<string, [number, number, number]> = {
         standard: [59, 130, 246],
@@ -296,53 +235,105 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
         national: [168, 85, 247]
       };
       
-      const categories = Object.entries(categoryCounts).sort((a, b) => b[1] - a[1]);
-      const maxBarWidth = 85;
+      // Donut Chart
+      const chartCenterX = leftColX + 30;
+      const chartCenterY = yPos + 22;
+      const outerRadius = 18;
+      const innerRadius = 11;
       
+      const categories = Object.entries(categoryCounts);
+      let startAngle = -Math.PI / 2;
+      
+      // Draw outer ring
       categories.forEach(([category, count]) => {
-        const percentage = (count / totalTenants) * 100;
-        const barWidth = (count / totalTenants) * maxBarWidth;
+        const percentage = count / totalTenants;
+        const endAngle = startAngle + (percentage * 2 * Math.PI);
         const color = categoryColors[category] || [100, 116, 139];
         
-        // Label
-        doc.setTextColor(60, 60, 60);
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "normal");
-        const labelText = getCategoryLabel(category);
-        doc.text(labelText, 22, yPos + 4);
-        
-        // Bar background
-        doc.setFillColor(245, 245, 245);
-        doc.roundedRect(65, yPos, maxBarWidth, 7, 1.5, 1.5, 'F');
-        
-        // Bar fill
-        if (barWidth > 0) {
+        // Draw donut segment
+        for (let angle = startAngle; angle < endAngle; angle += 0.02) {
+          const nextAngle = Math.min(angle + 0.02, endAngle);
+          
+          // Outer arc points
+          const x1o = chartCenterX + outerRadius * Math.cos(angle);
+          const y1o = chartCenterY + outerRadius * Math.sin(angle);
+          const x2o = chartCenterX + outerRadius * Math.cos(nextAngle);
+          const y2o = chartCenterY + outerRadius * Math.sin(nextAngle);
+          
+          // Inner arc points
+          const x1i = chartCenterX + innerRadius * Math.cos(angle);
+          const y1i = chartCenterY + innerRadius * Math.sin(angle);
+          const x2i = chartCenterX + innerRadius * Math.cos(nextAngle);
+          const y2i = chartCenterY + innerRadius * Math.sin(nextAngle);
+          
           doc.setFillColor(color[0], color[1], color[2]);
-          doc.roundedRect(65, yPos, barWidth, 7, 1.5, 1.5, 'F');
+          doc.triangle(x1o, y1o, x2o, y2o, x1i, y1i, 'F');
+          doc.triangle(x2o, y2o, x2i, y2i, x1i, y1i, 'F');
         }
         
-        // Count and percentage
-        doc.setTextColor(15, 23, 42);
-        doc.setFontSize(7);
-        doc.setFont("helvetica", "bold");
-        doc.text(`${count} units`, 155, yPos + 4);
-        
-        doc.setTextColor(120, 120, 120);
-        doc.setFont("helvetica", "normal");
-        doc.text(`(${percentage.toFixed(0)}%)`, 175, yPos + 4);
-        
-        yPos += 10;
+        startAngle = endAngle;
       });
       
-      yPos += 5;
+      // Center circle
+      doc.setFillColor(255, 255, 255);
+      doc.circle(chartCenterX, chartCenterY, innerRadius, 'F');
+      
+      // Center text
+      doc.setTextColor(30, 41, 59);
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text(totalTenants.toString(), chartCenterX, chartCenterY + 2, { align: 'center' });
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "normal");
+      doc.setTextColor(100, 116, 139);
+      doc.text("Units", chartCenterX, chartCenterY + 7, { align: 'center' });
+      
+      // Legend with percentages
+      let legendY = yPos + 4;
+      const legendX = leftColX + 64;
+      
+      categories.forEach(([category, count]) => {
+        const color = categoryColors[category] || [100, 116, 139];
+        const percentage = ((count / totalTenants) * 100).toFixed(0);
+        
+        // Color dot
+        doc.setFillColor(color[0], color[1], color[2]);
+        doc.circle(legendX, legendY + 1.5, 2, 'F');
+        
+        // Label
+        doc.setTextColor(51, 65, 85);
+        doc.setFontSize(8);
+        doc.setFont("helvetica", "normal");
+        doc.text(getCategoryLabel(category), legendX + 4, legendY + 3);
+        
+        // Count and percentage
+        doc.setFont("helvetica", "bold");
+        doc.setTextColor(30, 41, 59);
+        doc.text(`${count}`, legendX + 4, legendY + 8);
+        
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor(120, 120, 120);
+        doc.setFontSize(7);
+        doc.text(`(${percentage}%)`, legendX + 10, legendY + 8);
+        
+        legendY += 12;
+      });
     }
 
-    // Task completion status
+    // RIGHT: Progress Breakdown
+    yPos = chartYStart;
+    doc.setTextColor(30, 41, 59);
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text("Task Progress", rightColX, yPos);
+    
+    yPos += 10;
+
     const progressFields = [
-      { key: 'sowReceived', label: 'Scope of Work', value: sowReceived, abbr: 'SOW' },
-      { key: 'layoutReceived', label: 'Layout Plans', value: layoutReceived, abbr: 'LAY' },
-      { key: 'dbOrdered', label: 'Distribution Board', value: dbOrdered, abbr: 'DB' },
-      { key: 'lightingOrdered', label: 'Lighting Fixtures', value: lightingOrdered, abbr: 'LGT' },
+      { key: 'sowReceived', label: 'Scope of Work', value: sowReceived, icon: 'SOW' },
+      { key: 'layoutReceived', label: 'Layout Plans', value: layoutReceived, icon: 'LAY' },
+      { key: 'dbOrdered', label: 'DB Orders', value: dbOrdered, icon: 'DB' },
+      { key: 'lightingOrdered', label: 'Lighting Orders', value: lightingOrdered, icon: 'LGT' },
     ];
 
     const visibleProgress = progressFields.filter(item => {
@@ -353,76 +344,63 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
       return false;
     });
 
-    if (visibleProgress.length > 0) {
-      doc.setTextColor(15, 23, 42);
-      doc.setFontSize(10);
+    visibleProgress.forEach((item, idx) => {
+      const percentage = (item.value / totalTenants * 100);
+      
+      // Background card
+      doc.setFillColor(249, 250, 251);
+      doc.roundedRect(rightColX, yPos, 80, 14, 2, 2, 'F');
+      
+      // Icon badge
+      doc.setFillColor(240, 240, 245);
+      doc.roundedRect(rightColX + 2, yPos + 2, 16, 10, 1.5, 1.5, 'F');
+      doc.setTextColor(71, 85, 105);
+      doc.setFontSize(6);
       doc.setFont("helvetica", "bold");
-      doc.text("Task Completion Tracking", 20, yPos);
+      doc.text(item.icon, rightColX + 10, yPos + 8.5, { align: 'center' });
       
-      yPos += 8;
+      // Label
+      doc.setTextColor(51, 65, 85);
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "normal");
+      doc.text(item.label, rightColX + 20, yPos + 6);
       
-      visibleProgress.forEach((item, idx) => {
-        const percentage = (item.value / totalTenants * 100);
+      // Progress bar
+      const barX = rightColX + 20;
+      const barY = yPos + 9;
+      const barWidth = 44;
+      const barHeight = 3.5;
+      const barFill = (percentage / 100) * barWidth;
+      
+      // Bar background
+      doc.setFillColor(226, 232, 240);
+      doc.roundedRect(barX, barY, barWidth, barHeight, 1, 1, 'F');
+      
+      // Bar fill
+      if (barFill > 0) {
+        let barColor: [number, number, number];
+        if (percentage >= 75) barColor = [34, 197, 94];
+        else if (percentage >= 50) barColor = [59, 130, 246];
+        else if (percentage >= 25) barColor = [251, 191, 36];
+        else barColor = [239, 68, 68];
         
-        // Task row with professional styling
-        const rowHeight = 11;
-        
-        // Alternating background for better readability
-        if (idx % 2 === 0) {
-          doc.setFillColor(250, 250, 250);
-          doc.rect(20, yPos - 2, 170, rowHeight, 'F');
-        }
-        
-        // Abbreviation badge
-        doc.setFillColor(220, 220, 220);
-        doc.roundedRect(22, yPos, 12, 6, 1, 1, 'F');
-        doc.setTextColor(60, 60, 60);
-        doc.setFontSize(6);
-        doc.setFont("helvetica", "bold");
-        doc.text(item.abbr, 28, yPos + 4, { align: 'center' });
-        
-        // Task label
-        doc.setTextColor(40, 40, 40);
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "normal");
-        doc.text(item.label, 38, yPos + 4);
-        
-        // Progress fraction
-        doc.setTextColor(15, 23, 42);
-        doc.setFontSize(8);
-        doc.setFont("helvetica", "bold");
-        doc.text(`${item.value}/${totalTenants}`, 95, yPos + 4);
-        
-        // Progress bar
-        const barX = 120;
-        const barWidth = 45;
-        const barHeight = 5;
-        const barFill = (percentage / 100) * barWidth;
-        
-        // Bar background
-        doc.setFillColor(235, 235, 235);
-        doc.roundedRect(barX, yPos + 1, barWidth, barHeight, 1, 1, 'F');
-        
-        // Bar fill with color
-        if (barFill > 0) {
-          let barColor: [number, number, number];
-          if (percentage >= 75) barColor = [34, 197, 94];
-          else if (percentage >= 50) barColor = [59, 130, 246];
-          else if (percentage >= 25) barColor = [251, 191, 36];
-          else barColor = [239, 68, 68];
-          
-          doc.setFillColor(barColor[0], barColor[1], barColor[2]);
-          doc.roundedRect(barX, yPos + 1, barFill, barHeight, 1, 1, 'F');
-        }
-        
-        // Percentage
-        doc.setTextColor(100, 100, 100);
-        doc.setFontSize(7);
-        doc.setFont("helvetica", "bold");
-        doc.text(`${percentage.toFixed(0)}%`, 170, yPos + 4);
-        
-        yPos += rowHeight;
-      });
+        doc.setFillColor(barColor[0], barColor[1], barColor[2]);
+        doc.roundedRect(barX, barY, barFill, barHeight, 1, 1, 'F');
+      }
+      
+      // Stats
+      doc.setTextColor(30, 41, 59);
+      doc.setFontSize(8);
+      doc.setFont("helvetica", "bold");
+      doc.text(`${item.value}/${totalTenants}`, rightColX + 68, yPos + 6);
+      
+      doc.setTextColor(100, 116, 139);
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "normal");
+      doc.text(`${percentage.toFixed(0)}%`, rightColX + 68, yPos + 11);
+      
+      yPos += 16;
+    });
     }
 
     // Page footer
@@ -431,6 +409,7 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
     doc.setFont("helvetica", "italic");
     doc.text(`Page 2`, pageWidth / 2, pageHeight - 10, { align: 'center' });
   };
+
 
   const generateTenantSchedule = (doc: jsPDF, options: ReportOptions) => {
     doc.addPage();
@@ -444,10 +423,6 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
 
     // Add legend for symbols with visual examples
     doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(100, 100, 100);
-    
-    // Draw legend with checkbox examples
     const legendY = 32;
     const legendX = 20;
     
