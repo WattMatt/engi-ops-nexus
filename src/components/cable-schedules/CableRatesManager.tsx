@@ -75,11 +75,24 @@ export const CableRatesManager = ({ projectId }: CableRatesManagerProps) => {
       const { data, error } = await supabase
         .from("cable_rates")
         .select("*")
-        .eq("project_id", projectId)
-        .order("cable_type, cable_size");
+        .eq("project_id", projectId);
 
       if (error) throw error;
-      return data as CableRate[];
+      
+      // Sort numerically by cable size
+      const sorted = (data as CableRate[]).sort((a, b) => {
+        // Extract numeric value from cable size (e.g., "2.5mm²" -> 2.5)
+        const numA = parseFloat(a.cable_size.replace(/[^\d.]/g, ''));
+        const numB = parseFloat(b.cable_size.replace(/[^\d.]/g, ''));
+        
+        // Sort by cable_type first, then by numeric cable size
+        if (a.cable_type !== b.cable_type) {
+          return a.cable_type.localeCompare(b.cable_type);
+        }
+        return numA - numB;
+      });
+      
+      return sorted;
     },
     enabled: !!projectId,
   });
