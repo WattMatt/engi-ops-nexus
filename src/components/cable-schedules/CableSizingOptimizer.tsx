@@ -24,10 +24,16 @@ interface CableSizingOptimizerProps {
 interface OptimizationResult {
   cableId: string;
   cableTag: string;
+  fromLocation: string;
+  toLocation: string;
+  totalLength: number;
   currentConfig: {
     size: string;
     parallelCount: number;
     totalCost: number;
+    supplyCost: number;
+    installCost: number;
+    terminationCost: number;
     voltage: number;
     loadAmps: number;
   };
@@ -35,6 +41,9 @@ interface OptimizationResult {
     size: string;
     parallelCount: number;
     totalCost: number;
+    supplyCost: number;
+    installCost: number;
+    terminationCost: number;
     savings: number;
     savingsPercent: number;
     voltDrop: number;
@@ -85,23 +94,28 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
     enabled: !!projectId,
   });
 
-  const calculateTotalCost = (
+  const calculateCostBreakdown = (
     cableSize: string,
     cableType: string,
     lengthMeters: number,
     parallelCount: number
-  ): number => {
+  ): { total: number; supply: number; install: number; termination: number } => {
     const rate = cableRates?.find(
       r => r.cable_size === cableSize && r.cable_type === cableType
     );
 
-    if (!rate) return 0;
+    if (!rate) return { total: 0, supply: 0, install: 0, termination: 0 };
 
-    const supplyCost = rate.supply_rate_per_meter * lengthMeters * parallelCount;
-    const installCost = rate.install_rate_per_meter * lengthMeters * parallelCount;
-    const terminationCost = rate.termination_cost_per_end * 2 * parallelCount; // Both ends
+    const supply = rate.supply_rate_per_meter * lengthMeters * parallelCount;
+    const install = rate.install_rate_per_meter * lengthMeters * parallelCount;
+    const termination = rate.termination_cost_per_end * 2 * parallelCount; // Both ends
 
-    return supplyCost + installCost + terminationCost;
+    return {
+      total: supply + install + termination,
+      supply,
+      install,
+      termination,
+    };
   };
 
   const analyzeOptimizations = async () => {
@@ -142,7 +156,7 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
         
         if (!result || !result.alternatives || result.alternatives.length === 0) continue;
 
-        const currentCost = calculateTotalCost(
+        const currentCostBreakdown = calculateCostBreakdown(
           entry.cable_size || "",
           entry.cable_type || "",
           entry.total_length,
@@ -151,55 +165,73 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
 
         const alternatives = result.alternatives
           .map(alt => {
-            const altCost = calculateTotalCost(
+            const altCostBreakdown = calculateCostBreakdown(
               alt.cableSize,
               params.material === "copper" ? "Cu" : "Al",
               entry.total_length,
               alt.cablesInParallel
             );
 
-            const savings = currentCost - altCost;
-            const savingsPercent = currentCost > 0 ? (savings / currentCost) * 100 : 0;
+            const savings = currentCostBreakdown.total - altCostBreakdown.total;
+            const savingsPercent = currentCostBreakdown.total > 0 ? (savings / currentCostBreakdown.total) * 100 : 0;
 
             return {
               size: alt.cableSize,
               parallelCount: alt.cablesInParallel,
-              totalCost: altCost,
+              totalCost: altCostBreakdown.total,
+              supplyCost: altCostBreakdown.supply,
+              installCost: altCostBreakdown.install,
+              terminationCost: altCostBreakdown.termination,
               savings,
               savingsPercent,
               voltDrop: alt.voltDropPercentage,
             };
           })
-          .filter(alt => alt.savings > 100) // Only show if savings > R100
-          .sort((a, b) => b.savings - a.savings);
+          .sort((a, b) => b.savings - a.savings); // Sort by savings (best first)
 
+        // Always include if we have alternatives to show
         if (alternatives.length > 0) {
           optimizations.push({
             cableId: entry.id,
             cableTag: entry.cable_tag,
+            fromLocation: entry.from_location,
+            toLocation: entry.to_location,
+            totalLength: entry.total_length,
             currentConfig: {
               size: entry.cable_size || "",
               parallelCount: entry.parallel_total_count || 1,
-              totalCost: currentCost,
+              totalCost: currentCostBreakdown.total,
+              supplyCost: currentCostBreakdown.supply,
+              installCost: currentCostBreakdown.install,
+              terminationCost: currentCostBreakdown.termination,
               voltage: entry.voltage,
               loadAmps: entry.load_amps,
             },
-            alternatives: alternatives.slice(0, 3), // Top 3 alternatives
+            alternatives: alternatives.slice(0, 5), // Top 5 alternatives
           });
         }
       }
 
       setResults(optimizations);
       
+      const savingsCount = optimizations.filter(
+        opt => opt.alternatives[0]?.savings > 0
+      ).length;
+      
       if (optimizations.length === 0) {
         toast({
           title: "Analysis Complete",
-          description: "No cost-saving opportunities found. Your current configurations are optimal!",
+          description: "No cables with sufficient data found for analysis.",
+        });
+      } else if (savingsCount === 0) {
+        toast({
+          title: "Analysis Complete",
+          description: `Analyzed ${optimizations.length} cables. Current configurations are optimal!`,
         });
       } else {
         toast({
           title: "Analysis Complete",
-          description: `Found ${optimizations.length} optimization opportunities.`,
+          description: `Found ${savingsCount} cost-saving opportunities out of ${optimizations.length} cables analyzed.`,
         });
       }
     } catch (error: any) {
@@ -221,7 +253,7 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
   };
 
   const totalPotentialSavings = results.reduce(
-    (sum, result) => sum + (result.alternatives[0]?.savings || 0),
+    (sum, result) => sum + Math.max(0, result.alternatives[0]?.savings || 0),
     0
   );
 
@@ -266,84 +298,145 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
 
       {results.length > 0 && (
         <div className="space-y-6">
-          {results.map((result) => (
-            <Card key={result.cableId}>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="text-lg">{result.cableTag}</CardTitle>
-                    <CardDescription>
-                      {result.currentConfig.loadAmps}A @ {result.currentConfig.voltage}V
-                    </CardDescription>
+          {results.map((result) => {
+            const bestAlt = result.alternatives[0];
+            const hasSavings = bestAlt && bestAlt.savings > 100;
+
+            return (
+              <Card key={result.cableId} className={hasSavings ? "border-green-500" : ""}>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <CardTitle className="text-lg">{result.cableTag}</CardTitle>
+                      <CardDescription>
+                        {result.fromLocation} → {result.toLocation} | {result.totalLength}m | {result.currentConfig.loadAmps}A @ {result.currentConfig.voltage}V
+                      </CardDescription>
+                    </div>
+                    {hasSavings ? (
+                      <Badge variant="default" className="bg-green-600 text-lg px-3 py-1">
+                        Save {formatCurrency(bestAlt.savings)}
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-sm">
+                        Current is Optimal
+                      </Badge>
+                    )}
                   </div>
-                  <Badge variant="outline" className="text-lg">
-                    Best Savings: {formatCurrency(result.alternatives[0].savings)}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Configuration</TableHead>
-                      <TableHead>Cable Size</TableHead>
-                      <TableHead className="text-right">Parallel Runs</TableHead>
-                      <TableHead className="text-right">Volt Drop (%)</TableHead>
-                      <TableHead className="text-right">Total Cost</TableHead>
-                      <TableHead className="text-right">Savings</TableHead>
-                      <TableHead></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    <TableRow className="bg-muted/50">
-                      <TableCell className="font-medium">Current</TableCell>
-                      <TableCell>{result.currentConfig.size}</TableCell>
-                      <TableCell className="text-right">
-                        {result.currentConfig.parallelCount}
-                      </TableCell>
-                      <TableCell className="text-right">-</TableCell>
-                      <TableCell className="text-right font-semibold">
-                        {formatCurrency(result.currentConfig.totalCost)}
-                      </TableCell>
-                      <TableCell className="text-right">-</TableCell>
-                      <TableCell></TableCell>
-                    </TableRow>
-                    {result.alternatives.map((alt, idx) => (
-                      <TableRow key={idx}>
-                        <TableCell className="font-medium">
-                          Alternative {idx + 1}
-                        </TableCell>
-                        <TableCell>{alt.size}</TableCell>
-                        <TableCell className="text-right">{alt.parallelCount}</TableCell>
-                        <TableCell className="text-right">
-                          {alt.voltDrop.toFixed(2)}%
-                        </TableCell>
-                        <TableCell className="text-right">
-                          {formatCurrency(alt.totalCost)}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <span className="text-green-600 font-semibold">
-                            {formatCurrency(alt.savings)}
-                            <span className="text-xs ml-1">
-                              ({alt.savingsPercent.toFixed(1)}%)
-                            </span>
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          {idx === 0 && (
-                            <Badge variant="default" className="bg-green-600">
-                              <CheckCircle2 className="h-3 w-3 mr-1" />
-                              Best Option
-                            </Badge>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          ))}
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Current Configuration Card */}
+                  <div className="bg-primary/5 p-4 rounded-lg border-2 border-primary/20">
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <h4 className="font-semibold text-base">Current Configuration</h4>
+                        <p className="text-lg font-bold mt-1">
+                          {result.currentConfig.parallelCount}x {result.currentConfig.size}
+                        </p>
+                      </div>
+                      <Badge variant="secondary">CURRENT</Badge>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3 text-sm mb-3">
+                      <div>
+                        <span className="text-muted-foreground block">Supply Cost</span>
+                        <span className="font-medium">{formatCurrency(result.currentConfig.supplyCost)}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground block">Install Cost</span>
+                        <span className="font-medium">{formatCurrency(result.currentConfig.installCost)}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground block">Termination</span>
+                        <span className="font-medium">{formatCurrency(result.currentConfig.terminationCost)}</span>
+                      </div>
+                    </div>
+                    <div className="pt-3 border-t border-border">
+                      <div className="flex justify-between items-center">
+                        <span className="font-semibold">Total Cost:</span>
+                        <span className="text-xl font-bold text-primary">
+                          {formatCurrency(result.currentConfig.totalCost)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Alternatives Table */}
+                  <div>
+                    <h4 className="font-semibold mb-3">Alternative Configurations Analyzed</h4>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Config</TableHead>
+                          <TableHead className="text-right">Supply</TableHead>
+                          <TableHead className="text-right">Install</TableHead>
+                          <TableHead className="text-right">Termination</TableHead>
+                          <TableHead className="text-right">Total</TableHead>
+                          <TableHead className="text-right">Difference</TableHead>
+                          <TableHead className="text-right">V.Drop</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {result.alternatives.map((alt, idx) => {
+                          const isRecommended = idx === 0 && alt.savings > 100;
+                          return (
+                            <TableRow 
+                              key={idx}
+                              className={
+                                isRecommended ? "bg-green-50" : 
+                                alt.savings < -100 ? "bg-red-50" : 
+                                ""
+                              }
+                            >
+                              <TableCell>
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">
+                                    {alt.parallelCount}x {alt.size}
+                                  </span>
+                                  {isRecommended && (
+                                    <Badge variant="default" className="bg-green-600 text-xs">
+                                      RECOMMENDED
+                                    </Badge>
+                                  )}
+                                </div>
+                              </TableCell>
+                              <TableCell className="text-right text-sm">
+                                {formatCurrency(alt.supplyCost)}
+                              </TableCell>
+                              <TableCell className="text-right text-sm">
+                                {formatCurrency(alt.installCost)}
+                              </TableCell>
+                              <TableCell className="text-right text-sm">
+                                {formatCurrency(alt.terminationCost)}
+                              </TableCell>
+                              <TableCell className="text-right font-semibold">
+                                {formatCurrency(alt.totalCost)}
+                              </TableCell>
+                              <TableCell className="text-right">
+                                {alt.savings > 0 ? (
+                                  <span className="text-green-700 font-semibold">
+                                    -{formatCurrency(alt.savings)}
+                                    <span className="text-xs ml-1">
+                                      ({alt.savingsPercent.toFixed(1)}%)
+                                    </span>
+                                  </span>
+                                ) : (
+                                  <span className="text-red-700">
+                                    +{formatCurrency(Math.abs(alt.savings))}
+                                  </span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right text-sm">
+                                {alt.voltDrop.toFixed(2)}%
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>
