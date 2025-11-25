@@ -21,8 +21,7 @@ export const CableTagSchedule = ({ scheduleId }: CableTagScheduleProps) => {
       const { data, error } = await supabase
         .from("cable_entries")
         .select("id, cable_tag, base_cable_tag, cable_number, parallel_group_id, parallel_total_count")
-        .eq("schedule_id", scheduleId)
-        .order("cable_tag", { ascending: true });
+        .eq("schedule_id", scheduleId);
 
       if (error) throw error;
       
@@ -48,7 +47,7 @@ export const CableTagSchedule = ({ scheduleId }: CableTagScheduleProps) => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Cable Tag Schedule - All Tags</CardTitle>
+        <CardTitle>Cable Tag Schedule - All Tags Only</CardTitle>
       </CardHeader>
       <CardContent>
         {!entries || entries.length === 0 ? (
@@ -60,43 +59,32 @@ export const CableTagSchedule = ({ scheduleId }: CableTagScheduleProps) => {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-24">Cable #</TableHead>
+                  <TableHead className="w-32 text-center">Cable Number</TableHead>
                   <TableHead>Cable Tag</TableHead>
-                  <TableHead>Base Tag</TableHead>
-                  <TableHead className="w-32 text-center">Parallel Info</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {entries.map((entry, index) => {
+                {entries.map((entry) => {
                   const baseTag = entry.base_cable_tag || entry.cable_tag;
                   const cableNumber = entry.cable_number || 1;
                   const isParallel = entry.parallel_group_id && entry.parallel_total_count && entry.parallel_total_count > 1;
                   
-                  // Display tag with parallel notation if applicable
-                  let displayTag = entry.cable_tag;
+                  // For parallel cables, show as "BaseTag (CableNum/Total)"
+                  // For single cables, show the tag as-is
+                  let displayTag = baseTag;
                   if (isParallel) {
                     displayTag = `${baseTag} (${cableNumber}/${entry.parallel_total_count})`;
                   }
                   
                   return (
                     <TableRow key={entry.id}>
-                      <TableCell className="font-mono text-center font-semibold">
-                        {cableNumber}
+                      <TableCell className="text-center">
+                        <span className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-primary/10 text-primary font-bold text-lg">
+                          {cableNumber}
+                        </span>
                       </TableCell>
-                      <TableCell className="font-medium text-base">
+                      <TableCell className="font-medium text-lg">
                         {displayTag}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {baseTag}
-                      </TableCell>
-                      <TableCell className="text-center text-sm">
-                        {isParallel ? (
-                          <span className="inline-flex items-center px-2 py-1 rounded-md bg-primary/10 text-primary font-medium">
-                            {cableNumber} of {entry.parallel_total_count}
-                          </span>
-                        ) : (
-                          <span className="text-muted-foreground">Single</span>
-                        )}
                       </TableCell>
                     </TableRow>
                   );
