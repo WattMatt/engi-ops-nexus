@@ -59,39 +59,9 @@ export async function generateCoverPage(
     }
   }
   
-  // Add client logo if available
-  if (projectContact?.logo_url) {
-    try {
-      const logoResponse = await fetch(projectContact.logo_url);
-      const logoBlob = await logoResponse.blob();
-      const logoBase64 = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.readAsDataURL(logoBlob);
-      });
-      
-      doc.addImage(logoBase64, 'PNG', pageWidth - 35, 20, 25, 35);
-    } catch (error) {
-      console.warn('Could not load client logo:', error);
-    }
-  }
+  // Logos removed as per user request
   
-  // Add company logo if available
-  if (companyDetails && 'company_logo_url' in companyDetails && typeof companyDetails.company_logo_url === 'string') {
-    try {
-      const logoResponse = await fetch(companyDetails.company_logo_url as string);
-      const logoBlob = await logoResponse.blob();
-      const logoBase64 = await new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.readAsDataURL(logoBlob);
-      });
-      
-      doc.addImage(logoBase64, 'PNG', 20, 20, 25, 35);
-    } catch (error) {
-      console.warn('Could not load company logo:', error);
-    }
-  }
+  // Company logo removed as per user request
   
   // Title section
   doc.setFontSize(24);
