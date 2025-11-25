@@ -134,7 +134,12 @@ export const CableCostsSummary = ({ projectId }: CableCostsSummaryProps) => {
     enabled: !!projectId,
   });
 
-  const formatCurrency = (value: number) => `R ${value.toFixed(2)}`;
+  const formatCurrency = (value: number) => {
+    return `R ${value.toLocaleString('en-ZA', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    })}`;
+  };
 
   const totals = summary?.reduce(
     (acc, item) => ({
