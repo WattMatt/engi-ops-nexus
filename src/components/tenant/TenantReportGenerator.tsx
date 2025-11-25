@@ -401,7 +401,6 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
       
       yPos += 16;
     });
-    }
 
     // Page footer
     doc.setFontSize(9);
