@@ -296,12 +296,17 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
                   <div className="flex items-center justify-between">
                   <div>
                       <CardTitle className="text-lg">{result.cableTag}</CardTitle>
-                      <CardDescription>
+                       <CardDescription>
                         {result.fromLocation} → {result.toLocation} | {result.totalLength}m
                       </CardDescription>
                       <div className="mt-1 font-semibold text-foreground">
-                        Target Capacity: {result.currentConfig.loadAmps}A (Circuit Breaker Rating)
+                        Design Load: {result.currentConfig.loadAmps}A
                       </div>
+                      {result.complianceNotes && (
+                        <div className="mt-2 text-xs text-muted-foreground bg-secondary/20 p-2 rounded border border-border">
+                          {result.complianceNotes}
+                        </div>
+                      )}
                     </div>
                     {hasSavings ? (
                       <Badge variant="default" className="bg-green-600 text-lg px-3 py-1">
@@ -352,7 +357,7 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
 
                   {/* Alternatives Table */}
                   <div>
-                    <h4 className="font-semibold mb-3">All Configurations Achieving {result.currentConfig.loadAmps}A Capacity</h4>
+                    <h4 className="font-semibold mb-3">SANS 10142-1 Compliant Configurations for {result.currentConfig.loadAmps}A</h4>
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -363,7 +368,7 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
                           <TableHead className="text-right">Total</TableHead>
                           <TableHead className="text-right">Difference</TableHead>
                           <TableHead className="text-right">V.Drop</TableHead>
-                          <TableHead>Compliance</TableHead>
+                          <TableHead>Status</TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
@@ -381,19 +386,26 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
                               }
                             >
                               <TableCell>
-                                <div className="flex items-center gap-2">
-                                  <span className="font-medium">
-                                    {alt.parallelCount}x {alt.size}
-                                  </span>
-                                  {isCurrent && (
-                                    <Badge variant="secondary" className="text-xs">
-                                      CURRENT
-                                    </Badge>
-                                  )}
-                                  {isRecommended && (
-                                    <Badge variant="default" className="bg-green-600 text-xs">
-                                      RECOMMENDED
-                                    </Badge>
+                                <div className="flex flex-col gap-1">
+                                  <div className="flex items-center gap-2">
+                                    <span className="font-medium">
+                                      {alt.parallelCount}x {alt.size}
+                                    </span>
+                                    {isCurrent && (
+                                      <Badge variant="secondary" className="text-xs">
+                                        CURRENT
+                                      </Badge>
+                                    )}
+                                    {isRecommended && (
+                                      <Badge variant="default" className="bg-green-600 text-xs">
+                                        RECOMMENDED
+                                      </Badge>
+                                    )}
+                                  </div>
+                                  {alt.complianceReport && (
+                                    <div className="text-xs text-muted-foreground font-mono">
+                                      {alt.complianceReport}
+                                    </div>
                                   )}
                                 </div>
                               </TableCell>
@@ -432,11 +444,11 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
                               </TableCell>
                               <TableCell>
                                 {alt.isCurrentConfig ? (
-                                  <Badge variant="outline" className="text-xs">Current Config</Badge>
+                                  <Badge variant="outline" className="text-xs">Current</Badge>
                                 ) : alt.savings > 100 ? (
-                                  <Badge className="bg-green-600 text-xs">Compliant & Cost-Effective</Badge>
+                                  <Badge className="bg-green-600 text-xs">Best Value</Badge>
                                 ) : (
-                                  <Badge variant="secondary" className="text-xs">Compliant</Badge>
+                                  <Badge variant="secondary" className="text-xs">Valid</Badge>
                                 )}
                               </TableCell>
                             </TableRow>
