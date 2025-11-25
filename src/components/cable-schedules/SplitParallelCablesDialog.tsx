@@ -53,8 +53,16 @@ export const SplitParallelCablesDialog = ({
       // This ensures we don't lose data if the insert fails
       const newEntries = [];
       for (let i = 1; i <= numCables; i++) {
+        // Generate new IDs manually to avoid Supabase auto-generation issues
+        const newId = crypto.randomUUID();
+        const now = new Date().toISOString();
+        
         // Explicitly build the new entry object, copying only database fields
         const newEntry: any = {
+          // Auto-generated fields - provide them manually
+          id: newId,
+          created_at: now,
+          updated_at: now,
           // Required fields
           cable_tag: `${entry.cable_tag} (${i}/${numCables})`,
           from_location: entry.from_location,
@@ -106,7 +114,7 @@ export const SplitParallelCablesDialog = ({
         newEntries.push(newEntry);
       }
 
-      // Insert new entries first (without .select() to avoid column specification issues)
+      // Insert new entries with explicit IDs
       const { error: insertError } = await supabase
         .from("cable_entries")
         .insert(newEntries);
