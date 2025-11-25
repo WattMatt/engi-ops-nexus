@@ -199,6 +199,7 @@ export const AddCableEntryDialog = ({
       const { error } = await supabase.from("cable_entries").insert({
         schedule_id: scheduleId,
         cable_tag: formData.cable_tag,
+        base_cable_tag: formData.cable_tag, // Set base tag for new entries
         from_location: formData.from_location,
         to_location: formData.to_location,
         voltage: parseFloat(formData.voltage) || 400,
