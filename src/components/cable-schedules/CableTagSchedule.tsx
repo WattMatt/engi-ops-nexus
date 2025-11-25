@@ -20,12 +20,23 @@ export const CableTagSchedule = ({ scheduleId }: CableTagScheduleProps) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("cable_entries")
-        .select("*")
+        .select("id, cable_tag, base_cable_tag, cable_number, parallel_group_id, parallel_total_count")
         .eq("schedule_id", scheduleId)
         .order("cable_tag", { ascending: true });
 
       if (error) throw error;
-      return data;
+      
+      // Sort by base tag first, then by cable number for parallel cables
+      return (data || []).sort((a, b) => {
+        const baseTagA = a.base_cable_tag || a.cable_tag;
+        const baseTagB = b.base_cable_tag || b.cable_tag;
+        
+        const tagCompare = baseTagA.localeCompare(baseTagB, undefined, { numeric: true, sensitivity: 'base' });
+        if (tagCompare !== 0) return tagCompare;
+        
+        // For same base tag (parallel cables), sort by cable number
+        return (a.cable_number || 0) - (b.cable_number || 0);
+      });
     },
     enabled: !!scheduleId,
   });
@@ -37,7 +48,7 @@ export const CableTagSchedule = ({ scheduleId }: CableTagScheduleProps) => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Cable Tag Schedule</CardTitle>
+        <CardTitle>Cable Tag Schedule - All Tags</CardTitle>
       </CardHeader>
       <CardContent>
         {!entries || entries.length === 0 ? (
@@ -49,33 +60,47 @@ export const CableTagSchedule = ({ scheduleId }: CableTagScheduleProps) => {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-24">Cable #</TableHead>
                   <TableHead>Cable Tag</TableHead>
-                  <TableHead>From</TableHead>
-                  <TableHead>To</TableHead>
-                  <TableHead>Cable Type</TableHead>
-                  <TableHead>Cable Size</TableHead>
-                  <TableHead className="text-right">Length (m)</TableHead>
-                  <TableHead className="text-right">Load (A)</TableHead>
-                  <TableHead>Installation</TableHead>
+                  <TableHead>Base Tag</TableHead>
+                  <TableHead className="w-32 text-center">Parallel Info</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {entries.map((entry) => (
-                  <TableRow key={entry.id}>
-                    <TableCell className="font-medium">{entry.cable_tag}</TableCell>
-                    <TableCell>{entry.from_location}</TableCell>
-                    <TableCell>{entry.to_location}</TableCell>
-                    <TableCell>{entry.cable_type || "-"}</TableCell>
-                    <TableCell>{entry.cable_size || "-"}</TableCell>
-                    <TableCell className="text-right">
-                      {entry.total_length?.toFixed(2) || "-"}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {entry.load_amps?.toFixed(2) || "-"}
-                    </TableCell>
-                    <TableCell>{entry.installation_method}</TableCell>
-                  </TableRow>
-                ))}
+                {entries.map((entry, index) => {
+                  const baseTag = entry.base_cable_tag || entry.cable_tag;
+                  const cableNumber = entry.cable_number || 1;
+                  const isParallel = entry.parallel_group_id && entry.parallel_total_count && entry.parallel_total_count > 1;
+                  
+                  // Display tag with parallel notation if applicable
+                  let displayTag = entry.cable_tag;
+                  if (isParallel) {
+                    displayTag = `${baseTag} (${cableNumber}/${entry.parallel_total_count})`;
+                  }
+                  
+                  return (
+                    <TableRow key={entry.id}>
+                      <TableCell className="font-mono text-center font-semibold">
+                        {cableNumber}
+                      </TableCell>
+                      <TableCell className="font-medium text-base">
+                        {displayTag}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {baseTag}
+                      </TableCell>
+                      <TableCell className="text-center text-sm">
+                        {isParallel ? (
+                          <span className="inline-flex items-center px-2 py-1 rounded-md bg-primary/10 text-primary font-medium">
+                            {cableNumber} of {entry.parallel_total_count}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">Single</span>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>
