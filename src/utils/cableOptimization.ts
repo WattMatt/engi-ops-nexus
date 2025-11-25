@@ -156,6 +156,31 @@ export const analyzeCableOptimizations = (
       const result = calculateCableSize(testParams);
       
       if (!result) continue;
+      
+      // CRITICAL: Skip if capacity is insufficient
+      if (result.capacitySufficient === false) {
+        console.log(`[OPTIMIZER SKIP] ${result.recommendedSize} x ${newParallelCount} insufficient for ${targetAmpacity}A`);
+        continue;
+      }
+      
+      // Verify the recommended cable can actually handle the per-cable load
+      const cableData = material === "aluminium" ? 
+        require("./cableSizing").ALUMINIUM_CABLE_TABLE.find((c: any) => c.size === result.recommendedSize) :
+        require("./cableSizing").COPPER_CABLE_TABLE.find((c: any) => c.size === result.recommendedSize);
+      
+      if (cableData) {
+        const installMethod = (entry.installation_method || calcSettings.default_installation_method) as 'air' | 'ducts' | 'ground';
+        const cableRating = installMethod === 'air' ? cableData.currentRatingAir :
+                           installMethod === 'ground' ? cableData.currentRatingGround :
+                           cableData.currentRatingDucts;
+        
+        const requiredPerCable = ampacityPerCable * calcSettings.cable_safety_margin;
+        
+        if (cableRating < requiredPerCable) {
+          console.log(`[OPTIMIZER SKIP] ${result.recommendedSize} rating ${cableRating}A < required ${requiredPerCable}A per cable`);
+          continue;
+        }
+      }
 
       const altCostBreakdown = calculateCostBreakdown(
         result.recommendedSize,
