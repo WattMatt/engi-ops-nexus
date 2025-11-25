@@ -150,46 +150,49 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
     const optimizations: OptimizationResult[] = [];
 
     try {
-      console.log(`Analyzing ${cableEntries.length} cables...`);
+      // Group cables by parallel_group_id or base_cable_tag to avoid analyzing each parallel cable separately
+      const cableGroups = new Map<string, typeof cableEntries[0]>();
       
       for (const entry of cableEntries) {
-        console.log(`Processing cable: ${entry.cable_tag}, Load: ${entry.load_amps}A, Size: ${entry.cable_size}, Parallel: ${entry.parallel_total_count}`);
+        const groupKey = entry.parallel_group_id || entry.base_cable_tag || entry.cable_tag;
+        
+        // Only keep the first entry from each parallel group
+        if (!cableGroups.has(groupKey)) {
+          cableGroups.set(groupKey, entry);
+        }
+      }
+      
+      const uniqueCables = Array.from(cableGroups.values());
+      console.log(`Analyzing ${uniqueCables.length} unique cable groups (from ${cableEntries.length} total entries)...`);
+      
+      for (const entry of uniqueCables) {
+        const currentParallelCount = entry.parallel_total_count || 1;
+        console.log(`Processing cable group: ${entry.base_cable_tag || entry.cable_tag}, Total Load: ${entry.load_amps}A, Current Config: ${currentParallelCount}x${entry.cable_size}`);
         
         if (!entry.load_amps || !entry.voltage || !entry.total_length) {
           console.log(`Skipping ${entry.cable_tag} - missing required data`);
           continue;
         }
+        
+        // For parallel groups, the total load is what we need to handle
+        const totalLoad = entry.load_amps;
 
         const material = entry.cable_type?.includes("Cu") ? "copper" : 
                         entry.cable_type?.includes("Al") ? "aluminium" : 
                         (calcSettings.default_cable_material.toLowerCase() as "copper" | "aluminium");
 
-        const params: CableCalculationParams = {
-          loadAmps: entry.load_amps,
-          voltage: entry.voltage,
-          totalLength: entry.total_length,
-          material,
-          deratingFactor: entry.grouping_factor || 1.0,
-          installationMethod: (entry.installation_method || calcSettings.default_installation_method) as 'air' | 'ducts' | 'ground',
-          safetyMargin: calcSettings.cable_safety_margin,
-          maxAmpsPerCable: calcSettings.max_amps_per_cable,
-          preferredAmpsPerCable: calcSettings.preferred_amps_per_cable,
-          voltageDropLimit: entry.voltage >= 380 ? 
-            calcSettings.voltage_drop_limit_400v : 
-            calcSettings.voltage_drop_limit_230v,
-        };
-
-        console.log(`Calculation params:`, params);
-
-        // Calculate current configuration cost
+        // Calculate current configuration cost (total for all parallel cables)
         const currentCostBreakdown = calculateCostBreakdown(
           entry.cable_size || "",
           entry.cable_type || "",
           entry.total_length,
-          entry.parallel_total_count || 1
+          currentParallelCount
         );
 
-        // Test different parallel configurations (1 to 6 cables)
+        console.log(`Current config: ${currentParallelCount}x${entry.cable_size}, Total Cost: R${currentCostBreakdown.total.toFixed(2)}`);
+
+        // Test different NEW parallel configurations (1 to 6 cables total)
+        // This replaces the entire current parallel group with a new configuration
         const testedAlternatives: Array<{
           size: string;
           parallelCount: number;
@@ -202,50 +205,65 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
           voltDrop: number;
         }> = [];
 
-        for (let parallelCount = 1; parallelCount <= 6; parallelCount++) {
-          // Calculate load per cable when split across parallel runs
-          const loadPerCable = entry.load_amps / parallelCount;
+        for (let newParallelCount = 1; newParallelCount <= 6; newParallelCount++) {
+          // Each cable in the new configuration will carry this load
+          const loadPerCable = totalLoad / newParallelCount;
           
-          // Skip if load per cable is too low (impractical)
-          if (loadPerCable < 50) continue;
+          // Skip if load per cable is too low (impractical) or too high
+          if (loadPerCable < 50 || loadPerCable > calcSettings.max_amps_per_cable) continue;
           
           const testParams: CableCalculationParams = {
-            ...params,
-            loadAmps: loadPerCable, // Each cable carries this load
+            loadAmps: loadPerCable,
+            voltage: entry.voltage,
+            totalLength: entry.total_length,
+            material,
+            deratingFactor: entry.grouping_factor || 1.0,
+            installationMethod: (entry.installation_method || calcSettings.default_installation_method) as 'air' | 'ducts' | 'ground',
+            safetyMargin: calcSettings.cable_safety_margin,
+            maxAmpsPerCable: calcSettings.max_amps_per_cable,
+            preferredAmpsPerCable: calcSettings.preferred_amps_per_cable,
+            voltageDropLimit: entry.voltage >= 380 ? 
+              calcSettings.voltage_drop_limit_400v : 
+              calcSettings.voltage_drop_limit_230v,
           };
 
           const result = calculateCableSize(testParams);
           
           if (!result) continue;
 
+          // Calculate total cost for this alternative configuration
           const altCostBreakdown = calculateCostBreakdown(
             result.recommendedSize,
             entry.cable_type || "",
             entry.total_length,
-            parallelCount
+            newParallelCount
           );
 
           // Skip if this is the same as current configuration
           if (result.recommendedSize === entry.cable_size && 
-              parallelCount === (entry.parallel_total_count || 1)) {
+              newParallelCount === currentParallelCount) {
             continue;
           }
 
+          const savings = currentCostBreakdown.total - altCostBreakdown.total;
+          
           testedAlternatives.push({
             size: result.recommendedSize,
-            parallelCount,
+            parallelCount: newParallelCount,
             totalCost: altCostBreakdown.total,
             supplyCost: altCostBreakdown.supply,
             installCost: altCostBreakdown.install,
             terminationCost: altCostBreakdown.termination,
-            savings: currentCostBreakdown.total - altCostBreakdown.total,
+            savings,
             savingsPercent: currentCostBreakdown.total > 0 ? 
-              ((currentCostBreakdown.total - altCostBreakdown.total) / currentCostBreakdown.total) * 100 : 0,
+              (savings / currentCostBreakdown.total) * 100 : 0,
             voltDrop: result.voltDropPercentage,
           });
+          
+          console.log(`  Alternative: ${newParallelCount}x${result.recommendedSize} = R${altCostBreakdown.total.toFixed(2)} (${savings > 0 ? 'saves' : 'costs'} R${Math.abs(savings).toFixed(2)})`);
         }
 
-        console.log(`Found ${testedAlternatives.length} alternatives for ${entry.cable_tag}`);
+        console.log(`Found ${testedAlternatives.length} alternatives for ${entry.base_cable_tag || entry.cable_tag}`);
 
         // Sort alternatives by total cost (cheapest first)
         testedAlternatives.sort((a, b) => a.totalCost - b.totalCost);
@@ -254,19 +272,19 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
         if (testedAlternatives.length > 0) {
           optimizations.push({
             cableId: entry.id,
-            cableTag: entry.cable_tag,
+            cableTag: entry.base_cable_tag || entry.cable_tag,
             fromLocation: entry.from_location,
             toLocation: entry.to_location,
             totalLength: entry.total_length,
             currentConfig: {
               size: entry.cable_size || "",
-              parallelCount: entry.parallel_total_count || 1,
+              parallelCount: currentParallelCount,
               totalCost: currentCostBreakdown.total,
               supplyCost: currentCostBreakdown.supply,
               installCost: currentCostBreakdown.install,
               terminationCost: currentCostBreakdown.termination,
               voltage: entry.voltage,
-              loadAmps: entry.load_amps,
+              loadAmps: totalLoad,
             },
             alternatives: testedAlternatives.slice(0, 5), // Top 5 alternatives
           });
