@@ -175,24 +175,17 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
           continue;
         }
         
-        // Calculate the total ampacity of the current configuration
-        // This is the actual design capacity we need to match with alternatives
-        // For parallel cables: total capacity = single cable capacity × number of cables
-        
-        // We need to determine the ampacity of a single cable in the current config
-        // This should come from cable sizing calculations or ratings
-        // For now, we'll use the load_amps as a proxy, but ideally this should be
-        // the rated ampacity of the cable size based on installation method
-        
-        const singleCableAmpacity = entry.load_amps || 0;
-        const targetAmpacity = singleCableAmpacity * currentParallelCount;
+        // Use protection device rating as the target capacity
+        // This is what the parallel cable configuration was designed to achieve
+        // e.g., 2x240mm² for a 600A breaker, or 5x240mm² for a 1600A breaker
+        const targetAmpacity = entry.protection_device_rating;
         
         if (!targetAmpacity || targetAmpacity === 0) {
-          console.log(`Skipping ${entry.cable_tag} - cannot determine target ampacity`);
+          console.log(`Skipping ${entry.cable_tag} - no protection device rating specified`);
           continue;
         }
         
-        console.log(`Target ampacity: ${targetAmpacity}A (${currentParallelCount}x${entry.cable_size} @ ${singleCableAmpacity}A each)`);
+        console.log(`Target capacity: ${targetAmpacity}A (Circuit breaker rating) - Current config: ${currentParallelCount}x${entry.cable_size}`);
 
 
 
@@ -438,7 +431,7 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
                         {result.fromLocation} → {result.toLocation} | {result.totalLength}m
                       </CardDescription>
                       <div className="mt-1 font-semibold text-foreground">
-                        Target Total Ampacity: {result.currentConfig.loadAmps}A ({result.currentConfig.parallelCount}x{result.currentConfig.size})
+                        Target Capacity: {result.currentConfig.loadAmps}A (Circuit Breaker Rating)
                       </div>
                     </div>
                     {hasSavings ? (
@@ -490,7 +483,7 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
 
                   {/* Alternatives Table */}
                   <div>
-                    <h4 className="font-semibold mb-3">All Configurations Achieving {result.currentConfig.loadAmps}A Total Ampacity</h4>
+                    <h4 className="font-semibold mb-3">All Configurations Achieving {result.currentConfig.loadAmps}A Capacity</h4>
                     <Table>
                       <TableHeader>
                         <TableRow>
