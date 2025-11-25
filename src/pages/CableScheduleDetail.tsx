@@ -2,7 +2,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Calculator, FileText, Settings, Download, Tag, TrendingDown } from "lucide-react";
+import { ArrowLeft, Calculator, FileText, Settings, Download, Tag, TrendingDown, File } from "lucide-react";
 import { CableScheduleOverview } from "@/components/cable-schedules/CableScheduleOverview";
 import { CableEntriesManager } from "@/components/cable-schedules/CableEntriesManager";
 import { CableCalculationFormulas } from "@/components/cable-schedules/CableCalculationFormulas";
@@ -12,6 +12,7 @@ import { CableSizingOptimizer } from "@/components/cable-schedules/CableSizingOp
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CableScheduleExportPDFButton } from "@/components/cable-schedules/CableScheduleExportPDFButton";
 import { TestCalculationSettings } from "@/components/cable-schedules/TestCalculationSettings";
+import { CableScheduleReports } from "@/components/cable-schedules/CableScheduleReports";
 
 const CableScheduleDetail = () => {
   const { scheduleId } = useParams();
@@ -77,12 +78,11 @@ const CableScheduleDetail = () => {
             </p>
           </div>
         </div>
-        <CableScheduleExportPDFButton schedule={schedule} />
       </div>
 
       {/* Main Content Tabs */}
       <Tabs defaultValue="cables" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-grid">
+        <TabsList className="grid w-full grid-cols-7 lg:w-auto lg:inline-grid">
           <TabsTrigger value="cables" className="gap-2">
             <Calculator className="h-4 w-4" />
             <span className="hidden sm:inline">Cable Schedule</span>
@@ -97,6 +97,11 @@ const CableScheduleDetail = () => {
             <Tag className="h-4 w-4" />
             <span className="hidden sm:inline">Cable Tags</span>
             <span className="sm:hidden">Tags</span>
+          </TabsTrigger>
+          <TabsTrigger value="reports" className="gap-2">
+            <File className="h-4 w-4" />
+            <span className="hidden sm:inline">Reports</span>
+            <span className="sm:hidden">Reports</span>
           </TabsTrigger>
           <TabsTrigger value="overview" className="gap-2">
             <FileText className="h-4 w-4" />
@@ -128,6 +133,11 @@ const CableScheduleDetail = () => {
         {/* Cable Tag Schedule Tab */}
         <TabsContent value="tags">
           <CableTagSchedule scheduleId={scheduleId!} />
+        </TabsContent>
+
+        {/* Reports Tab */}
+        <TabsContent value="reports">
+          <CableScheduleReports schedule={schedule} />
         </TabsContent>
 
         {/* Overview Tab */}
