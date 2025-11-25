@@ -48,6 +48,7 @@ export interface CableCalculationResult {
   requiresEngineerVerification?: boolean;
   alternatives?: CableAlternative[]; // Other cost-effective options
   costSavings?: number; // Savings vs most expensive option
+  capacitySufficient?: boolean; // True if cable can handle required load
 }
 
 export interface CableAlternative {
@@ -172,10 +173,23 @@ export function calculateCableSize(
 
     console.log(`[INITIAL SELECTION] Required rating: ${requiredRating}A, Selected: ${selectedCable?.size}, Impedance: ${selectedCable?.impedance}`);
 
+    // Track if capacity is sufficient
+    let capacitySufficient = true;
+
     // If no single cable can handle the load, suggest the largest available cable
     if (!selectedCable) {
       console.log(`[NO MATCH] No single cable found for ${requiredRating}A, suggesting largest cable...`);
       selectedCable = cableTable[cableTable.length - 1]; // Largest cable in table
+      
+      // Check if even the largest cable is insufficient
+      const largestCableRating = installationMethod === 'air' ? selectedCable.currentRatingAir :
+                                 installationMethod === 'ground' ? selectedCable.currentRatingGround :
+                                 selectedCable.currentRatingDucts;
+      
+      if (largestCableRating < requiredRating) {
+        capacitySufficient = false;
+        console.log(`[CAPACITY INSUFFICIENT] Largest cable ${selectedCable.size} (${largestCableRating}A) cannot meet required ${requiredRating}A`);
+      }
     }
 
     // Check voltage drop if length provided
@@ -204,12 +218,23 @@ export function calculateCableSize(
       deratingFactor
     );
     
+    // Add capacity warning if insufficient
+    const warnings = [...validation.warnings];
+    if (!capacitySufficient) {
+      warnings.unshift({
+        type: 'error',
+        message: `Cable capacity insufficient: ${selectedCable.size} cannot safely handle ${loadAmps}A. Consider parallel cables or alternative material.`,
+        field: 'cable_size'
+      });
+    }
+    
     return {
       ...result,
       cablesInParallel: 1,
       loadPerCable: loadAmps,
-      validationWarnings: validation.warnings,
-      requiresEngineerVerification: validation.requiresVerification
+      validationWarnings: warnings,
+      requiresEngineerVerification: validation.requiresVerification || !capacitySufficient,
+      capacitySufficient
     };
   }
 
