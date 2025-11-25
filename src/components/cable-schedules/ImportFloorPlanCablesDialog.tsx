@@ -29,8 +29,10 @@ interface FloorPlanCable {
   from_label: string | null;
   to_label: string | null;
   length_meters: number | null;
+  original_length: number | null;
   floor_plan_name: string;
-  cable_entry_id: string | null;
+  schedule_id: string | null;
+  is_in_this_schedule: boolean;
 }
 
 interface ImportFloorPlanCablesDialogProps {
@@ -99,7 +101,9 @@ export const ImportFloorPlanCablesDialog = ({
         from_label: cable.from_location,
         to_label: cable.to_location,
         length_meters: cable.total_length,
-        cable_entry_id: cable.schedule_id ? cable.id : null,
+        original_length: cable.total_length,
+        schedule_id: cable.schedule_id,
+        is_in_this_schedule: cable.schedule_id === scheduleId,
         floor_plan_name: cable.floor_plan_projects?.name || "Unknown",
       }));
 
@@ -166,8 +170,14 @@ export const ImportFloorPlanCablesDialog = ({
     }
   };
 
-  const availableCables = floorPlanCables.filter((cable) => !cable.cable_entry_id);
-  const linkedCables = floorPlanCables.filter((cable) => cable.cable_entry_id);
+  // Cables available to import (not in this schedule)
+  const availableCables = floorPlanCables.filter((cable) => !cable.is_in_this_schedule);
+  
+  // Cables already in this schedule
+  const cablesInSchedule = floorPlanCables.filter((cable) => cable.is_in_this_schedule);
+  
+  // Cables in other schedules
+  const cablesInOtherSchedules = availableCables.filter((cable) => cable.schedule_id);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -187,7 +197,7 @@ export const ImportFloorPlanCablesDialog = ({
           </div>
         ) : (
           <div className="space-y-4">
-            {availableCables.length === 0 && linkedCables.length === 0 ? (
+            {floorPlanCables.length === 0 ? (
               <div className="text-center p-8 text-muted-foreground">
                 No cables found in floor plans for this project.
                 <br />
@@ -198,12 +208,14 @@ export const ImportFloorPlanCablesDialog = ({
                 {availableCables.length > 0 && (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
-                      <h4 className="font-medium">Available Cables ({availableCables.length})</h4>
+                      <h4 className="font-medium">
+                        Available to Import ({availableCables.filter(c => !c.schedule_id).length})
+                      </h4>
                       <div className="flex gap-2">
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => setSelectedCables(new Set(availableCables.map((c) => c.id)))}
+                          onClick={() => setSelectedCables(new Set(availableCables.filter(c => !c.schedule_id).map((c) => c.id)))}
                         >
                           Select All
                         </Button>
@@ -221,6 +233,7 @@ export const ImportFloorPlanCablesDialog = ({
                         <TableHeader>
                           <TableRow>
                             <TableHead className="w-12"></TableHead>
+                            <TableHead>Status</TableHead>
                             <TableHead>Floor Plan</TableHead>
                             <TableHead>Label</TableHead>
                             <TableHead>From</TableHead>
@@ -231,12 +244,20 @@ export const ImportFloorPlanCablesDialog = ({
                         </TableHeader>
                         <TableBody>
                           {availableCables.map((cable) => (
-                            <TableRow key={cable.id}>
+                            <TableRow key={cable.id} className={cable.schedule_id ? "opacity-60" : ""}>
                               <TableCell>
                                 <Checkbox
                                   checked={selectedCables.has(cable.id)}
                                   onCheckedChange={() => toggleCableSelection(cable.id)}
+                                  disabled={!!cable.schedule_id}
                                 />
+                              </TableCell>
+                              <TableCell>
+                                {cable.schedule_id ? (
+                                  <Badge variant="secondary">In Other Schedule</Badge>
+                                ) : (
+                                  <Badge variant="outline">New</Badge>
+                                )}
                               </TableCell>
                               <TableCell className="font-medium">{cable.floor_plan_name}</TableCell>
                               <TableCell>{cable.label || "-"}</TableCell>
@@ -256,22 +277,35 @@ export const ImportFloorPlanCablesDialog = ({
                   </div>
                 )}
 
-                {linkedCables.length > 0 && (
+                {cablesInSchedule.length > 0 && (
                   <div className="space-y-2">
-                    <h4 className="font-medium text-muted-foreground">
-                      Already Linked ({linkedCables.length})
+                    <h4 className="font-medium text-green-600">
+                      Already in This Schedule ({cablesInSchedule.length})
                     </h4>
                     <ScrollArea className="h-[200px] border rounded-md">
                       <Table>
+                        <TableHeader>
+                          <TableRow>
+                            <TableHead>Floor Plan</TableHead>
+                            <TableHead>Label</TableHead>
+                            <TableHead>From</TableHead>
+                            <TableHead>To</TableHead>
+                            <TableHead className="text-right">Length (m)</TableHead>
+                            <TableHead>Status</TableHead>
+                          </TableRow>
+                        </TableHeader>
                         <TableBody>
-                          {linkedCables.map((cable) => (
+                          {cablesInSchedule.map((cable) => (
                             <TableRow key={cable.id}>
                               <TableCell className="font-medium">{cable.floor_plan_name}</TableCell>
                               <TableCell>{cable.label || "-"}</TableCell>
                               <TableCell>{cable.from_label || "-"}</TableCell>
                               <TableCell>{cable.to_label || "-"}</TableCell>
+                              <TableCell className="text-right">
+                                {cable.length_meters?.toFixed(2) || "-"}
+                              </TableCell>
                               <TableCell>
-                                <Badge variant="secondary">Linked</Badge>
+                                <Badge variant="default" className="bg-green-600">Loaded</Badge>
                               </TableCell>
                             </TableRow>
                           ))}
