@@ -47,6 +47,7 @@ interface OptimizationResult {
     savings: number;
     savingsPercent: number;
     voltDrop: number;
+    isCurrentConfig?: boolean;
   }>;
 }
 
@@ -203,6 +204,7 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
           savings: number;
           savingsPercent: number;
           voltDrop: number;
+          isCurrentConfig?: boolean;
         }> = [];
 
         // Set practical limits for parallel cable configurations
@@ -240,7 +242,7 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
           
           if (!result) continue;
 
-          // Calculate total cost for this alternative configuration
+        // Calculate total cost for this alternative configuration
           const altCostBreakdown = calculateCostBreakdown(
             result.recommendedSize,
             entry.cable_type || "",
@@ -248,13 +250,11 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
             newParallelCount
           );
 
-          // Skip if this is the same as current configuration
-          if (result.recommendedSize === entry.cable_size && 
-              newParallelCount === currentParallelCount) {
-            continue;
-          }
-
           const savings = currentCostBreakdown.total - altCostBreakdown.total;
+          
+          // Mark if this is the current configuration
+          const isCurrentConfig = result.recommendedSize === entry.cable_size && 
+                                   newParallelCount === currentParallelCount;
           
           testedAlternatives.push({
             size: result.recommendedSize,
@@ -267,17 +267,18 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
             savingsPercent: currentCostBreakdown.total > 0 ? 
               (savings / currentCostBreakdown.total) * 100 : 0,
             voltDrop: result.voltDropPercentage,
+            isCurrentConfig,
           });
           
           console.log(`  Alternative: ${newParallelCount}x${result.recommendedSize} = R${altCostBreakdown.total.toFixed(2)} (${savings > 0 ? 'saves' : 'costs'} R${Math.abs(savings).toFixed(2)})`);
         }
 
-        console.log(`Found ${testedAlternatives.length} alternatives for ${entry.base_cable_tag || entry.cable_tag}`);
+        console.log(`Found ${testedAlternatives.length} configurations for ${entry.base_cable_tag || entry.cable_tag}`);
 
         // Sort alternatives by total cost (cheapest first)
         testedAlternatives.sort((a, b) => a.totalCost - b.totalCost);
 
-        // Always include if we have alternatives to show
+        // Always include if we have configurations to show (even if just current config)
         if (testedAlternatives.length > 0) {
           optimizations.push({
             cableId: entry.id,
@@ -295,7 +296,7 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
               voltage: entry.voltage,
               loadAmps: totalLoad,
             },
-            alternatives: testedAlternatives.slice(0, 5), // Top 5 alternatives
+            alternatives: testedAlternatives, // Show all configurations
           });
         }
       }
@@ -303,7 +304,7 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
       setResults(optimizations);
       
       const savingsCount = optimizations.filter(
-        opt => opt.alternatives[0]?.savings > 0
+        opt => opt.alternatives[0]?.savings > 0 && !opt.alternatives[0]?.isCurrentConfig
       ).length;
       
       if (optimizations.length === 0) {
@@ -314,12 +315,12 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
       } else if (savingsCount === 0) {
         toast({
           title: "Analysis Complete",
-          description: `Analyzed ${optimizations.length} cables. Current configurations are optimal!`,
+          description: `Analyzed ${optimizations.length} cable groups. All configurations explored - current setups are optimal!`,
         });
       } else {
         toast({
           title: "Analysis Complete",
-          description: `Found ${savingsCount} cost-saving opportunities out of ${optimizations.length} cables analyzed.`,
+          description: `Found ${savingsCount} cost-saving opportunities out of ${optimizations.length} cable groups analyzed.`,
         });
       }
     } catch (error: any) {
@@ -413,11 +414,14 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
               <Card key={result.cableId} className={hasSavings ? "border-green-500" : ""}>
                 <CardHeader>
                   <div className="flex items-center justify-between">
-                    <div>
+                  <div>
                       <CardTitle className="text-lg">{result.cableTag}</CardTitle>
                       <CardDescription>
-                        {result.fromLocation} → {result.toLocation} | {result.totalLength}m | {result.currentConfig.loadAmps}A @ {result.currentConfig.voltage}V
+                        {result.fromLocation} → {result.toLocation} | {result.totalLength}m
                       </CardDescription>
+                      <div className="mt-1 font-semibold text-foreground">
+                        Target Load: {result.currentConfig.loadAmps}A @ {result.currentConfig.voltage}V
+                      </div>
                     </div>
                     {hasSavings ? (
                       <Badge variant="default" className="bg-green-600 text-lg px-3 py-1">
@@ -468,7 +472,7 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
 
                   {/* Alternatives Table */}
                   <div>
-                    <h4 className="font-semibold mb-3">Alternative Configurations Analyzed</h4>
+                    <h4 className="font-semibold mb-3">All Viable Configurations for {result.currentConfig.loadAmps}A Load</h4>
                     <Table>
                       <TableHeader>
                         <TableRow>
@@ -483,11 +487,13 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
                       </TableHeader>
                       <TableBody>
                         {result.alternatives.map((alt, idx) => {
-                          const isRecommended = idx === 0 && alt.savings > 100;
+                          const isRecommended = idx === 0 && alt.savings > 100 && !alt.isCurrentConfig;
+                          const isCurrent = alt.isCurrentConfig;
                           return (
                             <TableRow 
                               key={idx}
                               className={
+                                isCurrent ? "bg-primary/10 border-2 border-primary/30" :
                                 isRecommended ? "bg-green-50" : 
                                 alt.savings < -100 ? "bg-red-50" : 
                                 ""
@@ -498,6 +504,11 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
                                   <span className="font-medium">
                                     {alt.parallelCount}x {alt.size}
                                   </span>
+                                  {isCurrent && (
+                                    <Badge variant="secondary" className="text-xs">
+                                      CURRENT
+                                    </Badge>
+                                  )}
                                   {isRecommended && (
                                     <Badge variant="default" className="bg-green-600 text-xs">
                                       RECOMMENDED
@@ -518,7 +529,11 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
                                 {formatCurrency(alt.totalCost)}
                               </TableCell>
                               <TableCell className="text-right">
-                                {alt.savings > 0 ? (
+                                {alt.isCurrentConfig ? (
+                                  <span className="text-muted-foreground font-medium">
+                                    Baseline
+                                  </span>
+                                ) : alt.savings > 0 ? (
                                   <span className="text-green-700 font-semibold">
                                     -{formatCurrency(alt.savings)}
                                     <span className="text-xs ml-1">
