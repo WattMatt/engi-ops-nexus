@@ -163,23 +163,47 @@ export const analyzeCableOptimizations = (
         continue;
       }
       
-      // Verify the recommended cable can actually handle the per-cable load
+      // COMPLIANCE CHECK 1: Verify cable capacity with all derating applied
       const cableData = material === "aluminium" ? 
         require("./cableSizing").ALUMINIUM_CABLE_TABLE.find((c: any) => c.size === result.recommendedSize) :
         require("./cableSizing").COPPER_CABLE_TABLE.find((c: any) => c.size === result.recommendedSize);
       
       if (cableData) {
         const installMethod = (entry.installation_method || calcSettings.default_installation_method) as 'air' | 'ducts' | 'ground';
-        const cableRating = installMethod === 'air' ? cableData.currentRatingAir :
-                           installMethod === 'ground' ? cableData.currentRatingGround :
-                           cableData.currentRatingDucts;
+        const baseCableRating = installMethod === 'air' ? cableData.currentRatingAir :
+                               installMethod === 'ground' ? cableData.currentRatingGround :
+                               cableData.currentRatingDucts;
         
+        // Apply derating factor to get actual cable capacity
+        const deratedCapacity = baseCableRating * (entry.grouping_factor || 1.0);
         const requiredPerCable = ampacityPerCable * calcSettings.cable_safety_margin;
         
-        if (cableRating < requiredPerCable) {
-          console.log(`[OPTIMIZER SKIP] ${result.recommendedSize} rating ${cableRating}A < required ${requiredPerCable}A per cable`);
+        if (deratedCapacity < requiredPerCable) {
+          console.log(`[COMPLIANCE FAIL - CAPACITY] ${result.recommendedSize} derated ${deratedCapacity}A < required ${requiredPerCable}A per cable`);
           continue;
         }
+        
+        // COMPLIANCE CHECK 2: Protection device coordination
+        if (targetAmpacity > deratedCapacity * newParallelCount * 1.25) {
+          console.log(`[COMPLIANCE FAIL - PROTECTION] Total capacity ${deratedCapacity * newParallelCount}A insufficient for protection device ${targetAmpacity}A`);
+          continue;
+        }
+      }
+      
+      // COMPLIANCE CHECK 3: Voltage drop must be within limits
+      const voltDropLimit = entry.voltage >= 380 ? 
+        calcSettings.voltage_drop_limit_400v : 
+        calcSettings.voltage_drop_limit_230v;
+      
+      if (result.voltDropPercentage > voltDropLimit) {
+        console.log(`[COMPLIANCE FAIL - VOLTAGE DROP] ${result.voltDropPercentage}% exceeds limit ${voltDropLimit}%`);
+        continue;
+      }
+      
+      // COMPLIANCE CHECK 4: Minimum cable size for protection device
+      if (targetAmpacity > 400 && result.recommendedSize === "1.5mm²") {
+        console.log(`[COMPLIANCE FAIL - MIN SIZE] ${result.recommendedSize} too small for ${targetAmpacity}A protection device`);
+        continue;
       }
 
       const altCostBreakdown = calculateCostBreakdown(
@@ -195,19 +219,22 @@ export const analyzeCableOptimizations = (
       const isCurrentConfig = result.recommendedSize === entry.cable_size && 
                                newParallelCount === currentParallelCount;
       
-      testedAlternatives.push({
-        size: result.recommendedSize,
-        parallelCount: newParallelCount,
-        totalCost: altCostBreakdown.total,
-        supplyCost: altCostBreakdown.supply,
-        installCost: altCostBreakdown.install,
-        terminationCost: altCostBreakdown.termination,
-        savings,
-        savingsPercent: currentCostBreakdown.total > 0 ? 
-          (savings / currentCostBreakdown.total) * 100 : 0,
-        voltDrop: result.voltDropPercentage,
-        isCurrentConfig,
-      });
+      // Only add alternatives that are compliant and either save money or are current config
+      if (isCurrentConfig || savings > 0 || altCostBreakdown.total < currentCostBreakdown.total * 0.95) {
+        testedAlternatives.push({
+          size: result.recommendedSize,
+          parallelCount: newParallelCount,
+          totalCost: altCostBreakdown.total,
+          supplyCost: altCostBreakdown.supply,
+          installCost: altCostBreakdown.install,
+          terminationCost: altCostBreakdown.termination,
+          savings,
+          savingsPercent: currentCostBreakdown.total > 0 ? 
+            (savings / currentCostBreakdown.total) * 100 : 0,
+          voltDrop: result.voltDropPercentage,
+          isCurrentConfig,
+        });
+      }
     }
 
     testedAlternatives.sort((a, b) => a.totalCost - b.totalCost);
