@@ -1,11 +1,11 @@
 import { Button } from "@/components/ui/button";
-import { Download } from "lucide-react";
+import { Download, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { supabase } from "@/integrations/supabase/client";
-import { fetchCompanyDetails, generateCoverPage } from "@/utils/pdfCoverPage";
+import { generateCoverPage } from "@/utils/pdfCoverPageSimple";
 import { 
   initializePDF, 
   getStandardTableStyles, 
@@ -13,6 +13,8 @@ import {
   type PDFExportOptions 
 } from "@/utils/pdfExportBase";
 import { generateStandardizedPDFFilename, generateStorageFilename } from "@/utils/pdfFilenameGenerator";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { ContactSelector } from "@/components/shared/ContactSelector";
 
 interface CableScheduleExportPDFButtonProps {
   schedule: any;
@@ -21,6 +23,8 @@ interface CableScheduleExportPDFButtonProps {
 export const CableScheduleExportPDFButton = ({ schedule }: CableScheduleExportPDFButtonProps) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedContactId, setSelectedContactId] = useState("");
 
   const handleExport = async () => {
     setLoading(true);
@@ -50,16 +54,17 @@ export const CableScheduleExportPDFButton = ({ schedule }: CableScheduleExportPD
       const doc = initializePDF(exportOptions);
       const pageWidth = doc.internal.pageSize.width;
 
-      // Fetch company details for cover page
-      const companyDetails = await fetchCompanyDetails();
-
       // ========== COVER PAGE ==========
       await generateCoverPage(doc, {
-        title: "Cable Schedule",
-        projectName: schedule.schedule_name,
-        subtitle: `Schedule #${schedule.schedule_number}`,
+        project_name: schedule.schedule_name,
+        client_name: "",
+        report_title: "Cable Schedule",
+        report_date: new Date().toLocaleDateString(),
         revision: schedule.revision,
-      }, companyDetails);
+        subtitle: `Schedule #${schedule.schedule_number}`,
+        project_id: schedule.project_id,
+        contact_id: selectedContactId || undefined,
+      });
 
       // ========== PAGE 2: CABLE ENTRIES TABLE ==========
       doc.addPage();
@@ -218,9 +223,42 @@ export const CableScheduleExportPDFButton = ({ schedule }: CableScheduleExportPD
   };
 
   return (
-    <Button onClick={handleExport} disabled={loading}>
-      <Download className="mr-2 h-4 w-4" />
-      {loading ? "Generating..." : "Export PDF"}
-    </Button>
+    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline">
+          <Settings className="mr-2 h-4 w-4" />
+          Export PDF
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Export Cable Schedule PDF</DialogTitle>
+          <DialogDescription>
+            Select which contact should appear on the cover page
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="space-y-4 py-4">
+          <ContactSelector
+            projectId={schedule.project_id}
+            value={selectedContactId}
+            onValueChange={setSelectedContactId}
+          />
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setDialogOpen(false)}>
+            Cancel
+          </Button>
+          <Button onClick={() => {
+            setDialogOpen(false);
+            handleExport();
+          }} disabled={loading}>
+            <Download className="mr-2 h-4 w-4" />
+            {loading ? "Generating..." : "Generate PDF"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };

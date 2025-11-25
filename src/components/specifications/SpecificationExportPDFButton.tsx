@@ -1,10 +1,10 @@
 import { Button } from "@/components/ui/button";
-import { Download } from "lucide-react";
+import { Download, Settings } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-import { fetchCompanyDetails, generateCoverPage } from "@/utils/pdfCoverPage";
+import { generateCoverPage } from "@/utils/pdfCoverPageSimple";
 import { format } from "date-fns";
 import { 
   initializePDF, 
@@ -12,6 +12,8 @@ import {
   addPageNumbers,
   type PDFExportOptions 
 } from "@/utils/pdfExportBase";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { ContactSelector } from "@/components/shared/ContactSelector";
 
 interface SpecificationExportPDFButtonProps {
   specification: any;
@@ -20,6 +22,8 @@ interface SpecificationExportPDFButtonProps {
 export const SpecificationExportPDFButton = ({ specification }: SpecificationExportPDFButtonProps) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedContactId, setSelectedContactId] = useState("");
 
   const handleExport = async () => {
     setLoading(true);
@@ -30,16 +34,17 @@ export const SpecificationExportPDFButton = ({ specification }: SpecificationExp
       const pageWidth = doc.internal.pageSize.width;
       const pageHeight = doc.internal.pageSize.height;
 
-      // Fetch company details for cover page
-      const companyDetails = await fetchCompanyDetails();
-
       // ========== COVER PAGE ==========
       await generateCoverPage(doc, {
-        title: "Technical Specification",
-        projectName: specification.specification_name,
-        subtitle: specification.project_name || "",
+        project_name: specification.specification_name,
+        client_name: specification.project_name || "",
+        report_title: "Technical Specification",
+        report_date: format(new Date(specification.created_at), "dd MMMM yyyy"),
         revision: specification.revision || "Rev.0",
-      }, companyDetails);
+        subtitle: specification.spec_number || "",
+        project_id: specification.project_id,
+        contact_id: selectedContactId || undefined,
+      });
 
       // ========== PAGE 2: SPECIFICATION OVERVIEW ==========
       doc.addPage();
@@ -129,9 +134,42 @@ export const SpecificationExportPDFButton = ({ specification }: SpecificationExp
   };
 
   return (
-    <Button onClick={handleExport} disabled={loading}>
-      <Download className="mr-2 h-4 w-4" />
-      {loading ? "Generating..." : "Export PDF"}
-    </Button>
+    <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline">
+          <Settings className="mr-2 h-4 w-4" />
+          Export PDF
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Export Specification PDF</DialogTitle>
+          <DialogDescription>
+            Select which contact should appear on the cover page
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="space-y-4 py-4">
+          <ContactSelector
+            projectId={specification.project_id}
+            value={selectedContactId}
+            onValueChange={setSelectedContactId}
+          />
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => setDialogOpen(false)}>
+            Cancel
+          </Button>
+          <Button onClick={() => {
+            setDialogOpen(false);
+            handleExport();
+          }} disabled={loading}>
+            <Download className="mr-2 h-4 w-4" />
+            {loading ? "Generating..." : "Generate PDF"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 };
