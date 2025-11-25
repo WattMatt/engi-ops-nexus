@@ -175,16 +175,25 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
           continue;
         }
         
-        // Use protection device rating as the design target (what the circuit needs to handle)
-        // This is the actual electrical design requirement, not just current cable load
-        const targetLoad = entry.protection_device_rating || entry.load_amps;
+        // Calculate the total ampacity of the current configuration
+        // This is the actual design capacity we need to match with alternatives
+        // For parallel cables: total capacity = single cable capacity × number of cables
         
-        if (!targetLoad) {
-          console.log(`Skipping ${entry.cable_tag} - no load or protection rating data`);
+        // We need to determine the ampacity of a single cable in the current config
+        // This should come from cable sizing calculations or ratings
+        // For now, we'll use the load_amps as a proxy, but ideally this should be
+        // the rated ampacity of the cable size based on installation method
+        
+        const singleCableAmpacity = entry.load_amps || 0;
+        const targetAmpacity = singleCableAmpacity * currentParallelCount;
+        
+        if (!targetAmpacity || targetAmpacity === 0) {
+          console.log(`Skipping ${entry.cable_tag} - cannot determine target ampacity`);
           continue;
         }
         
-        console.log(`Target circuit rating: ${targetLoad}A (Protection device: ${entry.protection_device_rating}A)`);
+        console.log(`Target ampacity: ${targetAmpacity}A (${currentParallelCount}x${entry.cable_size} @ ${singleCableAmpacity}A each)`);
+
 
 
         const material = entry.cable_type?.includes("Cu") ? "copper" : 
@@ -226,14 +235,14 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
           : 1;
 
         for (let newParallelCount = minPracticalParallel; newParallelCount <= maxPracticalParallel; newParallelCount++) {
-          // Each cable in the new configuration will carry this load to achieve target circuit rating
-          const loadPerCable = targetLoad / newParallelCount;
+          // Calculate what ampacity each cable needs to achieve the target total ampacity
+          const ampacityPerCable = targetAmpacity / newParallelCount;
           
-          // Skip if load per cable is too low (impractical) or too high
-          if (loadPerCable < 50 || loadPerCable > calcSettings.max_amps_per_cable) continue;
+          // Skip if ampacity per cable is too low (impractical) or too high
+          if (ampacityPerCable < 50 || ampacityPerCable > calcSettings.max_amps_per_cable) continue;
           
           const testParams: CableCalculationParams = {
-            loadAmps: loadPerCable,
+            loadAmps: ampacityPerCable,
             voltage: entry.voltage,
             totalLength: entry.total_length,
             material,
@@ -303,7 +312,7 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
               installCost: currentCostBreakdown.install,
               terminationCost: currentCostBreakdown.termination,
               voltage: entry.voltage,
-              loadAmps: targetLoad,
+              loadAmps: targetAmpacity,
             },
             alternatives: testedAlternatives, // Show all configurations
           });
@@ -429,7 +438,7 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
                         {result.fromLocation} → {result.toLocation} | {result.totalLength}m
                       </CardDescription>
                       <div className="mt-1 font-semibold text-foreground">
-                        Target Circuit Rating: {result.currentConfig.loadAmps}A @ {result.currentConfig.voltage}V
+                        Target Total Ampacity: {result.currentConfig.loadAmps}A ({result.currentConfig.parallelCount}x{result.currentConfig.size})
                       </div>
                     </div>
                     {hasSavings ? (
@@ -481,7 +490,7 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
 
                   {/* Alternatives Table */}
                   <div>
-                    <h4 className="font-semibold mb-3">All Viable Configurations for {result.currentConfig.loadAmps}A Load</h4>
+                    <h4 className="font-semibold mb-3">All Configurations Achieving {result.currentConfig.loadAmps}A Total Ampacity</h4>
                     <Table>
                       <TableHeader>
                         <TableRow>
