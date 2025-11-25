@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { sortTenantsByShopNumber } from "@/utils/tenantSorting";
 import {
@@ -54,6 +54,7 @@ export const ImportTenantsDialog = ({
   onSuccess,
 }: ImportTenantsDialogProps) => {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
   const [tenantRows, setTenantRows] = useState<TenantRow[]>([]);
   const [defaultFrom, setDefaultFrom] = useState("");
@@ -229,6 +230,9 @@ export const ImportTenantsDialog = ({
       const { error } = await supabase.from("cable_entries").insert(entries);
 
       if (error) throw error;
+
+      // Invalidate all cable-entries queries to ensure fresh data
+      await queryClient.invalidateQueries({ queryKey: ["cable-entries"] });
 
       toast({
         title: "Success",
