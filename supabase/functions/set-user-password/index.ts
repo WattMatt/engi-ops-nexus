@@ -77,10 +77,13 @@ Deno.serve(async (req) => {
       throw new Error('Password must contain at least one special character (!@#$%^&*)')
     }
 
-    // Update user password
+    // Update user password and confirm email
     const { error: updateError } = await supabaseClient.auth.admin.updateUserById(
       userId,
-      { password }
+      { 
+        password,
+        email_confirm: true  // Confirm email so user can log in immediately
+      }
     )
 
     if (updateError) {
