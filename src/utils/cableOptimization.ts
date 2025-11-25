@@ -1,4 +1,4 @@
-import { calculateCableSize, CableCalculationParams } from "./cableSizing";
+import { calculateCableSize, CableCalculationParams, COPPER_CABLE_TABLE, ALUMINIUM_CABLE_TABLE } from "./cableSizing";
 import type { CalculationSettings } from "@/hooks/useCalculationSettings";
 
 export interface OptimizationResult {
@@ -165,8 +165,8 @@ export const analyzeCableOptimizations = (
       
       // COMPLIANCE CHECK 1: Verify cable capacity with all derating applied
       const cableData = material === "aluminium" ? 
-        require("./cableSizing").ALUMINIUM_CABLE_TABLE.find((c: any) => c.size === result.recommendedSize) :
-        require("./cableSizing").COPPER_CABLE_TABLE.find((c: any) => c.size === result.recommendedSize);
+        ALUMINIUM_CABLE_TABLE.find(c => c.size === result.recommendedSize) :
+        COPPER_CABLE_TABLE.find(c => c.size === result.recommendedSize);
       
       if (cableData) {
         const installMethod = (entry.installation_method || calcSettings.default_installation_method) as 'air' | 'ducts' | 'ground';
