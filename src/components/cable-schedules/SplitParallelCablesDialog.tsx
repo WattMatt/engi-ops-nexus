@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface SplitParallelCablesDialogProps {
   open: boolean;
@@ -20,6 +21,7 @@ export const SplitParallelCablesDialog = ({
   onSuccess,
 }: SplitParallelCablesDialogProps) => {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [numCables, setNumCables] = useState(2);
   const [loading, setLoading] = useState(false);
 
@@ -49,14 +51,12 @@ export const SplitParallelCablesDialog = ({
       // Create new parallel cable entries
       const newEntries = [];
       for (let i = 1; i <= numCables; i++) {
+        const { id, created_at, updated_at, ...entryWithoutIds } = entry;
         newEntries.push({
-          ...entry,
-          id: undefined, // Let database generate new ID
+          ...entryWithoutIds,
           cable_tag: `${entry.cable_tag} (${i}/${numCables})`,
           cable_number: i,
           load_amps: loadPerCable,
-          created_at: undefined,
-          updated_at: undefined,
           notes: entry.notes 
             ? `${entry.notes} | Parallel cable ${i} of ${numCables}`
             : `Parallel cable ${i} of ${numCables}`,
@@ -68,6 +68,9 @@ export const SplitParallelCablesDialog = ({
         .insert(newEntries);
 
       if (insertError) throw insertError;
+
+      // Invalidate all cable-entries queries to ensure fresh data
+      await queryClient.invalidateQueries({ queryKey: ["cable-entries"] });
 
       toast({
         title: "Success",
