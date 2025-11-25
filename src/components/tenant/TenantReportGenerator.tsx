@@ -841,11 +841,8 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
     
-    // Header
-    doc.setFillColor(41, 128, 185);
-    doc.rect(0, 0, pageWidth, 40, 'F');
-    
-    doc.setTextColor(255, 255, 255);
+    // Header - simple without color
+    doc.setTextColor(0, 0, 0);
     doc.setFontSize(24);
     doc.setFont("helvetica", "bold");
     doc.text("Table of Contents", 20, 25);
