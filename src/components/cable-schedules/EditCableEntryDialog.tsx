@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   Dialog,
   DialogContent,
@@ -36,6 +37,7 @@ export const EditCableEntryDialog = ({
   onSuccess,
 }: EditCableEntryDialogProps) => {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [loading, setLoading] = useState(false);
   const [suggestedCableSize, setSuggestedCableSize] = useState<string>("");
   const [calculatedVoltDrop, setCalculatedVoltDrop] = useState<number | null>(null);
@@ -152,6 +154,9 @@ export const EditCableEntryDialog = ({
         .eq("id", entry.id);
 
       if (error) throw error;
+
+      // Invalidate all cable-entries queries to ensure fresh data
+      await queryClient.invalidateQueries({ queryKey: ["cable-entries"] });
 
       toast({
         title: "Success",
