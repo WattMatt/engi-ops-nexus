@@ -89,10 +89,11 @@ const CableScheduleDetail = () => {
         </div>
         <Button
           variant="outline"
-          size="icon"
           onClick={() => setSettingsDialogOpen(true)}
+          className="gap-2"
         >
           <Settings className="h-4 w-4" />
+          Settings
         </Button>
       </div>
 
