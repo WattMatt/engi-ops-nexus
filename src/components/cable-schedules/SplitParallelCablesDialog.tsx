@@ -107,10 +107,15 @@ export const SplitParallelCablesDialog = ({
         newEntries.push(newEntry);
       }
 
-      // Insert new entries (DB will auto-generate id, created_at, updated_at)
+      // Insert new entries - add IDs explicitly since DB default might not be working
+      const entriesWithIds = newEntries.map(entry => ({
+        ...entry,
+        id: crypto.randomUUID(),
+      }));
+      
       const { error: insertError } = await supabase
         .from("cable_entries")
-        .insert(newEntries);
+        .insert(entriesWithIds);
 
       if (insertError) {
         console.error("Insert error:", insertError);
