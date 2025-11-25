@@ -96,11 +96,6 @@ const CableScheduleDetail = () => {
             <span className="hidden sm:inline">Cable Tags</span>
             <span className="sm:hidden">Tags</span>
           </TabsTrigger>
-          <TabsTrigger value="reports" className="gap-2">
-            <File className="h-4 w-4" />
-            <span className="hidden sm:inline">Reports</span>
-            <span className="sm:hidden">Reports</span>
-          </TabsTrigger>
           <TabsTrigger value="calculations" className="gap-2">
             <SigmaSquare className="h-4 w-4" />
             <span className="hidden sm:inline">Calculations</span>
@@ -120,6 +115,11 @@ const CableScheduleDetail = () => {
             <Settings className="h-4 w-4" />
             <span className="hidden sm:inline">Settings</span>
             <span className="sm:hidden">Settings</span>
+          </TabsTrigger>
+          <TabsTrigger value="reports" className="gap-2">
+            <File className="h-4 w-4" />
+            <span className="hidden sm:inline">Reports</span>
+            <span className="sm:hidden">Reports</span>
           </TabsTrigger>
         </TabsList>
 
@@ -144,11 +144,6 @@ const CableScheduleDetail = () => {
           <CableTagSchedule scheduleId={scheduleId!} />
         </TabsContent>
 
-        {/* Reports Tab */}
-        <TabsContent value="reports">
-          <CableScheduleReports schedule={schedule} />
-        </TabsContent>
-
         {/* Calculations Tab */}
         <TabsContent value="calculations">
           <CableCalculationFormulas schedule={schedule} />
@@ -167,6 +162,11 @@ const CableScheduleDetail = () => {
         {/* Settings Tab */}
         <TabsContent value="settings">
           <TestCalculationSettings projectId={schedule.project_id} />
+        </TabsContent>
+
+        {/* Reports Tab */}
+        <TabsContent value="reports">
+          <CableScheduleReports schedule={schedule} />
         </TabsContent>
       </Tabs>
     </div>
