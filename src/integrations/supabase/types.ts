@@ -810,6 +810,7 @@ export type Database = {
           number_of_phases: number | null
           ohm_per_km: number | null
           parallel_group_id: string | null
+          parallel_total_count: number | null
           power_factor: number | null
           protection_device_rating: number | null
           quantity: number
@@ -856,6 +857,7 @@ export type Database = {
           number_of_phases?: number | null
           ohm_per_km?: number | null
           parallel_group_id?: string | null
+          parallel_total_count?: number | null
           power_factor?: number | null
           protection_device_rating?: number | null
           quantity?: number
@@ -902,6 +904,7 @@ export type Database = {
           number_of_phases?: number | null
           ohm_per_km?: number | null
           parallel_group_id?: string | null
+          parallel_total_count?: number | null
           power_factor?: number | null
           protection_device_rating?: number | null
           quantity?: number
