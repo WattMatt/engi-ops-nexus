@@ -71,7 +71,7 @@ export const CableSchedulesOverview = ({ projectId }: CableSchedulesOverviewProp
       </div>
 
       {/* Key Metrics */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Schedules</CardTitle>
@@ -107,19 +107,6 @@ export const CableSchedulesOverview = ({ projectId }: CableSchedulesOverviewProp
             <div className="text-2xl font-bold">{totalLength.toFixed(0)}m</div>
             <p className="text-xs text-muted-foreground">
               Combined cable length
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Cost</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">R{totalCost.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">
-              Supply & install costs
             </p>
           </CardContent>
         </Card>
@@ -196,23 +183,11 @@ export const CableSchedulesOverview = ({ projectId }: CableSchedulesOverviewProp
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 md:grid-cols-1">
             <div>
               <div className="text-sm font-medium text-muted-foreground">Average Cable Length</div>
               <div className="text-2xl font-bold">
                 {totalCableEntries > 0 ? (totalLength / totalCableEntries).toFixed(1) : 0}m
-              </div>
-            </div>
-            <div>
-              <div className="text-sm font-medium text-muted-foreground">Average Cost per Entry</div>
-              <div className="text-2xl font-bold">
-                R{totalCableEntries > 0 ? (totalCost / totalCableEntries).toLocaleString(undefined, { maximumFractionDigits: 0 }) : 0}
-              </div>
-            </div>
-            <div>
-              <div className="text-sm font-medium text-muted-foreground">Cost per Meter</div>
-              <div className="text-2xl font-bold">
-                R{totalLength > 0 ? (totalCost / totalLength).toFixed(2) : 0}
               </div>
             </div>
           </div>

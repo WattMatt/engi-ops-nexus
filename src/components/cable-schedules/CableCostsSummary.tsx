@@ -9,6 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { DollarSign, TrendingUp, Calculator } from "lucide-react";
 
 interface CableCostsSummaryProps {
   projectId: string;
@@ -127,8 +128,59 @@ export const CableCostsSummary = ({ projectId }: CableCostsSummaryProps) => {
     return <div>Loading costs summary...</div>;
   }
 
+  // Calculate additional metrics
+  const totalLength = summary?.reduce((sum, item) => sum + item.total_length, 0) || 0;
+  const totalCables = summary?.reduce((sum, item) => sum + item.cable_count, 0) || 0;
+
   return (
     <div className="space-y-4">
+      {/* Cost Summary Cards */}
+      <div className="grid gap-4 md:grid-cols-3">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Project Cost</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(totals?.total || 0)}</div>
+            <p className="text-xs text-muted-foreground">
+              Supply, install & termination
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Cost per Cable</CardTitle>
+            <Calculator className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {formatCurrency(totalCables > 0 ? (totals?.total || 0) / totalCables : 0)}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Average per cable entry
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Cost per Meter</CardTitle>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {formatCurrency(totalLength > 0 ? (totals?.total || 0) / totalLength : 0)}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Average installation rate
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Detailed Breakdown Table */}
       <Card>
         <CardHeader>
           <CardTitle>Cable Costs Summary</CardTitle>
