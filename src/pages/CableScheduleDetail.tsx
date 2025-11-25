@@ -2,12 +2,13 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Calculator, FileText, Settings, Download, Tag } from "lucide-react";
+import { ArrowLeft, Calculator, FileText, Settings, Download, Tag, TrendingDown } from "lucide-react";
 import { CableScheduleOverview } from "@/components/cable-schedules/CableScheduleOverview";
 import { CableEntriesManager } from "@/components/cable-schedules/CableEntriesManager";
 import { CableCalculationFormulas } from "@/components/cable-schedules/CableCalculationFormulas";
 import { CableCostsSummary } from "@/components/cable-schedules/CableCostsSummary";
 import { CableTagSchedule } from "@/components/cable-schedules/CableTagSchedule";
+import { CableSizingOptimizer } from "@/components/cable-schedules/CableSizingOptimizer";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CableScheduleExportPDFButton } from "@/components/cable-schedules/CableScheduleExportPDFButton";
 import { TestCalculationSettings } from "@/components/cable-schedules/TestCalculationSettings";
@@ -81,11 +82,16 @@ const CableScheduleDetail = () => {
 
       {/* Main Content Tabs */}
       <Tabs defaultValue="cables" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-5 lg:w-auto lg:inline-grid">
+        <TabsList className="grid w-full grid-cols-6 lg:w-auto lg:inline-grid">
           <TabsTrigger value="cables" className="gap-2">
             <Calculator className="h-4 w-4" />
             <span className="hidden sm:inline">Cable Schedule</span>
             <span className="sm:hidden">Cables</span>
+          </TabsTrigger>
+          <TabsTrigger value="optimizer" className="gap-2">
+            <TrendingDown className="h-4 w-4" />
+            <span className="hidden sm:inline">Optimizer</span>
+            <span className="sm:hidden">Optimize</span>
           </TabsTrigger>
           <TabsTrigger value="tags" className="gap-2">
             <Tag className="h-4 w-4" />
@@ -112,6 +118,11 @@ const CableScheduleDetail = () => {
         {/* Cable Entries Tab */}
         <TabsContent value="cables" className="space-y-6">
           <CableEntriesManager scheduleId={scheduleId!} />
+        </TabsContent>
+
+        {/* Cable Sizing Optimizer Tab */}
+        <TabsContent value="optimizer">
+          <CableSizingOptimizer projectId={schedule.project_id} />
         </TabsContent>
 
         {/* Cable Tag Schedule Tab */}
