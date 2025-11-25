@@ -172,48 +172,10 @@ export function calculateCableSize(
 
     console.log(`[INITIAL SELECTION] Required rating: ${requiredRating}A, Selected: ${selectedCable?.size}, Impedance: ${selectedCable?.impedance}`);
 
-    // If no single cable can handle the load, fall back to parallel evaluation
+    // If no single cable can handle the load, suggest the largest available cable
     if (!selectedCable) {
-      console.log(`[FALLBACK] No single cable found for ${requiredRating}A, trying parallel configuration...`);
-      const alternatives = evaluateParallelOptions(
-        loadAmps,
-        voltage,
-        totalLength,
-        deratingFactor,
-        maxAmpsPerCable,
-        preferredAmpsPerCable,
-        cableTable,
-        installationMethod,
-        safetyMargin,
-        maxVoltDropPercentage
-      );
-      
-      if (alternatives.length === 0) {
-        return null;
-      }
-      
-      // Find the most cost-effective parallel option
-      const recommended = alternatives.reduce((best, current) => 
-        current.totalCost < best.totalCost ? current : best
-      );
-      
-      const recommendedCable = cableTable.find(c => c.size === recommended.cableSize)!;
-      
-      return {
-        recommendedSize: recommended.cableSize,
-        ohmPerKm: recommendedCable.impedance,
-        voltDrop: calculateVoltDrop(recommended.loadPerCable, voltage, totalLength, recommendedCable),
-        voltDropPercentage: recommended.voltDropPercentage,
-        supplyCost: recommended.supplyCost,
-        installCost: recommended.installCost,
-        totalCost: recommended.totalCost,
-        cablesInParallel: recommended.cablesInParallel,
-        loadPerCable: recommended.loadPerCable,
-        alternatives: alternatives.map(alt => ({
-          ...alt,
-          isRecommended: alt === recommended,
-        })),
-      };
+      console.log(`[NO MATCH] No single cable found for ${requiredRating}A, suggesting largest cable...`);
+      selectedCable = cableTable[cableTable.length - 1]; // Largest cable in table
     }
 
     // Check voltage drop if length provided
