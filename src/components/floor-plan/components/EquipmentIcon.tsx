@@ -62,7 +62,8 @@ const Drawbox100Icon: React.FC<{ className?: string }> = ({ className }) => ( <s
 const WorkstationOutletIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" className={className}><rect x="2" y="7" width="20" height="10" fill="none" /><path d="M2 7 H 12 V 17 H 2 Z" fill="currentColor" /><text x="17" y="12" textAnchor="middle" dy=".3em" fontSize="10" fill="currentColor" strokeWidth="1">A</text></svg> );
 const CctvCameraIcon: React.FC<{ className?: string }> = ({ className }) => ( <svg viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2" fill="none" className={className}><rect x="2" y="7" width="14" height="10" /><path d="M16 12 L 22 9 L 22 15 Z" /></svg> );
 
-export const EquipmentIcon: React.FC<EquipmentIconProps> = ({ type, className = "h-5 w-5" }) => {
+// Memoized for performance - prevents re-rendering when dragging items
+export const EquipmentIcon = React.memo<EquipmentIconProps>(({ type, className = "h-5 w-5" }) => {
   switch (type) {
     case EquipmentType.RMU: return <RMUIcon className={className} />;
     case EquipmentType.SUBSTATION: return <SubstationIcon className={className} />;
@@ -117,4 +118,4 @@ export const EquipmentIcon: React.FC<EquipmentIconProps> = ({ type, className = 
     default:
       return null;
   }
-};
+});
