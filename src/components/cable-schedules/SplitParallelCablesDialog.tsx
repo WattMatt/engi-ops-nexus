@@ -53,23 +53,21 @@ export const SplitParallelCablesDialog = ({
       // This ensures we don't lose data if the insert fails
       const newEntries = [];
       for (let i = 1; i <= numCables; i++) {
-        // Explicitly build the new entry object, copying only database fields
-        // IMPORTANT: Do NOT include id, created_at, or updated_at - let DB auto-generate
-        const newEntry: any = {
-          // Required fields
+        // Build entry with only non-null values so DB defaults work
+        const baseEntry: any = {
           cable_tag: `${entry.cable_tag} (${i}/${numCables})`,
           from_location: entry.from_location,
           to_location: entry.to_location,
           installation_method: entry.installation_method,
-          
-          // Modified fields for parallel configuration
           cable_number: i,
           load_amps: loadPerCable,
           notes: entry.notes 
             ? `${entry.notes} | Parallel cable ${i} of ${numCables}`
             : `Parallel cable ${i} of ${numCables}`,
-          
-          // Copy all other database fields
+        };
+        
+        // Add other fields only if they have values (not null/undefined)
+        const optionalFields = {
           schedule_id: entry.schedule_id,
           voltage: entry.voltage,
           cable_type: entry.cable_type,
@@ -104,18 +102,20 @@ export const SplitParallelCablesDialog = ({
           insulation_type: entry.insulation_type,
         };
         
-        newEntries.push(newEntry);
+        // Only add non-null/undefined values
+        Object.entries(optionalFields).forEach(([key, value]) => {
+          if (value !== null && value !== undefined) {
+            baseEntry[key] = value;
+          }
+        });
+        
+        newEntries.push(baseEntry);
       }
 
-      // Insert new entries - add IDs explicitly since DB default might not be working
-      const entriesWithIds = newEntries.map(entry => ({
-        ...entry,
-        id: crypto.randomUUID(),
-      }));
-      
+      // Insert new entries (DB will auto-generate id, created_at, updated_at)
       const { error: insertError } = await supabase
         .from("cable_entries")
-        .insert(entriesWithIds);
+        .insert(newEntries);
 
       if (insertError) {
         console.error("Insert error:", insertError);
