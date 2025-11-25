@@ -28,7 +28,9 @@ export interface OptimizationResult {
     savingsPercent: number;
     voltDrop: number;
     isCurrentConfig?: boolean;
+    complianceReport?: string;
   }>;
+  complianceNotes?: string;
 }
 
 interface CableEntry {
@@ -56,6 +58,14 @@ interface CableRate {
   install_rate_per_meter: number;
   termination_cost_per_end: number;
 }
+
+// Calculate grouping factor per SANS 10142-1 based on parallel cable count
+const calculateGroupingFactor = (parallelCount: number, settings: CalculationSettings): number => {
+  if (parallelCount === 1) return 1.0;
+  if (parallelCount === 2) return settings.grouping_factor_2_circuits;
+  if (parallelCount === 3) return settings.grouping_factor_3_circuits;
+  return settings.grouping_factor_4plus_circuits; // 4 or more
+};
 
 const calculateCostBreakdown = (
   cableSize: string,
@@ -107,7 +117,15 @@ export const analyzeCableOptimizations = (
     
     if (!entry.voltage || !entry.total_length) continue;
     
-    const targetAmpacity = entry.protection_device_rating;
+    // PHASE 1: Fix Target Ampacity Logic
+    // Use actual circuit load (load_amps × parallel_count) as primary target
+    // Fall back to protection_device_rating only if load data unavailable
+    const actualCircuitLoad = entry.load_amps && entry.load_amps > 0 
+      ? entry.load_amps * currentParallelCount 
+      : null;
+    
+    const targetAmpacity = actualCircuitLoad || entry.protection_device_rating;
+    const protectionDeviceRating = entry.protection_device_rating;
     
     if (!targetAmpacity || targetAmpacity === 0) continue;
 
@@ -138,12 +156,15 @@ export const analyzeCableOptimizations = (
       
       if (ampacityPerCable < 50 || ampacityPerCable > calcSettings.max_amps_per_cable) continue;
       
+      // PHASE 2: Implement Proper Derating - Auto-calculate grouping factor
+      const effectiveGroupingFactor = calculateGroupingFactor(newParallelCount, calcSettings);
+      
       const testParams: CableCalculationParams = {
         loadAmps: ampacityPerCable,
         voltage: entry.voltage,
         totalLength: entry.total_length,
         material,
-        deratingFactor: entry.grouping_factor || 1.0,
+        deratingFactor: effectiveGroupingFactor,
         installationMethod: (entry.installation_method || calcSettings.default_installation_method) as 'air' | 'ducts' | 'ground',
         safetyMargin: calcSettings.cable_safety_margin,
         maxAmpsPerCable: calcSettings.max_amps_per_cable,
@@ -163,29 +184,47 @@ export const analyzeCableOptimizations = (
         continue;
       }
       
-      // COMPLIANCE CHECK 1: Verify cable capacity with all derating applied
+      // PHASE 3: SANS 10142-1 Compliance Checks
       const cableData = material === "aluminium" ? 
         ALUMINIUM_CABLE_TABLE.find(c => c.size === result.recommendedSize) :
         COPPER_CABLE_TABLE.find(c => c.size === result.recommendedSize);
       
-      if (cableData) {
-        const installMethod = (entry.installation_method || calcSettings.default_installation_method) as 'air' | 'ducts' | 'ground';
-        const baseCableRating = installMethod === 'air' ? cableData.currentRatingAir :
-                               installMethod === 'ground' ? cableData.currentRatingGround :
-                               cableData.currentRatingDucts;
+      if (!cableData) {
+        console.log(`[ERROR] Cable data not found for ${result.recommendedSize}`);
+        continue;
+      }
+      
+      const installMethod = (entry.installation_method || calcSettings.default_installation_method) as 'air' | 'ducts' | 'ground';
+      const baseCableRating = installMethod === 'air' ? cableData.currentRatingAir :
+                             installMethod === 'ground' ? cableData.currentRatingGround :
+                             cableData.currentRatingDucts;
+      
+      // Apply proper derating to get derated cable capacity (Iz)
+      const deratedCapacityPerCable = baseCableRating * effectiveGroupingFactor;
+      const totalDeratedCapacity = deratedCapacityPerCable * newParallelCount;
+      
+      // COMPLIANCE CHECK 1: Cable capacity must handle design current with safety margin
+      const requiredPerCable = ampacityPerCable * calcSettings.cable_safety_margin;
+      if (deratedCapacityPerCable < requiredPerCable) {
+        console.log(`[COMPLIANCE FAIL - CAPACITY] ${result.recommendedSize} derated ${deratedCapacityPerCable.toFixed(1)}A < required ${requiredPerCable.toFixed(1)}A per cable`);
+        continue;
+      }
+      
+      // COMPLIANCE CHECK 2: SANS 10142-1 Protection Coordination
+      // Rule: In ≤ Iz (Protection device rating ≤ Cable capacity)
+      if (protectionDeviceRating && protectionDeviceRating > totalDeratedCapacity) {
+        console.log(`[COMPLIANCE FAIL - In≤Iz] Protection ${protectionDeviceRating}A > Cable capacity ${totalDeratedCapacity.toFixed(1)}A`);
+        continue;
+      }
+      
+      // Rule: I2 ≤ 1.45 × Iz (Tripping current ≤ 1.45 × cable capacity)
+      // For circuit breakers, I2 is typically 1.45 × In per SANS 10142-1
+      if (protectionDeviceRating) {
+        const trippingCurrent = protectionDeviceRating * 1.45;
+        const maxAllowableTripping = totalDeratedCapacity * 1.45;
         
-        // Apply derating factor to get actual cable capacity
-        const deratedCapacity = baseCableRating * (entry.grouping_factor || 1.0);
-        const requiredPerCable = ampacityPerCable * calcSettings.cable_safety_margin;
-        
-        if (deratedCapacity < requiredPerCable) {
-          console.log(`[COMPLIANCE FAIL - CAPACITY] ${result.recommendedSize} derated ${deratedCapacity}A < required ${requiredPerCable}A per cable`);
-          continue;
-        }
-        
-        // COMPLIANCE CHECK 2: Protection device coordination
-        if (targetAmpacity > deratedCapacity * newParallelCount * 1.25) {
-          console.log(`[COMPLIANCE FAIL - PROTECTION] Total capacity ${deratedCapacity * newParallelCount}A insufficient for protection device ${targetAmpacity}A`);
+        if (trippingCurrent > maxAllowableTripping) {
+          console.log(`[COMPLIANCE FAIL - I2≤1.45Iz] Tripping ${trippingCurrent.toFixed(1)}A > Max ${maxAllowableTripping.toFixed(1)}A`);
           continue;
         }
       }
@@ -196,19 +235,45 @@ export const analyzeCableOptimizations = (
         calcSettings.voltage_drop_limit_230v;
       
       if (result.voltDropPercentage > voltDropLimit) {
-        console.log(`[COMPLIANCE FAIL - VOLTAGE DROP] ${result.voltDropPercentage}% exceeds limit ${voltDropLimit}%`);
+        console.log(`[COMPLIANCE FAIL - VOLTAGE DROP] ${result.voltDropPercentage.toFixed(2)}% exceeds limit ${voltDropLimit}%`);
         continue;
       }
       
-      // COMPLIANCE CHECK 4: Minimum cable size for protection device
-      if (targetAmpacity > 400 && result.recommendedSize === "1.5mm²") {
-        console.log(`[COMPLIANCE FAIL - MIN SIZE] ${result.recommendedSize} too small for ${targetAmpacity}A protection device`);
-        continue;
+      // COMPLIANCE CHECK 4: Minimum cable size based on protection device rating
+      const cableSizeNum = parseFloat(result.recommendedSize.replace(/mm²/g, ''));
+      
+      if (protectionDeviceRating) {
+        let minRequiredSize = 1.5;
+        
+        // Minimum size requirements per SANS 10142-1
+        if (protectionDeviceRating > 800) minRequiredSize = 185;
+        else if (protectionDeviceRating > 630) minRequiredSize = 150;
+        else if (protectionDeviceRating > 500) minRequiredSize = 120;
+        else if (protectionDeviceRating > 400) minRequiredSize = 95;
+        else if (protectionDeviceRating > 315) minRequiredSize = 70;
+        else if (protectionDeviceRating > 250) minRequiredSize = 50;
+        else if (protectionDeviceRating > 200) minRequiredSize = 35;
+        else if (protectionDeviceRating > 160) minRequiredSize = 25;
+        else if (protectionDeviceRating > 125) minRequiredSize = 16;
+        else if (protectionDeviceRating > 100) minRequiredSize = 10;
+        else if (protectionDeviceRating > 63) minRequiredSize = 6;
+        else if (protectionDeviceRating > 32) minRequiredSize = 4;
+        else if (protectionDeviceRating > 20) minRequiredSize = 2.5;
+        
+        if (cableSizeNum < minRequiredSize) {
+          console.log(`[COMPLIANCE FAIL - MIN SIZE] ${result.recommendedSize} < min ${minRequiredSize}mm² for ${protectionDeviceRating}A CB`);
+          continue;
+        }
       }
+
+      // PHASE 4: Improve Cost Accuracy - Use recommended cable type
+      const recommendedCableType = material === "copper" ? 
+        (entry.cable_type?.includes("Cu") ? entry.cable_type : "Cu/PVC") :
+        (entry.cable_type?.includes("Al") ? entry.cable_type : "Al/PVC");
 
       const altCostBreakdown = calculateCostBreakdown(
         result.recommendedSize,
-        entry.cable_type || "",
+        recommendedCableType,
         entry.total_length,
         newParallelCount,
         cableRates
@@ -218,6 +283,13 @@ export const analyzeCableOptimizations = (
       
       const isCurrentConfig = result.recommendedSize === entry.cable_size && 
                                newParallelCount === currentParallelCount;
+      
+      // PHASE 5: Better Logging & Transparency - Create compliance report
+      const complianceReport = `Design: ${targetAmpacity.toFixed(0)}A | ` +
+        `CB: ${protectionDeviceRating ? protectionDeviceRating.toFixed(0) + 'A' : 'N/A'} | ` +
+        `Cable: ${(deratedCapacityPerCable * newParallelCount).toFixed(0)}A (${deratedCapacityPerCable.toFixed(0)}A × ${newParallelCount}) | ` +
+        `Grouping: ${(effectiveGroupingFactor * 100).toFixed(0)}% | ` +
+        `Margin: ${((deratedCapacityPerCable / ampacityPerCable - 1) * 100).toFixed(0)}%`;
       
       // Only add alternatives that are compliant and either save money or are current config
       if (isCurrentConfig || savings > 0 || altCostBreakdown.total < currentCostBreakdown.total * 0.95) {
@@ -233,6 +305,7 @@ export const analyzeCableOptimizations = (
             (savings / currentCostBreakdown.total) * 100 : 0,
           voltDrop: result.voltDropPercentage,
           isCurrentConfig,
+          complianceReport,
         });
       }
     }
@@ -240,6 +313,10 @@ export const analyzeCableOptimizations = (
     testedAlternatives.sort((a, b) => a.totalCost - b.totalCost);
 
     if (testedAlternatives.length > 0) {
+      const complianceNotes = actualCircuitLoad 
+        ? `Circuit load: ${actualCircuitLoad.toFixed(0)}A (${entry.load_amps?.toFixed(0)}A × ${currentParallelCount}). Protection: ${protectionDeviceRating || 'N/A'}A. All alternatives meet SANS 10142-1 requirements: In ≤ Iz, I2 ≤ 1.45×Iz, voltage drop limits, and minimum cable sizing.`
+        : `Design based on protection device: ${protectionDeviceRating}A (load data unavailable). All alternatives meet SANS 10142-1 compliance checks.`;
+      
       optimizations.push({
         cableId: entry.id,
         cableTag: entry.base_cable_tag || entry.cable_tag,
@@ -257,6 +334,7 @@ export const analyzeCableOptimizations = (
           loadAmps: targetAmpacity,
         },
         alternatives: testedAlternatives,
+        complianceNotes,
       });
     }
   }
