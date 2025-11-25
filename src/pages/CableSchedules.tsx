@@ -27,6 +27,7 @@ import { EditableCableSizingReference } from "@/components/cable-schedules/Edita
 import { CableCalculationFormulas } from "@/components/cable-schedules/CableCalculationFormulas";
 import { EditableCalculationSettings } from "@/components/cable-schedules/EditableCalculationSettings";
 import { CableSchedulesOverview } from "@/components/cable-schedules/CableSchedulesOverview";
+import { CableSizingOptimizer } from "@/components/cable-schedules/CableSizingOptimizer";
 
 const CableSchedules = () => {
   const navigate = useNavigate();
@@ -110,10 +111,11 @@ const CableSchedules = () => {
       </div>
 
       <Tabs defaultValue="overview" className="w-full">
-        <TabsList className="grid w-full grid-cols-7 h-12">
+        <TabsList className="grid w-full grid-cols-8 h-12">
           <TabsTrigger value="overview" className="text-base">Overview</TabsTrigger>
           <TabsTrigger value="schedules" className="text-base">Schedules</TabsTrigger>
           <TabsTrigger value="cables" className="text-base">Cable Tables</TabsTrigger>
+          <TabsTrigger value="optimizer" className="text-base">Optimizer</TabsTrigger>
           <TabsTrigger value="calculations" className="text-base">Calculations</TabsTrigger>
           <TabsTrigger value="saved" className="text-base">Reports</TabsTrigger>
           <TabsTrigger value="rates" className="text-base">Rates</TabsTrigger>
@@ -195,6 +197,10 @@ const CableSchedules = () => {
             <EditableCableSizingReference />
             {projectId && <AllCableEntriesView projectId={projectId} />}
           </div>
+        </TabsContent>
+        
+        <TabsContent value="optimizer" className="mt-6">
+          {projectId && <CableSizingOptimizer projectId={projectId} />}
         </TabsContent>
         
         <TabsContent value="calculations" className="mt-6">
