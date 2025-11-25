@@ -65,20 +65,11 @@ const CableScheduleDetail = () => {
     <div className="space-y-6 pb-8">
       {/* Header */}
       <div className="flex items-start justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => navigate("/dashboard/cable-schedules")}
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Button>
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">{schedule.schedule_name}</h1>
-            <p className="text-sm text-muted-foreground mt-1">
-              Schedule #{schedule.schedule_number} • Rev {schedule.revision} • {new Date(schedule.schedule_date).toLocaleDateString()}
-            </p>
-          </div>
+        <div>
+          <h1 className="text-3xl font-bold tracking-tight">{schedule.schedule_name}</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Schedule #{schedule.schedule_number} • Rev {schedule.revision} • {new Date(schedule.schedule_date).toLocaleDateString()}
+          </p>
         </div>
       </div>
 
