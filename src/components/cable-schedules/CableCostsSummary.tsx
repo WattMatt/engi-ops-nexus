@@ -33,7 +33,7 @@ export const CableCostsSummary = ({ projectId }: CableCostsSummaryProps) => {
   const { data: summary, isLoading } = useQuery({
     queryKey: ["cable-costs-summary", projectId],
     queryFn: async () => {
-      // Get all cable schedules for this project
+      // Get all cable entries for this project (via schedule relationship OR direct project link)
       const { data: schedules, error: schedulesError } = await supabase
         .from("cable_schedules")
         .select("id")
@@ -43,11 +43,13 @@ export const CableCostsSummary = ({ projectId }: CableCostsSummaryProps) => {
 
       const scheduleIds = schedules?.map(s => s.id) || [];
 
-      // Get all cable entries across all schedules
+      // Get all cable entries - include those with schedule_id in our project schedules
       const { data: entries, error: entriesError } = await supabase
         .from("cable_entries")
         .select("cable_type, cable_size, total_length, cable_number")
-        .in("schedule_id", scheduleIds);
+        .in("schedule_id", scheduleIds)
+        .not("cable_size", "is", null)
+        .not("cable_type", "is", null);
 
       if (entriesError) throw entriesError;
 
