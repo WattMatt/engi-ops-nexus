@@ -205,7 +205,16 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
           voltDrop: number;
         }> = [];
 
-        for (let newParallelCount = 1; newParallelCount <= 6; newParallelCount++) {
+        // Set practical limits for parallel cable configurations
+        const maxPracticalParallel = currentParallelCount > 1 
+          ? Math.min(6, currentParallelCount + 1) // If already parallel, allow max +1 more cable
+          : 6; // If single cable, allow up to 6 parallel
+        
+        const minPracticalParallel = currentParallelCount > 1
+          ? Math.max(1, currentParallelCount - 2) // If already parallel, allow reducing by max 2 cables
+          : 1;
+
+        for (let newParallelCount = minPracticalParallel; newParallelCount <= maxPracticalParallel; newParallelCount++) {
           // Each cable in the new configuration will carry this load
           const loadPerCable = totalLoad / newParallelCount;
           
