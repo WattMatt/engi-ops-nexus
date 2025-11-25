@@ -8,6 +8,8 @@ import { getZoneColor } from '../utils/styleUtils';
 import { PVArrayConfig } from './PVArrayModal';
 import { findSnap, findWalkwaySnap, isPointInPolygon, isPointNearPolyline, calculateArrayRotationForRoof } from '../utils/geometry';
 import { renderMarkupsToContext, drawPvArray, drawEquipmentIcon } from '../utils/drawing';
+import { useDebouncedCallback } from '../hooks/useDebouncedCallback';
+import { useThrottledCallback } from '../hooks/useThrottledCallback';
 
 
 export interface CanvasHandles {
@@ -97,6 +99,13 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
   const [directionLine, setDirectionLine] = useState<Point[]>([]);
   const [directionDrawStep, setDirectionDrawStep] = useState(1);
 
+  // Optimistic state for smooth dragging
+  const [optimisticEquipment, setOptimisticEquipment] = useState<EquipmentItem[]>(equipment);
+  const [optimisticPvArrays, setOptimisticPvArrays] = useState<PVArrayItem[]>(pvArrays);
+  const [optimisticZones, setOptimisticZones] = useState<SupplyZone[]>(zones);
+  const [optimisticLines, setOptimisticLines] = useState<SupplyLine[]>(lines);
+  const pendingUpdateRef = useRef<NodeJS.Timeout | null>(null);
+
 
   useImperativeHandle(ref, () => ({
     getCanvases: () => ({
@@ -137,6 +146,24 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
       });
     },
   }), []);
+
+  // Sync optimistic state with props
+  useEffect(() => {
+    if (!isDraggingItem) {
+      setOptimisticEquipment(equipment);
+      setOptimisticPvArrays(pvArrays);
+      setOptimisticZones(zones);
+      setOptimisticLines(lines);
+    }
+  }, [equipment, pvArrays, zones, lines, isDraggingItem]);
+
+  // Commit optimistic updates with debouncing
+  const commitDragUpdate = useDebouncedCallback(() => {
+    if (pendingUpdateRef.current) {
+      clearTimeout(pendingUpdateRef.current);
+      pendingUpdateRef.current = null;
+    }
+  }, 100);
 
   const resetDrawingState = useCallback(() => {
     setIsDrawingShape(false);
@@ -204,11 +231,21 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
     ctx.translate(viewState.offset.x, viewState.offset.y);
     ctx.scale(viewState.zoom, viewState.zoom);
     
-    // Render all saved items
+    // Render all saved items (use optimistic state when dragging for smooth updates)
     if (scaleInfo.ratio) {
         renderMarkupsToContext(ctx, {
-            equipment, lines, zones, containment, walkways, scaleInfo, roofMasks,
-            pvPanelConfig, pvArrays, zoom: viewState.zoom, selectedItemId, tasks,
+            equipment: isDraggingItem ? optimisticEquipment : equipment, 
+            lines: isDraggingItem ? optimisticLines : lines, 
+            zones: isDraggingItem ? optimisticZones : zones, 
+            containment, 
+            walkways, 
+            scaleInfo, 
+            roofMasks,
+            pvPanelConfig, 
+            pvArrays: isDraggingItem ? optimisticPvArrays : pvArrays, 
+            zoom: viewState.zoom, 
+            selectedItemId, 
+            tasks,
         });
     }
 
@@ -946,22 +983,35 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
             y: scaleInfo.labelPosition.y + dy
         });
     } else if (isDraggingItem && selectedItemId) {
-        const commitChange = false; // Do not create history entries for every mouse move
+        // Use optimistic updates for immediate visual feedback
         if (draggedHandle) {
             // Dragging a zone handle
             if (draggedHandle.zoneId) {
-                setZones(prevZones => prevZones.map(zone => {
+                setOptimisticZones(prevZones => prevZones.map(zone => {
                     if (zone.id === draggedHandle.zoneId) {
                         const newPoints = [...zone.points];
                         newPoints[draggedHandle.pointIndex] = worldPos;
                         return { ...zone, points: newPoints, area: calculatePolygonArea(newPoints) };
                     }
                     return zone;
-                }), commitChange);
+                }));
+                
+                // Debounced commit to actual state
+                if (pendingUpdateRef.current) clearTimeout(pendingUpdateRef.current);
+                pendingUpdateRef.current = setTimeout(() => {
+                    setZones(prevZones => prevZones.map(zone => {
+                        if (zone.id === draggedHandle.zoneId) {
+                            const newPoints = [...zone.points];
+                            newPoints[draggedHandle.pointIndex] = worldPos;
+                            return { ...zone, points: newPoints, area: calculatePolygonArea(newPoints) };
+                        }
+                        return zone;
+                    }), false);
+                }, 16); // ~60fps
             }
             // Dragging a cable handle
             else if (draggedHandle.lineId) {
-                setLines(prevLines => prevLines.map(line => {
+                setOptimisticLines(prevLines => prevLines.map(line => {
                     if (line.id === draggedHandle.lineId) {
                         const newPoints = [...line.points];
                         newPoints[draggedHandle.pointIndex] = worldPos;
@@ -974,7 +1024,6 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
                             totalLength += Math.hypot(p2.x - p1.x, p2.y - p1.y);
                         }
                         
-                        // Convert to meters if scale is set
                         const lengthInMeters = scaleInfo.ratio ? totalLength * scaleInfo.ratio : totalLength;
                         const pathLength = lengthInMeters;
                         const totalLengthWithRiseDrop = pathLength + (line.startHeight || 0) + (line.endHeight || 0);
@@ -987,25 +1036,84 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
                         };
                     }
                     return line;
-                }), commitChange);
+                }));
+                
+                // Debounced commit
+                if (pendingUpdateRef.current) clearTimeout(pendingUpdateRef.current);
+                pendingUpdateRef.current = setTimeout(() => {
+                    setLines(prevLines => prevLines.map(line => {
+                        if (line.id === draggedHandle.lineId) {
+                            const newPoints = [...line.points];
+                            newPoints[draggedHandle.pointIndex] = worldPos;
+                            
+                            let totalLength = 0;
+                            for (let i = 0; i < newPoints.length - 1; i++) {
+                                const p1 = newPoints[i];
+                                const p2 = newPoints[i + 1];
+                                totalLength += Math.hypot(p2.x - p1.x, p2.y - p1.y);
+                            }
+                            
+                            const lengthInMeters = scaleInfo.ratio ? totalLength * scaleInfo.ratio : totalLength;
+                            const pathLength = lengthInMeters;
+                            const totalLengthWithRiseDrop = pathLength + (line.startHeight || 0) + (line.endHeight || 0);
+                            
+                            return { 
+                                ...line, 
+                                points: newPoints, 
+                                pathLength: pathLength,
+                                length: totalLengthWithRiseDrop
+                            };
+                        }
+                        return line;
+                    }), false);
+                }, 16);
             }
         } else {
             const lastWorldPos = toWorld(lastMousePos);
             const dx = worldPos.x - lastWorldPos.x;
             const dy = worldPos.y - lastWorldPos.y;
 
-            if (zones.some(z => z.id === selectedItemId)) {
-                setZones(prev => prev.map(zone => {
+            if (optimisticZones.some(z => z.id === selectedItemId)) {
+                setOptimisticZones(prev => prev.map(zone => {
                     if (zone.id === selectedItemId) {
                         const newPoints = zone.points.map(p => ({ x: p.x + dx, y: p.y + dy }));
                         return { ...zone, points: newPoints };
                     }
                     return zone;
-                }), commitChange);
-            } else if (equipment.some(eq => eq.id === selectedItemId)) {
-                 setEquipment(prev => prev.map(item => item.id === selectedItemId ? { ...item, position: { x: item.position.x + dx, y: item.position.y + dy } } : item), commitChange);
-            } else if (pvArrays.some(arr => arr.id === selectedItemId)) {
-                setPvArrays(prev => prev.map(item => item.id === selectedItemId ? { ...item, position: { x: item.position.x + dx, y: item.position.y + dy } } : item), commitChange);
+                }));
+                
+                if (pendingUpdateRef.current) clearTimeout(pendingUpdateRef.current);
+                pendingUpdateRef.current = setTimeout(() => {
+                    setZones(prev => prev.map(zone => {
+                        if (zone.id === selectedItemId) {
+                            const newPoints = zone.points.map(p => ({ x: p.x + dx, y: p.y + dy }));
+                            return { ...zone, points: newPoints };
+                        }
+                        return zone;
+                    }), false);
+                }, 16);
+            } else if (optimisticEquipment.some(eq => eq.id === selectedItemId)) {
+                setOptimisticEquipment(prev => prev.map(item => 
+                    item.id === selectedItemId ? { ...item, position: { x: item.position.x + dx, y: item.position.y + dy } } : item
+                ));
+                
+                if (pendingUpdateRef.current) clearTimeout(pendingUpdateRef.current);
+                pendingUpdateRef.current = setTimeout(() => {
+                    setEquipment(prev => prev.map(item => 
+                        item.id === selectedItemId ? { ...item, position: { x: item.position.x + dx, y: item.position.y + dy } } : item
+                    ), false);
+                }, 16);
+            } else if (optimisticPvArrays.some(arr => arr.id === selectedItemId)) {
+                setOptimisticPvArrays(prev => prev.map(item => 
+                    item.id === selectedItemId ? { ...item, position: { x: item.position.x + dx, y: item.position.y + dy } } : item
+                ));
+                
+                if (pendingUpdateRef.current) clearTimeout(pendingUpdateRef.current);
+                pendingUpdateRef.current = setTimeout(() => {
+                    setPvArrays(prev => prev.map(item => 
+                        item.id === selectedItemId ? { ...item, position: { x: item.position.x + dx, y: item.position.y + dy } } : item
+                    ), false);
+                }, 16);
             }
         }
     } else if (isDrawingShape && currentDrawing.length > 0) {
@@ -1158,12 +1266,22 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
     }
     
     if (isDraggingItem) {
-        // Commit the final state of the drag to history
-        const finalUpdater = (s: any) => s; // Identity function, state is already updated
-        if (zones.some(z => z.id === selectedItemId)) setZones(finalUpdater, true);
-        else if (equipment.some(eq => eq.id === selectedItemId)) setEquipment(finalUpdater, true);
-        else if (pvArrays.some(arr => arr.id === selectedItemId)) setPvArrays(finalUpdater, true);
-        else if (lines.some(l => l.id === selectedItemId)) setLines(finalUpdater, true);
+        // Clear pending debounced update
+        if (pendingUpdateRef.current) {
+            clearTimeout(pendingUpdateRef.current);
+            pendingUpdateRef.current = null;
+        }
+        
+        // Commit the final state of the drag to history with optimistic values
+        if (optimisticZones.some(z => z.id === selectedItemId)) {
+            setZones(() => optimisticZones, true);
+        } else if (optimisticEquipment.some(eq => eq.id === selectedItemId)) {
+            setEquipment(() => optimisticEquipment, true);
+        } else if (optimisticPvArrays.some(arr => arr.id === selectedItemId)) {
+            setPvArrays(() => optimisticPvArrays, true);
+        } else if (optimisticLines.some(l => l.id === selectedItemId)) {
+            setLines(() => optimisticLines, true);
+        }
     }
 
     setIsPanning(false);
@@ -1172,6 +1290,25 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
   };
 
   const handleMouseLeave = () => {
+    // Commit any pending updates before leaving
+    if (pendingUpdateRef.current) {
+        clearTimeout(pendingUpdateRef.current);
+        pendingUpdateRef.current = null;
+    }
+    
+    if (isDraggingItem) {
+        // Commit optimistic state on leave
+        if (optimisticZones.some(z => z.id === selectedItemId)) {
+            setZones(() => optimisticZones, true);
+        } else if (optimisticEquipment.some(eq => eq.id === selectedItemId)) {
+            setEquipment(() => optimisticEquipment, true);
+        } else if (optimisticPvArrays.some(arr => arr.id === selectedItemId)) {
+            setPvArrays(() => optimisticPvArrays, true);
+        } else if (optimisticLines.some(l => l.id === selectedItemId)) {
+            setLines(() => optimisticLines, true);
+        }
+    }
+    
     setIsPanning(false);
     setIsDraggingItem(false);
     setIsDraggingScaleLabel(false);
