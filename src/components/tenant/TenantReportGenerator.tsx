@@ -909,31 +909,20 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
       const doc = new jsPDF('p', 'mm', 'a4');
 
       console.log('[TENANT REPORT] Starting report generation with standardized cover page');
-      
-      // Fetch company details for standardized cover page
-      const companyDetails = await fetchCompanyDetails();
-      console.log('[TENANT REPORT] Company details fetched:', companyDetails);
-
-      // Fetch project contact for "Prepared For" section
-      const { data: projectContact } = await supabase
-        .from("project_contacts")
-        .select("id")
-        .eq("project_id", projectId)
-        .limit(1)
-        .maybeSingle();
-      
-      const contactId = projectContact?.id;
-      console.log('[TENANT REPORT] Project contact ID:', contactId);
 
       // Generate pages based on options
       if (options.includeCoverPage) {
         console.log('[TENANT REPORT] Generating standardized cover page');
         await generateCoverPage(doc, {
-          title: "Tenant Tracker Report",
-          projectName: projectName,
-          subtitle: "Tenant Schedule & Progress Analysis",
+          project_name: projectName,
+          client_name: "",
+          report_title: "Tenant Tracker Report",
+          report_date: new Date().toLocaleDateString(),
           revision: `Rev.${nextRevision}`,
-        }, companyDetails, contactId);
+          subtitle: "Tenant Schedule & Progress Analysis",
+          project_id: projectId,
+          contact_id: options.contactId || undefined,
+        });
         console.log('[TENANT REPORT] Standardized cover page generated successfully');
       }
       
