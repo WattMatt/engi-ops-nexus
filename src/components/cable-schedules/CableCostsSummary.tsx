@@ -33,7 +33,7 @@ export const CableCostsSummary = ({ projectId }: CableCostsSummaryProps) => {
   const { data: summary, isLoading } = useQuery({
     queryKey: ["cable-costs-summary", projectId],
     queryFn: async () => {
-      // Get all cable entries for this project (via schedule relationship OR direct project link)
+      // Get all cable schedules for this project
       const { data: schedules, error: schedulesError } = await supabase
         .from("cable_schedules")
         .select("id")
@@ -43,15 +43,35 @@ export const CableCostsSummary = ({ projectId }: CableCostsSummaryProps) => {
 
       const scheduleIds = schedules?.map(s => s.id) || [];
 
-      // Get all cable entries - include those with schedule_id in our project schedules
-      const { data: entries, error: entriesError } = await supabase
+      // Get entries linked to schedules
+      const { data: scheduleEntries, error: scheduleEntriesError } = await supabase
         .from("cable_entries")
         .select("cable_type, cable_size, total_length, cable_number")
-        .in("schedule_id", scheduleIds)
-        .not("cable_size", "is", null)
-        .not("cable_type", "is", null);
+        .in("schedule_id", scheduleIds);
 
-      if (entriesError) throw entriesError;
+      if (scheduleEntriesError) throw scheduleEntriesError;
+
+      // Also get entries from floor plans in this project (may not have schedule_id)
+      const { data: floorPlans, error: floorPlansError } = await supabase
+        .from("floor_plan_projects")
+        .select("id")
+        .eq("project_id", projectId);
+
+      if (floorPlansError) throw floorPlansError;
+
+      const floorPlanIds = floorPlans?.map(fp => fp.id) || [];
+
+      const { data: floorPlanEntries, error: floorPlanEntriesError } = await supabase
+        .from("cable_entries")
+        .select("cable_type, cable_size, total_length, cable_number")
+        .in("floor_plan_id", floorPlanIds)
+        .is("schedule_id", null);
+
+      if (floorPlanEntriesError) throw floorPlanEntriesError;
+
+      // Combine all entries and filter out those without cable_type or cable_size
+      const allEntries = [...(scheduleEntries || []), ...(floorPlanEntries || [])];
+      const entries = allEntries.filter(e => e.cable_type && e.cable_size);
 
       // Get all rates for this project
       const { data: rates, error: ratesError } = await supabase
@@ -190,7 +210,11 @@ export const CableCostsSummary = ({ projectId }: CableCostsSummaryProps) => {
         <CardContent>
           {!summary || summary.length === 0 ? (
             <p className="text-center text-muted-foreground py-8">
-              No cable entries found. Add cables and configure rates to see cost summary.
+              No cable entries with complete data found. To see cost summary:
+              <br />
+              1. Ensure cable entries have both Cable Type and Cable Size selected
+              <br />
+              2. Configure matching rates in the Rates tab
             </p>
           ) : (
             <div className="space-y-4">
