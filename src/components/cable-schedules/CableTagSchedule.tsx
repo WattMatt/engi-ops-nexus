@@ -22,7 +22,7 @@ export const CableTagSchedule = ({ scheduleId }: CableTagScheduleProps) => {
         .from("cable_entries")
         .select("*")
         .eq("schedule_id", scheduleId)
-        .order("display_order", { ascending: true });
+        .order("cable_tag", { ascending: true });
 
       if (error) throw error;
       return data;
