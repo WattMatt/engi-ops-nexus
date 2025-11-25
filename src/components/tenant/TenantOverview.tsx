@@ -88,7 +88,7 @@ export const TenantOverview = ({ tenants, projectId }: TenantOverviewProps) => {
   return (
     <div className="space-y-6">
       {/* Hero Stats Row */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+      <div id="tenant-hero-stats" className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
         {/* Total Tenants - Large Metric Card */}
         <Card className="relative overflow-hidden border-l-4 border-l-primary shadow-md">
           <div className="absolute top-0 right-0 w-32 h-32 bg-primary/5 rounded-full -mr-16 -mt-16" />
@@ -167,7 +167,7 @@ export const TenantOverview = ({ tenants, projectId }: TenantOverviewProps) => {
       </div>
 
       {/* Progress Tracker Grid */}
-      <Card className="shadow-md">
+      <Card id="tenant-progress-tracker" className="shadow-md">
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <LayoutGrid className="h-5 w-5" />
@@ -284,7 +284,7 @@ export const TenantOverview = ({ tenants, projectId }: TenantOverviewProps) => {
       {/* Financial Breakdown & Category Distribution */}
       <div className="grid gap-6 md:grid-cols-2">
         {/* Cost Breakdown Card */}
-        <Card className="shadow-md">
+        <Card id="tenant-financial-breakdown" className="shadow-md">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <DollarSign className="h-5 w-5" />
@@ -347,7 +347,7 @@ export const TenantOverview = ({ tenants, projectId }: TenantOverviewProps) => {
         </Card>
 
         {/* Category Distribution */}
-        <Card className="shadow-md">
+        <Card id="tenant-category-distribution" className="shadow-md">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <LayoutGrid className="h-5 w-5" />
