@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { ContactSelector } from "@/components/shared/ContactSelector";
 import {
   Dialog,
   DialogContent,
@@ -42,6 +43,7 @@ export interface ReportOptions {
   includeKPIPage: boolean;
   includeTenantSchedule: boolean;
   includeFloorPlan: boolean;
+  contactId: string;
   kpiLayout: 'compact' | 'detailed';
   kpiAppearance: {
     colorTheme: 'professional' | 'vibrant' | 'minimal';
@@ -97,6 +99,7 @@ export const ReportOptionsDialog = ({
     includeKPIPage: true,
     includeTenantSchedule: true,
     includeFloorPlan: true,
+    contactId: "",
     kpiLayout: 'compact',
     kpiAppearance: {
       colorTheme: 'professional',
@@ -133,6 +136,7 @@ export const ReportOptionsDialog = ({
       includeKPIPage: true,
       includeTenantSchedule: true,
       includeFloorPlan: true,
+      contactId: options.contactId,
       kpiLayout: 'compact',
       kpiAppearance: {
         colorTheme: 'professional',
@@ -271,6 +275,7 @@ export const ReportOptionsDialog = ({
       includeKPIPage: false,
       includeTenantSchedule: false,
       includeFloorPlan: false,
+      contactId: options.contactId,
       kpiLayout: 'compact',
       kpiAppearance: {
         colorTheme: 'professional',
@@ -374,6 +379,14 @@ export const ReportOptionsDialog = ({
           {/* Report Sections */}
           <div className="space-y-4">
             <h4 className="font-semibold text-sm">Report Sections</h4>
+            
+            {/* Contact Selector */}
+            <ContactSelector
+              projectId={projectId}
+              value={options.contactId}
+              onValueChange={(value) => setOptions({ ...options, contactId: value })}
+            />
+            
             <div className="space-y-3 pl-2">
               <div className="flex items-center space-x-2">
                 <Checkbox
