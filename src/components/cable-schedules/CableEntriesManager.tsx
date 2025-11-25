@@ -11,11 +11,12 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Plus, Pencil, Trash2, Download, Users, RefreshCw } from "lucide-react";
+import { Plus, Pencil, Trash2, Download, Users, RefreshCw, Split } from "lucide-react";
 import { AddCableEntryDialog } from "./AddCableEntryDialog";
 import { EditCableEntryDialog } from "./EditCableEntryDialog";
 import { ImportFloorPlanCablesDialog } from "./ImportFloorPlanCablesDialog";
 import { ImportTenantsDialog } from "./ImportTenantsDialog";
+import { SplitParallelCablesDialog } from "./SplitParallelCablesDialog";
 import { useToast } from "@/hooks/use-toast";
 import { calculateCableSize } from "@/utils/cableSizing";
 import { useCalculationSettings } from "@/hooks/useCalculationSettings";
@@ -41,6 +42,7 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [showImportTenantsDialog, setShowImportTenantsDialog] = useState(false);
+  const [showSplitDialog, setShowSplitDialog] = useState(false);
   const [selectedEntry, setSelectedEntry] = useState<any>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [recalculating, setRecalculating] = useState(false);
@@ -125,6 +127,11 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
   const handleEdit = (entry: any) => {
     setSelectedEntry(entry);
     setShowEditDialog(true);
+  };
+
+  const handleSplit = (entry: any) => {
+    setSelectedEntry(entry);
+    setShowSplitDialog(true);
   };
 
   const handleDeleteClick = (entry: any) => {
@@ -285,7 +292,7 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
                       <TableHead className="sticky top-0 bg-background z-20 px-4 py-3 w-32 border-b">Install Method</TableHead>
                       <TableHead className="sticky top-0 bg-background z-20 px-4 py-3 w-28 border-b">Cable Size</TableHead>
                       <TableHead className="sticky top-0 bg-background z-20 px-4 py-3 w-28 border-b">Length (m)</TableHead>
-                      <TableHead className="sticky top-0 bg-background z-20 px-4 py-3 w-24 text-right border-b">Actions</TableHead>
+                      <TableHead className="sticky top-0 bg-background z-20 px-4 py-3 w-32 text-right border-b">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -305,7 +312,15 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
                             {(entry.total_length || (entry.measured_length || 0) + (entry.extra_length || 0)).toFixed(2)}
                           </TableCell>
                           <TableCell className="px-4 py-4">
-                            <div className="flex items-center justify-end gap-2">
+                            <div className="flex items-center justify-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleSplit(entry)}
+                                title="Split into parallel cables"
+                              >
+                                <Split className="h-4 w-4" />
+                              </Button>
                               <Button
                                 variant="ghost"
                                 size="sm"
@@ -319,9 +334,9 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
                                 onClick={() => handleDeleteClick(entry)}
                               >
                                 <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
+                              </Button>
+                            </div>
+                          </TableCell>
                     </TableRow>
                     ))}
                   </TableBody>
@@ -376,6 +391,15 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
           setShowAddDialog(false);
         }}
       />
+
+      {selectedEntry && (
+        <SplitParallelCablesDialog
+          open={showSplitDialog}
+          onOpenChange={setShowSplitDialog}
+          entry={selectedEntry}
+          onSuccess={refetch}
+        />
+      )}
 
       {selectedEntry && (
         <EditCableEntryDialog
