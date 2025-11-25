@@ -791,6 +791,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
       <EquipmentPanel 
         equipment={equipment} lines={lines} zones={zones} containment={containment} selectedItemId={selectedItemId}
         setSelectedItemId={setSelectedItemId} onEquipmentUpdate={handleEquipmentUpdate} onZoneUpdate={handleZoneUpdate}
+        scaleInfo={scaleInfo}
         purposeConfig={purposeConfig} designPurpose={designPurpose} pvPanelConfig={pvPanelConfig}
         pvArrays={pvArrays} onDeleteItem={handleDeleteSelectedItem} tasks={tasks} onOpenTaskModal={handleOpenTaskModal}
         onJumpToZone={handleJumpToZone} modulesPerString={modulesPerString} onModulesPerStringChange={setModulesPerString}

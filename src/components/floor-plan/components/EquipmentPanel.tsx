@@ -1,12 +1,14 @@
 
 import React, { useState, useMemo } from 'react';
-import { Layers, LayoutGrid, PlusCircle, CheckCircle, Clock, Circle, ChevronDown } from 'lucide-react';
-import { EquipmentItem, SupplyLine, SupplyZone, Containment, EquipmentType, DesignPurpose, PVPanelConfig, PVArrayItem, Task, TaskStatus } from '../types';
+import { Layers, LayoutGrid, PlusCircle, CheckCircle, Clock, Circle, ChevronDown, Box } from 'lucide-react';
+import { EquipmentItem, SupplyLine, SupplyZone, Containment, EquipmentType, DesignPurpose, PVPanelConfig, PVArrayItem, Task, TaskStatus, ScaleInfo } from '../types';
 import { PurposeConfig } from '../purpose.config';
 import { EquipmentIcon } from './EquipmentIcon';
 import { getCableColor, getContainmentStyle, calculateLvCableSummary } from '../utils/styleUtils';
 import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
+import { CableRoute3DModal } from '@/components/cable-route/CableRoute3DModal';
+import { convertSupplyLinesToCableRoutes } from '@/components/cable-route/utils/routeConverter';
 
 interface EquipmentPanelProps {
   equipment: EquipmentItem[];
@@ -32,6 +34,8 @@ interface EquipmentPanelProps {
   onJumpToZone: (zone: SupplyZone) => void;
   // Project ID
   projectId?: string;
+  // Scale Info for 3D conversion
+  scaleInfo?: ScaleInfo | null;
 }
 
 type EquipmentPanelTab = 'summary' | 'equipment' | 'cables' | 'containment' | 'zones' | 'tasks';
@@ -557,9 +561,11 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
     onEquipmentUpdate, onZoneUpdate, onDeleteItem, purposeConfig, designPurpose,
     pvPanelConfig, pvArrays, tasks, onOpenTaskModal, onJumpToZone, modulesPerString, onModulesPerStringChange,
     projectId,
+    scaleInfo,
 }) => {
   const [activeTab, setActiveTab] = useState<EquipmentPanelTab>('summary');
   const [expandedAssignees, setExpandedAssignees] = useState<Record<string, boolean>>({});
+  const [show3DModal, setShow3DModal] = useState(false);
 
   // Fetch all cable entries for this project from the database
   const { data: cableEntries = [], isLoading: loadingCables } = useQuery({
@@ -812,7 +818,18 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
                 </div>
             </div>
              <div style={{display: activeTab === 'cables' ? 'block' : 'none'}}>
-                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Cable Schedule</h3>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Cable Schedule</h3>
+                  {lines.filter(l => l.cableType && l.points.length >= 2).length > 0 && (
+                    <button
+                      onClick={() => setShow3DModal(true)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded-md text-xs font-medium hover:bg-primary/90 transition-colors"
+                    >
+                      <Box size={14} />
+                      3D Analysis
+                    </button>
+                  )}
+                </div>
                 {loadingCables ? (
                   <p className="text-gray-500 text-xs text-center p-4">Loading cables...</p>
                 ) : cableEntries.length > 0 ? (
@@ -996,6 +1013,16 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
                 ))}
             </div>
         </div>
+
+        {/* 3D Cable Route Analysis Modal */}
+        <CableRoute3DModal
+          routes={convertSupplyLinesToCableRoutes(
+            lines.filter(l => l.cableType && l.points.length >= 2),
+            scaleInfo || null
+          )}
+          isOpen={show3DModal}
+          onClose={() => setShow3DModal(false)}
+        />
     </aside>
   );
 };
