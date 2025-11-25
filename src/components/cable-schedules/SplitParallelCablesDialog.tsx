@@ -25,7 +25,6 @@ export const SplitParallelCablesDialog = ({
   const [numCables, setNumCables] = useState(2);
   const [loading, setLoading] = useState(false);
 
-  // Reset state when dialog closes
   const handleOpenChange = (newOpen: boolean) => {
     if (!newOpen) {
       setNumCables(2);
@@ -46,93 +45,37 @@ export const SplitParallelCablesDialog = ({
 
     setLoading(true);
     try {
-      // Each parallel cable carries the SAME load (not divided)
       const loadPerCable = entry.load_amps;
       
-      // Create new parallel cable entries BEFORE deleting original
-      // This ensures we don't lose data if the insert fails
       const newEntries = [];
       for (let i = 1; i <= numCables; i++) {
-        // Explicitly build the new entry object, copying only database fields
-        // IMPORTANT: Do NOT include id, created_at, or updated_at - let DB auto-generate
-        const newEntry: any = {
-          // Required fields
+        const { id, created_at, updated_at, ...entryWithoutMetadata } = entry;
+        
+        newEntries.push({
+          ...entryWithoutMetadata,
           cable_tag: `${entry.cable_tag} (${i}/${numCables})`,
-          from_location: entry.from_location,
-          to_location: entry.to_location,
-          installation_method: entry.installation_method,
-          
-          // Modified fields for parallel configuration
           cable_number: i,
           load_amps: loadPerCable,
           notes: entry.notes 
             ? `${entry.notes} | Parallel cable ${i} of ${numCables}`
             : `Parallel cable ${i} of ${numCables}`,
-          
-          // Copy all other database fields
-          schedule_id: entry.schedule_id,
-          voltage: entry.voltage,
-          cable_type: entry.cable_type,
-          ohm_per_km: entry.ohm_per_km,
-          extra_length: entry.extra_length,
-          measured_length: entry.measured_length,
-          total_length: entry.total_length,
-          volt_drop: entry.volt_drop,
-          cable_size: entry.cable_size,
-          supply_cost: entry.supply_cost,
-          install_cost: entry.install_cost,
-          total_cost: entry.total_cost,
-          display_order: entry.display_order,
-          floor_plan_cable_id: entry.floor_plan_cable_id,
-          quantity: entry.quantity,
-          created_from: entry.created_from,
-          floor_plan_id: entry.floor_plan_id,
-          power_factor: entry.power_factor,
-          ambient_temperature: entry.ambient_temperature,
-          grouping_factor: entry.grouping_factor,
-          thermal_insulation_factor: entry.thermal_insulation_factor,
-          voltage_drop_limit: entry.voltage_drop_limit,
-          circuit_type: entry.circuit_type,
-          number_of_phases: entry.number_of_phases,
-          core_configuration: entry.core_configuration,
-          protection_device_rating: entry.protection_device_rating,
-          max_demand_factor: entry.max_demand_factor,
-          starting_current: entry.starting_current,
-          fault_level: entry.fault_level,
-          earth_fault_loop_impedance: entry.earth_fault_loop_impedance,
-          calculation_method: entry.calculation_method,
-          insulation_type: entry.insulation_type,
-        };
-        
-        newEntries.push(newEntry);
+        });
       }
 
-      // Insert new entries - add IDs explicitly since DB default might not be working
-      const entriesWithIds = newEntries.map(entry => ({
-        ...entry,
-        id: crypto.randomUUID(),
-      }));
-      
       const { error: insertError } = await supabase
         .from("cable_entries")
-        .insert(entriesWithIds);
+        .insert(newEntries);
 
       if (insertError) {
-        console.error("Insert error:", insertError);
-        throw new Error(`Failed to create parallel cables: ${insertError.message}`);
+        throw insertError;
       }
 
-      console.log("Successfully inserted parallel cables");
-
-      // Only delete the original entry after successful insert
       const { error: deleteError } = await supabase
         .from("cable_entries")
         .delete()
         .eq("id", entry.id);
 
       if (deleteError) {
-        console.error("Delete error:", deleteError);
-        // This is less critical - the new entries are already created
         toast({
           title: "Warning",
           description: "Parallel cables created but failed to delete original entry",
@@ -140,7 +83,6 @@ export const SplitParallelCablesDialog = ({
         });
       }
 
-      // Invalidate all cable-entries queries to ensure fresh data
       await queryClient.invalidateQueries({ queryKey: ["cable-entries"] });
 
       toast({
@@ -151,10 +93,9 @@ export const SplitParallelCablesDialog = ({
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
-      console.error("Split cable error:", error);
       toast({
-        title: "Error Splitting Cable",
-        description: error.message || "Failed to split cable into parallel configuration",
+        title: "Error",
+        description: error.message || "Failed to split cable",
         variant: "destructive",
       });
     } finally {
@@ -207,10 +148,12 @@ export const SplitParallelCablesDialog = ({
             <div className="space-y-1 text-sm text-muted-foreground">
               <p>• {numCables} parallel cables will be created</p>
               {entry?.load_amps && (
-                <p>• Each cable carries: {entry.load_amps.toFixed(2)}A (same load per cable)</p>
+                <p>• Each cable carries: {entry.load_amps.toFixed(2)}A</p>
               )}
               <p>• Cable tags: {entry?.cable_tag || 'CABLE'} (1/{numCables}), (2/{numCables}), etc.</p>
-              <p>• Total system load: {entry?.load_amps ? (entry.load_amps * numCables).toFixed(2) : 'N/A'}A</p>
+              {entry?.load_amps && (
+                <p>• Total system load: {(entry.load_amps * numCables).toFixed(2)}A</p>
+              )}
               <p className="text-xs mt-2 text-amber-600 dark:text-amber-500">
                 ⚠️ The original cable entry will be replaced with {numCables} new parallel entries
               </p>
