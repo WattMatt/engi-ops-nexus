@@ -15,10 +15,26 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CableScheduleExportPDFButton } from "@/components/cable-schedules/CableScheduleExportPDFButton";
 import { TestCalculationSettings } from "@/components/cable-schedules/TestCalculationSettings";
 import { CableScheduleReports } from "@/components/cable-schedules/CableScheduleReports";
+import { EditableCableSizingReference } from "@/components/cable-schedules/EditableCableSizingReference";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const CableScheduleDetail = () => {
   const { scheduleId } = useParams();
   const navigate = useNavigate();
+  const [settingsDialogOpen, setSettingsDialogOpen] = useState(false);
+  const [settingsView, setSettingsView] = useState<"calculations" | "settings" | "tables">("settings");
 
   const { data: schedule, isLoading } = useQuery({
     queryKey: ["cable-schedule", scheduleId],
@@ -71,11 +87,18 @@ const CableScheduleDetail = () => {
             Schedule #{schedule.schedule_number} • Rev {schedule.revision} • {new Date(schedule.schedule_date).toLocaleDateString()}
           </p>
         </div>
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => setSettingsDialogOpen(true)}
+        >
+          <Settings className="h-4 w-4" />
+        </Button>
       </div>
 
       {/* Main Content Tabs */}
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 md:grid-cols-9 lg:w-auto lg:inline-grid">
+        <TabsList className="grid w-full grid-cols-4 md:grid-cols-7 lg:w-auto lg:inline-grid">
           <TabsTrigger value="overview" className="gap-2">
             <BarChart3 className="h-4 w-4" />
             <span className="hidden sm:inline">Overview</span>
@@ -96,11 +119,6 @@ const CableScheduleDetail = () => {
             <span className="hidden sm:inline">Cable Tags</span>
             <span className="sm:hidden">Tags</span>
           </TabsTrigger>
-          <TabsTrigger value="calculations" className="gap-2">
-            <SigmaSquare className="h-4 w-4" />
-            <span className="hidden sm:inline">Calculations</span>
-            <span className="sm:hidden">Calc</span>
-          </TabsTrigger>
           <TabsTrigger value="rates" className="gap-2">
             <DollarSign className="h-4 w-4" />
             <span className="hidden sm:inline">Rates</span>
@@ -110,11 +128,6 @@ const CableScheduleDetail = () => {
             <Download className="h-4 w-4" />
             <span className="hidden sm:inline">Costs</span>
             <span className="sm:hidden">Costs</span>
-          </TabsTrigger>
-          <TabsTrigger value="settings" className="gap-2">
-            <Settings className="h-4 w-4" />
-            <span className="hidden sm:inline">Settings</span>
-            <span className="sm:hidden">Settings</span>
           </TabsTrigger>
           <TabsTrigger value="reports" className="gap-2">
             <File className="h-4 w-4" />
@@ -144,11 +157,6 @@ const CableScheduleDetail = () => {
           <CableTagSchedule scheduleId={scheduleId!} />
         </TabsContent>
 
-        {/* Calculations Tab */}
-        <TabsContent value="calculations">
-          <CableCalculationFormulas schedule={schedule} />
-        </TabsContent>
-
         {/* Rates Tab */}
         <TabsContent value="rates">
           <CableRatesManager projectId={schedule.project_id} />
@@ -159,16 +167,48 @@ const CableScheduleDetail = () => {
           <CableCostsSummary projectId={schedule.project_id} />
         </TabsContent>
 
-        {/* Settings Tab */}
-        <TabsContent value="settings">
-          <TestCalculationSettings projectId={schedule.project_id} />
-        </TabsContent>
-
         {/* Reports Tab */}
         <TabsContent value="reports">
           <CableScheduleReports schedule={schedule} />
         </TabsContent>
       </Tabs>
+
+      {/* Settings Dialog */}
+      <Dialog open={settingsDialogOpen} onOpenChange={setSettingsDialogOpen}>
+        <DialogContent className="max-w-6xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Settings</DialogTitle>
+          </DialogHeader>
+          <Tabs value={settingsView} onValueChange={(v) => setSettingsView(v as any)} className="space-y-4">
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="settings" className="gap-2">
+                <Settings className="h-4 w-4" />
+                Settings
+              </TabsTrigger>
+              <TabsTrigger value="calculations" className="gap-2">
+                <SigmaSquare className="h-4 w-4" />
+                Calculations
+              </TabsTrigger>
+              <TabsTrigger value="tables" className="gap-2">
+                <FileText className="h-4 w-4" />
+                Cable Tables
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="settings" className="space-y-4">
+              <TestCalculationSettings projectId={schedule.project_id} />
+            </TabsContent>
+            
+            <TabsContent value="calculations" className="space-y-4">
+              <CableCalculationFormulas schedule={schedule} />
+            </TabsContent>
+            
+            <TabsContent value="tables" className="space-y-4">
+              <EditableCableSizingReference />
+            </TabsContent>
+          </Tabs>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
