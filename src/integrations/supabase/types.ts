@@ -781,6 +781,7 @@ export type Database = {
       cable_entries: {
         Row: {
           ambient_temperature: number | null
+          base_cable_tag: string | null
           cable_number: number | null
           cable_size: string | null
           cable_tag: string
@@ -808,6 +809,7 @@ export type Database = {
           notes: string | null
           number_of_phases: number | null
           ohm_per_km: number | null
+          parallel_group_id: string | null
           power_factor: number | null
           protection_device_rating: number | null
           quantity: number
@@ -825,6 +827,7 @@ export type Database = {
         }
         Insert: {
           ambient_temperature?: number | null
+          base_cable_tag?: string | null
           cable_number?: number | null
           cable_size?: string | null
           cable_tag: string
@@ -852,6 +855,7 @@ export type Database = {
           notes?: string | null
           number_of_phases?: number | null
           ohm_per_km?: number | null
+          parallel_group_id?: string | null
           power_factor?: number | null
           protection_device_rating?: number | null
           quantity?: number
@@ -869,6 +873,7 @@ export type Database = {
         }
         Update: {
           ambient_temperature?: number | null
+          base_cable_tag?: string | null
           cable_number?: number | null
           cable_size?: string | null
           cable_tag?: string
@@ -896,6 +901,7 @@ export type Database = {
           notes?: string | null
           number_of_phases?: number | null
           ohm_per_km?: number | null
+          parallel_group_id?: string | null
           power_factor?: number | null
           protection_device_rating?: number | null
           quantity?: number

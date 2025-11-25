@@ -47,6 +47,13 @@ export function SplitParallelCablesDialog({
     try {
       const loadPerCable = entry.load_amps;
       
+      // Generate a unique group ID for this set of parallel cables
+      const parallelGroupId = crypto.randomUUID();
+      
+      // Extract base cable tag (remove any existing parallel numbers)
+      const baseCableTag = entry.base_cable_tag || 
+        entry.cable_tag.replace(/\s*\(\d+\/\d+\)(\s*\(\d+\/\d+\))*\s*$/, '');
+      
       // Create new entries without id, created_at, updated_at
       const newEntries = [];
       for (let i = 1; i <= numCables; i++) {
@@ -54,7 +61,9 @@ export function SplitParallelCablesDialog({
         
         newEntries.push({
           ...rest,
-          cable_tag: `${entry.cable_tag} (${i}/${numCables})`,
+          cable_tag: baseCableTag, // Store base tag without numbers
+          base_cable_tag: baseCableTag,
+          parallel_group_id: parallelGroupId,
           cable_number: i,
           load_amps: loadPerCable,
           notes: entry.notes 

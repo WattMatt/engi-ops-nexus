@@ -297,19 +297,36 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {entries.map((entry) => {
-                      const hasCompleteData = entry.voltage && entry.load_amps && entry.cable_size;
-                      return (
-                      <TableRow key={entry.id}>
-                          <TableCell className="px-4 py-4 text-center">
-                            {hasCompleteData ? (
-                              <span className="inline-flex h-2 w-2 rounded-full bg-green-500" title="Complete" />
-                            ) : (
-                              <span className="inline-flex h-2 w-2 rounded-full bg-yellow-500" title="Incomplete - needs voltage, load, or cable size" />
-                            )}
-                          </TableCell>
-                          <TableCell className="px-4 py-4 font-medium">{entry.cable_number || "1"}</TableCell>
-                          <TableCell className="px-4 py-4 font-medium">{entry.cable_tag}</TableCell>
+                     {entries.map((entry) => {
+                       const hasCompleteData = entry.voltage && entry.load_amps && entry.cable_size;
+                       
+                       // Calculate dynamic parallel cable display
+                       let displayCableTag = entry.cable_tag;
+                       if (entry.parallel_group_id) {
+                         // Find all cables in this parallel group
+                         const parallelCables = entries.filter(e => e.parallel_group_id === entry.parallel_group_id);
+                         const totalInGroup = parallelCables.length;
+                         
+                         // Find this cable's position in the group (sorted by cable_number)
+                         const sortedGroup = [...parallelCables].sort((a, b) => (a.cable_number || 0) - (b.cable_number || 0));
+                         const position = sortedGroup.findIndex(e => e.id === entry.id) + 1;
+                         
+                         // Use base_cable_tag if available, otherwise use cable_tag
+                         const baseTag = entry.base_cable_tag || entry.cable_tag;
+                         displayCableTag = `${baseTag} (${position}/${totalInGroup})`;
+                       }
+                       
+                       return (
+                       <TableRow key={entry.id}>
+                           <TableCell className="px-4 py-4 text-center">
+                             {hasCompleteData ? (
+                               <span className="inline-flex h-2 w-2 rounded-full bg-green-500" title="Complete" />
+                             ) : (
+                               <span className="inline-flex h-2 w-2 rounded-full bg-yellow-500" title="Incomplete - needs voltage, load, or cable size" />
+                             )}
+                           </TableCell>
+                           <TableCell className="px-4 py-4 font-medium">{entry.cable_number || "1"}</TableCell>
+                           <TableCell className="px-4 py-4 font-medium">{displayCableTag}</TableCell>
                           <TableCell className="px-4 py-4">{entry.from_location}</TableCell>
                           <TableCell className="px-4 py-4">{entry.to_location}</TableCell>
                           <TableCell className="px-4 py-4 font-medium text-center">{entry.quantity || 1}</TableCell>

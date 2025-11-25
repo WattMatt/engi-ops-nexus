@@ -167,6 +167,7 @@ export const EditCableEntryDialog = ({
         .from("cable_entries")
         .update({
           cable_tag: formData.cable_tag,
+          base_cable_tag: entry.parallel_group_id ? entry.base_cable_tag : formData.cable_tag, // Keep base_cable_tag for parallel cables
           from_location: formData.from_location,
           to_location: formData.to_location,
           voltage: parseFloat(formData.voltage) || 400,
