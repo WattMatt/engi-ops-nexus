@@ -95,11 +95,10 @@ const CostReportDetail = () => {
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList>
-          <TabsTrigger value="generate">Generate Reports</TabsTrigger>
+          <TabsTrigger value="reports">Reports</TabsTrigger>
           <TabsTrigger value="details">Report Details</TabsTrigger>
           <TabsTrigger value="categories">Categories & Line Items</TabsTrigger>
           <TabsTrigger value="variations">Variations</TabsTrigger>
-          <TabsTrigger value="history">Report History</TabsTrigger>
         </TabsList>
 
         {/* Overview is the landing page - visible by default */}
@@ -107,7 +106,7 @@ const CostReportDetail = () => {
           <CostReportOverview report={report} />
         </div>
 
-        <TabsContent value="generate">
+        <TabsContent value="reports" className="space-y-4">
           <Card>
             <CardContent className="pt-6 space-y-4">
               <div>
@@ -122,6 +121,7 @@ const CostReportDetail = () => {
               />
             </CardContent>
           </Card>
+          <CostReportHistory key={historyKey} reportId={report.id} />
         </TabsContent>
 
         <TabsContent value="details">
@@ -136,9 +136,6 @@ const CostReportDetail = () => {
           <CostVariationsManager reportId={report.id} projectId={report.project_id} />
         </TabsContent>
 
-        <TabsContent value="history">
-          <CostReportHistory key={historyKey} reportId={report.id} />
-        </TabsContent>
       </Tabs>
     </div>
   );
