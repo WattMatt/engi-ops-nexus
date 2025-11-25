@@ -303,7 +303,7 @@ export const AddCableEntryDialog = ({
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-background z-50">
                   <SelectItem value="230">230V (Single Phase)</SelectItem>
                   <SelectItem value="400">400V (Three Phase)</SelectItem>
                 </SelectContent>
@@ -334,7 +334,7 @@ export const AddCableEntryDialog = ({
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-background z-50">
                   <SelectItem value="Copper">Copper</SelectItem>
                   <SelectItem value="Aluminium">Aluminium</SelectItem>
                 </SelectContent>
@@ -350,7 +350,7 @@ export const AddCableEntryDialog = ({
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="bg-background z-50">
                   <SelectItem value="ground">Underground</SelectItem>
                   <SelectItem value="ducts">In Ducts</SelectItem>
                   <SelectItem value="air">In Air / On Tray</SelectItem>
@@ -361,18 +361,27 @@ export const AddCableEntryDialog = ({
 
           {/* Cable Size with Suggestion */}
           <div>
-            <Label htmlFor="cable_size">Cable Size (mm²)</Label>
+            <Label htmlFor="cable_size">Cable Size</Label>
             {suggestedCableSize && (
               <Badge variant="secondary" className="ml-2">
                 Suggested: {suggestedCableSize}
               </Badge>
             )}
-            <Input
-              id="cable_size"
+            <Select
               value={formData.cable_size}
-              onChange={(e) => setFormData({ ...formData, cable_size: e.target.value })}
-              placeholder={suggestedCableSize ? `Suggested: ${suggestedCableSize}` : "e.g., 16"}
-            />
+              onValueChange={(value) => setFormData({ ...formData, cable_size: value })}
+            >
+              <SelectTrigger id="cable_size">
+                <SelectValue placeholder={suggestedCableSize ? `Suggested: ${suggestedCableSize}` : "Select cable size"} />
+              </SelectTrigger>
+              <SelectContent className="bg-background z-50">
+                {(formData.cable_type === "Copper" ? COPPER_CABLE_TABLE : ALUMINIUM_CABLE_TABLE).map((cable) => (
+                  <SelectItem key={cable.size} value={cable.size}>
+                    {cable.size}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Length */}
