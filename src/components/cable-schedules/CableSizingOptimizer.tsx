@@ -170,13 +170,22 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
         const currentParallelCount = entry.parallel_total_count || 1;
         console.log(`Processing cable group: ${entry.base_cable_tag || entry.cable_tag}, Total Load: ${entry.load_amps}A, Current Config: ${currentParallelCount}x${entry.cable_size}`);
         
-        if (!entry.load_amps || !entry.voltage || !entry.total_length) {
+        if (!entry.voltage || !entry.total_length) {
           console.log(`Skipping ${entry.cable_tag} - missing required data`);
           continue;
         }
         
-        // For parallel groups, the total load is what we need to handle
-        const totalLoad = entry.load_amps;
+        // Use protection device rating as the design target (what the circuit needs to handle)
+        // This is the actual electrical design requirement, not just current cable load
+        const targetLoad = entry.protection_device_rating || entry.load_amps;
+        
+        if (!targetLoad) {
+          console.log(`Skipping ${entry.cable_tag} - no load or protection rating data`);
+          continue;
+        }
+        
+        console.log(`Target circuit rating: ${targetLoad}A (Protection device: ${entry.protection_device_rating}A)`);
+
 
         const material = entry.cable_type?.includes("Cu") ? "copper" : 
                         entry.cable_type?.includes("Al") ? "aluminium" : 
@@ -192,7 +201,7 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
 
         console.log(`Current config: ${currentParallelCount}x${entry.cable_size}, Total Cost: R${currentCostBreakdown.total.toFixed(2)}`);
 
-        // Test different NEW parallel configurations (1 to 6 cables total)
+        // Test different NEW parallel configurations to achieve the target load
         // This replaces the entire current parallel group with a new configuration
         const testedAlternatives: Array<{
           size: string;
@@ -217,8 +226,8 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
           : 1;
 
         for (let newParallelCount = minPracticalParallel; newParallelCount <= maxPracticalParallel; newParallelCount++) {
-          // Each cable in the new configuration will carry this load
-          const loadPerCable = totalLoad / newParallelCount;
+          // Each cable in the new configuration will carry this load to achieve target circuit rating
+          const loadPerCable = targetLoad / newParallelCount;
           
           // Skip if load per cable is too low (impractical) or too high
           if (loadPerCable < 50 || loadPerCable > calcSettings.max_amps_per_cable) continue;
@@ -294,7 +303,7 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
               installCost: currentCostBreakdown.install,
               terminationCost: currentCostBreakdown.termination,
               voltage: entry.voltage,
-              loadAmps: totalLoad,
+              loadAmps: targetLoad,
             },
             alternatives: testedAlternatives, // Show all configurations
           });
@@ -420,7 +429,7 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
                         {result.fromLocation} → {result.toLocation} | {result.totalLength}m
                       </CardDescription>
                       <div className="mt-1 font-semibold text-foreground">
-                        Target Load: {result.currentConfig.loadAmps}A @ {result.currentConfig.voltage}V
+                        Target Circuit Rating: {result.currentConfig.loadAmps}A @ {result.currentConfig.voltage}V
                       </div>
                     </div>
                     {hasSavings ? (
