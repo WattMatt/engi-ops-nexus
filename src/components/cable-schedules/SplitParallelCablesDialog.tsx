@@ -46,8 +46,8 @@ export const SplitParallelCablesDialog = ({
 
     setLoading(true);
     try {
-      // Calculate divided load per cable
-      const loadPerCable = entry.load_amps ? entry.load_amps / numCables : null;
+      // Each parallel cable carries the SAME load (not divided)
+      const loadPerCable = entry.load_amps;
       
       // Create new parallel cable entries BEFORE deleting original
       // This ensures we don't lose data if the insert fails
@@ -139,7 +139,7 @@ export const SplitParallelCablesDialog = ({
 
       toast({
         title: "Success",
-        description: `Split into ${numCables} parallel cables${loadPerCable ? ` with ${loadPerCable.toFixed(2)}A per cable` : ''}`,
+        description: `Created ${numCables} parallel cables${loadPerCable ? ` - each carrying ${loadPerCable.toFixed(2)}A` : ''}`,
       });
 
       onSuccess();
@@ -197,15 +197,16 @@ export const SplitParallelCablesDialog = ({
           </div>
           
           <div className="rounded-lg bg-muted p-4 space-y-2">
-            <p className="text-sm font-medium text-foreground">Split Configuration:</p>
+            <p className="text-sm font-medium text-foreground">Parallel Configuration:</p>
             <div className="space-y-1 text-sm text-muted-foreground">
               <p>• {numCables} parallel cables will be created</p>
               {entry?.load_amps && (
-                <p>• Each cable: {(entry.load_amps / numCables).toFixed(2)}A ({((entry.load_amps / numCables) / entry.load_amps * 100).toFixed(0)}% of total)</p>
+                <p>• Each cable carries: {entry.load_amps.toFixed(2)}A (same load per cable)</p>
               )}
               <p>• Cable tags: {entry?.cable_tag || 'CABLE'} (1/{numCables}), (2/{numCables}), etc.</p>
+              <p>• Total system load: {entry?.load_amps ? (entry.load_amps * numCables).toFixed(2) : 'N/A'}A</p>
               <p className="text-xs mt-2 text-amber-600 dark:text-amber-500">
-                ⚠️ The original cable entry will be replaced with {numCables} new entries
+                ⚠️ The original cable entry will be replaced with {numCables} new parallel entries
               </p>
             </div>
           </div>
