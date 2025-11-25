@@ -25,6 +25,7 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
   const { toast } = useToast();
   const [analyzing, setAnalyzing] = useState(false);
   const [results, setResults] = useState<OptimizationResult[]>([]);
+  const [applying, setApplying] = useState(false);
   const { data: calcSettings, isLoading: settingsLoading } = useCalculationSettings(projectId);
 
   const { data: cableEntries } = useQuery({
@@ -135,6 +136,64 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
     }
   };
 
+  const applyRecommendations = async () => {
+    const recommendedChanges = results.filter(
+      r => r.alternatives[0] && r.alternatives[0].savings > 100 && !r.alternatives[0].isCurrentConfig
+    );
+
+    if (recommendedChanges.length === 0) {
+      toast({
+        title: "No Recommendations",
+        description: "All cables are already using optimal configurations.",
+      });
+      return;
+    }
+
+    setApplying(true);
+    try {
+      for (const result of recommendedChanges) {
+        const recommended = result.alternatives[0];
+        
+        // Update the cable entry with the recommended configuration
+        const { error } = await supabase
+          .from("cable_entries")
+          .update({
+            cable_size: recommended.size,
+            parallel_total_count: recommended.parallelCount,
+            supply_cost: recommended.supplyCost,
+            install_cost: recommended.installCost,
+            total_cost: recommended.totalCost,
+            volt_drop: recommended.voltDrop,
+            notes: `Optimized: Was ${result.currentConfig.parallelCount}x ${result.currentConfig.size}, now ${recommended.parallelCount}x ${recommended.size}. Savings: ${formatCurrency(recommended.savings)}`,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", result.cableId);
+
+        if (error) throw error;
+      }
+
+      toast({
+        title: "Recommendations Applied",
+        description: `Successfully updated ${recommendedChanges.length} cable configuration(s) with optimal sizing.`,
+      });
+      
+      // Clear results to trigger re-analysis
+      setResults([]);
+      
+      // Refresh cable entries
+      window.location.reload();
+      
+    } catch (error: any) {
+      toast({
+        title: "Error Applying Recommendations",
+        description: error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setApplying(false);
+    }
+  };
+
   const formatCurrency = (value: number) => {
     return `R ${value.toLocaleString('en-ZA', {
       minimumFractionDigits: 2,
@@ -166,6 +225,18 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
               {analyzing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {settingsLoading ? "Loading Settings..." : analyzing ? "Analyzing..." : "Analyze Cables"}
             </Button>
+            
+            {results.length > 0 && results.some(r => r.alternatives[0]?.savings > 100 && !r.alternatives[0]?.isCurrentConfig) && (
+              <Button
+                onClick={applyRecommendations}
+                disabled={applying}
+                variant="default"
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {applying && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {applying ? "Applying..." : "Apply All Recommendations"}
+              </Button>
+            )}
             
             {results.length > 0 && (
               <div className="flex items-center gap-2">
