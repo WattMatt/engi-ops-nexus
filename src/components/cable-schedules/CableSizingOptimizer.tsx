@@ -54,7 +54,7 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
   const { toast } = useToast();
   const [analyzing, setAnalyzing] = useState(false);
   const [results, setResults] = useState<OptimizationResult[]>([]);
-  const { data: calcSettings } = useCalculationSettings(projectId);
+  const { data: calcSettings, isLoading: settingsLoading } = useCalculationSettings(projectId);
 
   const { data: cableEntries } = useQuery({
     queryKey: ["cable-entries-optimizer", projectId],
@@ -119,10 +119,28 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
   };
 
   const analyzeOptimizations = async () => {
-    if (!cableEntries || !calcSettings || !cableRates) {
+    if (!cableEntries || cableEntries.length === 0) {
       toast({
-        title: "Missing Data",
-        description: "Please ensure cable rates and calculation settings are configured.",
+        title: "No Cable Data",
+        description: "No cable entries found with load >= 100A.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!cableRates || cableRates.length === 0) {
+      toast({
+        title: "Missing Cable Rates",
+        description: "Please configure cable rates in the Cable Tables tab first.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!calcSettings) {
+      toast({
+        title: "Loading Settings",
+        description: "Calculation settings are still loading. Please try again.",
         variant: "destructive",
       });
       return;
@@ -132,16 +150,25 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
     const optimizations: OptimizationResult[] = [];
 
     try {
+      console.log(`Analyzing ${cableEntries.length} cables...`);
+      
       for (const entry of cableEntries) {
-        if (!entry.load_amps || !entry.voltage || !entry.total_length) continue;
+        console.log(`Processing cable: ${entry.cable_tag}, Load: ${entry.load_amps}A, Size: ${entry.cable_size}, Parallel: ${entry.parallel_total_count}`);
+        
+        if (!entry.load_amps || !entry.voltage || !entry.total_length) {
+          console.log(`Skipping ${entry.cable_tag} - missing required data`);
+          continue;
+        }
+
+        const material = entry.cable_type?.includes("Cu") ? "copper" : 
+                        entry.cable_type?.includes("Al") ? "aluminium" : 
+                        (calcSettings.default_cable_material.toLowerCase() as "copper" | "aluminium");
 
         const params: CableCalculationParams = {
           loadAmps: entry.load_amps,
           voltage: entry.voltage,
           totalLength: entry.total_length,
-          material: entry.cable_type?.includes("Cu") ? "copper" : 
-                   entry.cable_type?.includes("Al") ? "aluminium" : 
-                   (calcSettings.default_cable_material.toLowerCase() as "copper" | "aluminium"),
+          material,
           deratingFactor: entry.grouping_factor || 1.0,
           installationMethod: (entry.installation_method || calcSettings.default_installation_method) as 'air' | 'ducts' | 'ground',
           safetyMargin: calcSettings.cable_safety_margin,
@@ -152,9 +179,16 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
             calcSettings.voltage_drop_limit_230v,
         };
 
+        console.log(`Calculation params:`, params);
+
         const result = calculateCableSize(params);
         
-        if (!result || !result.alternatives || result.alternatives.length === 0) continue;
+        console.log(`Result for ${entry.cable_tag}:`, result);
+        
+        if (!result || !result.alternatives || result.alternatives.length === 0) {
+          console.log(`No alternatives found for ${entry.cable_tag}`);
+          continue;
+        }
 
         const currentCostBreakdown = calculateCostBreakdown(
           entry.cable_size || "",
@@ -271,10 +305,10 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
           <div className="flex items-center gap-4">
             <Button
               onClick={analyzeOptimizations}
-              disabled={analyzing || !cableEntries || cableEntries.length === 0}
+              disabled={analyzing || settingsLoading || !cableEntries || cableEntries.length === 0 || !cableRates || cableRates.length === 0}
             >
               {analyzing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {analyzing ? "Analyzing..." : "Analyze Cables"}
+              {settingsLoading ? "Loading Settings..." : analyzing ? "Analyzing..." : "Analyze Cables"}
             </Button>
             
             {results.length > 0 && (
@@ -287,12 +321,31 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
             )}
           </div>
 
-          {!cableEntries || cableEntries.length === 0 ? (
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <AlertCircle className="h-4 w-4" />
-              <span>No cable entries found for analysis</span>
-            </div>
-          ) : null}
+          <div className="flex flex-col gap-2">
+            {settingsLoading && (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                <span>Loading calculation settings...</span>
+              </div>
+            )}
+            {!cableEntries || cableEntries.length === 0 ? (
+              <div className="flex items-center gap-2 text-muted-foreground">
+                <AlertCircle className="h-4 w-4" />
+                <span>No cable entries found with load ≥ 100A</span>
+              </div>
+            ) : null}
+            {!cableRates || cableRates.length === 0 ? (
+              <div className="flex items-center gap-2 text-amber-600">
+                <AlertCircle className="h-4 w-4" />
+                <span>No cable rates configured - please add rates in Cable Tables tab</span>
+              </div>
+            ) : null}
+            {cableEntries && cableEntries.length > 0 && !settingsLoading && (
+              <div className="text-sm text-muted-foreground">
+                Found {cableEntries.length} cable{cableEntries.length > 1 ? 's' : ''} ready for analysis
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
 
