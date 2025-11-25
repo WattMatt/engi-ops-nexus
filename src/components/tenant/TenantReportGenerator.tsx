@@ -123,11 +123,16 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
 
     const theme = colorThemes[options.kpiAppearance.colorTheme];
     
-    // Header section - simple without color
+    // Header section with modern design
     doc.setTextColor(0, 0, 0);
-    doc.setFontSize(fontSize.title);
+    doc.setFontSize(20);
     doc.setFont("helvetica", "bold");
     doc.text("Project Overview & KPIs", 20, 20);
+    
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100, 116, 139);
+    doc.text("Real-time progress tracking and key performance indicators", 20, 27);
 
     // Calculate metrics
     const totalTenants = tenants.length;
@@ -145,103 +150,120 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
     const sowReceived = tenants.filter(t => t.sow_received).length;
     const layoutReceived = tenants.filter(t => t.layout_received).length;
 
-    let yPos = 30;
+    let yPos = 38;
 
-    // KPI Cards in 2-column grid
-    const cardWidth = (pageWidth - 50) / 2;
-    const cardHeight = spacing.cardHeight;
-    const cardSpacing = 10;
-    const leftColX = 20;
-    const rightColX = 20 + cardWidth + cardSpacing;
-
-    // Helper function to draw a card with theme and icons
-    const drawCard = (x: number, y: number, label: string, value: string, icon?: string) => {
-      // Background
-      doc.setFillColor(theme.cardBg[0], theme.cardBg[1], theme.cardBg[2]);
+    // Top KPI Cards - Large visual cards with icons
+    const drawLargeCard = (x: number, y: number, icon: string, value: string, label: string, color: [number, number, number]) => {
+      const cardWidth = 42;
+      const cardHeight = 32;
       
-      if (options.kpiAppearance.showBorders) {
-        doc.setDrawColor(theme.cardBorder[0], theme.cardBorder[1], theme.cardBorder[2]);
-        doc.setLineWidth(0.3);
-        doc.roundedRect(x, y, cardWidth, cardHeight, 2, 2, 'FD');
-      } else {
-        doc.roundedRect(x, y, cardWidth, cardHeight, 2, 2, 'F');
-      }
-
-      let contentX = x + 4;
+      // Card background with subtle gradient effect
+      doc.setFillColor(248, 250, 252);
+      doc.roundedRect(x, y, cardWidth, cardHeight, 3, 3, 'F');
       
-      // Icon (if enabled)
-      if (options.kpiAppearance.showIcons && icon) {
-        doc.setFillColor(theme.accent[0], theme.accent[1], theme.accent[2]);
-        doc.circle(x + 6, y + (isCompact ? 8 : 10), 2.5, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(6);
-        doc.setFont("helvetica", "bold");
-        doc.text(icon, x + 6, y + (isCompact ? 9 : 11), { align: 'center' });
-        contentX = x + 12;
-      }
+      // Icon circle
+      doc.setFillColor(color[0], color[1], color[2]);
+      doc.circle(x + 21, y + 11, 7, 'F');
       
-      // Label
-      doc.setTextColor(71, 85, 105);
-      doc.setFontSize(fontSize.cardLabel);
-      doc.setFont("helvetica", "normal");
-      doc.text(label, contentX, y + (isCompact ? 7 : 9));
+      // Icon text
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(14);
+      doc.setFont("helvetica", "bold");
+      doc.text(icon, x + 21, y + 14, { align: 'center' });
       
       // Value
       doc.setTextColor(15, 23, 42);
-      doc.setFontSize(value.length > 8 ? fontSize.cardValueSmall : fontSize.cardValue);
+      doc.setFontSize(13);
       doc.setFont("helvetica", "bold");
-      doc.text(value, contentX, y + (isCompact ? 19 : 23));
+      const valueText = value.length > 12 ? value.substring(0, 10) + '...' : value;
+      doc.text(valueText, x + 21, y + 24, { align: 'center' });
+      
+      // Label
+      doc.setTextColor(100, 116, 139);
+      doc.setFontSize(7);
+      doc.setFont("helvetica", "normal");
+      doc.text(label, x + 21, y + 29, { align: 'center' });
     };
 
-    // Card 1: Total Tenants
+    // Draw 4 main KPI cards
     if (options.kpiCards.totalTenants) {
-      drawCard(leftColX, yPos, "TOTAL TENANTS", totalTenants.toString(), "T");
+      drawLargeCard(20, yPos, "👥", totalTenants.toString(), "TOTAL TENANTS", [59, 130, 246]);
     }
-
-    // Card 2: Total Area
     if (options.kpiCards.totalArea) {
-      drawCard(rightColX, yPos, "TOTAL AREA", `${totalArea.toFixed(0)} m²`, "A");
+      drawLargeCard(68, yPos, "📐", `${totalArea.toFixed(0)}m²`, "TOTAL AREA", [34, 197, 94]);
     }
-
-    // Check if we should move to next row
-    const hasFirstRow = options.kpiCards.totalTenants || options.kpiCards.totalArea;
-    if (hasFirstRow) {
-      yPos += cardHeight + spacing.cardSpacing;
-    }
-
-    // Card 3: Total DB Cost
     if (options.kpiCards.totalDbCost) {
-      drawCard(leftColX, yPos, "TOTAL DB COST", `R${totalDbCost.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, "D");
+      drawLargeCard(116, yPos, "💰", `R${(totalDbCost/1000).toFixed(0)}k`, "DB COST", [168, 85, 247]);
     }
-
-    // Card 4: Total Lighting Cost
     if (options.kpiCards.totalLightingCost) {
-      drawCard(rightColX, yPos, "TOTAL LIGHTING COST", `R${totalLightingCost.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`, "L");
+      drawLargeCard(164, yPos, "💡", `R${(totalLightingCost/1000).toFixed(0)}k`, "LIGHTING COST", [251, 191, 36]);
     }
 
-    // Check if we should add spacing after second row
-    const hasSecondRow = options.kpiCards.totalDbCost || options.kpiCards.totalLightingCost;
-    if (hasSecondRow) {
-      yPos += cardHeight + spacing.sectionSpacing;
-    } else if (hasFirstRow) {
-      yPos += spacing.sectionSpacing;
-    }
+    yPos += 42;
 
-    // Category Breakdown with Donut Chart (if category field selected)
+    // Overall Progress Gauge - Semi-circular gauge
+    const totalProgress = (sowReceived + layoutReceived + dbOrdered + lightingOrdered) / (totalTenants * 4);
+    const progressPercent = (totalProgress * 100);
+    
+    doc.setTextColor(15, 23, 42);
+    doc.setFontSize(11);
+    doc.setFont("helvetica", "bold");
+    doc.text("Overall Project Completion", 20, yPos);
+    
+    // Draw semi-circular gauge
+    const gaugeX = 105;
+    const gaugeY = yPos + 25;
+    const gaugeRadius = 20;
+    
+    // Background arc (gray)
+    doc.setLineWidth(6);
+    doc.setDrawColor(226, 232, 240);
+    for (let angle = Math.PI; angle <= 2 * Math.PI; angle += 0.05) {
+      const x1 = gaugeX + gaugeRadius * Math.cos(angle);
+      const y1 = gaugeY + gaugeRadius * Math.sin(angle);
+      const x2 = gaugeX + gaugeRadius * Math.cos(angle + 0.05);
+      const y2 = gaugeY + gaugeRadius * Math.sin(angle + 0.05);
+      doc.line(x1, y1, x2, y2);
+    }
+    
+    // Progress arc (colored based on percentage)
+    const endAngle = Math.PI + (progressPercent / 100) * Math.PI;
+    let gaugeColor: [number, number, number];
+    if (progressPercent >= 75) gaugeColor = [34, 197, 94];
+    else if (progressPercent >= 50) gaugeColor = [59, 130, 246];
+    else if (progressPercent >= 25) gaugeColor = [251, 191, 36];
+    else gaugeColor = [239, 68, 68];
+    
+    doc.setDrawColor(gaugeColor[0], gaugeColor[1], gaugeColor[2]);
+    for (let angle = Math.PI; angle <= endAngle; angle += 0.05) {
+      const x1 = gaugeX + gaugeRadius * Math.cos(angle);
+      const y1 = gaugeY + gaugeRadius * Math.sin(angle);
+      const x2 = gaugeX + gaugeRadius * Math.cos(Math.min(angle + 0.05, endAngle));
+      const y2 = gaugeY + gaugeRadius * Math.sin(Math.min(angle + 0.05, endAngle));
+      doc.line(x1, y1, x2, y2);
+    }
+    
+    // Center percentage text
+    doc.setTextColor(15, 23, 42);
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text(`${progressPercent.toFixed(0)}%`, gaugeX, gaugeY + 5, { align: 'center' });
+    
+    doc.setFontSize(7);
+    doc.setFont("helvetica", "normal");
+    doc.setTextColor(100, 116, 139);
+    doc.text("Complete", gaugeX, gaugeY + 10, { align: 'center' });
+
+    yPos += 52;
+
+    // Category Distribution - Horizontal bar chart
     if (options.tenantFields.category && Object.keys(categoryCounts).length > 0) {
-      const sectionHeight = isCompact ? 55 : 70;
-      doc.setFillColor(248, 250, 252);
-      doc.roundedRect(20, yPos, pageWidth - 40, sectionHeight, 2, 2, 'F');
-      
       doc.setTextColor(15, 23, 42);
-      doc.setFontSize(fontSize.sectionTitle);
+      doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
-      doc.text("Category Distribution", 25, yPos + (isCompact ? 10 : 12));
-
-      // Donut Chart
-      const chartCenterX = isCompact ? 45 : 55;
-      const chartCenterY = yPos + (isCompact ? 32 : 40);
-      const chartRadius = spacing.chartRadius;
+      doc.text("Category Breakdown", 20, yPos);
+      
+      yPos += 8;
       
       const categoryColors: Record<string, [number, number, number]> = {
         standard: [59, 130, 246],
@@ -249,66 +271,43 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
         restaurant: [34, 197, 94],
         national: [168, 85, 247]
       };
-
-      let startAngle = -Math.PI / 2; // Start at top
-      const categories = Object.entries(categoryCounts);
+      
+      const categories = Object.entries(categoryCounts).sort((a, b) => b[1] - a[1]);
+      const maxWidth = 120;
       
       categories.forEach(([category, count]) => {
-        const percentage = count / totalTenants;
-        const endAngle = startAngle + (percentage * 2 * Math.PI);
+        const percentage = (count / totalTenants) * 100;
+        const barWidth = (count / totalTenants) * maxWidth;
         const color = categoryColors[category] || [100, 116, 139];
         
-        // Draw donut slice using triangles for smooth arcs
-        for (let angle = startAngle; angle < endAngle; angle += 0.05) {
-          const nextAngle = Math.min(angle + 0.05, endAngle);
-          const x1 = chartCenterX + chartRadius * Math.cos(angle);
-          const y1 = chartCenterY + chartRadius * Math.sin(angle);
-          const x2 = chartCenterX + chartRadius * Math.cos(nextAngle);
-          const y2 = chartCenterY + chartRadius * Math.sin(nextAngle);
-          
-          doc.setFillColor(color[0], color[1], color[2]);
-          doc.triangle(chartCenterX, chartCenterY, x1, y1, x2, y2, 'F');
-        }
-        
-        startAngle = endAngle;
-      });
-
-      // Center hole for donut effect
-      doc.setFillColor(248, 250, 252);
-      doc.circle(chartCenterX, chartCenterY, chartRadius * 0.55, 'F');
-
-      // Legend
-      let legendY = yPos + (isCompact ? 18 : 22);
-      const legendX = isCompact ? 75 : 90;
-      const legendSpacing = isCompact ? 8 : 10;
-      
-      categories.forEach(([category, count]) => {
-        const color = categoryColors[category] || [100, 116, 139];
-        const percentage = ((count / totalTenants) * 100).toFixed(0);
-        
-        doc.setFillColor(color[0], color[1], color[2]);
-        doc.roundedRect(legendX, legendY - 2.5, 3, 3, 0.5, 0.5, 'F');
-        
+        // Label
         doc.setTextColor(51, 65, 85);
-        doc.setFontSize(fontSize.legendText);
+        doc.setFontSize(8);
         doc.setFont("helvetica", "normal");
-        doc.text(`${getCategoryLabel(category)}`, legendX + 5, legendY);
+        doc.text(getCategoryLabel(category), 22, yPos);
         
+        // Bar
+        doc.setFillColor(color[0], color[1], color[2]);
+        doc.roundedRect(70, yPos - 4, barWidth, 6, 1.5, 1.5, 'F');
+        
+        // Count and percentage
+        doc.setTextColor(15, 23, 42);
+        doc.setFontSize(8);
         doc.setFont("helvetica", "bold");
-        doc.text(`${count} (${percentage}%)`, legendX + 40, legendY);
+        doc.text(`${count} (${percentage.toFixed(0)}%)`, 192, yPos);
         
-        legendY += legendSpacing;
+        yPos += 10;
       });
-
-      yPos += sectionHeight + spacing.sectionSpacing;
+      
+      yPos += 5;
     }
 
-    // Progress Tracking with Enhanced Bars
+    // Task Completion - Visual checkboxes with icons
     const progressFields = [
-      { key: 'sowReceived', label: 'SOW Received', value: sowReceived },
-      { key: 'layoutReceived', label: 'Layout Received', value: layoutReceived },
-      { key: 'dbOrdered', label: 'DB Ordered', value: dbOrdered },
-      { key: 'lightingOrdered', label: 'Lighting Ordered', value: lightingOrdered },
+      { key: 'sowReceived', label: 'SOW Received', value: sowReceived, icon: '📄' },
+      { key: 'layoutReceived', label: 'Layout Received', value: layoutReceived, icon: '📋' },
+      { key: 'dbOrdered', label: 'DB Ordered', value: dbOrdered, icon: '⚡' },
+      { key: 'lightingOrdered', label: 'Lighting Ordered', value: lightingOrdered, icon: '💡' },
     ];
 
     const visibleProgress = progressFields.filter(item => {
@@ -320,45 +319,49 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
     });
 
     if (visibleProgress.length > 0) {
-      const progressHeight = visibleProgress.length * spacing.progressRow + (isCompact ? 18 : 22);
-      doc.setFillColor(theme.cardBg[0], theme.cardBg[1], theme.cardBg[2]);
-      doc.roundedRect(20, yPos, pageWidth - 40, progressHeight, 2, 2, 'F');
-      
-      if (options.kpiAppearance.showBorders) {
-        doc.setDrawColor(theme.cardBorder[0], theme.cardBorder[1], theme.cardBorder[2]);
-        doc.setLineWidth(0.3);
-        doc.roundedRect(20, yPos, pageWidth - 40, progressHeight, 2, 2, 'S');
-      }
-      
       doc.setTextColor(15, 23, 42);
-      doc.setFontSize(fontSize.sectionTitle);
+      doc.setFontSize(11);
       doc.setFont("helvetica", "bold");
-      doc.text("Completion Progress", 25, yPos + (isCompact ? 10 : 12));
-
-      let progressY = yPos + (isCompact ? 20 : 24);
-      visibleProgress.forEach(item => {
+      doc.text("Task Completion Status", 20, yPos);
+      
+      yPos += 10;
+      
+      const colWidth = 95;
+      let colX = 20;
+      let rowY = yPos;
+      
+      visibleProgress.forEach((item, idx) => {
         const percentage = (item.value / totalTenants * 100);
         
+        // Box background
+        doc.setFillColor(248, 250, 252);
+        doc.roundedRect(colX, rowY, 88, 18, 2, 2, 'F');
+        
+        // Icon
+        doc.setFontSize(12);
+        doc.text(item.icon, colX + 4, rowY + 11);
+        
+        // Label
         doc.setTextColor(51, 65, 85);
-        doc.setFontSize(fontSize.progressLabel);
+        doc.setFontSize(8);
         doc.setFont("helvetica", "normal");
-        doc.text(item.label, 25, progressY);
+        doc.text(item.label, colX + 14, rowY + 7);
         
+        // Progress
         doc.setFont("helvetica", "bold");
-        doc.text(`${item.value}/${totalTenants}`, 62, progressY);
+        doc.setTextColor(15, 23, 42);
+        doc.setFontSize(10);
+        doc.text(`${item.value}/${totalTenants}`, colX + 14, rowY + 14);
         
-        // Progress bar
-        const barX = 85;
-        const barWidth = pageWidth - 125;
-        const barHeight = 5;
-        const filledWidth = (percentage / 100) * barWidth;
+        // Mini progress indicator
+        const miniBarX = colX + 50;
+        const miniBarWidth = 32;
+        const miniBarFill = (percentage / 100) * miniBarWidth;
         
-        // Background
         doc.setFillColor(226, 232, 240);
-        doc.roundedRect(barX, progressY - 3, barWidth, barHeight, 1.5, 1.5, 'F');
+        doc.roundedRect(miniBarX, rowY + 9, miniBarWidth, 4, 1, 1, 'F');
         
-        // Filled portion with color based on percentage
-        if (filledWidth > 0) {
+        if (miniBarFill > 0) {
           let barColor: [number, number, number];
           if (percentage >= 75) barColor = [34, 197, 94];
           else if (percentage >= 50) barColor = [59, 130, 246];
@@ -366,16 +369,21 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
           else barColor = [239, 68, 68];
           
           doc.setFillColor(barColor[0], barColor[1], barColor[2]);
-          doc.roundedRect(barX, progressY - 3, filledWidth, barHeight, 1.5, 1.5, 'F');
+          doc.roundedRect(miniBarX, rowY + 9, miniBarFill, 4, 1, 1, 'F');
         }
         
         // Percentage
-        doc.setTextColor(71, 85, 105);
-        doc.setFontSize(fontSize.progressPercent);
-        doc.setFont("helvetica", "bold");
-        doc.text(`${percentage.toFixed(0)}%`, barX + barWidth + 2, progressY);
+        doc.setFontSize(7);
+        doc.setTextColor(100, 116, 139);
+        doc.text(`${percentage.toFixed(0)}%`, colX + 84, rowY + 12);
         
-        progressY += spacing.progressRow;
+        // Move to next position (2 columns)
+        if (idx % 2 === 0) {
+          colX = 113;
+        } else {
+          colX = 20;
+          rowY += 22;
+        }
       });
     }
 
