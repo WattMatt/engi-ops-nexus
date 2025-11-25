@@ -106,18 +106,17 @@ export const SplitParallelCablesDialog = ({
         newEntries.push(newEntry);
       }
 
-      // Insert new entries first
-      const { data: insertedData, error: insertError } = await supabase
+      // Insert new entries first (without .select() to avoid column specification issues)
+      const { error: insertError } = await supabase
         .from("cable_entries")
-        .insert(newEntries)
-        .select();
+        .insert(newEntries);
 
       if (insertError) {
         console.error("Insert error:", insertError);
         throw new Error(`Failed to create parallel cables: ${insertError.message}`);
       }
 
-      console.log("Successfully inserted parallel cables:", insertedData);
+      console.log("Successfully inserted parallel cables");
 
       // Only delete the original entry after successful insert
       const { error: deleteError } = await supabase
