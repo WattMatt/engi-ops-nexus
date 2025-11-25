@@ -181,15 +181,7 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
 
         console.log(`Calculation params:`, params);
 
-        const result = calculateCableSize(params);
-        
-        console.log(`Result for ${entry.cable_tag}:`, result);
-        
-        if (!result || !result.alternatives || result.alternatives.length === 0) {
-          console.log(`No alternatives found for ${entry.cable_tag}`);
-          continue;
-        }
-
+        // Calculate current configuration cost
         const currentCostBreakdown = calculateCostBreakdown(
           entry.cable_size || "",
           entry.cable_type || "",
@@ -197,34 +189,69 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
           entry.parallel_total_count || 1
         );
 
-        const alternatives = result.alternatives
-          .map(alt => {
-            const altCostBreakdown = calculateCostBreakdown(
-              alt.cableSize,
-              entry.cable_type || "",  // Use the same cable_type format as stored in database
-              entry.total_length,
-              alt.cablesInParallel
-            );
+        // Test different parallel configurations (1 to 6 cables)
+        const testedAlternatives: Array<{
+          size: string;
+          parallelCount: number;
+          totalCost: number;
+          supplyCost: number;
+          installCost: number;
+          terminationCost: number;
+          savings: number;
+          savingsPercent: number;
+          voltDrop: number;
+        }> = [];
 
-            const savings = currentCostBreakdown.total - altCostBreakdown.total;
-            const savingsPercent = currentCostBreakdown.total > 0 ? (savings / currentCostBreakdown.total) * 100 : 0;
+        for (let parallelCount = 1; parallelCount <= 6; parallelCount++) {
+          // Calculate load per cable when split across parallel runs
+          const loadPerCable = entry.load_amps / parallelCount;
+          
+          // Skip if load per cable is too low (impractical)
+          if (loadPerCable < 50) continue;
+          
+          const testParams: CableCalculationParams = {
+            ...params,
+            loadAmps: loadPerCable, // Each cable carries this load
+          };
 
-            return {
-              size: alt.cableSize,
-              parallelCount: alt.cablesInParallel,
-              totalCost: altCostBreakdown.total,
-              supplyCost: altCostBreakdown.supply,
-              installCost: altCostBreakdown.install,
-              terminationCost: altCostBreakdown.termination,
-              savings,
-              savingsPercent,
-              voltDrop: alt.voltDropPercentage,
-            };
-          })
-          .sort((a, b) => b.savings - a.savings); // Sort by savings (best first)
+          const result = calculateCableSize(testParams);
+          
+          if (!result) continue;
+
+          const altCostBreakdown = calculateCostBreakdown(
+            result.recommendedSize,
+            entry.cable_type || "",
+            entry.total_length,
+            parallelCount
+          );
+
+          // Skip if this is the same as current configuration
+          if (result.recommendedSize === entry.cable_size && 
+              parallelCount === (entry.parallel_total_count || 1)) {
+            continue;
+          }
+
+          testedAlternatives.push({
+            size: result.recommendedSize,
+            parallelCount,
+            totalCost: altCostBreakdown.total,
+            supplyCost: altCostBreakdown.supply,
+            installCost: altCostBreakdown.install,
+            terminationCost: altCostBreakdown.termination,
+            savings: currentCostBreakdown.total - altCostBreakdown.total,
+            savingsPercent: currentCostBreakdown.total > 0 ? 
+              ((currentCostBreakdown.total - altCostBreakdown.total) / currentCostBreakdown.total) * 100 : 0,
+            voltDrop: result.voltDropPercentage,
+          });
+        }
+
+        console.log(`Found ${testedAlternatives.length} alternatives for ${entry.cable_tag}`);
+
+        // Sort alternatives by total cost (cheapest first)
+        testedAlternatives.sort((a, b) => a.totalCost - b.totalCost);
 
         // Always include if we have alternatives to show
-        if (alternatives.length > 0) {
+        if (testedAlternatives.length > 0) {
           optimizations.push({
             cableId: entry.id,
             cableTag: entry.cable_tag,
@@ -241,7 +268,7 @@ export const CableSizingOptimizer = ({ projectId }: CableSizingOptimizerProps) =
               voltage: entry.voltage,
               loadAmps: entry.load_amps,
             },
-            alternatives: alternatives.slice(0, 5), // Top 5 alternatives
+            alternatives: testedAlternatives.slice(0, 5), // Top 5 alternatives
           });
         }
       }
