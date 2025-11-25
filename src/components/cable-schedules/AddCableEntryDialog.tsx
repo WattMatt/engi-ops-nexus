@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { COPPER_CABLE_TABLE, ALUMINIUM_CABLE_TABLE } from "@/utils/cableSizing";
+import { COPPER_CABLE_TABLE, ALUMINIUM_CABLE_TABLE, calculateCableSize } from "@/utils/cableSizing";
 import {
   Select,
   SelectContent,
@@ -64,6 +64,7 @@ export const AddCableEntryDialog = ({
     cable_size: "",
     measured_length: "",
     notes: "",
+    circuit_type: "power",
   });
 
   useEffect(() => {
@@ -101,31 +102,50 @@ export const AddCableEntryDialog = ({
     }
   }, [open, scheduleId]);
 
-  // Auto-suggest cable size when load changes
+  // Auto-suggest cable size when load changes - now accounts for circuit types
   useEffect(() => {
-    if (formData.load_amps) {
+    if (formData.load_amps && formData.measured_length) {
       const loadAmps = parseFloat(formData.load_amps);
-      if (!isNaN(loadAmps) && loadAmps > 0) {
-        const cableTable = formData.cable_type === "Copper" ? COPPER_CABLE_TABLE : ALUMINIUM_CABLE_TABLE;
-        const installMethod = formData.installation_method as 'ground' | 'ducts' | 'air';
+      const length = parseFloat(formData.measured_length);
+      const voltage = parseFloat(formData.voltage);
+      
+      if (!isNaN(loadAmps) && loadAmps > 0 && !isNaN(length) && length > 0) {
+        // Apply circuit-type specific multipliers for starting current/diversity
+        let adjustedLoad = loadAmps;
+        switch (formData.circuit_type) {
+          case 'motor':
+            adjustedLoad = loadAmps * 1.5; // Motors: 5-7x starting current requires larger cable
+            break;
+          case 'hvac':
+            adjustedLoad = loadAmps * 1.3; // HVAC: moderate starting surge
+            break;
+          case 'lighting':
+            adjustedLoad = loadAmps * 1.1; // Lighting: minimal inrush
+            break;
+          case 'power':
+          default:
+            adjustedLoad = loadAmps * 1.15; // Standard outlets
+            break;
+        }
         
-        // Find the smallest cable that can handle the load
-        const suitableCable = cableTable.find(cable => {
-          const rating = installMethod === 'ground' ? cable.currentRatingGround :
-                        installMethod === 'ducts' ? cable.currentRatingDucts :
-                        cable.currentRatingAir;
-          return rating >= loadAmps * 1.15; // 15% safety margin
+        const result = calculateCableSize({
+          loadAmps: adjustedLoad,
+          voltage: voltage,
+          totalLength: length,
+          material: formData.cable_type === "Copper" ? "copper" : "aluminium",
+          installationMethod: formData.installation_method as 'air' | 'ducts' | 'ground',
+          safetyMargin: 1.0, // Already applied in adjustedLoad
         });
         
-        if (suitableCable) {
-          setSuggestedCableSize(suitableCable.size);
+        if (result) {
+          setSuggestedCableSize(result.recommendedSize);
           if (!formData.cable_size) {
-            setFormData(prev => ({ ...prev, cable_size: suitableCable.size }));
+            setFormData(prev => ({ ...prev, cable_size: result.recommendedSize }));
           }
         }
       }
     }
-  }, [formData.load_amps, formData.cable_type, formData.installation_method]);
+  }, [formData.load_amps, formData.cable_type, formData.installation_method, formData.circuit_type, formData.measured_length, formData.voltage]);
 
   // Calculate voltage drop when length or cable size changes
   useEffect(() => {
@@ -185,6 +205,7 @@ export const AddCableEntryDialog = ({
         volt_drop: calculatedVoltDrop || null,
         notes: formData.notes || null,
         quantity: 1,
+        circuit_type: formData.circuit_type,
       });
 
       if (error) throw error;
@@ -211,6 +232,7 @@ export const AddCableEntryDialog = ({
         cable_size: "",
         measured_length: "",
         notes: "",
+        circuit_type: "power",
       });
       setSuggestedCableSize("");
       setCalculatedVoltDrop(null);
@@ -326,6 +348,25 @@ export const AddCableEntryDialog = ({
                 placeholder="e.g., 32"
               />
             </div>
+          </div>
+
+          {/* Circuit Type */}
+          <div>
+            <Label htmlFor="circuit_type">Circuit Type (affects cable sizing)</Label>
+            <Select
+              value={formData.circuit_type}
+              onValueChange={(value) => setFormData({ ...formData, circuit_type: value })}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="bg-background z-50">
+                <SelectItem value="motor">Motor Load (1.5x - High starting current)</SelectItem>
+                <SelectItem value="hvac">HVAC Load (1.3x - Moderate surge)</SelectItem>
+                <SelectItem value="lighting">Lighting Load (1.1x - Low inrush)</SelectItem>
+                <SelectItem value="power">Power/Outlets (1.15x - Standard)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           {/* Cable Type and Installation */}
