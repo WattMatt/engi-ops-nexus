@@ -70,7 +70,7 @@ export async function generateCoverPage(
         reader.readAsDataURL(logoBlob);
       });
       
-      doc.addImage(logoBase64, 'PNG', pageWidth - 75, 15, 55, 55);
+      doc.addImage(logoBase64, 'PNG', pageWidth - 35, 20, 25, 35);
     } catch (error) {
       console.warn('Could not load client logo:', error);
     }
@@ -87,7 +87,7 @@ export async function generateCoverPage(
         reader.readAsDataURL(logoBlob);
       });
       
-      doc.addImage(logoBase64, 'PNG', 20, 15, 55, 55);
+      doc.addImage(logoBase64, 'PNG', 20, 20, 25, 35);
     } catch (error) {
       console.warn('Could not load company logo:', error);
     }
