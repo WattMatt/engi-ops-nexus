@@ -2,7 +2,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Calculator, FileText, Settings, Download, Tag, TrendingDown, File, BarChart3, DollarSign } from "lucide-react";
+import { ArrowLeft, Calculator, FileText, Settings, Download, Tag, TrendingDown, File, BarChart3, DollarSign, SigmaSquare } from "lucide-react";
 import { CableScheduleOverview } from "@/components/cable-schedules/CableScheduleOverview";
 import { CableSchedulesOverview } from "@/components/cable-schedules/CableSchedulesOverview";
 import { CableEntriesManager } from "@/components/cable-schedules/CableEntriesManager";
@@ -84,7 +84,7 @@ const CableScheduleDetail = () => {
 
       {/* Main Content Tabs */}
       <Tabs defaultValue="overview" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4 md:grid-cols-8 lg:w-auto lg:inline-grid">
+        <TabsList className="grid w-full grid-cols-4 md:grid-cols-9 lg:w-auto lg:inline-grid">
           <TabsTrigger value="overview" className="gap-2">
             <BarChart3 className="h-4 w-4" />
             <span className="hidden sm:inline">Overview</span>
@@ -110,6 +110,11 @@ const CableScheduleDetail = () => {
             <span className="hidden sm:inline">Reports</span>
             <span className="sm:hidden">Reports</span>
           </TabsTrigger>
+          <TabsTrigger value="calculations" className="gap-2">
+            <SigmaSquare className="h-4 w-4" />
+            <span className="hidden sm:inline">Calculations</span>
+            <span className="sm:hidden">Calc</span>
+          </TabsTrigger>
           <TabsTrigger value="rates" className="gap-2">
             <DollarSign className="h-4 w-4" />
             <span className="hidden sm:inline">Rates</span>
@@ -131,7 +136,6 @@ const CableScheduleDetail = () => {
         <TabsContent value="overview" className="space-y-6">
           <CableSchedulesOverview projectId={schedule.project_id} />
           <CableScheduleOverview schedule={schedule} />
-          <CableCalculationFormulas schedule={schedule} />
         </TabsContent>
 
         {/* Cable Entries Tab */}
@@ -152,6 +156,11 @@ const CableScheduleDetail = () => {
         {/* Reports Tab */}
         <TabsContent value="reports">
           <CableScheduleReports schedule={schedule} />
+        </TabsContent>
+
+        {/* Calculations Tab */}
+        <TabsContent value="calculations">
+          <CableCalculationFormulas schedule={schedule} />
         </TabsContent>
 
         {/* Rates Tab */}
