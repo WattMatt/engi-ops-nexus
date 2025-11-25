@@ -83,7 +83,10 @@ const Auth = () => {
         navigate("/projects");
       }
     } catch (error: any) {
-      toast.error(error.message || "Failed to login");
+      console.error("Login error:", error);
+      // Show specific error message from Supabase
+      const errorMessage = error.message || "Failed to login";
+      toast.error(errorMessage);
     } finally {
       setLoading(false);
     }
