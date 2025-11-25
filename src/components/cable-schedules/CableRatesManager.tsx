@@ -24,6 +24,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -33,6 +40,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { COPPER_CABLE_TABLE, ALUMINIUM_CABLE_TABLE } from "@/utils/cableSizing";
 
 interface CableRatesManagerProps {
   projectId: string;
@@ -268,21 +276,37 @@ export const CableRatesManager = ({ projectId }: CableRatesManagerProps) => {
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label htmlFor="cable_type">Cable Type</Label>
-              <Input
-                id="cable_type"
+              <Select
                 value={formData.cable_type}
-                onChange={(e) => setFormData({ ...formData, cable_type: e.target.value })}
-                placeholder="e.g., PVC/PVC, XLPE/SWA"
-              />
+                onValueChange={(value) => setFormData({ ...formData, cable_type: value, cable_size: "" })}
+              >
+                <SelectTrigger id="cable_type">
+                  <SelectValue placeholder="Select cable type" />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  <SelectItem value="Copper">Copper</SelectItem>
+                  <SelectItem value="Aluminium">Aluminium</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="cable_size">Cable Size</Label>
-              <Input
-                id="cable_size"
+              <Select
                 value={formData.cable_size}
-                onChange={(e) => setFormData({ ...formData, cable_size: e.target.value })}
-                placeholder="e.g., 2.5mm², 4mm²"
-              />
+                onValueChange={(value) => setFormData({ ...formData, cable_size: value })}
+                disabled={!formData.cable_type}
+              >
+                <SelectTrigger id="cable_size">
+                  <SelectValue placeholder={formData.cable_type ? "Select cable size" : "Select cable type first"} />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  {(formData.cable_type === "Copper" ? COPPER_CABLE_TABLE : ALUMINIUM_CABLE_TABLE).map((cable) => (
+                    <SelectItem key={cable.size} value={cable.size}>
+                      {cable.size}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="supply_rate">Supply Rate (per meter)</Label>
@@ -342,19 +366,37 @@ export const CableRatesManager = ({ projectId }: CableRatesManagerProps) => {
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label htmlFor="edit_cable_type">Cable Type</Label>
-              <Input
-                id="edit_cable_type"
+              <Select
                 value={formData.cable_type}
-                onChange={(e) => setFormData({ ...formData, cable_type: e.target.value })}
-              />
+                onValueChange={(value) => setFormData({ ...formData, cable_type: value, cable_size: "" })}
+              >
+                <SelectTrigger id="edit_cable_type">
+                  <SelectValue placeholder="Select cable type" />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  <SelectItem value="Copper">Copper</SelectItem>
+                  <SelectItem value="Aluminium">Aluminium</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="edit_cable_size">Cable Size</Label>
-              <Input
-                id="edit_cable_size"
+              <Select
                 value={formData.cable_size}
-                onChange={(e) => setFormData({ ...formData, cable_size: e.target.value })}
-              />
+                onValueChange={(value) => setFormData({ ...formData, cable_size: value })}
+                disabled={!formData.cable_type}
+              >
+                <SelectTrigger id="edit_cable_size">
+                  <SelectValue placeholder={formData.cable_type ? "Select cable size" : "Select cable type first"} />
+                </SelectTrigger>
+                <SelectContent className="bg-background z-50">
+                  {(formData.cable_type === "Copper" ? COPPER_CABLE_TABLE : ALUMINIUM_CABLE_TABLE).map((cable) => (
+                    <SelectItem key={cable.size} value={cable.size}>
+                      {cable.size}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
             <div className="grid gap-2">
               <Label htmlFor="edit_supply_rate">Supply Rate (per meter)</Label>
