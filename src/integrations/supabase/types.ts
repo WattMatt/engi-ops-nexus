@@ -6862,6 +6862,14 @@ export type Database = {
         }
         Returns: string
       }
+      user_has_floor_plan_access: {
+        Args: { _floor_plan_id: string }
+        Returns: boolean
+      }
+      user_has_project_access: {
+        Args: { _project_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
       app_role: "admin" | "user" | "moderator" | "client"
