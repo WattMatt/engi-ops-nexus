@@ -761,11 +761,8 @@ export const TenantReportGenerator = ({ tenants, projectId, projectName }: Tenan
 
       doc.addPage();
       
-      // Professional header
-      doc.setFillColor(41, 128, 185);
-      doc.rect(0, 0, pageWidth, 40, 'F');
-      
-      doc.setTextColor(255, 255, 255);
+      // Page header - simple without color
+      doc.setTextColor(0, 0, 0);
       doc.setFontSize(24);
       doc.setFont("helvetica", "bold");
       doc.text("Floor Plan with Tenant Zones", 20, 25);
