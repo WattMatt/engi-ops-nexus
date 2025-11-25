@@ -87,7 +87,7 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
 
       if (error) throw error;
       
-      // Sort by shop number extracted from to_location or cable_tag
+      // Sort by shop number extracted from to_location or cable_tag, then by cable_number
       const sorted = (data || []).sort((a, b) => {
         // Extract shop numbers (e.g., "Shop 13" -> 13, "Shop 13/14 - MR DIY" -> 13)
         const shopRegex = /Shop\s+(\d+)/i;
@@ -102,12 +102,22 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
           return numA - numB;
         }
         
-        // If same shop number, sort alphabetically (handles Shop 17, Shop 17A, Shop 17B)
-        return (a.to_location || a.cable_tag).localeCompare(
-          b.to_location || b.cable_tag, 
+        // If same shop number, compare the base tags or full locations
+        const baseTagA = a.base_cable_tag || a.cable_tag;
+        const baseTagB = b.base_cable_tag || b.cable_tag;
+        const locationCompare = (a.to_location || baseTagA).localeCompare(
+          b.to_location || baseTagB, 
           undefined, 
           { numeric: true }
         );
+        
+        // If locations/base tags are different, sort by location
+        if (locationCompare !== 0) {
+          return locationCompare;
+        }
+        
+        // If same location/base tag (parallel cables), sort by cable_number
+        return (a.cable_number || 0) - (b.cable_number || 0);
       });
       
       return sorted;
