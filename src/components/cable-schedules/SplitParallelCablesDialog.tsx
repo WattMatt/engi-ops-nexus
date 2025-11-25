@@ -63,21 +63,32 @@ export function SplitParallelCablesDialog({
         });
       }
 
-      const { error: insertError } = await supabase
+      // CRITICAL: Insert new entries first and verify success
+      const { data: insertedData, error: insertError } = await supabase
         .from("cable_entries")
-        .insert(newEntries);
+        .insert(newEntries)
+        .select();
 
-      if (insertError) throw insertError;
+      if (insertError) {
+        throw new Error(`Failed to create parallel cables: ${insertError.message}`);
+      }
 
+      // Verify all entries were created
+      if (!insertedData || insertedData.length !== numCables) {
+        throw new Error(`Expected ${numCables} entries but only ${insertedData?.length || 0} were created`);
+      }
+
+      // Only delete original after successful insert and verification
       const { error: deleteError } = await supabase
         .from("cable_entries")
         .delete()
         .eq("id", entry.id);
 
       if (deleteError) {
+        // Critical: If delete fails after successful insert, warn user but don't fail
         toast({
-          title: "Warning",
-          description: "Parallel cables created but failed to delete original",
+          title: "Partial Success",
+          description: `Created ${numCables} parallel cables, but original cable could not be removed. Please delete it manually.`,
           variant: "destructive",
         });
       }
@@ -92,9 +103,10 @@ export function SplitParallelCablesDialog({
       onSuccess();
       onOpenChange(false);
     } catch (error: any) {
+      // Ensure original cable is NOT deleted if anything fails
       toast({
         title: "Error",
-        description: error.message || "Failed to split cable",
+        description: error.message || "Failed to split cable. Original cable preserved.",
         variant: "destructive",
       });
     } finally {
