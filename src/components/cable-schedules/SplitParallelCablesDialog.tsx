@@ -65,7 +65,8 @@ export const SplitParallelCablesDialog = ({
 
       const { error: insertError } = await supabase
         .from("cable_entries")
-        .insert(newEntries);
+        .insert(newEntries)
+        .select();
 
       if (insertError) throw insertError;
 
