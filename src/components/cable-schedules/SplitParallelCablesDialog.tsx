@@ -65,6 +65,7 @@ export function SplitParallelCablesDialog({
           base_cable_tag: baseCableTag,
           parallel_group_id: parallelGroupId,
           cable_number: i,
+          parallel_total_count: numCables, // Store original total
           load_amps: loadPerCable,
           notes: entry.notes 
             ? `${entry.notes} | Parallel cable ${i} of ${numCables}`
