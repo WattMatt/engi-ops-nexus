@@ -3,8 +3,9 @@ import { Sparkles } from "lucide-react";
 import { ApplicationReviewDialog } from "@/components/admin/ApplicationReviewDialog";
 import { ReviewHistoryDashboard } from "@/components/admin/ReviewHistoryDashboard";
 import { ReviewComparisonView } from "@/components/admin/ReviewComparisonView";
+import { ProgressTrackingView } from "@/components/admin/ProgressTrackingView";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { History, GitCompare, BarChart3 } from "lucide-react";
+import { GitCompare, BarChart3, ListTodo } from "lucide-react";
 
 const AdminAIReview = () => {
   return (
@@ -42,6 +43,10 @@ const AdminAIReview = () => {
             <BarChart3 className="h-4 w-4" />
             Dashboard
           </TabsTrigger>
+          <TabsTrigger value="progress" className="gap-2">
+            <ListTodo className="h-4 w-4" />
+            Progress
+          </TabsTrigger>
           <TabsTrigger value="compare" className="gap-2">
             <GitCompare className="h-4 w-4" />
             Compare
@@ -50,6 +55,10 @@ const AdminAIReview = () => {
 
         <TabsContent value="dashboard" className="space-y-4">
           <ReviewHistoryDashboard />
+        </TabsContent>
+
+        <TabsContent value="progress" className="space-y-4">
+          <ProgressTrackingView />
         </TabsContent>
 
         <TabsContent value="compare">

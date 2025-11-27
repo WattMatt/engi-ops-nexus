@@ -4819,6 +4819,53 @@ export type Database = {
         }
         Relationships: []
       }
+      review_recommendation_progress: {
+        Row: {
+          created_at: string
+          id: string
+          notes: string | null
+          recommendation_key: string
+          recommendation_title: string
+          recommendation_type: string
+          review_id: string
+          status: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          recommendation_key: string
+          recommendation_title: string
+          recommendation_type: string
+          review_id: string
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          notes?: string | null
+          recommendation_key?: string
+          recommendation_title?: string
+          recommendation_type?: string
+          review_id?: string
+          status?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "review_recommendation_progress_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "application_reviews"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       running_recovery_settings: {
         Row: {
           created_at: string
