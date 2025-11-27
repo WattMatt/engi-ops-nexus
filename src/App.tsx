@@ -36,6 +36,7 @@ import FinalAccountDetail from "./pages/FinalAccountDetail";
 import GeneratorReport from "./pages/GeneratorReport";
 import ProjectOutline from "./pages/ProjectOutline";
 import AITools from "./pages/AITools";
+import AdminAIReview from "./pages/AdminAIReview";
 import BulkServices from "./pages/BulkServices";
 import HandoverDocuments from "./pages/HandoverDocuments";
 import HandoverClient from "./pages/HandoverClient";
@@ -73,6 +74,7 @@ const App = () => (
             <Route path="staff" element={<StaffManagement />} />
             <Route path="users" element={<UserManagement />} />
             <Route path="backup" element={<BackupManagement />} />
+            <Route path="ai-review" element={<AdminAIReview />} />
             <Route path="feedback" element={<FeedbackManagement />} />
             <Route path="feedback-analytics" element={<FeedbackAnalytics />} />
             <Route path="settings" element={<Settings />} />
