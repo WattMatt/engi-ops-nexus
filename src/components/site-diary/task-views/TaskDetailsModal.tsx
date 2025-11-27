@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { useImageCompression } from "@/hooks/useImageCompression";
 
 interface TaskDetailsModalProps {
   taskId: string;
@@ -37,6 +38,7 @@ export const TaskDetailsModal = ({ taskId, projectId, open, onClose }: TaskDetai
   const [newSubtask, setNewSubtask] = useState("");
   const [newComment, setNewComment] = useState("");
   const [uploading, setUploading] = useState(false);
+  const { compressImage, isCompressing, compressionProgress } = useImageCompression();
 
   // Fetch task details
   const { data: task } = useQuery({
@@ -250,7 +252,7 @@ export const TaskDetailsModal = ({ taskId, projectId, open, onClose }: TaskDetai
     },
   });
 
-  // Upload attachment
+  // Upload attachment with image compression
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -260,12 +262,18 @@ export const TaskDetailsModal = ({ taskId, projectId, open, onClose }: TaskDetai
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      // Compress image files before upload to reduce bandwidth/storage
+      const fileToUpload = await compressImage(file, {
+        maxSizeMB: 1,
+        maxWidthOrHeight: 1920,
+      });
+
       const fileExt = file.name.split('.').pop();
       const fileName = `${taskId}/${Date.now()}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from("task-attachments")
-        .upload(fileName, file);
+        .upload(fileName, fileToUpload);
 
       if (uploadError) throw uploadError;
 
@@ -276,8 +284,8 @@ export const TaskDetailsModal = ({ taskId, projectId, open, onClose }: TaskDetai
           user_id: user.id,
           file_name: file.name,
           file_path: fileName,
-          file_size: file.size,
-          file_type: file.type
+          file_size: fileToUpload.size,
+          file_type: fileToUpload.type
         });
 
       if (dbError) throw dbError;

@@ -1,7 +1,10 @@
 /**
  * Shared calculation utilities for cost reports to ensure consistency
  * between UI display and PDF exports.
+ * Uses decimal.js for precise financial calculations to prevent rounding errors.
  */
+
+import { add, subtract, divide, round, sum, decimal } from './decimalPrecision';
 
 export interface CategoryTotal {
   id: string;
@@ -26,6 +29,7 @@ export interface GrandTotals {
 /**
  * Calculate category totals from categories, line items, and variations
  * Variations show R0 in Original Budget and Previous Report, full amount in Anticipated Final
+ * Uses precise decimal arithmetic to prevent floating-point rounding errors.
  */
 export function calculateCategoryTotals(
   categories: any[],
@@ -37,10 +41,10 @@ export function calculateCategoryTotals(
     const isVariationsCategory = category.description?.toUpperCase().includes("VARIATION");
     
     if (isVariationsCategory) {
-      // For variations category, sum from variations table
-      const anticipatedFinal = variations.reduce(
-        (sum, v) => sum + Number(v.amount || 0),
-        0
+      // For variations category, sum from variations table using precise arithmetic
+      const anticipatedFinal = round(
+        sum(variations.map(v => Number(v.amount || 0))),
+        2
       );
       
       return {
@@ -55,11 +59,11 @@ export function calculateCategoryTotals(
         originalVariance: anticipatedFinal // Variance = full amount (since original was 0)
       };
     } else {
-      // For regular categories, sum line items
+      // For regular categories, sum line items using precise arithmetic
       const items = lineItems.filter(item => item.category_id === category.id);
-      const originalBudget = items.reduce((sum, item) => sum + Number(item.original_budget || 0), 0);
-      const previousReport = items.reduce((sum, item) => sum + Number(item.previous_report || 0), 0);
-      const anticipatedFinal = items.reduce((sum, item) => sum + Number(item.anticipated_final || 0), 0);
+      const originalBudget = round(sum(items.map(item => Number(item.original_budget || 0))), 2);
+      const previousReport = round(sum(items.map(item => Number(item.previous_report || 0))), 2);
+      const anticipatedFinal = round(sum(items.map(item => Number(item.anticipated_final || 0))), 2);
       
       return {
         id: category.id,
@@ -69,44 +73,38 @@ export function calculateCategoryTotals(
         previousReport,
         anticipatedFinal,
         percentageOfTotal: 0, // Will be calculated in second pass
-        currentVariance: anticipatedFinal - previousReport,
-        originalVariance: anticipatedFinal - originalBudget
+        currentVariance: round(subtract(anticipatedFinal, previousReport), 2),
+        originalVariance: round(subtract(anticipatedFinal, originalBudget), 2)
       };
     }
   });
 
   // Calculate total original budget for percentage calculations
-  const totalOriginalBudget = totalsWithoutPercentages.reduce(
-    (sum, cat) => sum + cat.originalBudget,
-    0
+  const totalOriginalBudget = round(
+    sum(totalsWithoutPercentages.map(cat => cat.originalBudget)),
+    2
   );
 
-  // Second pass: add percentage of total
+  // Second pass: add percentage of total using precise division
   return totalsWithoutPercentages.map(cat => ({
     ...cat,
     percentageOfTotal: totalOriginalBudget > 0 
-      ? (cat.originalBudget / totalOriginalBudget) * 100
+      ? round(divide(cat.originalBudget, totalOriginalBudget) * 100, 2)
       : 0
   }));
 }
 
 /**
- * Calculate grand totals from category totals
+ * Calculate grand totals from category totals using precise arithmetic
  */
 export function calculateGrandTotals(categoryTotals: CategoryTotal[]): GrandTotals {
-  return categoryTotals.reduce((acc, cat) => ({
-    originalBudget: acc.originalBudget + cat.originalBudget,
-    previousReport: acc.previousReport + cat.previousReport,
-    anticipatedFinal: acc.anticipatedFinal + cat.anticipatedFinal,
-    currentVariance: acc.currentVariance + cat.currentVariance,
-    originalVariance: acc.originalVariance + cat.originalVariance
-  }), {
-    originalBudget: 0,
-    previousReport: 0,
-    anticipatedFinal: 0,
-    currentVariance: 0,
-    originalVariance: 0
-  });
+  return {
+    originalBudget: round(sum(categoryTotals.map(cat => cat.originalBudget)), 2),
+    previousReport: round(sum(categoryTotals.map(cat => cat.previousReport)), 2),
+    anticipatedFinal: round(sum(categoryTotals.map(cat => cat.anticipatedFinal)), 2),
+    currentVariance: round(sum(categoryTotals.map(cat => cat.currentVariance)), 2),
+    originalVariance: round(sum(categoryTotals.map(cat => cat.originalVariance)), 2)
+  };
 }
 
 /**

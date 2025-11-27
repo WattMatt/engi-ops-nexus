@@ -9,6 +9,7 @@ import { MessageNotificationBell } from "@/components/messaging/MessageNotificat
 import { LogOut } from "lucide-react";
 import { FirstLoginModal } from "@/components/auth/FirstLoginModal";
 import { useQuery } from "@tanstack/react-query";
+import { ProjectContextHeader } from "@/components/common/ProjectContextHeader";
 
 const DashboardLayout = () => {
   const navigate = useNavigate();
@@ -117,6 +118,12 @@ const DashboardLayout = () => {
               </Button>
             </div>
           </header>
+
+          {/* Project Context Header */}
+          <ProjectContextHeader 
+            projectName={projectName} 
+            projectNumber={projectNumber} 
+          />
 
           {/* Main Content */}
           <main className="flex-1 bg-background overflow-hidden">
