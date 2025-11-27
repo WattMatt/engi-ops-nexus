@@ -11,7 +11,6 @@ import {
   FileCheck, 
   Users,
   Settings,
-  TrendingUp,
   Activity,
   Calendar
 } from "lucide-react";
@@ -23,7 +22,6 @@ import { BeneficialOccupationWidget } from "@/components/dashboard/BeneficialOcc
 import { BulkServicesWidget } from "@/components/dashboard/BulkServicesWidget";
 import { ProjectCompletionCard } from "@/components/dashboard/ProjectCompletionCard";
 import { IssuesIncompleteWidget } from "@/components/dashboard/IssuesIncompleteWidget";
-import { ApplicationReviewDialog } from "@/components/admin/ApplicationReviewDialog";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -228,23 +226,6 @@ const Dashboard = () => {
           </Card>
         </div>
 
-        {/* AI Review Section */}
-        <div className="lg:col-span-2">
-          <Card className="border-2 border-primary/20 bg-gradient-to-br from-primary/5 to-accent/5">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5 text-primary" />
-                Application Optimization
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm text-muted-foreground mb-4">
-                Get AI-powered insights and recommendations to improve your application's performance, security, and user experience.
-              </p>
-              <ApplicationReviewDialog />
-            </CardContent>
-          </Card>
-        </div>
       </div>
     </div>
   );

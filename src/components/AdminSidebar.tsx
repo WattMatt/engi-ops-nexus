@@ -1,4 +1,4 @@
-import { Users, Settings, Building2, FolderKanban, Receipt, MessageSquareWarning, Database, BarChart3, FileText } from "lucide-react";
+import { Users, Settings, Building2, FolderKanban, Receipt, MessageSquareWarning, Database, BarChart3, FileText, TrendingUp } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 import {
   Sidebar,
@@ -18,6 +18,7 @@ const adminItems = [
   { title: "Staff Management", url: "/admin/staff", icon: Users },
   { title: "User Management", url: "/admin/users", icon: Users },
   { title: "Backup & Recovery", url: "/admin/backup", icon: Database },
+  { title: "AI Review", url: "/admin/ai-review", icon: TrendingUp },
   { title: "Feedback", url: "/admin/feedback", icon: MessageSquareWarning },
   { title: "Feedback Analytics", url: "/admin/feedback-analytics", icon: BarChart3 },
   { title: "Settings", url: "/admin/settings", icon: Settings },
