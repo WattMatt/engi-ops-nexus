@@ -3,23 +3,17 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Plus, Pencil, Trash2, Download, Users, RefreshCw, Split } from "lucide-react";
+import { Plus, Download, Users, RefreshCw } from "lucide-react";
 import { AddCableEntryDialog } from "./AddCableEntryDialog";
 import { EditCableEntryDialog } from "./EditCableEntryDialog";
 import { ImportFloorPlanCablesDialog } from "./ImportFloorPlanCablesDialog";
 import { ImportTenantsDialog } from "./ImportTenantsDialog";
 import { SplitParallelCablesDialog } from "./SplitParallelCablesDialog";
+import { VirtualizedCableTable } from "./VirtualizedCableTable";
 import { useToast } from "@/hooks/use-toast";
 import { calculateCableSize } from "@/utils/cableSizing";
 import { useCalculationSettings } from "@/hooks/useCalculationSettings";
+import { round, sum } from "@/utils/decimalPrecision";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -129,10 +123,10 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
 
   const formatCurrency = (value: number | null) => {
     if (value === null || value === undefined) return "R 0.00";
-    return `R ${value.toFixed(2)}`;
+    return `R ${round(value, 2).toFixed(2)}`;
   };
 
-  const totalCost = entries?.reduce((sum, entry) => sum + (entry.total_cost || 0), 0) || 0;
+  const totalCost = round(sum(entries?.map(entry => entry.total_cost) || []), 2);
 
   const handleEdit = (entry: any) => {
     setSelectedEntry(entry);
@@ -281,100 +275,14 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
           </div>
         </CardHeader>
         <CardContent>
-          {!entries || entries.length === 0 ? (
-            <p className="text-center text-muted-foreground py-8">
-              No cable entries yet. Add your first cable entry to get started.
-            </p>
-          ) : (
-            <div className="space-y-4">
-              <div className="rounded-md border max-h-[600px] overflow-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="sticky top-0 bg-background z-20 px-4 py-3 w-16 text-center border-b">Status</TableHead>
-                      <TableHead className="sticky top-0 bg-background z-20 px-4 py-3 w-20 border-b">Cable #</TableHead>
-                      <TableHead className="sticky top-0 bg-background z-20 px-4 py-3 w-44 border-b">Cable Tag</TableHead>
-                      <TableHead className="sticky top-0 bg-background z-20 px-4 py-3 w-40 border-b">From</TableHead>
-                      <TableHead className="sticky top-0 bg-background z-20 px-4 py-3 w-40 border-b">To</TableHead>
-                      <TableHead className="sticky top-0 bg-background z-20 px-4 py-3 w-16 text-center border-b">Qty</TableHead>
-                      <TableHead className="sticky top-0 bg-background z-20 px-4 py-3 w-24 border-b">Voltage</TableHead>
-                      <TableHead className="sticky top-0 bg-background z-20 px-4 py-3 w-24 border-b">Load (A)</TableHead>
-                      <TableHead className="sticky top-0 bg-background z-20 px-4 py-3 w-28 border-b">Cable Type</TableHead>
-                      <TableHead className="sticky top-0 bg-background z-20 px-4 py-3 w-32 border-b">Install Method</TableHead>
-                      <TableHead className="sticky top-0 bg-background z-20 px-4 py-3 w-28 border-b">Cable Size</TableHead>
-                      <TableHead className="sticky top-0 bg-background z-20 px-4 py-3 w-28 border-b">Length (m)</TableHead>
-                      <TableHead className="sticky top-0 bg-background z-20 px-4 py-3 w-32 text-right border-b">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                     {entries.map((entry) => {
-                       const hasCompleteData = entry.voltage && entry.load_amps && entry.cable_size;
-                       
-                       // Calculate dynamic parallel cable display
-                       let displayCableTag = entry.cable_tag;
-                       let displayCableNumber = entry.cable_number || 1;
-                       
-                       if (entry.parallel_group_id && entry.parallel_total_count) {
-                         // Use stored cable_number and parallel_total_count to preserve original numbering
-                         const baseTag = entry.base_cable_tag || entry.cable_tag;
-                         displayCableTag = `${baseTag} (${entry.cable_number}/${entry.parallel_total_count})`;
-                         displayCableNumber = entry.cable_number;
-                       }
-                       
-                       return (
-                       <TableRow key={entry.id}>
-                           <TableCell className="px-4 py-4 text-center">
-                             {hasCompleteData ? (
-                               <span className="inline-flex h-2 w-2 rounded-full bg-green-500" title="Complete" />
-                             ) : (
-                               <span className="inline-flex h-2 w-2 rounded-full bg-yellow-500" title="Incomplete - needs voltage, load, or cable size" />
-                             )}
-                           </TableCell>
-                           <TableCell className="px-4 py-4 font-medium">{displayCableNumber}</TableCell>
-                           <TableCell className="px-4 py-4 font-medium">{displayCableTag}</TableCell>
-                          <TableCell className="px-4 py-4">{entry.from_location}</TableCell>
-                          <TableCell className="px-4 py-4">{entry.to_location}</TableCell>
-                          <TableCell className="px-4 py-4 font-medium text-center">{entry.quantity || 1}</TableCell>
-                          <TableCell className="px-4 py-4">{entry.voltage || "-"}</TableCell>
-                          <TableCell className="px-4 py-4">{entry.load_amps || "-"}</TableCell>
-                          <TableCell className="px-4 py-4">{entry.cable_type || "-"}</TableCell>
-                          <TableCell className="px-4 py-4 capitalize">{entry.installation_method || "air"}</TableCell>
-                          <TableCell className="px-4 py-4">{entry.cable_size || "-"}</TableCell>
-                          <TableCell className="px-4 py-4">
-                            {(entry.total_length || (entry.measured_length || 0) + (entry.extra_length || 0)).toFixed(2)}
-                          </TableCell>
-                          <TableCell className="px-4 py-4">
-                            <div className="flex items-center justify-end gap-1">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleSplit(entry)}
-                                title="Split into parallel cables"
-                              >
-                                <Split className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleEdit(entry)}
-                              >
-                                <Pencil className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleDeleteClick(entry)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                    </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
-              </div>
+          <div className="space-y-4">
+            <VirtualizedCableTable
+              entries={entries || []}
+              onEdit={handleEdit}
+              onDelete={handleDeleteClick}
+              onSplit={handleSplit}
+            />
+            {entries && entries.length > 0 && (
               <div className="flex justify-end">
                 <Card className="w-64">
                   <CardContent className="pt-6">
@@ -385,8 +293,8 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
                   </CardContent>
                 </Card>
               </div>
-            </div>
-          )}
+            )}
+          </div>
         </CardContent>
       </Card>
 
