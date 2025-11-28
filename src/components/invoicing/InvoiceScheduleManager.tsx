@@ -36,11 +36,12 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, FileText, MoreHorizontal, Trash2, CheckCircle, Calendar, Sparkles, Upload, FolderOpen } from "lucide-react";
+import { Plus, FileText, MoreHorizontal, Trash2, CheckCircle, Calendar, Sparkles, Upload, FolderOpen, FileSpreadsheet } from "lucide-react";
 import { toast } from "sonner";
 import { format, addMonths, parseISO } from "date-fns";
 import { AppointmentLetterExtractor } from "@/components/finance/AppointmentLetterExtractor";
 import { FinanceProjectDocuments } from "@/components/finance/FinanceProjectDocuments";
+import { ExcelScheduleImporter } from "@/components/finance/ExcelScheduleImporter";
 import { Checkbox } from "@/components/ui/checkbox";
 
 interface ScheduleEntry {
@@ -53,6 +54,7 @@ export function InvoiceScheduleManager() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
   const [extractorOpen, setExtractorOpen] = useState(false);
+  const [excelImporterOpen, setExcelImporterOpen] = useState(false);
   const [documentsOpen, setDocumentsOpen] = useState(false);
   const [documentsProject, setDocumentsProject] = useState<any>(null);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
@@ -374,6 +376,10 @@ export function InvoiceScheduleManager() {
           </p>
         </div>
         <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setExcelImporterOpen(true)}>
+            <FileSpreadsheet className="mr-2 h-4 w-4" />
+            Import from Excel
+          </Button>
           <Button variant="outline" onClick={() => setExtractorOpen(true)}>
             <Sparkles className="mr-2 h-4 w-4" />
             Extract from Document
@@ -762,6 +768,12 @@ export function InvoiceScheduleManager() {
           project={documentsProject}
         />
       )}
+
+      {/* Excel Schedule Importer */}
+      <ExcelScheduleImporter
+        open={excelImporterOpen}
+        onOpenChange={setExcelImporterOpen}
+      />
     </div>
   );
 }
