@@ -8,7 +8,6 @@ import { AddEmployeeDialog } from "@/components/hr/AddEmployeeDialog";
 import { EmployeeList } from "@/components/hr/EmployeeList";
 import { DepartmentsManager } from "@/components/hr/DepartmentsManager";
 import { LeaveManager } from "@/components/hr/LeaveManager";
-import { AttendanceManager } from "@/components/hr/AttendanceManager";
 import { PayrollManager } from "@/components/hr/PayrollManager";
 import { PerformanceManager } from "@/components/hr/PerformanceManager";
 import { OnboardingManager } from "@/components/hr/OnboardingManager";
@@ -109,7 +108,7 @@ const StaffManagement = () => {
       </div>
 
       <Tabs defaultValue="dashboard" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-9">
+        <TabsList className="grid w-full grid-cols-8">
           <TabsTrigger value="dashboard">
             <LayoutDashboard className="mr-2 h-4 w-4" />
             Dashboard
@@ -125,10 +124,6 @@ const StaffManagement = () => {
           <TabsTrigger value="leaves">
             <Calendar className="mr-2 h-4 w-4" />
             Leave
-          </TabsTrigger>
-          <TabsTrigger value="attendance">
-            <Calendar className="mr-2 h-4 w-4" />
-            Attendance
           </TabsTrigger>
           <TabsTrigger value="payroll">
             <DollarSign className="mr-2 h-4 w-4" />
@@ -184,18 +179,6 @@ const StaffManagement = () => {
             </CardHeader>
             <CardContent>
               <LeaveManager />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="attendance" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <CardTitle>Attendance Tracking</CardTitle>
-              <CardDescription>Monitor employee attendance</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <AttendanceManager />
             </CardContent>
           </Card>
         </TabsContent>

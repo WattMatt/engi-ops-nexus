@@ -4,9 +4,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, LineChart, Line, Legend
+  PieChart, Pie, Cell
 } from "recharts";
-import { Users, UserCheck, UserX, Clock, TrendingUp, Calendar } from "lucide-react";
+import { Users, Clock, TrendingUp, Calendar } from "lucide-react";
 
 const COLORS = ["hsl(var(--primary))", "hsl(var(--secondary))", "hsl(var(--accent))", "#10b981", "#f59e0b", "#ef4444"];
 
@@ -52,39 +52,6 @@ export function HRDashboard() {
         name: name.charAt(0).toUpperCase() + name.slice(1).replace('_', ' '), 
         value 
       }));
-    },
-  });
-
-  // Fetch recent attendance trends (last 7 days)
-  const { data: attendanceData = [] } = useQuery({
-    queryKey: ["hr-dashboard-attendance"],
-    queryFn: async () => {
-      const today = new Date();
-      const weekAgo = new Date(today);
-      weekAgo.setDate(weekAgo.getDate() - 7);
-      
-      const { data, error } = await supabase
-        .from("attendance_records")
-        .select("record_date, clock_in, clock_out")
-        .gte("record_date", weekAgo.toISOString().split("T")[0])
-        .lte("record_date", today.toISOString().split("T")[0]);
-      if (error) throw error;
-      
-      const counts: Record<string, { present: number; total: number }> = {};
-      data?.forEach((rec: any) => {
-        const date = rec.record_date;
-        if (!counts[date]) counts[date] = { present: 0, total: 0 };
-        counts[date].total += 1;
-        if (rec.clock_in) counts[date].present += 1;
-      });
-      
-      return Object.entries(counts)
-        .sort(([a], [b]) => a.localeCompare(b))
-        .map(([date, vals]) => ({
-          date: new Date(date).toLocaleDateString("en-ZA", { weekday: "short", day: "numeric" }),
-          present: vals.present,
-          absent: vals.total - vals.present,
-        }));
     },
   });
 
@@ -281,78 +248,47 @@ export function HRDashboard() {
         </Card>
       </div>
 
-      {/* Attendance and Upcoming */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Attendance Trend */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Attendance Trend (Last 7 Days)</CardTitle>
-            <CardDescription>Daily attendance records</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="h-[250px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={attendanceData}>
-                  <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
-                  <XAxis dataKey="date" className="text-xs" />
-                  <YAxis className="text-xs" />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: "hsl(var(--card))", 
-                      border: "1px solid hsl(var(--border))" 
-                    }} 
-                  />
-                  <Legend />
-                  <Line type="monotone" dataKey="present" stroke="hsl(var(--primary))" strokeWidth={2} />
-                  <Line type="monotone" dataKey="absent" stroke="#ef4444" strokeWidth={2} />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Upcoming Leaves */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Upcoming Leave</CardTitle>
-            <CardDescription>Approved leaves in the next 7 days</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {upcomingLeaves.length === 0 ? (
-              <p className="text-muted-foreground text-sm">No upcoming leaves</p>
-            ) : (
-              <div className="space-y-3">
-                {upcomingLeaves.map((leave: any, idx) => (
-                  <div key={idx} className="flex items-center justify-between border-b pb-2 last:border-0">
-                    <div>
-                      <p className="font-medium">
-                        {leave.employees?.first_name} {leave.employees?.last_name}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {leave.leave_types?.name}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-sm">
-                        {new Date(leave.start_date).toLocaleDateString("en-ZA", { 
+      {/* Upcoming Leaves */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Upcoming Leave</CardTitle>
+          <CardDescription>Approved leaves in the next 7 days</CardDescription>
+        </CardHeader>
+        <CardContent>
+          {upcomingLeaves.length === 0 ? (
+            <p className="text-muted-foreground text-sm">No upcoming leaves</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {upcomingLeaves.map((leave: any, idx) => (
+                <div key={idx} className="flex items-center justify-between border rounded-lg p-3">
+                  <div>
+                    <p className="font-medium">
+                      {leave.employees?.first_name} {leave.employees?.last_name}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {leave.leave_types?.name}
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-sm">
+                      {new Date(leave.start_date).toLocaleDateString("en-ZA", { 
+                        month: "short", 
+                        day: "numeric" 
+                      })}
+                      {leave.end_date !== leave.start_date && (
+                        <> - {new Date(leave.end_date).toLocaleDateString("en-ZA", { 
                           month: "short", 
                           day: "numeric" 
-                        })}
-                        {leave.end_date !== leave.start_date && (
-                          <> - {new Date(leave.end_date).toLocaleDateString("en-ZA", { 
-                            month: "short", 
-                            day: "numeric" 
-                          })}</>
-                        )}
-                      </p>
-                    </div>
+                        })}</>
+                      )}
+                    </p>
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
