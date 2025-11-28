@@ -3,7 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, FileText, History, MoreHorizontal } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -12,11 +12,23 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { AddPayrollDialog } from "./AddPayrollDialog";
+import { GeneratePayslipDialog } from "./GeneratePayslipDialog";
+import { PayslipHistory } from "./PayslipHistory";
 
 export function PayrollManager() {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [payslipDialogOpen, setPayslipDialogOpen] = useState(false);
+  const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
+  const [selectedRecord, setSelectedRecord] = useState<any>(null);
   const queryClient = useQueryClient();
+
   const { data: payrollRecords = [], isLoading } = useQuery({
     queryKey: ["payroll-records"],
     queryFn: async () => {
@@ -25,6 +37,7 @@ export function PayrollManager() {
         .select(`
           *,
           employees!payroll_records_employee_id_fkey (
+            id,
             first_name,
             last_name,
             employee_number
@@ -33,6 +46,23 @@ export function PayrollManager() {
         .order("effective_date", { ascending: false });
       if (error) throw error;
       return data;
+    },
+  });
+
+  // Get payslip counts per employee
+  const { data: payslipCounts = {} } = useQuery({
+    queryKey: ["payslip-counts"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("pay_slips")
+        .select("employee_id");
+      if (error) throw error;
+      
+      const counts: Record<string, number> = {};
+      data?.forEach((slip: any) => {
+        counts[slip.employee_id] = (counts[slip.employee_id] || 0) + 1;
+      });
+      return counts;
     },
   });
 
@@ -49,12 +79,22 @@ export function PayrollManager() {
     return <Badge variant="outline">Inactive</Badge>;
   };
 
+  const handleGeneratePayslip = (record: any) => {
+    setSelectedRecord(record);
+    setPayslipDialogOpen(true);
+  };
+
+  const handleViewHistory = (record: any) => {
+    setSelectedRecord(record);
+    setHistoryDialogOpen(true);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <div>
           <h3 className="text-lg font-semibold">Payroll Records</h3>
-          <p className="text-sm text-muted-foreground">View employee compensation details</p>
+          <p className="text-sm text-muted-foreground">View employee compensation details and generate payslips</p>
         </div>
         <Button onClick={() => setDialogOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
@@ -69,14 +109,15 @@ export function PayrollManager() {
             <TableHead>Salary Amount</TableHead>
             <TableHead>Frequency</TableHead>
             <TableHead>Effective Date</TableHead>
-            <TableHead>End Date</TableHead>
             <TableHead>Status</TableHead>
+            <TableHead>Payslips</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
           {payrollRecords.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={6} className="text-center text-muted-foreground">
+              <TableCell colSpan={7} className="text-center text-muted-foreground">
                 No payroll records found
               </TableCell>
             </TableRow>
@@ -95,10 +136,31 @@ export function PayrollManager() {
                 </TableCell>
                 <TableCell className="capitalize">{record.payment_frequency}</TableCell>
                 <TableCell>{new Date(record.effective_date).toLocaleDateString()}</TableCell>
-                <TableCell>
-                  {record.end_date ? new Date(record.end_date).toLocaleDateString() : "Ongoing"}
-                </TableCell>
                 <TableCell>{getStatusBadge(record.end_date)}</TableCell>
+                <TableCell>
+                  <Badge variant="secondary">
+                    {payslipCounts[record.employee_id] || 0} generated
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-right">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleGeneratePayslip(record)}>
+                        <FileText className="mr-2 h-4 w-4" />
+                        Generate Payslip
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleViewHistory(record)}>
+                        <History className="mr-2 h-4 w-4" />
+                        View Payslip History
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </TableCell>
               </TableRow>
             ))
           )}
@@ -110,6 +172,22 @@ export function PayrollManager() {
         onOpenChange={setDialogOpen}
         onSuccess={() => queryClient.invalidateQueries({ queryKey: ["payroll-records"] })}
       />
+
+      <GeneratePayslipDialog
+        open={payslipDialogOpen}
+        onOpenChange={setPayslipDialogOpen}
+        payrollRecord={selectedRecord}
+        onSuccess={() => queryClient.invalidateQueries({ queryKey: ["payslip-counts"] })}
+      />
+
+      {selectedRecord && (
+        <PayslipHistory
+          open={historyDialogOpen}
+          onOpenChange={setHistoryDialogOpen}
+          employeeId={selectedRecord.employee_id}
+          employeeName={`${selectedRecord.employees?.first_name} ${selectedRecord.employees?.last_name}`}
+        />
+      )}
     </div>
   );
 }
