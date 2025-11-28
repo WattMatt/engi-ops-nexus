@@ -70,7 +70,14 @@ export const CableTagSchedule = ({ scheduleId }: CableTagScheduleProps) => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Cable Tag Schedule - All Tags Only</CardTitle>
+        <CardTitle className="flex items-center justify-between">
+          <span>Cable Tag Schedule - All Tags</span>
+          {entries && entries.length > 0 && (
+            <span className="text-sm font-normal text-muted-foreground">
+              {entries.length} cable{entries.length !== 1 ? 's' : ''}
+            </span>
+          )}
+        </CardTitle>
       </CardHeader>
       <CardContent>
         {!entries || entries.length === 0 ? (
