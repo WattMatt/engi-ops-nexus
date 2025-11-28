@@ -18,10 +18,33 @@ export const CableTagSchedule = ({ scheduleId }: CableTagScheduleProps) => {
   const { data: entries, isLoading } = useQuery({
     queryKey: ["cable-tags", scheduleId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // First get the schedule to get project_id
+      const { data: schedule } = await supabase
+        .from("cable_schedules")
+        .select("project_id")
+        .eq("id", scheduleId)
+        .single();
+
+      // Get all floor plan IDs for this project
+      const { data: floorPlans } = await supabase
+        .from("floor_plan_projects")
+        .select("id")
+        .eq("project_id", schedule?.project_id || "");
+
+      const floorPlanIds = floorPlans?.map(fp => fp.id) || [];
+
+      // Get cable entries linked to this schedule OR to floor plans in this project
+      let query = supabase
         .from("cable_entries")
-        .select("id, cable_tag, base_cable_tag, cable_number, parallel_group_id, parallel_total_count")
-        .eq("schedule_id", scheduleId);
+        .select("id, cable_tag, base_cable_tag, cable_number, parallel_group_id, parallel_total_count");
+
+      if (floorPlanIds.length > 0) {
+        query = query.or(`schedule_id.eq.${scheduleId},floor_plan_id.in.(${floorPlanIds.join(',')})`);
+      } else {
+        query = query.eq("schedule_id", scheduleId);
+      }
+
+      const { data, error } = await query;
 
       if (error) throw error;
       
