@@ -74,3 +74,6 @@ verify_jwt = false
 
 [functions.extract-payment-schedule]
 verify_jwt = true
+
+[functions.extract-invoice-pdf]
+verify_jwt = false

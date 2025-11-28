@@ -32,15 +32,17 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
-import { FileSpreadsheet, Search, Trash2, MoreHorizontal, Download, History, Pencil, ChevronDown, ChevronRight, FolderOpen, Link2Off } from "lucide-react";
+import { FileSpreadsheet, Search, Trash2, MoreHorizontal, Download, History, Pencil, ChevronDown, ChevronRight, FolderOpen, Link2Off, Upload, FileText, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { format, parse } from "date-fns";
 import { InvoiceHistoryImporter } from "./InvoiceHistoryImporter";
 import { InvoiceHistoryEditDialog } from "./InvoiceHistoryEditDialog";
+import { InvoicePDFUploader } from "./InvoicePDFUploader";
 import * as XLSX from "xlsx";
 
 export function InvoiceHistoryTab() {
   const [importerOpen, setImporterOpen] = useState(false);
+  const [pdfUploaderOpen, setPdfUploaderOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -202,9 +204,13 @@ export function InvoiceHistoryTab() {
             <Download className="mr-2 h-4 w-4" />
             Export
           </Button>
-          <Button onClick={() => setImporterOpen(true)}>
+          <Button variant="outline" onClick={() => setImporterOpen(true)}>
             <FileSpreadsheet className="mr-2 h-4 w-4" />
-            Import from Excel
+            Import Excel
+          </Button>
+          <Button onClick={() => setPdfUploaderOpen(true)}>
+            <Sparkles className="mr-2 h-4 w-4" />
+            Upload PDFs
           </Button>
         </div>
       </div>
@@ -370,14 +376,26 @@ export function InvoiceHistoryTab() {
                                     <TableHead>Client</TableHead>
                                     <TableHead className="text-right">Excl. VAT</TableHead>
                                     <TableHead className="text-right">Incl. VAT</TableHead>
-                                    <TableHead className="w-[50px]"></TableHead>
+                                    <TableHead className="w-[80px]"></TableHead>
                                   </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                   {monthInvoices.map((invoice) => (
                                     <TableRow key={invoice.id}>
                                       <TableCell className="font-mono font-medium">
-                                        {invoice.invoice_number}
+                                        <div className="flex items-center gap-2">
+                                          {invoice.invoice_number}
+                                          {invoice.pdf_file_path && (
+                                            <span title="PDF attached">
+                                              <FileText className="h-3 w-3 text-muted-foreground" />
+                                            </span>
+                                          )}
+                                          {invoice.extracted_by_ai && (
+                                            <span title="AI extracted">
+                                              <Sparkles className="h-3 w-3 text-primary" />
+                                            </span>
+                                          )}
+                                        </div>
                                       </TableCell>
                                       <TableCell className="max-w-[250px] truncate">
                                         {invoice.job_name}
@@ -399,6 +417,24 @@ export function InvoiceHistoryTab() {
                                             </Button>
                                           </DropdownMenuTrigger>
                                           <DropdownMenuContent align="end">
+                                            {invoice.pdf_file_path && (
+                                              <>
+                                                <DropdownMenuItem
+                                                  onClick={async () => {
+                                                    const { data } = await supabase.storage
+                                                      .from("invoice-pdfs")
+                                                      .createSignedUrl(invoice.pdf_file_path, 60);
+                                                    if (data?.signedUrl) {
+                                                      window.open(data.signedUrl, "_blank");
+                                                    }
+                                                  }}
+                                                >
+                                                  <FileText className="mr-2 h-4 w-4" />
+                                                  View PDF
+                                                </DropdownMenuItem>
+                                                <DropdownMenuSeparator />
+                                              </>
+                                            )}
                                             <DropdownMenuItem
                                               onClick={() => {
                                                 setEditingInvoice(invoice);
@@ -435,6 +471,7 @@ export function InvoiceHistoryTab() {
       )}
 
       <InvoiceHistoryImporter open={importerOpen} onOpenChange={setImporterOpen} />
+      <InvoicePDFUploader open={pdfUploaderOpen} onOpenChange={setPdfUploaderOpen} />
       <InvoiceHistoryEditDialog 
         invoice={editingInvoice} 
         open={editDialogOpen} 
