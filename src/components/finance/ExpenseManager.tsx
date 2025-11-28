@@ -1025,7 +1025,13 @@ export function ExpenseManager() {
                     </CardHeader>
                     <CardContent className="p-0">
                       <div className="divide-y">
-                        {Object.entries(groupedByCategory).map(([categoryName, catExpenses]) => {
+                        {Object.entries(groupedByCategory)
+                          .sort(([, a], [, b]) => {
+                            const orderA = a[0]?.expense_categories?.display_order ?? 999;
+                            const orderB = b[0]?.expense_categories?.display_order ?? 999;
+                            return orderA - orderB;
+                          })
+                          .map(([categoryName, catExpenses]) => {
                           const catTotal = catExpenses.reduce((sum, e) => sum + e.budgeted_amount, 0);
                           const catActual = catExpenses.reduce((sum, e) => sum + (e.actual_amount || 0), 0);
                           
