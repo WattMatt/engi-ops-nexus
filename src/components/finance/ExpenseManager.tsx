@@ -10,9 +10,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Edit2, Trash2, Calendar, Users, RefreshCw } from "lucide-react";
+import { Plus, Edit2, Trash2, Calendar, Users, RefreshCw, Upload } from "lucide-react";
 import { format, addMonths, startOfMonth, parseISO } from "date-fns";
 import { toast } from "sonner";
+import { Textarea } from "@/components/ui/textarea";
 
 interface ExpenseCategory {
   id: string;
@@ -44,6 +45,8 @@ export function ExpenseManager() {
   const [actualAmount, setActualAmount] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
   const [isRecurring, setIsRecurring] = useState(false);
+  const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
+  const [importData, setImportData] = useState("");
 
   const { data: categories = [] } = useQuery({
     queryKey: ["expense-categories"],
@@ -182,6 +185,158 @@ export function ExpenseManager() {
       queryClient.invalidateQueries({ queryKey: ["monthly-expenses"] });
       queryClient.invalidateQueries({ queryKey: ["cashflow-expenses"] });
       toast.success(`Generated ${count} recurring expense entries`);
+    },
+  });
+
+  // Import expenses from spreadsheet
+  const importExpensesMutation = useMutation({
+    mutationFn: async (data: string) => {
+      const lines = data.trim().split('\n');
+      if (lines.length < 2) throw new Error("Not enough data to import");
+
+      const headerLine = lines[0];
+      const headers = headerLine.split('\t');
+      
+      // Find month columns (format: Aug-25, Sep-25, etc.)
+      const monthColumns: { index: number; month: string }[] = [];
+      headers.forEach((header, idx) => {
+        const match = header.match(/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d{2})$/);
+        if (match) {
+          monthColumns.push({ index: idx, month: header });
+        }
+      });
+
+      if (monthColumns.length === 0) {
+        throw new Error("No month columns found in format 'MMM-YY'");
+      }
+
+      // Get or create Salaries & Wages category
+      let { data: salaryCategory } = await supabase
+        .from('expense_categories')
+        .select('*')
+        .eq('name', 'Salaries & Wages')
+        .single();
+
+      if (!salaryCategory) {
+        const { data: newCat, error } = await supabase
+          .from('expense_categories')
+          .insert({ name: 'Salaries & Wages', code: 'SALARY', display_order: 1 })
+          .select()
+          .single();
+        if (error) throw error;
+        salaryCategory = newCat;
+      }
+
+      const categoryMap = new Map<string, string>();
+      const expensesByMonth = new Map<string, { categoryId: string; amount: number }[]>();
+
+      // Process each row
+      for (let i = 1; i < lines.length; i++) {
+        const line = lines[i];
+        if (!line.trim()) continue;
+
+        const cells = line.split('\t');
+        const expenseName = cells[0]?.trim();
+        if (!expenseName) continue;
+
+        // Determine category
+        const isSalary = expenseName.toLowerCase().includes('salary') || 
+                        expenseName.toLowerCase().includes('paye') ||
+                        expenseName.toLowerCase().includes('director');
+        
+        let categoryId: string;
+        
+        if (isSalary) {
+          categoryId = salaryCategory.id;
+        } else {
+          if (!categoryMap.has(expenseName)) {
+            const { data: existingCat } = await supabase
+              .from('expense_categories')
+              .select('id')
+              .eq('name', expenseName)
+              .single();
+
+            if (existingCat) {
+              categoryId = existingCat.id;
+            } else {
+              const { data: newCat } = await supabase
+                .from('expense_categories')
+                .insert({ 
+                  name: expenseName, 
+                  code: expenseName.substring(0, 10).toUpperCase().replace(/\s+/g, '_'),
+                  display_order: i
+                })
+                .select()
+                .single();
+              categoryId = newCat!.id;
+            }
+            categoryMap.set(expenseName, categoryId);
+          } else {
+            categoryId = categoryMap.get(expenseName)!;
+          }
+        }
+
+        // Parse amounts for each month
+        monthColumns.forEach(({ index, month }) => {
+          const amountStr = cells[index]?.trim();
+          if (!amountStr) return;
+
+          const amount = parseFloat(amountStr.replace(/[R\s,]/g, ''));
+          if (isNaN(amount) || amount === 0) return;
+
+          // Convert "Aug-25" to "2025-08-01"
+          const [monthAbbr, yearShort] = month.split('-');
+          const monthMap: Record<string, string> = {
+            'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04',
+            'May': '05', 'Jun': '06', 'Jul': '07', 'Aug': '08',
+            'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12'
+          };
+          const monthKey = `20${yearShort}-${monthMap[monthAbbr]}-01`;
+
+          if (!expensesByMonth.has(monthKey)) {
+            expensesByMonth.set(monthKey, []);
+          }
+          expensesByMonth.get(monthKey)!.push({ categoryId, amount });
+        });
+      }
+
+      // Insert/update expenses
+      let insertCount = 0;
+      for (const [month, expenses] of expensesByMonth) {
+        const categoryTotals = new Map<string, number>();
+        expenses.forEach(({ categoryId, amount }) => {
+          categoryTotals.set(categoryId, (categoryTotals.get(categoryId) || 0) + amount);
+        });
+
+        for (const [categoryId, amount] of categoryTotals) {
+          await supabase
+            .from('monthly_expenses')
+            .upsert({
+              category_id: categoryId,
+              expense_month: month,
+              budgeted_amount: amount,
+              actual_amount: amount,
+              is_recurring: true,
+              notes: 'Imported from spreadsheet'
+            }, {
+              onConflict: 'category_id,expense_month'
+            });
+          insertCount++;
+        }
+      }
+
+      return { months: expensesByMonth.size, entries: insertCount };
+    },
+    onSuccess: ({ months, entries }) => {
+      queryClient.invalidateQueries({ queryKey: ["monthly-expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["expense-categories"] });
+      queryClient.invalidateQueries({ queryKey: ["cashflow-expenses"] });
+      toast.success(`Imported ${entries} expense entries across ${months} months`);
+      setIsImportDialogOpen(false);
+      setImportData("");
+    },
+    onError: (error) => {
+      toast.error("Import failed: " + error.message);
     },
   });
 
@@ -372,6 +527,56 @@ export function ExpenseManager() {
 
       {/* Actions */}
       <div className="flex gap-2">
+        <Dialog open={isImportDialogOpen} onOpenChange={setIsImportDialogOpen}>
+          <DialogTrigger asChild>
+            <Button variant="outline">
+              <Upload className="h-4 w-4 mr-2" />
+              Import Spreadsheet
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Import Expenses from Spreadsheet</DialogTitle>
+              <DialogDescription>
+                Paste your expense data below. First row should have months (Aug-25, Sep-25, etc.),
+                first column should have expense names, followed by monthly amounts with R prefix.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label>Spreadsheet Data (Copy/Paste from Excel)</Label>
+                <Textarea
+                  placeholder="EXPENSE:	Aug-25	Sep-25	Oct-25&#10;Accounting Fees	R60869.57	R70000.00	R70000.00&#10;Salaries: D Barnard	R19119.79	R19119.79	R19119.79"
+                  value={importData}
+                  onChange={(e) => setImportData(e.target.value)}
+                  rows={20}
+                  className="font-mono text-xs"
+                />
+                <p className="text-xs text-muted-foreground">
+                  Tip: Select your data in Excel/Sheets and paste directly. Salary-related expenses will be automatically grouped.
+                </p>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  setIsImportDialogOpen(false);
+                  setImportData("");
+                }}
+              >
+                Cancel
+              </Button>
+              <Button 
+                onClick={() => importExpensesMutation.mutate(importData)}
+                disabled={importExpensesMutation.isPending || !importData.trim()}
+              >
+                {importExpensesMutation.isPending ? "Importing..." : "Import Expenses"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
         <Dialog open={isAddDialogOpen} onOpenChange={(open) => {
           setIsAddDialogOpen(open);
           if (!open) {
