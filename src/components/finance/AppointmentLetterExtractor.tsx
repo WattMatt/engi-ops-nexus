@@ -20,10 +20,12 @@ import mammoth from "mammoth";
 import { format } from "date-fns";
 
 interface PaymentMilestone {
+  claim_number?: number | null;
   date: string | null;
   amount: number;
   description: string | null;
   percentage: number | null;
+  cumulative_percentage?: number | null;
 }
 
 interface ExtractedData {
@@ -31,7 +33,11 @@ interface ExtractedData {
   client_name: string | null;
   client_address: string | null;
   client_vat_number: string | null;
+  consultant_name?: string | null;
+  discipline?: string | null;
   agreed_fee: number | null;
+  construction_cost?: number | null;
+  rebate_percentage?: number | null;
   vat_percentage: number | null;
   payment_terms: string | null;
   start_date: string | null;
@@ -278,6 +284,18 @@ export function AppointmentLetterExtractor({ onDataExtracted, onClose }: Appoint
                 <Label className="text-xs text-muted-foreground">Client</Label>
                 <p className="font-medium">{extractedData.client_name || '-'}</p>
               </div>
+              {extractedData.consultant_name && (
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Consultant</Label>
+                  <p className="font-medium">{extractedData.consultant_name}</p>
+                </div>
+              )}
+              {extractedData.discipline && (
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Discipline</Label>
+                  <p className="font-medium">{extractedData.discipline}</p>
+                </div>
+              )}
               <div className="space-y-1">
                 <Label className="text-xs text-muted-foreground">Agreed Fee</Label>
                 <p className="font-medium text-primary">
@@ -290,6 +308,18 @@ export function AppointmentLetterExtractor({ onDataExtracted, onClose }: Appoint
                   {extractedData.vat_percentage ? `${extractedData.vat_percentage}%` : '-'}
                 </p>
               </div>
+              {extractedData.construction_cost && (
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Construction Cost (Fee Basis)</Label>
+                  <p className="text-sm">{formatCurrency(extractedData.construction_cost)}</p>
+                </div>
+              )}
+              {extractedData.rebate_percentage && (
+                <div className="space-y-1">
+                  <Label className="text-xs text-muted-foreground">Rebate</Label>
+                  <p className="text-sm">{extractedData.rebate_percentage}%</p>
+                </div>
+              )}
               {extractedData.client_address && (
                 <div className="space-y-1 col-span-2">
                   <Label className="text-xs text-muted-foreground">Client Address</Label>
@@ -321,6 +351,7 @@ export function AppointmentLetterExtractor({ onDataExtracted, onClose }: Appoint
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead>#</TableHead>
                         <TableHead>Date/Month</TableHead>
                         <TableHead>Description</TableHead>
                         <TableHead className="text-right">Amount</TableHead>
@@ -329,12 +360,15 @@ export function AppointmentLetterExtractor({ onDataExtracted, onClose }: Appoint
                     <TableBody>
                       {extractedData.payment_schedule.map((payment, idx) => (
                         <TableRow key={idx}>
+                          <TableCell className="text-muted-foreground">
+                            {payment.claim_number ?? idx + 1}
+                          </TableCell>
                           <TableCell>
                             {payment.date 
                               ? (payment.date.length === 7 
                                   ? format(new Date(payment.date + "-01"), "MMMM yyyy")
                                   : format(new Date(payment.date), "dd MMM yyyy"))
-                              : `Payment ${idx + 1}`
+                              : '-'
                             }
                           </TableCell>
                           <TableCell>

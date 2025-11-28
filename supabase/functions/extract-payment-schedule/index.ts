@@ -24,50 +24,58 @@ serve(async (req) => {
 
     console.log('Processing document for payment schedule extraction:', fileName, 'Type:', fileType);
 
+    const extractionPrompt = `Extract all payment schedule and project information from this document. This could be:
+- An appointment letter
+- A fee proposal or professional fee calculation
+- A proposed cashflow schedule
+- A payment schedule or draw schedule
+
+Look for and extract:
+1. PROJECT DETAILS:
+   - Project name/reference
+   - Client company name
+   - Client address
+   - Client VAT number
+   - Consultant/company name providing services
+   - Discipline (e.g., Electrical Engineer, Architect, QS)
+
+2. FINANCIAL DETAILS:
+   - Total agreed fee/contract value
+   - Construction cost (if mentioned, for fee basis)
+   - Rebate percentage (if applicable)
+   - VAT percentage
+
+3. PAYMENT SCHEDULE/CASHFLOW:
+   Look for payment tables with columns like:
+   - Claim/Invoice numbers
+   - Month names (e.g., "December-25", "January-26") - convert to YYYY-MM format
+   - Milestones (e.g., "Pre-contract concept", "Construction", "Practical completion")
+   - Percentage of fee
+   - Invoice amounts
+   
+4. DATES:
+   - Document date
+   - Start/end dates
+   - Milestone completion dates
+
+5. OTHER:
+   - Payment terms
+   - Notes or special conditions
+   - Document reference/revision number
+
+Be thorough and extract ALL financial data visible in the document.`;
+
     // Build the message content based on file type
     let messageContent: any[];
     
     if (fileType === 'image') {
-      // For images, send as vision input
       messageContent = [
-        {
-          type: "text",
-          text: `Extract all payment schedule and project information from this appointment letter or payment schedule document. Look for:
-- Project name/reference
-- Client company name
-- Client address
-- Client VAT number
-- Total agreed fee/contract value
-- Payment schedule (dates, amounts, milestone descriptions)
-- Any notes or special conditions
-
-Be thorough and extract ALL financial data visible in the document.`
-        },
-        {
-          type: "image_url",
-          image_url: {
-            url: fileContent
-          }
-        }
+        { type: "text", text: extractionPrompt },
+        { type: "image_url", image_url: { url: fileContent } }
       ];
     } else {
-      // For text-based documents (PDF/Word extracted text)
       messageContent = [
-        {
-          type: "text",
-          text: `Extract all payment schedule and project information from this appointment letter or payment schedule document:
-
-${fileContent}
-
-Look for:
-- Project name/reference
-- Client company name
-- Client address
-- Client VAT number
-- Total agreed fee/contract value
-- Payment schedule (dates, amounts, milestone descriptions)
-- Any notes or special conditions`
-        }
+        { type: "text", text: `${extractionPrompt}\n\nDOCUMENT CONTENT:\n${fileContent}` }
       ];
     }
 
@@ -83,18 +91,29 @@ Look for:
         messages: [
           {
             role: 'system',
-            content: `You are a document analysis assistant specialized in extracting payment schedules and financial data from appointment letters, contracts, and fee proposals.
+            content: `You are a document analysis assistant specialized in extracting payment schedules and financial data from:
+- Appointment letters
+- Fee proposals and professional fee calculations
+- Proposed cashflow schedules
+- Payment draw schedules
 
-Be precise with numbers, dates, and text. If a field is unclear or missing, return null for that field.
-Currency amounts should be returned as numbers without currency symbols, commas, or formatting.
-Dates should be in ISO format (YYYY-MM-DD).
-For payment schedules, identify each milestone/draw with its date, amount, and description.
+IMPORTANT RULES:
+1. Be precise with numbers - return amounts as plain numbers without currency symbols or formatting
+2. For dates:
+   - Full dates: use YYYY-MM-DD format
+   - Month-only dates like "December-25" or "Jan-26": convert to YYYY-MM format (e.g., "2025-12", "2026-01")
+   - Relative dates like "TBC": return null for the date
+3. For payment schedules:
+   - Include ALL payment rows even if amount is R0.00
+   - Preserve the milestone/description text
+   - Include both percentage and amount when available
+4. If a field is unclear or missing, return null for that field
 
-Common payment schedule patterns to recognize:
-- Monthly draws (e.g., "10 equal monthly payments of R104,500")
-- Milestone-based payments (e.g., "30% on design approval, 50% on completion")
-- Phase payments (e.g., "Phase 1: R500,000, Phase 2: R300,000")
-- Retention payments (e.g., "5% retention payable on practical completion")`
+Common document patterns:
+- Professional fee calculations with statutory guidelines, rebates, and cashflow tables
+- Appointment letters with monthly draw schedules
+- Fee proposals with milestone-based payments
+- Claim schedules with invoice numbers and payment dates`
           },
           {
             role: 'user',
@@ -116,7 +135,7 @@ Common payment schedule patterns to recognize:
                   },
                   client_name: { 
                     type: ["string", "null"], 
-                    description: "Client company name" 
+                    description: "Client company name (the party paying)" 
                   },
                   client_address: { 
                     type: ["string", "null"], 
@@ -126,9 +145,25 @@ Common payment schedule patterns to recognize:
                     type: ["string", "null"], 
                     description: "Client VAT registration number" 
                   },
+                  consultant_name: {
+                    type: ["string", "null"],
+                    description: "Consultant/company providing services"
+                  },
+                  discipline: {
+                    type: ["string", "null"],
+                    description: "Professional discipline (e.g., Electrical Engineer, Architect)"
+                  },
                   agreed_fee: { 
                     type: ["number", "null"], 
                     description: "Total agreed fee/contract value excluding VAT" 
+                  },
+                  construction_cost: {
+                    type: ["number", "null"],
+                    description: "Total construction cost used for fee calculation purposes"
+                  },
+                  rebate_percentage: {
+                    type: ["number", "null"],
+                    description: "Rebate percentage offered (negative if discount)"
                   },
                   vat_percentage: {
                     type: ["number", "null"],
@@ -140,21 +175,25 @@ Common payment schedule patterns to recognize:
                   },
                   start_date: {
                     type: ["string", "null"],
-                    description: "Project or payment schedule start date in YYYY-MM-DD format"
+                    description: "Project or payment schedule start date in YYYY-MM-DD or YYYY-MM format"
                   },
                   end_date: {
                     type: ["string", "null"],
-                    description: "Project or payment schedule end date in YYYY-MM-DD format"
+                    description: "Project or payment schedule end date in YYYY-MM-DD or YYYY-MM format"
                   },
                   payment_schedule: {
                     type: "array",
-                    description: "Array of payment milestones",
+                    description: "Array of payment milestones/claims",
                     items: {
                       type: "object",
                       properties: {
+                        claim_number: {
+                          type: ["number", "null"],
+                          description: "Claim or invoice number if specified"
+                        },
                         date: {
                           type: ["string", "null"],
-                          description: "Payment date in YYYY-MM-DD format, or month in YYYY-MM format"
+                          description: "Payment date in YYYY-MM-DD or YYYY-MM format"
                         },
                         amount: {
                           type: "number",
@@ -162,11 +201,15 @@ Common payment schedule patterns to recognize:
                         },
                         description: {
                           type: ["string", "null"],
-                          description: "Description of this payment (e.g., 'Draw 1', 'Design Phase', 'Final Payment')"
+                          description: "Description/milestone (e.g., 'Pre-contract concept', 'Construction', 'Practical completion')"
                         },
                         percentage: {
                           type: ["number", "null"],
-                          description: "If payment is expressed as percentage of total"
+                          description: "Percentage of total fee for this payment"
+                        },
+                        cumulative_percentage: {
+                          type: ["number", "null"],
+                          description: "Cumulative percentage if shown"
                         }
                       },
                       required: ["amount"]
@@ -182,7 +225,7 @@ Common payment schedule patterns to recognize:
                   },
                   document_reference: {
                     type: ["string", "null"],
-                    description: "Document reference number or ID"
+                    description: "Document reference number, revision, or ID"
                   }
                 },
                 required: ["payment_schedule"],
@@ -223,7 +266,7 @@ Common payment schedule patterns to recognize:
     }
 
     const extractedData = JSON.parse(toolCall.function.arguments);
-    console.log('Extracted payment schedule:', extractedData);
+    console.log('Extracted payment schedule:', JSON.stringify(extractedData, null, 2));
 
     return new Response(
       JSON.stringify({ 
