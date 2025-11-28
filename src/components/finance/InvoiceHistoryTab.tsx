@@ -38,6 +38,7 @@ import { format, parse } from "date-fns";
 import { InvoiceHistoryImporter } from "./InvoiceHistoryImporter";
 import { InvoiceHistoryEditDialog } from "./InvoiceHistoryEditDialog";
 import { InvoicePDFUploader } from "./InvoicePDFUploader";
+import { InvoiceFolderBrowser } from "./InvoiceFolderBrowser";
 import * as XLSX from "xlsx";
 
 export function InvoiceHistoryTab() {
@@ -249,15 +250,24 @@ export function InvoiceHistoryTab() {
         </Card>
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardContent className="pt-6">
-          <div className="flex gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by invoice #, job name, or client..."
-                value={searchTerm}
+      {/* Main Content Grid - Folder Browser + Invoice List */}
+      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+        {/* Folder Browser - Left Side */}
+        <div className="lg:col-span-1">
+          <InvoiceFolderBrowser />
+        </div>
+
+        {/* Invoice List - Right Side */}
+        <div className="lg:col-span-3 space-y-4">
+          {/* Filters */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex gap-4">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Search by invoice #, job name, or client..."
+                    value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
               />
@@ -469,6 +479,8 @@ export function InvoiceHistoryTab() {
             );
           })
       )}
+        </div>
+      </div>
 
       <InvoiceHistoryImporter open={importerOpen} onOpenChange={setImporterOpen} />
       <InvoicePDFUploader open={pdfUploaderOpen} onOpenChange={setPdfUploaderOpen} />
