@@ -3047,6 +3047,7 @@ export type Database = {
           invoice_number: string
           job_name: string
           notes: string | null
+          project_id: string | null
           updated_at: string
           vat_number: string | null
         }
@@ -3062,6 +3063,7 @@ export type Database = {
           invoice_number: string
           job_name: string
           notes?: string | null
+          project_id?: string | null
           updated_at?: string
           vat_number?: string | null
         }
@@ -3077,10 +3079,19 @@ export type Database = {
           invoice_number?: string
           job_name?: string
           notes?: string | null
+          project_id?: string | null
           updated_at?: string
           vat_number?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "invoice_history_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       invoice_projects: {
         Row: {

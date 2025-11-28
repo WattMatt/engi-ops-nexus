@@ -27,7 +27,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { FileSpreadsheet, Search, Trash2, MoreHorizontal, Download, History, Pencil } from "lucide-react";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { FileSpreadsheet, Search, Trash2, MoreHorizontal, Download, History, Pencil, ChevronDown, ChevronRight, FolderOpen, Link2Off } from "lucide-react";
 import { toast } from "sonner";
 import { format, parse } from "date-fns";
 import { InvoiceHistoryImporter } from "./InvoiceHistoryImporter";
@@ -39,7 +44,10 @@ export function InvoiceHistoryTab() {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [editingInvoice, setEditingInvoice] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [selectedProject, setSelectedProject] = useState<string>("all");
   const [selectedMonth, setSelectedMonth] = useState<string>("all");
+  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set(["unlinked"]));
+  const [viewMode, setViewMode] = useState<"project" | "month">("project");
   const queryClient = useQueryClient();
 
   const { data: invoices = [], isLoading } = useQuery({
@@ -47,9 +55,28 @@ export function InvoiceHistoryTab() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("invoice_history")
-        .select("*")
+        .select(`
+          *,
+          invoice_projects (
+            id,
+            project_name,
+            client_name
+          )
+        `)
         .order("invoice_month", { ascending: false })
         .order("invoice_number", { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: projects = [] } = useQuery({
+    queryKey: ["invoice-projects"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("invoice_projects")
+        .select("*")
+        .order("project_name");
       if (error) throw error;
       return data;
     },
@@ -74,6 +101,9 @@ export function InvoiceHistoryTab() {
 
   // Get unique months for filter
   const uniqueMonths = [...new Set(invoices.map(inv => inv.invoice_month))].sort().reverse();
+  
+  // Get unique projects for filter
+  const invoiceProjectIds = [...new Set(invoices.map(inv => inv.project_id).filter(Boolean))];
 
   // Filter invoices
   const filteredInvoices = invoices.filter(inv => {
@@ -82,14 +112,28 @@ export function InvoiceHistoryTab() {
       inv.job_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (inv.client_details?.toLowerCase().includes(searchTerm.toLowerCase()));
     const matchesMonth = selectedMonth === "all" || inv.invoice_month === selectedMonth;
-    return matchesSearch && matchesMonth;
+    const matchesProject = selectedProject === "all" || 
+      (selectedProject === "unlinked" && !inv.project_id) ||
+      inv.project_id === selectedProject;
+    return matchesSearch && matchesMonth && matchesProject;
   });
 
-  // Group invoices by month for display
-  const invoicesByMonth = filteredInvoices.reduce((acc: Record<string, typeof invoices>, inv) => {
+  // Group invoices by project, then by month
+  const invoicesByProject = filteredInvoices.reduce((acc: Record<string, { project: any; invoicesByMonth: Record<string, any[]>; total: number }>, inv) => {
+    const projectKey = inv.project_id || "unlinked";
+    if (!acc[projectKey]) {
+      acc[projectKey] = {
+        project: inv.invoice_projects || null,
+        invoicesByMonth: {},
+        total: 0,
+      };
+    }
     const month = inv.invoice_month;
-    if (!acc[month]) acc[month] = [];
-    acc[month].push(inv);
+    if (!acc[projectKey].invoicesByMonth[month]) {
+      acc[projectKey].invoicesByMonth[month] = [];
+    }
+    acc[projectKey].invoicesByMonth[month].push(inv);
+    acc[projectKey].total += inv.amount_excl_vat || 0;
     return acc;
   }, {});
 
@@ -110,7 +154,9 @@ export function InvoiceHistoryTab() {
   const handleExport = () => {
     const exportData = filteredInvoices.map(inv => ({
       "Invoice #": inv.invoice_number,
+      "Date": inv.invoice_date || "",
       "Month": formatMonth(inv.invoice_month),
+      "Project": inv.invoice_projects?.project_name || "Unlinked",
       "Job Name": inv.job_name,
       "Client": inv.client_details?.split("-")[0] || "",
       "VAT Number": inv.vat_number || "",
@@ -125,9 +171,22 @@ export function InvoiceHistoryTab() {
     toast.success("Export complete");
   };
 
+  const toggleProject = (projectId: string) => {
+    setExpandedProjects(prev => {
+      const next = new Set(prev);
+      if (next.has(projectId)) {
+        next.delete(projectId);
+      } else {
+        next.add(projectId);
+      }
+      return next;
+    });
+  };
+
   // Calculate totals
   const totalExclVat = filteredInvoices.reduce((sum, inv) => sum + (inv.amount_excl_vat || 0), 0);
   const totalInclVat = filteredInvoices.reduce((sum, inv) => sum + (inv.amount_incl_vat || 0), 0);
+  const linkedCount = filteredInvoices.filter(inv => inv.project_id).length;
 
   return (
     <div className="space-y-6">
@@ -135,7 +194,7 @@ export function InvoiceHistoryTab() {
         <div>
           <h3 className="text-lg font-semibold">Invoice History</h3>
           <p className="text-sm text-muted-foreground">
-            Historical record of all issued invoices
+            Historical record of issued invoices grouped by project
           </p>
         </div>
         <div className="flex gap-2">
@@ -151,11 +210,17 @@ export function InvoiceHistoryTab() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Total Invoices</CardDescription>
             <CardTitle className="text-2xl">{filteredInvoices.length}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Linked to Projects</CardDescription>
+            <CardTitle className="text-2xl">{linkedCount}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
@@ -172,8 +237,8 @@ export function InvoiceHistoryTab() {
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Months Covered</CardDescription>
-            <CardTitle className="text-2xl">{uniqueMonths.length}</CardTitle>
+            <CardDescription>Projects</CardDescription>
+            <CardTitle className="text-2xl">{Object.keys(invoicesByProject).length}</CardTitle>
           </CardHeader>
         </Card>
       </div>
@@ -191,8 +256,22 @@ export function InvoiceHistoryTab() {
                 className="pl-10"
               />
             </div>
+            <Select value={selectedProject} onValueChange={setSelectedProject}>
+              <SelectTrigger className="w-[220px]">
+                <SelectValue placeholder="Filter by project" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Projects</SelectItem>
+                <SelectItem value="unlinked">Unlinked Invoices</SelectItem>
+                {projects.filter(p => invoiceProjectIds.includes(p.id)).map(project => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.project_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <Select value={selectedMonth} onValueChange={setSelectedMonth}>
-              <SelectTrigger className="w-[200px]">
+              <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Filter by month" />
               </SelectTrigger>
               <SelectContent>
@@ -208,14 +287,14 @@ export function InvoiceHistoryTab() {
         </CardContent>
       </Card>
 
-      {/* Invoice Table by Month */}
+      {/* Invoice Groups by Project */}
       {isLoading ? (
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">
             Loading invoice history...
           </CardContent>
         </Card>
-      ) : Object.keys(invoicesByMonth).length === 0 ? (
+      ) : Object.keys(invoicesByProject).length === 0 ? (
         <Card>
           <CardContent className="py-8 text-center text-muted-foreground">
             <History className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -224,89 +303,133 @@ export function InvoiceHistoryTab() {
           </CardContent>
         </Card>
       ) : (
-        Object.entries(invoicesByMonth)
-          .sort(([a], [b]) => b.localeCompare(a))
-          .map(([month, monthInvoices]) => {
-            const monthTotal = monthInvoices.reduce((sum, inv) => sum + (inv.amount_excl_vat || 0), 0);
+        Object.entries(invoicesByProject)
+          .sort(([a], [b]) => {
+            if (a === "unlinked") return 1;
+            if (b === "unlinked") return -1;
+            return (invoicesByProject[b].total) - (invoicesByProject[a].total);
+          })
+          .map(([projectKey, data]) => {
+            const isExpanded = expandedProjects.has(projectKey);
+            const monthCount = Object.keys(data.invoicesByMonth).length;
+            const invoiceCount = Object.values(data.invoicesByMonth).flat().length;
+            
             return (
-              <Card key={month}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <CardTitle className="text-lg">{formatMonth(month)}</CardTitle>
-                      <Badge variant="secondary">{monthInvoices.length} invoices</Badge>
-                    </div>
-                    <span className="font-semibold">{formatCurrency(monthTotal)}</span>
-                  </div>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[100px]">Invoice #</TableHead>
-                        <TableHead>Job Name</TableHead>
-                        <TableHead>Client</TableHead>
-                        <TableHead>VAT Number</TableHead>
-                        <TableHead className="text-right">Excl. VAT</TableHead>
-                        <TableHead className="text-right">Incl. VAT</TableHead>
-                        <TableHead className="w-[50px]"></TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {monthInvoices.map((invoice) => (
-                        <TableRow key={invoice.id}>
-                          <TableCell className="font-mono font-medium">
-                            {invoice.invoice_number}
-                          </TableCell>
-                          <TableCell className="max-w-[300px] truncate">
-                            {invoice.job_name}
-                          </TableCell>
-                          <TableCell className="max-w-[200px] truncate">
-                            {invoice.client_details?.split("-")[0] || "-"}
-                          </TableCell>
-                          <TableCell className="font-mono text-sm">
-                            {invoice.vat_number || "-"}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {formatCurrency(invoice.amount_excl_vat)}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {formatCurrency(invoice.amount_incl_vat)}
-                          </TableCell>
-                          <TableCell>
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8">
-                                  <MoreHorizontal className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem
-                                  onClick={() => {
-                                    setEditingInvoice(invoice);
-                                    setEditDialogOpen(true);
-                                  }}
-                                >
-                                  <Pencil className="mr-2 h-4 w-4" />
-                                  Edit
-                                </DropdownMenuItem>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  className="text-destructive"
-                                  onClick={() => handleDelete(invoice.id)}
-                                >
-                                  <Trash2 className="mr-2 h-4 w-4" />
-                                  Delete
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
+              <Collapsible key={projectKey} open={isExpanded} onOpenChange={() => toggleProject(projectKey)}>
+                <Card>
+                  <CollapsibleTrigger asChild>
+                    <CardHeader className="cursor-pointer hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          {isExpanded ? (
+                            <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                          ) : (
+                            <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                          )}
+                          {projectKey === "unlinked" ? (
+                            <>
+                              <Link2Off className="h-5 w-5 text-muted-foreground" />
+                              <CardTitle className="text-lg">Unlinked Invoices</CardTitle>
+                            </>
+                          ) : (
+                            <>
+                              <FolderOpen className="h-5 w-5 text-primary" />
+                              <div>
+                                <CardTitle className="text-lg">{data.project?.project_name}</CardTitle>
+                                <CardDescription>{data.project?.client_name}</CardDescription>
+                              </div>
+                            </>
+                          )}
+                          <Badge variant="secondary">{invoiceCount} invoices</Badge>
+                          <Badge variant="outline">{monthCount} months</Badge>
+                        </div>
+                        <span className="font-semibold text-lg">{formatCurrency(data.total)}</span>
+                      </div>
+                    </CardHeader>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <CardContent className="pt-0 space-y-4">
+                      {Object.entries(data.invoicesByMonth)
+                        .sort(([a], [b]) => b.localeCompare(a))
+                        .map(([month, monthInvoices]) => {
+                          const monthTotal = monthInvoices.reduce((sum, inv) => sum + (inv.amount_excl_vat || 0), 0);
+                          return (
+                            <div key={month} className="border rounded-lg">
+                              <div className="flex items-center justify-between px-4 py-2 bg-muted/30">
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium">{formatMonth(month)}</span>
+                                  <Badge variant="secondary" className="text-xs">{monthInvoices.length}</Badge>
+                                </div>
+                                <span className="font-medium">{formatCurrency(monthTotal)}</span>
+                              </div>
+                              <Table>
+                                <TableHeader>
+                                  <TableRow>
+                                    <TableHead className="w-[100px]">Invoice #</TableHead>
+                                    <TableHead>Job Name</TableHead>
+                                    <TableHead>Client</TableHead>
+                                    <TableHead className="text-right">Excl. VAT</TableHead>
+                                    <TableHead className="text-right">Incl. VAT</TableHead>
+                                    <TableHead className="w-[50px]"></TableHead>
+                                  </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                  {monthInvoices.map((invoice) => (
+                                    <TableRow key={invoice.id}>
+                                      <TableCell className="font-mono font-medium">
+                                        {invoice.invoice_number}
+                                      </TableCell>
+                                      <TableCell className="max-w-[250px] truncate">
+                                        {invoice.job_name}
+                                      </TableCell>
+                                      <TableCell className="max-w-[150px] truncate">
+                                        {invoice.client_details?.split("-")[0] || "-"}
+                                      </TableCell>
+                                      <TableCell className="text-right">
+                                        {formatCurrency(invoice.amount_excl_vat)}
+                                      </TableCell>
+                                      <TableCell className="text-right">
+                                        {formatCurrency(invoice.amount_incl_vat)}
+                                      </TableCell>
+                                      <TableCell>
+                                        <DropdownMenu>
+                                          <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                                              <MoreHorizontal className="h-4 w-4" />
+                                            </Button>
+                                          </DropdownMenuTrigger>
+                                          <DropdownMenuContent align="end">
+                                            <DropdownMenuItem
+                                              onClick={() => {
+                                                setEditingInvoice(invoice);
+                                                setEditDialogOpen(true);
+                                              }}
+                                            >
+                                              <Pencil className="mr-2 h-4 w-4" />
+                                              Edit
+                                            </DropdownMenuItem>
+                                            <DropdownMenuSeparator />
+                                            <DropdownMenuItem
+                                              className="text-destructive"
+                                              onClick={() => handleDelete(invoice.id)}
+                                            >
+                                              <Trash2 className="mr-2 h-4 w-4" />
+                                              Delete
+                                            </DropdownMenuItem>
+                                          </DropdownMenuContent>
+                                        </DropdownMenu>
+                                      </TableCell>
+                                    </TableRow>
+                                  ))}
+                                </TableBody>
+                              </Table>
+                            </div>
+                          );
+                        })}
+                    </CardContent>
+                  </CollapsibleContent>
+                </Card>
+              </Collapsible>
             );
           })
       )}

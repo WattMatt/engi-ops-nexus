@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
@@ -13,6 +13,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 
 interface InvoiceHistoryRecord {
@@ -26,6 +33,7 @@ interface InvoiceHistoryRecord {
   amount_excl_vat: number | null;
   amount_incl_vat: number | null;
   notes: string | null;
+  project_id: string | null;
 }
 
 interface InvoiceHistoryEditDialogProps {
@@ -45,9 +53,22 @@ export function InvoiceHistoryEditDialog({ invoice, open, onOpenChange }: Invoic
     amount_excl_vat: "",
     amount_incl_vat: "",
     notes: "",
+    project_id: "",
   });
   const [saving, setSaving] = useState(false);
   const queryClient = useQueryClient();
+
+  const { data: projects = [] } = useQuery({
+    queryKey: ["invoice-projects"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("invoice_projects")
+        .select("*")
+        .order("project_name");
+      if (error) throw error;
+      return data;
+    },
+  });
 
   useEffect(() => {
     if (invoice) {
@@ -61,6 +82,7 @@ export function InvoiceHistoryEditDialog({ invoice, open, onOpenChange }: Invoic
         amount_excl_vat: invoice.amount_excl_vat?.toString() || "",
         amount_incl_vat: invoice.amount_incl_vat?.toString() || "",
         notes: invoice.notes || "",
+        project_id: invoice.project_id || "",
       });
     }
   }, [invoice]);
@@ -82,6 +104,7 @@ export function InvoiceHistoryEditDialog({ invoice, open, onOpenChange }: Invoic
           amount_excl_vat: form.amount_excl_vat ? parseFloat(form.amount_excl_vat) : null,
           amount_incl_vat: form.amount_incl_vat ? parseFloat(form.amount_incl_vat) : null,
           notes: form.notes || null,
+          project_id: form.project_id || null,
         })
         .eq("id", invoice.id);
 
@@ -110,11 +133,31 @@ export function InvoiceHistoryEditDialog({ invoice, open, onOpenChange }: Invoic
         <DialogHeader>
           <DialogTitle>Edit Invoice #{form.invoice_number}</DialogTitle>
           <DialogDescription>
-            Update invoice details and correct any information
+            Update invoice details, link to project, and correct any information
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="project_id">Link to Project</Label>
+            <Select 
+              value={form.project_id} 
+              onValueChange={(v) => setForm(prev => ({ ...prev, project_id: v }))}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select a project..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">No project (unlinked)</SelectItem>
+                {projects.map(project => (
+                  <SelectItem key={project.id} value={project.id}>
+                    {project.project_name} - {project.client_name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="grid grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="invoice_number">Invoice Number</Label>
