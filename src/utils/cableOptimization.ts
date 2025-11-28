@@ -67,6 +67,14 @@ const calculateGroupingFactor = (parallelCount: number, settings: CalculationSet
   return settings.grouping_factor_4plus_circuits; // 4 or more
 };
 
+// Normalize cable type for matching (handles "Aluminium", "Al/PVC", "Copper", "Cu/PVC" etc.)
+const normalizeCableType = (cableType: string): string => {
+  const lower = cableType.toLowerCase();
+  if (lower.includes('al') || lower.includes('aluminium')) return 'aluminium';
+  if (lower.includes('cu') || lower.includes('copper')) return 'copper';
+  return lower;
+};
+
 const calculateCostBreakdown = (
   cableSize: string,
   cableType: string,
@@ -74,9 +82,18 @@ const calculateCostBreakdown = (
   parallelCount: number,
   cableRates: CableRate[]
 ): { total: number; supply: number; install: number; termination: number } => {
-  const rate = cableRates.find(
+  const normalizedType = normalizeCableType(cableType);
+  
+  // Try exact match first, then normalized match
+  let rate = cableRates.find(
     r => r.cable_size === cableSize && r.cable_type === cableType
   );
+  
+  if (!rate) {
+    rate = cableRates.find(
+      r => r.cable_size === cableSize && normalizeCableType(r.cable_type) === normalizedType
+    );
+  }
 
   if (!rate) return { total: 0, supply: 0, install: 0, termination: 0 };
 
@@ -266,10 +283,8 @@ export const analyzeCableOptimizations = (
         }
       }
 
-      // PHASE 4: Improve Cost Accuracy - Use recommended cable type
-      const recommendedCableType = material === "copper" ? 
-        (entry.cable_type?.includes("Cu") ? entry.cable_type : "Cu/PVC") :
-        (entry.cable_type?.includes("Al") ? entry.cable_type : "Al/PVC");
+      // PHASE 4: Improve Cost Accuracy - Use entry's cable type to match rates
+      const recommendedCableType = entry.cable_type || (material === "copper" ? "Copper" : "Aluminium");
 
       const altCostBreakdown = calculateCostBreakdown(
         result.recommendedSize,
