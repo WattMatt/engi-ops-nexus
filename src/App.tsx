@@ -42,6 +42,7 @@ import HandoverDocuments from "./pages/HandoverDocuments";
 import HandoverClient from "./pages/HandoverClient";
 import HandoverClientManagement from "./pages/HandoverClientManagement";
 import NotFound from "./pages/NotFound";
+import Finance from "./pages/Finance";
 import { HelpButton } from "./components/feedback/HelpButton";
 
 const queryClient = new QueryClient();
@@ -70,6 +71,7 @@ const App = () => (
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<ProjectSelect />} />
             <Route path="projects" element={<ProjectSelect />} />
+            <Route path="finance" element={<Finance />} />
             <Route path="invoicing" element={<Invoicing />} />
             <Route path="staff" element={<StaffManagement />} />
             <Route path="users" element={<UserManagement />} />
