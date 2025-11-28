@@ -921,142 +921,168 @@ export function ExpenseManager() {
         </Button>
       </div>
 
-      {/* Expenses Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Monthly Expenses</CardTitle>
-          <CardDescription>Budget vs actual expenses by category and month</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Tabs defaultValue="list">
-            <TabsList>
-              <TabsTrigger value="list">List View</TabsTrigger>
-              <TabsTrigger value="category">By Category</TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="list">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Month</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead className="text-right">Budgeted</TableHead>
-                    <TableHead className="text-right">Actual</TableHead>
-                    <TableHead className="text-right">Variance</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="w-[100px]">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {isLoading ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8">
-                        Loading expenses...
-                      </TableCell>
-                    </TableRow>
-                  ) : expenses.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                        No expenses recorded. Add your first expense to start tracking.
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    expenses.slice(0, 50).map((expense) => {
-                      const variance = expense.budgeted_amount - (expense.actual_amount || 0);
-                      const isOverBudget = expense.actual_amount && expense.actual_amount > expense.budgeted_amount;
-                      return (
-                        <TableRow key={expense.id}>
-                          <TableCell>
-                            {format(parseISO(expense.expense_month), "MMM yyyy")}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex items-center gap-2">
-                              {expense.expense_categories?.name}
-                              {expense.is_recurring && (
-                                <Badge variant="outline" className="text-xs">Recurring</Badge>
-                              )}
-                            </div>
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {formatCurrency(expense.budgeted_amount)}
-                          </TableCell>
-                          <TableCell className="text-right">
-                            {expense.actual_amount ? formatCurrency(expense.actual_amount) : "-"}
-                          </TableCell>
-                          <TableCell className={`text-right ${isOverBudget ? "text-destructive" : "text-green-600"}`}>
-                            {expense.actual_amount ? formatCurrency(variance) : "-"}
-                          </TableCell>
-                          <TableCell>
-                            {expense.actual_amount ? (
-                              <Badge variant={isOverBudget ? "destructive" : "secondary"}>
-                                {isOverBudget ? "Over Budget" : "On Track"}
-                              </Badge>
-                            ) : (
-                              <Badge variant="outline">Forecast</Badge>
-                            )}
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-1">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleEdit(expense)}
-                              >
-                                <Edit2 className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => deleteExpenseMutation.mutate(expense.id)}
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                  )}
-                </TableBody>
-              </Table>
-            </TabsContent>
+      {/* Monthly Summary Cards */}
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-semibold">Monthly Expenses</h2>
+            <p className="text-sm text-muted-foreground">Budget vs actual expenses by month</p>
+          </div>
+          <Select 
+            value={selectedMonth} 
+            onValueChange={setSelectedMonth}
+          >
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="Jump to month" />
+            </SelectTrigger>
+            <SelectContent>
+              {Object.keys(expensesByMonth).sort().reverse().map((month) => (
+                <SelectItem key={month} value={month}>
+                  {format(parseISO(month + "-01"), "MMMM yyyy")}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
-            <TabsContent value="category">
-              <div className="space-y-4">
-                {categories.map((category) => {
-                  const categoryExpenses = expenses.filter((e) => e.category_id === category.id);
-                  const totalBudget = categoryExpenses.reduce((sum, e) => sum + e.budgeted_amount, 0);
-                  const totalActual = categoryExpenses.reduce((sum, e) => sum + (e.actual_amount || 0), 0);
-                  
-                  if (categoryExpenses.length === 0) return null;
-                  
-                  return (
-                    <Card key={category.id}>
-                      <CardHeader className="pb-2">
-                        <div className="flex items-center justify-between">
-                          <CardTitle className="text-base">{category.name}</CardTitle>
-                          <div className="flex gap-4 text-sm">
-                            <span>Budget: {formatCurrency(totalBudget)}</span>
-                            <span>Actual: {formatCurrency(totalActual)}</span>
-                          </div>
+        {isLoading ? (
+          <Card>
+            <CardContent className="py-8 text-center text-muted-foreground">
+              Loading expenses...
+            </CardContent>
+          </Card>
+        ) : Object.keys(expensesByMonth).length === 0 ? (
+          <Card>
+            <CardContent className="py-12 text-center">
+              <p className="text-muted-foreground mb-4">No expenses recorded yet</p>
+              <Button onClick={() => setIsAddDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Your First Expense
+              </Button>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid gap-6">
+            {Object.keys(expensesByMonth)
+              .sort()
+              .reverse()
+              .map((month) => {
+                const monthExpenses = expensesByMonth[month];
+                const monthBudget = monthExpenses.reduce((sum, e) => sum + e.budgeted_amount, 0);
+                const monthActual = monthExpenses.reduce((sum, e) => sum + (e.actual_amount || 0), 0);
+                const monthVariance = monthBudget - monthActual;
+                const hasActuals = monthExpenses.some(e => e.actual_amount !== null);
+                
+                // Group by category for cleaner display
+                const groupedByCategory: Record<string, MonthlyExpense[]> = {};
+                monthExpenses.forEach(expense => {
+                  const catName = expense.expense_categories?.name || 'Uncategorized';
+                  if (!groupedByCategory[catName]) groupedByCategory[catName] = [];
+                  groupedByCategory[catName].push(expense);
+                });
+
+                return (
+                  <Card key={month} className="overflow-hidden">
+                    <CardHeader className="bg-muted/30 border-b">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <CardTitle className="text-lg">
+                            {format(parseISO(month + "-01"), "MMMM yyyy")}
+                          </CardTitle>
+                          <CardDescription className="mt-1">
+                            {monthExpenses.length} expense{monthExpenses.length !== 1 ? 's' : ''}
+                          </CardDescription>
                         </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="h-2 bg-muted rounded-full overflow-hidden">
+                        <div className="flex gap-6 text-right">
+                          <div>
+                            <p className="text-xs text-muted-foreground uppercase tracking-wide">Budget</p>
+                            <p className="text-lg font-semibold">{formatCurrency(monthBudget)}</p>
+                          </div>
+                          {hasActuals && (
+                            <>
+                              <div>
+                                <p className="text-xs text-muted-foreground uppercase tracking-wide">Actual</p>
+                                <p className="text-lg font-semibold">{formatCurrency(monthActual)}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs text-muted-foreground uppercase tracking-wide">Variance</p>
+                                <p className={`text-lg font-semibold ${monthVariance < 0 ? 'text-destructive' : 'text-green-600'}`}>
+                                  {formatCurrency(monthVariance)}
+                                </p>
+                              </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      {hasActuals && (
+                        <div className="mt-3 h-2 bg-muted rounded-full overflow-hidden">
                           <div
-                            className={`h-full transition-all ${totalActual > totalBudget ? "bg-destructive" : "bg-primary"}`}
-                            style={{ width: `${Math.min((totalActual / totalBudget) * 100, 100)}%` }}
+                            className={`h-full transition-all ${monthActual > monthBudget ? 'bg-destructive' : 'bg-primary'}`}
+                            style={{ width: `${Math.min((monthActual / monthBudget) * 100, 100)}%` }}
                           />
                         </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-            </TabsContent>
-          </Tabs>
-        </CardContent>
-      </Card>
+                      )}
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      <div className="divide-y">
+                        {Object.entries(groupedByCategory).map(([categoryName, catExpenses]) => {
+                          const catTotal = catExpenses.reduce((sum, e) => sum + e.budgeted_amount, 0);
+                          const catActual = catExpenses.reduce((sum, e) => sum + (e.actual_amount || 0), 0);
+                          
+                          return (
+                            <div key={categoryName} className="p-4 hover:bg-muted/20 transition-colors">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                  <div className="h-2 w-2 rounded-full bg-primary" />
+                                  <div>
+                                    <p className="font-medium">{categoryName}</p>
+                                    {catExpenses.some(e => e.is_recurring) && (
+                                      <Badge variant="outline" className="text-xs mt-1">Recurring</Badge>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-6">
+                                  <div className="text-right">
+                                    <p className="font-medium">{formatCurrency(catTotal)}</p>
+                                    {catActual > 0 && (
+                                      <p className="text-xs text-muted-foreground">
+                                        Actual: {formatCurrency(catActual)}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <div className="flex gap-1">
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8"
+                                      onClick={() => handleEdit(catExpenses[0])}
+                                    >
+                                      <Edit2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                    <Button
+                                      variant="ghost"
+                                      size="icon"
+                                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                                      onClick={() => {
+                                        catExpenses.forEach(e => deleteExpenseMutation.mutate(e.id));
+                                      }}
+                                    >
+                                      <Trash2 className="h-3.5 w-3.5" />
+                                    </Button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
