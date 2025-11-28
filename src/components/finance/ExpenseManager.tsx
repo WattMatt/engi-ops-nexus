@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Edit2, Trash2, TrendingDown, Calendar } from "lucide-react";
+import { Plus, Edit2, Trash2, Calendar, Users, RefreshCw } from "lucide-react";
 import { format, addMonths, startOfMonth, parseISO } from "date-fns";
 import { toast } from "sonner";
 
@@ -56,6 +56,41 @@ export function ExpenseManager() {
       return data as ExpenseCategory[];
     },
   });
+
+  // Fetch active payroll data
+  const { data: payrollData } = useQuery({
+    queryKey: ["payroll-for-expenses"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("payroll_records")
+        .select(`
+          id, salary_amount, salary_currency, payment_frequency, effective_date, end_date,
+          employees!payroll_records_employee_id_fkey (first_name, last_name, employment_status)
+        `)
+        .or("end_date.is.null,end_date.gt.now()");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Calculate total monthly payroll
+  const calculateMonthlyPayroll = () => {
+    if (!payrollData) return 0;
+    return payrollData.reduce((sum, record: any) => {
+      let monthlyAmount = record.salary_amount;
+      if (record.payment_frequency === "weekly") {
+        monthlyAmount = record.salary_amount * 4.33;
+      } else if (record.payment_frequency === "biweekly") {
+        monthlyAmount = record.salary_amount * 2.17;
+      } else if (record.payment_frequency === "annual") {
+        monthlyAmount = record.salary_amount / 12;
+      }
+      return sum + monthlyAmount;
+    }, 0);
+  };
+
+  const monthlyPayroll = calculateMonthlyPayroll();
+  const activeEmployeeCount = payrollData?.length || 0;
 
   const { data: expenses = [], isLoading } = useQuery({
     queryKey: ["monthly-expenses"],
@@ -150,6 +185,62 @@ export function ExpenseManager() {
     },
   });
 
+  // Sync payroll to expenses
+  const syncPayrollMutation = useMutation({
+    mutationFn: async () => {
+      // Find salary category
+      const salaryCategory = categories.find((c) => c.code === "SALARY");
+      if (!salaryCategory) throw new Error("Salary category not found");
+
+      const today = new Date();
+      const months = Array.from({ length: 12 }, (_, i) =>
+        format(addMonths(startOfMonth(today), i), "yyyy-MM-01")
+      );
+
+      let created = 0;
+      let updated = 0;
+
+      for (const month of months) {
+        const existingExpense = expenses.find(
+          (e) => e.category_id === salaryCategory.id && e.expense_month === month
+        );
+
+        if (existingExpense) {
+          // Update if budget differs
+          if (existingExpense.budgeted_amount !== monthlyPayroll) {
+            const { error } = await supabase
+              .from("monthly_expenses")
+              .update({ budgeted_amount: monthlyPayroll, notes: `Synced from payroll: ${activeEmployeeCount} employees` })
+              .eq("id", existingExpense.id);
+            if (error) throw error;
+            updated++;
+          }
+        } else {
+          // Create new entry
+          const { error } = await supabase.from("monthly_expenses").insert({
+            category_id: salaryCategory.id,
+            expense_month: month,
+            budgeted_amount: monthlyPayroll,
+            is_recurring: true,
+            notes: `Synced from payroll: ${activeEmployeeCount} employees`,
+          });
+          if (error) throw error;
+          created++;
+        }
+      }
+
+      return { created, updated };
+    },
+    onSuccess: ({ created, updated }) => {
+      queryClient.invalidateQueries({ queryKey: ["monthly-expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["cashflow-expenses"] });
+      toast.success(`Payroll synced: ${created} created, ${updated} updated`);
+    },
+    onError: (error) => {
+      toast.error("Failed to sync payroll: " + error.message);
+    },
+  });
+
   const resetForm = () => {
     setSelectedCategory("");
     setSelectedMonth(format(new Date(), "yyyy-MM"));
@@ -212,6 +303,43 @@ export function ExpenseManager() {
 
   return (
     <div className="space-y-6">
+      {/* Payroll Sync Card */}
+      {monthlyPayroll > 0 && (
+        <Card className="border-primary/50 bg-primary/5">
+          <CardHeader className="pb-2">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Users className="h-5 w-5 text-primary" />
+                <CardTitle className="text-base">Payroll Integration</CardTitle>
+              </div>
+              <Button
+                onClick={() => syncPayrollMutation.mutate()}
+                disabled={syncPayrollMutation.isPending}
+                size="sm"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${syncPayrollMutation.isPending ? "animate-spin" : ""}`} />
+                Sync to Expenses
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-6">
+              <div>
+                <p className="text-sm text-muted-foreground">Active Employees</p>
+                <p className="text-2xl font-bold">{activeEmployeeCount}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Monthly Payroll</p>
+                <p className="text-2xl font-bold">{formatCurrency(monthlyPayroll)}</p>
+              </div>
+              <div className="text-sm text-muted-foreground">
+                Click "Sync to Expenses" to forecast salary costs for the next 12 months
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
