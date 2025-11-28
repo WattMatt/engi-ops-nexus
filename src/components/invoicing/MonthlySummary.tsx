@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, ChevronRight, TrendingUp, TrendingDown } from "lucide-react";
+import { ChevronLeft, ChevronRight, LayoutGrid, Table as TableIcon } from "lucide-react";
 import { format, startOfMonth, endOfMonth, addMonths, subMonths } from "date-fns";
 import {
   Table,
@@ -13,6 +13,10 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { MonthlyHeatmapCalendar } from "@/components/finance/MonthlyHeatmapCalendar";
+import { MonthlyKPICards } from "@/components/finance/MonthlyKPICards";
+import { MonthlyCharts } from "@/components/finance/MonthlyCharts";
 
 interface MonthlyData {
   month: string;
@@ -24,6 +28,7 @@ interface MonthlyData {
 
 export function MonthlySummary() {
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [viewMode, setViewMode] = useState<"infographic" | "table">("infographic");
 
   const { data: monthlyData, isLoading } = useQuery({
     queryKey: ["monthly-summary", format(currentDate, "yyyy-MM")],
@@ -81,6 +86,8 @@ export function MonthlySummary() {
   const monthTotal = monthlyData?.reduce((sum, inv) => sum + inv.total_amount, 0) || 0;
   const monthVat = monthlyData?.reduce((sum, inv) => sum + inv.vat_amount, 0) || 0;
   const monthAmount = monthlyData?.reduce((sum, inv) => sum + inv.amount, 0) || 0;
+  const invoiceCount = monthlyData?.length || 0;
+  const avgInvoiceValue = invoiceCount > 0 ? monthTotal / invoiceCount : 0;
 
   const prevMonth = subMonths(currentDate, 1);
   const prevMonthKey = format(prevMonth, 'yyyy-MM');
@@ -92,113 +99,138 @@ export function MonthlySummary() {
 
   return (
     <div className="space-y-6">
-      <Card className="p-6">
-        <div className="flex items-center justify-between mb-6">
+      {/* Header with navigation */}
+      <Card className="p-4">
+        <div className="flex items-center justify-between">
           <div>
             <h3 className="text-2xl font-bold">{format(currentDate, "MMMM yyyy")}</h3>
             <p className="text-sm text-muted-foreground">Monthly Invoice Summary</p>
           </div>
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentDate(subMonths(currentDate, 1))}
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentDate(new Date())}
-            >
-              Today
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setCurrentDate(addMonths(currentDate, 1))}
-            >
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+          <div className="flex items-center gap-4">
+            {/* View Toggle */}
+            <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
+              <Button
+                variant={viewMode === "infographic" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("infographic")}
+                className="h-8 px-3"
+              >
+                <LayoutGrid className="h-4 w-4 mr-1" />
+                Infographic
+              </Button>
+              <Button
+                variant={viewMode === "table" ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setViewMode("table")}
+                className="h-8 px-3"
+              >
+                <TableIcon className="h-4 w-4 mr-1" />
+                Table
+              </Button>
+            </div>
+
+            {/* Month Navigation */}
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentDate(subMonths(currentDate, 1))}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentDate(new Date())}
+              >
+                Today
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentDate(addMonths(currentDate, 1))}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </div>
-
-        <div className="grid grid-cols-4 gap-4 mb-6">
-          <Card className="p-4">
-            <p className="text-sm text-muted-foreground">Invoice Count</p>
-            <p className="text-2xl font-bold">{monthlyData?.length || 0}</p>
-          </Card>
-          <Card className="p-4">
-            <p className="text-sm text-muted-foreground">Total (excl. VAT)</p>
-            <p className="text-2xl font-bold">{formatCurrency(monthAmount)}</p>
-          </Card>
-          <Card className="p-4">
-            <p className="text-sm text-muted-foreground">VAT</p>
-            <p className="text-2xl font-bold">{formatCurrency(monthVat)}</p>
-          </Card>
-          <Card className="p-4">
-            <p className="text-sm text-muted-foreground">Total (incl. VAT)</p>
-            <p className="text-2xl font-bold">{formatCurrency(monthTotal)}</p>
-            {prevMonthTotal > 0 && (
-              <div className={`flex items-center gap-1 text-xs mt-1 ${trend >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {trend >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                <span>{Math.abs(trend).toFixed(1)}% vs last month</span>
-              </div>
-            )}
-          </Card>
-        </div>
-
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Invoice #</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Client</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead className="text-right">Amount</TableHead>
-              <TableHead className="text-right">VAT</TableHead>
-              <TableHead className="text-right">Total</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center">Loading...</TableCell>
-              </TableRow>
-            ) : monthlyData && monthlyData.length > 0 ? (
-              monthlyData.map((invoice) => (
-                <TableRow key={invoice.id}>
-                  <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
-                  <TableCell>{format(new Date(invoice.invoice_date), "dd MMM yyyy")}</TableCell>
-                  <TableCell>{invoice.client_name}</TableCell>
-                  <TableCell className="max-w-xs truncate">{invoice.description || '-'}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(invoice.amount)}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(invoice.vat_amount)}</TableCell>
-                  <TableCell className="text-right font-semibold">{formatCurrency(invoice.total_amount)}</TableCell>
-                </TableRow>
-              ))
-            ) : (
-              <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground">
-                  No invoices for this month
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
       </Card>
 
-      {yearlyTrend && yearlyTrend.length > 0 && (
-        <Card className="p-6">
-          <h4 className="text-lg font-semibold mb-4">Yearly Trend - {format(currentDate, "yyyy")}</h4>
-          <div className="grid grid-cols-6 gap-3">
-            {yearlyTrend.map(({ month, total }) => (
-              <Card key={month} className="p-3">
-                <p className="text-xs text-muted-foreground mb-1">{format(new Date(month + '-01'), 'MMM')}</p>
-                <p className="text-sm font-semibold">{formatCurrency(total)}</p>
-              </Card>
-            ))}
+      {viewMode === "infographic" ? (
+        <div className="space-y-6">
+          {/* KPI Cards with Progress */}
+          <MonthlyKPICards
+            invoiceCount={invoiceCount}
+            monthAmount={monthAmount}
+            monthVat={monthVat}
+            monthTotal={monthTotal}
+            trend={trend}
+            prevMonthTotal={prevMonthTotal}
+            avgInvoiceValue={avgInvoiceValue}
+            formatCurrency={formatCurrency}
+          />
+
+          {/* Heatmap Calendar and Charts Row */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-1">
+              <MonthlyHeatmapCalendar
+                currentDate={currentDate}
+                invoices={monthlyData || []}
+                formatCurrency={formatCurrency}
+              />
+            </div>
+            <div className="lg:col-span-2">
+              <MonthlyCharts
+                invoices={monthlyData || []}
+                yearlyTrend={yearlyTrend || []}
+                currentDate={currentDate}
+                formatCurrency={formatCurrency}
+              />
+            </div>
           </div>
+        </div>
+      ) : (
+        /* Table View */
+        <Card className="p-6">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Invoice #</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>Client</TableHead>
+                <TableHead>Description</TableHead>
+                <TableHead className="text-right">Amount</TableHead>
+                <TableHead className="text-right">VAT</TableHead>
+                <TableHead className="text-right">Total</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center">Loading...</TableCell>
+                </TableRow>
+              ) : monthlyData && monthlyData.length > 0 ? (
+                monthlyData.map((invoice) => (
+                  <TableRow key={invoice.id}>
+                    <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
+                    <TableCell>{format(new Date(invoice.invoice_date), "dd MMM yyyy")}</TableCell>
+                    <TableCell>{invoice.client_name}</TableCell>
+                    <TableCell className="max-w-xs truncate">{invoice.description || '-'}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(invoice.amount)}</TableCell>
+                    <TableCell className="text-right">{formatCurrency(invoice.vat_amount)}</TableCell>
+                    <TableCell className="text-right font-semibold">{formatCurrency(invoice.total_amount)}</TableCell>
+                  </TableRow>
+                ))
+              ) : (
+                <TableRow>
+                  <TableCell colSpan={7} className="text-center text-muted-foreground">
+                    No invoices for this month
+                  </TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
         </Card>
       )}
     </div>
