@@ -227,14 +227,19 @@ export const analyzeCableOptimizations = (
       
       // COMPLIANCE CHECK 2: SANS 10142-1 Protection Coordination
       // Rule: In ≤ Iz (Protection device rating ≤ Cable capacity)
-      if (protectionDeviceRating && protectionDeviceRating > totalDeratedCapacity) {
+      // NOTE: Only apply this check when protection_device_rating appears to be local protection
+      // (not an upstream main breaker). If protection >> load (3x+), it's likely the main breaker.
+      const isLocalProtection = protectionDeviceRating && protectionDeviceRating <= targetAmpacity * 3;
+      
+      if (isLocalProtection && protectionDeviceRating > totalDeratedCapacity) {
         console.log(`[COMPLIANCE FAIL - In≤Iz] Protection ${protectionDeviceRating}A > Cable capacity ${totalDeratedCapacity.toFixed(1)}A`);
         continue;
       }
       
       // Rule: I2 ≤ 1.45 × Iz (Tripping current ≤ 1.45 × cable capacity)
       // For circuit breakers, I2 is typically 1.45 × In per SANS 10142-1
-      if (protectionDeviceRating) {
+      // Only apply when we have local protection (not upstream main breaker)
+      if (isLocalProtection) {
         const trippingCurrent = protectionDeviceRating * 1.45;
         const maxAllowableTripping = totalDeratedCapacity * 1.45;
         
