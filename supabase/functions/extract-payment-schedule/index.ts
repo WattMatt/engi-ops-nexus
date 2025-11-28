@@ -27,12 +27,13 @@ serve(async (req) => {
     const extractionPrompt = `Extract all payment schedule and project information from this document. This could be:
 - An appointment letter
 - A fee proposal or professional fee calculation
-- A proposed cashflow schedule
+- A proposed cashflow schedule or cashflow forecast
 - A payment schedule or draw schedule
+- An Excel spreadsheet with monthly payment columns
 
 Look for and extract:
 1. PROJECT DETAILS:
-   - Project name/reference
+   - Project name/reference (often in filename or header)
    - Client company name
    - Client address
    - Client VAT number
@@ -40,7 +41,7 @@ Look for and extract:
    - Discipline (e.g., Electrical Engineer, Architect, QS)
 
 2. FINANCIAL DETAILS:
-   - Total agreed fee/contract value
+   - Total agreed fee/contract value (look for BUDGET or TOTAL columns)
    - Construction cost (if mentioned, for fee basis)
    - Rebate percentage (if applicable)
    - VAT percentage
@@ -48,10 +49,20 @@ Look for and extract:
 3. PAYMENT SCHEDULE/CASHFLOW:
    Look for payment tables with columns like:
    - Claim/Invoice numbers
-   - Month names (e.g., "December-25", "January-26") - convert to YYYY-MM format
+   - Month names in various formats:
+     * "December-25", "January-26" → convert to YYYY-MM
+     * "Dec-25", "Jan-26" → convert to YYYY-MM  
+     * "Jul-25", "Aug-25" → convert to 2025-07, 2025-08
+     * Column headers with month abbreviations
    - Milestones (e.g., "Pre-contract concept", "Construction", "Practical completion")
    - Percentage of fee
-   - Invoice amounts
+   - Invoice amounts (with or without R prefix)
+   
+   For Excel cashflow forecasts:
+   - Each column may represent a month
+   - Look for rows with discipline names and budget amounts
+   - Monthly payment values may be spread across columns
+   - R- or R0 means zero payment for that month
    
 4. DATES:
    - Document date
@@ -63,7 +74,7 @@ Look for and extract:
    - Notes or special conditions
    - Document reference/revision number
 
-Be thorough and extract ALL financial data visible in the document.`;
+Be thorough and extract ALL financial data visible in the document. For spreadsheets, each non-zero monthly amount should become a separate payment entry.`;
 
     // Build the message content based on file type
     let messageContent: any[];
@@ -94,17 +105,19 @@ Be thorough and extract ALL financial data visible in the document.`;
             content: `You are a document analysis assistant specialized in extracting payment schedules and financial data from:
 - Appointment letters
 - Fee proposals and professional fee calculations
-- Proposed cashflow schedules
+- Proposed cashflow schedules and cashflow forecasts
 - Payment draw schedules
+- Excel spreadsheets with monthly payment columns
 
 IMPORTANT RULES:
 1. Be precise with numbers - return amounts as plain numbers without currency symbols or formatting
 2. For dates:
    - Full dates: use YYYY-MM-DD format
-   - Month-only dates like "December-25" or "Jan-26": convert to YYYY-MM format (e.g., "2025-12", "2026-01")
+   - Month-only dates like "December-25", "Jan-26", "Jul-25": convert to YYYY-MM format (e.g., "2025-12", "2026-01", "2025-07")
    - Relative dates like "TBC": return null for the date
 3. For payment schedules:
-   - Include ALL payment rows even if amount is R0.00
+   - Include ALL payment entries with non-zero amounts
+   - Skip entries where amount is R0, R-, or zero
    - Preserve the milestone/description text
    - Include both percentage and amount when available
 4. If a field is unclear or missing, return null for that field
@@ -113,7 +126,9 @@ Common document patterns:
 - Professional fee calculations with statutory guidelines, rebates, and cashflow tables
 - Appointment letters with monthly draw schedules
 - Fee proposals with milestone-based payments
-- Claim schedules with invoice numbers and payment dates`
+- Claim schedules with invoice numbers and payment dates
+- Excel cashflow forecasts with month columns (Jul-25, Aug-25, etc.) and payment amounts in rows
+- Spreadsheets where each column is a different month and cells contain R-prefixed amounts`
           },
           {
             role: 'user',
