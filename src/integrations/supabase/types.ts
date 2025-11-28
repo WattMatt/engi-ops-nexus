@@ -3041,12 +3041,14 @@ export type Database = {
           client_details: string | null
           created_at: string
           created_by: string | null
+          extracted_by_ai: boolean | null
           id: string
           invoice_date: string | null
           invoice_month: string
           invoice_number: string
           job_name: string
           notes: string | null
+          pdf_file_path: string | null
           project_id: string | null
           updated_at: string
           vat_number: string | null
@@ -3057,12 +3059,14 @@ export type Database = {
           client_details?: string | null
           created_at?: string
           created_by?: string | null
+          extracted_by_ai?: boolean | null
           id?: string
           invoice_date?: string | null
           invoice_month: string
           invoice_number: string
           job_name: string
           notes?: string | null
+          pdf_file_path?: string | null
           project_id?: string | null
           updated_at?: string
           vat_number?: string | null
@@ -3073,12 +3077,14 @@ export type Database = {
           client_details?: string | null
           created_at?: string
           created_by?: string | null
+          extracted_by_ai?: boolean | null
           id?: string
           invoice_date?: string | null
           invoice_month?: string
           invoice_number?: string
           job_name?: string
           notes?: string | null
+          pdf_file_path?: string | null
           project_id?: string | null
           updated_at?: string
           vat_number?: string | null

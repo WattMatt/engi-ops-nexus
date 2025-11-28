@@ -1,0 +1,545 @@
+import { useState, useCallback } from "react";
+import { useQueryClient, useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Checkbox } from "@/components/ui/checkbox";
+import { 
+  Upload, 
+  FileText, 
+  Loader2, 
+  Check, 
+  X, 
+  AlertCircle,
+  Sparkles,
+  FolderOpen
+} from "lucide-react";
+import { toast } from "sonner";
+import { format } from "date-fns";
+
+interface ExtractedInvoice {
+  file: File;
+  fileName: string;
+  status: "pending" | "extracting" | "extracted" | "error";
+  error?: string;
+  data?: {
+    invoice_number: string;
+    invoice_date: string;
+    invoice_month: string;
+    client_name: string;
+    client_vat_number: string;
+    job_name: string;
+    amount_excl_vat: number;
+    vat_amount: number;
+    amount_incl_vat: number;
+    claim_number: string;
+    notes: string;
+  };
+  selected: boolean;
+  projectId?: string;
+}
+
+interface InvoicePDFUploaderProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}
+
+export function InvoicePDFUploader({ open, onOpenChange }: InvoicePDFUploaderProps) {
+  const [files, setFiles] = useState<ExtractedInvoice[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processedCount, setProcessedCount] = useState(0);
+  const [isSaving, setIsSaving] = useState(false);
+  const [defaultProjectId, setDefaultProjectId] = useState<string>("");
+  const queryClient = useQueryClient();
+
+  const { data: projects = [] } = useQuery({
+    queryKey: ["invoice-projects"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("invoice_projects")
+        .select("*")
+        .order("project_name");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFiles = Array.from(e.target.files || []);
+    const pdfFiles = selectedFiles.filter(f => f.type === "application/pdf");
+    
+    if (pdfFiles.length !== selectedFiles.length) {
+      toast.warning("Some files were skipped - only PDF files are accepted");
+    }
+
+    const newFiles: ExtractedInvoice[] = pdfFiles.map(file => ({
+      file,
+      fileName: file.name,
+      status: "pending",
+      selected: true,
+    }));
+
+    setFiles(prev => [...prev, ...newFiles]);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    const droppedFiles = Array.from(e.dataTransfer.files);
+    const pdfFiles = droppedFiles.filter(f => f.type === "application/pdf");
+    
+    if (pdfFiles.length !== droppedFiles.length) {
+      toast.warning("Some files were skipped - only PDF files are accepted");
+    }
+
+    const newFiles: ExtractedInvoice[] = pdfFiles.map(file => ({
+      file,
+      fileName: file.name,
+      status: "pending",
+      selected: true,
+    }));
+
+    setFiles(prev => [...prev, ...newFiles]);
+  }, []);
+
+  const extractInvoiceData = async (file: File): Promise<ExtractedInvoice["data"]> => {
+    // Convert file to base64
+    const arrayBuffer = await file.arrayBuffer();
+    const base64 = btoa(
+      new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), "")
+    );
+
+    const { data, error } = await supabase.functions.invoke("extract-invoice-pdf", {
+      body: { pdfBase64: base64, fileName: file.name },
+    });
+
+    if (error) throw error;
+    if (!data.success) throw new Error(data.error);
+
+    return data.data;
+  };
+
+  const handleExtractAll = async () => {
+    const pendingFiles = files.filter(f => f.status === "pending");
+    if (pendingFiles.length === 0) {
+      toast.info("No pending files to process");
+      return;
+    }
+
+    setIsProcessing(true);
+    setProcessedCount(0);
+
+    for (let i = 0; i < files.length; i++) {
+      if (files[i].status !== "pending") continue;
+
+      setFiles(prev => prev.map((f, idx) => 
+        idx === i ? { ...f, status: "extracting" } : f
+      ));
+
+      try {
+        const data = await extractInvoiceData(files[i].file);
+        setFiles(prev => prev.map((f, idx) => 
+          idx === i ? { ...f, status: "extracted", data } : f
+        ));
+      } catch (error: any) {
+        console.error(`Error extracting ${files[i].fileName}:`, error);
+        setFiles(prev => prev.map((f, idx) => 
+          idx === i ? { ...f, status: "error", error: error.message } : f
+        ));
+      }
+
+      setProcessedCount(prev => prev + 1);
+      
+      // Small delay between requests to avoid rate limiting
+      if (i < files.length - 1) {
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+    }
+
+    setIsProcessing(false);
+    toast.success("AI extraction complete");
+  };
+
+  const toggleFileSelection = (index: number) => {
+    setFiles(prev => prev.map((f, idx) => 
+      idx === index ? { ...f, selected: !f.selected } : f
+    ));
+  };
+
+  const toggleSelectAll = () => {
+    const extractedFiles = files.filter(f => f.status === "extracted");
+    const allSelected = extractedFiles.every(f => f.selected);
+    setFiles(prev => prev.map(f => 
+      f.status === "extracted" ? { ...f, selected: !allSelected } : f
+    ));
+  };
+
+  const updateFileProject = (index: number, projectId: string) => {
+    setFiles(prev => prev.map((f, idx) => 
+      idx === index ? { ...f, projectId: projectId === "none" ? undefined : projectId } : f
+    ));
+  };
+
+  const applyDefaultProject = () => {
+    if (!defaultProjectId) return;
+    setFiles(prev => prev.map(f => 
+      f.status === "extracted" && !f.projectId 
+        ? { ...f, projectId: defaultProjectId === "none" ? undefined : defaultProjectId } 
+        : f
+    ));
+    toast.success("Default project applied to unassigned invoices");
+  };
+
+  const handleSave = async () => {
+    const selectedFiles = files.filter(f => f.selected && f.status === "extracted" && f.data);
+    if (selectedFiles.length === 0) {
+      toast.error("No extracted invoices selected");
+      return;
+    }
+
+    setIsSaving(true);
+
+    try {
+      for (const file of selectedFiles) {
+        if (!file.data) continue;
+
+        // Upload PDF to storage organized by month
+        const month = file.data.invoice_month || format(new Date(), "yyyy-MM");
+        const filePath = `${month}/${file.data.invoice_number || Date.now()}_${file.fileName}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from("invoice-pdfs")
+          .upload(filePath, file.file, { upsert: true });
+
+        if (uploadError) {
+          console.error("Upload error:", uploadError);
+          // Continue even if upload fails - still save the extracted data
+        }
+
+        // Insert invoice record
+        const { error: insertError } = await supabase
+          .from("invoice_history")
+          .insert({
+            invoice_number: file.data.invoice_number || `UNKNOWN-${Date.now()}`,
+            invoice_date: file.data.invoice_date || null,
+            invoice_month: file.data.invoice_month || format(new Date(), "yyyy-MM"),
+            job_name: file.data.job_name || file.fileName,
+            client_details: file.data.client_name || null,
+            vat_number: file.data.client_vat_number || null,
+            amount_excl_vat: file.data.amount_excl_vat || null,
+            amount_incl_vat: file.data.amount_incl_vat || null,
+            project_id: file.projectId || null,
+            pdf_file_path: filePath,
+            extracted_by_ai: true,
+            notes: file.data.claim_number 
+              ? `Claim: ${file.data.claim_number}${file.data.notes ? `. ${file.data.notes}` : ""}`
+              : file.data.notes || null,
+          });
+
+        if (insertError) throw insertError;
+      }
+
+      toast.success(`${selectedFiles.length} invoice(s) imported successfully`);
+      queryClient.invalidateQueries({ queryKey: ["invoice-history"] });
+      onOpenChange(false);
+      setFiles([]);
+    } catch (error: any) {
+      toast.error(`Import failed: ${error.message}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setFiles(prev => prev.filter((_, idx) => idx !== index));
+  };
+
+  const formatCurrency = (amount: number | null | undefined) => {
+    if (amount == null) return "-";
+    return new Intl.NumberFormat("en-ZA", {
+      style: "currency",
+      currency: "ZAR",
+    }).format(amount);
+  };
+
+  const pendingCount = files.filter(f => f.status === "pending").length;
+  const extractedCount = files.filter(f => f.status === "extracted").length;
+  const errorCount = files.filter(f => f.status === "error").length;
+  const selectedCount = files.filter(f => f.selected && f.status === "extracted").length;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-5xl max-h-[90vh] flex flex-col">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Sparkles className="h-5 w-5 text-primary" />
+            AI Invoice PDF Extractor
+          </DialogTitle>
+          <DialogDescription>
+            Upload PDF invoices and let AI extract the data automatically. Files will be stored organized by month.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="flex-1 overflow-hidden flex flex-col gap-4">
+          {/* Upload Area */}
+          {files.length === 0 ? (
+            <div
+              className="border-2 border-dashed rounded-lg p-8 text-center hover:border-primary/50 transition-colors cursor-pointer"
+              onDrop={handleDrop}
+              onDragOver={(e) => e.preventDefault()}
+              onClick={() => document.getElementById("pdf-upload")?.click()}
+            >
+              <Upload className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+              <p className="text-lg font-medium">Drop PDF invoices here</p>
+              <p className="text-sm text-muted-foreground mt-1">or click to browse</p>
+              <Input
+                id="pdf-upload"
+                type="file"
+                accept="application/pdf"
+                multiple
+                className="hidden"
+                onChange={handleFileSelect}
+              />
+            </div>
+          ) : (
+            <>
+              {/* Status Bar */}
+              <div className="flex items-center justify-between">
+                <div className="flex gap-2">
+                  <Badge variant="outline">{files.length} files</Badge>
+                  {pendingCount > 0 && <Badge variant="secondary">{pendingCount} pending</Badge>}
+                  {extractedCount > 0 && <Badge className="bg-green-500">{extractedCount} extracted</Badge>}
+                  {errorCount > 0 && <Badge variant="destructive">{errorCount} errors</Badge>}
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => document.getElementById("pdf-upload-more")?.click()}
+                  >
+                    <Upload className="h-4 w-4 mr-2" />
+                    Add More
+                  </Button>
+                  <Input
+                    id="pdf-upload-more"
+                    type="file"
+                    accept="application/pdf"
+                    multiple
+                    className="hidden"
+                    onChange={handleFileSelect}
+                  />
+                  <Button
+                    size="sm"
+                    onClick={handleExtractAll}
+                    disabled={isProcessing || pendingCount === 0}
+                  >
+                    {isProcessing ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Extracting...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        Extract All ({pendingCount})
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+
+              {/* Progress */}
+              {isProcessing && (
+                <div className="space-y-2">
+                  <Progress value={(processedCount / pendingCount) * 100} />
+                  <p className="text-sm text-muted-foreground text-center">
+                    Processing {processedCount} of {pendingCount} files...
+                  </p>
+                </div>
+              )}
+
+              {/* Default Project Assignment */}
+              {extractedCount > 0 && (
+                <div className="flex items-center gap-4 p-3 bg-muted/50 rounded-lg">
+                  <Label className="whitespace-nowrap">Assign to project:</Label>
+                  <Select value={defaultProjectId} onValueChange={setDefaultProjectId}>
+                    <SelectTrigger className="w-[250px]">
+                      <SelectValue placeholder="Select default project" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="none">No project</SelectItem>
+                      {projects.map(p => (
+                        <SelectItem key={p.id} value={p.id}>{p.project_name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Button variant="outline" size="sm" onClick={applyDefaultProject} disabled={!defaultProjectId}>
+                    Apply to Unassigned
+                  </Button>
+                </div>
+              )}
+
+              {/* File List */}
+              <ScrollArea className="flex-1 border rounded-lg">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[40px]">
+                        <Checkbox 
+                          checked={extractedCount > 0 && files.filter(f => f.status === "extracted").every(f => f.selected)}
+                          onCheckedChange={toggleSelectAll}
+                        />
+                      </TableHead>
+                      <TableHead>File / Invoice</TableHead>
+                      <TableHead>Job Name</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead>Amount</TableHead>
+                      <TableHead>Project</TableHead>
+                      <TableHead className="w-[80px]">Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {files.map((file, index) => (
+                      <TableRow key={index} className={file.status === "error" ? "bg-destructive/5" : ""}>
+                        <TableCell>
+                          <Checkbox
+                            checked={file.selected}
+                            onCheckedChange={() => toggleFileSelection(index)}
+                            disabled={file.status !== "extracted"}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <FileText className="h-4 w-4 text-muted-foreground" />
+                            <div>
+                              <p className="font-medium truncate max-w-[200px]">
+                                {file.data?.invoice_number || file.fileName}
+                              </p>
+                              {file.data?.invoice_number && (
+                                <p className="text-xs text-muted-foreground truncate max-w-[200px]">
+                                  {file.fileName}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <span className="truncate max-w-[200px] block">
+                            {file.data?.job_name || "-"}
+                          </span>
+                        </TableCell>
+                        <TableCell>
+                          {file.data?.invoice_date || "-"}
+                        </TableCell>
+                        <TableCell>
+                          {formatCurrency(file.data?.amount_incl_vat)}
+                        </TableCell>
+                        <TableCell>
+                          {file.status === "extracted" ? (
+                            <Select 
+                              value={file.projectId || "none"} 
+                              onValueChange={(v) => updateFileProject(index, v)}
+                            >
+                              <SelectTrigger className="h-8 w-[150px]">
+                                <SelectValue placeholder="Select..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="none">No project</SelectItem>
+                                {projects.map(p => (
+                                  <SelectItem key={p.id} value={p.id}>{p.project_name}</SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          ) : (
+                            "-"
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            {file.status === "pending" && (
+                              <Badge variant="secondary">Pending</Badge>
+                            )}
+                            {file.status === "extracting" && (
+                              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                            )}
+                            {file.status === "extracted" && (
+                              <Check className="h-4 w-4 text-green-500" />
+                            )}
+                            {file.status === "error" && (
+                              <div className="flex items-center gap-1">
+                                <AlertCircle className="h-4 w-4 text-destructive" />
+                                <span className="text-xs text-destructive truncate max-w-[100px]" title={file.error}>
+                                  {file.error}
+                                </span>
+                              </div>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-6 w-6"
+                              onClick={() => removeFile(index)}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </ScrollArea>
+            </>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={() => { onOpenChange(false); setFiles([]); }}>
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleSave} 
+            disabled={isSaving || selectedCount === 0}
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Importing...
+              </>
+            ) : (
+              <>
+                <FolderOpen className="h-4 w-4 mr-2" />
+                Import {selectedCount} Invoice(s)
+              </>
+            )}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
