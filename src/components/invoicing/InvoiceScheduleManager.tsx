@@ -36,10 +36,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, FileText, MoreHorizontal, Trash2, CheckCircle, Calendar, Sparkles, Upload } from "lucide-react";
+import { Plus, FileText, MoreHorizontal, Trash2, CheckCircle, Calendar, Sparkles, Upload, FolderOpen } from "lucide-react";
 import { toast } from "sonner";
 import { format, addMonths, parseISO } from "date-fns";
 import { AppointmentLetterExtractor } from "@/components/finance/AppointmentLetterExtractor";
+import { FinanceProjectDocuments } from "@/components/finance/FinanceProjectDocuments";
 import { Checkbox } from "@/components/ui/checkbox";
 
 interface ScheduleEntry {
@@ -52,6 +53,8 @@ export function InvoiceScheduleManager() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
   const [extractorOpen, setExtractorOpen] = useState(false);
+  const [documentsOpen, setDocumentsOpen] = useState(false);
+  const [documentsProject, setDocumentsProject] = useState<any>(null);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [scheduleEntries, setScheduleEntries] = useState<ScheduleEntry[]>([]);
   const [loading, setLoading] = useState(false);
@@ -385,9 +388,8 @@ export function InvoiceScheduleManager() {
       {/* Project Summary Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {Object.entries(paymentsByProject).map(([projectId, data]: [string, any]) => (
-          <Card key={projectId} className="cursor-pointer hover:border-primary transition-colors"
-                onClick={() => setSelectedProject(selectedProject === projectId ? null : projectId)}>
-            <CardHeader className="pb-2">
+          <Card key={projectId} className="hover:border-primary transition-colors">
+            <CardHeader className="pb-2 cursor-pointer" onClick={() => setSelectedProject(selectedProject === projectId ? null : projectId)}>
               <CardTitle className="text-base">{data.project?.project_name}</CardTitle>
               <CardDescription>{data.project?.client_name}</CardDescription>
             </CardHeader>
@@ -420,9 +422,23 @@ export function InvoiceScheduleManager() {
                       }}
                     />
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {data.payments.length} scheduled payments
-                  </p>
+                  <div className="flex items-center justify-between mt-2">
+                    <p className="text-xs text-muted-foreground">
+                      {data.payments.length} scheduled payments
+                    </p>
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setDocumentsProject(data.project);
+                        setDocumentsOpen(true);
+                      }}
+                    >
+                      <FolderOpen className="h-4 w-4 mr-1" />
+                      Docs
+                    </Button>
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -737,6 +753,15 @@ export function InvoiceScheduleManager() {
           />
         </DialogContent>
       </Dialog>
+
+      {/* Project Documents Dialog */}
+      {documentsProject && (
+        <FinanceProjectDocuments
+          open={documentsOpen}
+          onOpenChange={setDocumentsOpen}
+          project={documentsProject}
+        />
+      )}
     </div>
   );
 }
