@@ -52,6 +52,7 @@ export function CashFlowDashboard() {
       if (error) throw error;
       return data;
     },
+    refetchOnMount: "always",
   });
 
   const formatCurrency = (amount: number) => {
