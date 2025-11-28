@@ -198,25 +198,44 @@ export function ExpenseManager() {
       const workbook = XLSX.read(arrayBuffer, { type: "array" });
       const sheetName = workbook.SheetNames[0];
       const worksheet = workbook.Sheets[sheetName];
-      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false }) as any[][];
 
       if (jsonData.length < 2) throw new Error("Not enough data in spreadsheet");
 
-      // Find header row with month columns
-      const headerRow = jsonData[0] as string[];
+      // Find header row with month columns - search first 10 rows
+      let headerRowIndex = -1;
       const monthColumns: { index: number; month: string }[] = [];
       
-      headerRow.forEach((header, idx) => {
-        if (!header) return;
-        const headerStr = String(header).trim();
-        const match = headerStr.match(/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d{2})$/);
-        if (match) {
-          monthColumns.push({ index: idx, month: headerStr });
+      for (let rowIdx = 0; rowIdx < Math.min(10, jsonData.length); rowIdx++) {
+        const row = jsonData[rowIdx];
+        if (!row) continue;
+        
+        const tempMonthCols: { index: number; month: string }[] = [];
+        
+        row.forEach((cell: any, idx: number) => {
+          if (!cell) return;
+          const cellStr = String(cell).trim();
+          // Match formats: Aug-25, Aug 25, Aug25, August 2025, 2025-08
+          const match = cellStr.match(/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[-\s]?(\d{2})$/i);
+          if (match) {
+            const monthAbbr = match[1].charAt(0).toUpperCase() + match[1].slice(1, 3).toLowerCase();
+            tempMonthCols.push({ index: idx, month: `${monthAbbr}-${match[2]}` });
+          }
+        });
+        
+        // Use the row with the most month columns found
+        if (tempMonthCols.length > monthColumns.length) {
+          monthColumns.length = 0;
+          monthColumns.push(...tempMonthCols);
+          headerRowIndex = rowIdx;
         }
-      });
+      }
+
+      console.log("Found month columns:", monthColumns, "in row:", headerRowIndex);
+      console.log("First few rows:", jsonData.slice(0, 3));
 
       if (monthColumns.length === 0) {
-        throw new Error("No month columns found in format 'MMM-YY' (e.g., Aug-25)");
+        throw new Error("No month columns found. Expected format: 'Aug-25', 'Sep-25', etc.");
       }
 
       const monthMap: Record<string, string> = {
@@ -233,15 +252,15 @@ export function ExpenseManager() {
       const expensesToInsert: { categoryId: string; month: string; amount: number }[] = [];
       let newCategoryOrder = (existingCategories?.length || 0) + 1;
 
-      // Process data rows
-      for (let i = 1; i < jsonData.length; i++) {
+      // Process data rows (start after header row)
+      for (let i = headerRowIndex + 1; i < jsonData.length; i++) {
         const row = jsonData[i];
         if (!row || row.length === 0) continue;
 
         const expenseName = String(row[0] || '').trim();
-        if (!expenseName || expenseName.match(/^\d/) || expenseName === 'EXPENSE:') continue;
+        if (!expenseName || expenseName.match(/^\d/) || expenseName.toUpperCase() === 'EXPENSE:') continue;
 
-        // Skip subtotal/total rows
+        // Skip subtotal/total rows and empty-looking rows
         if (expenseName.toLowerCase().includes('total')) continue;
 
         // Get or create category
