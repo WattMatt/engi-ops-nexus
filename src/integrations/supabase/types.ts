@@ -1949,6 +1949,39 @@ export type Database = {
           },
         ]
       }
+      expense_categories: {
+        Row: {
+          code: string
+          created_at: string
+          description: string | null
+          display_order: number | null
+          id: string
+          is_payroll: boolean | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          code: string
+          created_at?: string
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          is_payroll?: boolean | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          code?: string
+          created_at?: string
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          is_payroll?: boolean | null
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       final_account_items: {
         Row: {
           contract_amount: number | null
@@ -3538,6 +3571,53 @@ export type Database = {
             columns: ["conversation_id"]
             isOneToOne: false
             referencedRelation: "conversations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      monthly_expenses: {
+        Row: {
+          actual_amount: number | null
+          budgeted_amount: number
+          category_id: string
+          created_at: string
+          created_by: string | null
+          expense_month: string
+          id: string
+          is_recurring: boolean | null
+          notes: string | null
+          updated_at: string
+        }
+        Insert: {
+          actual_amount?: number | null
+          budgeted_amount?: number
+          category_id: string
+          created_at?: string
+          created_by?: string | null
+          expense_month: string
+          id?: string
+          is_recurring?: boolean | null
+          notes?: string | null
+          updated_at?: string
+        }
+        Update: {
+          actual_amount?: number | null
+          budgeted_amount?: number
+          category_id?: string
+          created_at?: string
+          created_by?: string | null
+          expense_month?: string
+          id?: string
+          is_recurring?: boolean | null
+          notes?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monthly_expenses_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "expense_categories"
             referencedColumns: ["id"]
           },
         ]
