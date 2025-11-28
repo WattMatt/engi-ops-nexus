@@ -134,14 +134,12 @@ export const analyzeCableOptimizations = (
     
     if (!entry.voltage || !entry.total_length) continue;
     
-    // PHASE 1: Fix Target Ampacity Logic
-    // Use actual circuit load (load_amps × parallel_count) as primary target
+    // PHASE 1: Target Ampacity Logic
+    // load_amps represents the TOTAL circuit load (not per cable)
     // Fall back to protection_device_rating only if load data unavailable
-    const actualCircuitLoad = entry.load_amps && entry.load_amps > 0 
-      ? entry.load_amps * currentParallelCount 
-      : null;
-    
-    const targetAmpacity = actualCircuitLoad || entry.protection_device_rating;
+    const targetAmpacity = (entry.load_amps && entry.load_amps > 0) 
+      ? entry.load_amps 
+      : entry.protection_device_rating;
     const protectionDeviceRating = entry.protection_device_rating;
     
     if (!targetAmpacity || targetAmpacity === 0) continue;
@@ -328,8 +326,8 @@ export const analyzeCableOptimizations = (
     testedAlternatives.sort((a, b) => a.totalCost - b.totalCost);
 
     if (testedAlternatives.length > 0) {
-      const complianceNotes = actualCircuitLoad 
-        ? `Circuit load: ${actualCircuitLoad.toFixed(0)}A (${entry.load_amps?.toFixed(0)}A × ${currentParallelCount}). Protection: ${protectionDeviceRating || 'N/A'}A. All alternatives meet SANS 10142-1 requirements: In ≤ Iz, I2 ≤ 1.45×Iz, voltage drop limits, and minimum cable sizing.`
+      const complianceNotes = entry.load_amps 
+        ? `Circuit load: ${targetAmpacity.toFixed(0)}A. Protection: ${protectionDeviceRating || 'N/A'}A. All alternatives meet SANS 10142-1 requirements: In ≤ Iz, I2 ≤ 1.45×Iz, voltage drop limits, and minimum cable sizing.`
         : `Design based on protection device: ${protectionDeviceRating}A (load data unavailable). All alternatives meet SANS 10142-1 compliance checks.`;
       
       optimizations.push({
