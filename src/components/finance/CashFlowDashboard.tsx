@@ -2,9 +2,11 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { format, startOfMonth, addMonths, differenceInDays } from "date-fns";
-import { TrendingUp, TrendingDown, DollarSign, AlertTriangle, Calendar, CheckCircle } from "lucide-react";
+import { TrendingUp, TrendingDown, DollarSign, AlertTriangle, Calendar, CheckCircle, Wallet } from "lucide-react";
 import { CashFlowChart } from "./CashFlowChart";
+import { NetCashFlowChart } from "./NetCashFlowChart";
 
 export function CashFlowDashboard() {
   const { data: payments = [], isLoading } = useQuery({
@@ -32,6 +34,21 @@ export function CashFlowDashboard() {
       const { data, error } = await supabase
         .from("invoice_projects")
         .select("*");
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: expenses = [] } = useQuery({
+    queryKey: ["cashflow-expenses"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("monthly_expenses")
+        .select(`
+          *,
+          expense_categories (name, code)
+        `)
+        .order("expense_month", { ascending: true });
       if (error) throw error;
       return data;
     },
@@ -98,6 +115,18 @@ export function CashFlowDashboard() {
   const monthChange = lastMonthTotal > 0 
     ? ((thisMonthScheduled - lastMonthTotal) / lastMonthTotal) * 100 
     : 0;
+
+  // Expense calculations
+  const thisMonthExpenses = expenses
+    .filter(e => e.expense_month.substring(0, 7) === currentMonth)
+    .reduce((sum, e) => sum + (e.actual_amount || e.budgeted_amount), 0);
+
+  const next12MonthsExpenses = expenses
+    .filter(e => next12Months.includes(e.expense_month.substring(0, 7)))
+    .reduce((sum, e) => sum + (e.actual_amount || e.budgeted_amount), 0);
+
+  const netCashFlowThisMonth = thisMonthScheduled - thisMonthExpenses;
+  const netCashFlow12Month = totalScheduled - next12MonthsExpenses;
 
   if (isLoading) {
     return (
@@ -230,8 +259,71 @@ export function CashFlowDashboard() {
         </Card>
       </div>
 
+      {/* Net Cash Flow Summary */}
+      {expenses.length > 0 && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardDescription>This Month Expenses</CardDescription>
+              <Wallet className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-destructive">
+                {formatCurrencyCompact(thisMonthExpenses)}
+              </div>
+            </CardContent>
+          </Card>
+          <Card className={netCashFlowThisMonth >= 0 ? "border-green-500" : "border-destructive"}>
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardDescription>Net This Month</CardDescription>
+              {netCashFlowThisMonth >= 0 ? (
+                <TrendingUp className="h-4 w-4 text-green-500" />
+              ) : (
+                <TrendingDown className="h-4 w-4 text-destructive" />
+              )}
+            </CardHeader>
+            <CardContent>
+              <div className={`text-2xl font-bold ${netCashFlowThisMonth >= 0 ? "text-green-600" : "text-destructive"}`}>
+                {formatCurrencyCompact(netCashFlowThisMonth)}
+              </div>
+            </CardContent>
+          </Card>
+          <Card>
+            <CardHeader className="pb-2">
+              <CardDescription>12-Month Expenses</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-destructive">
+                {formatCurrencyCompact(next12MonthsExpenses)}
+              </div>
+            </CardContent>
+          </Card>
+          <Card className={netCashFlow12Month >= 0 ? "border-green-500" : "border-destructive"}>
+            <CardHeader className="pb-2">
+              <CardDescription>12-Month Net</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className={`text-2xl font-bold ${netCashFlow12Month >= 0 ? "text-green-600" : "text-destructive"}`}>
+                {formatCurrencyCompact(netCashFlow12Month)}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
       {/* Charts */}
-      <CashFlowChart payments={payments as any} />
+      <Tabs defaultValue={expenses.length > 0 ? "net" : "income"}>
+        <TabsList>
+          {expenses.length > 0 && <TabsTrigger value="net">Net Cash Flow</TabsTrigger>}
+          <TabsTrigger value="income">Income Only</TabsTrigger>
+        </TabsList>
+        <TabsContent value="net">
+          <NetCashFlowChart payments={payments as any} expenses={expenses as any} />
+        </TabsContent>
+        <TabsContent value="income">
+          <CashFlowChart payments={payments as any} />
+        </TabsContent>
+      </Tabs>
 
       {/* Upcoming Payments */}
       <Card>
