@@ -17,8 +17,8 @@ import { Upload, FileText, Loader2, Sparkles, Check, X, AlertCircle } from "luci
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import mammoth from "mammoth";
+import * as XLSX from "xlsx";
 import { format } from "date-fns";
-
 interface PaymentMilestone {
   claim_number?: number | null;
   date: string | null;
@@ -92,6 +92,27 @@ export function AppointmentLetterExtractor({ onDataExtracted, onClose }: Appoint
       });
     }
 
+    // Handle Excel files
+    if (fileType === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' || 
+        fileType === 'application/vnd.ms-excel' ||
+        fileName.endsWith('.xlsx') || 
+        fileName.endsWith('.xls')) {
+      const arrayBuffer = await file.arrayBuffer();
+      const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+      
+      // Convert all sheets to text
+      let textContent = `EXCEL FILE: ${file.name}\n\n`;
+      workbook.SheetNames.forEach((sheetName, index) => {
+        const sheet = workbook.Sheets[sheetName];
+        textContent += `=== SHEET ${index + 1}: ${sheetName} ===\n`;
+        // Convert to CSV format for better AI parsing
+        const csv = XLSX.utils.sheet_to_csv(sheet, { blankrows: false });
+        textContent += csv + '\n\n';
+      });
+      
+      return { content: textContent, type: 'text' };
+    }
+
     // Handle Word documents
     if (fileType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || fileName.endsWith('.docx')) {
       const arrayBuffer = await file.arrayBuffer();
@@ -124,7 +145,7 @@ export function AppointmentLetterExtractor({ onDataExtracted, onClose }: Appoint
       });
     }
 
-    throw new Error('Unsupported file type. Please upload a PDF, Word document, or image.');
+    throw new Error('Unsupported file type. Please upload a PDF, Word document, Excel file, or image.');
   };
 
   const handleExtract = async () => {
@@ -192,7 +213,7 @@ export function AppointmentLetterExtractor({ onDataExtracted, onClose }: Appoint
             <input
               ref={fileInputRef}
               type="file"
-              accept=".pdf,.docx,.doc,.txt,.jpg,.jpeg,.png,.webp"
+              accept=".pdf,.docx,.doc,.txt,.xlsx,.xls,.jpg,.jpeg,.png,.webp"
               onChange={handleFileSelect}
               className="hidden"
             />
@@ -228,7 +249,7 @@ export function AppointmentLetterExtractor({ onDataExtracted, onClose }: Appoint
                   Click to upload or drag and drop
                 </p>
                 <p className="text-xs text-muted-foreground mt-1">
-                  PDF, Word, or Image files supported
+                  PDF, Word, Excel, or Image files supported
                 </p>
               </div>
             )}
