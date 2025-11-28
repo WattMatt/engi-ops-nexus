@@ -36,9 +36,10 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, FileText, MoreHorizontal, Trash2, CheckCircle, Calendar } from "lucide-react";
+import { Plus, FileText, MoreHorizontal, Trash2, CheckCircle, Calendar, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { format, addMonths, parseISO } from "date-fns";
+import { AppointmentLetterExtractor } from "@/components/finance/AppointmentLetterExtractor";
 
 interface ScheduleEntry {
   month: string;
@@ -49,6 +50,7 @@ interface ScheduleEntry {
 export function InvoiceScheduleManager() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [bulkDialogOpen, setBulkDialogOpen] = useState(false);
+  const [extractorOpen, setExtractorOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [scheduleEntries, setScheduleEntries] = useState<ScheduleEntry[]>([]);
   const [loading, setLoading] = useState(false);
@@ -221,6 +223,31 @@ export function InvoiceScheduleManager() {
 
   const totalScheduled = scheduleEntries.reduce((sum, e) => sum + e.amount, 0);
 
+  // Handle extracted data from AI
+  const handleExtractedData = (data: any) => {
+    // Pre-fill the bulk form with extracted data
+    if (data.start_date) {
+      setBulkForm(prev => ({
+        ...prev,
+        startMonth: data.start_date.slice(0, 7),
+      }));
+    }
+
+    // Convert payment schedule to our format
+    if (data.payment_schedule && data.payment_schedule.length > 0) {
+      const entries: ScheduleEntry[] = data.payment_schedule.map((p: any, idx: number) => ({
+        month: p.date ? (p.date.length === 7 ? p.date : p.date.slice(0, 7)) : format(addMonths(new Date(), idx), "yyyy-MM"),
+        amount: p.amount || 0,
+        description: p.description || `Payment ${idx + 1}`,
+      }));
+      setScheduleEntries(entries);
+    }
+
+    setExtractorOpen(false);
+    setBulkDialogOpen(true);
+    toast.success("Data extracted! Review and select a project to save.");
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -230,10 +257,16 @@ export function InvoiceScheduleManager() {
             Manage payment schedules from Letters of Appointment
           </p>
         </div>
-        <Button onClick={() => setBulkDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Add Payment Schedule
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => setExtractorOpen(true)}>
+            <Sparkles className="mr-2 h-4 w-4" />
+            Extract from Document
+          </Button>
+          <Button onClick={() => setBulkDialogOpen(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Payment Schedule
+          </Button>
+        </div>
       </div>
 
       {/* Project Summary Cards */}
@@ -466,6 +499,22 @@ export function InvoiceScheduleManager() {
               {loading ? "Saving..." : `Save ${scheduleEntries.length} Payments`}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* AI Document Extractor Dialog */}
+      <Dialog open={extractorOpen} onOpenChange={setExtractorOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Extract Payment Schedule from Document</DialogTitle>
+            <DialogDescription>
+              Upload an appointment letter, fee proposal, or payment schedule to automatically extract project and payment information.
+            </DialogDescription>
+          </DialogHeader>
+          <AppointmentLetterExtractor 
+            onDataExtracted={handleExtractedData}
+            onClose={() => setExtractorOpen(false)}
+          />
         </DialogContent>
       </Dialog>
     </div>
