@@ -43,7 +43,7 @@ interface ExtractedData {
 }
 
 interface AppointmentLetterExtractorProps {
-  onDataExtracted: (data: ExtractedData) => void;
+  onDataExtracted: (data: ExtractedData, file: File) => void;
   onClose: () => void;
 }
 
@@ -161,8 +161,8 @@ export function AppointmentLetterExtractor({ onDataExtracted, onClose }: Appoint
   };
 
   const handleUseData = () => {
-    if (extractedData) {
-      onDataExtracted(extractedData);
+    if (extractedData && file) {
+      onDataExtracted(extractedData, file);
     }
   };
 

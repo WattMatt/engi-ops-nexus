@@ -36,10 +36,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, FileText, MoreHorizontal, Trash2, CheckCircle, Calendar, Sparkles } from "lucide-react";
+import { Plus, FileText, MoreHorizontal, Trash2, CheckCircle, Calendar, Sparkles, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { format, addMonths, parseISO } from "date-fns";
 import { AppointmentLetterExtractor } from "@/components/finance/AppointmentLetterExtractor";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface ScheduleEntry {
   month: string;
@@ -54,7 +55,19 @@ export function InvoiceScheduleManager() {
   const [selectedProject, setSelectedProject] = useState<string | null>(null);
   const [scheduleEntries, setScheduleEntries] = useState<ScheduleEntry[]>([]);
   const [loading, setLoading] = useState(false);
+  const [sourceFile, setSourceFile] = useState<File | null>(null);
+  const [extractedProjectData, setExtractedProjectData] = useState<any>(null);
+  const [createNewProject, setCreateNewProject] = useState(false);
   const queryClient = useQueryClient();
+
+  // New project form state (from extracted data)
+  const [newProjectForm, setNewProjectForm] = useState({
+    projectName: "",
+    clientName: "",
+    clientAddress: "",
+    clientVatNumber: "",
+    agreedFee: "",
+  });
 
   // Bulk add form state
   const [bulkForm, setBulkForm] = useState({
@@ -151,15 +164,84 @@ export function InvoiceScheduleManager() {
   };
 
   const handleSaveBulkSchedule = async () => {
-    if (!bulkForm.projectId || scheduleEntries.length === 0) {
-      toast.error("Please select a project and generate a schedule");
+    let projectId = bulkForm.projectId;
+
+    // Validate - either select existing project or create new one
+    if (!createNewProject && !projectId) {
+      toast.error("Please select a project or create a new one");
+      return;
+    }
+
+    if (createNewProject && (!newProjectForm.projectName || !newProjectForm.clientName)) {
+      toast.error("Please enter project and client name");
+      return;
+    }
+
+    if (scheduleEntries.length === 0) {
+      toast.error("Please generate a payment schedule first");
       return;
     }
 
     setLoading(true);
     try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) throw new Error("Not authenticated");
+
+      // Create new project if needed
+      if (createNewProject) {
+        const agreedFee = parseFloat(newProjectForm.agreedFee) || scheduleEntries.reduce((sum, e) => sum + e.amount, 0);
+        
+        const { data: newProject, error: projectError } = await supabase
+          .from("invoice_projects")
+          .insert({
+            project_name: newProjectForm.projectName,
+            client_name: newProjectForm.clientName,
+            client_address: newProjectForm.clientAddress || null,
+            client_vat_number: newProjectForm.clientVatNumber || null,
+            agreed_fee: agreedFee,
+            outstanding_amount: agreedFee,
+            created_by: userData.user.id,
+          })
+          .select()
+          .single();
+
+        if (projectError) throw projectError;
+        projectId = newProject.id;
+        
+        toast.success(`Project "${newProjectForm.projectName}" created`);
+        queryClient.invalidateQueries({ queryKey: ["invoice-projects"] });
+      }
+
+      // Save the source document if available
+      if (sourceFile && projectId) {
+        const fileExt = sourceFile.name.split('.').pop();
+        const fileName = `${projectId}/appointment-letter-${Date.now()}.${fileExt}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from("finance-documents")
+          .upload(fileName, sourceFile);
+
+        if (uploadError) {
+          console.error("Document upload error:", uploadError);
+          // Don't fail the whole operation, just warn
+          toast.warning("Schedule saved but document upload failed");
+        } else {
+          // Save document reference
+          await supabase.from("finance_documents").insert({
+            project_id: projectId,
+            file_name: sourceFile.name,
+            file_path: fileName,
+            document_type: "appointment_letter",
+            file_size: sourceFile.size,
+            uploaded_by: userData.user.id,
+            description: "Source document for payment schedule",
+          });
+        }
+      }
+
+      // Insert payment schedules
       const paymentsToInsert = scheduleEntries.map((entry) => ({
-        project_id: bulkForm.projectId,
+        project_id: projectId,
         payment_month: entry.month + "-01",
         amount: entry.amount,
       }));
@@ -169,8 +251,20 @@ export function InvoiceScheduleManager() {
       if (error) throw error;
 
       toast.success(`Added ${scheduleEntries.length} payment schedules`);
+      
+      // Reset all state
       setBulkDialogOpen(false);
       setScheduleEntries([]);
+      setSourceFile(null);
+      setExtractedProjectData(null);
+      setCreateNewProject(false);
+      setNewProjectForm({
+        projectName: "",
+        clientName: "",
+        clientAddress: "",
+        clientVatNumber: "",
+        agreedFee: "",
+      });
       setBulkForm({
         projectId: "",
         startMonth: new Date().toISOString().slice(0, 7),
@@ -180,6 +274,7 @@ export function InvoiceScheduleManager() {
         includeFinalPayment: true,
       });
       queryClient.invalidateQueries({ queryKey: ["monthly-payments-with-projects"] });
+      queryClient.invalidateQueries({ queryKey: ["finance-projects"] });
     } catch (error: any) {
       toast.error(error.message);
     } finally {
@@ -224,7 +319,20 @@ export function InvoiceScheduleManager() {
   const totalScheduled = scheduleEntries.reduce((sum, e) => sum + e.amount, 0);
 
   // Handle extracted data from AI
-  const handleExtractedData = (data: any) => {
+  const handleExtractedData = (data: any, file: File) => {
+    // Store the file for later upload
+    setSourceFile(file);
+    setExtractedProjectData(data);
+
+    // Pre-fill the new project form with extracted data
+    setNewProjectForm({
+      projectName: data.project_name || "",
+      clientName: data.client_name || "",
+      clientAddress: data.client_address || "",
+      clientVatNumber: data.client_vat_number || "",
+      agreedFee: data.agreed_fee ? String(data.agreed_fee) : "",
+    });
+
     // Pre-fill the bulk form with extracted data
     if (data.start_date) {
       setBulkForm(prev => ({
@@ -243,9 +351,14 @@ export function InvoiceScheduleManager() {
       setScheduleEntries(entries);
     }
 
+    // If project data was extracted, suggest creating a new project
+    if (data.project_name || data.client_name) {
+      setCreateNewProject(true);
+    }
+
     setExtractorOpen(false);
     setBulkDialogOpen(true);
-    toast.success("Data extracted! Review and select a project to save.");
+    toast.success("Data extracted! Review the details and save.");
   };
 
   return (
@@ -390,18 +503,102 @@ export function InvoiceScheduleManager() {
 
       {/* Bulk Add Dialog */}
       <Dialog open={bulkDialogOpen} onOpenChange={setBulkDialogOpen}>
-        <DialogContent className="max-w-3xl">
+        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Add Payment Schedule from LOA</DialogTitle>
+            <DialogTitle>
+              {sourceFile ? "Import Payment Schedule" : "Add Payment Schedule from LOA"}
+            </DialogTitle>
             <DialogDescription>
-              Enter the fee schedule from your Letter of Appointment
+              {sourceFile 
+                ? `Importing from: ${sourceFile.name}` 
+                : "Enter the fee schedule from your Letter of Appointment"
+              }
             </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-6 py-4">
-            <div className="grid grid-cols-2 gap-4">
+            {/* Project Selection / Creation Toggle */}
+            <div className="flex items-center space-x-2 p-3 border rounded-lg bg-muted/50">
+              <Checkbox
+                id="createNew"
+                checked={createNewProject}
+                onCheckedChange={(checked) => {
+                  setCreateNewProject(!!checked);
+                  if (checked) {
+                    setBulkForm(prev => ({ ...prev, projectId: "" }));
+                  }
+                }}
+              />
+              <Label htmlFor="createNew" className="text-sm font-medium cursor-pointer">
+                Create a new project for this schedule
+              </Label>
+            </div>
+
+            {/* New Project Form */}
+            {createNewProject && (
+              <Card>
+                <CardHeader className="pb-3">
+                  <CardTitle className="text-base">New Project Details</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Project Name *</Label>
+                      <Input
+                        placeholder="e.g. Office Building Phase 2"
+                        value={newProjectForm.projectName}
+                        onChange={(e) => setNewProjectForm({ ...newProjectForm, projectName: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Client Name *</Label>
+                      <Input
+                        placeholder="e.g. ABC Developers (Pty) Ltd"
+                        value={newProjectForm.clientName}
+                        onChange={(e) => setNewProjectForm({ ...newProjectForm, clientName: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Client Address</Label>
+                      <Input
+                        placeholder="Full address"
+                        value={newProjectForm.clientAddress}
+                        onChange={(e) => setNewProjectForm({ ...newProjectForm, clientAddress: e.target.value })}
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Client VAT Number</Label>
+                      <Input
+                        placeholder="e.g. 4123456789"
+                        value={newProjectForm.clientVatNumber}
+                        onChange={(e) => setNewProjectForm({ ...newProjectForm, clientVatNumber: e.target.value })}
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Agreed Fee (excl. VAT)</Label>
+                    <Input
+                      type="number"
+                      placeholder="Total contract value"
+                      value={newProjectForm.agreedFee}
+                      onChange={(e) => setNewProjectForm({ ...newProjectForm, agreedFee: e.target.value })}
+                    />
+                    {!newProjectForm.agreedFee && totalScheduled > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        Will default to schedule total: {formatCurrency(totalScheduled)}
+                      </p>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Existing Project Selection */}
+            {!createNewProject && (
               <div className="space-y-2">
-                <Label>Project</Label>
+                <Label>Select Existing Project</Label>
                 <Select
                   value={bulkForm.projectId}
                   onValueChange={(value) => setBulkForm({ ...bulkForm, projectId: value })}
@@ -417,49 +614,72 @@ export function InvoiceScheduleManager() {
                     ))}
                   </SelectContent>
                 </Select>
+                {projects.length === 0 && (
+                  <p className="text-sm text-muted-foreground">
+                    No projects yet. Enable "Create a new project" above.
+                  </p>
+                )}
               </div>
-              <div className="space-y-2">
-                <Label>Start Month</Label>
-                <Input
-                  type="month"
-                  value={bulkForm.startMonth}
-                  onChange={(e) => setBulkForm({ ...bulkForm, startMonth: e.target.value })}
-                />
-              </div>
-            </div>
+            )}
 
-            <div className="grid grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label>Monthly Amount (excl. VAT)</Label>
-                <Input
-                  type="number"
-                  placeholder="e.g. 104500"
-                  value={bulkForm.monthlyAmount}
-                  onChange={(e) => setBulkForm({ ...bulkForm, monthlyAmount: e.target.value })}
-                />
+            {/* Source Document Indicator */}
+            {sourceFile && (
+              <div className="flex items-center gap-2 p-3 bg-primary/10 rounded-lg">
+                <Upload className="h-4 w-4 text-primary" />
+                <span className="text-sm">
+                  Document <span className="font-medium">{sourceFile.name}</span> will be saved with this schedule
+                </span>
               </div>
-              <div className="space-y-2">
-                <Label>Number of Months</Label>
-                <Input
-                  type="number"
-                  value={bulkForm.numberOfMonths}
-                  onChange={(e) => setBulkForm({ ...bulkForm, numberOfMonths: e.target.value })}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>Final Completion Amount</Label>
-                <Input
-                  type="number"
-                  placeholder="e.g. 55000"
-                  value={bulkForm.finalAmount}
-                  onChange={(e) => setBulkForm({ ...bulkForm, finalAmount: e.target.value })}
-                />
-              </div>
-            </div>
+            )}
 
-            <Button onClick={generateBulkSchedule} variant="secondary">
-              Generate Schedule Preview
-            </Button>
+            {/* Manual Schedule Generation (only if no extracted schedule) */}
+            {scheduleEntries.length === 0 && (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Start Month</Label>
+                    <Input
+                      type="month"
+                      value={bulkForm.startMonth}
+                      onChange={(e) => setBulkForm({ ...bulkForm, startMonth: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label>Monthly Amount (excl. VAT)</Label>
+                    <Input
+                      type="number"
+                      placeholder="e.g. 104500"
+                      value={bulkForm.monthlyAmount}
+                      onChange={(e) => setBulkForm({ ...bulkForm, monthlyAmount: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Number of Months</Label>
+                    <Input
+                      type="number"
+                      value={bulkForm.numberOfMonths}
+                      onChange={(e) => setBulkForm({ ...bulkForm, numberOfMonths: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Final Completion Amount</Label>
+                    <Input
+                      type="number"
+                      placeholder="e.g. 55000"
+                      value={bulkForm.finalAmount}
+                      onChange={(e) => setBulkForm({ ...bulkForm, finalAmount: e.target.value })}
+                    />
+                  </div>
+                </div>
+
+                <Button onClick={generateBulkSchedule} variant="secondary">
+                  Generate Schedule Preview
+                </Button>
+              </>
+            )}
 
             {scheduleEntries.length > 0 && (
               <div className="border rounded-lg p-4 max-h-[300px] overflow-y-auto">
