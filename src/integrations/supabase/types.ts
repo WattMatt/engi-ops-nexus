@@ -3034,6 +3034,54 @@ export type Database = {
           },
         ]
       }
+      invoice_history: {
+        Row: {
+          amount_excl_vat: number | null
+          amount_incl_vat: number | null
+          client_details: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          invoice_date: string | null
+          invoice_month: string
+          invoice_number: string
+          job_name: string
+          notes: string | null
+          updated_at: string
+          vat_number: string | null
+        }
+        Insert: {
+          amount_excl_vat?: number | null
+          amount_incl_vat?: number | null
+          client_details?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          invoice_date?: string | null
+          invoice_month: string
+          invoice_number: string
+          job_name: string
+          notes?: string | null
+          updated_at?: string
+          vat_number?: string | null
+        }
+        Update: {
+          amount_excl_vat?: number | null
+          amount_incl_vat?: number | null
+          client_details?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          invoice_date?: string | null
+          invoice_month?: string
+          invoice_number?: string
+          job_name?: string
+          notes?: string | null
+          updated_at?: string
+          vat_number?: string | null
+        }
+        Relationships: []
+      }
       invoice_projects: {
         Row: {
           agreed_fee: number
