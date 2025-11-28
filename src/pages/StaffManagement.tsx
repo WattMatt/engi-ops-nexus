@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Users, Calendar, DollarSign, Award, FileText, Gift, Building } from "lucide-react";
+import { Users, Calendar, DollarSign, Award, FileText, Gift, Building, LayoutDashboard } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { AddEmployeeDialog } from "@/components/hr/AddEmployeeDialog";
 import { EmployeeList } from "@/components/hr/EmployeeList";
@@ -13,6 +13,7 @@ import { PayrollManager } from "@/components/hr/PayrollManager";
 import { PerformanceManager } from "@/components/hr/PerformanceManager";
 import { OnboardingManager } from "@/components/hr/OnboardingManager";
 import { BenefitsManager } from "@/components/hr/BenefitsManager";
+import { HRDashboard } from "@/components/hr/HRDashboard";
 import { useQueryClient } from "@tanstack/react-query";
 
 const StaffManagement = () => {
@@ -107,8 +108,12 @@ const StaffManagement = () => {
         </Card>
       </div>
 
-      <Tabs defaultValue="employees" className="space-y-4">
-        <TabsList className="grid w-full grid-cols-8">
+      <Tabs defaultValue="dashboard" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-9">
+          <TabsTrigger value="dashboard">
+            <LayoutDashboard className="mr-2 h-4 w-4" />
+            Dashboard
+          </TabsTrigger>
           <TabsTrigger value="employees">
             <Users className="mr-2 h-4 w-4" />
             Employees
@@ -142,6 +147,10 @@ const StaffManagement = () => {
             Benefits
           </TabsTrigger>
         </TabsList>
+
+        <TabsContent value="dashboard" className="space-y-4">
+          <HRDashboard />
+        </TabsContent>
 
         <TabsContent value="employees" className="space-y-4">
           <Card>
