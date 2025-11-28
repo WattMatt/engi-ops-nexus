@@ -24,16 +24,20 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { FileSpreadsheet, Search, Trash2, MoreHorizontal, Download, History } from "lucide-react";
+import { FileSpreadsheet, Search, Trash2, MoreHorizontal, Download, History, Pencil } from "lucide-react";
 import { toast } from "sonner";
 import { format, parse } from "date-fns";
 import { InvoiceHistoryImporter } from "./InvoiceHistoryImporter";
+import { InvoiceHistoryEditDialog } from "./InvoiceHistoryEditDialog";
 import * as XLSX from "xlsx";
 
 export function InvoiceHistoryTab() {
   const [importerOpen, setImporterOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingInvoice, setEditingInvoice] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedMonth, setSelectedMonth] = useState<string>("all");
   const queryClient = useQueryClient();
@@ -278,6 +282,16 @@ export function InvoiceHistoryTab() {
                               </DropdownMenuTrigger>
                               <DropdownMenuContent align="end">
                                 <DropdownMenuItem
+                                  onClick={() => {
+                                    setEditingInvoice(invoice);
+                                    setEditDialogOpen(true);
+                                  }}
+                                >
+                                  <Pencil className="mr-2 h-4 w-4" />
+                                  Edit
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
                                   className="text-destructive"
                                   onClick={() => handleDelete(invoice.id)}
                                 >
@@ -298,6 +312,11 @@ export function InvoiceHistoryTab() {
       )}
 
       <InvoiceHistoryImporter open={importerOpen} onOpenChange={setImporterOpen} />
+      <InvoiceHistoryEditDialog 
+        invoice={editingInvoice} 
+        open={editDialogOpen} 
+        onOpenChange={setEditDialogOpen} 
+      />
     </div>
   );
 }
