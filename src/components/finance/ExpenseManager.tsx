@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,10 +10,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Plus, Edit2, Trash2, Calendar, Users, RefreshCw, Upload } from "lucide-react";
+import { Plus, Edit2, Trash2, Calendar, Users, RefreshCw, Upload, FileSpreadsheet } from "lucide-react";
 import { format, addMonths, startOfMonth, parseISO } from "date-fns";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
+import * as XLSX from "xlsx";
 
 interface ExpenseCategory {
   id: string;
@@ -47,6 +48,8 @@ export function ExpenseManager() {
   const [isRecurring, setIsRecurring] = useState(false);
   const [isImportDialogOpen, setIsImportDialogOpen] = useState(false);
   const [importData, setImportData] = useState("");
+  const [isImportingFile, setIsImportingFile] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: categories = [] } = useQuery({
     queryKey: ["expense-categories"],
@@ -188,7 +191,173 @@ export function ExpenseManager() {
     },
   });
 
-  // Import expenses from spreadsheet
+  // Import expenses from XLSX file
+  const importXlsxMutation = useMutation({
+    mutationFn: async (file: File) => {
+      const arrayBuffer = await file.arrayBuffer();
+      const workbook = XLSX.read(arrayBuffer, { type: "array" });
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1 }) as any[][];
+
+      if (jsonData.length < 2) throw new Error("Not enough data in spreadsheet");
+
+      // Find header row with month columns
+      const headerRow = jsonData[0] as string[];
+      const monthColumns: { index: number; month: string }[] = [];
+      
+      headerRow.forEach((header, idx) => {
+        if (!header) return;
+        const headerStr = String(header).trim();
+        const match = headerStr.match(/^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)-(\d{2})$/);
+        if (match) {
+          monthColumns.push({ index: idx, month: headerStr });
+        }
+      });
+
+      if (monthColumns.length === 0) {
+        throw new Error("No month columns found in format 'MMM-YY' (e.g., Aug-25)");
+      }
+
+      const monthMap: Record<string, string> = {
+        'Jan': '01', 'Feb': '02', 'Mar': '03', 'Apr': '04',
+        'May': '05', 'Jun': '06', 'Jul': '07', 'Aug': '08',
+        'Sep': '09', 'Oct': '10', 'Nov': '11', 'Dec': '12'
+      };
+
+      // Get existing categories
+      const { data: existingCategories } = await supabase.from('expense_categories').select('*');
+      const categoryMap = new Map<string, string>();
+      existingCategories?.forEach(cat => categoryMap.set(cat.name.toLowerCase(), cat.id));
+
+      const expensesToInsert: { categoryId: string; month: string; amount: number }[] = [];
+      let newCategoryOrder = (existingCategories?.length || 0) + 1;
+
+      // Process data rows
+      for (let i = 1; i < jsonData.length; i++) {
+        const row = jsonData[i];
+        if (!row || row.length === 0) continue;
+
+        const expenseName = String(row[0] || '').trim();
+        if (!expenseName || expenseName.match(/^\d/) || expenseName === 'EXPENSE:') continue;
+
+        // Skip subtotal/total rows
+        if (expenseName.toLowerCase().includes('total')) continue;
+
+        // Get or create category
+        let categoryId = categoryMap.get(expenseName.toLowerCase());
+        
+        if (!categoryId) {
+          const code = expenseName.substring(0, 15).toUpperCase().replace(/[^A-Z0-9]/g, '_');
+          const { data: newCat, error } = await supabase
+            .from('expense_categories')
+            .insert({ 
+              name: expenseName, 
+              code, 
+              display_order: newCategoryOrder++,
+              is_payroll: expenseName.toLowerCase().includes('salary') || 
+                         expenseName.toLowerCase().includes('paye') ||
+                         expenseName.toLowerCase().includes('director')
+            })
+            .select()
+            .single();
+          
+          if (error) {
+            console.error(`Failed to create category ${expenseName}:`, error);
+            continue;
+          }
+          categoryId = newCat.id;
+          categoryMap.set(expenseName.toLowerCase(), categoryId);
+        }
+
+        // Get amounts for each month
+        monthColumns.forEach(({ index, month }) => {
+          const cellValue = row[index];
+          if (cellValue === undefined || cellValue === null || cellValue === '') return;
+
+          let amount: number;
+          if (typeof cellValue === 'number') {
+            amount = cellValue;
+          } else {
+            const cleaned = String(cellValue).replace(/[R\s,]/g, '');
+            amount = parseFloat(cleaned);
+          }
+
+          if (isNaN(amount) || amount === 0) return;
+
+          const [monthAbbr, yearShort] = month.split('-');
+          const monthKey = `20${yearShort}-${monthMap[monthAbbr]}-01`;
+
+          expensesToInsert.push({ categoryId, month: monthKey, amount });
+        });
+      }
+
+      // Aggregate by category and month
+      const aggregated = new Map<string, number>();
+      expensesToInsert.forEach(({ categoryId, month, amount }) => {
+        const key = `${categoryId}|${month}`;
+        aggregated.set(key, (aggregated.get(key) || 0) + amount);
+      });
+
+      // Insert/upsert expenses
+      let insertCount = 0;
+      for (const [key, amount] of aggregated) {
+        const [categoryId, month] = key.split('|');
+        const { error } = await supabase
+          .from('monthly_expenses')
+          .upsert({
+            category_id: categoryId,
+            expense_month: month,
+            budgeted_amount: amount,
+            actual_amount: amount,
+            is_recurring: false,
+            notes: 'Imported from XLSX'
+          }, {
+            onConflict: 'category_id,expense_month'
+          });
+        
+        if (!error) insertCount++;
+      }
+
+      return { 
+        categories: categoryMap.size, 
+        months: monthColumns.length, 
+        entries: insertCount 
+      };
+    },
+    onSuccess: ({ categories, months, entries }) => {
+      queryClient.invalidateQueries({ queryKey: ["monthly-expenses"] });
+      queryClient.invalidateQueries({ queryKey: ["expense-categories"] });
+      queryClient.invalidateQueries({ queryKey: ["cashflow-expenses"] });
+      toast.success(`Imported ${entries} expense entries across ${months} months (${categories} categories)`);
+      setIsImportDialogOpen(false);
+      setIsImportingFile(false);
+    },
+    onError: (error) => {
+      toast.error("XLSX import failed: " + error.message);
+      setIsImportingFile(false);
+    },
+  });
+
+  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
+    if (!file.name.endsWith('.xlsx') && !file.name.endsWith('.xls')) {
+      toast.error("Please upload an Excel file (.xlsx or .xls)");
+      return;
+    }
+    
+    setIsImportingFile(true);
+    importXlsxMutation.mutate(file);
+    
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  // Import expenses from spreadsheet (text paste)
   const importExpensesMutation = useMutation({
     mutationFn: async (data: string) => {
       const lines = data.trim().split('\n');
@@ -531,30 +700,71 @@ export function ExpenseManager() {
           <DialogTrigger asChild>
             <Button variant="outline">
               <Upload className="h-4 w-4 mr-2" />
-              Import Spreadsheet
+              Import Expenses
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-5xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle>Import Expenses from Spreadsheet</DialogTitle>
+              <DialogTitle>Import Expenses from Excel</DialogTitle>
               <DialogDescription>
-                Paste your expense data below. First row should have months (Aug-25, Sep-25, etc.),
-                first column should have expense names, followed by monthly amounts with R prefix.
+                Upload your Excel file with expense data. The file should have expense names in the first column 
+                and months (Aug-25, Sep-25, etc.) in the header row.
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label>Spreadsheet Data (Copy/Paste from Excel)</Label>
-                <Textarea
-                  placeholder="EXPENSE:	Aug-25	Sep-25	Oct-25&#10;Accounting Fees	R60869.57	R70000.00	R70000.00&#10;Salaries: D Barnard	R19119.79	R19119.79	R19119.79"
-                  value={importData}
-                  onChange={(e) => setImportData(e.target.value)}
-                  rows={20}
-                  className="font-mono text-xs"
-                />
-                <p className="text-xs text-muted-foreground">
-                  Tip: Select your data in Excel/Sheets and paste directly. Salary-related expenses will be automatically grouped.
-                </p>
+            <div className="space-y-6 py-4">
+              {/* File Upload Option */}
+              <div className="space-y-4">
+                <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center">
+                  <FileSpreadsheet className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Upload your Excel file (.xlsx or .xls)
+                  </p>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".xlsx,.xls"
+                    onChange={handleFileUpload}
+                    className="hidden"
+                    id="xlsx-upload"
+                  />
+                  <Button 
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={isImportingFile}
+                    className="w-full max-w-xs"
+                  >
+                    {isImportingFile ? (
+                      <>
+                        <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                        Importing...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-4 w-4 mr-2" />
+                        Choose Excel File
+                      </>
+                    )}
+                  </Button>
+                </div>
+                
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-background px-2 text-muted-foreground">Or paste data</span>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Paste from Excel</Label>
+                  <Textarea
+                    placeholder="EXPENSE:&#9;Aug-25&#9;Sep-25&#10;Accounting Fees&#9;R60869.57&#9;R70000.00"
+                    value={importData}
+                    onChange={(e) => setImportData(e.target.value)}
+                    rows={8}
+                    className="font-mono text-xs"
+                  />
+                </div>
               </div>
             </div>
             <DialogFooter>
@@ -571,7 +781,7 @@ export function ExpenseManager() {
                 onClick={() => importExpensesMutation.mutate(importData)}
                 disabled={importExpensesMutation.isPending || !importData.trim()}
               >
-                {importExpensesMutation.isPending ? "Importing..." : "Import Expenses"}
+                {importExpensesMutation.isPending ? "Importing..." : "Import from Text"}
               </Button>
             </DialogFooter>
           </DialogContent>
