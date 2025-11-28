@@ -6,7 +6,8 @@ import { CashFlowDashboard } from "@/components/finance/CashFlowDashboard";
 import { AgingReport } from "@/components/finance/AgingReport";
 import { ExpenseManager } from "@/components/finance/ExpenseManager";
 import { MonthlySummary } from "@/components/invoicing/MonthlySummary";
-import { FolderOpen, Calendar, TrendingUp, AlertTriangle, BarChart3, Wallet } from "lucide-react";
+import { InvoiceHistoryTab } from "@/components/finance/InvoiceHistoryTab";
+import { FolderOpen, Calendar, TrendingUp, AlertTriangle, BarChart3, Wallet, History } from "lucide-react";
 
 export default function Finance() {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -21,7 +22,7 @@ export default function Finance() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="dashboard" className="flex items-center gap-2">
             <TrendingUp className="h-4 w-4" />
             Dashboard
@@ -37,6 +38,10 @@ export default function Finance() {
           <TabsTrigger value="schedules" className="flex items-center gap-2">
             <Calendar className="h-4 w-4" />
             Schedules
+          </TabsTrigger>
+          <TabsTrigger value="history" className="flex items-center gap-2">
+            <History className="h-4 w-4" />
+            History
           </TabsTrigger>
           <TabsTrigger value="projects" className="flex items-center gap-2">
             <FolderOpen className="h-4 w-4" />
@@ -62,6 +67,10 @@ export default function Finance() {
 
         <TabsContent value="schedules" className="mt-6">
           <InvoiceScheduleManager />
+        </TabsContent>
+
+        <TabsContent value="history" className="mt-6">
+          <InvoiceHistoryTab />
         </TabsContent>
 
         <TabsContent value="projects" className="mt-6">
