@@ -145,6 +145,51 @@ export function InvoicePDFUploader({ open, onOpenChange }: InvoicePDFUploaderPro
     return data.data;
   };
 
+  // Smart matching: find project by job name similarity
+  const findMatchingProject = (jobName: string): string | undefined => {
+    if (!jobName || projects.length === 0) return undefined;
+    
+    const normalizedJobName = jobName.toLowerCase().trim();
+    
+    // First try exact match on project name
+    const exactMatch = projects.find(p => 
+      p.project_name.toLowerCase().trim() === normalizedJobName
+    );
+    if (exactMatch) return exactMatch.id;
+    
+    // Extract base project name (remove suffixes like "- AUDIT REPORT", "- ELECTRICAL INSTALLATION")
+    const baseJobName = normalizedJobName
+      .replace(/\s*-\s*(audit report|electrical installation|pv installation|electricall installation).*$/i, '')
+      .trim();
+    
+    // Try matching on base name
+    const baseMatch = projects.find(p => {
+      const projectBase = p.project_name.toLowerCase().trim();
+      return projectBase === baseJobName || 
+             projectBase.includes(baseJobName) || 
+             baseJobName.includes(projectBase);
+    });
+    if (baseMatch) return baseMatch.id;
+    
+    // Try partial word matching (at least 2 significant words match)
+    const jobWords = baseJobName.split(/\s+/).filter(w => w.length > 2);
+    let bestMatch: { project: typeof projects[0]; score: number } | null = null;
+    
+    for (const project of projects) {
+      const projectWords = project.project_name.toLowerCase().split(/\s+/).filter(w => w.length > 2);
+      const matchingWords = jobWords.filter(jw => 
+        projectWords.some(pw => pw.includes(jw) || jw.includes(pw))
+      );
+      const score = matchingWords.length;
+      
+      if (score >= 2 && (!bestMatch || score > bestMatch.score)) {
+        bestMatch = { project, score };
+      }
+    }
+    
+    return bestMatch?.project.id;
+  };
+
   const handleExtractAll = async () => {
     const pendingFiles = files.filter(f => f.status === "pending");
     if (pendingFiles.length === 0) {
@@ -164,8 +209,11 @@ export function InvoicePDFUploader({ open, onOpenChange }: InvoicePDFUploaderPro
 
       try {
         const data = await extractInvoiceData(files[i].file);
+        // Auto-match to project based on job name
+        const matchedProjectId = findMatchingProject(data.job_name);
+        
         setFiles(prev => prev.map((f, idx) => 
-          idx === i ? { ...f, status: "extracted", data } : f
+          idx === i ? { ...f, status: "extracted", data, projectId: matchedProjectId } : f
         ));
       } catch (error: any) {
         console.error(`Error extracting ${files[i].fileName}:`, error);
@@ -183,7 +231,8 @@ export function InvoicePDFUploader({ open, onOpenChange }: InvoicePDFUploaderPro
     }
 
     setIsProcessing(false);
-    toast.success("AI extraction complete");
+    const matchedCount = files.filter(f => f.status === "extracted" && f.projectId).length;
+    toast.success(`AI extraction complete. ${matchedCount} invoice(s) auto-matched to projects.`);
   };
 
   const toggleFileSelection = (index: number) => {
