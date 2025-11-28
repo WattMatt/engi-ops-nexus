@@ -41,20 +41,14 @@ export function NetCashFlowChart({ payments, expenses }: NetCashFlowChartProps) 
       );
       const income = monthPayments.reduce((sum, p) => sum + p.amount, 0);
 
-      // Expenses
+      // Expenses - use actual if available for each expense, otherwise budgeted
       const monthExpenses = expenses.filter(
         (e) => e.expense_month.substring(0, 7) === month
       );
-      const expenseActual = monthExpenses.reduce(
-        (sum, e) => sum + (e.actual_amount || 0),
+      const expenseTotal = monthExpenses.reduce(
+        (sum, e) => sum + (e.actual_amount ?? e.budgeted_amount),
         0
       );
-      const expenseBudgeted = monthExpenses.reduce(
-        (sum, e) => sum + e.budgeted_amount,
-        0
-      );
-      // Use actual if available, otherwise budgeted
-      const expenseTotal = expenseActual > 0 ? expenseActual : expenseBudgeted;
 
       const netCashFlow = income - expenseTotal;
 
