@@ -30,6 +30,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { format, parse } from "date-fns";
+import { InvoicePDFPreviewDialog } from "./InvoicePDFPreviewDialog";
 
 interface InvoiceFile {
   id: string;
@@ -58,6 +59,9 @@ export function InvoiceFolderBrowser() {
   const [expandedYears, setExpandedYears] = useState<Set<string>>(new Set());
   const [expandedMonths, setExpandedMonths] = useState<Set<string>>(new Set());
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewFilePath, setPreviewFilePath] = useState<string | null>(null);
+  const [previewInvoiceNumber, setPreviewInvoiceNumber] = useState<string>("");
 
   // Fetch invoices with PDF files
   const { data: invoicesWithPDFs = [], isLoading } = useQuery({
@@ -129,26 +133,10 @@ export function InvoiceFolderBrowser() {
     });
   };
 
-  const viewPDF = async (filePath: string) => {
-    try {
-      const { data, error } = await supabase.storage
-        .from("invoice-pdfs")
-        .createSignedUrl(filePath, 3600); // 1 hour expiry
-      
-      if (error) throw error;
-      if (data?.signedUrl) {
-        // Ensure we have a full URL
-        const fullUrl = data.signedUrl.startsWith('http') 
-          ? data.signedUrl 
-          : `${import.meta.env.VITE_SUPABASE_URL}/storage/v1${data.signedUrl}`;
-        window.open(fullUrl, "_blank");
-      } else {
-        toast.error("Could not generate PDF URL");
-      }
-    } catch (error: any) {
-      console.error("PDF view error:", error);
-      toast.error("Failed to open PDF: " + error.message);
-    }
+  const viewPDF = (filePath: string, invoiceNumber: string) => {
+    setPreviewFilePath(filePath);
+    setPreviewInvoiceNumber(invoiceNumber);
+    setPreviewOpen(true);
   };
 
   const downloadPDF = async (filePath: string, invoiceNumber: string) => {
@@ -286,7 +274,7 @@ export function InvoiceFolderBrowser() {
                                       }`}
                                       onClick={() => {
                                         setSelectedFile(invoice.id);
-                                        viewPDF(invoice.pdf_file_path);
+                                        viewPDF(invoice.pdf_file_path, invoice.invoice_number);
                                       }}
                                     >
                                       <FileText className="h-4 w-4 text-red-500 flex-shrink-0" />
@@ -308,7 +296,7 @@ export function InvoiceFolderBrowser() {
                                     </Button>
                                   </ContextMenuTrigger>
                                   <ContextMenuContent>
-                                    <ContextMenuItem onClick={() => viewPDF(invoice.pdf_file_path)}>
+                                    <ContextMenuItem onClick={() => viewPDF(invoice.pdf_file_path, invoice.invoice_number)}>
                                       <Eye className="mr-2 h-4 w-4" />
                                       View PDF
                                     </ContextMenuItem>
@@ -331,6 +319,13 @@ export function InvoiceFolderBrowser() {
           </ScrollArea>
         )}
       </CardContent>
+
+      <InvoicePDFPreviewDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        filePath={previewFilePath}
+        invoiceNumber={previewInvoiceNumber}
+      />
     </Card>
   );
 }
