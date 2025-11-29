@@ -379,22 +379,31 @@ export type Database = {
         Row: {
           added_material_id: string | null
           added_to_master: boolean | null
+          bill_name: string | null
+          bill_number: number | null
           created_at: string | null
           extraction_notes: string | null
           id: string
+          install_cost: number | null
           install_rate: number | null
+          is_rate_only: boolean | null
           item_code: string | null
           item_description: string
           match_confidence: number | null
           matched_material_id: string | null
+          prime_cost: number | null
+          profit_percentage: number | null
           quantity: number | null
           raw_data: Json | null
           review_status: string | null
           reviewed_at: string | null
           reviewed_by: string | null
           row_number: number | null
+          section_code: string | null
+          section_name: string | null
           suggested_category_id: string | null
           suggested_category_name: string | null
+          supply_cost: number | null
           supply_rate: number | null
           total_rate: number | null
           unit: string | null
@@ -403,22 +412,31 @@ export type Database = {
         Insert: {
           added_material_id?: string | null
           added_to_master?: boolean | null
+          bill_name?: string | null
+          bill_number?: number | null
           created_at?: string | null
           extraction_notes?: string | null
           id?: string
+          install_cost?: number | null
           install_rate?: number | null
+          is_rate_only?: boolean | null
           item_code?: string | null
           item_description: string
           match_confidence?: number | null
           matched_material_id?: string | null
+          prime_cost?: number | null
+          profit_percentage?: number | null
           quantity?: number | null
           raw_data?: Json | null
           review_status?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           row_number?: number | null
+          section_code?: string | null
+          section_name?: string | null
           suggested_category_id?: string | null
           suggested_category_name?: string | null
+          supply_cost?: number | null
           supply_rate?: number | null
           total_rate?: number | null
           unit?: string | null
@@ -427,22 +445,31 @@ export type Database = {
         Update: {
           added_material_id?: string | null
           added_to_master?: boolean | null
+          bill_name?: string | null
+          bill_number?: number | null
           created_at?: string | null
           extraction_notes?: string | null
           id?: string
+          install_cost?: number | null
           install_rate?: number | null
+          is_rate_only?: boolean | null
           item_code?: string | null
           item_description?: string
           match_confidence?: number | null
           matched_material_id?: string | null
+          prime_cost?: number | null
+          profit_percentage?: number | null
           quantity?: number | null
           raw_data?: Json | null
           review_status?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
           row_number?: number | null
+          section_code?: string | null
+          section_name?: string | null
           suggested_category_id?: string | null
           suggested_category_name?: string | null
+          supply_cost?: number | null
           supply_rate?: number | null
           total_rate?: number | null
           unit?: string | null
@@ -475,6 +502,44 @@ export type Database = {
             columns: ["upload_id"]
             isOneToOne: false
             referencedRelation: "boq_uploads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      boq_sections: {
+        Row: {
+          category_mapping_id: string | null
+          created_at: string | null
+          display_order: number | null
+          id: string
+          is_standard: boolean | null
+          section_code: string
+          section_name: string
+        }
+        Insert: {
+          category_mapping_id?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          is_standard?: boolean | null
+          section_code: string
+          section_name: string
+        }
+        Update: {
+          category_mapping_id?: string | null
+          created_at?: string | null
+          display_order?: number | null
+          id?: string
+          is_standard?: boolean | null
+          section_code?: string
+          section_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boq_sections_category_mapping_id_fkey"
+            columns: ["category_mapping_id"]
+            isOneToOne: false
+            referencedRelation: "material_categories"
             referencedColumns: ["id"]
           },
         ]
