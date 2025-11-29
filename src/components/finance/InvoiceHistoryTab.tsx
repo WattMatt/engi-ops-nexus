@@ -163,8 +163,9 @@ export function InvoiceHistoryTab() {
       "Job Name": inv.job_name,
       "Client": inv.client_details?.split("-")[0] || "",
       "VAT Number": inv.vat_number || "",
-      "Amount (Excl VAT)": inv.amount_excl_vat || "",
-      "Amount (Incl VAT)": inv.amount_incl_vat || "",
+      "Net Amount (Excl VAT)": inv.amount_excl_vat || 0,
+      "VAT Amount (15%)": inv.vat_amount || 0,
+      "Gross Amount (Incl VAT)": inv.amount_incl_vat || 0,
     }));
 
     const ws = XLSX.utils.json_to_sheet(exportData);
@@ -186,8 +187,9 @@ export function InvoiceHistoryTab() {
     });
   };
 
-  // Calculate totals
+  // Calculate totals with VAT breakdown
   const totalExclVat = filteredInvoices.reduce((sum, inv) => sum + (inv.amount_excl_vat || 0), 0);
+  const totalVat = filteredInvoices.reduce((sum, inv) => sum + (inv.vat_amount || 0), 0);
   const totalInclVat = filteredInvoices.reduce((sum, inv) => sum + (inv.amount_incl_vat || 0), 0);
   const linkedCount = filteredInvoices.filter(inv => inv.project_id).length;
 
@@ -216,36 +218,42 @@ export function InvoiceHistoryTab() {
         </div>
       </div>
 
-      {/* Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+      {/* Summary Cards - Financial Accounting View */}
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-4">
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Total Invoices</CardDescription>
-            <CardTitle className="text-2xl">{filteredInvoices.length}</CardTitle>
+            <CardDescription>Invoices</CardDescription>
+            <CardTitle className="text-xl">{filteredInvoices.length}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Linked to Projects</CardDescription>
-            <CardTitle className="text-2xl">{linkedCount}</CardTitle>
+            <CardDescription>Linked</CardDescription>
+            <CardTitle className="text-xl">{linkedCount}</CardTitle>
           </CardHeader>
         </Card>
-        <Card>
+        <Card className="bg-muted/30">
           <CardHeader className="pb-2">
-            <CardDescription>Total (Excl. VAT)</CardDescription>
-            <CardTitle className="text-2xl">{formatCurrency(totalExclVat)}</CardTitle>
+            <CardDescription>Net Income (Excl. VAT)</CardDescription>
+            <CardTitle className="text-xl text-green-600">{formatCurrency(totalExclVat)}</CardTitle>
           </CardHeader>
         </Card>
-        <Card>
+        <Card className="bg-amber-500/5 border-amber-200">
           <CardHeader className="pb-2">
-            <CardDescription>Total (Incl. VAT)</CardDescription>
-            <CardTitle className="text-2xl">{formatCurrency(totalInclVat)}</CardTitle>
+            <CardDescription>VAT Collected (15%)</CardDescription>
+            <CardTitle className="text-xl text-amber-600">{formatCurrency(totalVat)}</CardTitle>
+          </CardHeader>
+        </Card>
+        <Card className="bg-primary/5 border-primary/20">
+          <CardHeader className="pb-2">
+            <CardDescription>Gross Total (Incl. VAT)</CardDescription>
+            <CardTitle className="text-xl text-primary">{formatCurrency(totalInclVat)}</CardTitle>
           </CardHeader>
         </Card>
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Projects</CardDescription>
-            <CardTitle className="text-2xl">{Object.keys(invoicesByProject).length}</CardTitle>
+            <CardTitle className="text-xl">{Object.keys(invoicesByProject).length}</CardTitle>
           </CardHeader>
         </Card>
       </div>
@@ -376,17 +384,21 @@ export function InvoiceHistoryTab() {
                                   <span className="font-medium">{formatMonth(month)}</span>
                                   <Badge variant="secondary" className="text-xs">{monthInvoices.length}</Badge>
                                 </div>
-                                <span className="font-medium">{formatCurrency(monthTotal)}</span>
+                                <div className="flex items-center gap-4 text-sm">
+                                  <span className="text-green-600">Net: {formatCurrency(monthTotal)}</span>
+                                  <span className="text-amber-600">VAT: {formatCurrency(monthInvoices.reduce((sum, inv) => sum + (inv.vat_amount || 0), 0))}</span>
+                                  <span className="font-semibold">Total: {formatCurrency(monthInvoices.reduce((sum, inv) => sum + (inv.amount_incl_vat || 0), 0))}</span>
+                                </div>
                               </div>
                               <Table>
                                 <TableHeader>
                                   <TableRow>
                                     <TableHead className="w-[100px]">Invoice #</TableHead>
                                     <TableHead>Job Name</TableHead>
-                                    <TableHead>Client</TableHead>
-                                    <TableHead className="text-right">Excl. VAT</TableHead>
-                                    <TableHead className="text-right">Incl. VAT</TableHead>
-                                    <TableHead className="w-[80px]"></TableHead>
+                                    <TableHead className="text-right">Net (Excl.)</TableHead>
+                                    <TableHead className="text-right text-amber-600">VAT 15%</TableHead>
+                                    <TableHead className="text-right">Gross (Incl.)</TableHead>
+                                    <TableHead className="w-[60px]"></TableHead>
                                   </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -407,16 +419,16 @@ export function InvoiceHistoryTab() {
                                           )}
                                         </div>
                                       </TableCell>
-                                      <TableCell className="max-w-[250px] truncate">
+                                      <TableCell className="max-w-[200px] truncate" title={invoice.job_name}>
                                         {invoice.job_name}
                                       </TableCell>
-                                      <TableCell className="max-w-[150px] truncate">
-                                        {invoice.client_details?.split("-")[0] || "-"}
-                                      </TableCell>
-                                      <TableCell className="text-right">
+                                      <TableCell className="text-right font-medium text-green-600">
                                         {formatCurrency(invoice.amount_excl_vat)}
                                       </TableCell>
-                                      <TableCell className="text-right">
+                                      <TableCell className="text-right text-amber-600">
+                                        {formatCurrency(invoice.vat_amount)}
+                                      </TableCell>
+                                      <TableCell className="text-right font-medium">
                                         {formatCurrency(invoice.amount_incl_vat)}
                                       </TableCell>
                                       <TableCell>

@@ -37,6 +37,8 @@ interface InvoiceFile {
   job_name: string;
   pdf_file_path: string;
   invoice_month: string;
+  amount_excl_vat: number | null;
+  vat_amount: number | null;
   amount_incl_vat: number | null;
 }
 
@@ -63,7 +65,7 @@ export function InvoiceFolderBrowser() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("invoice_history")
-        .select("id, invoice_number, job_name, pdf_file_path, invoice_month, amount_incl_vat")
+        .select("id, invoice_number, job_name, pdf_file_path, invoice_month, amount_excl_vat, vat_amount, amount_incl_vat")
         .not("pdf_file_path", "is", null)
         .order("invoice_month", { ascending: false });
       if (error) throw error;
@@ -272,7 +274,7 @@ export function InvoiceFolderBrowser() {
                                   <ContextMenuTrigger asChild>
                                     <Button
                                       variant="ghost"
-                                      className={`w-full justify-start gap-2 h-8 px-2 hover:bg-muted text-sm ${
+                                      className={`w-full justify-start gap-1 h-auto py-1.5 px-2 hover:bg-muted text-sm ${
                                         selectedFile === invoice.id ? "bg-muted" : ""
                                       }`}
                                       onClick={() => {
@@ -281,15 +283,21 @@ export function InvoiceFolderBrowser() {
                                       }}
                                     >
                                       <FileText className="h-4 w-4 text-red-500 flex-shrink-0" />
-                                      <span className="font-mono text-xs">{invoice.invoice_number}</span>
-                                      <span className="text-muted-foreground truncate flex-1 text-left">
-                                        {invoice.job_name}
-                                      </span>
-                                      {invoice.amount_incl_vat && (
-                                        <span className="text-xs text-muted-foreground">
-                                          {formatCurrency(invoice.amount_incl_vat)}
-                                        </span>
-                                      )}
+                                      <div className="flex flex-col items-start flex-1 min-w-0">
+                                        <div className="flex items-center gap-2 w-full">
+                                          <span className="font-mono text-xs font-medium">{invoice.invoice_number}</span>
+                                          <span className="text-muted-foreground truncate text-xs">
+                                            {invoice.job_name}
+                                          </span>
+                                        </div>
+                                        {invoice.amount_incl_vat && (
+                                          <div className="flex items-center gap-2 text-[10px] text-muted-foreground">
+                                            <span className="text-green-600">{formatCurrency(invoice.amount_excl_vat)}</span>
+                                            <span className="text-amber-600">+{formatCurrency(invoice.vat_amount)}</span>
+                                            <span className="font-medium">={formatCurrency(invoice.amount_incl_vat)}</span>
+                                          </div>
+                                        )}
+                                      </div>
                                     </Button>
                                   </ContextMenuTrigger>
                                   <ContextMenuContent>

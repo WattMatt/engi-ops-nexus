@@ -291,6 +291,16 @@ export function InvoicePDFUploader({ open, onOpenChange }: InvoicePDFUploaderPro
           // Continue even if upload fails - still save the extracted data
         }
 
+        // Calculate VAT amount if not provided (15% South African VAT)
+        let vatAmount = file.data.vat_amount;
+        if (!vatAmount && file.data.amount_excl_vat && file.data.amount_incl_vat) {
+          vatAmount = file.data.amount_incl_vat - file.data.amount_excl_vat;
+        } else if (!vatAmount && file.data.amount_incl_vat) {
+          vatAmount = file.data.amount_incl_vat * 0.15 / 1.15;
+        } else if (!vatAmount && file.data.amount_excl_vat) {
+          vatAmount = file.data.amount_excl_vat * 0.15;
+        }
+
         // Insert invoice record
         const { error: insertError } = await supabase
           .from("invoice_history")
@@ -302,6 +312,7 @@ export function InvoicePDFUploader({ open, onOpenChange }: InvoicePDFUploaderPro
             client_details: file.data.client_name || null,
             vat_number: file.data.client_vat_number || null,
             amount_excl_vat: file.data.amount_excl_vat || null,
+            vat_amount: vatAmount ? Math.round(vatAmount * 100) / 100 : null,
             amount_incl_vat: file.data.amount_incl_vat || null,
             project_id: file.projectId || null,
             pdf_file_path: filePath,
