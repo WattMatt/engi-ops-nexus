@@ -3051,6 +3051,7 @@ export type Database = {
           pdf_file_path: string | null
           project_id: string | null
           updated_at: string
+          vat_amount: number | null
           vat_number: string | null
         }
         Insert: {
@@ -3069,6 +3070,7 @@ export type Database = {
           pdf_file_path?: string | null
           project_id?: string | null
           updated_at?: string
+          vat_amount?: number | null
           vat_number?: string | null
         }
         Update: {
@@ -3087,6 +3089,7 @@ export type Database = {
           pdf_file_path?: string | null
           project_id?: string | null
           updated_at?: string
+          vat_amount?: number | null
           vat_number?: string | null
         }
         Relationships: [
