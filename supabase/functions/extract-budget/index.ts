@@ -207,12 +207,27 @@ ${file_content}`;
         throw new Error(`AI service error: ${response.status}`);
       }
 
-      const aiResult = await response.json();
-      console.log('[Budget Extract] Response received, parsing...');
+      // Get raw response text first to debug any issues
+      const responseText = await response.text();
+      console.log('[Budget Extract] Raw response length:', responseText.length, 'characters');
+      
+      if (!responseText || responseText.trim() === '') {
+        throw new Error('Empty response from AI service');
+      }
+      
+      let aiResult;
+      try {
+        aiResult = JSON.parse(responseText);
+      } catch (e) {
+        console.error('[Budget Extract] Failed to parse API response:', responseText.substring(0, 500));
+        throw new Error('Invalid JSON response from AI service');
+      }
+      
+      console.log('[Budget Extract] Response parsed, extracting content...');
       
       if (aiResult.choices?.[0]?.message?.content) {
         const rawText = aiResult.choices[0].message.content;
-        console.log('[Budget Extract] Response length:', rawText.length, 'characters');
+        console.log('[Budget Extract] Content length:', rawText.length, 'characters');
         
         // Clean the response - remove markdown code blocks
         let cleanedText = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
