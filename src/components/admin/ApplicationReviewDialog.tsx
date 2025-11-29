@@ -79,6 +79,8 @@ export function ApplicationReviewDialog() {
   const [includePerformance, setIncludePerformance] = useState(true);
   const [includeSecurity, setIncludeSecurity] = useState(true);
   const [includeDatabase, setIncludeDatabase] = useState(true);
+  const [includeComponents, setIncludeComponents] = useState(true);
+  const [includeOperational, setIncludeOperational] = useState(true);
 
   const handleStartReview = async () => {
     setIsReviewing(true);
@@ -93,6 +95,8 @@ export function ApplicationReviewDialog() {
           includePerformance,
           includeSecurity,
           includeDatabase,
+          includeComponents,
+          includeOperational,
         }
       });
 
@@ -306,6 +310,22 @@ export function ApplicationReviewDialog() {
                   />
                   <Label htmlFor="database" className="cursor-pointer">Database Architecture</Label>
                 </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="components" 
+                    checked={includeComponents} 
+                    onCheckedChange={(checked) => setIncludeComponents(checked as boolean)}
+                  />
+                  <Label htmlFor="components" className="cursor-pointer">Component Structure & Reusability</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="operational" 
+                    checked={includeOperational} 
+                    onCheckedChange={(checked) => setIncludeOperational(checked as boolean)}
+                  />
+                  <Label htmlFor="operational" className="cursor-pointer">Operational Functionality & Workflows</Label>
+                </div>
               </div>
             </div>
 
@@ -319,6 +339,8 @@ export function ApplicationReviewDialog() {
                 <p>✓ Performance bottlenecks and optimization opportunities</p>
                 <p>✓ Security vulnerabilities and best practices</p>
                 <p>✓ Database schema and query patterns</p>
+                <p>✓ Component structure, reusability, and organization</p>
+                <p>✓ Operational workflows and functionality improvements</p>
                 <p>✓ Feature completeness for electrical engineering workflows</p>
                 <p>✓ Technical debt and improvement priorities</p>
               </CardContent>
