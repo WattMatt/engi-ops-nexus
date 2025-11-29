@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -57,8 +57,8 @@ export function GeneratorOverview({ projectId }: GeneratorOverviewProps) {
     enabled: !!projectId,
   });
 
-  // Calculate KPIs
-  const calculateMetrics = () => {
+  // Memoize expensive KPI calculations to prevent recalculation on unrelated renders
+  const metrics = useMemo(() => {
     if (zones.length === 0) return null;
 
     let totalCapacity = 0;
@@ -153,9 +153,7 @@ export function GeneratorOverview({ projectId }: GeneratorOverviewProps) {
       servicingPercentage: totalServicingCost > 0 ? (totalServicingCost / totalMonthlyCost * 100) : 0,
       contingencyPercentage: contingencyCost > 0 ? (contingencyCost / totalWithContingency * 100) : 0,
     };
-  };
-
-  const metrics = calculateMetrics();
+  }, [zones, allSettings]);
 
   // Set up real-time subscription for updates
   useEffect(() => {

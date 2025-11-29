@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -256,12 +256,43 @@ export const CalculationTutorial = ({
     onOpenChange(false);
   };
 
-  const renderSANS204Step = () => {
+  // Memoize SANS 204 calculations to prevent recalculation on unrelated renders
+  const sans204Calculations = useMemo(() => {
     const vaPerSqm = SANS_204_TABLE[buildingClass].zones[parseInt(climaticZone) - 1];
     const area = parseFloat(projectArea) || 0;
     const diversity = parseFloat(diversityFactor) || 0.75;
     const totalConnected = (area * vaPerSqm) / 1000;
     const maxDemand = totalConnected * diversity;
+    return { vaPerSqm, area, diversity, totalConnected, maxDemand };
+  }, [buildingClass, climaticZone, projectArea, diversityFactor]);
+
+  // Memoize SANS 10142 calculations
+  const sans10142Calculations = useMemo(() => {
+    const socket = parseFloat(socketLoad) || 0;
+    const lighting = parseFloat(lightingLoad) || 0;
+    const fixed = parseFloat(fixedAppliances) || 0;
+    const area = parseFloat(projectArea) || 0;
+    const diversity = parseFloat(diversityFactor) || 0.75;
+    const totalVaPerSqm = socket + lighting + fixed;
+    const totalConnected = (area * totalVaPerSqm) / 1000;
+    const maxDemand = totalConnected * diversity;
+    return { socket, lighting, fixed, area, diversity, totalVaPerSqm, totalConnected, maxDemand };
+  }, [socketLoad, lightingLoad, fixedAppliances, projectArea, diversityFactor]);
+
+  // Memoize residential calculations
+  const residentialCalculations = useMemo(() => {
+    const units = parseInt(numUnits) || 0;
+    const load = parseFloat(loadPerUnit) || 0;
+    const perPhase = parseInt(unitsPerPhase) || 0;
+    const admd = parseFloat(admdFactor) || 0.50;
+    const totalConnected = units * load;
+    const maxDemand = totalConnected * admd;
+    const perPhaseLoad = maxDemand / 3;
+    return { units, load, perPhase, admd, totalConnected, maxDemand, perPhaseLoad };
+  }, [numUnits, loadPerUnit, unitsPerPhase, admdFactor]);
+
+  const renderSANS204Step = () => {
+    const { vaPerSqm, area, diversity, totalConnected, maxDemand } = sans204Calculations;
 
     switch (currentStep) {
       case 0:
