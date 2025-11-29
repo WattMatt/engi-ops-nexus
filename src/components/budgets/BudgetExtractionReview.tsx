@@ -124,13 +124,64 @@ export const BudgetExtractionReview = ({
         }
       }
 
+      // Sync unique retail rates to master_rate_library for analytics
+      let ratesSynced = 0;
+      if (data.area_schedule?.length > 0) {
+        // Get unique tenant names with their rates
+        const uniqueRates = new Map<string, { base_rate: number | null; ti_rate: number | null }>();
+        
+        for (const item of data.area_schedule) {
+          const key = item.tenant_name.toUpperCase().trim();
+          // Only add if we have rate data and not already added
+          if ((item.base_rate || item.ti_rate) && !uniqueRates.has(key)) {
+            uniqueRates.set(key, {
+              base_rate: item.base_rate,
+              ti_rate: item.ti_rate,
+            });
+          }
+        }
+
+        // Insert into master_rate_library
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        for (const [tenantName, rates] of uniqueRates) {
+          // Check if this rate already exists
+          const { data: existing } = await supabase
+            .from('master_rate_library')
+            .select('id')
+            .eq('item_description', tenantName)
+            .eq('item_type', 'retail_tenant')
+            .eq('is_current', true)
+            .single();
+
+          if (!existing) {
+            const { error: rateError } = await supabase
+              .from('master_rate_library')
+              .insert({
+                item_type: 'retail_tenant',
+                item_description: tenantName,
+                base_rate: rates.base_rate,
+                ti_rate: rates.ti_rate,
+                unit: 'R/m²',
+                is_current: true,
+                effective_from: new Date().toISOString().split('T')[0],
+                created_by: user?.id,
+                notes: `Extracted from budget ${data.budget_number}`,
+              });
+            
+            if (!rateError) ratesSynced++;
+          }
+        }
+      }
+
       toast({
         title: "Budget Saved",
-        description: `Created ${data.sections.length} sections with ${data.sections.reduce((sum, s) => sum + (s.line_items?.length || 0), 0)} line items`,
+        description: `Created ${data.sections.length} sections with ${data.sections.reduce((sum, s) => sum + (s.line_items?.length || 0), 0)} line items. ${ratesSynced > 0 ? `Synced ${ratesSynced} rates to library.` : ''}`,
       });
 
       queryClient.invalidateQueries({ queryKey: ["budget-sections", budgetId] });
       queryClient.invalidateQueries({ queryKey: ["budget-line-items", budgetId] });
+      queryClient.invalidateQueries({ queryKey: ["master-rate-library"] });
       onSave();
     } catch (error: any) {
       toast({
