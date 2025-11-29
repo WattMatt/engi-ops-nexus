@@ -75,6 +75,7 @@ export function InvoicePDFUploader({ open, onOpenChange }: InvoicePDFUploaderPro
   const [files, setFiles] = useState<ExtractedInvoice[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processedCount, setProcessedCount] = useState(0);
+  const [totalToProcess, setTotalToProcess] = useState(0);
   const [isSaving, setIsSaving] = useState(false);
   const [defaultProjectId, setDefaultProjectId] = useState<string>("");
   const queryClient = useQueryClient();
@@ -135,14 +136,28 @@ export function InvoicePDFUploader({ open, onOpenChange }: InvoicePDFUploaderPro
       new Uint8Array(arrayBuffer).reduce((data, byte) => data + String.fromCharCode(byte), "")
     );
 
-    const { data, error } = await supabase.functions.invoke("extract-invoice-pdf", {
-      body: { pdfBase64: base64, fileName: file.name },
-    });
+    // Add timeout to prevent stuck requests (60 second timeout)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 60000);
 
-    if (error) throw error;
-    if (!data.success) throw new Error(data.error);
+    try {
+      const { data, error } = await supabase.functions.invoke("extract-invoice-pdf", {
+        body: { pdfBase64: base64, fileName: file.name },
+      });
 
-    return data.data;
+      clearTimeout(timeoutId);
+
+      if (error) throw error;
+      if (!data?.success) throw new Error(data?.error || "Extraction failed - no data returned");
+
+      return data.data;
+    } catch (err: any) {
+      clearTimeout(timeoutId);
+      if (err.name === 'AbortError') {
+        throw new Error("Extraction timed out after 60 seconds");
+      }
+      throw err;
+    }
   };
 
   // Smart matching: find project by job name similarity
@@ -191,48 +206,74 @@ export function InvoicePDFUploader({ open, onOpenChange }: InvoicePDFUploaderPro
   };
 
   const handleExtractAll = async () => {
-    const pendingFiles = files.filter(f => f.status === "pending");
-    if (pendingFiles.length === 0) {
+    // Capture pending file indices at the start
+    const pendingIndices: number[] = [];
+    files.forEach((f, idx) => {
+      if (f.status === "pending") pendingIndices.push(idx);
+    });
+
+    if (pendingIndices.length === 0) {
       toast.info("No pending files to process");
       return;
     }
 
+    const batchTotal = pendingIndices.length;
     setIsProcessing(true);
     setProcessedCount(0);
+    setTotalToProcess(batchTotal);
+    
+    let processed = 0;
+    let successCount = 0;
+    let matchedCount = 0;
 
-    for (let i = 0; i < files.length; i++) {
-      if (files[i].status !== "pending") continue;
+    for (const fileIndex of pendingIndices) {
+      // Get fresh file reference from state
+      const currentFile = files[fileIndex];
+      if (!currentFile || currentFile.status !== "pending") {
+        processed++;
+        setProcessedCount(processed);
+        continue;
+      }
 
+      // Mark as extracting
       setFiles(prev => prev.map((f, idx) => 
-        idx === i ? { ...f, status: "extracting" } : f
+        idx === fileIndex ? { ...f, status: "extracting" } : f
       ));
 
       try {
-        const data = await extractInvoiceData(files[i].file);
+        const data = await extractInvoiceData(currentFile.file);
         // Auto-match to project based on job name
-        const matchedProjectId = findMatchingProject(data.job_name);
+        const matchedProjectId = findMatchingProject(data?.job_name || "");
         
         setFiles(prev => prev.map((f, idx) => 
-          idx === i ? { ...f, status: "extracted", data, projectId: matchedProjectId } : f
+          idx === fileIndex ? { ...f, status: "extracted", data, projectId: matchedProjectId } : f
         ));
+        
+        successCount++;
+        if (matchedProjectId) matchedCount++;
       } catch (error: any) {
-        console.error(`Error extracting ${files[i].fileName}:`, error);
+        console.error(`Error extracting ${currentFile.fileName}:`, error);
         setFiles(prev => prev.map((f, idx) => 
-          idx === i ? { ...f, status: "error", error: error.message } : f
+          idx === fileIndex ? { ...f, status: "error", error: error.message || "Unknown error" } : f
         ));
       }
 
-      setProcessedCount(prev => prev + 1);
+      processed++;
+      setProcessedCount(processed);
       
       // Small delay between requests to avoid rate limiting
-      if (i < files.length - 1) {
+      if (processed < batchTotal) {
         await new Promise(resolve => setTimeout(resolve, 500));
       }
     }
 
     setIsProcessing(false);
-    const matchedCount = files.filter(f => f.status === "extracted" && f.projectId).length;
-    toast.success(`AI extraction complete. ${matchedCount} invoice(s) auto-matched to projects.`);
+    
+    if (successCount > 0) {
+      toast.success(`AI extraction complete: ${successCount}/${batchTotal} succeeded. ${matchedCount} auto-matched to projects.`);
+    } else {
+      toast.error(`Extraction failed for all ${batchTotal} files. Check the errors.`);
+    }
   };
 
   const toggleFileSelection = (index: number) => {
@@ -435,11 +476,11 @@ export function InvoicePDFUploader({ open, onOpenChange }: InvoicePDFUploaderPro
               </div>
 
               {/* Progress */}
-              {isProcessing && (
+              {isProcessing && totalToProcess > 0 && (
                 <div className="space-y-2">
-                  <Progress value={(processedCount / pendingCount) * 100} />
+                  <Progress value={(processedCount / totalToProcess) * 100} />
                   <p className="text-sm text-muted-foreground text-center">
-                    Processing {processedCount} of {pendingCount} files...
+                    Processing {processedCount} of {totalToProcess} files...
                   </p>
                 </div>
               )}
