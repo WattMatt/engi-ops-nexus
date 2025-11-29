@@ -41,6 +41,9 @@ interface AreaScheduleItem {
   tenant_name: string;
   area: number;
   area_unit: string;
+  base_rate: number | null;
+  ti_rate: number | null;
+  total: number | null;
   category: string;
 }
 
@@ -77,33 +80,43 @@ serve(async (req) => {
 DOCUMENT STRUCTURE TO DETECT:
 1. COVER PAGE: Budget number, date, revision, prepared for company/contact
 2. SECTIONS: Look for sections labeled A through H (e.g., "A. PRELIMS", "B. BULK SUPPLY", "C. RETAIL SECTION")
-3. LINE ITEMS: Each item has description, area (m²), base rate, TI rate, and total
-4. AREA SCHEDULE: Section C typically contains tenant/shop items with areas
+3. LINE ITEMS: Each item has description, area (m²), rates, and total
+4. AREA SCHEDULE: Section C typically contains tenant/shop items with areas and rates
 
 SECTION CODES TO RECOGNIZE:
 - A: PRELIMS / PRELIMINARIES
 - B: BULK SUPPLY / MEDIUM VOLTAGE
-- C: RETAIL SECTION / TENANTS / SHOPS
+- C: RETAIL SECTION / TENANTS / SHOPS (IMPORTANT: Contains both Base Rate AND TI Rate columns)
 - D: EXTERIOR & PARKING
 - E: COMMON AREAS
 - F: FIRE DETECTION
 - G: EARTHING / LIGHTNING PROTECTION
 - H: CONTINGENCY / PROVISIONAL
 
-For SECTION C (Retail/Tenants), extract:
+CRITICAL - SECTION C RATE EXTRACTION:
+Section C (Retail/Tenants) typically has a table with MULTIPLE RATE COLUMNS:
+- Column headers may include: "Area (m²)", "BASE RATE (R/m²)", "TI RATE (R/m²)", "TOTAL (R)"
+- BASE RATE: The base electrical allowance rate per square meter
+- TI RATE: Tenant Installation rate per square meter (additional rate for tenant fit-out)
+- The TOTAL = Area × (Base Rate + TI Rate)
+- BOTH rates must be extracted separately - do NOT combine them into one rate
+
+For SECTION C (Retail/Tenants), extract for each shop:
 - Shop number (e.g., "SHOP 1", "Shop 77", "Shop 27/28")
 - Tenant name (e.g., "CLICKS", "SHOPRITE", "SUPERSPAR")
 - Area in m²
+- Base Rate (R/m²) - the base electrical rate
+- TI Rate (R/m²) - the tenant installation rate (may also be called "TI", "Tenant Installation", "Fit-out Rate")
 - Category (Standard, Fast Food, Restaurant, National)
 
 Extract ALL sections and line items. For each line item:
 1. item_number - Reference number (e.g., "C.1", "C.2.1")
-2. description - Full description
-3. area - Numeric area value (if applicable)
+2. description - Full description including shop name
+3. area - Numeric area value in m²
 4. area_unit - Usually "m²"
-5. base_rate - Base rate per m² (R value)
-6. ti_rate - TI (Tenant Installation) rate if separate
-7. total - Total cost for this line item
+5. base_rate - Base rate per m² (R value) - REQUIRED for Section C items
+6. ti_rate - TI (Tenant Installation) rate per m² - REQUIRED for Section C items, extract from separate column
+7. total - Total cost = area × (base_rate + ti_rate)
 8. shop_number - For Section C items, the shop number
 9. is_tenant_item - true if this is a shop/tenant line item
 
@@ -140,6 +153,9 @@ Return ONLY valid JSON in this exact format:
       "tenant_name": "CLICKS",
       "area": 574.4,
       "area_unit": "m²",
+      "base_rate": 250.00,
+      "ti_rate": 150.00,
+      "total": 229760.00,
       "category": "Standard"
     }
   ]
@@ -147,11 +163,12 @@ Return ONLY valid JSON in this exact format:
 
 RULES:
 - Parse ALL sections from A to H
-- For Section C, identify each tenant/shop and include in area_schedule
+- For Section C, identify each tenant/shop and include in area_schedule WITH BOTH base_rate AND ti_rate
 - Costs are in South African Rand (R)
-- Total = area × (base_rate + ti_rate) if both rates present
+- Total = area × (base_rate + ti_rate)
 - Preserve original item numbering
 - Category detection: Fast Food = restaurants with cooking, Restaurant = sit-down dining, National = major chains like Shoprite/Clicks/PnP
+- IMPORTANT: Do NOT skip the TI Rate column - it is essential data
 
 BUDGET CONTENT:
 ${file_content}`;

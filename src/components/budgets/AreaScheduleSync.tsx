@@ -14,6 +14,9 @@ interface AreaScheduleItem {
   tenant_name: string;
   area: number;
   area_unit: string;
+  base_rate: number | null;
+  ti_rate: number | null;
+  total: number | null;
   category: string;
 }
 
@@ -188,45 +191,55 @@ export const AreaScheduleSync = ({ projectId, areaSchedule, onSyncComplete }: Ar
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <div className="rounded-md border">
+        <div className="rounded-md border overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
                 <TableHead>Shop #</TableHead>
                 <TableHead>Tenant</TableHead>
-                <TableHead>Budget Area</TableHead>
+                <TableHead className="text-right">Area</TableHead>
+                <TableHead className="text-right">Base Rate</TableHead>
+                <TableHead className="text-right">TI Rate</TableHead>
+                <TableHead className="text-right">Total Rate</TableHead>
                 <TableHead>Tracker Area</TableHead>
-                <TableHead>Difference</TableHead>
                 <TableHead>Category</TableHead>
                 <TableHead>Action</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {matches.map((match, index) => (
+              {matches.map((match, index) => {
+                const combinedRate = (match.budgetItem.base_rate || 0) + (match.budgetItem.ti_rate || 0);
+                return (
                 <TableRow key={index}>
                   <TableCell className="font-medium">
                     {match.budgetItem.shop_number}
                   </TableCell>
                   <TableCell>{match.budgetItem.tenant_name}</TableCell>
-                  <TableCell>
+                  <TableCell className="text-right">
                     {match.budgetItem.area.toFixed(1)} {match.budgetItem.area_unit}
+                  </TableCell>
+                  <TableCell className="text-right font-mono">
+                    {match.budgetItem.base_rate ? `R ${match.budgetItem.base_rate.toFixed(2)}` : '—'}
+                  </TableCell>
+                  <TableCell className="text-right font-mono">
+                    {match.budgetItem.ti_rate ? `R ${match.budgetItem.ti_rate.toFixed(2)}` : '—'}
+                  </TableCell>
+                  <TableCell className="text-right font-mono font-semibold">
+                    R {combinedRate.toFixed(2)}
                   </TableCell>
                   <TableCell>
                     {match.existingTenant 
                       ? `${match.existingTenant.area?.toFixed(1) || '—'} m²`
                       : <span className="text-muted-foreground">Not in tracker</span>
                     }
-                  </TableCell>
-                  <TableCell>
                     {match.areaDifference !== null && match.areaDifference > 0.1 ? (
-                      <Badge variant="outline" className="text-amber-600 border-amber-600">
+                      <Badge variant="outline" className="ml-2 text-amber-600 border-amber-600">
                         <AlertTriangle className="h-3 w-3 mr-1" />
-                        {match.areaDifference.toFixed(1)} m²
+                        {match.areaDifference.toFixed(1)}
                       </Badge>
                     ) : match.existingTenant ? (
-                      <Badge variant="outline" className="text-green-600 border-green-600">
-                        <CheckCircle className="h-3 w-3 mr-1" />
-                        Match
+                      <Badge variant="outline" className="ml-2 text-green-600 border-green-600">
+                        <CheckCircle className="h-3 w-3" />
                       </Badge>
                     ) : null}
                   </TableCell>
@@ -257,7 +270,7 @@ export const AreaScheduleSync = ({ projectId, areaSchedule, onSyncComplete }: Ar
                     </select>
                   </TableCell>
                 </TableRow>
-              ))}
+              )})}
             </TableBody>
           </Table>
         </div>
