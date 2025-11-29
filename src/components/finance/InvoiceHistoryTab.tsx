@@ -443,11 +443,22 @@ export function InvoiceHistoryTab() {
                                               <>
                                                 <DropdownMenuItem
                                                   onClick={async () => {
-                                                    const { data } = await supabase.storage
-                                                      .from("invoice-pdfs")
-                                                      .createSignedUrl(invoice.pdf_file_path, 60);
-                                                    if (data?.signedUrl) {
-                                                      window.open(data.signedUrl, "_blank");
+                                                    try {
+                                                      const { data, error } = await supabase.storage
+                                                        .from("invoice-pdfs")
+                                                        .createSignedUrl(invoice.pdf_file_path, 3600);
+                                                      if (error) throw error;
+                                                      if (data?.signedUrl) {
+                                                        const fullUrl = data.signedUrl.startsWith('http') 
+                                                          ? data.signedUrl 
+                                                          : `${import.meta.env.VITE_SUPABASE_URL}/storage/v1${data.signedUrl}`;
+                                                        window.open(fullUrl, "_blank");
+                                                      } else {
+                                                        toast.error("Could not generate PDF URL");
+                                                      }
+                                                    } catch (error: any) {
+                                                      console.error("PDF view error:", error);
+                                                      toast.error("Failed to open PDF: " + error.message);
                                                     }
                                                   }}
                                                 >

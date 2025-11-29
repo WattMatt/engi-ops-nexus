@@ -133,13 +133,20 @@ export function InvoiceFolderBrowser() {
     try {
       const { data, error } = await supabase.storage
         .from("invoice-pdfs")
-        .createSignedUrl(filePath, 60);
+        .createSignedUrl(filePath, 3600); // 1 hour expiry
       
       if (error) throw error;
       if (data?.signedUrl) {
-        window.open(data.signedUrl, "_blank");
+        // Ensure we have a full URL
+        const fullUrl = data.signedUrl.startsWith('http') 
+          ? data.signedUrl 
+          : `${import.meta.env.VITE_SUPABASE_URL}/storage/v1${data.signedUrl}`;
+        window.open(fullUrl, "_blank");
+      } else {
+        toast.error("Could not generate PDF URL");
       }
     } catch (error: any) {
+      console.error("PDF view error:", error);
       toast.error("Failed to open PDF: " + error.message);
     }
   };
