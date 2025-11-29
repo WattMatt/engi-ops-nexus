@@ -3,7 +3,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { GENERATOR_SIZING_TABLE } from "@/utils/generatorSizing";
@@ -34,8 +34,8 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
   const [pendingSaves, setPendingSaves] = useState<Set<string>>(new Set());
   const saveTimeoutRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
 
-  // Function to get fuel consumption from sizing table
-  const getFuelConsumption = (generatorSize: string, loadPercentage: number): number => {
+  // Memoized function to get fuel consumption from sizing table
+  const getFuelConsumption = useCallback((generatorSize: string, loadPercentage: number): number => {
     const sizingData = GENERATOR_SIZING_TABLE.find(g => g.rating === generatorSize);
     if (!sizingData) return 0;
 
@@ -53,7 +53,7 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
       return sizingData.load75 + ratio * (sizingData.load100 - sizingData.load75);
     }
     return sizingData.load100;
-  };
+  }, []);
 
   // Fetch all generator zones
   const { data: zones = [] } = useQuery({
@@ -265,8 +265,8 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
   };
 
 
-  // Calculate tariff for a specific zone
-  const calculateZoneTariff = (zoneId: string): number => {
+  // Memoize tariff calculation for a specific zone
+  const calculateZoneTariff = useCallback((zoneId: string): number => {
     const settings = zoneSettings.get(zoneId);
     const zone = zones.find(z => z.id === zoneId);
     if (!settings || !zone) return 0;
@@ -286,29 +286,30 @@ export function RunningRecoveryCalculator({ projectId }: RunningRecoveryCalculat
     const maintenanceContingency = totalTariffBeforeContingency * 0.1;
     
     return totalTariffBeforeContingency + maintenanceContingency;
-  };
+  }, [zoneSettings, zones]);
 
-  // Calculate average tariff across all zones
-  const calculateAverageTariff = (): number => {
+  // Memoize expanded generators to prevent recalculation on unrelated renders
+  const expandedGenerators = useMemo(() => {
+    return zones.flatMap(zone => {
+      const numGenerators = zone.num_generators || 1;
+      return Array.from({ length: numGenerators }, (_, index) => ({
+        zoneId: zone.id,
+        zoneName: zone.zone_name,
+        generatorSize: zone.generator_size,
+        generatorIndex: index + 1,
+        totalInZone: numGenerators,
+      }));
+    }).slice(0, 4); // Limit to 4 generators
+  }, [zones]);
+
+  // Memoize average tariff calculation
+  const averageTariff = useMemo(() => {
     const tariffs = zones.map(zone => calculateZoneTariff(zone.id)).filter(t => t > 0);
     if (tariffs.length === 0) return 0;
     return tariffs.reduce((sum, t) => sum + t, 0) / tariffs.length;
-  };
-
-  // Expand zones into individual generators for display
-  const expandedGenerators = zones.flatMap(zone => {
-    const numGenerators = zone.num_generators || 1;
-    return Array.from({ length: numGenerators }, (_, index) => ({
-      zoneId: zone.id,
-      zoneName: zone.zone_name,
-      generatorSize: zone.generator_size,
-      generatorIndex: index + 1,
-      totalInZone: numGenerators,
-    }));
-  }).slice(0, 4); // Limit to 4 generators
+  }, [zones, calculateZoneTariff]);
 
   const totalGenerators = expandedGenerators.length;
-  const averageTariff = calculateAverageTariff();
 
   return (
     <div className="space-y-4">

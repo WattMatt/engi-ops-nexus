@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -117,11 +117,26 @@ export const BulkServicesKPICard = ({ documentId, mapSelectedZone }: BulkService
     }
   };
 
-  const vaPerSqm = SANS_204_TABLE[buildingClass].zones[parseInt(climaticZone) - 1];
-  const area = parseFloat(projectArea) || 0;
-  const totalConnectedLoad = area * vaPerSqm;
-  const diversity = parseFloat(diversityFactor) || 0.75;
-  const maximumDemand = totalConnectedLoad * diversity;
+  // Memoize SANS 204 calculations to prevent recalculation on unrelated renders
+  const calculatedValues = useMemo(() => {
+    const vaPerSqm = SANS_204_TABLE[buildingClass].zones[parseInt(climaticZone) - 1];
+    const area = parseFloat(projectArea) || 0;
+    const totalConnectedLoad = area * vaPerSqm;
+    const diversity = parseFloat(diversityFactor) || 0.75;
+    const maximumDemand = totalConnectedLoad * diversity;
+    const recommendedSize = Math.ceil((maximumDemand * 1.2) / 100) * 100 / 1000;
+    
+    return {
+      vaPerSqm,
+      area,
+      totalConnectedLoad,
+      diversity,
+      maximumDemand,
+      recommendedSize,
+    };
+  }, [buildingClass, climaticZone, projectArea, diversityFactor]);
+
+  const { vaPerSqm, totalConnectedLoad, maximumDemand, recommendedSize } = calculatedValues;
 
   const handleSave = async () => {
     setSaving(true);
@@ -287,7 +302,7 @@ export const BulkServicesKPICard = ({ documentId, mapSelectedZone }: BulkService
 
           <div className="space-y-1">
             <p className="text-sm text-muted-foreground">Recommended Size</p>
-            <p className="text-2xl font-bold">{Math.ceil((maximumDemand * 1.2) / 100) * 100 / 1000} kVA</p>
+            <p className="text-2xl font-bold">{recommendedSize} kVA</p>
             <Badge variant="outline" className="text-xs">+20% Expansion</Badge>
           </div>
         </div>
