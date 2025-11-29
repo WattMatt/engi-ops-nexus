@@ -36,7 +36,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Plus, FileText, MoreHorizontal, Trash2, CheckCircle, Calendar, Sparkles, Upload, FolderOpen, FileSpreadsheet } from "lucide-react";
+import { Plus, FileText, MoreHorizontal, Trash2, CheckCircle, Calendar, Sparkles, Upload, FolderOpen, FileSpreadsheet, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { format, addMonths, parseISO } from "date-fns";
 import { AppointmentLetterExtractor } from "@/components/finance/AppointmentLetterExtractor";
@@ -63,6 +63,7 @@ export function InvoiceScheduleManager() {
   const [sourceFile, setSourceFile] = useState<File | null>(null);
   const [extractedProjectData, setExtractedProjectData] = useState<any>(null);
   const [createNewProject, setCreateNewProject] = useState(false);
+  const [generatingInvoice, setGeneratingInvoice] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   // New project form state (from extracted data)
@@ -302,6 +303,80 @@ export function InvoiceScheduleManager() {
     }
   };
 
+  const handleGenerateInvoice = async (payment: any) => {
+    setGeneratingInvoice(payment.id);
+    try {
+      // Get the next invoice number
+      const { data: lastInvoice } = await supabase
+        .from("invoices")
+        .select("invoice_number")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      let nextNumber = 5000; // Start from 5000 if no invoices exist
+      if (lastInvoice?.invoice_number) {
+        const match = lastInvoice.invoice_number.match(/\d+/);
+        if (match) {
+          nextNumber = parseInt(match[0]) + 1;
+        }
+      }
+
+      const invoiceNumber = String(nextNumber);
+      const amount = payment.amount;
+      const vatAmount = amount * 0.15;
+      const totalAmount = amount + vatAmount;
+
+      // Create the invoice
+      const { data: newInvoice, error: invoiceError } = await supabase
+        .from("invoices")
+        .insert({
+          invoice_number: invoiceNumber,
+          invoice_date: new Date().toISOString().split("T")[0],
+          client_name: payment.invoice_projects?.client_name || "Unknown Client",
+          description: `${payment.invoice_projects?.project_name || "Project"} - ${format(new Date(payment.payment_month), "MMMM yyyy")}`,
+          amount: amount,
+          vat_amount: vatAmount,
+          total_amount: totalAmount,
+          status: "sent",
+          project_reference: payment.invoice_projects?.project_name,
+        })
+        .select()
+        .single();
+
+      if (invoiceError) throw invoiceError;
+
+      // Link the invoice to the payment
+      const { error: updateError } = await supabase
+        .from("monthly_payments")
+        .update({ invoice_id: newInvoice.id })
+        .eq("id", payment.id);
+
+      if (updateError) throw updateError;
+
+      // Also record in invoice_history
+      await supabase.from("invoice_history").insert({
+        invoice_number: invoiceNumber,
+        invoice_date: new Date().toISOString().split("T")[0],
+        invoice_month: payment.payment_month.substring(0, 7),
+        job_name: payment.invoice_projects?.project_name || "Unknown Project",
+        client_details: payment.invoice_projects?.client_name || "Unknown Client",
+        amount_excl_vat: amount,
+        vat_amount: vatAmount,
+        amount_incl_vat: totalAmount,
+        project_id: payment.project_id,
+      });
+
+      toast.success(`Invoice #${invoiceNumber} generated successfully`);
+      queryClient.invalidateQueries({ queryKey: ["monthly-payments-with-projects"] });
+      queryClient.invalidateQueries({ queryKey: ["invoice-history"] });
+    } catch (error: any) {
+      toast.error("Failed to generate invoice: " + error.message);
+    } finally {
+      setGeneratingInvoice(null);
+    }
+  };
+
   // Group payments by project
   const paymentsByProject = payments.reduce((acc: any, payment: any) => {
     const projectId = payment.project_id;
@@ -500,9 +575,12 @@ export function InvoiceScheduleManager() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                           {!payment.invoice_id && (
-                            <DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => handleGenerateInvoice(payment)}
+                              disabled={generatingInvoice === payment.id}
+                            >
                               <FileText className="mr-2 h-4 w-4" />
-                              Generate Invoice
+                              {generatingInvoice === payment.id ? "Generating..." : "Generate Invoice"}
                             </DropdownMenuItem>
                           )}
                           <DropdownMenuItem 
