@@ -179,21 +179,28 @@ ${file_content}`;
       console.log('[Budget Extract] Using Lovable AI for extraction');
       console.log('[Budget Extract] Content length:', file_content.length, 'characters');
       
+      // Use AbortController for timeout (50 seconds to stay under edge function limit)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 50000);
+
       const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${lovableApiKey}`,
           'Content-Type': 'application/json',
         },
+        signal: controller.signal,
         body: JSON.stringify({
-          // Use gemini-2.5-pro for better handling of large documents
-          model: 'google/gemini-2.5-pro',
+          // Use gemini-2.5-flash for faster response (pro is too slow)
+          model: 'google/gemini-2.5-flash',
           messages: [
             { role: 'system', content: 'You are a document parsing assistant. Return only valid, complete JSON. Do not truncate the output.' },
             { role: 'user', content: extractionPrompt }
           ],
         }),
       });
+
+      clearTimeout(timeoutId);
 
       if (response.status === 429) {
         throw new Error('Rate limit exceeded. Please try again later.');
@@ -312,7 +319,10 @@ ${file_content}`;
     );
 
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    let errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    if (error instanceof Error && error.name === 'AbortError') {
+      errorMessage = 'AI extraction timed out. Please try a smaller document or try again.';
+    }
     console.error('[Budget Extract] Error:', errorMessage);
 
     return new Response(
