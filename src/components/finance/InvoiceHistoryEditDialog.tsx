@@ -192,6 +192,12 @@ export function InvoiceHistoryEditDialog({ invoice, open, onOpenChange }: Invoic
                   onValueChange={(v) => {
                     if (v === "__create__") {
                       setShowCreateProject(true);
+                      // Pre-fill with invoice data
+                      setNewProject({
+                        project_name: form.job_name || "",
+                        client_name: form.client_details?.split('\n')[0] || "",
+                        agreed_fee: form.amount_excl_vat || "",
+                      });
                     } else {
                       setForm(prev => ({ ...prev, project_id: v === "__unlinked__" ? "" : v }));
                     }
