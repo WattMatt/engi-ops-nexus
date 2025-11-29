@@ -21,6 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
+import { Plus, X } from "lucide-react";
 
 interface InvoiceHistoryRecord {
   id: string;
@@ -56,6 +57,13 @@ export function InvoiceHistoryEditDialog({ invoice, open, onOpenChange }: Invoic
     project_id: "",
   });
   const [saving, setSaving] = useState(false);
+  const [showCreateProject, setShowCreateProject] = useState(false);
+  const [newProject, setNewProject] = useState({
+    project_name: "",
+    client_name: "",
+    agreed_fee: "",
+  });
+  const [creatingProject, setCreatingProject] = useState(false);
   const queryClient = useQueryClient();
 
   const { data: projects = [] } = useQuery({
@@ -127,6 +135,43 @@ export function InvoiceHistoryEditDialog({ invoice, open, onOpenChange }: Invoic
     }
   };
 
+  const handleCreateProject = async () => {
+    if (!newProject.project_name || !newProject.client_name || !newProject.agreed_fee) {
+      toast.error("Please fill in all project fields");
+      return;
+    }
+
+    setCreatingProject(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { data, error } = await supabase
+        .from("invoice_projects")
+        .insert({
+          project_name: newProject.project_name,
+          client_name: newProject.client_name,
+          agreed_fee: parseFloat(newProject.agreed_fee),
+          outstanding_amount: parseFloat(newProject.agreed_fee),
+          created_by: user.id,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      toast.success("Project created");
+      queryClient.invalidateQueries({ queryKey: ["invoice-projects"] });
+      setForm(prev => ({ ...prev, project_id: data.id }));
+      setShowCreateProject(false);
+      setNewProject({ project_name: "", client_name: "", agreed_fee: "" });
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setCreatingProject(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl">
@@ -140,22 +185,87 @@ export function InvoiceHistoryEditDialog({ invoice, open, onOpenChange }: Invoic
         <div className="grid gap-4 py-4">
           <div className="space-y-2">
             <Label htmlFor="project_id">Link to Project</Label>
-            <Select 
-              value={form.project_id || "__unlinked__"} 
-              onValueChange={(v) => setForm(prev => ({ ...prev, project_id: v === "__unlinked__" ? "" : v }))}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select a project..." />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__unlinked__">No project (unlinked)</SelectItem>
-                {projects.map(project => (
-                  <SelectItem key={project.id} value={project.id}>
-                    {project.project_name} - {project.client_name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            {!showCreateProject ? (
+              <div className="space-y-2">
+                <Select 
+                  value={form.project_id || "__unlinked__"} 
+                  onValueChange={(v) => {
+                    if (v === "__create__") {
+                      setShowCreateProject(true);
+                    } else {
+                      setForm(prev => ({ ...prev, project_id: v === "__unlinked__" ? "" : v }));
+                    }
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select a project..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__unlinked__">No project (unlinked)</SelectItem>
+                    <SelectItem value="__create__" className="text-primary font-medium">
+                      <span className="flex items-center gap-2">
+                        <Plus className="h-4 w-4" />
+                        Create New Project
+                      </span>
+                    </SelectItem>
+                    {projects.map(project => (
+                      <SelectItem key={project.id} value={project.id}>
+                        {project.project_name} - {project.client_name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <div className="border rounded-lg p-4 space-y-3 bg-muted/50">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-sm">Create New Project</span>
+                  <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="h-6 w-6"
+                    onClick={() => setShowCreateProject(false)}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+                <div className="grid gap-3">
+                  <Input
+                    placeholder="Project Name *"
+                    value={newProject.project_name}
+                    onChange={(e) => setNewProject(prev => ({ ...prev, project_name: e.target.value }))}
+                  />
+                  <Input
+                    placeholder="Client Name *"
+                    value={newProject.client_name}
+                    onChange={(e) => setNewProject(prev => ({ ...prev, client_name: e.target.value }))}
+                  />
+                  <Input
+                    placeholder="Agreed Fee *"
+                    type="number"
+                    step="0.01"
+                    value={newProject.agreed_fee}
+                    onChange={(e) => setNewProject(prev => ({ ...prev, agreed_fee: e.target.value }))}
+                  />
+                </div>
+                <div className="flex gap-2 justify-end">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setShowCreateProject(false)}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    size="sm" 
+                    onClick={handleCreateProject}
+                    disabled={creatingProject}
+                  >
+                    {creatingProject ? "Creating..." : "Create & Select"}
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-3 gap-4">
