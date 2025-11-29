@@ -3102,6 +3102,72 @@ export type Database = {
           },
         ]
       }
+      invoice_notification_logs: {
+        Row: {
+          error_message: string | null
+          id: string
+          notification_month: string
+          projects_count: number | null
+          recipient_email: string
+          sent_at: string | null
+          status: string | null
+          total_scheduled_amount: number | null
+        }
+        Insert: {
+          error_message?: string | null
+          id?: string
+          notification_month: string
+          projects_count?: number | null
+          recipient_email: string
+          sent_at?: string | null
+          status?: string | null
+          total_scheduled_amount?: number | null
+        }
+        Update: {
+          error_message?: string | null
+          id?: string
+          notification_month?: string
+          projects_count?: number | null
+          recipient_email?: string
+          sent_at?: string | null
+          status?: string | null
+          total_scheduled_amount?: number | null
+        }
+        Relationships: []
+      }
+      invoice_notification_settings: {
+        Row: {
+          created_at: string | null
+          days_before_reminder: number | null
+          id: string
+          include_schedule_summary: boolean | null
+          notification_day: number
+          notification_email: string
+          notifications_enabled: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          days_before_reminder?: number | null
+          id?: string
+          include_schedule_summary?: boolean | null
+          notification_day?: number
+          notification_email: string
+          notifications_enabled?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          days_before_reminder?: number | null
+          id?: string
+          include_schedule_summary?: boolean | null
+          notification_day?: number
+          notification_email?: string
+          notifications_enabled?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
       invoice_projects: {
         Row: {
           agreed_fee: number
