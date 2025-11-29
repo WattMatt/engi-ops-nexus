@@ -39,6 +39,7 @@ import { InvoiceHistoryImporter } from "./InvoiceHistoryImporter";
 import { InvoiceHistoryEditDialog } from "./InvoiceHistoryEditDialog";
 import { InvoicePDFUploader } from "./InvoicePDFUploader";
 import { InvoiceFolderBrowser } from "./InvoiceFolderBrowser";
+import { InvoicePDFPreviewDialog } from "./InvoicePDFPreviewDialog";
 import * as XLSX from "xlsx";
 
 export function InvoiceHistoryTab() {
@@ -51,6 +52,9 @@ export function InvoiceHistoryTab() {
   const [selectedMonth, setSelectedMonth] = useState<string>("all");
   const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set(["unlinked"]));
   const [viewMode, setViewMode] = useState<"project" | "month">("project");
+  const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
+  const [previewFilePath, setPreviewFilePath] = useState<string | null>(null);
+  const [previewInvoiceNumber, setPreviewInvoiceNumber] = useState<string>("");
   const queryClient = useQueryClient();
 
   const { data: invoices = [], isLoading } = useQuery({
@@ -442,24 +446,10 @@ export function InvoiceHistoryTab() {
                                             {invoice.pdf_file_path && (
                                               <>
                                                 <DropdownMenuItem
-                                                  onClick={async () => {
-                                                    try {
-                                                      const { data, error } = await supabase.storage
-                                                        .from("invoice-pdfs")
-                                                        .createSignedUrl(invoice.pdf_file_path, 3600);
-                                                      if (error) throw error;
-                                                      if (data?.signedUrl) {
-                                                        const fullUrl = data.signedUrl.startsWith('http') 
-                                                          ? data.signedUrl 
-                                                          : `${import.meta.env.VITE_SUPABASE_URL}/storage/v1${data.signedUrl}`;
-                                                        window.open(fullUrl, "_blank");
-                                                      } else {
-                                                        toast.error("Could not generate PDF URL");
-                                                      }
-                                                    } catch (error: any) {
-                                                      console.error("PDF view error:", error);
-                                                      toast.error("Failed to open PDF: " + error.message);
-                                                    }
+                                                  onClick={() => {
+                                                    setPreviewFilePath(invoice.pdf_file_path);
+                                                    setPreviewInvoiceNumber(invoice.invoice_number);
+                                                    setPdfPreviewOpen(true);
                                                   }}
                                                 >
                                                   <FileText className="mr-2 h-4 w-4" />
@@ -511,6 +501,12 @@ export function InvoiceHistoryTab() {
         invoice={editingInvoice} 
         open={editDialogOpen} 
         onOpenChange={setEditDialogOpen} 
+      />
+      <InvoicePDFPreviewDialog
+        open={pdfPreviewOpen}
+        onOpenChange={setPdfPreviewOpen}
+        filePath={previewFilePath}
+        invoiceNumber={previewInvoiceNumber}
       />
     </div>
   );
