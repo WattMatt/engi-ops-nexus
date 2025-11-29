@@ -141,14 +141,14 @@ export function InvoiceHistoryEditDialog({ invoice, open, onOpenChange }: Invoic
           <div className="space-y-2">
             <Label htmlFor="project_id">Link to Project</Label>
             <Select 
-              value={form.project_id} 
-              onValueChange={(v) => setForm(prev => ({ ...prev, project_id: v }))}
+              value={form.project_id || "__unlinked__"} 
+              onValueChange={(v) => setForm(prev => ({ ...prev, project_id: v === "__unlinked__" ? "" : v }))}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select a project..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">No project (unlinked)</SelectItem>
+                <SelectItem value="__unlinked__">No project (unlinked)</SelectItem>
                 {projects.map(project => (
                   <SelectItem key={project.id} value={project.id}>
                     {project.project_name} - {project.client_name}
