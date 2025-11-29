@@ -42,6 +42,9 @@ interface ExtractedData {
     tenant_name: string;
     area: number;
     area_unit: string;
+    base_rate: number | null;
+    ti_rate: number | null;
+    total: number | null;
     category: string;
   }>;
 }
@@ -262,6 +265,7 @@ export const BudgetExtractionReview = ({
                             <TableHead>Description</TableHead>
                             <TableHead className="text-right">Area</TableHead>
                             <TableHead className="text-right">Base Rate</TableHead>
+                            <TableHead className="text-right">TI Rate</TableHead>
                             <TableHead className="text-right">Total</TableHead>
                           </TableRow>
                         </TableHeader>
@@ -282,8 +286,11 @@ export const BudgetExtractionReview = ({
                               <TableCell className="text-right">
                                 {item.area ? `${item.area} ${item.area_unit}` : '—'}
                               </TableCell>
-                              <TableCell className="text-right">
+                              <TableCell className="text-right font-mono">
                                 {formatCurrency(item.base_rate)}
+                              </TableCell>
+                              <TableCell className="text-right font-mono">
+                                {formatCurrency(item.ti_rate)}
                               </TableCell>
                               <TableCell className="text-right font-medium">
                                 {formatCurrency(item.total)}
@@ -306,22 +313,40 @@ export const BudgetExtractionReview = ({
                   <TableHead>Shop #</TableHead>
                   <TableHead>Tenant</TableHead>
                   <TableHead className="text-right">Area</TableHead>
+                  <TableHead className="text-right">Base Rate</TableHead>
+                  <TableHead className="text-right">TI Rate</TableHead>
+                  <TableHead className="text-right">Total Rate</TableHead>
+                  <TableHead className="text-right">Total</TableHead>
                   <TableHead>Category</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.area_schedule.map((item, index) => (
+                {data.area_schedule.map((item, index) => {
+                  const combinedRate = (item.base_rate || 0) + (item.ti_rate || 0);
+                  return (
                   <TableRow key={index}>
                     <TableCell className="font-medium">{item.shop_number}</TableCell>
                     <TableCell>{item.tenant_name}</TableCell>
                     <TableCell className="text-right">
                       {item.area} {item.area_unit}
                     </TableCell>
+                    <TableCell className="text-right font-mono">
+                      {item.base_rate ? formatCurrency(item.base_rate) : '—'}
+                    </TableCell>
+                    <TableCell className="text-right font-mono">
+                      {item.ti_rate ? formatCurrency(item.ti_rate) : '—'}
+                    </TableCell>
+                    <TableCell className="text-right font-mono font-semibold">
+                      {formatCurrency(combinedRate)}/m²
+                    </TableCell>
+                    <TableCell className="text-right font-semibold">
+                      {item.total ? formatCurrency(item.total) : formatCurrency(item.area * combinedRate)}
+                    </TableCell>
                     <TableCell>
                       <Badge variant="outline">{item.category}</Badge>
                     </TableCell>
                   </TableRow>
-                ))}
+                )})}
               </TableBody>
             </Table>
           </TabsContent>

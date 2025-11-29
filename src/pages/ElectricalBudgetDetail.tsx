@@ -38,6 +38,9 @@ interface ExtractedData {
     tenant_name: string;
     area: number;
     area_unit: string;
+    base_rate: number | null;
+    ti_rate: number | null;
+    total: number | null;
     category: string;
   }>;
 }
