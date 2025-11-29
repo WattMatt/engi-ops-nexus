@@ -466,7 +466,7 @@ export function InvoicePDFUploader({ open, onOpenChange }: InvoicePDFUploaderPro
               )}
 
               {/* File List */}
-              <ScrollArea className="flex-1 border rounded-lg">
+              <ScrollArea className="h-[400px] border rounded-lg">
                 <Table>
                   <TableHeader>
                     <TableRow>
