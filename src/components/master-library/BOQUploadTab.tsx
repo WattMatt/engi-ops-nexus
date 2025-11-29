@@ -6,12 +6,40 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Upload, FileSpreadsheet, Clock, CheckCircle, XCircle, Eye, Loader2 } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Upload, FileSpreadsheet, Clock, CheckCircle, XCircle, Eye, Loader2, Building2, MapPin, Calendar } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { BOQReviewDialog } from "./BOQReviewDialog";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
+
+const SA_PROVINCES = [
+  "Western Cape",
+  "Eastern Cape", 
+  "Northern Cape",
+  "KwaZulu-Natal",
+  "Gauteng",
+  "Mpumalanga",
+  "Limpopo",
+  "North West",
+  "Free State",
+];
+
+const BUILDING_TYPES = [
+  "Retail",
+  "Commercial",
+  "Industrial",
+  "Residential",
+  "Healthcare",
+  "Education",
+  "Mixed Use",
+  "Hospitality",
+  "Warehouse",
+  "Data Centre",
+];
 
 interface BOQUpload {
   id: string;
@@ -22,7 +50,17 @@ interface BOQUpload {
   items_matched_to_master: number;
   source_description: string | null;
   contractor_name: string | null;
+  project_id: string | null;
+  province: string | null;
+  building_type: string | null;
+  tender_date: string | null;
   created_at: string;
+}
+
+interface Project {
+  id: string;
+  name: string;
+  project_number: string | null;
 }
 
 export const BOQUploadTab = () => {
@@ -30,7 +68,24 @@ export const BOQUploadTab = () => {
   const [uploading, setUploading] = useState(false);
   const [sourceDescription, setSourceDescription] = useState("");
   const [contractorName, setContractorName] = useState("");
+  const [selectedProjectId, setSelectedProjectId] = useState<string>("");
+  const [selectedProvince, setSelectedProvince] = useState<string>("");
+  const [selectedBuildingType, setSelectedBuildingType] = useState<string>("");
+  const [tenderDate, setTenderDate] = useState<Date | undefined>();
   const queryClient = useQueryClient();
+
+  // Fetch projects for dropdown
+  const { data: projects } = useQuery({
+    queryKey: ["projects-list"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("projects")
+        .select("id, name, project_number")
+        .order("name");
+      if (error) throw error;
+      return data as Project[];
+    },
+  });
 
   const { data: uploads, isLoading } = useQuery({
     queryKey: ["boq-uploads"],
@@ -67,7 +122,7 @@ export const BOQUploadTab = () => {
 
       if (uploadError) throw uploadError;
 
-      // Create upload record
+      // Create upload record with all metadata
       const { data: uploadRecord, error: recordError } = await supabase
         .from("boq_uploads")
         .insert({
@@ -77,6 +132,10 @@ export const BOQUploadTab = () => {
           file_size: file.size,
           source_description: sourceDescription || null,
           contractor_name: contractorName || null,
+          project_id: selectedProjectId || null,
+          province: selectedProvince || null,
+          building_type: selectedBuildingType || null,
+          tender_date: tenderDate?.toISOString().split('T')[0] || null,
           uploaded_by: user.id,
           status: "pending",
         })
@@ -90,13 +149,11 @@ export const BOQUploadTab = () => {
       if (fileExt === "csv") {
         fileContent = await file.text();
       } else if (fileExt === "xlsx" || fileExt === "xls") {
-        // For Excel, we need to read it differently
-        // For now, we'll handle this on the server side
         fileContent = `[Excel file: ${file.name}]`;
       }
 
       // Call edge function to extract rates
-      const { data: extractResult, error: extractError } = await supabase.functions.invoke(
+      const { error: extractError } = await supabase.functions.invoke(
         "extract-boq-rates",
         {
           body: {
@@ -109,7 +166,6 @@ export const BOQUploadTab = () => {
 
       if (extractError) {
         console.error("Extraction error:", extractError);
-        // Don't throw - the upload is still saved, extraction can be retried
       }
 
       return uploadRecord;
@@ -117,8 +173,13 @@ export const BOQUploadTab = () => {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["boq-uploads"] });
       toast.success("BOQ uploaded and processing started");
+      // Reset form
       setSourceDescription("");
       setContractorName("");
+      setSelectedProjectId("");
+      setSelectedProvince("");
+      setSelectedBuildingType("");
+      setTenderDate(undefined);
     },
     onError: (error: Error) => {
       toast.error(error.message || "Failed to upload BOQ");
@@ -193,6 +254,93 @@ export const BOQUploadTab = () => {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Project & Location Info */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1">
+                <Building2 className="h-3.5 w-3.5" />
+                Project
+              </Label>
+              <Select value={selectedProjectId} onValueChange={setSelectedProjectId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select project" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No project</SelectItem>
+                  {projects?.map((project) => (
+                    <SelectItem key={project.id} value={project.id}>
+                      {project.project_number ? `${project.project_number} - ` : ""}{project.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1">
+                <MapPin className="h-3.5 w-3.5" />
+                Province
+              </Label>
+              <Select value={selectedProvince} onValueChange={setSelectedProvince}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select province" />
+                </SelectTrigger>
+                <SelectContent>
+                  {SA_PROVINCES.map((province) => (
+                    <SelectItem key={province} value={province}>
+                      {province}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Building Type</Label>
+              <Select value={selectedBuildingType} onValueChange={setSelectedBuildingType}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select type" />
+                </SelectTrigger>
+                <SelectContent>
+                  {BUILDING_TYPES.map((type) => (
+                    <SelectItem key={type} value={type}>
+                      {type}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="flex items-center gap-1">
+                <Calendar className="h-3.5 w-3.5" />
+                Tender Date
+              </Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !tenderDate && "text-muted-foreground"
+                    )}
+                  >
+                    {tenderDate ? format(tenderDate, "dd MMM yyyy") : "Select date"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    mode="single"
+                    selected={tenderDate}
+                    onSelect={setTenderDate}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+
+          {/* Source & Contractor */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Source Description (Optional)</Label>
@@ -212,6 +360,7 @@ export const BOQUploadTab = () => {
             </div>
           </div>
 
+          {/* File Upload Area */}
           <div className="border-2 border-dashed rounded-lg p-8 text-center">
             <FileSpreadsheet className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
             <p className="text-muted-foreground mb-4">
@@ -270,10 +419,10 @@ export const BOQUploadTab = () => {
                 <TableHeader>
                   <TableRow>
                     <TableHead>File</TableHead>
-                    <TableHead>Source</TableHead>
+                    <TableHead>Project / Source</TableHead>
+                    <TableHead>Location</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-center">Items</TableHead>
-                    <TableHead className="text-center">Matched</TableHead>
                     <TableHead>Uploaded</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
@@ -284,23 +433,35 @@ export const BOQUploadTab = () => {
                       <TableCell>
                         <div className="flex items-center gap-2">
                           <FileSpreadsheet className="h-4 w-4 text-muted-foreground" />
-                          <span className="font-medium truncate max-w-[200px]">
+                          <span className="font-medium truncate max-w-[180px]">
                             {upload.file_name}
                           </span>
                         </div>
                       </TableCell>
-                      <TableCell className="text-muted-foreground max-w-[150px] truncate">
-                        {upload.source_description || upload.contractor_name || "—"}
+                      <TableCell className="max-w-[150px]">
+                        <div className="truncate">
+                          {upload.source_description || upload.contractor_name || "—"}
+                        </div>
+                        {upload.building_type && (
+                          <Badge variant="outline" className="text-xs mt-1">
+                            {upload.building_type}
+                          </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {upload.province ? (
+                          <div className="flex items-center gap-1 text-sm">
+                            <MapPin className="h-3 w-3" />
+                            {upload.province}
+                          </div>
+                        ) : "—"}
                       </TableCell>
                       <TableCell>{getStatusBadge(upload.status)}</TableCell>
                       <TableCell className="text-center">
                         <Badge variant="secondary">{upload.total_items_extracted}</Badge>
                       </TableCell>
-                      <TableCell className="text-center">
-                        <Badge variant="outline">{upload.items_matched_to_master}</Badge>
-                      </TableCell>
                       <TableCell className="text-sm">
-                        {format(new Date(upload.created_at), "dd MMM yyyy HH:mm")}
+                        {format(new Date(upload.created_at), "dd MMM yyyy")}
                       </TableCell>
                       <TableCell className="text-right">
                         <Button

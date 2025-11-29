@@ -58,6 +58,11 @@ const mainModules = [
     url: "/dashboard/cable-schedules",
     icon: Cable,
   },
+  {
+    title: "Master Library",
+    url: "/dashboard/master-library",
+    icon: Package,
+  },
 ];
 
 
