@@ -177,6 +177,7 @@ ${file_content}`;
 
     if (lovableApiKey) {
       console.log('[Budget Extract] Using Lovable AI for extraction');
+      console.log('[Budget Extract] Content length:', file_content.length, 'characters');
       
       const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
         method: 'POST',
@@ -185,9 +186,10 @@ ${file_content}`;
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: 'google/gemini-2.5-flash',
+          // Use gemini-2.5-pro for better handling of large documents
+          model: 'google/gemini-2.5-pro',
           messages: [
-            { role: 'system', content: 'You are a document parsing assistant. Return only valid JSON, no markdown.' },
+            { role: 'system', content: 'You are a document parsing assistant. Return only valid, complete JSON. Do not truncate the output.' },
             { role: 'user', content: extractionPrompt }
           ],
         }),
@@ -199,23 +201,62 @@ ${file_content}`;
       if (response.status === 402) {
         throw new Error('AI credits exhausted. Please add credits to continue.');
       }
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[Budget Extract] API error:', response.status, errorText);
+        throw new Error(`AI service error: ${response.status}`);
+      }
 
       const aiResult = await response.json();
+      console.log('[Budget Extract] Response received, parsing...');
       
       if (aiResult.choices?.[0]?.message?.content) {
         const rawText = aiResult.choices[0].message.content;
-        const cleanedText = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        console.log('[Budget Extract] Response length:', rawText.length, 'characters');
+        
+        // Clean the response - remove markdown code blocks
+        let cleanedText = rawText.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+        
+        // Try to extract JSON if wrapped in other text
+        const jsonMatch = cleanedText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          cleanedText = jsonMatch[0];
+        }
         
         try {
           extractedBudget = JSON.parse(cleanedText);
           console.log(`[Budget Extract] AI extracted ${extractedBudget?.sections?.length || 0} sections`);
         } catch (parseError) {
           console.error('[Budget Extract] Failed to parse AI response:', parseError);
-          console.log('[Budget Extract] Raw response:', rawText.substring(0, 1000));
-          throw new Error('Failed to parse AI extraction results');
+          console.log('[Budget Extract] Raw response (first 2000 chars):', rawText.substring(0, 2000));
+          console.log('[Budget Extract] Raw response (last 500 chars):', rawText.substring(rawText.length - 500));
+          
+          // Try to salvage partial JSON by closing brackets
+          try {
+            let fixedJson = cleanedText;
+            // Count open brackets
+            const openBraces = (fixedJson.match(/\{/g) || []).length;
+            const closeBraces = (fixedJson.match(/\}/g) || []).length;
+            const openBrackets = (fixedJson.match(/\[/g) || []).length;
+            const closeBrackets = (fixedJson.match(/\]/g) || []).length;
+            
+            // Add missing closing brackets
+            for (let i = 0; i < openBrackets - closeBrackets; i++) {
+              fixedJson += ']';
+            }
+            for (let i = 0; i < openBraces - closeBraces; i++) {
+              fixedJson += '}';
+            }
+            
+            extractedBudget = JSON.parse(fixedJson);
+            console.log('[Budget Extract] Recovered partial JSON successfully');
+          } catch (recoveryError) {
+            console.error('[Budget Extract] JSON recovery failed:', recoveryError);
+            throw new Error('Failed to parse AI extraction results - response may have been truncated');
+          }
         }
       } else {
-        console.error('[Budget Extract] No AI response:', JSON.stringify(aiResult).substring(0, 500));
+        console.error('[Budget Extract] No AI response content:', JSON.stringify(aiResult).substring(0, 500));
         throw new Error('No response from AI');
       }
     } else {
