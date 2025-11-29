@@ -375,6 +375,193 @@ export type Database = {
         }
         Relationships: []
       }
+      boq_extracted_items: {
+        Row: {
+          added_material_id: string | null
+          added_to_master: boolean | null
+          created_at: string | null
+          extraction_notes: string | null
+          id: string
+          install_rate: number | null
+          item_code: string | null
+          item_description: string
+          match_confidence: number | null
+          matched_material_id: string | null
+          quantity: number | null
+          raw_data: Json | null
+          review_status: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          row_number: number | null
+          suggested_category_id: string | null
+          suggested_category_name: string | null
+          supply_rate: number | null
+          total_rate: number | null
+          unit: string | null
+          upload_id: string
+        }
+        Insert: {
+          added_material_id?: string | null
+          added_to_master?: boolean | null
+          created_at?: string | null
+          extraction_notes?: string | null
+          id?: string
+          install_rate?: number | null
+          item_code?: string | null
+          item_description: string
+          match_confidence?: number | null
+          matched_material_id?: string | null
+          quantity?: number | null
+          raw_data?: Json | null
+          review_status?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          row_number?: number | null
+          suggested_category_id?: string | null
+          suggested_category_name?: string | null
+          supply_rate?: number | null
+          total_rate?: number | null
+          unit?: string | null
+          upload_id: string
+        }
+        Update: {
+          added_material_id?: string | null
+          added_to_master?: boolean | null
+          created_at?: string | null
+          extraction_notes?: string | null
+          id?: string
+          install_rate?: number | null
+          item_code?: string | null
+          item_description?: string
+          match_confidence?: number | null
+          matched_material_id?: string | null
+          quantity?: number | null
+          raw_data?: Json | null
+          review_status?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          row_number?: number | null
+          suggested_category_id?: string | null
+          suggested_category_name?: string | null
+          supply_rate?: number | null
+          total_rate?: number | null
+          unit?: string | null
+          upload_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boq_extracted_items_added_material_id_fkey"
+            columns: ["added_material_id"]
+            isOneToOne: false
+            referencedRelation: "master_materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "boq_extracted_items_matched_material_id_fkey"
+            columns: ["matched_material_id"]
+            isOneToOne: false
+            referencedRelation: "master_materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "boq_extracted_items_suggested_category_id_fkey"
+            columns: ["suggested_category_id"]
+            isOneToOne: false
+            referencedRelation: "material_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "boq_extracted_items_upload_id_fkey"
+            columns: ["upload_id"]
+            isOneToOne: false
+            referencedRelation: "boq_uploads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      boq_uploads: {
+        Row: {
+          building_type: string | null
+          contractor_name: string | null
+          created_at: string | null
+          error_message: string | null
+          extraction_completed_at: string | null
+          extraction_started_at: string | null
+          file_name: string
+          file_path: string
+          file_size: number | null
+          file_type: string
+          id: string
+          items_added_to_master: number | null
+          items_matched_to_master: number | null
+          project_id: string | null
+          province: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          source_description: string | null
+          status: string | null
+          tender_date: string | null
+          total_items_extracted: number | null
+          uploaded_by: string
+        }
+        Insert: {
+          building_type?: string | null
+          contractor_name?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          extraction_completed_at?: string | null
+          extraction_started_at?: string | null
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          file_type: string
+          id?: string
+          items_added_to_master?: number | null
+          items_matched_to_master?: number | null
+          project_id?: string | null
+          province?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source_description?: string | null
+          status?: string | null
+          tender_date?: string | null
+          total_items_extracted?: number | null
+          uploaded_by: string
+        }
+        Update: {
+          building_type?: string | null
+          contractor_name?: string | null
+          created_at?: string | null
+          error_message?: string | null
+          extraction_completed_at?: string | null
+          extraction_started_at?: string | null
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          file_type?: string
+          id?: string
+          items_added_to_master?: number | null
+          items_matched_to_master?: number | null
+          project_id?: string | null
+          province?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          source_description?: string | null
+          status?: string | null
+          tender_date?: string | null
+          total_items_extracted?: number | null
+          uploaded_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boq_uploads_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       budget_line_items: {
         Row: {
           area: number | null
@@ -385,6 +572,10 @@ export type Database = {
           display_order: number
           id: string
           item_number: string | null
+          master_material_id: string | null
+          master_rate_id: string | null
+          override_reason: string | null
+          rate_overridden: boolean | null
           section_id: string
           ti_rate: number | null
           total: number
@@ -399,6 +590,10 @@ export type Database = {
           display_order?: number
           id?: string
           item_number?: string | null
+          master_material_id?: string | null
+          master_rate_id?: string | null
+          override_reason?: string | null
+          rate_overridden?: boolean | null
           section_id: string
           ti_rate?: number | null
           total?: number
@@ -413,12 +608,31 @@ export type Database = {
           display_order?: number
           id?: string
           item_number?: string | null
+          master_material_id?: string | null
+          master_rate_id?: string | null
+          override_reason?: string | null
+          rate_overridden?: boolean | null
           section_id?: string
           ti_rate?: number | null
           total?: number
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "budget_line_items_master_material_id_fkey"
+            columns: ["master_material_id"]
+            isOneToOne: false
+            referencedRelation: "master_materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_line_items_master_rate_id_fkey"
+            columns: ["master_rate_id"]
+            isOneToOne: false
+            referencedRelation: "master_rate_library"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       budget_sections: {
         Row: {
@@ -3627,6 +3841,374 @@ export type Database = {
         }
         Relationships: []
       }
+      master_materials: {
+        Row: {
+          approved_by: string | null
+          category_id: string
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          eastern_cape_modifier: number | null
+          effective_from: string | null
+          effective_until: string | null
+          free_state_modifier: number | null
+          gauteng_modifier: number | null
+          id: string
+          is_active: boolean | null
+          kwazulu_natal_modifier: number | null
+          limpopo_modifier: number | null
+          manufacturer: string | null
+          material_code: string
+          material_name: string
+          model_number: string | null
+          mpumalanga_modifier: number | null
+          north_west_modifier: number | null
+          northern_cape_modifier: number | null
+          notes: string | null
+          preferred_suppliers: string[] | null
+          specifications: Json | null
+          standard_install_cost: number | null
+          standard_supply_cost: number | null
+          unit: string | null
+          updated_at: string | null
+          usage_count: number | null
+          western_cape_modifier: number | null
+        }
+        Insert: {
+          approved_by?: string | null
+          category_id: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          eastern_cape_modifier?: number | null
+          effective_from?: string | null
+          effective_until?: string | null
+          free_state_modifier?: number | null
+          gauteng_modifier?: number | null
+          id?: string
+          is_active?: boolean | null
+          kwazulu_natal_modifier?: number | null
+          limpopo_modifier?: number | null
+          manufacturer?: string | null
+          material_code: string
+          material_name: string
+          model_number?: string | null
+          mpumalanga_modifier?: number | null
+          north_west_modifier?: number | null
+          northern_cape_modifier?: number | null
+          notes?: string | null
+          preferred_suppliers?: string[] | null
+          specifications?: Json | null
+          standard_install_cost?: number | null
+          standard_supply_cost?: number | null
+          unit?: string | null
+          updated_at?: string | null
+          usage_count?: number | null
+          western_cape_modifier?: number | null
+        }
+        Update: {
+          approved_by?: string | null
+          category_id?: string
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          eastern_cape_modifier?: number | null
+          effective_from?: string | null
+          effective_until?: string | null
+          free_state_modifier?: number | null
+          gauteng_modifier?: number | null
+          id?: string
+          is_active?: boolean | null
+          kwazulu_natal_modifier?: number | null
+          limpopo_modifier?: number | null
+          manufacturer?: string | null
+          material_code?: string
+          material_name?: string
+          model_number?: string | null
+          mpumalanga_modifier?: number | null
+          north_west_modifier?: number | null
+          northern_cape_modifier?: number | null
+          notes?: string | null
+          preferred_suppliers?: string[] | null
+          specifications?: Json | null
+          standard_install_cost?: number | null
+          standard_supply_cost?: number | null
+          unit?: string | null
+          updated_at?: string | null
+          usage_count?: number | null
+          western_cape_modifier?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "master_materials_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "material_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      master_rate_library: {
+        Row: {
+          approved_by: string | null
+          base_rate: number | null
+          created_at: string | null
+          created_by: string | null
+          eastern_cape_modifier: number | null
+          effective_from: string | null
+          effective_until: string | null
+          free_state_modifier: number | null
+          gauteng_modifier: number | null
+          id: string
+          is_current: boolean | null
+          item_code: string | null
+          item_description: string
+          item_type: string
+          kwazulu_natal_modifier: number | null
+          limpopo_modifier: number | null
+          mpumalanga_modifier: number | null
+          north_west_modifier: number | null
+          northern_cape_modifier: number | null
+          notes: string | null
+          retailer_id: string | null
+          ti_rate: number | null
+          unit: string | null
+          updated_at: string | null
+          usage_count: number | null
+          western_cape_modifier: number | null
+        }
+        Insert: {
+          approved_by?: string | null
+          base_rate?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          eastern_cape_modifier?: number | null
+          effective_from?: string | null
+          effective_until?: string | null
+          free_state_modifier?: number | null
+          gauteng_modifier?: number | null
+          id?: string
+          is_current?: boolean | null
+          item_code?: string | null
+          item_description: string
+          item_type: string
+          kwazulu_natal_modifier?: number | null
+          limpopo_modifier?: number | null
+          mpumalanga_modifier?: number | null
+          north_west_modifier?: number | null
+          northern_cape_modifier?: number | null
+          notes?: string | null
+          retailer_id?: string | null
+          ti_rate?: number | null
+          unit?: string | null
+          updated_at?: string | null
+          usage_count?: number | null
+          western_cape_modifier?: number | null
+        }
+        Update: {
+          approved_by?: string | null
+          base_rate?: number | null
+          created_at?: string | null
+          created_by?: string | null
+          eastern_cape_modifier?: number | null
+          effective_from?: string | null
+          effective_until?: string | null
+          free_state_modifier?: number | null
+          gauteng_modifier?: number | null
+          id?: string
+          is_current?: boolean | null
+          item_code?: string | null
+          item_description?: string
+          item_type?: string
+          kwazulu_natal_modifier?: number | null
+          limpopo_modifier?: number | null
+          mpumalanga_modifier?: number | null
+          north_west_modifier?: number | null
+          northern_cape_modifier?: number | null
+          notes?: string | null
+          retailer_id?: string | null
+          ti_rate?: number | null
+          unit?: string | null
+          updated_at?: string | null
+          usage_count?: number | null
+          western_cape_modifier?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "master_rate_library_retailer_id_fkey"
+            columns: ["retailer_id"]
+            isOneToOne: false
+            referencedRelation: "retailer_master"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      material_analytics_snapshots: {
+        Row: {
+          avg_cost_per_sqm: number | null
+          avg_quantity_per_sqm: number | null
+          avg_unit_cost: number | null
+          building_type: string | null
+          category_id: string | null
+          created_at: string | null
+          id: string
+          material_id: string | null
+          max_unit_cost: number | null
+          min_unit_cost: number | null
+          province: string | null
+          region_type: string | null
+          snapshot_date: string
+          stddev_unit_cost: number | null
+          total_cost: number | null
+          total_projects: number | null
+          total_quantity: number | null
+        }
+        Insert: {
+          avg_cost_per_sqm?: number | null
+          avg_quantity_per_sqm?: number | null
+          avg_unit_cost?: number | null
+          building_type?: string | null
+          category_id?: string | null
+          created_at?: string | null
+          id?: string
+          material_id?: string | null
+          max_unit_cost?: number | null
+          min_unit_cost?: number | null
+          province?: string | null
+          region_type?: string | null
+          snapshot_date?: string
+          stddev_unit_cost?: number | null
+          total_cost?: number | null
+          total_projects?: number | null
+          total_quantity?: number | null
+        }
+        Update: {
+          avg_cost_per_sqm?: number | null
+          avg_quantity_per_sqm?: number | null
+          avg_unit_cost?: number | null
+          building_type?: string | null
+          category_id?: string | null
+          created_at?: string | null
+          id?: string
+          material_id?: string | null
+          max_unit_cost?: number | null
+          min_unit_cost?: number | null
+          province?: string | null
+          region_type?: string | null
+          snapshot_date?: string
+          stddev_unit_cost?: number | null
+          total_cost?: number | null
+          total_projects?: number | null
+          total_quantity?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "material_analytics_snapshots_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "material_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_analytics_snapshots_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "master_materials"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      material_categories: {
+        Row: {
+          category_code: string
+          category_name: string
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean | null
+          parent_category_id: string | null
+          sort_order: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          category_code: string
+          category_name: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          parent_category_id?: string | null
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          category_code?: string
+          category_name?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean | null
+          parent_category_id?: string | null
+          sort_order?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "material_categories_parent_category_id_fkey"
+            columns: ["parent_category_id"]
+            isOneToOne: false
+            referencedRelation: "material_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      material_price_audit: {
+        Row: {
+          change_percent: number | null
+          change_reason: string
+          changed_at: string | null
+          changed_by: string
+          id: string
+          material_id: string
+          new_install_cost: number | null
+          new_supply_cost: number | null
+          old_install_cost: number | null
+          old_supply_cost: number | null
+        }
+        Insert: {
+          change_percent?: number | null
+          change_reason: string
+          changed_at?: string | null
+          changed_by: string
+          id?: string
+          material_id: string
+          new_install_cost?: number | null
+          new_supply_cost?: number | null
+          old_install_cost?: number | null
+          old_supply_cost?: number | null
+        }
+        Update: {
+          change_percent?: number | null
+          change_reason?: string
+          changed_at?: string | null
+          changed_by?: string
+          id?: string
+          material_id?: string
+          new_install_cost?: number | null
+          new_supply_cost?: number | null
+          old_install_cost?: number | null
+          old_supply_cost?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "material_price_audit_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "master_materials"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       message_notifications: {
         Row: {
           created_at: string
@@ -4370,6 +4952,80 @@ export type Database = {
           },
         ]
       }
+      project_cost_benchmarks: {
+        Row: {
+          benchmark_status: string | null
+          cable_cost: number | null
+          calculated_at: string | null
+          calculated_by: string | null
+          comparison_count: number | null
+          comparison_project_ids: string[] | null
+          containment_cost: number | null
+          cost_per_sqm: number | null
+          cost_vs_avg_percent: number | null
+          earthing_cost: number | null
+          hv_equipment_cost: number | null
+          id: string
+          lighting_cost: number | null
+          lv_equipment_cost: number | null
+          metering_cost: number | null
+          other_cost: number | null
+          project_id: string
+          total_gla: number | null
+          total_material_cost: number | null
+        }
+        Insert: {
+          benchmark_status?: string | null
+          cable_cost?: number | null
+          calculated_at?: string | null
+          calculated_by?: string | null
+          comparison_count?: number | null
+          comparison_project_ids?: string[] | null
+          containment_cost?: number | null
+          cost_per_sqm?: number | null
+          cost_vs_avg_percent?: number | null
+          earthing_cost?: number | null
+          hv_equipment_cost?: number | null
+          id?: string
+          lighting_cost?: number | null
+          lv_equipment_cost?: number | null
+          metering_cost?: number | null
+          other_cost?: number | null
+          project_id: string
+          total_gla?: number | null
+          total_material_cost?: number | null
+        }
+        Update: {
+          benchmark_status?: string | null
+          cable_cost?: number | null
+          calculated_at?: string | null
+          calculated_by?: string | null
+          comparison_count?: number | null
+          comparison_project_ids?: string[] | null
+          containment_cost?: number | null
+          cost_per_sqm?: number | null
+          cost_vs_avg_percent?: number | null
+          earthing_cost?: number | null
+          hv_equipment_cost?: number | null
+          id?: string
+          lighting_cost?: number | null
+          lv_equipment_cost?: number | null
+          metering_cost?: number | null
+          other_cost?: number | null
+          project_id?: string
+          total_gla?: number | null
+          total_material_cost?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_cost_benchmarks_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_floor_plans: {
         Row: {
           base_pdf_url: string | null
@@ -4408,6 +5064,110 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      project_materials: {
+        Row: {
+          area_served_sqm: number | null
+          boq_section: string | null
+          boq_upload_id: string | null
+          category_id: string | null
+          created_at: string | null
+          created_by: string | null
+          description: string | null
+          id: string
+          install_cost: number | null
+          location_in_project: string | null
+          master_material_id: string | null
+          material_code: string | null
+          material_name: string
+          override_reason: string | null
+          project_id: string
+          quantity: number
+          rate_overridden: boolean | null
+          rate_source: string | null
+          supply_cost: number | null
+          tender_reference: string | null
+          unit: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          area_served_sqm?: number | null
+          boq_section?: string | null
+          boq_upload_id?: string | null
+          category_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          install_cost?: number | null
+          location_in_project?: string | null
+          master_material_id?: string | null
+          material_code?: string | null
+          material_name: string
+          override_reason?: string | null
+          project_id: string
+          quantity?: number
+          rate_overridden?: boolean | null
+          rate_source?: string | null
+          supply_cost?: number | null
+          tender_reference?: string | null
+          unit?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          area_served_sqm?: number | null
+          boq_section?: string | null
+          boq_upload_id?: string | null
+          category_id?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          install_cost?: number | null
+          location_in_project?: string | null
+          master_material_id?: string | null
+          material_code?: string | null
+          material_name?: string
+          override_reason?: string | null
+          project_id?: string
+          quantity?: number
+          rate_overridden?: boolean | null
+          rate_source?: string | null
+          supply_cost?: number | null
+          tender_reference?: string | null
+          unit?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_materials_boq_upload_id_fkey"
+            columns: ["boq_upload_id"]
+            isOneToOne: false
+            referencedRelation: "boq_uploads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_materials_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "material_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_materials_master_material_id_fkey"
+            columns: ["master_material_id"]
+            isOneToOne: false
+            referencedRelation: "master_materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_materials_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       project_members: {
         Row: {
@@ -4703,7 +5463,9 @@ export type Database = {
       projects: {
         Row: {
           building_calculation_type: string | null
+          building_type: string | null
           cctv_contractor: string | null
+          city: string | null
           client_logo_url: string | null
           client_name: string | null
           connection_size: string | null
@@ -4724,16 +5486,21 @@ export type Database = {
           project_logo_url: string | null
           project_number: string
           protection_philosophy: string | null
+          province: string | null
+          region_type: string | null
           site_handover_date: string | null
           standby_plants_contractor: string | null
           status: string | null
           supply_authority: string | null
           tariff_structure: string | null
+          total_gla: number | null
           updated_at: string
         }
         Insert: {
           building_calculation_type?: string | null
+          building_type?: string | null
           cctv_contractor?: string | null
+          city?: string | null
           client_logo_url?: string | null
           client_name?: string | null
           connection_size?: string | null
@@ -4754,16 +5521,21 @@ export type Database = {
           project_logo_url?: string | null
           project_number: string
           protection_philosophy?: string | null
+          province?: string | null
+          region_type?: string | null
           site_handover_date?: string | null
           standby_plants_contractor?: string | null
           status?: string | null
           supply_authority?: string | null
           tariff_structure?: string | null
+          total_gla?: number | null
           updated_at?: string
         }
         Update: {
           building_calculation_type?: string | null
+          building_type?: string | null
           cctv_contractor?: string | null
+          city?: string | null
           client_logo_url?: string | null
           client_name?: string | null
           connection_size?: string | null
@@ -4784,11 +5556,14 @@ export type Database = {
           project_logo_url?: string | null
           project_number?: string
           protection_philosophy?: string | null
+          province?: string | null
+          region_type?: string | null
           site_handover_date?: string | null
           standby_plants_contractor?: string | null
           status?: string | null
           supply_authority?: string | null
           tariff_structure?: string | null
+          total_gla?: number | null
           updated_at?: string
         }
         Relationships: [
@@ -4836,6 +5611,53 @@ export type Database = {
           y_position?: number
         }
         Relationships: []
+      }
+      rate_change_audit: {
+        Row: {
+          change_percent: number | null
+          change_reason: string
+          changed_at: string | null
+          changed_by: string
+          id: string
+          new_base_rate: number | null
+          new_ti_rate: number | null
+          old_base_rate: number | null
+          old_ti_rate: number | null
+          rate_id: string
+        }
+        Insert: {
+          change_percent?: number | null
+          change_reason: string
+          changed_at?: string | null
+          changed_by: string
+          id?: string
+          new_base_rate?: number | null
+          new_ti_rate?: number | null
+          old_base_rate?: number | null
+          old_ti_rate?: number | null
+          rate_id: string
+        }
+        Update: {
+          change_percent?: number | null
+          change_reason?: string
+          changed_at?: string | null
+          changed_by?: string
+          id?: string
+          new_base_rate?: number | null
+          new_ti_rate?: number | null
+          old_base_rate?: number | null
+          old_ti_rate?: number | null
+          rate_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rate_change_audit_rate_id_fkey"
+            columns: ["rate_id"]
+            isOneToOne: false
+            referencedRelation: "master_rate_library"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       recovery_operations: {
         Row: {
@@ -5079,6 +5901,92 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      retailer_categories: {
+        Row: {
+          category_code: string
+          category_name: string
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          sort_order: number | null
+          typical_base_rate: number | null
+          typical_load_per_sqm: number | null
+          typical_ti_rate: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          category_code: string
+          category_name: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          sort_order?: number | null
+          typical_base_rate?: number | null
+          typical_load_per_sqm?: number | null
+          typical_ti_rate?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          category_code?: string
+          category_name?: string
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          sort_order?: number | null
+          typical_base_rate?: number | null
+          typical_load_per_sqm?: number | null
+          typical_ti_rate?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      retailer_master: {
+        Row: {
+          category_id: string | null
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          logo_url: string | null
+          notes: string | null
+          retailer_name: string
+          typical_area_max: number | null
+          typical_area_min: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          category_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          logo_url?: string | null
+          notes?: string | null
+          retailer_name: string
+          typical_area_max?: number | null
+          typical_area_min?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          category_id?: string | null
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          logo_url?: string | null
+          notes?: string | null
+          retailer_name?: string
+          typical_area_max?: number | null
+          typical_area_min?: number | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "retailer_master_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "retailer_categories"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       review_recommendation_progress: {
         Row: {

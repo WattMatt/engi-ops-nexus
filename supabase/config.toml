@@ -80,3 +80,6 @@ verify_jwt = false
 
 [functions.send-invoice-reminder]
 verify_jwt = false
+
+[functions.extract-boq-rates]
+verify_jwt = false
