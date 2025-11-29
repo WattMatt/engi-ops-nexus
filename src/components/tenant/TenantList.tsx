@@ -287,22 +287,22 @@ export const TenantList = ({
     
     // Critical: Beneficial occupation date passed but work incomplete
     if (daysUntilBeneficial < 0 && !isTenantComplete(tenant)) {
-      return { status: 'overdue', className: 'bg-red-100 hover:bg-red-200' };
+      return { status: 'overdue', className: 'bg-red-200 dark:bg-red-900/50 hover:bg-red-300 dark:hover:bg-red-900/70 border-l-4 border-l-red-500' };
     }
     
     // Warning: Equipment deadline passed but not ordered
     if (daysUntilEquipmentDeadline < 0 && (!tenant.db_ordered || !tenant.lighting_ordered)) {
-      return { status: 'equipment-overdue', className: 'bg-orange-100 hover:bg-orange-200' };
+      return { status: 'equipment-overdue', className: 'bg-orange-200 dark:bg-orange-900/50 hover:bg-orange-300 dark:hover:bg-orange-900/70 border-l-4 border-l-orange-500' };
     }
     
     // Amber: Within 2 weeks of beneficial occupation
     if (daysUntilBeneficial >= 0 && daysUntilBeneficial <= 14) {
-      return { status: 'approaching', className: 'bg-amber-100 hover:bg-amber-200' };
+      return { status: 'approaching', className: 'bg-amber-200 dark:bg-amber-900/50 hover:bg-amber-300 dark:hover:bg-amber-900/70 border-l-4 border-l-amber-500' };
     }
     
     // Green: All on track
     if (isTenantComplete(tenant)) {
-      return { status: 'complete', className: 'bg-green-50 hover:bg-green-100' };
+      return { status: 'complete', className: 'bg-green-200 dark:bg-green-900/50 hover:bg-green-300 dark:hover:bg-green-900/70 border-l-4 border-l-green-500' };
     }
     
     return { status: 'normal', className: 'bg-background hover:bg-muted/50' };
