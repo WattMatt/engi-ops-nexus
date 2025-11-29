@@ -18,7 +18,9 @@ serve(async (req) => {
       includeDatabase = true,
       includeUI = true,
       includeSecurity = true,
-      includePerformance = true 
+      includePerformance = true,
+      includeComponents = true,
+      includeOperational = true
     } = await req.json();
     
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
@@ -116,26 +118,40 @@ ${includeSecurity ? `
    - API security
 ` : ''}
 
-4. **Code Quality & Architecture:**
+${includeComponents ? `
+4. **Component Structure & Reusability:**
+   - Component organization and file structure
+   - Reusable component patterns
+   - Props design and API consistency
+   - Component composition patterns
+   - Shared utilities and hooks
+   - Design system adherence
+` : ''}
+
+${includeOperational ? `
+5. **Operational Functionality & Workflows:**
+   - Business workflow efficiency
+   - Feature completeness for electrical engineering tasks
+   - User journey optimization
+   - Automation opportunities
+   - Integration improvements
+   - Reporting and analytics enhancements
+   - Data entry and validation workflows
+` : ''}
+
+6. **Code Quality & Architecture:**
    - Code organization and structure
-   - Component reusability
    - Type safety improvements
    - Error handling patterns
    - State management
 
-5. **Feature Enhancements:**
-   - Missing features for electrical engineering workflows
-   - Workflow automation opportunities
-   - Integration possibilities
-   - Reporting improvements
-
-6. **Technical Debt:**
+7. **Technical Debt:**
    - Deprecated patterns
    - Inconsistencies
    - Code duplication
    - Outdated dependencies
 
-7. **Best Practices:**
+8. **Best Practices:**
    - React best practices
    - TypeScript usage
    - Supabase patterns
@@ -154,8 +170,9 @@ Return a JSON object with this structure:
     },
     "performance": { same structure },
     "security": { same structure },
+    "components": { same structure },
+    "operational": { same structure },
     "codeQuality": { same structure },
-    "features": { same structure },
     "technicalDebt": { same structure }
   },
   "quickWins": [{"title": "", "effort": "low|medium|high", "impact": "low|medium|high", "description": ""}],
