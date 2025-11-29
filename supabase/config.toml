@@ -83,3 +83,6 @@ verify_jwt = false
 
 [functions.extract-boq-rates]
 verify_jwt = false
+
+[functions.extract-budget]
+verify_jwt = false

@@ -1,16 +1,56 @@
+import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ArrowLeft } from "lucide-react";
 import { BudgetOverview } from "@/components/budgets/BudgetOverview";
 import { BudgetSectionsManager } from "@/components/budgets/BudgetSectionsManager";
+import { BudgetPdfUpload } from "@/components/budgets/BudgetPdfUpload";
+import { BudgetExtractionReview } from "@/components/budgets/BudgetExtractionReview";
+import { AreaScheduleSync } from "@/components/budgets/AreaScheduleSync";
+
+interface ExtractedData {
+  budget_number: string;
+  revision: string;
+  budget_date: string;
+  prepared_for_company: string | null;
+  prepared_for_contact: string | null;
+  sections: Array<{
+    section_code: string;
+    section_name: string;
+    display_order: number;
+    line_items: Array<{
+      item_number: string;
+      description: string;
+      area: number | null;
+      area_unit: string;
+      base_rate: number | null;
+      ti_rate: number | null;
+      total: number;
+      shop_number: string | null;
+      is_tenant_item: boolean;
+    }>;
+  }>;
+  area_schedule: Array<{
+    shop_number: string;
+    tenant_name: string;
+    area: number;
+    area_unit: string;
+    category: string;
+  }>;
+}
 
 const ElectricalBudgetDetail = () => {
   const { budgetId } = useParams();
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [extractedData, setExtractedData] = useState<ExtractedData | null>(null);
+  const [showReview, setShowReview] = useState(false);
+  const [activeTab, setActiveTab] = useState("overview");
 
-  const { data: budget, isLoading } = useQuery({
+  const { data: budget, isLoading, refetch } = useQuery({
     queryKey: ["electrical-budget", budgetId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -25,16 +65,38 @@ const ElectricalBudgetDetail = () => {
     enabled: !!budgetId,
   });
 
+  const handleExtractionComplete = (data: ExtractedData) => {
+    setExtractedData(data);
+    setShowReview(true);
+  };
+
+  const handleSaveComplete = () => {
+    setShowReview(false);
+    setExtractedData(null);
+    refetch();
+    queryClient.invalidateQueries({ queryKey: ["budget-sections", budgetId] });
+    setActiveTab("sections");
+  };
+
+  const handleCancelReview = () => {
+    setShowReview(false);
+    setExtractedData(null);
+  };
+
+  const handleSyncComplete = () => {
+    queryClient.invalidateQueries({ queryKey: ["tenants"] });
+  };
+
   if (isLoading) {
-    return <div>Loading budget...</div>;
+    return <div className="p-6">Loading budget...</div>;
   }
 
   if (!budget) {
-    return <div>Budget not found</div>;
+    return <div className="p-6">Budget not found</div>;
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 p-6">
       <div className="flex items-center gap-4">
         <Button
           variant="ghost"
@@ -53,8 +115,51 @@ const ElectricalBudgetDetail = () => {
         </div>
       </div>
 
-      <BudgetOverview budget={budget} />
-      <BudgetSectionsManager budgetId={budgetId!} />
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList>
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="sections">Sections & Items</TabsTrigger>
+          <TabsTrigger value="import">Import from PDF</TabsTrigger>
+          {extractedData?.area_schedule && extractedData.area_schedule.length > 0 && (
+            <TabsTrigger value="area-sync">Area Schedule Sync</TabsTrigger>
+          )}
+        </TabsList>
+
+        <TabsContent value="overview" className="mt-4">
+          <BudgetOverview budget={budget} />
+        </TabsContent>
+
+        <TabsContent value="sections" className="mt-4">
+          <BudgetSectionsManager budgetId={budgetId!} />
+        </TabsContent>
+
+        <TabsContent value="import" className="mt-4 space-y-4">
+          {showReview && extractedData ? (
+            <BudgetExtractionReview
+              budgetId={budgetId!}
+              extractedData={extractedData}
+              onSave={handleSaveComplete}
+              onCancel={handleCancelReview}
+            />
+          ) : (
+            <BudgetPdfUpload
+              budgetId={budgetId!}
+              projectId={budget.project_id}
+              onExtractionComplete={handleExtractionComplete}
+            />
+          )}
+        </TabsContent>
+
+        {extractedData?.area_schedule && extractedData.area_schedule.length > 0 && (
+          <TabsContent value="area-sync" className="mt-4">
+            <AreaScheduleSync
+              projectId={budget.project_id}
+              areaSchedule={extractedData.area_schedule}
+              onSyncComplete={handleSyncComplete}
+            />
+          </TabsContent>
+        )}
+      </Tabs>
     </div>
   );
 };

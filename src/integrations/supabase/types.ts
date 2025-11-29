@@ -636,12 +636,15 @@ export type Database = {
           description: string
           display_order: number
           id: string
+          is_tenant_item: boolean | null
           item_number: string | null
           master_material_id: string | null
           master_rate_id: string | null
           override_reason: string | null
           rate_overridden: boolean | null
           section_id: string
+          shop_number: string | null
+          tenant_id: string | null
           ti_rate: number | null
           total: number
           updated_at: string
@@ -654,12 +657,15 @@ export type Database = {
           description: string
           display_order?: number
           id?: string
+          is_tenant_item?: boolean | null
           item_number?: string | null
           master_material_id?: string | null
           master_rate_id?: string | null
           override_reason?: string | null
           rate_overridden?: boolean | null
           section_id: string
+          shop_number?: string | null
+          tenant_id?: string | null
           ti_rate?: number | null
           total?: number
           updated_at?: string
@@ -672,12 +678,15 @@ export type Database = {
           description?: string
           display_order?: number
           id?: string
+          is_tenant_item?: boolean | null
           item_number?: string | null
           master_material_id?: string | null
           master_rate_id?: string | null
           override_reason?: string | null
           rate_overridden?: boolean | null
           section_id?: string
+          shop_number?: string | null
+          tenant_id?: string | null
           ti_rate?: number | null
           total?: number
           updated_at?: string
@@ -695,6 +704,13 @@ export type Database = {
             columns: ["master_rate_id"]
             isOneToOne: false
             referencedRelation: "master_rate_library"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_line_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           },
         ]
@@ -1975,6 +1991,7 @@ export type Database = {
           consultant_logo_url: string | null
           created_at: string
           created_by: string
+          extraction_status: string | null
           id: string
           notes: string | null
           prepared_by_contact: string | null
@@ -1983,6 +2000,7 @@ export type Database = {
           prepared_for_tel: string | null
           project_id: string
           revision: string
+          source_file_url: string | null
           updated_at: string
         }
         Insert: {
@@ -1992,6 +2010,7 @@ export type Database = {
           consultant_logo_url?: string | null
           created_at?: string
           created_by: string
+          extraction_status?: string | null
           id?: string
           notes?: string | null
           prepared_by_contact?: string | null
@@ -2000,6 +2019,7 @@ export type Database = {
           prepared_for_tel?: string | null
           project_id: string
           revision?: string
+          source_file_url?: string | null
           updated_at?: string
         }
         Update: {
@@ -2009,6 +2029,7 @@ export type Database = {
           consultant_logo_url?: string | null
           created_at?: string
           created_by?: string
+          extraction_status?: string | null
           id?: string
           notes?: string | null
           prepared_by_contact?: string | null
@@ -2017,6 +2038,7 @@ export type Database = {
           prepared_for_tel?: string | null
           project_id?: string
           revision?: string
+          source_file_url?: string | null
           updated_at?: string
         }
         Relationships: []
