@@ -3137,6 +3137,7 @@ export type Database = {
       }
       invoice_notification_settings: {
         Row: {
+          auto_generate_invoices: boolean | null
           created_at: string | null
           days_before_reminder: number | null
           id: string
@@ -3147,6 +3148,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          auto_generate_invoices?: boolean | null
           created_at?: string | null
           days_before_reminder?: number | null
           id?: string
@@ -3157,6 +3159,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          auto_generate_invoices?: boolean | null
           created_at?: string | null
           days_before_reminder?: number | null
           id?: string

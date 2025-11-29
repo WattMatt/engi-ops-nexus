@@ -8,7 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Bell, Mail, Calendar, Loader2, Send, Clock, CheckCircle, XCircle } from "lucide-react";
+import { Bell, Mail, Calendar, Loader2, Send, Clock, CheckCircle, XCircle, FileText } from "lucide-react";
 import { format } from "date-fns";
 
 interface NotificationSettings {
@@ -18,6 +18,7 @@ interface NotificationSettings {
   notifications_enabled: boolean;
   days_before_reminder: number;
   include_schedule_summary: boolean;
+  auto_generate_invoices: boolean;
 }
 
 const defaultSettings: NotificationSettings = {
@@ -26,6 +27,7 @@ const defaultSettings: NotificationSettings = {
   notifications_enabled: true,
   days_before_reminder: 7,
   include_schedule_summary: true,
+  auto_generate_invoices: false,
 };
 
 export const InvoiceNotificationSettings = () => {
@@ -243,6 +245,29 @@ export const InvoiceNotificationSettings = () => {
                 onCheckedChange={(checked) => updateSetting("include_schedule_summary", checked)}
               />
             </div>
+          </div>
+
+          <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <Label className="flex items-center gap-2">
+                  <FileText className="h-4 w-4 text-primary" />
+                  Auto-Generate Invoices
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Automatically create invoices from scheduled payments and include them in the email
+                </p>
+              </div>
+              <Switch
+                checked={settings.auto_generate_invoices}
+                onCheckedChange={(checked) => updateSetting("auto_generate_invoices", checked)}
+              />
+            </div>
+            {settings.auto_generate_invoices && (
+              <p className="mt-3 text-xs text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30 p-2 rounded">
+                When enabled, invoices will be automatically created in the system and full invoice details will be included in the email for forwarding to clients.
+              </p>
+            )}
           </div>
 
           <div className="flex gap-3 pt-4 border-t">
