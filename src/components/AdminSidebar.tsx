@@ -15,7 +15,6 @@ import {
 const adminItems = [
   { title: "Projects", url: "/admin/projects", icon: FolderKanban },
   { title: "Finance", url: "/admin/finance", icon: Banknote },
-  { title: "Invoicing", url: "/admin/invoicing", icon: Receipt },
   { title: "Staff Management", url: "/admin/staff", icon: Users },
   { title: "User Management", url: "/admin/users", icon: Users },
   { title: "Backup & Recovery", url: "/admin/backup", icon: Database },
