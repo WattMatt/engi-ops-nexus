@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, FileSpreadsheet, Clock, CheckCircle, XCircle, Eye, Loader2, Building2, MapPin, Calendar, Trash2, RefreshCw, MoreHorizontal, Download, Sheet, ExternalLink, RefreshCcw } from "lucide-react";
+import { Upload, FileSpreadsheet, Clock, CheckCircle, XCircle, Eye, Loader2, Building2, MapPin, Calendar, Trash2, RefreshCw, MoreHorizontal, Download, Sheet, ExternalLink, RefreshCcw, FileText, Presentation, Mail } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { BOQReviewDialog } from "./BOQReviewDialog";
@@ -440,6 +440,95 @@ export const BOQUploadTab = () => {
     return match ? match[1] : null;
   };
 
+  // Create Google Doc report
+  const handleCreateDocReport = async (upload: BOQUpload) => {
+    if (upload.status !== "completed" && upload.status !== "reviewed") {
+      toast.error("Can only create reports for completed BOQs");
+      return;
+    }
+
+    const toastId = toast.loading("Creating Google Doc report...");
+    try {
+      const { data, error } = await supabase.functions.invoke("google-sheets-sync", {
+        body: {
+          action: "create_boq_report",
+          upload_id: upload.id,
+        },
+      });
+
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error || "Failed to create report");
+
+      toast.success(`Created BOQ report with ${data.itemCount} items`, {
+        id: toastId,
+        action: {
+          label: "Open Doc",
+          onClick: () => window.open(data.documentUrl, "_blank"),
+        },
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to create report", { id: toastId });
+    }
+  };
+
+  // Create Google Slides presentation
+  const handleCreatePresentation = async (upload: BOQUpload) => {
+    if (upload.status !== "completed" && upload.status !== "reviewed") {
+      toast.error("Can only create presentations for completed BOQs");
+      return;
+    }
+
+    const toastId = toast.loading("Creating presentation...");
+    try {
+      const { data, error } = await supabase.functions.invoke("google-sheets-sync", {
+        body: {
+          action: "create_boq_presentation",
+          upload_id: upload.id,
+        },
+      });
+
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error || "Failed to create presentation");
+
+      toast.success("Created BOQ presentation", {
+        id: toastId,
+        action: {
+          label: "Open Slides",
+          onClick: () => window.open(data.presentationUrl, "_blank"),
+        },
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to create presentation", { id: toastId });
+    }
+  };
+
+  // Share BOQ via email
+  const handleShareViaEmail = async (upload: BOQUpload) => {
+    const email = prompt("Enter email address to share with:");
+    if (!email) return;
+
+    const message = prompt("Add a message (optional):");
+
+    const toastId = toast.loading("Sending email...");
+    try {
+      const { data, error } = await supabase.functions.invoke("google-sheets-sync", {
+        body: {
+          action: "share_boq_via_email",
+          upload_id: upload.id,
+          to: email,
+          message: message || undefined,
+        },
+      });
+
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error || "Failed to send email");
+
+      toast.success(`BOQ shared with ${email}`, { id: toastId });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to send email", { id: toastId });
+    }
+  };
+
   // Download original file
   const handleDownloadFile = async (upload: BOQUpload) => {
     if (!upload.file_path) {
@@ -818,6 +907,22 @@ export const BOQUploadTab = () => {
                                       </DropdownMenuItem>
                                     </>
                                   )}
+                                  <DropdownMenuSeparator />
+                                  {/* Google Docs & Slides */}
+                                  <DropdownMenuItem onClick={() => handleCreateDocReport(upload)}>
+                                    <FileText className="h-4 w-4 mr-2" />
+                                    Create Google Doc Report
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleCreatePresentation(upload)}>
+                                    <Presentation className="h-4 w-4 mr-2" />
+                                    Create Slides Presentation
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  {/* Share via Email */}
+                                  <DropdownMenuItem onClick={() => handleShareViaEmail(upload)}>
+                                    <Mail className="h-4 w-4 mr-2" />
+                                    Share via Email
+                                  </DropdownMenuItem>
                                   <DropdownMenuSeparator />
                                 </>
                               )}
