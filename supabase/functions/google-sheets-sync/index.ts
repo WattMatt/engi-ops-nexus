@@ -26,6 +26,8 @@ async function getGoogleAccessToken(): Promise<string> {
     'https://www.googleapis.com/auth/documents',
     'https://www.googleapis.com/auth/presentations',
     'https://www.googleapis.com/auth/gmail.send',
+    'https://www.googleapis.com/auth/forms.body',
+    'https://www.googleapis.com/auth/forms.responses.readonly',
   ].join(' ');
 
   const claim = {
@@ -938,6 +940,496 @@ function generateEmailTemplate(upload: any, items: any[], sheetUrl?: string, doc
   `;
 }
 
+// ==================== FORMS API ====================
+
+interface FormQuestion {
+  title: string;
+  type: 'text' | 'paragraph' | 'multiple_choice' | 'checkbox' | 'dropdown' | 'scale' | 'date' | 'time' | 'file_upload';
+  required?: boolean;
+  description?: string;
+  options?: string[];
+  low_label?: string;
+  high_label?: string;
+  scale_min?: number;
+  scale_max?: number;
+  include_year?: boolean;
+  include_time?: boolean;
+  points?: number;
+  correct_answers?: string[];
+  feedback_correct?: string;
+  feedback_incorrect?: string;
+}
+
+interface FormSettings {
+  title: string;
+  description?: string;
+  document_title?: string;
+  confirmation_message?: string;
+  is_quiz?: boolean;
+  collect_email?: boolean;
+  limit_one_response?: boolean;
+  allow_response_edits?: boolean;
+  show_link_to_respond_again?: boolean;
+  shuffle_questions?: boolean;
+  progress_bar?: boolean;
+  linked_sheet_id?: string;
+}
+
+async function createForm(accessToken: string, settings: FormSettings): Promise<{ formId: string; formUrl: string; responderUri: string }> {
+  // Create the form
+  const createResponse = await fetch('https://forms.googleapis.com/v1/forms', {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      info: {
+        title: settings.title,
+        documentTitle: settings.document_title || settings.title,
+      }
+    }),
+  });
+
+  if (!createResponse.ok) {
+    const errorText = await createResponse.text();
+    console.error('Failed to create form:', errorText);
+    throw new Error(`Failed to create form: ${errorText}`);
+  }
+
+  const form = await createResponse.json();
+  const formId = form.formId;
+
+  // Update form settings
+  const updateRequests: any[] = [];
+
+  if (settings.description) {
+    updateRequests.push({
+      updateFormInfo: {
+        info: { description: settings.description },
+        updateMask: 'description'
+      }
+    });
+  }
+
+  if (settings.is_quiz) {
+    updateRequests.push({
+      updateSettings: {
+        settings: { quizSettings: { isQuiz: true } },
+        updateMask: 'quizSettings.isQuiz'
+      }
+    });
+  }
+
+  if (updateRequests.length > 0) {
+    await fetch(`https://forms.googleapis.com/v1/forms/${formId}:batchUpdate`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requests: updateRequests }),
+    });
+  }
+
+  return {
+    formId,
+    formUrl: `https://docs.google.com/forms/d/${formId}/edit`,
+    responderUri: form.responderUri || `https://docs.google.com/forms/d/e/${formId}/viewform`,
+  };
+}
+
+async function addFormQuestions(accessToken: string, formId: string, questions: FormQuestion[]): Promise<void> {
+  const requests: any[] = [];
+
+  questions.forEach((question, index) => {
+    const itemRequest: any = {
+      createItem: {
+        item: {
+          title: question.title,
+          description: question.description,
+          questionItem: {
+            question: {
+              required: question.required || false,
+            }
+          }
+        },
+        location: { index }
+      }
+    };
+
+    // Configure question type
+    switch (question.type) {
+      case 'text':
+        itemRequest.createItem.item.questionItem.question.textQuestion = {
+          paragraph: false
+        };
+        break;
+      
+      case 'paragraph':
+        itemRequest.createItem.item.questionItem.question.textQuestion = {
+          paragraph: true
+        };
+        break;
+      
+      case 'multiple_choice':
+        itemRequest.createItem.item.questionItem.question.choiceQuestion = {
+          type: 'RADIO',
+          options: (question.options || []).map(opt => ({ value: opt })),
+          shuffle: false
+        };
+        break;
+      
+      case 'checkbox':
+        itemRequest.createItem.item.questionItem.question.choiceQuestion = {
+          type: 'CHECKBOX',
+          options: (question.options || []).map(opt => ({ value: opt })),
+          shuffle: false
+        };
+        break;
+      
+      case 'dropdown':
+        itemRequest.createItem.item.questionItem.question.choiceQuestion = {
+          type: 'DROP_DOWN',
+          options: (question.options || []).map(opt => ({ value: opt })),
+          shuffle: false
+        };
+        break;
+      
+      case 'scale':
+        itemRequest.createItem.item.questionItem.question.scaleQuestion = {
+          low: question.scale_min || 1,
+          high: question.scale_max || 5,
+          lowLabel: question.low_label || '',
+          highLabel: question.high_label || ''
+        };
+        break;
+      
+      case 'date':
+        itemRequest.createItem.item.questionItem.question.dateQuestion = {
+          includeYear: question.include_year !== false,
+          includeTime: question.include_time || false
+        };
+        break;
+      
+      case 'time':
+        itemRequest.createItem.item.questionItem.question.timeQuestion = {
+          duration: false
+        };
+        break;
+      
+      case 'file_upload':
+        itemRequest.createItem.item.questionItem.question.fileUploadQuestion = {
+          folderId: '', // Will use default
+          maxFiles: 1,
+          maxFileSize: 10485760 // 10MB
+        };
+        break;
+    }
+
+    // Add grading for quiz questions
+    if (question.points !== undefined || question.correct_answers?.length) {
+      itemRequest.createItem.item.questionItem.question.grading = {
+        pointValue: question.points || 0,
+        correctAnswers: question.correct_answers ? {
+          answers: question.correct_answers.map(a => ({ value: a }))
+        } : undefined,
+        generalFeedback: question.feedback_correct ? {
+          text: question.feedback_correct
+        } : undefined,
+        whenRight: question.feedback_correct ? { text: question.feedback_correct } : undefined,
+        whenWrong: question.feedback_incorrect ? { text: question.feedback_incorrect } : undefined
+      };
+    }
+
+    requests.push(itemRequest);
+  });
+
+  if (requests.length > 0) {
+    const response = await fetch(`https://forms.googleapis.com/v1/forms/${formId}:batchUpdate`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requests }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Failed to add questions:', errorText);
+      // Don't throw - continue with partial success
+    }
+  }
+}
+
+async function addFormSections(accessToken: string, formId: string, sections: { title: string; description?: string; index: number }[]): Promise<void> {
+  const requests = sections.map(section => ({
+    createItem: {
+      item: {
+        title: section.title,
+        description: section.description,
+        pageBreakItem: {}
+      },
+      location: { index: section.index }
+    }
+  }));
+
+  if (requests.length > 0) {
+    await fetch(`https://forms.googleapis.com/v1/forms/${formId}:batchUpdate`, {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ requests }),
+    });
+  }
+}
+
+async function addFormImage(accessToken: string, formId: string, imageUrl: string, title?: string, index?: number): Promise<void> {
+  const request = {
+    createItem: {
+      item: {
+        title: title || '',
+        imageItem: {
+          image: { sourceUri: imageUrl }
+        }
+      },
+      location: { index: index || 0 }
+    }
+  };
+
+  await fetch(`https://forms.googleapis.com/v1/forms/${formId}:batchUpdate`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requests: [request] }),
+  });
+}
+
+async function addFormVideo(accessToken: string, formId: string, youtubeUri: string, title?: string, index?: number): Promise<void> {
+  const request = {
+    createItem: {
+      item: {
+        title: title || '',
+        videoItem: {
+          video: { youtubeUri }
+        }
+      },
+      location: { index: index || 0 }
+    }
+  };
+
+  await fetch(`https://forms.googleapis.com/v1/forms/${formId}:batchUpdate`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ requests: [request] }),
+  });
+}
+
+async function getFormResponses(accessToken: string, formId: string): Promise<{ responses: any[]; responseCount: number }> {
+  const response = await fetch(`https://forms.googleapis.com/v1/forms/${formId}/responses`, {
+    headers: { 'Authorization': `Bearer ${accessToken}` }
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to get form responses: ${errorText}`);
+  }
+
+  const data = await response.json();
+  return {
+    responses: data.responses || [],
+    responseCount: data.responses?.length || 0
+  };
+}
+
+async function getForm(accessToken: string, formId: string): Promise<any> {
+  const response = await fetch(`https://forms.googleapis.com/v1/forms/${formId}`, {
+    headers: { 'Authorization': `Bearer ${accessToken}` }
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to get form: ${errorText}`);
+  }
+
+  return await response.json();
+}
+
+async function createWatchForResponses(accessToken: string, formId: string, topicName: string): Promise<{ watchId: string; expireTime: string }> {
+  const response = await fetch(`https://forms.googleapis.com/v1/forms/${formId}/watches`, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      watch: {
+        target: { topic: { topicName } },
+        eventType: 'RESPONSES'
+      }
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Failed to create watch: ${errorText}`);
+  }
+
+  const data = await response.json();
+  return {
+    watchId: data.id,
+    expireTime: data.expireTime
+  };
+}
+
+async function linkFormToSheet(accessToken: string, formId: string, spreadsheetId?: string): Promise<{ spreadsheetId: string; spreadsheetUrl: string }> {
+  // If no spreadsheetId provided, create a new one
+  let targetSpreadsheetId = spreadsheetId;
+  
+  if (!targetSpreadsheetId) {
+    // Get form info for title
+    const form = await getForm(accessToken, formId);
+    const title = `${form.info?.title || 'Form'} (Responses)`;
+    
+    // Create new spreadsheet
+    const createResponse = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ properties: { title } }),
+    });
+    
+    if (!createResponse.ok) {
+      throw new Error(`Failed to create linked sheet: ${await createResponse.text()}`);
+    }
+    
+    const sheet = await createResponse.json();
+    targetSpreadsheetId = sheet.spreadsheetId;
+  }
+
+  // Note: Direct form-to-sheet linking requires Google Apps Script or manual setup
+  // We'll return the spreadsheet info for manual linking
+  return {
+    spreadsheetId: targetSpreadsheetId!,
+    spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${targetSpreadsheetId}/edit`
+  };
+}
+
+async function createBOQReviewForm(
+  accessToken: string, 
+  items: any[], 
+  upload: any
+): Promise<{ formId: string; formUrl: string; responderUri: string }> {
+  // Create the form
+  const { formId, formUrl, responderUri } = await createForm(accessToken, {
+    title: `BOQ Review: ${upload.file_name}`,
+    description: `Please review the extracted BOQ items and provide your feedback.\n\nProject: ${upload.province || 'N/A'} | ${upload.building_type || 'N/A'}\nContractor: ${upload.contractor_name || 'N/A'}`,
+    is_quiz: false
+  });
+
+  // Group items by bill for organized review
+  const billGroups: Record<string, any[]> = {};
+  items.forEach(item => {
+    const bill = item.bill_name || 'General';
+    if (!billGroups[bill]) billGroups[bill] = [];
+    billGroups[bill].push(item);
+  });
+
+  // Add questions for review
+  const questions: FormQuestion[] = [
+    {
+      title: 'Reviewer Name',
+      type: 'text',
+      required: true,
+      description: 'Please enter your full name'
+    },
+    {
+      title: 'Review Date',
+      type: 'date',
+      required: true,
+      include_year: true
+    },
+    {
+      title: 'Overall Assessment',
+      type: 'multiple_choice',
+      required: true,
+      description: 'How would you rate the overall quality of this BOQ?',
+      options: ['Excellent - Ready for use', 'Good - Minor corrections needed', 'Fair - Significant review required', 'Poor - Major issues found']
+    },
+    {
+      title: 'Accuracy Rating',
+      type: 'scale',
+      required: true,
+      description: 'Rate the accuracy of quantities and rates (1 = Very Inaccurate, 5 = Very Accurate)',
+      scale_min: 1,
+      scale_max: 5,
+      low_label: 'Very Inaccurate',
+      high_label: 'Very Accurate'
+    },
+    {
+      title: 'Completeness Rating',
+      type: 'scale',
+      required: true,
+      description: 'Rate the completeness of items (1 = Many items missing, 5 = Fully complete)',
+      scale_min: 1,
+      scale_max: 5,
+      low_label: 'Incomplete',
+      high_label: 'Complete'
+    },
+    {
+      title: 'Items Requiring Correction',
+      type: 'checkbox',
+      required: false,
+      description: 'Select all bill sections that need corrections',
+      options: Object.keys(billGroups)
+    },
+    {
+      title: 'Specific Issues Found',
+      type: 'paragraph',
+      required: false,
+      description: 'Please describe any specific issues, incorrect rates, or missing items you identified'
+    },
+    {
+      title: 'Recommended Actions',
+      type: 'checkbox',
+      required: false,
+      description: 'What actions do you recommend?',
+      options: [
+        'Approve as-is',
+        'Update quantities',
+        'Revise rates',
+        'Add missing items',
+        'Remove incorrect items',
+        'Re-extract from source',
+        'Requires site verification'
+      ]
+    },
+    {
+      title: 'Priority Level',
+      type: 'dropdown',
+      required: true,
+      description: 'How urgent are the required changes?',
+      options: ['Low - Can wait', 'Medium - Address within week', 'High - Needs immediate attention', 'Critical - Block until resolved']
+    },
+    {
+      title: 'Additional Comments',
+      type: 'paragraph',
+      required: false,
+      description: 'Any other comments or suggestions for improvement'
+    }
+  ];
+
+  await addFormQuestions(accessToken, formId, questions);
+
+  // Share the form
+  await shareFile(accessToken, formId);
+
+  return { formId, formUrl, responderUri };
+}
+
+async function createBOQSurveyForm(
+  accessToken: string,
+  surveyTitle: string,
+  surveyDescription: string,
+  customQuestions: FormQuestion[]
+): Promise<{ formId: string; formUrl: string; responderUri: string }> {
+  const { formId, formUrl, responderUri } = await createForm(accessToken, {
+    title: surveyTitle,
+    description: surveyDescription
+  });
+
+  await addFormQuestions(accessToken, formId, customQuestions);
+  await shareFile(accessToken, formId);
+
+  return { formId, formUrl, responderUri };
+}
+
 // ==================== MAIN HANDLER ====================
 
 serve(async (req) => {
@@ -1134,6 +1626,383 @@ serve(async (req) => {
         return new Response(JSON.stringify({ success: true, messageId }), { 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
         });
+      }
+
+      // ===== FORMS =====
+      case 'create_boq_review_form': {
+        const { upload_id } = body;
+        if (!upload_id) throw new Error('upload_id required');
+
+        const { data: upload } = await supabase.from('boq_uploads').select('*').eq('id', upload_id).single();
+        if (!upload) throw new Error('Upload not found');
+
+        const { data: items } = await supabase.from('boq_extracted_items')
+          .select('*').eq('upload_id', upload_id).order('bill_number, section_code');
+
+        const { formId, formUrl, responderUri } = await createBOQReviewForm(accessToken, items || [], upload);
+
+        return new Response(JSON.stringify({
+          success: true, formId, formUrl, responderUri, itemCount: items?.length || 0,
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      case 'create_custom_form': {
+        const { title, description, questions, is_quiz } = body;
+        if (!title) throw new Error('title required');
+
+        const { formId, formUrl, responderUri } = await createForm(accessToken, {
+          title,
+          description,
+          is_quiz: is_quiz || false
+        });
+
+        if (questions?.length) {
+          await addFormQuestions(accessToken, formId, questions);
+        }
+
+        await shareFile(accessToken, formId);
+
+        return new Response(JSON.stringify({
+          success: true, formId, formUrl, responderUri,
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      case 'add_form_questions': {
+        const { form_id, questions } = body;
+        if (!form_id || !questions?.length) throw new Error('form_id and questions required');
+
+        await addFormQuestions(accessToken, form_id, questions);
+
+        return new Response(JSON.stringify({ success: true, questionCount: questions.length }), { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        });
+      }
+
+      case 'add_form_section': {
+        const { form_id, sections } = body;
+        if (!form_id || !sections?.length) throw new Error('form_id and sections required');
+
+        await addFormSections(accessToken, form_id, sections);
+
+        return new Response(JSON.stringify({ success: true, sectionCount: sections.length }), { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        });
+      }
+
+      case 'add_form_media': {
+        const { form_id, media_type, url, title, index } = body;
+        if (!form_id || !media_type || !url) throw new Error('form_id, media_type, and url required');
+
+        if (media_type === 'image') {
+          await addFormImage(accessToken, form_id, url, title, index);
+        } else if (media_type === 'video') {
+          await addFormVideo(accessToken, form_id, url, title, index);
+        } else {
+          throw new Error('media_type must be "image" or "video"');
+        }
+
+        return new Response(JSON.stringify({ success: true }), { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        });
+      }
+
+      case 'get_form': {
+        const { form_id } = body;
+        if (!form_id) throw new Error('form_id required');
+
+        const form = await getForm(accessToken, form_id);
+
+        return new Response(JSON.stringify({ success: true, form }), { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        });
+      }
+
+      case 'get_form_responses': {
+        const { form_id } = body;
+        if (!form_id) throw new Error('form_id required');
+
+        const { responses, responseCount } = await getFormResponses(accessToken, form_id);
+
+        return new Response(JSON.stringify({ success: true, responses, responseCount }), { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        });
+      }
+
+      case 'link_form_to_sheet': {
+        const { form_id, spreadsheet_id } = body;
+        if (!form_id) throw new Error('form_id required');
+
+        const { spreadsheetId, spreadsheetUrl } = await linkFormToSheet(accessToken, form_id, spreadsheet_id);
+
+        return new Response(JSON.stringify({ 
+          success: true, spreadsheetId, spreadsheetUrl,
+          note: 'For automatic response syncing, manually link via Google Forms settings'
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      case 'create_feedback_form': {
+        const { project_name, project_id } = body;
+
+        const { formId, formUrl, responderUri } = await createForm(accessToken, {
+          title: `Project Feedback: ${project_name || 'General'}`,
+          description: 'We value your feedback. Please take a moment to share your thoughts.'
+        });
+
+        const feedbackQuestions: FormQuestion[] = [
+          {
+            title: 'How satisfied are you with the overall project?',
+            type: 'scale',
+            required: true,
+            scale_min: 1,
+            scale_max: 5,
+            low_label: 'Very Unsatisfied',
+            high_label: 'Very Satisfied'
+          },
+          {
+            title: 'Communication Quality',
+            type: 'scale',
+            required: true,
+            description: 'How would you rate the quality of communication throughout the project?',
+            scale_min: 1,
+            scale_max: 5,
+            low_label: 'Poor',
+            high_label: 'Excellent'
+          },
+          {
+            title: 'Timeline Adherence',
+            type: 'scale',
+            required: true,
+            description: 'How well did we meet the project timeline?',
+            scale_min: 1,
+            scale_max: 5,
+            low_label: 'Significantly Delayed',
+            high_label: 'On Time/Early'
+          },
+          {
+            title: 'Quality of Work',
+            type: 'scale',
+            required: true,
+            description: 'How would you rate the quality of the deliverables?',
+            scale_min: 1,
+            scale_max: 5,
+            low_label: 'Below Expectations',
+            high_label: 'Exceeded Expectations'
+          },
+          {
+            title: 'What did we do well?',
+            type: 'paragraph',
+            required: false,
+            description: 'Please share specific examples of what went well'
+          },
+          {
+            title: 'Areas for Improvement',
+            type: 'paragraph',
+            required: false,
+            description: 'What could we have done better?'
+          },
+          {
+            title: 'Would you recommend us to others?',
+            type: 'multiple_choice',
+            required: true,
+            options: ['Definitely Yes', 'Probably Yes', 'Not Sure', 'Probably No', 'Definitely No']
+          },
+          {
+            title: 'May we contact you for a testimonial?',
+            type: 'multiple_choice',
+            required: true,
+            options: ['Yes', 'No']
+          },
+          {
+            title: 'Contact Email (Optional)',
+            type: 'text',
+            required: false,
+            description: 'If you\'d like us to follow up, please provide your email'
+          }
+        ];
+
+        await addFormQuestions(accessToken, formId, feedbackQuestions);
+        await shareFile(accessToken, formId);
+
+        return new Response(JSON.stringify({
+          success: true, formId, formUrl, responderUri,
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      case 'create_site_inspection_form': {
+        const { project_name, inspection_type } = body;
+
+        const { formId, formUrl, responderUri } = await createForm(accessToken, {
+          title: `Site Inspection: ${project_name || 'Project'}`,
+          description: `${inspection_type || 'General'} Inspection Form\nPlease complete all required fields during your site visit.`
+        });
+
+        const inspectionQuestions: FormQuestion[] = [
+          {
+            title: 'Inspector Name',
+            type: 'text',
+            required: true
+          },
+          {
+            title: 'Inspection Date',
+            type: 'date',
+            required: true,
+            include_year: true,
+            include_time: true
+          },
+          {
+            title: 'Inspection Type',
+            type: 'dropdown',
+            required: true,
+            options: ['Pre-Construction', 'Progress Inspection', 'Quality Check', 'Safety Audit', 'Final Inspection', 'Defects Inspection']
+          },
+          {
+            title: 'Weather Conditions',
+            type: 'multiple_choice',
+            required: true,
+            options: ['Clear/Sunny', 'Partly Cloudy', 'Overcast', 'Light Rain', 'Heavy Rain', 'Windy']
+          },
+          {
+            title: 'Overall Site Condition',
+            type: 'scale',
+            required: true,
+            scale_min: 1,
+            scale_max: 5,
+            low_label: 'Poor',
+            high_label: 'Excellent'
+          },
+          {
+            title: 'Safety Compliance',
+            type: 'checkbox',
+            required: true,
+            description: 'Check all items that are compliant',
+            options: ['PPE in use', 'Signage adequate', 'Fire extinguishers accessible', 'First aid kit available', 'Hazards cordoned off', 'Work permits displayed']
+          },
+          {
+            title: 'Work Progress Assessment',
+            type: 'multiple_choice',
+            required: true,
+            options: ['Ahead of Schedule', 'On Schedule', 'Slightly Behind', 'Significantly Behind', 'Stalled']
+          },
+          {
+            title: 'Issues Identified',
+            type: 'paragraph',
+            required: false,
+            description: 'Describe any issues or concerns observed'
+          },
+          {
+            title: 'Corrective Actions Required',
+            type: 'paragraph',
+            required: false,
+            description: 'List any immediate actions needed'
+          },
+          {
+            title: 'Photo Documentation',
+            type: 'file_upload',
+            required: false,
+            description: 'Upload photos from the inspection'
+          },
+          {
+            title: 'Follow-up Required?',
+            type: 'multiple_choice',
+            required: true,
+            options: ['Yes - Within 24 hours', 'Yes - Within 1 week', 'Yes - At next scheduled visit', 'No follow-up needed']
+          },
+          {
+            title: 'Additional Notes',
+            type: 'paragraph',
+            required: false
+          }
+        ];
+
+        await addFormQuestions(accessToken, formId, inspectionQuestions);
+        await shareFile(accessToken, formId);
+
+        return new Response(JSON.stringify({
+          success: true, formId, formUrl, responderUri,
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      case 'create_variation_request_form': {
+        const { project_name } = body;
+
+        const { formId, formUrl, responderUri } = await createForm(accessToken, {
+          title: `Variation Request: ${project_name || 'Project'}`,
+          description: 'Submit a variation or change order request for review'
+        });
+
+        const variationQuestions: FormQuestion[] = [
+          {
+            title: 'Requestor Name',
+            type: 'text',
+            required: true
+          },
+          {
+            title: 'Request Date',
+            type: 'date',
+            required: true,
+            include_year: true
+          },
+          {
+            title: 'Variation Type',
+            type: 'dropdown',
+            required: true,
+            options: ['Addition', 'Omission', 'Substitution', 'Design Change', 'Scope Change', 'Other']
+          },
+          {
+            title: 'Affected Trade/Section',
+            type: 'checkbox',
+            required: true,
+            options: ['Electrical', 'Mechanical', 'Plumbing', 'Structural', 'Finishes', 'Civil', 'Other']
+          },
+          {
+            title: 'Description of Variation',
+            type: 'paragraph',
+            required: true,
+            description: 'Provide a detailed description of the proposed change'
+          },
+          {
+            title: 'Reason for Variation',
+            type: 'paragraph',
+            required: true,
+            description: 'Explain why this variation is necessary'
+          },
+          {
+            title: 'Estimated Cost Impact',
+            type: 'multiple_choice',
+            required: true,
+            options: ['No cost impact', 'Under R10,000', 'R10,000 - R50,000', 'R50,000 - R100,000', 'Over R100,000', 'Cost saving (credit)']
+          },
+          {
+            title: 'Estimated Time Impact',
+            type: 'multiple_choice',
+            required: true,
+            options: ['No time impact', '1-3 days', '1-2 weeks', '2-4 weeks', 'Over 1 month', 'Accelerates schedule']
+          },
+          {
+            title: 'Priority Level',
+            type: 'dropdown',
+            required: true,
+            options: ['Low - Can wait', 'Medium - Needed within 2 weeks', 'High - Needed within 1 week', 'Critical - Blocking work']
+          },
+          {
+            title: 'Supporting Documents',
+            type: 'file_upload',
+            required: false,
+            description: 'Upload any supporting documents, drawings, or photos'
+          },
+          {
+            title: 'Additional Comments',
+            type: 'paragraph',
+            required: false
+          }
+        ];
+
+        await addFormQuestions(accessToken, formId, variationQuestions);
+        await shareFile(accessToken, formId);
+
+        return new Response(JSON.stringify({
+          success: true, formId, formUrl, responderUri,
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
 
       default:

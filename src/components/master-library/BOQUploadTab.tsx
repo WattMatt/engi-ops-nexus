@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, FileSpreadsheet, Clock, CheckCircle, XCircle, Eye, Loader2, Building2, MapPin, Calendar, Trash2, RefreshCw, MoreHorizontal, Download, Sheet, ExternalLink, RefreshCcw, FileText, Presentation, Mail, FolderPlus } from "lucide-react";
+import { Upload, FileSpreadsheet, Clock, CheckCircle, XCircle, Eye, Loader2, Building2, MapPin, Calendar, Trash2, RefreshCw, MoreHorizontal, Download, Sheet, ExternalLink, RefreshCcw, FileText, Presentation, Mail, FolderPlus, ClipboardList, FileQuestion, ClipboardCheck, HardHat } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { BOQReviewDialog } from "./BOQReviewDialog";
@@ -565,6 +565,119 @@ export const BOQUploadTab = () => {
     }
   };
 
+  // Create BOQ Review Form
+  const handleCreateReviewForm = async (upload: BOQUpload) => {
+    if (upload.status !== "completed" && upload.status !== "reviewed") {
+      toast.error("Can only create review forms for completed BOQs");
+      return;
+    }
+
+    const toastId = toast.loading("Creating review form...");
+    try {
+      const { data, error } = await supabase.functions.invoke("google-sheets-sync", {
+        body: {
+          action: "create_boq_review_form",
+          upload_id: upload.id,
+        },
+      });
+
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error || "Failed to create form");
+
+      toast.success("Created BOQ review form", {
+        id: toastId,
+        action: {
+          label: "Open Form",
+          onClick: () => window.open(data.responderUri, "_blank"),
+        },
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to create form", { id: toastId });
+    }
+  };
+
+  // Create Feedback Form
+  const handleCreateFeedbackForm = async (upload: BOQUpload) => {
+    const projectName = upload.contractor_name || upload.file_name.replace(/\.[^/.]+$/, '');
+    const toastId = toast.loading("Creating feedback form...");
+    try {
+      const { data, error } = await supabase.functions.invoke("google-sheets-sync", {
+        body: {
+          action: "create_feedback_form",
+          project_name: projectName,
+        },
+      });
+
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error || "Failed to create form");
+
+      toast.success("Created feedback form", {
+        id: toastId,
+        action: {
+          label: "Open Form",
+          onClick: () => window.open(data.responderUri, "_blank"),
+        },
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to create form", { id: toastId });
+    }
+  };
+
+  // Create Site Inspection Form
+  const handleCreateInspectionForm = async (upload: BOQUpload) => {
+    const projectName = upload.contractor_name || upload.file_name.replace(/\.[^/.]+$/, '');
+    const toastId = toast.loading("Creating inspection form...");
+    try {
+      const { data, error } = await supabase.functions.invoke("google-sheets-sync", {
+        body: {
+          action: "create_site_inspection_form",
+          project_name: projectName,
+          inspection_type: "Progress Inspection",
+        },
+      });
+
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error || "Failed to create form");
+
+      toast.success("Created site inspection form", {
+        id: toastId,
+        action: {
+          label: "Open Form",
+          onClick: () => window.open(data.responderUri, "_blank"),
+        },
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to create form", { id: toastId });
+    }
+  };
+
+  // Create Variation Request Form
+  const handleCreateVariationForm = async (upload: BOQUpload) => {
+    const projectName = upload.contractor_name || upload.file_name.replace(/\.[^/.]+$/, '');
+    const toastId = toast.loading("Creating variation request form...");
+    try {
+      const { data, error } = await supabase.functions.invoke("google-sheets-sync", {
+        body: {
+          action: "create_variation_request_form",
+          project_name: projectName,
+        },
+      });
+
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error || "Failed to create form");
+
+      toast.success("Created variation request form", {
+        id: toastId,
+        action: {
+          label: "Open Form",
+          onClick: () => window.open(data.responderUri, "_blank"),
+        },
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to create form", { id: toastId });
+    }
+  };
+
   // Download original file
   const handleDownloadFile = async (upload: BOQUpload) => {
     if (!upload.file_path) {
@@ -963,6 +1076,24 @@ export const BOQUploadTab = () => {
                                   <DropdownMenuItem onClick={() => handleCreateDriveFolder(upload)}>
                                     <FolderPlus className="h-4 w-4 mr-2" />
                                     Create Drive Folder
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  {/* Google Forms */}
+                                  <DropdownMenuItem onClick={() => handleCreateReviewForm(upload)}>
+                                    <ClipboardList className="h-4 w-4 mr-2" />
+                                    Create Review Form
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleCreateFeedbackForm(upload)}>
+                                    <FileQuestion className="h-4 w-4 mr-2" />
+                                    Create Feedback Form
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleCreateInspectionForm(upload)}>
+                                    <HardHat className="h-4 w-4 mr-2" />
+                                    Create Inspection Form
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleCreateVariationForm(upload)}>
+                                    <ClipboardCheck className="h-4 w-4 mr-2" />
+                                    Create Variation Form
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
                                 </>
