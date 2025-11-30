@@ -49,6 +49,148 @@ const NON_MATERIAL_PATTERNS = [
 const MIN_DESCRIPTION_LENGTH = 5;
 
 /**
+ * Get Google Access Token using service account
+ */
+async function getGoogleAccessToken(): Promise<string> {
+  const serviceEmail = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_EMAIL');
+  const privateKey = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY');
+
+  if (!serviceEmail || !privateKey) {
+    throw new Error('Google service account credentials not configured');
+  }
+
+  const cleanedKey = privateKey.replace(/\\n/g, '\n');
+
+  const header = { alg: 'RS256', typ: 'JWT' };
+  const now = Math.floor(Date.now() / 1000);
+  const scopes = [
+    'https://www.googleapis.com/auth/spreadsheets.readonly',
+    'https://www.googleapis.com/auth/drive.readonly',
+  ].join(' ');
+
+  const claim = {
+    iss: serviceEmail,
+    scope: scopes,
+    aud: 'https://oauth2.googleapis.com/token',
+    exp: now + 3600,
+    iat: now,
+  };
+
+  const base64urlEncode = (obj: object | Uint8Array): string => {
+    let bytes: Uint8Array;
+    if (obj instanceof Uint8Array) {
+      bytes = obj;
+    } else {
+      bytes = new TextEncoder().encode(JSON.stringify(obj));
+    }
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    const base64 = btoa(binary);
+    return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+  };
+
+  const encodedHeader = base64urlEncode(header);
+  const encodedClaim = base64urlEncode(claim);
+  const signatureInput = `${encodedHeader}.${encodedClaim}`;
+
+  const pemHeader = '-----BEGIN PRIVATE KEY-----';
+  const pemFooter = '-----END PRIVATE KEY-----';
+  const pemContents = cleanedKey.replace(pemHeader, '').replace(pemFooter, '').replace(/\s/g, '');
+  const binaryKey = Uint8Array.from(atob(pemContents), c => c.charCodeAt(0));
+  
+  const cryptoKey = await crypto.subtle.importKey(
+    'pkcs8', binaryKey, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign']
+  );
+
+  const signature = await crypto.subtle.sign('RSASSA-PKCS1-v1_5', cryptoKey, new TextEncoder().encode(signatureInput));
+  const encodedSignature = base64urlEncode(new Uint8Array(signature));
+  const jwt = `${signatureInput}.${encodedSignature}`;
+
+  const tokenResponse = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer', assertion: jwt }),
+  });
+
+  if (!tokenResponse.ok) {
+    const errorText = await tokenResponse.text();
+    throw new Error(`Failed to get access token: ${errorText}`);
+  }
+
+  return (await tokenResponse.json()).access_token;
+}
+
+/**
+ * Fetch content from Google Sheets using the Sheets API
+ */
+async function fetchGoogleSheetContent(spreadsheetId: string): Promise<string> {
+  try {
+    const accessToken = await getGoogleAccessToken();
+    
+    // Fetch spreadsheet metadata to get sheet names
+    const metaUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}`;
+    const metaResponse = await fetch(metaUrl, {
+      headers: { 'Authorization': `Bearer ${accessToken}` }
+    });
+    
+    if (!metaResponse.ok) {
+      const errorText = await metaResponse.text();
+      console.error('[BOQ Extract] Failed to fetch spreadsheet metadata:', errorText);
+      throw new Error(`Failed to fetch Google Sheet: ${metaResponse.status}`);
+    }
+    
+    const metadata = await metaResponse.json();
+    const sheets = metadata.sheets || [];
+    console.log(`[BOQ Extract] Found ${sheets.length} sheets in Google Spreadsheet`);
+    
+    // Fetch data from all sheets
+    let combinedContent = '';
+    
+    for (const sheet of sheets) {
+      const sheetTitle = sheet.properties?.title;
+      if (!sheetTitle) continue;
+      
+      // Skip sheets that look like summary or cover pages
+      const skipPatterns = ['cover', 'summary', 'contents', 'index', 'template'];
+      if (skipPatterns.some(p => sheetTitle.toLowerCase().includes(p))) {
+        console.log(`[BOQ Extract] Skipping sheet: ${sheetTitle}`);
+        continue;
+      }
+      
+      const rangeUrl = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${encodeURIComponent(sheetTitle)}`;
+      const rangeResponse = await fetch(rangeUrl, {
+        headers: { 'Authorization': `Bearer ${accessToken}` }
+      });
+      
+      if (!rangeResponse.ok) {
+        console.error(`[BOQ Extract] Failed to fetch sheet ${sheetTitle}:`, await rangeResponse.text());
+        continue;
+      }
+      
+      const rangeData = await rangeResponse.json();
+      const values = rangeData.values || [];
+      
+      if (values.length === 0) continue;
+      
+      console.log(`[BOQ Extract] Sheet "${sheetTitle}": ${values.length} rows`);
+      
+      // Convert to text format
+      combinedContent += `\n=== SHEET: ${sheetTitle} ===\n`;
+      for (const row of values) {
+        combinedContent += (row as string[]).join('\t') + '\n';
+      }
+    }
+    
+    return combinedContent;
+  } catch (error) {
+    console.error('[BOQ Extract] Error fetching Google Sheet:', error);
+    throw new Error(`Failed to fetch Google Sheet content: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}
+
+/**
  * Filter out non-material items from extracted list
  */
 function filterValidMaterialItems(items: ExtractedItem[]): ExtractedItem[] {
@@ -122,14 +264,24 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { upload_id, file_content, file_type } = await req.json();
+    const { upload_id, file_content, file_type, google_sheet_id } = await req.json();
 
     if (!upload_id) {
       throw new Error('upload_id is required');
     }
 
     console.log(`[BOQ Extract] Starting extraction for upload: ${upload_id}`);
-    console.log(`[BOQ Extract] Content length: ${file_content?.length || 0} characters`);
+    
+    let contentToProcess = file_content;
+
+    // If google_sheet_id is provided, fetch content from Google Sheets
+    if (google_sheet_id) {
+      console.log(`[BOQ Extract] Fetching from Google Sheet: ${google_sheet_id}`);
+      contentToProcess = await fetchGoogleSheetContent(google_sheet_id);
+      console.log(`[BOQ Extract] Fetched ${contentToProcess?.length || 0} characters from Google Sheet`);
+    } else {
+      console.log(`[BOQ Extract] Content length: ${file_content?.length || 0} characters`);
+    }
 
     // Update status to processing immediately
     await supabase
@@ -144,7 +296,7 @@ serve(async (req) => {
     const processingPromise = processExtraction(
       supabase,
       upload_id,
-      file_content,
+      contentToProcess,
       lovableApiKey
     );
 

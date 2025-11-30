@@ -229,6 +229,12 @@ export const BOQUploadTab = () => {
       return;
     }
 
+    // Check if this is a Google Sheets import (no actual file in storage)
+    if (upload.file_path.startsWith("google_sheets/")) {
+      toast.error("Google Sheets imports cannot be previewed. Use 'Re-process' to extract items directly from the linked sheet.");
+      return;
+    }
+
     try {
       // Download file from storage
       const { data: fileData, error: downloadError } = await supabase.storage
@@ -314,7 +320,31 @@ export const BOQUploadTab = () => {
         .delete()
         .eq("upload_id", upload.id);
 
-      // Download file from storage
+      // Check if this is a Google Sheets import
+      if (upload.file_path.startsWith("google_sheets/")) {
+        const spreadsheetId = upload.file_path.replace("google_sheets/", "");
+        toast.info("Fetching data from Google Sheets...");
+        
+        // Call edge function to fetch and process directly from Google Sheets
+        try {
+          await supabase.functions.invoke(
+            "extract-boq-rates",
+            {
+              body: {
+                upload_id: upload.id,
+                google_sheet_id: spreadsheetId,
+                file_type: "xlsx",
+              },
+            }
+          );
+        } catch (invokeError) {
+          console.log("Edge function invoke returned (may be processing in background):", invokeError);
+        }
+
+        return upload;
+      }
+
+      // Download file from storage (for regular file uploads)
       const { data: fileData, error: downloadError } = await supabase.storage
         .from("boq-uploads")
         .download(upload.file_path);
