@@ -106,14 +106,34 @@ export const BudgetPdfUpload = ({ budgetId, projectId, onExtractionComplete }: B
       setProgress(40);
       setStatus('extracting');
 
-      // Step 2: Send to AI for extraction
-      const { data, error } = await supabase.functions.invoke('extract-budget', {
-        body: {
-          file_content: pdfText,
-          project_id: projectId,
-          budget_id: budgetId,
-        },
-      });
+      // Step 2: Send to AI for extraction (can take 30-90 seconds for large documents)
+      // Use AbortController with longer timeout for large document processing
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 120000); // 2 minute timeout
+      
+      let data, error;
+      try {
+        const response = await supabase.functions.invoke('extract-budget', {
+          body: {
+            file_content: pdfText,
+            project_id: projectId,
+            budget_id: budgetId,
+          },
+        });
+        data = response.data;
+        error = response.error;
+      } catch (fetchError: any) {
+        if (fetchError.name === 'AbortError') {
+          throw new Error('Extraction timed out. Please try a smaller document or try again.');
+        }
+        // Handle browser fetch "Load failed" errors
+        if (fetchError.message?.includes('Load failed') || fetchError.message?.includes('Failed to fetch')) {
+          throw new Error('Connection to extraction service was lost. Please try again - large documents may take up to 90 seconds to process.');
+        }
+        throw fetchError;
+      } finally {
+        clearTimeout(timeoutId);
+      }
 
       if (error) throw error;
       if (!data.success) throw new Error(data.error || 'Extraction failed');
@@ -206,7 +226,7 @@ export const BudgetPdfUpload = ({ budgetId, projectId, onExtractionComplete }: B
               <div className="flex-1">
                 <p className="font-medium">{fileName}</p>
                 <p className="text-sm text-muted-foreground">
-                  {status === 'reading' ? 'Reading PDF...' : 'Extracting with AI...'}
+                  {status === 'reading' ? 'Reading PDF...' : 'Extracting with AI (this may take 30-90 seconds)...'}
                 </p>
               </div>
             </div>
