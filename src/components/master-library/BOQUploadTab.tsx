@@ -101,6 +101,12 @@ export const BOQUploadTab = () => {
       if (error) throw error;
       return data as BOQUpload[];
     },
+    // Poll every 5 seconds if any uploads are processing
+    refetchInterval: (query) => {
+      const data = query.state.data as BOQUpload[] | undefined;
+      const hasProcessing = data?.some(u => u.status === "processing");
+      return hasProcessing ? 5000 : false;
+    },
   });
 
   const uploadMutation = useMutation({
@@ -250,31 +256,31 @@ export const BOQUploadTab = () => {
         toast.info(`Found ${parsed.sheets.length} sheet(s) with ${parsed.totalRows} rows`);
       }
 
-      // Call edge function to re-extract
-      const { error: extractError } = await supabase.functions.invoke(
-        "extract-boq-rates",
-        {
-          body: {
-            upload_id: upload.id,
-            file_content: fileContent,
-            file_type: fileExt,
-          },
-        }
-      );
-
-      if (extractError) {
-        console.error("Re-extraction error:", extractError);
-        throw extractError;
+      // Call edge function - it now returns immediately and processes in background
+      try {
+        await supabase.functions.invoke(
+          "extract-boq-rates",
+          {
+            body: {
+              upload_id: upload.id,
+              file_content: fileContent,
+              file_type: fileExt,
+            },
+          }
+        );
+      } catch (invokeError) {
+        // Edge function may timeout on client side but still complete in background
+        console.log("Edge function invoke returned (may be processing in background):", invokeError);
       }
 
       return upload;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["boq-uploads"] });
-      toast.success("BOQ re-processing started");
+      toast.success("BOQ processing started. This may take a few minutes for large files.");
     },
     onError: (error: Error) => {
-      toast.error(error.message || "Failed to re-process BOQ");
+      toast.error(error.message || "Failed to start BOQ processing");
     },
   });
 
