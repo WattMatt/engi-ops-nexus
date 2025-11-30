@@ -23,7 +23,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
-import { CheckCircle, XCircle, Plus, AlertCircle, ChevronDown, ChevronRight, FileText, Tag, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { CheckCircle, XCircle, Plus, AlertCircle, ChevronDown, ChevronRight, FileText, Tag, TrendingUp, TrendingDown, Minus, Link, History } from "lucide-react";
 
 interface BOQUpload {
   id: string;
@@ -391,21 +391,26 @@ export const BOQReviewDialog = ({ upload, open, onOpenChange }: BOQReviewDialogP
   const selectedArray = Array.from(selectedItems);
   const billKeys = Object.keys(groupedItems);
 
-  // Statistics
+  // Statistics - now focused on matching
   const stats = useMemo(() => {
-    if (!items) return { verified: 0, review: 0, newItems: 0, rateOnly: 0 };
+    if (!items) return { matched: 0, unmatched: 0, priceUp: 0, priceDown: 0, rateOnly: 0 };
     
-    let verified = 0, review = 0, newItems = 0, rateOnly = 0;
+    let matched = 0, unmatched = 0, priceUp = 0, priceDown = 0, rateOnly = 0;
     
     items.forEach((item) => {
       if (item.is_rate_only) rateOnly++;
-      const comparison = getRateComparison(item);
-      if (comparison?.status === "verified") verified++;
-      else if (comparison?.status === "higher" || comparison?.status === "lower") review++;
-      else if (comparison?.status === "new") newItems++;
+      
+      if (item.matched_material_id && (item.match_confidence || 0) >= 0.6) {
+        matched++;
+        const comparison = getRateComparison(item);
+        if (comparison?.status === "higher") priceUp++;
+        else if (comparison?.status === "lower") priceDown++;
+      } else {
+        unmatched++;
+      }
     });
     
-    return { verified, review, newItems, rateOnly };
+    return { matched, unmatched, priceUp, priceDown, rateOnly };
   }, [items, masterMaterials]);
 
   return (
@@ -418,35 +423,47 @@ export const BOQReviewDialog = ({ upload, open, onOpenChange }: BOQReviewDialogP
           </DialogDescription>
         </DialogHeader>
 
-        {/* Stats Bar */}
+        {/* Stats Bar - Matching focused */}
         <div className="flex flex-wrap gap-2 py-2 border-b">
-          <Badge variant="outline" className="gap-1">
-            <CheckCircle className="h-3 w-3 text-green-600" />
-            {stats.verified} Verified
+          <Badge variant="outline" className="gap-1 bg-green-50 dark:bg-green-900/20">
+            <Link className="h-3 w-3 text-green-600" />
+            {stats.matched} Matched
           </Badge>
-          <Badge variant="outline" className="gap-1">
-            <AlertCircle className="h-3 w-3 text-amber-600" />
-            {stats.review} Need Review
+          <Badge variant="outline" className="gap-1 bg-amber-50 dark:bg-amber-900/20">
+            <Plus className="h-3 w-3 text-amber-600" />
+            {stats.unmatched} Unmatched
           </Badge>
-          <Badge variant="outline" className="gap-1">
-            <Plus className="h-3 w-3" />
-            {stats.newItems} New Items
-          </Badge>
+          {stats.priceUp > 0 && (
+            <Badge variant="outline" className="gap-1 bg-red-50 dark:bg-red-900/20">
+              <TrendingUp className="h-3 w-3 text-red-600" />
+              {stats.priceUp} Price ↑
+            </Badge>
+          )}
+          {stats.priceDown > 0 && (
+            <Badge variant="outline" className="gap-1 bg-blue-50 dark:bg-blue-900/20">
+              <TrendingDown className="h-3 w-3 text-blue-600" />
+              {stats.priceDown} Price ↓
+            </Badge>
+          )}
           {stats.rateOnly > 0 && (
             <Badge variant="outline" className="gap-1">
               <Tag className="h-3 w-3 text-purple-600" />
               {stats.rateOnly} Rate Only
             </Badge>
           )}
+          <div className="ml-auto text-xs text-muted-foreground flex items-center gap-1">
+            <History className="h-3 w-3" />
+            Price history logged for matched items
+          </div>
         </div>
 
-        {/* Action Buttons */}
+        {/* Action Buttons - focused on unmatched items */}
         <div className="flex items-center gap-2 py-2 border-b">
           <Checkbox
             checked={selectedItems.size === items?.length && items?.length > 0}
             onCheckedChange={toggleAll}
           />
-          <span className="text-sm text-muted-foreground mr-2">Select All</span>
+          <span className="text-sm text-muted-foreground mr-2">Select All Unmatched</span>
           
           <Button
             size="sm"
@@ -454,16 +471,7 @@ export const BOQReviewDialog = ({ upload, open, onOpenChange }: BOQReviewDialogP
             onClick={() => addToMasterMutation.mutate(selectedArray)}
           >
             <Plus className="h-4 w-4 mr-1" />
-            Add to Library ({selectedItems.size})
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            disabled={selectedItems.size === 0}
-            onClick={() => updateStatusMutation.mutate({ ids: selectedArray, status: "approved" })}
-          >
-            <CheckCircle className="h-4 w-4 mr-1" />
-            Approve
+            Add to Master ({selectedItems.size})
           </Button>
           <Button
             size="sm"
@@ -472,10 +480,10 @@ export const BOQReviewDialog = ({ upload, open, onOpenChange }: BOQReviewDialogP
             onClick={() => updateStatusMutation.mutate({ ids: selectedArray, status: "rejected" })}
           >
             <XCircle className="h-4 w-4 mr-1" />
-            Reject
+            Ignore
           </Button>
           <div className="ml-auto text-sm text-muted-foreground">
-            {pendingItems.length} pending review
+            {stats.unmatched} unmatched items to review
           </div>
         </div>
 
@@ -624,108 +632,126 @@ const ItemsTable = ({
         <TableHead className="text-right">Supply</TableHead>
         <TableHead className="text-right">Install</TableHead>
         <TableHead className="text-right">Total</TableHead>
-        <TableHead className="text-center">Cross-Check</TableHead>
+        <TableHead className="text-center">Match</TableHead>
         <TableHead>Status</TableHead>
       </TableRow>
     </TableHeader>
     <TableBody>
-      {items.map((item) => (
-        <TableRow
-          key={item.id}
-          className={
-            item.added_to_master
-              ? "bg-green-50 dark:bg-green-900/20"
-              : item.is_rate_only
-              ? "bg-purple-50 dark:bg-purple-900/20"
-              : ""
-          }
-        >
-          <TableCell>
-            <Checkbox
-              checked={selectedItems.has(item.id)}
-              onCheckedChange={() => toggleItem(item.id)}
-              disabled={item.added_to_master}
-            />
-          </TableCell>
-          <TableCell className="text-xs text-muted-foreground font-mono">
-            {item.item_code || item.row_number}
-          </TableCell>
-          <TableCell>
-            <div className="max-w-[250px]">
-              <div className="font-medium text-sm truncate">{item.item_description}</div>
-              {item.is_rate_only && (
-                <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400 text-xs mt-1">
-                  Rate Only
-                </Badge>
-              )}
-            </div>
-          </TableCell>
-          <TableCell>
-            {item.added_to_master ? (
-              <Badge variant="outline" className="text-xs">
-                {item.suggested_category_name || "Assigned"}
-              </Badge>
-            ) : (
-              <Select
-                value={itemCategories[item.id] || item.suggested_category_id || ""}
-                onValueChange={(value) => setItemCategory(item.id, value)}
-              >
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue placeholder="Select category..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {groupedCategories.map((parent) => (
-                    <div key={parent.id}>
-                      <SelectItem value={parent.id} className="font-semibold">
-                        {parent.category_code} - {parent.category_name}
-                      </SelectItem>
-                      {parent.children.map((child) => (
-                        <SelectItem key={child.id} value={child.id} className="pl-6">
-                          {child.category_code} - {child.category_name}
-                        </SelectItem>
-                      ))}
-                    </div>
-                  ))}
-                </SelectContent>
-              </Select>
-            )}
-          </TableCell>
-          <TableCell className="text-right text-sm">
-            {item.is_rate_only ? (
-              <span className="text-muted-foreground">—</span>
-            ) : (
-              <>
-                {item.quantity} {item.unit}
-              </>
-            )}
-          </TableCell>
-          <TableCell className="text-right font-mono text-sm">
-            {item.supply_rate || item.supply_cost
-              ? formatCurrency(item.supply_rate || item.supply_cost || 0)
-              : "—"}
-          </TableCell>
-          <TableCell className="text-right font-mono text-sm">
-            {item.install_rate || item.install_cost
-              ? formatCurrency(item.install_rate || item.install_cost || 0)
-              : "—"}
-          </TableCell>
-          <TableCell className="text-right font-mono text-sm font-medium">
-            {(() => {
-              const supply = item.supply_rate || item.supply_cost || 0;
-              const install = item.install_rate || item.install_cost || 0;
-              const calculatedTotal = supply + install;
-              return calculatedTotal > 0 ? formatCurrency(calculatedTotal) : "—";
-            })()}
-            {item.profit_percentage && (
-              <div className="text-xs text-muted-foreground">
-                +{item.profit_percentage}% profit
+      {items.map((item) => {
+        const isMatched = item.matched_material_id && (item.match_confidence || 0) >= 0.6;
+        
+        return (
+          <TableRow
+            key={item.id}
+            className={
+              item.added_to_master
+                ? "bg-green-50 dark:bg-green-900/20"
+                : isMatched
+                ? "bg-blue-50/50 dark:bg-blue-900/10"
+                : item.is_rate_only
+                ? "bg-purple-50 dark:bg-purple-900/20"
+                : "bg-amber-50/30 dark:bg-amber-900/10"
+            }
+          >
+            <TableCell>
+              <Checkbox
+                checked={selectedItems.has(item.id)}
+                onCheckedChange={() => toggleItem(item.id)}
+                disabled={item.added_to_master || isMatched}
+              />
+            </TableCell>
+            <TableCell className="text-xs text-muted-foreground font-mono">
+              {item.item_code || item.row_number}
+            </TableCell>
+            <TableCell>
+              <div className="max-w-[250px]">
+                <div className="font-medium text-sm truncate">{item.item_description}</div>
+                {isMatched && (
+                  <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400 text-xs mt-1">
+                    <Link className="h-3 w-3 mr-1" />
+                    Matched ({Math.round((item.match_confidence || 0) * 100)}%)
+                  </Badge>
+                )}
+                {!isMatched && item.is_rate_only && (
+                  <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400 text-xs mt-1">
+                    Rate Only
+                  </Badge>
+                )}
+                {!isMatched && !item.is_rate_only && (
+                  <Badge className="bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 text-xs mt-1">
+                    <Plus className="h-3 w-3 mr-1" />
+                    New Item
+                  </Badge>
+                )}
               </div>
-            )}
-          </TableCell>
-          <TableCell className="text-center">{getComparisonBadge(item)}</TableCell>
-          <TableCell>{getStatusBadge(item)}</TableCell>
-        </TableRow>
-      ))}
+            </TableCell>
+            <TableCell>
+              {item.added_to_master || isMatched ? (
+                <Badge variant="outline" className="text-xs">
+                  {item.suggested_category_name || "Assigned"}
+                </Badge>
+              ) : (
+                <Select
+                  value={itemCategories[item.id] || item.suggested_category_id || ""}
+                  onValueChange={(value) => setItemCategory(item.id, value)}
+                >
+                  <SelectTrigger className="h-8 text-xs">
+                    <SelectValue placeholder="Select category..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {groupedCategories.map((parent) => (
+                      <div key={parent.id}>
+                        <SelectItem value={parent.id} className="font-semibold">
+                          {parent.category_code} - {parent.category_name}
+                        </SelectItem>
+                        {parent.children.map((child) => (
+                          <SelectItem key={child.id} value={child.id} className="pl-6">
+                            {child.category_code} - {child.category_name}
+                          </SelectItem>
+                        ))}
+                      </div>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </TableCell>
+            <TableCell className="text-right text-sm">
+              {item.is_rate_only ? (
+                <span className="text-muted-foreground">—</span>
+              ) : (
+                <>
+                  {item.quantity} {item.unit}
+                </>
+              )}
+            </TableCell>
+            <TableCell className="text-right font-mono text-sm">
+              {item.supply_rate || item.supply_cost
+                ? formatCurrency(item.supply_rate || item.supply_cost || 0)
+                : "—"}
+            </TableCell>
+            <TableCell className="text-right font-mono text-sm">
+              {item.install_rate || item.install_cost
+                ? formatCurrency(item.install_rate || item.install_cost || 0)
+                : "—"}
+            </TableCell>
+            <TableCell className="text-right font-mono text-sm font-medium">
+              {(() => {
+                const supply = item.supply_rate || item.supply_cost || 0;
+                const install = item.install_rate || item.install_cost || 0;
+                const calculatedTotal = supply + install;
+                return calculatedTotal > 0 ? formatCurrency(calculatedTotal) : "—";
+              })()}
+              {item.profit_percentage && (
+                <div className="text-xs text-muted-foreground">
+                  +{item.profit_percentage}% profit
+                </div>
+              )}
+            </TableCell>
+            <TableCell className="text-center">{getComparisonBadge(item)}</TableCell>
+            <TableCell>{getStatusBadge(item)}</TableCell>
+          </TableRow>
+        );
+      })}
     </TableBody>
   </Table>
 );

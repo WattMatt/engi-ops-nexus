@@ -275,15 +275,14 @@ export const BOQUploadTab = () => {
 
       toast.success(`Processing ${selectedSheets.length} sheet(s)...`);
 
-      // Call edge function with selected content
+      // Call the new matching edge function
       try {
         await supabase.functions.invoke(
-          "extract-boq-rates",
+          "match-boq-rates",
           {
             body: {
               upload_id: previewUpload.id,
               file_content: selectedContent,
-              file_type: previewUpload.file_type,
             },
           }
         );
@@ -325,15 +324,14 @@ export const BOQUploadTab = () => {
         const spreadsheetId = upload.file_path.replace("google_sheets/", "");
         toast.info("Fetching data from Google Sheets...");
         
-        // Call edge function to fetch and process directly from Google Sheets
+        // Call the new matching edge function for Google Sheets
         try {
           await supabase.functions.invoke(
-            "extract-boq-rates",
+            "match-boq-rates",
             {
               body: {
                 upload_id: upload.id,
                 google_sheet_id: spreadsheetId,
-                file_type: "xlsx",
               },
             }
           );
@@ -365,15 +363,14 @@ export const BOQUploadTab = () => {
         toast.info(`Found ${parsed.sheets.length} sheet(s) with ${parsed.totalRows} rows`);
       }
 
-      // Call edge function - it now returns immediately and processes in background
+      // Call the new matching edge function
       try {
         await supabase.functions.invoke(
-          "extract-boq-rates",
+          "match-boq-rates",
           {
             body: {
               upload_id: upload.id,
               file_content: fileContent,
-              file_type: fileExt,
             },
           }
         );

@@ -1,5 +1,8 @@
 project_id = "rsdisaisxdglmdmzmkyw"
 
+[functions.match-boq-rates]
+verify_jwt = false
+
 [functions.send-review-findings]
 verify_jwt = false
 
