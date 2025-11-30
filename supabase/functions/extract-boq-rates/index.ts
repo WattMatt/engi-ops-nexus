@@ -48,6 +48,10 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
   'AP': ['appliance', 'geyser', 'water heater', 'extractor', 'fan', 'pump', 'motor', 'hvac', 'air conditioning'],
 };
 
+declare const EdgeRuntime: {
+  waitUntil: (promise: Promise<unknown>) => void;
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -69,6 +73,7 @@ serve(async (req) => {
     console.log(`[BOQ Extract] Starting extraction for upload: ${upload_id}`);
     console.log(`[BOQ Extract] Content length: ${file_content?.length || 0} characters`);
 
+    // Update status to processing immediately
     await supabase
       .from('boq_uploads')
       .update({ 
@@ -77,6 +82,59 @@ serve(async (req) => {
       })
       .eq('id', upload_id);
 
+    // Process in background using EdgeRuntime.waitUntil
+    const processingPromise = processExtraction(
+      supabase,
+      upload_id,
+      file_content,
+      lovableApiKey
+    );
+
+    // Use EdgeRuntime.waitUntil to continue processing after response
+    if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
+      EdgeRuntime.waitUntil(processingPromise);
+    } else {
+      // Fallback: just start the promise (won't wait for completion)
+      processingPromise.catch(err => {
+        console.error('[BOQ Extract] Background processing error:', err);
+      });
+    }
+
+    // Return immediately - processing continues in background
+    return new Response(
+      JSON.stringify({
+        success: true,
+        message: 'Processing started. Check upload status for results.',
+        upload_id
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    console.error('[BOQ Extract] Error:', errorMessage);
+
+    return new Response(
+      JSON.stringify({ success: false, error: errorMessage }),
+      { 
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
+    );
+  }
+});
+
+/**
+ * Main extraction processing - runs in background
+ */
+async function processExtraction(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  upload_id: string,
+  file_content: string,
+  lovableApiKey: string | undefined
+): Promise<void> {
+  try {
     // Fetch reference data
     const { data: categories } = await supabase
       .from('material_categories')
@@ -88,7 +146,7 @@ serve(async (req) => {
       .select('id, material_code, material_name, category_id, standard_supply_cost, standard_install_cost')
       .eq('is_active', true);
 
-    const categoryList = categories?.map(c => `${c.category_code}: ${c.category_name}`).join(', ') || '';
+    const categoryList = categories?.map((c: { category_code: string; category_name: string }) => `${c.category_code}: ${c.category_name}`).join(', ') || '';
     
     // Split content into sheets for processing
     const sheets = splitIntoSheets(file_content);
@@ -147,7 +205,7 @@ serve(async (req) => {
 
       // Find category ID
       if (suggestedCategoryName && categories) {
-        const cat = categories.find(c => 
+        const cat = categories.find((c: { category_code: string; id: string }) => 
           c.category_code.toLowerCase() === suggestedCategoryName?.toLowerCase()
         );
         if (cat) {
@@ -238,11 +296,8 @@ serve(async (req) => {
 
     // Calculate statistics
     const matchedCount = itemsWithMatches.filter(i => i.matched_material_id).length;
-    const rateOnlyCount = itemsWithMatches.filter(i => i.is_rate_only).length;
-    const billNumbers = new Set(itemsWithMatches.map(i => i.bill_number).filter(Boolean));
-    const sectionCodes = new Set(itemsWithMatches.map(i => i.section_code).filter(Boolean));
     
-    // Update upload status
+    // Update upload status to completed
     await supabase
       .from('boq_uploads')
       .update({
@@ -255,52 +310,20 @@ serve(async (req) => {
 
     console.log(`[BOQ Extract] Completed: ${itemsWithMatches.length} items, ${matchedCount} matched`);
 
-    return new Response(
-      JSON.stringify({
-        success: true,
-        items_extracted: itemsWithMatches.length,
-        items_matched: matchedCount,
-        rate_only_items: rateOnlyCount,
-        bills_found: billNumbers.size,
-        sections_found: sectionCodes.size,
-        sections: Array.from(sectionCodes),
-        message: `Successfully extracted ${itemsWithMatches.length} items`
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-    console.error('[BOQ Extract] Error:', errorMessage);
+    console.error('[BOQ Extract] Processing error:', errorMessage);
 
-    try {
-      const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-      const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-      const supabase = createClient(supabaseUrl, supabaseServiceKey);
-      
-      const { upload_id } = await req.json().catch(() => ({}));
-      if (upload_id) {
-        await supabase
-          .from('boq_uploads')
-          .update({
-            status: 'failed',
-            error_message: errorMessage
-          })
-          .eq('id', upload_id);
-      }
-    } catch (e) {
-      console.error('[BOQ Extract] Failed to update status:', e);
-    }
-
-    return new Response(
-      JSON.stringify({ success: false, error: errorMessage }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    );
+    // Update status to failed
+    await supabase
+      .from('boq_uploads')
+      .update({
+        status: 'failed',
+        error_message: errorMessage
+      })
+      .eq('id', upload_id);
   }
-});
+}
 
 /**
  * Split content into individual sheets
@@ -478,64 +501,59 @@ function parseAIResponse(rawText: string, sheetName: string): ExtractedItem[] {
         prime_cost: parseFloat(item.prime_cost) || null,
         profit_percentage: parseFloat(item.profit_percentage) || null,
         suggested_category_name: item.suggested_category_name || null,
-        match_confidence: item.match_confidence || 0.5,
-        raw_data: { sheet: sheetName }
+        match_confidence: 0.5,
+        raw_data: item
       }));
     }
   } catch (parseError) {
     console.error(`[BOQ Extract] JSON parse error for ${sheetName}:`, parseError);
     
-    // Try to extract partial valid objects
-    const partialItems = extractPartialItems(cleanedText, sheetName);
-    if (partialItems.length > 0) {
-      console.log(`[BOQ Extract] Recovered ${partialItems.length} items from partial response`);
-      return partialItems;
-    }
+    // Try to extract partial items
+    return extractPartialItems(cleanedText, sheetName);
   }
   
   return [];
 }
 
 /**
- * Extract items from partial/truncated JSON
+ * Extract partial items from malformed JSON
  */
 function extractPartialItems(text: string, sheetName: string): ExtractedItem[] {
   const items: ExtractedItem[] = [];
   
-  // Match individual JSON objects
-  const objectRegex = /\{[^{}]*"item_code"\s*:\s*"([^"]+)"[^{}]*"item_description"\s*:\s*"([^"]+)"[^{}]*\}/g;
-  let match;
-  let rowNum = 0;
+  // Look for objects with item_code and item_description
+  const objectPattern = /\{[^{}]*"item_code"\s*:\s*"[^"]+"\s*[^{}]*"item_description"\s*:\s*"[^"]+"\s*[^{}]*\}/g;
+  const matches = text.match(objectPattern);
   
-  while ((match = objectRegex.exec(text)) !== null) {
-    rowNum++;
-    try {
-      const objText = match[0];
-      const item = JSON.parse(objText);
-      items.push({
-        row_number: rowNum,
-        bill_number: extractBillNumber(sheetName),
-        bill_name: extractBillName(sheetName),
-        section_code: item.section_code || item.item_code?.charAt(0) || null,
-        section_name: item.section_name || null,
-        item_code: item.item_code,
-        item_description: item.item_description,
-        quantity: item.is_rate_only ? null : (parseFloat(item.quantity) || null),
-        is_rate_only: item.is_rate_only || false,
-        unit: item.unit || null,
-        supply_rate: parseFloat(item.supply_rate) || null,
-        install_rate: parseFloat(item.install_rate) || null,
-        total_rate: parseFloat(item.total_rate) || null,
-        supply_cost: null,
-        install_cost: null,
-        prime_cost: null,
-        profit_percentage: null,
-        suggested_category_name: item.suggested_category_name || null,
-        match_confidence: 0.4,
-        raw_data: { sheet: sheetName, partial: true }
-      });
-    } catch {
-      // Skip invalid objects
+  if (matches) {
+    for (const match of matches) {
+      try {
+        const item = JSON.parse(match);
+        items.push({
+          row_number: items.length + 1,
+          bill_number: extractBillNumber(sheetName),
+          bill_name: extractBillName(sheetName),
+          section_code: item.section_code || null,
+          section_name: item.section_name || null,
+          item_code: item.item_code,
+          item_description: item.item_description,
+          quantity: parseFloat(item.quantity) || null,
+          is_rate_only: item.is_rate_only || false,
+          unit: item.unit || null,
+          supply_rate: parseFloat(item.supply_rate) || null,
+          install_rate: parseFloat(item.install_rate) || null,
+          total_rate: parseFloat(item.total_rate) || null,
+          supply_cost: null,
+          install_cost: null,
+          prime_cost: null,
+          profit_percentage: null,
+          suggested_category_name: item.suggested_category_name || null,
+          match_confidence: 0.3,
+          raw_data: item
+        });
+      } catch {
+        // Skip malformed objects
+      }
     }
   }
   
@@ -546,22 +564,16 @@ function extractPartialItems(text: string, sheetName: string): ExtractedItem[] {
  * Extract bill number from sheet name
  */
 function extractBillNumber(sheetName: string): number | null {
-  const match = sheetName.match(/BILL\s*(?:NO\.?\s*)?(\d+)/i) || 
-                sheetName.match(/^(\d+)\./);
-  return match ? parseInt(match[1]) : 1;
+  const match = sheetName.match(/^(\d+)/);
+  return match ? parseInt(match[1]) : null;
 }
 
 /**
  * Extract bill name from sheet name
  */
 function extractBillName(sheetName: string): string | null {
-  // Clean up sheet name
-  let name = sheetName
-    .replace(/BILL\s*(?:NO\.?\s*)?\d+\s*[-:.]\s*/i, '')
-    .replace(/^\d+\.\d*\s*/, '')
-    .trim();
-  
-  return name || null;
+  const match = sheetName.match(/^\d+[\.\s]+(.+)$/);
+  return match ? match[1].trim() : sheetName;
 }
 
 /**
@@ -572,62 +584,57 @@ function parseSheetBasic(sheetName: string, content: string): ExtractedItem[] {
   const lines = content.split('\n');
   
   let currentSection = '';
-  let currentSectionName = '';
-  let rowNumber = 0;
+  let currentSectionCode = '';
+  let rowNum = 0;
   
-  const billNumber = extractBillNumber(sheetName);
-  const billName = extractBillName(sheetName);
-
   for (const line of lines) {
     const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith('###')) continue;
+    if (!trimmed) continue;
     
-    // Detect section headers
-    const sectionMatch = trimmed.match(/^([A-N])[.\s]+(.+)/i);
-    if (sectionMatch && !trimmed.match(/^\w\d/)) {
-      currentSection = sectionMatch[1].toUpperCase();
-      currentSectionName = sectionMatch[2].trim();
+    // Check for section headers
+    const sectionMatch = trimmed.match(/^###\s*([A-Z][\.\s]*.+)/i);
+    if (sectionMatch) {
+      const sectionText = sectionMatch[1];
+      const codeMatch = sectionText.match(/^([A-Z])/);
+      currentSectionCode = codeMatch ? codeMatch[1] : '';
+      currentSection = sectionText;
       continue;
     }
     
-    // Detect line items
-    const itemMatch = trimmed.match(/^([A-N]\d+(?:\.\d+)*)\s+(.+)/i);
+    // Look for item lines
+    const itemMatch = trimmed.match(/^([A-Z]\d+(?:\.\d+)*)\s+(.+)/i);
     if (itemMatch) {
-      rowNumber++;
-      const parts = line.split(/\t/);
-      const isRateOnly = /rate\s*only/i.test(line);
+      rowNum++;
+      const itemCode = itemMatch[1];
+      const rest = itemMatch[2];
       
-      let qty: number | null = null;
-      let unit: string | null = null;
-      let supplyRate: number | null = null;
-      let installRate: number | null = null;
-      let amount: number | null = null;
+      // Try to parse values
+      const parts = rest.split('\t');
+      const description = parts[0] || rest;
       
-      // Parse tab-separated values
-      if (parts.length >= 3) {
-        const qtyStr = parts[2]?.trim();
-        if (qtyStr && !isRateOnly && !/rate/i.test(qtyStr)) {
-          qty = parseFloat(qtyStr.replace(/[^\d.-]/g, '')) || null;
+      let unit = null;
+      let quantity = null;
+      let supplyRate = null;
+      let installRate = null;
+      let isRateOnly = false;
+      
+      if (parts.length > 1) {
+        unit = parts[1] || null;
+        const qtyStr = parts[2] || '';
+        
+        if (qtyStr.toLowerCase().includes('rate only')) {
+          isRateOnly = true;
+        } else {
+          quantity = parseFloat(qtyStr) || null;
         }
-      }
-      if (parts.length >= 4) {
-        unit = parts[3]?.trim() || null;
-      }
-      if (parts.length >= 5) {
-        supplyRate = parseFloat(parts[4]?.replace(/[^\d.-]/g, '')) || null;
-      }
-      if (parts.length >= 6) {
-        installRate = parseFloat(parts[5]?.replace(/[^\d.-]/g, '')) || null;
-      }
-      if (parts.length >= 7) {
-        amount = parseFloat(parts[6]?.replace(/[^\d.-]/g, '')) || null;
+        
+        supplyRate = parseFloat(parts[3]) || null;
+        installRate = parseFloat(parts[4]) || null;
       }
       
-      const description = itemMatch[2]?.trim() || parts[1]?.trim() || '';
-      
-      // Determine category from description
+      // Suggest category based on keywords
+      let suggestedCategory = null;
       const descLower = description.toLowerCase();
-      let suggestedCategory: string | null = null;
       
       for (const [catCode, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
         for (const kw of keywords) {
@@ -640,56 +647,47 @@ function parseSheetBasic(sheetName: string, content: string): ExtractedItem[] {
       }
       
       items.push({
-        row_number: rowNumber,
-        bill_number: billNumber,
-        bill_name: billName,
-        section_code: currentSection || itemMatch[1].charAt(0).toUpperCase(),
-        section_name: currentSectionName,
-        item_code: itemMatch[1],
+        row_number: rowNum,
+        bill_number: extractBillNumber(sheetName),
+        bill_name: extractBillName(sheetName),
+        section_code: currentSectionCode,
+        section_name: currentSection,
+        item_code: itemCode,
         item_description: description,
-        quantity: qty,
+        quantity: isRateOnly ? null : quantity,
         is_rate_only: isRateOnly,
-        unit: unit,
+        unit,
         supply_rate: supplyRate,
         install_rate: installRate,
-        total_rate: amount && qty ? amount / qty : supplyRate,
-        supply_cost: qty && supplyRate ? qty * supplyRate : null,
-        install_cost: qty && installRate ? qty * installRate : null,
+        total_rate: null,
+        supply_cost: null,
+        install_cost: null,
         prime_cost: null,
         profit_percentage: null,
         suggested_category_name: suggestedCategory,
         match_confidence: 0.3,
-        raw_data: { original_line: line, parts, sheet: sheetName }
+        raw_data: { original_line: trimmed }
       });
     }
   }
-
+  
   return items;
 }
 
 /**
- * Fallback basic parsing for entire content
+ * Fallback basic BOQ parsing
  */
 function parseBasicBOQ(content: string): ExtractedItem[] {
-  if (!content) return [];
-  
   const sheets = splitIntoSheets(content);
-  let allItems: ExtractedItem[] = [];
-  let globalRow = 0;
   
-  for (const sheet of sheets) {
-    const items = parseSheetBasic(sheet.name, sheet.content);
-    for (const item of items) {
-      globalRow++;
-      item.row_number = globalRow;
+  if (sheets.length > 0) {
+    let allItems: ExtractedItem[] = [];
+    for (const sheet of sheets) {
+      allItems = allItems.concat(parseSheetBasic(sheet.name, sheet.content));
     }
-    allItems = allItems.concat(items);
+    return allItems;
   }
   
-  // If no sheets found, parse entire content
-  if (allItems.length === 0) {
-    allItems = parseSheetBasic('Main', content);
-  }
-  
-  return allItems;
+  // If no sheets, parse entire content
+  return parseSheetBasic('Unknown', content);
 }
