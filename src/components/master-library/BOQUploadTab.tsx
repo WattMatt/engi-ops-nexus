@@ -125,7 +125,7 @@ export const BOQUploadTab = () => {
 
       if (uploadError) throw uploadError;
 
-      // Create upload record with all metadata
+      // Create upload record with all metadata (status = pending, NOT processing yet)
       const { data: uploadRecord, error: recordError } = await supabase
         .from("boq_uploads")
         .insert({
@@ -140,49 +140,19 @@ export const BOQUploadTab = () => {
           building_type: selectedBuildingType || null,
           tender_date: tenderDate?.toISOString().split('T')[0] || null,
           uploaded_by: user.id,
-          status: "pending",
+          status: "pending", // File uploaded but not yet processed
         })
         .select()
         .single();
 
       if (recordError) throw recordError;
 
-      // Read file content for extraction
-      let fileContent = "";
-      let sheetCount = 0;
-      
-      if (fileExt === "csv") {
-        fileContent = await file.text();
-      } else if (fileExt === "xlsx" || fileExt === "xls") {
-        // Parse Excel file properly
-        toast.info("Parsing Excel file...");
-        const parsed = await parseExcelFile(file);
-        sheetCount = parsed.sheets.length;
-        fileContent = parsed.combinedText;
-        console.log(`[BOQ Upload] Parsed ${sheetCount} sheets, ${parsed.totalRows} rows from Excel`);
-        toast.info(`Found ${sheetCount} sheet(s) with ${parsed.totalRows} rows`);
-      }
-      // Call edge function to extract rates
-      const { error: extractError } = await supabase.functions.invoke(
-        "extract-boq-rates",
-        {
-          body: {
-            upload_id: uploadRecord.id,
-            file_content: fileContent,
-            file_type: fileExt,
-          },
-        }
-      );
-
-      if (extractError) {
-        console.error("Extraction error:", extractError);
-      }
-
+      // File is stored - extraction will happen when user clicks "Process"
       return uploadRecord;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["boq-uploads"] });
-      toast.success("BOQ uploaded and processing started");
+      toast.success("BOQ uploaded. Click 'Process' to extract rates with AI.");
       // Reset form
       setSourceDescription("");
       setContractorName("");
@@ -611,15 +581,31 @@ export const BOQUploadTab = () => {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setSelectedUpload(upload)}
-                            disabled={upload.status === "pending" || upload.status === "processing"}
-                          >
-                            <Eye className="h-4 w-4 mr-1" />
-                            Review
-                          </Button>
+                          {upload.status === "pending" ? (
+                            <Button
+                              variant="default"
+                              size="sm"
+                              onClick={() => reprocessMutation.mutate(upload)}
+                              disabled={reprocessMutation.isPending}
+                            >
+                              {reprocessMutation.isPending ? (
+                                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                              ) : (
+                                <RefreshCw className="h-4 w-4 mr-1" />
+                              )}
+                              Process
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setSelectedUpload(upload)}
+                              disabled={upload.status === "processing"}
+                            >
+                              <Eye className="h-4 w-4 mr-1" />
+                              Review
+                            </Button>
+                          )}
                           
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
