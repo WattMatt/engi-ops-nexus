@@ -34,9 +34,9 @@ interface ExtractedItem {
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
   'HV': ['substation', '11kv', '11 kv', '22kv', '33kv', 'medium voltage', 'mv ', 'rmu', 'ring main', 'transformer', 'mva', 'switchgear'],
   'LV': ['distribution board', 'db-', 'mdb', 'sdb', 'main board', 'sub board', 'panel', 'lv ', 'low voltage', 'busbar', 'bus duct'],
-  'CB-PW': ['xlpe', 'pvc cable', 'power cable', 'armoured cable', 'swa ', 'cable 4c', 'cable 3c', 'cable 2c', '95mm', '70mm', '50mm', '35mm', '25mm', '16mm'],
+  'CB-PW': ['xlpe', 'pvc cable', 'power cable', 'armoured cable', 'swa ', 'cable 4c', 'cable 3c', 'cable 2c', '95mm', '70mm', '50mm', '35mm', '25mm', '16mm', '240mm', '185mm', '150mm', '120mm'],
   'CB-CT': ['control cable', 'signal cable', 'instrumentation', 'screened cable'],
-  'CT': ['cable tray', 'cable ladder', 'trunking', 'conduit', 'gpo trunking', 'perforated', 'solid lid'],
+  'CT': ['cable tray', 'cable ladder', 'trunking', 'conduit', 'gpo trunking', 'perforated', 'solid lid', 'nextube'],
   'EA': ['earth', 'earthing', 'ground', 'electrode', 'lightning', 'equipotential', 'earth rod', 'earth tape', 'earth bar'],
   'LT': ['light fitting', 'led ', 'luminaire', 'downlight', 'panel light', 'strip light', 'high bay', 'flood light', 'emergency light', 'exit sign'],
   'AC': ['gland', 'lug', 'termination', 'cable accessories', 'joint', 'heat shrink', 'cable tie'],
@@ -44,7 +44,6 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
   'GN': ['prelim', 'builders work', 'testing', 'commissioning', 'as-built', 'documentation', 'general', 'attendance'],
   'FC': ['fire alarm', 'smoke detector', 'call point', 'sounder', 'beacon', 'fire detection'],
   'SC': ['access control', 'cctv', 'camera', 'intercom', 'gate motor', 'boom gate', 'security'],
-  'AV': ['speaker', 'audio', 'video', 'projector', 'screen', 'pa system', 'background music'],
   'DB': ['draw box', 'junction box', 'pull box', 'enclosure', 'ip55', 'ip65', 'weatherproof box'],
   'AP': ['appliance', 'geyser', 'water heater', 'extractor', 'fan', 'pump', 'motor', 'hvac', 'air conditioning'],
 };
@@ -89,161 +88,43 @@ serve(async (req) => {
       .select('id, material_code, material_name, category_id, standard_supply_cost, standard_install_cost')
       .eq('is_active', true);
 
-    const { data: standardSections } = await supabase
-      .from('boq_sections')
-      .select('section_code, section_name, display_order, category_mapping_id')
-      .order('display_order');
-
-    const categoryList = categories?.map(c => `${c.category_code}: ${c.category_name} - ${c.description || ''}`).join('\n') || '';
-    const sectionList = standardSections?.map(s => `${s.section_code}: ${s.section_name}`).join('\n') || '';
+    const categoryList = categories?.map(c => `${c.category_code}: ${c.category_name}`).join(', ') || '';
     
-    // Build a comprehensive extraction prompt
-    const extractionPrompt = `You are an expert South African electrical quantity surveyor parsing Bills of Quantities (BOQs).
-Your task is to extract EVERY single line item from this BOQ document, preserving all details exactly as shown.
+    // Split content into sheets for processing
+    const sheets = splitIntoSheets(file_content);
+    console.log(`[BOQ Extract] Found ${sheets.length} sheets to process`);
 
-DOCUMENT STRUCTURE TO DETECT:
-1. BILLS: "BILL 1", "BILL NO. 1", "BILL 2" etc. Each bill = different building/area (MALL, BOXER, TRUWORTHS, etc.)
-2. SECTIONS: Letter codes A through N:
-   - A: Preliminaries & General
-   - B: Medium/High Voltage (Substations, RMUs, MV cables)
-   - C: Low Voltage Distribution (Main DBs, Sub DBs, Panels)
-   - D: Low Voltage Cabling (Power cables, XLPE, SWA, PVC)
-   - E: Containment (Cable tray, ladder, conduit, trunking)
-   - F: Earthing & Lightning (Earth electrodes, conductors, bonding)
-   - G: General Power (Sockets, isolators, switches)
-   - H: Lighting (LED fittings, emergency lights, exit signs)
-   - I: Fire Detection & Alarm
-   - J: Security Systems (CCTV, Access Control)
-   - K: Appliances (Geysers, extractors, pumps)
-   - L: Testing & Commissioning
-   - M: Builders Work
-   - N: Provisional/Rate Only Items
+    let allExtractedItems: ExtractedItem[] = [];
+    let globalRowNumber = 0;
 
-3. LINE ITEMS: Each has item code (B2.1, D1.1.1), description, qty, unit, rates
-
-AVAILABLE MATERIAL CATEGORIES (use these codes):
-${categoryList}
-
-STANDARD SECTIONS:
-${sectionList}
-
-EXTRACTION RULES - CRITICAL:
-1. Extract EVERY line item - do NOT skip any items
-2. Preserve exact item codes as shown (B2.1, D1.1.1, E3.2.1, etc.)
-3. Parse ALL columns: Item, Description, Qty, Unit, Supply Rate, Install Rate, Amount
-4. Handle "Rate Only" items - they have no quantity but have rates
-5. Handle "Prime Cost" items - base cost + profit percentage
-6. South African currency is ZAR (R) - amounts can be R1,250.00 or 1250.00
-7. Common units: each, m, m², m³, kg, set, lot, pair, No, Nr, item, sum
-
-ITEM TYPES TO RECOGNIZE:
-- Substations, RMUs, transformers → HV category
-- Main DBs, sub DBs, panels → LV category  
-- XLPE cables, SWA cables, PVC cables → CB-PW category
-- Cable tray, ladder, trunking, conduit → CT category
-- Earth electrodes, earth bars, bonding → EA category
-- LED fittings, downlights, emergency lights → LT category
-- Draw boxes, junction boxes → DB category
-- Isolators, MCBs, switches, sockets → SW category
-- Geysers, extractors, pumps → AP category
-- Cable glands, lugs, terminations → AC category
-
-FOR EACH ITEM, RETURN:
-{
-  "row_number": <sequential number>,
-  "bill_number": <1, 2, 3 etc or null>,
-  "bill_name": "<MALL PORTION, BOXER etc or null>",
-  "section_code": "<A-N>",
-  "section_name": "<full section name>",
-  "item_code": "<exact code like B2.1>",
-  "item_description": "<full description>",
-  "quantity": <number or null if rate only>,
-  "is_rate_only": <true/false>,
-  "unit": "<each/m/m²/kg/etc>",
-  "supply_rate": <number or null>,
-  "install_rate": <number or null>,
-  "total_rate": <number if combined rate>,
-  "supply_cost": <total supply amount>,
-  "install_cost": <total install amount>,
-  "prime_cost": <PC base cost if applicable>,
-  "profit_percentage": <% on PC items>,
-  "suggested_category_name": "<category code from list>",
-  "match_confidence": <0.0-1.0>
-}
-
-Return ONLY a valid JSON array, no markdown code blocks or explanation.
-Parse ALL items from ALL sheets/bills/sections in this document.
-
-BOQ CONTENT TO PARSE:
-${file_content}`;
-
-    let extractedItems: ExtractedItem[] = [];
-
-    if (googleApiKey && file_content && file_content.length > 50) {
-      console.log('[BOQ Extract] Using Gemini AI for extraction');
+    // Process each sheet separately to avoid truncation
+    for (const sheet of sheets) {
+      if (sheet.content.length < 100) continue; // Skip empty/small sheets
       
-      const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent?key=${googleApiKey}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: extractionPrompt }] }],
-            generationConfig: {
-              temperature: 0.1,
-              maxOutputTokens: 65536,
-            }
-          })
-        }
-      );
-
-      const aiResult = await response.json();
+      console.log(`[BOQ Extract] Processing sheet: ${sheet.name}`);
       
-      if (aiResult.candidates?.[0]?.content?.parts?.[0]?.text) {
-        const rawText = aiResult.candidates[0].content.parts[0].text;
-        // Clean up JSON response
-        let cleanedText = rawText
-          .replace(/```json\n?/g, '')
-          .replace(/```\n?/g, '')
-          .trim();
-        
-        // Handle potential BOM or other issues
-        if (cleanedText.charCodeAt(0) === 0xFEFF) {
-          cleanedText = cleanedText.slice(1);
-        }
-        
-        try {
-          extractedItems = JSON.parse(cleanedText);
-          console.log(`[BOQ Extract] AI extracted ${extractedItems.length} items`);
-        } catch (parseError) {
-          console.error('[BOQ Extract] Failed to parse AI response:', parseError);
-          console.log('[BOQ Extract] Raw response preview:', rawText.substring(0, 2000));
-          
-          // Try to find and extract JSON array from response
-          const jsonMatch = rawText.match(/\[[\s\S]*\]/);
-          if (jsonMatch) {
-            try {
-              extractedItems = JSON.parse(jsonMatch[0]);
-              console.log(`[BOQ Extract] Recovered ${extractedItems.length} items from partial response`);
-            } catch (e) {
-              console.error('[BOQ Extract] Recovery also failed');
-            }
-          }
-        }
-      } else {
-        console.error('[BOQ Extract] No AI response:', JSON.stringify(aiResult).substring(0, 1000));
-        // Check for rate limiting or errors
-        if (aiResult.error) {
-          console.error('[BOQ Extract] AI Error:', aiResult.error);
-        }
+      const sheetItems = await extractFromSheet(sheet, categoryList, googleApiKey);
+      
+      // Add global row numbers
+      for (const item of sheetItems) {
+        globalRowNumber++;
+        item.row_number = globalRowNumber;
       }
-    } else {
-      console.log('[BOQ Extract] Using basic parsing (no AI key or content too short)');
-      extractedItems = parseBasicBOQ(file_content);
+      
+      allExtractedItems = allExtractedItems.concat(sheetItems);
+      console.log(`[BOQ Extract] Extracted ${sheetItems.length} items from ${sheet.name}`);
     }
 
+    // If AI extraction got nothing, try basic parsing
+    if (allExtractedItems.length === 0) {
+      console.log('[BOQ Extract] AI extraction returned nothing, falling back to basic parsing');
+      allExtractedItems = parseBasicBOQ(file_content);
+    }
+
+    console.log(`[BOQ Extract] Total items extracted: ${allExtractedItems.length}`);
+
     // Process and match items
-    const itemsWithMatches = extractedItems.map((item, index) => {
+    const itemsWithMatches = allExtractedItems.map((item, index) => {
       let matchedMaterial: { id: string; material_name: string } | null = null;
       let matchConfidence = item.match_confidence || 0;
       let suggestedCategoryId: string | null = null;
@@ -251,7 +132,7 @@ ${file_content}`;
 
       const descLower = (item.item_description || '').toLowerCase();
       
-      // First, try to determine category from keywords
+      // Determine category from keywords if not set
       if (!suggestedCategoryName) {
         for (const [catCode, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
           for (const kw of keywords) {
@@ -276,20 +157,17 @@ ${file_content}`;
 
       // Try to match to master materials
       if (masterMaterials && item.item_description) {
-        // Exact code match
         for (const material of masterMaterials) {
           const nameLower = material.material_name.toLowerCase();
           const codeLower = (material.material_code || '').toLowerCase();
           const itemCodeLower = (item.item_code || '').toLowerCase();
           
-          // Exact code match
           if (itemCodeLower && codeLower && codeLower === itemCodeLower) {
             matchedMaterial = material;
             matchConfidence = 0.95;
             break;
           }
           
-          // Exact description match
           if (descLower === nameLower) {
             matchedMaterial = material;
             matchConfidence = 0.9;
@@ -297,36 +175,14 @@ ${file_content}`;
           }
         }
 
-        // Fuzzy matching if no exact match
         if (!matchedMaterial) {
           for (const material of masterMaterials) {
             const nameLower = material.material_name.toLowerCase();
             
-            // Partial description match
             if (descLower.includes(nameLower) || nameLower.includes(descLower)) {
-              if (descLower.length < 200 && nameLower.length < 200) { // Avoid false matches on long descriptions
+              if (descLower.length < 200 && nameLower.length < 200) {
                 matchedMaterial = material;
                 matchConfidence = Math.max(matchConfidence, 0.7);
-              }
-            }
-            
-            // Keyword-based matching for electrical items
-            const matchKeywords = [
-              'xlpe', 'swa', 'pvc', 'cable', 'tray', 'ladder', 'trunking', 'conduit',
-              'led', 'downlight', 'panel light', 'emergency', 'exit sign',
-              'mcb', 'mccb', 'isolator', 'contactor', 'starter',
-              'earth rod', 'earth bar', 'electrode',
-              'distribution board', 'db ', 'mdb', 'sdb',
-              'gland', 'lug', 'termination',
-              'draw box', 'junction box',
-              'rmu', 'transformer', 'substation'
-            ];
-            
-            for (const kw of matchKeywords) {
-              if (descLower.includes(kw) && nameLower.includes(kw)) {
-                matchedMaterial = material;
-                matchConfidence = Math.max(matchConfidence, 0.6);
-                break;
               }
             }
             
@@ -365,8 +221,7 @@ ${file_content}`;
 
     // Insert extracted items
     if (itemsWithMatches.length > 0) {
-      // Insert in batches to avoid payload size limits
-      const batchSize = 100;
+      const batchSize = 50;
       for (let i = 0; i < itemsWithMatches.length; i += batchSize) {
         const batch = itemsWithMatches.slice(i, i + batchSize);
         const { error: insertError } = await supabase
@@ -398,7 +253,7 @@ ${file_content}`;
       })
       .eq('id', upload_id);
 
-    console.log(`[BOQ Extract] Completed: ${itemsWithMatches.length} items, ${matchedCount} matched, ${billNumbers.size} bills, ${sectionCodes.size} sections`);
+    console.log(`[BOQ Extract] Completed: ${itemsWithMatches.length} items, ${matchedCount} matched`);
 
     return new Response(
       JSON.stringify({
@@ -409,7 +264,7 @@ ${file_content}`;
         bills_found: billNumbers.size,
         sections_found: sectionCodes.size,
         sections: Array.from(sectionCodes),
-        message: `Successfully extracted ${itemsWithMatches.length} items from ${billNumbers.size} bill(s) across ${sectionCodes.size} section(s)`
+        message: `Successfully extracted ${itemsWithMatches.length} items`
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -448,70 +303,274 @@ ${file_content}`;
 });
 
 /**
- * Basic BOQ parsing when AI is not available
+ * Split content into individual sheets
  */
-function parseBasicBOQ(content: string): ExtractedItem[] {
+function splitIntoSheets(content: string): { name: string; content: string }[] {
   if (!content) return [];
   
-  const lines = content.split('\n').filter(l => l.trim());
+  const sheets: { name: string; content: string }[] = [];
+  const sheetMarker = '=== SHEET:';
+  
+  const parts = content.split(sheetMarker);
+  
+  for (const part of parts) {
+    if (!part.trim()) continue;
+    
+    const lines = part.split('\n');
+    const firstLine = lines[0] || '';
+    const nameMatch = firstLine.match(/^(.+?)\s*===$/);
+    const name = nameMatch ? nameMatch[1].trim() : 'Unknown';
+    const sheetContent = lines.slice(1).join('\n');
+    
+    // Skip non-BOQ sheets
+    if (name.toLowerCase().includes('notes') || 
+        name.toLowerCase().includes('qualifications') ||
+        name.toLowerCase().includes('summary')) {
+      continue;
+    }
+    
+    sheets.push({ name, content: sheetContent });
+  }
+  
+  return sheets;
+}
+
+/**
+ * Extract items from a single sheet using AI
+ */
+async function extractFromSheet(
+  sheet: { name: string; content: string },
+  categoryList: string,
+  googleApiKey: string | undefined
+): Promise<ExtractedItem[]> {
+  if (!googleApiKey) {
+    return parseSheetBasic(sheet.name, sheet.content);
+  }
+
+  const prompt = `Extract ALL electrical BOQ line items from this sheet. Return a JSON array.
+
+SHEET: ${sheet.name}
+
+For EACH line item with an item code (like A1, B2.1, C1.1.1, D3.2), extract:
+- item_code: exact code (A1, B2.1, etc.)
+- item_description: full description
+- quantity: number or null if "Rate Only"
+- is_rate_only: true if quantity shows "Rate Only" or "RATE ONLY"
+- unit: each/m/m²/kg/No/Nr/Sum/Lot/%
+- supply_rate: supply cost per unit
+- install_rate: install cost per unit
+- total_rate: combined rate if not split
+- suggested_category_name: one of [${categoryList}]
+- bill_number: extract from sheet name if present (e.g., "BILL NO. 1" = 1)
+- section_code: A, B, C, D, etc.
+- section_name: section title
+
+South African BOQ format - costs in Rands (R).
+ONLY return valid JSON array, no markdown, no explanation.
+
+CONTENT:
+${sheet.content.substring(0, 30000)}`;
+
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${googleApiKey}`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: {
+            temperature: 0.1,
+            maxOutputTokens: 8192,
+          }
+        })
+      }
+    );
+
+    const aiResult = await response.json();
+    
+    if (aiResult.candidates?.[0]?.content?.parts?.[0]?.text) {
+      const rawText = aiResult.candidates[0].content.parts[0].text;
+      return parseAIResponse(rawText, sheet.name);
+    } else {
+      console.error(`[BOQ Extract] No AI response for sheet ${sheet.name}:`, JSON.stringify(aiResult).substring(0, 500));
+      return parseSheetBasic(sheet.name, sheet.content);
+    }
+  } catch (error) {
+    console.error(`[BOQ Extract] AI error for sheet ${sheet.name}:`, error);
+    return parseSheetBasic(sheet.name, sheet.content);
+  }
+}
+
+/**
+ * Parse AI response with robust error handling
+ */
+function parseAIResponse(rawText: string, sheetName: string): ExtractedItem[] {
+  // Clean up response
+  let cleanedText = rawText
+    .replace(/```json\n?/g, '')
+    .replace(/```\n?/g, '')
+    .trim();
+  
+  // Try to find JSON array
+  const arrayStart = cleanedText.indexOf('[');
+  const arrayEnd = cleanedText.lastIndexOf(']');
+  
+  if (arrayStart !== -1 && arrayEnd !== -1 && arrayEnd > arrayStart) {
+    cleanedText = cleanedText.substring(arrayStart, arrayEnd + 1);
+  }
+  
+  try {
+    const items = JSON.parse(cleanedText);
+    if (Array.isArray(items)) {
+      return items.map((item, idx) => ({
+        row_number: idx + 1,
+        bill_number: item.bill_number || extractBillNumber(sheetName),
+        bill_name: item.bill_name || extractBillName(sheetName),
+        section_code: item.section_code || null,
+        section_name: item.section_name || null,
+        item_code: item.item_code || null,
+        item_description: item.item_description || '',
+        quantity: item.is_rate_only ? null : (parseFloat(item.quantity) || null),
+        is_rate_only: item.is_rate_only || false,
+        unit: item.unit || null,
+        supply_rate: parseFloat(item.supply_rate) || null,
+        install_rate: parseFloat(item.install_rate) || null,
+        total_rate: parseFloat(item.total_rate) || null,
+        supply_cost: parseFloat(item.supply_cost) || null,
+        install_cost: parseFloat(item.install_cost) || null,
+        prime_cost: parseFloat(item.prime_cost) || null,
+        profit_percentage: parseFloat(item.profit_percentage) || null,
+        suggested_category_name: item.suggested_category_name || null,
+        match_confidence: item.match_confidence || 0.5,
+        raw_data: { sheet: sheetName }
+      }));
+    }
+  } catch (parseError) {
+    console.error(`[BOQ Extract] JSON parse error for ${sheetName}:`, parseError);
+    
+    // Try to extract partial valid objects
+    const partialItems = extractPartialItems(cleanedText, sheetName);
+    if (partialItems.length > 0) {
+      console.log(`[BOQ Extract] Recovered ${partialItems.length} items from partial response`);
+      return partialItems;
+    }
+  }
+  
+  return [];
+}
+
+/**
+ * Extract items from partial/truncated JSON
+ */
+function extractPartialItems(text: string, sheetName: string): ExtractedItem[] {
   const items: ExtractedItem[] = [];
   
-  let currentBill = 1;
-  let currentBillName = '';
+  // Match individual JSON objects
+  const objectRegex = /\{[^{}]*"item_code"\s*:\s*"([^"]+)"[^{}]*"item_description"\s*:\s*"([^"]+)"[^{}]*\}/g;
+  let match;
+  let rowNum = 0;
+  
+  while ((match = objectRegex.exec(text)) !== null) {
+    rowNum++;
+    try {
+      const objText = match[0];
+      const item = JSON.parse(objText);
+      items.push({
+        row_number: rowNum,
+        bill_number: extractBillNumber(sheetName),
+        bill_name: extractBillName(sheetName),
+        section_code: item.section_code || item.item_code?.charAt(0) || null,
+        section_name: item.section_name || null,
+        item_code: item.item_code,
+        item_description: item.item_description,
+        quantity: item.is_rate_only ? null : (parseFloat(item.quantity) || null),
+        is_rate_only: item.is_rate_only || false,
+        unit: item.unit || null,
+        supply_rate: parseFloat(item.supply_rate) || null,
+        install_rate: parseFloat(item.install_rate) || null,
+        total_rate: parseFloat(item.total_rate) || null,
+        supply_cost: null,
+        install_cost: null,
+        prime_cost: null,
+        profit_percentage: null,
+        suggested_category_name: item.suggested_category_name || null,
+        match_confidence: 0.4,
+        raw_data: { sheet: sheetName, partial: true }
+      });
+    } catch {
+      // Skip invalid objects
+    }
+  }
+  
+  return items;
+}
+
+/**
+ * Extract bill number from sheet name
+ */
+function extractBillNumber(sheetName: string): number | null {
+  const match = sheetName.match(/BILL\s*(?:NO\.?\s*)?(\d+)/i) || 
+                sheetName.match(/^(\d+)\./);
+  return match ? parseInt(match[1]) : 1;
+}
+
+/**
+ * Extract bill name from sheet name
+ */
+function extractBillName(sheetName: string): string | null {
+  // Clean up sheet name
+  let name = sheetName
+    .replace(/BILL\s*(?:NO\.?\s*)?\d+\s*[-:.]\s*/i, '')
+    .replace(/^\d+\.\d*\s*/, '')
+    .trim();
+  
+  return name || null;
+}
+
+/**
+ * Basic parsing for a single sheet
+ */
+function parseSheetBasic(sheetName: string, content: string): ExtractedItem[] {
+  const items: ExtractedItem[] = [];
+  const lines = content.split('\n');
+  
   let currentSection = '';
   let currentSectionName = '';
   let rowNumber = 0;
+  
+  const billNumber = extractBillNumber(sheetName);
+  const billName = extractBillName(sheetName);
 
   for (const line of lines) {
     const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith('###')) continue;
     
-    // Skip sheet headers and empty lines
-    if (trimmed.startsWith('===') || trimmed.startsWith('###') || !trimmed) {
-      // But extract bill/section info from headers
-      const billMatch = trimmed.match(/BILL\s*(?:NO\.?\s*)?(\d+)|BILL\s*(\d+)/i);
-      if (billMatch) {
-        currentBill = parseInt(billMatch[1] || billMatch[2]);
-        const nameMatch = trimmed.match(/[-:]\s*(.+?)(?:\s*===|$)/);
-        currentBillName = nameMatch?.[1]?.trim() || '';
-      }
-      continue;
-    }
-    
-    // Detect bill headers
-    const billMatch = trimmed.match(/BILL\s*(?:NO\.?\s*)?(\d+)\s*[-:.]?\s*(.+)?/i);
-    if (billMatch) {
-      currentBill = parseInt(billMatch[1]);
-      currentBillName = billMatch[2]?.trim() || '';
-      continue;
-    }
-
-    // Detect section headers (A. PRELIMINARIES, B. MEDIUM VOLTAGE, etc.)
-    const sectionMatch = trimmed.match(/^([A-N])[.\s]+(.+)/i) || 
-                        trimmed.match(/SECTION\s*([A-N])[.\s]*(.+)?/i);
-    if (sectionMatch) {
+    // Detect section headers
+    const sectionMatch = trimmed.match(/^([A-N])[.\s]+(.+)/i);
+    if (sectionMatch && !trimmed.match(/^\w\d/)) {
       currentSection = sectionMatch[1].toUpperCase();
-      currentSectionName = sectionMatch[2]?.trim() || '';
+      currentSectionName = sectionMatch[2].trim();
       continue;
     }
-
-    // Detect line items (A1.1, B2.1, D1.1.1, etc.)
+    
+    // Detect line items
     const itemMatch = trimmed.match(/^([A-N]\d+(?:\.\d+)*)\s+(.+)/i);
     if (itemMatch) {
       rowNumber++;
       const parts = line.split(/\t/);
       const isRateOnly = /rate\s*only/i.test(line);
       
-      // Try to extract numeric values from tab-separated columns
       let qty: number | null = null;
       let unit: string | null = null;
       let supplyRate: number | null = null;
       let installRate: number | null = null;
-      let totalRate: number | null = null;
+      let amount: number | null = null;
       
-      // Typical column order: Item | Description | Qty | Unit | Supply | Install | Amount
+      // Parse tab-separated values
       if (parts.length >= 3) {
         const qtyStr = parts[2]?.trim();
-        if (qtyStr && !isRateOnly) {
+        if (qtyStr && !isRateOnly && !/rate/i.test(qtyStr)) {
           qty = parseFloat(qtyStr.replace(/[^\d.-]/g, '')) || null;
         }
       }
@@ -525,11 +584,13 @@ function parseBasicBOQ(content: string): ExtractedItem[] {
         installRate = parseFloat(parts[5]?.replace(/[^\d.-]/g, '')) || null;
       }
       if (parts.length >= 7) {
-        totalRate = parseFloat(parts[6]?.replace(/[^\d.-]/g, '')) || null;
+        amount = parseFloat(parts[6]?.replace(/[^\d.-]/g, '')) || null;
       }
       
+      const description = itemMatch[2]?.trim() || parts[1]?.trim() || '';
+      
       // Determine category from description
-      const descLower = (itemMatch[2] || parts[1] || '').toLowerCase();
+      const descLower = description.toLowerCase();
       let suggestedCategory: string | null = null;
       
       for (const [catCode, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
@@ -544,28 +605,55 @@ function parseBasicBOQ(content: string): ExtractedItem[] {
       
       items.push({
         row_number: rowNumber,
-        bill_number: currentBill,
-        bill_name: currentBillName,
+        bill_number: billNumber,
+        bill_name: billName,
         section_code: currentSection || itemMatch[1].charAt(0).toUpperCase(),
         section_name: currentSectionName,
         item_code: itemMatch[1],
-        item_description: itemMatch[2]?.trim() || parts[1]?.trim() || '',
+        item_description: description,
         quantity: qty,
         is_rate_only: isRateOnly,
         unit: unit,
         supply_rate: supplyRate,
         install_rate: installRate,
-        total_rate: totalRate || supplyRate,
+        total_rate: amount && qty ? amount / qty : supplyRate,
         supply_cost: qty && supplyRate ? qty * supplyRate : null,
         install_cost: qty && installRate ? qty * installRate : null,
         prime_cost: null,
         profit_percentage: null,
         suggested_category_name: suggestedCategory,
         match_confidence: 0.3,
-        raw_data: { original_line: line, parts }
+        raw_data: { original_line: line, parts, sheet: sheetName }
       });
     }
   }
 
   return items;
+}
+
+/**
+ * Fallback basic parsing for entire content
+ */
+function parseBasicBOQ(content: string): ExtractedItem[] {
+  if (!content) return [];
+  
+  const sheets = splitIntoSheets(content);
+  let allItems: ExtractedItem[] = [];
+  let globalRow = 0;
+  
+  for (const sheet of sheets) {
+    const items = parseSheetBasic(sheet.name, sheet.content);
+    for (const item of items) {
+      globalRow++;
+      item.row_number = globalRow;
+    }
+    allItems = allItems.concat(items);
+  }
+  
+  // If no sheets found, parse entire content
+  if (allItems.length === 0) {
+    allItems = parseSheetBasic('Main', content);
+  }
+  
+  return allItems;
 }
