@@ -658,15 +658,39 @@ function extractBillName(sheetName: string): string | null {
 }
 
 /**
- * Basic parsing for a single sheet
+ * Basic parsing for a single sheet - improved to detect columns
  */
 function parseSheetBasic(sheetName: string, content: string): ExtractedItem[] {
   const items: ExtractedItem[] = [];
-  const lines = content.split('\n');
+  const lines = content.split('\n').filter(l => l.trim());
   
   let currentSection = '';
   let currentSectionCode = '';
   let rowNum = 0;
+  
+  // Try to detect column positions from header row
+  let headerRow: string[] = [];
+  let columnMap = { desc: -1, qty: -1, unit: -1, supply: -1, install: -1, rate: -1, amount: -1, code: -1 };
+  
+  // Find header row by looking for common column names
+  for (let i = 0; i < Math.min(20, lines.length); i++) {
+    const line = lines[i].toLowerCase();
+    if (line.includes('description') || line.includes('particulars') || line.includes('qty') || line.includes('rate')) {
+      headerRow = lines[i].split('\t');
+      headerRow.forEach((col, idx) => {
+        const c = col.toLowerCase().trim();
+        if (/desc|particular|item\s*desc/i.test(c)) columnMap.desc = idx;
+        if (/^qty$|quantity/i.test(c)) columnMap.qty = idx;
+        if (/^unit$|^u$/i.test(c)) columnMap.unit = idx;
+        if (/supply|material/i.test(c)) columnMap.supply = idx;
+        if (/install|labour|labor/i.test(c)) columnMap.install = idx;
+        if (/^rate$|unit.*rate/i.test(c)) columnMap.rate = idx;
+        if (/amount|total/i.test(c)) columnMap.amount = idx;
+        if (/item|ref|^no\.?$|^nr$/i.test(c)) columnMap.code = idx;
+      });
+      break;
+    }
+  }
   
   for (const line of lines) {
     const trimmed = line.trim();
@@ -675,81 +699,107 @@ function parseSheetBasic(sheetName: string, content: string): ExtractedItem[] {
     // Check for section headers
     const sectionMatch = trimmed.match(/^###\s*([A-Z][\.\s]*.+)/i);
     if (sectionMatch) {
-      const sectionText = sectionMatch[1];
-      const codeMatch = sectionText.match(/^([A-Z])/);
-      currentSectionCode = codeMatch ? codeMatch[1] : '';
-      currentSection = sectionText;
+      currentSectionCode = sectionMatch[1].match(/^([A-Z])/)?.[1] || '';
+      currentSection = sectionMatch[1];
       continue;
     }
     
-    // Look for item lines
-    const itemMatch = trimmed.match(/^([A-Z]\d+(?:\.\d+)*)\s+(.+)/i);
-    if (itemMatch) {
-      rowNum++;
-      const itemCode = itemMatch[1];
-      const rest = itemMatch[2];
-      
-      // Try to parse values
-      const parts = rest.split('\t');
-      const description = parts[0] || rest;
-      
-      let unit = null;
-      let quantity = null;
-      let supplyRate = null;
-      let installRate = null;
-      let isRateOnly = false;
-      
-      if (parts.length > 1) {
-        unit = parts[1] || null;
-        const qtyStr = parts[2] || '';
-        
-        if (qtyStr.toLowerCase().includes('rate only')) {
-          isRateOnly = true;
-        } else {
-          quantity = parseFloat(qtyStr) || null;
-        }
-        
-        supplyRate = parseFloat(parts[3]) || null;
-        installRate = parseFloat(parts[4]) || null;
-      }
-      
-      // Suggest category based on keywords
-      let suggestedCategory = null;
-      const descLower = description.toLowerCase();
-      
-      for (const [catCode, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
-        for (const kw of keywords) {
-          if (descLower.includes(kw.toLowerCase())) {
-            suggestedCategory = catCode;
-            break;
-          }
-        }
-        if (suggestedCategory) break;
-      }
-      
-      items.push({
-        row_number: rowNum,
-        bill_number: extractBillNumber(sheetName),
-        bill_name: extractBillName(sheetName),
-        section_code: currentSectionCode,
-        section_name: currentSection,
-        item_code: itemCode,
-        item_description: description,
-        quantity: isRateOnly ? null : quantity,
-        is_rate_only: isRateOnly,
-        unit,
-        supply_rate: supplyRate,
-        install_rate: installRate,
-        total_rate: null,
-        supply_cost: null,
-        install_cost: null,
-        prime_cost: null,
-        profit_percentage: null,
-        suggested_category_name: suggestedCategory,
-        match_confidence: 0.3,
-        raw_data: { original_line: trimmed }
-      });
+    // Skip header/note rows
+    if (/^(item|description|qty|rate|notes?\s*to|failure|comply|shall|must)/i.test(trimmed)) {
+      continue;
     }
+    
+    const parts = trimmed.split('\t');
+    if (parts.length < 2) continue;
+    
+    // Try to extract from detected columns or use positional fallback
+    let itemCode = columnMap.code >= 0 ? parts[columnMap.code]?.trim() : null;
+    let description = columnMap.desc >= 0 ? parts[columnMap.desc]?.trim() : parts[0]?.trim();
+    let unit = columnMap.unit >= 0 ? parts[columnMap.unit]?.trim() : null;
+    let quantity: number | null = null;
+    let supplyRate: number | null = null;
+    let installRate: number | null = null;
+    let totalRate: number | null = null;
+    let isRateOnly = false;
+    
+    // Parse quantity
+    const qtyStr = columnMap.qty >= 0 ? parts[columnMap.qty] : parts[1];
+    if (qtyStr?.toLowerCase().includes('rate only')) {
+      isRateOnly = true;
+    } else {
+      quantity = parseFloat(qtyStr) || null;
+    }
+    
+    // Parse rates - try detected columns first
+    if (columnMap.supply >= 0) supplyRate = parseFloat(parts[columnMap.supply]) || null;
+    if (columnMap.install >= 0) installRate = parseFloat(parts[columnMap.install]) || null;
+    if (columnMap.rate >= 0) totalRate = parseFloat(parts[columnMap.rate]) || null;
+    
+    // Fallback: look for numbers in later columns
+    if (!supplyRate && !installRate && !totalRate) {
+      for (let i = 2; i < parts.length; i++) {
+        const num = parseFloat(parts[i]?.replace(/[R,\s]/g, ''));
+        if (!isNaN(num) && num > 0) {
+          if (!supplyRate) supplyRate = num;
+          else if (!installRate) installRate = num;
+          break;
+        }
+      }
+    }
+    
+    // Try to extract item code from description if not found
+    if (!itemCode) {
+      const codeMatch = description?.match(/^([A-Z]\d+(?:\.\d+)*)\s*/i);
+      if (codeMatch) {
+        itemCode = codeMatch[1];
+        description = description?.substring(codeMatch[0].length).trim();
+      }
+    }
+    
+    // Skip if description is too short or looks like garbage
+    if (!description || description.length < 5 || /^\d+\.?\d*$/.test(description)) {
+      continue;
+    }
+    
+    // Skip if no rates and no meaningful quantity
+    if (!supplyRate && !installRate && !totalRate && !quantity && !isRateOnly) {
+      continue;
+    }
+    
+    rowNum++;
+    
+    // Suggest category
+    let suggestedCategory = null;
+    const descLower = description.toLowerCase();
+    for (const [catCode, keywords] of Object.entries(CATEGORY_KEYWORDS)) {
+      if (keywords.some(kw => descLower.includes(kw.toLowerCase()))) {
+        suggestedCategory = catCode;
+        break;
+      }
+    }
+    
+    items.push({
+      row_number: rowNum,
+      bill_number: extractBillNumber(sheetName),
+      bill_name: extractBillName(sheetName),
+      section_code: currentSectionCode,
+      section_name: currentSection,
+      item_code: itemCode,
+      item_description: description,
+      quantity: isRateOnly ? null : quantity,
+      is_rate_only: isRateOnly,
+      unit,
+      supply_rate: supplyRate,
+      install_rate: installRate,
+      total_rate: totalRate,
+      supply_cost: null,
+      install_cost: null,
+      prime_cost: null,
+      profit_percentage: null,
+      suggested_category_name: suggestedCategory,
+      match_confidence: 0.4,
+      raw_data: { original_line: trimmed }
+    });
   }
   
   return items;
