@@ -109,8 +109,8 @@ export const BudgetExtractionReview = ({
             
             return {
               section_id: createdSection.id,
-              item_number: item.item_number,
-              description: item.description,
+              item_number: item.item_number || '',
+              description: item.description || 'Unnamed item',
               area: item.area,
               area_unit: item.area_unit || 'm²',
               base_rate: item.base_rate,
