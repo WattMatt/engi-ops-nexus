@@ -15,7 +15,7 @@ import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-
+import { parseExcelFile } from "@/utils/excelParser";
 const SA_PROVINCES = [
   "Western Cape",
   "Eastern Cape", 
@@ -146,12 +146,19 @@ export const BOQUploadTab = () => {
 
       // Read file content for extraction
       let fileContent = "";
+      let sheetCount = 0;
+      
       if (fileExt === "csv") {
         fileContent = await file.text();
       } else if (fileExt === "xlsx" || fileExt === "xls") {
-        fileContent = `[Excel file: ${file.name}]`;
+        // Parse Excel file properly
+        toast.info("Parsing Excel file...");
+        const parsed = await parseExcelFile(file);
+        sheetCount = parsed.sheets.length;
+        fileContent = parsed.combinedText;
+        console.log(`[BOQ Upload] Parsed ${sheetCount} sheets, ${parsed.totalRows} rows from Excel`);
+        toast.info(`Found ${sheetCount} sheet(s) with ${parsed.totalRows} rows`);
       }
-
       // Call edge function to extract rates
       const { error: extractError } = await supabase.functions.invoke(
         "extract-boq-rates",
