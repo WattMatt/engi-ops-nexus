@@ -11,6 +11,7 @@ import { Upload, FileSpreadsheet, Clock, CheckCircle, XCircle, Eye, Loader2, Bui
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { BOQReviewDialog } from "./BOQReviewDialog";
+import { BOQPreviewDialog } from "./BOQPreviewDialog";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
@@ -75,6 +76,9 @@ export const BOQUploadTab = () => {
   const [selectedProvince, setSelectedProvince] = useState<string>("");
   const [selectedBuildingType, setSelectedBuildingType] = useState<string>("");
   const [tenderDate, setTenderDate] = useState<Date | undefined>();
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewUpload, setPreviewUpload] = useState<BOQUpload | null>(null);
+  const [previewFile, setPreviewFile] = useState<File | null>(null);
   const queryClient = useQueryClient();
 
   // Fetch projects for dropdown
@@ -216,7 +220,80 @@ export const BOQUploadTab = () => {
     },
   });
 
-  // Re-process upload mutation
+  // Open preview dialog for an upload
+  const handleOpenPreview = async (upload: BOQUpload) => {
+    if (!upload.file_path) {
+      toast.error("No file available for preview");
+      return;
+    }
+
+    try {
+      // Download file from storage
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from("boq-uploads")
+        .download(upload.file_path);
+
+      if (downloadError) throw new Error("Failed to download file: " + downloadError.message);
+
+      // Create File object from blob
+      const file = new File([fileData], upload.file_name, { type: fileData.type });
+      
+      setPreviewUpload(upload);
+      setPreviewFile(file);
+      setPreviewOpen(true);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to load file for preview");
+    }
+  };
+
+  // Process with selected content from preview
+  const processWithSelectedContent = async (selectedContent: string, selectedSheets: string[]) => {
+    if (!previewUpload) return;
+
+    setPreviewOpen(false);
+    
+    try {
+      // Update status to processing
+      await supabase
+        .from("boq_uploads")
+        .update({ status: "processing", extraction_started_at: new Date().toISOString() })
+        .eq("id", previewUpload.id);
+
+      // Delete existing extracted items
+      await supabase
+        .from("boq_extracted_items")
+        .delete()
+        .eq("upload_id", previewUpload.id);
+
+      toast.success(`Processing ${selectedSheets.length} sheet(s)...`);
+
+      // Call edge function with selected content
+      try {
+        await supabase.functions.invoke(
+          "extract-boq-rates",
+          {
+            body: {
+              upload_id: previewUpload.id,
+              file_content: selectedContent,
+              file_type: previewUpload.file_type,
+            },
+          }
+        );
+      } catch (invokeError) {
+        console.log("Edge function invoke returned (processing in background):", invokeError);
+      }
+
+      queryClient.invalidateQueries({ queryKey: ["boq-uploads"] });
+      toast.success("BOQ processing started. This may take a few minutes.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to start processing");
+    }
+
+    setPreviewUpload(null);
+    setPreviewFile(null);
+  };
+
+  // Re-process upload mutation (direct processing without preview)
   const reprocessMutation = useMutation({
     mutationFn: async (upload: BOQUpload) => {
       if (!upload.file_path) {
@@ -591,15 +668,10 @@ export const BOQUploadTab = () => {
                             <Button
                               variant="default"
                               size="sm"
-                              onClick={() => reprocessMutation.mutate(upload)}
-                              disabled={reprocessMutation.isPending}
+                              onClick={() => handleOpenPreview(upload)}
                             >
-                              {reprocessMutation.isPending ? (
-                                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-                              ) : (
-                                <RefreshCw className="h-4 w-4 mr-1" />
-                              )}
-                              Process
+                              <Eye className="h-4 w-4 mr-1" />
+                              Preview & Process
                             </Button>
                           ) : (
                             <Button
@@ -677,6 +749,13 @@ export const BOQUploadTab = () => {
         upload={selectedUpload}
         open={!!selectedUpload}
         onOpenChange={(open) => !open && setSelectedUpload(null)}
+      />
+
+      <BOQPreviewDialog
+        open={previewOpen}
+        onOpenChange={setPreviewOpen}
+        file={previewFile}
+        onConfirm={processWithSelectedContent}
       />
     </div>
   );
