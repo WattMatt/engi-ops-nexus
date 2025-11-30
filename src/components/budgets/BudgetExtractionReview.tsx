@@ -137,6 +137,8 @@ export const BudgetExtractionReview = ({
         const uniqueRates = new Map<string, { base_rate: number | null; ti_rate: number | null }>();
         
         for (const item of data.area_schedule) {
+          // Skip items without tenant_name
+          if (!item.tenant_name) continue;
           const key = item.tenant_name.toUpperCase().trim();
           // Only add if we have rate data and not already added
           if ((item.base_rate || item.ti_rate) && !uniqueRates.has(key)) {
