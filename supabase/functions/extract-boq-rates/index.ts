@@ -30,6 +30,64 @@ interface ExtractedItem {
   raw_data: Record<string, unknown>;
 }
 
+// Non-material patterns to filter out
+const NON_MATERIAL_PATTERNS = [
+  /^notes?\s*(to\s*tenderer)?$/i,
+  /^(failure|comply|shall|must|refer|ditto|as\s*above)/i,
+  /^(preliminary|preamble|general\s*notes)/i,
+  /^(section|bill)\s*\d*$/i,
+  /^(sub)?total$/i,
+  /^carried\s*(forward|to)/i,
+  /^(rate|amount)\s*only$/i,
+  /^\d+\.?\s*$/, // Just numbers
+  /^[a-z]\.?\s*$/i, // Just single letters
+  /^(the\s+)?tenderer/i,
+  /^(item|description|qty|quantity|unit|rate|amount)$/i, // Column headers
+];
+
+// Minimum description length for valid material
+const MIN_DESCRIPTION_LENGTH = 5;
+
+/**
+ * Filter out non-material items from extracted list
+ */
+function filterValidMaterialItems(items: ExtractedItem[]): ExtractedItem[] {
+  return items.filter(item => {
+    const desc = (item.item_description || '').trim();
+    
+    // Skip empty or very short descriptions
+    if (!desc || desc.length < MIN_DESCRIPTION_LENGTH) {
+      return false;
+    }
+    
+    // Skip if description is just a number
+    if (/^\d+\.?\d*$/.test(desc)) {
+      return false;
+    }
+    
+    // Skip if matches non-material patterns
+    for (const pattern of NON_MATERIAL_PATTERNS) {
+      if (pattern.test(desc)) {
+        return false;
+      }
+    }
+    
+    // Skip if no rates AND no quantity (likely a header or note)
+    const hasRate = item.supply_rate || item.install_rate || item.total_rate;
+    const hasQty = item.quantity !== null && item.quantity !== undefined;
+    const isRateOnly = item.is_rate_only;
+    
+    if (!hasRate && !hasQty && !isRateOnly) {
+      // Allow if it has an item code that looks valid
+      if (!item.item_code || !/^[A-Z]\d+/i.test(item.item_code)) {
+        return false;
+      }
+    }
+    
+    return true;
+  });
+}
+
 // Category keywords for better matching
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
   'HV': ['substation', '11kv', '11 kv', '22kv', '33kv', 'medium voltage', 'mv ', 'rmu', 'ring main', 'transformer', 'mva', 'switchgear'],
@@ -178,6 +236,11 @@ async function processExtraction(
       console.log('[BOQ Extract] AI extraction returned nothing, falling back to basic parsing');
       allExtractedItems = parseBasicBOQ(file_content);
     }
+
+    // Filter out non-material items (notes, headers, preamble, etc.)
+    const beforeFilter = allExtractedItems.length;
+    allExtractedItems = filterValidMaterialItems(allExtractedItems);
+    console.log(`[BOQ Extract] Filtered: ${beforeFilter} -> ${allExtractedItems.length} valid material items`);
 
     console.log(`[BOQ Extract] Total items extracted: ${allExtractedItems.length}`);
 
@@ -371,15 +434,30 @@ async function extractFromSheet(
     return parseSheetBasic(sheet.name, sheet.content);
   }
 
-  const systemPrompt = `You are an expert at extracting electrical Bills of Quantities (BOQ) data. Extract ALL line items accurately.
+  const systemPrompt = `You are an expert at extracting electrical Bills of Quantities (BOQ) data. Extract ONLY actual material/work items.
+
+CRITICAL - DO NOT EXTRACT THESE:
+- "NOTES TO TENDERER" or any notes/preamble text
+- Row numbers alone (1, 2, 3, etc.)
+- Section headers without items (just "A. CABLES" alone)
+- Instructions like "Failure to comply with...", "The tenderer shall...", etc.
+- Blank or summary rows
+- Text that is clearly NOT a physical material or work item
+- Percentage adjustments or contingencies without descriptions
+- "Ditto", "As above", "Refer to" references alone
+
+EXTRACT ONLY items that are:
+- Physical materials (cables, conduit, switches, DBs, lights, etc.)
+- Measurable work items with quantities and units
+- Items with item codes like A1, B2.1, C1.1.1, etc.
+- Items that have an actual material/work DESCRIPTION (not just numbers)
 
 IMPORTANT RULES:
-1. Extract EVERY line item with an item code (A1, A2, B1, B2.1, C1.1, etc.)
-2. Include ALL electrical categories: MV switchgear, LV equipment, cables, conduits, cable tray, earthing, lighting, fire detection, CCTV, etc.
+1. Item descriptions must be meaningful (e.g., "4mm² 4-core XLPE cable" NOT "1" or "2")
+2. Skip any row that doesn't describe actual electrical materials or work
 3. Parse South African BOQ format with costs in Rands (R)
 4. Identify supply rate vs install rate columns correctly
 5. Mark items as "rate_only" if quantity shows "Rate Only" or "RATE ONLY"
-6. Extract section headers (A - MEDIUM VOLTAGE, B - LOW VOLTAGE, etc.)
 
 CATEGORIES for suggested_category_name:
 ${categoryList}
@@ -396,11 +474,14 @@ Common SA BOQ sections:
 - J: CCTV / Security
 - K: Telkom / Data`;
 
-  const userPrompt = `Extract ALL BOQ line items from this sheet: "${sheet.name}"
+  const userPrompt = `Extract ONLY actual material/work line items from this sheet: "${sheet.name}"
 
-For EACH item extract:
-- item_code: exact code (A1, B2.1, C1.1.1)
-- item_description: full description text
+SKIP: notes, instructions, headers without items, row numbers alone, preamble text.
+ONLY INCLUDE: items with real material descriptions + quantities + rates.
+
+For EACH valid material item extract:
+- item_code: exact code (A1, B2.1, C1.1.1) - REQUIRED
+- item_description: full material description (NOT just numbers) - REQUIRED, must be meaningful
 - quantity: number or null if rate only
 - is_rate_only: true/false
 - unit: each/m/m²/kg/No/Nr/Sum/Lot/item/%
@@ -413,7 +494,7 @@ For EACH item extract:
 - bill_number: from sheet name (e.g., "4 Boxer" = 4)
 - bill_name: tenant/area name
 
-RESPOND WITH ONLY A JSON ARRAY, NO MARKDOWN BLOCKS.
+RESPOND WITH ONLY A JSON ARRAY, NO MARKDOWN BLOCKS. Return empty array [] if no valid materials found.
 
 SHEET CONTENT:
 ${sheet.content.substring(0, 25000)}`;
