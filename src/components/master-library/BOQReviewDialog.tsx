@@ -14,6 +14,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Checkbox } from "@/components/ui/checkbox";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
 import { CheckCircle, XCircle, Plus, AlertCircle, ChevronDown, ChevronRight, FileText, Tag, TrendingUp, TrendingDown, Minus } from "lucide-react";
@@ -59,6 +66,13 @@ interface MasterMaterial {
   standard_install_cost: number | null;
 }
 
+interface MaterialCategory {
+  id: string;
+  category_code: string;
+  category_name: string;
+  parent_category_id: string | null;
+}
+
 interface BOQReviewDialogProps {
   upload: BOQUpload | null;
   open: boolean;
@@ -84,6 +98,7 @@ export const BOQReviewDialog = ({ upload, open, onOpenChange }: BOQReviewDialogP
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [expandedBills, setExpandedBills] = useState<Set<string>>(new Set(["bill-1", "bill-null"]));
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+  const [itemCategories, setItemCategories] = useState<Record<string, string>>({});
   const queryClient = useQueryClient();
 
   const { data: items, isLoading } = useQuery({
@@ -117,16 +132,31 @@ export const BOQReviewDialog = ({ upload, open, onOpenChange }: BOQReviewDialogP
   });
 
   const { data: categories } = useQuery({
-    queryKey: ["material-categories-simple"],
+    queryKey: ["material-categories-hierarchical"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("material_categories")
-        .select("id, category_code, category_name")
-        .eq("is_active", true);
+        .select("id, category_code, category_name, parent_category_id")
+        .eq("is_active", true)
+        .order("sort_order");
       if (error) throw error;
-      return data;
+      return data as MaterialCategory[];
     },
   });
+
+  // Group categories by parent for display
+  const groupedCategories = useMemo(() => {
+    if (!categories) return [];
+    const parents = categories.filter(c => !c.parent_category_id);
+    return parents.map(parent => ({
+      ...parent,
+      children: categories.filter(c => c.parent_category_id === parent.id)
+    }));
+  }, [categories]);
+
+  const setItemCategory = (itemId: string, categoryId: string) => {
+    setItemCategories(prev => ({ ...prev, [itemId]: categoryId }));
+  };
 
   // Group items by bill and section
   const groupedItems = useMemo(() => {
@@ -187,9 +217,21 @@ export const BOQReviewDialog = ({ upload, open, onOpenChange }: BOQReviewDialogP
     mutationFn: async (itemIds: string[]) => {
       const itemsToAdd = items?.filter((i) => itemIds.includes(i.id) && !i.added_to_master) || [];
       
+      // Check if all items have categories assigned
+      const itemsWithoutCategory = itemsToAdd.filter(item => 
+        !itemCategories[item.id] && !item.suggested_category_id
+      );
+      
+      if (itemsWithoutCategory.length > 0) {
+        throw new Error(`Please assign categories to all selected items (${itemsWithoutCategory.length} items need categories)`);
+      }
+      
       for (const item of itemsToAdd) {
+        // Use manually selected category first, then suggested, then fallback
+        const selectedCategoryId = itemCategories[item.id];
         const category = categories?.find(
           (c) =>
+            c.id === selectedCategoryId ||
             c.id === item.suggested_category_id ||
             c.category_code === item.suggested_category_name ||
             c.category_name.toLowerCase().includes((item.suggested_category_name || "").toLowerCase())
@@ -221,6 +263,7 @@ export const BOQReviewDialog = ({ upload, open, onOpenChange }: BOQReviewDialogP
             added_to_master: true,
             added_material_id: material.id,
             review_status: "approved",
+            suggested_category_id: category?.id,
           })
           .eq("id", item.id);
       }
@@ -230,6 +273,7 @@ export const BOQReviewDialog = ({ upload, open, onOpenChange }: BOQReviewDialogP
       queryClient.invalidateQueries({ queryKey: ["master-materials"] });
       toast.success("Items added to master library");
       setSelectedItems(new Set());
+      setItemCategories({});
     },
     onError: (error: Error) => {
       toast.error(error.message || "Failed to add items");
@@ -508,6 +552,9 @@ export const BOQReviewDialog = ({ upload, open, onOpenChange }: BOQReviewDialogP
                                 toggleItem={toggleItem}
                                 getStatusBadge={getStatusBadge}
                                 getComparisonBadge={getComparisonBadge}
+                                groupedCategories={groupedCategories}
+                                itemCategories={itemCategories}
+                                setItemCategory={setItemCategory}
                               />
                             </CollapsibleContent>
                           </Collapsible>
@@ -526,6 +573,9 @@ export const BOQReviewDialog = ({ upload, open, onOpenChange }: BOQReviewDialogP
               toggleItem={toggleItem}
               getStatusBadge={getStatusBadge}
               getComparisonBadge={getComparisonBadge}
+              groupedCategories={groupedCategories}
+              itemCategories={itemCategories}
+              setItemCategory={setItemCategory}
             />
           )}
         </ScrollArea>
@@ -535,21 +585,41 @@ export const BOQReviewDialog = ({ upload, open, onOpenChange }: BOQReviewDialogP
 };
 
 // Extracted table component for reuse
+interface GroupedCategory {
+  id: string;
+  category_code: string;
+  category_name: string;
+  children: MaterialCategory[];
+}
+
 interface ItemsTableProps {
   items: ExtractedItem[];
   selectedItems: Set<string>;
   toggleItem: (id: string) => void;
   getStatusBadge: (item: ExtractedItem) => React.ReactNode;
   getComparisonBadge: (item: ExtractedItem) => React.ReactNode;
+  groupedCategories: GroupedCategory[];
+  itemCategories: Record<string, string>;
+  setItemCategory: (itemId: string, categoryId: string) => void;
 }
 
-const ItemsTable = ({ items, selectedItems, toggleItem, getStatusBadge, getComparisonBadge }: ItemsTableProps) => (
+const ItemsTable = ({ 
+  items, 
+  selectedItems, 
+  toggleItem, 
+  getStatusBadge, 
+  getComparisonBadge,
+  groupedCategories,
+  itemCategories,
+  setItemCategory 
+}: ItemsTableProps) => (
   <Table>
     <TableHeader>
       <TableRow>
         <TableHead className="w-10"></TableHead>
         <TableHead className="w-16">Code</TableHead>
         <TableHead>Description</TableHead>
+        <TableHead className="w-[180px]">Category</TableHead>
         <TableHead className="text-right">Qty</TableHead>
         <TableHead className="text-right">Supply</TableHead>
         <TableHead className="text-right">Install</TableHead>
@@ -583,19 +653,42 @@ const ItemsTable = ({ items, selectedItems, toggleItem, getStatusBadge, getCompa
           <TableCell>
             <div className="max-w-[250px]">
               <div className="font-medium text-sm truncate">{item.item_description}</div>
-              <div className="flex items-center gap-1 mt-1">
-                {item.suggested_category_name && (
-                  <Badge variant="outline" className="text-xs">
-                    {item.suggested_category_name}
-                  </Badge>
-                )}
-                {item.is_rate_only && (
-                  <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400 text-xs">
-                    Rate Only
-                  </Badge>
-                )}
-              </div>
+              {item.is_rate_only && (
+                <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400 text-xs mt-1">
+                  Rate Only
+                </Badge>
+              )}
             </div>
+          </TableCell>
+          <TableCell>
+            {item.added_to_master ? (
+              <Badge variant="outline" className="text-xs">
+                {item.suggested_category_name || "Assigned"}
+              </Badge>
+            ) : (
+              <Select
+                value={itemCategories[item.id] || item.suggested_category_id || ""}
+                onValueChange={(value) => setItemCategory(item.id, value)}
+              >
+                <SelectTrigger className="h-8 text-xs">
+                  <SelectValue placeholder="Select category..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {groupedCategories.map((parent) => (
+                    <div key={parent.id}>
+                      <SelectItem value={parent.id} className="font-semibold">
+                        {parent.category_code} - {parent.category_name}
+                      </SelectItem>
+                      {parent.children.map((child) => (
+                        <SelectItem key={child.id} value={child.id} className="pl-6">
+                          {child.category_code} - {child.category_name}
+                        </SelectItem>
+                      ))}
+                    </div>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
           </TableCell>
           <TableCell className="text-right text-sm">
             {item.is_rate_only ? (
