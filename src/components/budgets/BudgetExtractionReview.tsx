@@ -102,19 +102,25 @@ export const BudgetExtractionReview = ({
 
         // Create line items for this section
         if (section.line_items?.length > 0) {
-          const lineItems = section.line_items.map((item, index) => ({
-            section_id: createdSection.id,
-            item_number: item.item_number,
-            description: item.description,
-            area: item.area,
-            area_unit: item.area_unit || 'm²',
-            base_rate: item.base_rate,
-            ti_rate: item.ti_rate,
-            total: item.total,
-            shop_number: item.shop_number,
-            is_tenant_item: item.is_tenant_item,
-            display_order: index + 1,
-          }));
+          const lineItems = section.line_items.map((item, index) => {
+            // Calculate total if not provided: area * (base_rate + ti_rate)
+            const calculatedTotal = item.total ?? 
+              ((item.area || 0) * ((item.base_rate || 0) + (item.ti_rate || 0)));
+            
+            return {
+              section_id: createdSection.id,
+              item_number: item.item_number,
+              description: item.description,
+              area: item.area,
+              area_unit: item.area_unit || 'm²',
+              base_rate: item.base_rate,
+              ti_rate: item.ti_rate,
+              total: calculatedTotal,
+              shop_number: item.shop_number,
+              is_tenant_item: item.is_tenant_item,
+              display_order: index + 1,
+            };
+          });
 
           const { error: itemsError } = await supabase
             .from('budget_line_items')
