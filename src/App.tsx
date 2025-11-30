@@ -67,6 +67,9 @@ const App = () => (
         
         {/* Admin handover management route */}
         <Route path="/handover-client-management" element={<HandoverClientManagement />} />
+        
+        {/* Global Master Library - accessible without selecting a project */}
+        <Route path="/master-library" element={<MasterLibrary />} />
           
           {/* Admin routes - no project required */}
           <Route path="/admin" element={<AdminLayout />}>
