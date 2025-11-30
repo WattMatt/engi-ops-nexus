@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Folder, LogOut, Users, Settings } from "lucide-react";
+import { Folder, LogOut, Users, Settings, Library } from "lucide-react";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/useUserRole";
 import { CreateProjectDialog } from "@/components/CreateProjectDialog";
@@ -80,6 +80,10 @@ const ProjectSelect = () => {
             </p>
           </div>
           <div className="flex gap-3">
+            <Button variant="outline" onClick={() => navigate("/master-library")}>
+              <Library className="h-4 w-4 mr-2" />
+              Master Library
+            </Button>
             {!isAdminRoute && isAdmin && (
               <Button variant="outline" onClick={() => navigate("/admin/projects")}>
                 <Settings className="h-4 w-4 mr-2" />
