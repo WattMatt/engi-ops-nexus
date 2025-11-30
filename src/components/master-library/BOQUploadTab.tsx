@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, FileSpreadsheet, Clock, CheckCircle, XCircle, Eye, Loader2, Building2, MapPin, Calendar } from "lucide-react";
+import { Upload, FileSpreadsheet, Clock, CheckCircle, XCircle, Eye, Loader2, Building2, MapPin, Calendar, Trash2, RefreshCw, MoreHorizontal, Download } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { BOQReviewDialog } from "./BOQReviewDialog";
@@ -16,6 +16,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
 import { parseExcelFile } from "@/utils/excelParser";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 const SA_PROVINCES = [
   "Western Cape",
   "Eastern Cape", 
@@ -44,6 +46,7 @@ const BUILDING_TYPES = [
 interface BOQUpload {
   id: string;
   file_name: string;
+  file_path: string;
   file_type: string;
   status: string;
   total_items_extracted: number;
@@ -195,6 +198,142 @@ export const BOQUploadTab = () => {
       setUploading(false);
     },
   });
+
+  // Delete upload mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (upload: BOQUpload) => {
+      // Delete extracted items first
+      const { error: itemsError } = await supabase
+        .from("boq_extracted_items")
+        .delete()
+        .eq("upload_id", upload.id);
+      
+      if (itemsError) {
+        console.error("Error deleting items:", itemsError);
+      }
+
+      // Delete file from storage
+      if (upload.file_path) {
+        const { error: storageError } = await supabase.storage
+          .from("boq-uploads")
+          .remove([upload.file_path]);
+        
+        if (storageError) {
+          console.error("Error deleting file from storage:", storageError);
+        }
+      }
+
+      // Delete upload record
+      const { error: uploadError } = await supabase
+        .from("boq_uploads")
+        .delete()
+        .eq("id", upload.id);
+
+      if (uploadError) throw uploadError;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["boq-uploads"] });
+      toast.success("BOQ upload deleted");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to delete upload");
+    },
+  });
+
+  // Re-process upload mutation
+  const reprocessMutation = useMutation({
+    mutationFn: async (upload: BOQUpload) => {
+      if (!upload.file_path) {
+        throw new Error("No file available for re-processing");
+      }
+
+      // Update status to processing
+      await supabase
+        .from("boq_uploads")
+        .update({ status: "processing", extraction_started_at: new Date().toISOString() })
+        .eq("id", upload.id);
+
+      // Delete existing extracted items
+      await supabase
+        .from("boq_extracted_items")
+        .delete()
+        .eq("upload_id", upload.id);
+
+      // Download file from storage
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from("boq-uploads")
+        .download(upload.file_path);
+
+      if (downloadError) throw new Error("Failed to download file: " + downloadError.message);
+
+      // Parse the file
+      let fileContent = "";
+      const fileExt = upload.file_type;
+
+      if (fileExt === "csv") {
+        fileContent = await fileData.text();
+      } else if (fileExt === "xlsx" || fileExt === "xls") {
+        toast.info("Re-parsing Excel file...");
+        const file = new File([fileData], upload.file_name, { type: fileData.type });
+        const parsed = await parseExcelFile(file);
+        fileContent = parsed.combinedText;
+        toast.info(`Found ${parsed.sheets.length} sheet(s) with ${parsed.totalRows} rows`);
+      }
+
+      // Call edge function to re-extract
+      const { error: extractError } = await supabase.functions.invoke(
+        "extract-boq-rates",
+        {
+          body: {
+            upload_id: upload.id,
+            file_content: fileContent,
+            file_type: fileExt,
+          },
+        }
+      );
+
+      if (extractError) {
+        console.error("Re-extraction error:", extractError);
+        throw extractError;
+      }
+
+      return upload;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["boq-uploads"] });
+      toast.success("BOQ re-processing started");
+    },
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to re-process BOQ");
+    },
+  });
+
+  // Download original file
+  const handleDownloadFile = async (upload: BOQUpload) => {
+    if (!upload.file_path) {
+      toast.error("No file available for download");
+      return;
+    }
+
+    const { data, error } = await supabase.storage
+      .from("boq-uploads")
+      .download(upload.file_path);
+
+    if (error) {
+      toast.error("Failed to download file");
+      return;
+    }
+
+    // Create download link
+    const url = URL.createObjectURL(data);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = upload.file_name;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   const handleFileSelect = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -471,15 +610,67 @@ export const BOQUploadTab = () => {
                         {format(new Date(upload.created_at), "dd MMM yyyy")}
                       </TableCell>
                       <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => setSelectedUpload(upload)}
-                          disabled={upload.status === "pending" || upload.status === "processing"}
-                        >
-                          <Eye className="h-4 w-4 mr-1" />
-                          Review
-                        </Button>
+                        <div className="flex items-center justify-end gap-1">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setSelectedUpload(upload)}
+                            disabled={upload.status === "pending" || upload.status === "processing"}
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            Review
+                          </Button>
+                          
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8">
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onClick={() => handleDownloadFile(upload)}>
+                                <Download className="h-4 w-4 mr-2" />
+                                Download Original
+                              </DropdownMenuItem>
+                              <DropdownMenuItem 
+                                onClick={() => reprocessMutation.mutate(upload)}
+                                disabled={reprocessMutation.isPending || upload.status === "processing"}
+                              >
+                                <RefreshCw className={cn("h-4 w-4 mr-2", reprocessMutation.isPending && "animate-spin")} />
+                                Re-process
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <DropdownMenuItem 
+                                    className="text-destructive focus:text-destructive"
+                                    onSelect={(e) => e.preventDefault()}
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Delete
+                                  </DropdownMenuItem>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Delete BOQ Upload?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      This will permanently delete "{upload.file_name}" and all {upload.total_items_extracted} extracted items. This action cannot be undone.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                      onClick={() => deleteMutation.mutate(upload)}
+                                    >
+                                      Delete
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
