@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, FileSpreadsheet, Clock, CheckCircle, XCircle, Eye, Loader2, Building2, MapPin, Calendar, Trash2, RefreshCw, MoreHorizontal, Download, Sheet, ExternalLink, RefreshCcw, FileText, Presentation, Mail } from "lucide-react";
+import { Upload, FileSpreadsheet, Clock, CheckCircle, XCircle, Eye, Loader2, Building2, MapPin, Calendar, Trash2, RefreshCw, MoreHorizontal, Download, Sheet, ExternalLink, RefreshCcw, FileText, Presentation, Mail, FolderPlus } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { BOQReviewDialog } from "./BOQReviewDialog";
@@ -502,30 +502,66 @@ export const BOQUploadTab = () => {
     }
   };
 
-  // Share BOQ via email
+  // Share BOQ via email with enhanced options
   const handleShareViaEmail = async (upload: BOQUpload) => {
     const email = prompt("Enter email address to share with:");
     if (!email) return;
 
-    const message = prompt("Add a message (optional):");
+    const includeSheet = confirm("Include/create Google Sheet link?");
+    const includeDoc = confirm("Include/create Google Doc report?");
 
-    const toastId = toast.loading("Sending email...");
+    const toastId = toast.loading("Preparing and sending email...");
     try {
       const { data, error } = await supabase.functions.invoke("google-sheets-sync", {
         body: {
           action: "share_boq_via_email",
           upload_id: upload.id,
           to: email,
-          message: message || undefined,
+          include_sheet: includeSheet,
+          include_doc: includeDoc,
         },
       });
 
       if (error) throw error;
       if (!data.success) throw new Error(data.error || "Failed to send email");
 
-      toast.success(`BOQ shared with ${email}`, { id: toastId });
+      let successMsg = `BOQ shared with ${email}`;
+      if (data.sheetUrl || data.docUrl) {
+        successMsg += ` (included: ${data.sheetUrl ? 'Sheet' : ''}${data.sheetUrl && data.docUrl ? ', ' : ''}${data.docUrl ? 'Doc' : ''})`;
+      }
+      toast.success(successMsg, { id: toastId });
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Failed to send email", { id: toastId });
+    }
+  };
+
+  // Create Drive folder for project
+  const handleCreateDriveFolder = async (upload: BOQUpload) => {
+    const folderName = prompt("Enter folder name:", `BOQ - ${upload.file_name.replace(/\.[^/.]+$/, '')}`);
+    if (!folderName) return;
+
+    const toastId = toast.loading("Creating Drive folder...");
+    try {
+      const { data, error } = await supabase.functions.invoke("google-sheets-sync", {
+        body: {
+          action: "create_project_folder",
+          project_name: folderName,
+          upload_id: upload.id,
+        },
+      });
+
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error || "Failed to create folder");
+
+      toast.success("Created Drive folder", {
+        id: toastId,
+        action: {
+          label: "Open Folder",
+          onClick: () => window.open(data.folderUrl, "_blank"),
+        },
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to create folder", { id: toastId });
     }
   };
 
@@ -922,6 +958,11 @@ export const BOQUploadTab = () => {
                                   <DropdownMenuItem onClick={() => handleShareViaEmail(upload)}>
                                     <Mail className="h-4 w-4 mr-2" />
                                     Share via Email
+                                  </DropdownMenuItem>
+                                  {/* Drive Folder */}
+                                  <DropdownMenuItem onClick={() => handleCreateDriveFolder(upload)}>
+                                    <FolderPlus className="h-4 w-4 mr-2" />
+                                    Create Drive Folder
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator />
                                 </>
