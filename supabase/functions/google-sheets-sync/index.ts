@@ -39,10 +39,18 @@ async function getGoogleAccessToken(): Promise<string> {
   };
 
   const base64urlEncode = (obj: object | Uint8Array): string => {
-    const str = obj instanceof Uint8Array 
-      ? new TextDecoder().decode(obj)
-      : JSON.stringify(obj);
-    const base64 = btoa(str);
+    let bytes: Uint8Array;
+    if (obj instanceof Uint8Array) {
+      bytes = obj;
+    } else {
+      bytes = new TextEncoder().encode(JSON.stringify(obj));
+    }
+    // Convert bytes to base64 safely (handles non-Latin1)
+    let binary = '';
+    for (let i = 0; i < bytes.length; i++) {
+      binary += String.fromCharCode(bytes[i]);
+    }
+    const base64 = btoa(binary);
     return base64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
   };
 
