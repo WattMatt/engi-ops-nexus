@@ -2365,9 +2365,9 @@ serve(async (req) => {
         const { data: uploadRecord, error: uploadError } = await supabase
           .from('boq_uploads')
           .insert({
-            file_name: `${spreadsheetInfo.properties?.title || 'Sheet Import'}.gsheet`,
+            file_name: `${spreadsheetInfo.properties?.title || 'Sheet Import'}.xlsx`,
             file_path: `google_sheets/${spreadsheet_id}`,
-            file_type: 'gsheet',
+            file_type: 'xlsx',
             source_description: `Imported from Google Sheet: https://docs.google.com/spreadsheets/d/${spreadsheet_id}`,
             province: province || null,
             building_type: building_type || null,
