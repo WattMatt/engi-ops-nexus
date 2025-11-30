@@ -86,3 +86,6 @@ verify_jwt = false
 
 [functions.extract-budget]
 verify_jwt = false
+
+[functions.google-sheets-sync]
+verify_jwt = false
