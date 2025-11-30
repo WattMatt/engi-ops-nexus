@@ -1452,8 +1452,23 @@ serve(async (req) => {
     console.log(`Google API action: ${action}`);
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseKey);
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
+    
+    // Create service role client for admin operations
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    
+    // Create user-aware client for auth operations
+    const authHeader = req.headers.get('Authorization');
+    let currentUserId: string | null = null;
+    
+    if (authHeader) {
+      const userSupabase = createClient(supabaseUrl, supabaseAnonKey, {
+        global: { headers: { Authorization: authHeader } }
+      });
+      const { data: { user } } = await userSupabase.auth.getUser();
+      currentUserId = user?.id || null;
+    }
 
     const accessToken = await getGoogleAccessToken();
 
@@ -2343,9 +2358,8 @@ serve(async (req) => {
         
         if (!sheetData.headers.length) throw new Error('No data found in sheet');
 
-        // Get current user
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error('Not authenticated');
+        // Get current user from auth header
+        if (!currentUserId) throw new Error('Not authenticated');
 
         // Create upload record
         const { data: uploadRecord, error: uploadError } = await supabase
@@ -2359,7 +2373,7 @@ serve(async (req) => {
             building_type: building_type || null,
             contractor_name: contractor_name || null,
             project_id: project_id || null,
-            uploaded_by: user.id,
+            uploaded_by: currentUserId,
             status: 'processing'
           })
           .select()
