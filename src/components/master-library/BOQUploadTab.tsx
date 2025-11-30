@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, FileSpreadsheet, Clock, CheckCircle, XCircle, Eye, Loader2, Building2, MapPin, Calendar, Trash2, RefreshCw, MoreHorizontal, Download } from "lucide-react";
+import { Upload, FileSpreadsheet, Clock, CheckCircle, XCircle, Eye, Loader2, Building2, MapPin, Calendar, Trash2, RefreshCw, MoreHorizontal, Download, Sheet, ExternalLink, RefreshCcw } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { BOQReviewDialog } from "./BOQReviewDialog";
@@ -79,6 +79,8 @@ export const BOQUploadTab = () => {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewUpload, setPreviewUpload] = useState<BOQUpload | null>(null);
   const [previewFile, setPreviewFile] = useState<File | null>(null);
+  const [exportingId, setExportingId] = useState<string | null>(null);
+  const [syncingId, setSyncingId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   // Fetch projects for dropdown
@@ -361,6 +363,83 @@ export const BOQUploadTab = () => {
     },
   });
 
+  // Export to Google Sheets
+  const handleExportToSheets = async (upload: BOQUpload) => {
+    if (upload.status !== "completed" && upload.status !== "reviewed") {
+      toast.error("Can only export completed BOQs to Google Sheets");
+      return;
+    }
+
+    setExportingId(upload.id);
+    try {
+      const { data, error } = await supabase.functions.invoke("google-sheets-sync", {
+        body: {
+          action: "export",
+          upload_id: upload.id,
+          title: `BOQ - ${upload.file_name}`,
+        },
+      });
+
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error || "Export failed");
+
+      toast.success(`Exported ${data.itemCount} items to Google Sheets`, {
+        action: {
+          label: "Open Sheet",
+          onClick: () => window.open(data.spreadsheetUrl, "_blank"),
+        },
+      });
+
+      queryClient.invalidateQueries({ queryKey: ["boq-uploads"] });
+    } catch (error) {
+      console.error("Export error:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to export to Google Sheets");
+    } finally {
+      setExportingId(null);
+    }
+  };
+
+  // Sync from Google Sheet
+  const handleSyncFromSheet = async (upload: BOQUpload) => {
+    // Extract spreadsheet ID from source_description
+    const match = upload.source_description?.match(/\[Google Sheet: https:\/\/docs\.google\.com\/spreadsheets\/d\/([^\/]+)/);
+    if (!match) {
+      toast.error("No linked Google Sheet found. Export first.");
+      return;
+    }
+
+    const spreadsheetId = match[1];
+    setSyncingId(upload.id);
+
+    try {
+      const { data, error } = await supabase.functions.invoke("google-sheets-sync", {
+        body: {
+          action: "sync_from_sheet",
+          upload_id: upload.id,
+          spreadsheet_id: spreadsheetId,
+        },
+      });
+
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error || "Sync failed");
+
+      toast.success(`Synced ${data.updatedCount} items from Google Sheet`);
+      queryClient.invalidateQueries({ queryKey: ["boq-uploads"] });
+      queryClient.invalidateQueries({ queryKey: ["boq-extracted-items"] });
+    } catch (error) {
+      console.error("Sync error:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to sync from Google Sheet");
+    } finally {
+      setSyncingId(null);
+    }
+  };
+
+  // Check if upload has a linked Google Sheet
+  const getLinkedSheetUrl = (upload: BOQUpload): string | null => {
+    const match = upload.source_description?.match(/\[Google Sheet: (https:\/\/docs\.google\.com\/spreadsheets\/d\/[^\]]+)\]/);
+    return match ? match[1] : null;
+  };
+
   // Download original file
   const handleDownloadFile = async (upload: BOQUpload) => {
     if (!upload.file_path) {
@@ -639,13 +718,21 @@ export const BOQUploadTab = () => {
                       </TableCell>
                       <TableCell className="max-w-[150px]">
                         <div className="truncate">
-                          {upload.source_description || upload.contractor_name || "—"}
+                          {upload.source_description?.replace(/\n?\[Google Sheet:.*\]/, '') || upload.contractor_name || "—"}
                         </div>
-                        {upload.building_type && (
-                          <Badge variant="outline" className="text-xs mt-1">
-                            {upload.building_type}
-                          </Badge>
-                        )}
+                        <div className="flex items-center gap-1 mt-1">
+                          {upload.building_type && (
+                            <Badge variant="outline" className="text-xs">
+                              {upload.building_type}
+                            </Badge>
+                          )}
+                          {getLinkedSheetUrl(upload) && (
+                            <Badge variant="secondary" className="text-xs cursor-pointer hover:bg-secondary/80" onClick={() => window.open(getLinkedSheetUrl(upload)!, "_blank")}>
+                              <Sheet className="h-3 w-3 mr-1" />
+                              Sheet
+                            </Badge>
+                          )}
+                        </div>
                       </TableCell>
                       <TableCell>
                         {upload.province ? (
@@ -704,6 +791,36 @@ export const BOQUploadTab = () => {
                                 Re-process
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
+                              {/* Google Sheets Options */}
+                              {(upload.status === "completed" || upload.status === "reviewed") && (
+                                <>
+                                  <DropdownMenuItem 
+                                    onClick={() => handleExportToSheets(upload)}
+                                    disabled={exportingId === upload.id}
+                                  >
+                                    <Sheet className={cn("h-4 w-4 mr-2", exportingId === upload.id && "animate-pulse")} />
+                                    {exportingId === upload.id ? "Exporting..." : "Export to Google Sheets"}
+                                  </DropdownMenuItem>
+                                  {getLinkedSheetUrl(upload) && (
+                                    <>
+                                      <DropdownMenuItem 
+                                        onClick={() => window.open(getLinkedSheetUrl(upload)!, "_blank")}
+                                      >
+                                        <ExternalLink className="h-4 w-4 mr-2" />
+                                        Open Google Sheet
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem 
+                                        onClick={() => handleSyncFromSheet(upload)}
+                                        disabled={syncingId === upload.id}
+                                      >
+                                        <RefreshCcw className={cn("h-4 w-4 mr-2", syncingId === upload.id && "animate-spin")} />
+                                        {syncingId === upload.id ? "Syncing..." : "Sync from Sheet"}
+                                      </DropdownMenuItem>
+                                    </>
+                                  )}
+                                  <DropdownMenuSeparator />
+                                </>
+                              )}
                               <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                   <DropdownMenuItem 
