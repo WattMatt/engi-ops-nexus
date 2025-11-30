@@ -2005,6 +2005,635 @@ serve(async (req) => {
         }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
 
+      // ===== MASTER RATES & AUTO-LOOKUP =====
+      case 'create_master_rates_sheet': {
+        // Create a Google Sheet containing all master materials with rates
+        const { data: materials, error: matError } = await supabase
+          .from('master_materials')
+          .select(`
+            *,
+            category:material_categories(name)
+          `)
+          .order('category_id, name');
+
+        if (matError) throw new Error(`Failed to fetch materials: ${matError.message}`);
+
+        const title = 'Master Rates Library';
+        
+        // Create spreadsheet
+        const createResponse = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            properties: { title },
+            sheets: [
+              { properties: { sheetId: 0, title: 'Master Rates', gridProperties: { frozenRowCount: 1 } } },
+              { properties: { sheetId: 1, title: 'By Category', gridProperties: { frozenRowCount: 1 } } }
+            ]
+          }),
+        });
+
+        if (!createResponse.ok) throw new Error(`Failed to create sheet: ${await createResponse.text()}`);
+        const spreadsheet = await createResponse.json();
+        const spreadsheetId = spreadsheet.spreadsheetId;
+
+        // Prepare data
+        const headers = ['ID', 'Name', 'Description', 'Category', 'Unit', 'Supply Rate', 'Install Rate', 'Total Rate', 'Last Updated', 'Usage Count'];
+        const rows = (materials || []).map(m => [
+          m.id,
+          m.name || '',
+          m.description || '',
+          m.category?.name || 'Uncategorized',
+          m.unit_of_measure || '',
+          m.standard_supply_cost || 0,
+          m.standard_install_cost || 0,
+          (m.standard_supply_cost || 0) + (m.standard_install_cost || 0),
+          m.updated_at ? new Date(m.updated_at).toLocaleDateString() : '',
+          m.usage_count || 0
+        ]);
+
+        await writeValues(accessToken, spreadsheetId, 'Master Rates!A1', [headers, ...rows]);
+
+        // Group by category for second sheet
+        const categoryGroups: Record<string, any[]> = {};
+        (materials || []).forEach(m => {
+          const cat = m.category?.name || 'Uncategorized';
+          if (!categoryGroups[cat]) categoryGroups[cat] = [];
+          categoryGroups[cat].push(m);
+        });
+
+        const categoryData: any[][] = [['Category', 'Item Count', 'Avg Supply Rate', 'Avg Install Rate', 'Avg Total Rate']];
+        Object.entries(categoryGroups).forEach(([cat, items]) => {
+          const avgSupply = items.reduce((s, i) => s + (i.standard_supply_cost || 0), 0) / items.length;
+          const avgInstall = items.reduce((s, i) => s + (i.standard_install_cost || 0), 0) / items.length;
+          categoryData.push([cat, items.length, avgSupply, avgInstall, avgSupply + avgInstall]);
+        });
+
+        await writeValues(accessToken, spreadsheetId, 'By Category!A1', categoryData);
+
+        // Apply formatting
+        const requests = [
+          { repeatCell: { 
+            range: { sheetId: 0, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 10 },
+            cell: { userEnteredFormat: { backgroundColor: COLORS.primary, textFormat: { foregroundColor: COLORS.white, bold: true } } },
+            fields: 'userEnteredFormat(backgroundColor,textFormat)'
+          }},
+          { repeatCell: { 
+            range: { sheetId: 0, startRowIndex: 1, endRowIndex: rows.length + 1, startColumnIndex: 5, endColumnIndex: 8 },
+            cell: { userEnteredFormat: { numberFormat: { type: 'CURRENCY', pattern: 'R #,##0.00' } } },
+            fields: 'userEnteredFormat.numberFormat'
+          }},
+          { setBasicFilter: { filter: { range: { sheetId: 0, startRowIndex: 0, endRowIndex: rows.length + 1, startColumnIndex: 0, endColumnIndex: 10 } } } },
+          { repeatCell: { 
+            range: { sheetId: 1, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 5 },
+            cell: { userEnteredFormat: { backgroundColor: COLORS.primary, textFormat: { foregroundColor: COLORS.white, bold: true } } },
+            fields: 'userEnteredFormat(backgroundColor,textFormat)'
+          }}
+        ];
+
+        await batchUpdate(accessToken, spreadsheetId, requests);
+        await shareFile(accessToken, spreadsheetId);
+
+        return new Response(JSON.stringify({
+          success: true,
+          spreadsheetId,
+          spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`,
+          materialCount: materials?.length || 0
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      case 'export_with_auto_rates': {
+        // Export BOQ items and auto-populate rates from master library
+        const { upload_id, title } = body;
+        if (!upload_id) throw new Error('upload_id required');
+
+        const { data: upload } = await supabase.from('boq_uploads').select('*').eq('id', upload_id).single();
+        if (!upload) throw new Error('Upload not found');
+
+        const { data: items } = await supabase.from('boq_extracted_items')
+          .select('*').eq('upload_id', upload_id).order('bill_number, section_code, row_number');
+
+        // Fetch master materials for rate lookup
+        const { data: masterMaterials } = await supabase
+          .from('master_materials')
+          .select('id, name, description, standard_supply_cost, standard_install_cost, unit_of_measure');
+
+        // Function to find best matching material
+        const findBestMatch = (description: string) => {
+          if (!masterMaterials || !description) return null;
+          const descLower = description.toLowerCase();
+          
+          // Try exact match first
+          let match = masterMaterials.find(m => 
+            m.name?.toLowerCase() === descLower || 
+            m.description?.toLowerCase() === descLower
+          );
+          if (match) return { ...match, confidence: 1.0 };
+
+          // Try contains match
+          match = masterMaterials.find(m => 
+            descLower.includes(m.name?.toLowerCase() || '') ||
+            m.name?.toLowerCase().includes(descLower.substring(0, 20))
+          );
+          if (match) return { ...match, confidence: 0.7 };
+
+          // Try keyword match
+          const keywords = descLower.split(/\s+/).filter(k => k.length > 3);
+          for (const material of masterMaterials) {
+            const matName = (material.name || '').toLowerCase();
+            const matchCount = keywords.filter(k => matName.includes(k)).length;
+            if (matchCount >= 2) return { ...material, confidence: 0.5 };
+          }
+
+          return null;
+        };
+
+        // Enhance items with master rates
+        const enhancedItems = (items || []).map(item => {
+          const match = findBestMatch(item.item_description);
+          return {
+            ...item,
+            master_match: match ? match.name : null,
+            master_supply_rate: match?.standard_supply_cost || null,
+            master_install_rate: match?.standard_install_cost || null,
+            match_confidence: match?.confidence || 0,
+            rate_source: match ? 'master_library' : 'boq_original'
+          };
+        });
+
+        // Create spreadsheet with enhanced data
+        const sheetTitle = title || `BOQ (Auto-Rated) - ${upload.file_name}`;
+        const billGroups: Record<string, any[]> = {};
+        enhancedItems.forEach(item => {
+          const bill = item.bill_name || 'General';
+          if (!billGroups[bill]) billGroups[bill] = [];
+          billGroups[bill].push(item);
+        });
+
+        const sheets = [
+          { properties: { sheetId: 0, title: 'Summary', gridProperties: { frozenRowCount: 1 } } },
+          { properties: { sheetId: 1, title: 'All Items', gridProperties: { frozenRowCount: 1 } } },
+          { properties: { sheetId: 2, title: 'Rate Comparison', gridProperties: { frozenRowCount: 1 } } },
+        ];
+
+        const createResponse = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ properties: { title: sheetTitle }, sheets }),
+        });
+
+        if (!createResponse.ok) throw new Error(`Failed to create sheet: ${await createResponse.text()}`);
+        const spreadsheet = await createResponse.json();
+        const spreadsheetId = spreadsheet.spreadsheetId;
+
+        // All Items sheet with master rates
+        const allHeaders = [
+          'Row #', 'Bill', 'Description', 'Unit', 'Qty',
+          'BOQ Supply Rate', 'BOQ Install Rate', 'BOQ Total',
+          'Master Supply Rate', 'Master Install Rate', 'Master Total',
+          'Variance', 'Variance %', 'Match Confidence', 'Rate Source'
+        ];
+
+        const allData = [allHeaders, ...enhancedItems.map((item, idx) => {
+          const boqSupply = item.supply_rate || 0;
+          const boqInstall = item.install_rate || 0;
+          const boqTotal = boqSupply + boqInstall;
+          const masterSupply = item.master_supply_rate || boqSupply;
+          const masterInstall = item.master_install_rate || boqInstall;
+          const masterTotal = masterSupply + masterInstall;
+          const variance = masterTotal - boqTotal;
+          const variancePct = boqTotal > 0 ? (variance / boqTotal) * 100 : 0;
+
+          return [
+            item.row_number || idx + 1,
+            item.bill_name || '',
+            item.item_description || '',
+            item.unit || '',
+            item.quantity || 1,
+            boqSupply,
+            boqInstall,
+            boqTotal,
+            masterSupply,
+            masterInstall,
+            masterTotal,
+            variance,
+            `${variancePct.toFixed(1)}%`,
+            item.match_confidence ? `${(item.match_confidence * 100).toFixed(0)}%` : '0%',
+            item.rate_source || 'boq_original'
+          ];
+        })];
+
+        await writeValues(accessToken, spreadsheetId, 'All Items!A1', allData);
+
+        // Rate Comparison sheet
+        const comparisonData = [
+          ['Rate Source Analysis'],
+          [''],
+          ['Source', 'Item Count', 'Total Value (BOQ)', 'Total Value (Master)', 'Variance'],
+          ['Master Library Matches', 
+            enhancedItems.filter(i => i.rate_source === 'master_library').length,
+            enhancedItems.filter(i => i.rate_source === 'master_library').reduce((s, i) => s + ((i.supply_rate || 0) + (i.install_rate || 0)) * (i.quantity || 1), 0),
+            enhancedItems.filter(i => i.rate_source === 'master_library').reduce((s, i) => s + ((i.master_supply_rate || 0) + (i.master_install_rate || 0)) * (i.quantity || 1), 0),
+            0
+          ],
+          ['BOQ Original Rates',
+            enhancedItems.filter(i => i.rate_source !== 'master_library').length,
+            enhancedItems.filter(i => i.rate_source !== 'master_library').reduce((s, i) => s + ((i.supply_rate || 0) + (i.install_rate || 0)) * (i.quantity || 1), 0),
+            enhancedItems.filter(i => i.rate_source !== 'master_library').reduce((s, i) => s + ((i.supply_rate || 0) + (i.install_rate || 0)) * (i.quantity || 1), 0),
+            0
+          ],
+        ];
+        // Calculate variance
+        comparisonData[3][4] = (comparisonData[3][3] as number) - (comparisonData[3][2] as number);
+        comparisonData[4][4] = 0;
+
+        await writeValues(accessToken, spreadsheetId, 'Rate Comparison!A1', comparisonData);
+
+        // Summary
+        const matchedCount = enhancedItems.filter(i => i.rate_source === 'master_library').length;
+        const summaryData = [
+          ['BOQ Auto-Rate Summary'],
+          [''],
+          ['File', upload.file_name],
+          ['Province', upload.province || 'N/A'],
+          ['Total Items', enhancedItems.length],
+          ['Items Matched to Master', matchedCount],
+          ['Match Rate', `${((matchedCount / enhancedItems.length) * 100).toFixed(1)}%`],
+          [''],
+          ['Rate Variance Analysis'],
+          ['Items with higher master rates', enhancedItems.filter(i => (i.master_supply_rate || 0) + (i.master_install_rate || 0) > (i.supply_rate || 0) + (i.install_rate || 0)).length],
+          ['Items with lower master rates', enhancedItems.filter(i => (i.master_supply_rate || 0) + (i.master_install_rate || 0) < (i.supply_rate || 0) + (i.install_rate || 0)).length],
+        ];
+
+        await writeValues(accessToken, spreadsheetId, 'Summary!A1', summaryData);
+
+        // Apply formatting
+        const requests = [
+          { repeatCell: { 
+            range: { sheetId: 1, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 15 },
+            cell: { userEnteredFormat: { backgroundColor: COLORS.primary, textFormat: { foregroundColor: COLORS.white, bold: true } } },
+            fields: 'userEnteredFormat(backgroundColor,textFormat)'
+          }},
+          { repeatCell: { 
+            range: { sheetId: 1, startRowIndex: 1, endRowIndex: enhancedItems.length + 1, startColumnIndex: 5, endColumnIndex: 12 },
+            cell: { userEnteredFormat: { numberFormat: { type: 'CURRENCY', pattern: 'R #,##0.00' } } },
+            fields: 'userEnteredFormat.numberFormat'
+          }},
+          { setBasicFilter: { filter: { range: { sheetId: 1, startRowIndex: 0, endRowIndex: enhancedItems.length + 1, startColumnIndex: 0, endColumnIndex: 15 } } } },
+          // Conditional formatting for variance
+          { addConditionalFormatRule: {
+            rule: {
+              ranges: [{ sheetId: 1, startRowIndex: 1, endRowIndex: enhancedItems.length + 1, startColumnIndex: 11, endColumnIndex: 12 }],
+              booleanRule: {
+                condition: { type: 'NUMBER_GREATER', values: [{ userEnteredValue: '0' }] },
+                format: { backgroundColor: COLORS.dangerLight }
+              }
+            },
+            index: 0
+          }},
+          { addConditionalFormatRule: {
+            rule: {
+              ranges: [{ sheetId: 1, startRowIndex: 1, endRowIndex: enhancedItems.length + 1, startColumnIndex: 11, endColumnIndex: 12 }],
+              booleanRule: {
+                condition: { type: 'NUMBER_LESS', values: [{ userEnteredValue: '0' }] },
+                format: { backgroundColor: COLORS.successLight }
+              }
+            },
+            index: 1
+          }}
+        ];
+
+        await batchUpdate(accessToken, spreadsheetId, requests);
+        await shareFile(accessToken, spreadsheetId);
+
+        return new Response(JSON.stringify({
+          success: true,
+          spreadsheetId,
+          spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`,
+          itemCount: enhancedItems.length,
+          matchedCount,
+          matchRate: ((matchedCount / enhancedItems.length) * 100).toFixed(1)
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      case 'import_from_sheet': {
+        // Import BOQ data FROM a Google Sheet
+        const { spreadsheet_id, sheet_name, project_id, province, building_type, contractor_name } = body;
+        if (!spreadsheet_id) throw new Error('spreadsheet_id required');
+
+        // Get spreadsheet info
+        const infoResponse = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${spreadsheet_id}`, {
+          headers: { 'Authorization': `Bearer ${accessToken}` }
+        });
+        if (!infoResponse.ok) throw new Error(`Failed to access spreadsheet: ${await infoResponse.text()}`);
+        const spreadsheetInfo = await infoResponse.json();
+
+        const targetSheet = sheet_name || spreadsheetInfo.sheets?.[0]?.properties?.title || 'Sheet1';
+        
+        // Read the sheet data
+        const sheetData = await readFromSheet(accessToken, spreadsheet_id, `'${targetSheet}'!A:Z`);
+        
+        if (!sheetData.headers.length) throw new Error('No data found in sheet');
+
+        // Get current user
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error('Not authenticated');
+
+        // Create upload record
+        const { data: uploadRecord, error: uploadError } = await supabase
+          .from('boq_uploads')
+          .insert({
+            file_name: `${spreadsheetInfo.properties?.title || 'Sheet Import'}.gsheet`,
+            file_path: `google_sheets/${spreadsheet_id}`,
+            file_type: 'gsheet',
+            source_description: `Imported from Google Sheet: https://docs.google.com/spreadsheets/d/${spreadsheet_id}`,
+            province: province || null,
+            building_type: building_type || null,
+            contractor_name: contractor_name || null,
+            project_id: project_id || null,
+            uploaded_by: user.id,
+            status: 'processing'
+          })
+          .select()
+          .single();
+
+        if (uploadError) throw new Error(`Failed to create upload record: ${uploadError.message}`);
+
+        // Map headers to expected columns
+        const headerMap: Record<string, number> = {};
+        sheetData.headers.forEach((h, i) => {
+          const normalized = h.toLowerCase().replace(/[^a-z0-9]/g, '_');
+          headerMap[normalized] = i;
+        });
+
+        // Common column name mappings
+        const descCol = headerMap['description'] ?? headerMap['item_description'] ?? headerMap['item'] ?? headerMap['material'] ?? 0;
+        const unitCol = headerMap['unit'] ?? headerMap['uom'] ?? headerMap['unit_of_measure'] ?? -1;
+        const qtyCol = headerMap['qty'] ?? headerMap['quantity'] ?? headerMap['amount'] ?? -1;
+        const rateCol = headerMap['rate'] ?? headerMap['total_rate'] ?? headerMap['price'] ?? headerMap['unit_price'] ?? -1;
+        const supplyCol = headerMap['supply_rate'] ?? headerMap['supply'] ?? headerMap['material_rate'] ?? -1;
+        const installCol = headerMap['install_rate'] ?? headerMap['install'] ?? headerMap['labour_rate'] ?? headerMap['labor_rate'] ?? -1;
+        const billCol = headerMap['bill'] ?? headerMap['bill_name'] ?? headerMap['section'] ?? -1;
+        const codeCol = headerMap['item_code'] ?? headerMap['code'] ?? headerMap['ref'] ?? headerMap['reference'] ?? -1;
+
+        // Parse rows into items
+        const items = sheetData.rows
+          .filter(row => row[descCol] && row[descCol].toString().trim())
+          .map((row, idx) => {
+            const totalRate = rateCol >= 0 ? parseFloat(row[rateCol]) || 0 : 0;
+            const supplyRate = supplyCol >= 0 ? parseFloat(row[supplyCol]) || (totalRate * 0.6) : (totalRate * 0.6);
+            const installRate = installCol >= 0 ? parseFloat(row[installCol]) || (totalRate * 0.4) : (totalRate * 0.4);
+
+            return {
+              upload_id: uploadRecord.id,
+              row_number: idx + 1,
+              item_description: row[descCol]?.toString() || '',
+              unit: unitCol >= 0 ? row[unitCol]?.toString() : null,
+              quantity: qtyCol >= 0 ? parseFloat(row[qtyCol]) || 1 : 1,
+              supply_rate: supplyRate,
+              install_rate: installRate,
+              total_rate: supplyRate + installRate,
+              bill_name: billCol >= 0 ? row[billCol]?.toString() : null,
+              item_code: codeCol >= 0 ? row[codeCol]?.toString() : null,
+              review_status: 'pending',
+              raw_data: row
+            };
+          });
+
+        // Insert items
+        if (items.length > 0) {
+          const { error: itemsError } = await supabase
+            .from('boq_extracted_items')
+            .insert(items);
+
+          if (itemsError) {
+            console.error('Failed to insert items:', itemsError);
+          }
+        }
+
+        // Update upload status
+        await supabase.from('boq_uploads').update({
+          status: 'completed',
+          total_items_extracted: items.length,
+          extraction_completed_at: new Date().toISOString()
+        }).eq('id', uploadRecord.id);
+
+        return new Response(JSON.stringify({
+          success: true,
+          uploadId: uploadRecord.id,
+          itemCount: items.length,
+          sheetName: targetSheet,
+          spreadsheetTitle: spreadsheetInfo.properties?.title
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      case 'create_boq_template': {
+        // Create a BOQ template with VLOOKUP formulas to master rates
+        const { template_name, include_master_rates, sections } = body;
+
+        // Create spreadsheet with template structure
+        const title = template_name || 'BOQ Template';
+        const sheets = [
+          { properties: { sheetId: 0, title: 'Instructions', gridProperties: { frozenRowCount: 0 } } },
+          { properties: { sheetId: 1, title: 'BOQ Entry', gridProperties: { frozenRowCount: 1 } } },
+          { properties: { sheetId: 2, title: 'Summary', gridProperties: { frozenRowCount: 1 } } },
+        ];
+
+        if (include_master_rates) {
+          sheets.push({ properties: { sheetId: 3, title: 'Master Rates', gridProperties: { frozenRowCount: 1 } } });
+        }
+
+        // Add section sheets
+        const defaultSections = sections || ['Preliminaries', 'Electrical', 'Mechanical', 'Civil', 'Finishes'];
+        defaultSections.forEach((section: string, i: number) => {
+          sheets.push({ properties: { sheetId: i + 10, title: section.substring(0, 30), gridProperties: { frozenRowCount: 1 } } });
+        });
+
+        const createResponse = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
+          method: 'POST',
+          headers: { 'Authorization': `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ properties: { title }, sheets }),
+        });
+
+        if (!createResponse.ok) throw new Error(`Failed to create template: ${await createResponse.text()}`);
+        const spreadsheet = await createResponse.json();
+        const spreadsheetId = spreadsheet.spreadsheetId;
+
+        // Instructions sheet
+        const instructions = [
+          ['BOQ Template Instructions'],
+          [''],
+          ['1. Enter item details in the BOQ Entry sheet or section-specific sheets'],
+          ['2. Use the Description column - rates will auto-lookup from Master Rates'],
+          ['3. Review calculated totals in the Summary sheet'],
+          ['4. Override rates manually if needed by editing Supply/Install columns'],
+          [''],
+          ['Column Guide:'],
+          ['- Item Code: Your reference code'],
+          ['- Description: Item description (used for rate lookup)'],
+          ['- Unit: Unit of measure (m, m², nr, etc.)'],
+          ['- Quantity: Amount required'],
+          ['- Supply Rate: Material/supply cost per unit'],
+          ['- Install Rate: Labour/installation cost per unit'],
+          ['- Total Rate: Calculated (Supply + Install)'],
+          ['- Total Cost: Calculated (Qty × Total Rate)'],
+          [''],
+          ['Tips:'],
+          ['- Green cells = auto-populated from Master Rates'],
+          ['- Yellow cells = manually entered rates'],
+          ['- Red highlight = rate significantly different from master'],
+        ];
+
+        await writeValues(accessToken, spreadsheetId, 'Instructions!A1', instructions);
+
+        // BOQ Entry sheet with formulas
+        const boqHeaders = ['Item Code', 'Description', 'Unit', 'Qty', 'Supply Rate', 'Install Rate', 'Total Rate', 'Total Cost', 'Notes'];
+        const boqData = [boqHeaders];
+        
+        // Add formula rows (template)
+        for (let i = 0; i < 100; i++) {
+          const row = i + 2;
+          boqData.push([
+            '', // Item code
+            '', // Description
+            '', // Unit
+            '', // Qty
+            include_master_rates ? `=IF(B${row}="","",IFERROR(VLOOKUP(B${row},'Master Rates'!$B:$F,4,FALSE),0))` : '',
+            include_master_rates ? `=IF(B${row}="","",IFERROR(VLOOKUP(B${row},'Master Rates'!$B:$F,5,FALSE),0))` : '',
+            `=IF(B${row}="","",E${row}+F${row})`,
+            `=IF(B${row}="","",D${row}*G${row})`,
+            '' // Notes
+          ]);
+        }
+
+        await writeValues(accessToken, spreadsheetId, 'BOQ Entry!A1', boqData);
+
+        // Summary sheet
+        const summaryData = [
+          ['BOQ Summary'],
+          [''],
+          ['Total Items', '=COUNTA(\'BOQ Entry\'!B:B)-1'],
+          ['Total Supply Cost', '=SUMPRODUCT(\'BOQ Entry\'!D2:D101,\'BOQ Entry\'!E2:E101)'],
+          ['Total Install Cost', '=SUMPRODUCT(\'BOQ Entry\'!D2:D101,\'BOQ Entry\'!F2:F101)'],
+          ['Grand Total', '=SUM(\'BOQ Entry\'!H:H)'],
+          [''],
+          ['Section Breakdown'],
+          ...defaultSections.map((section: string) => [section, `=SUM('${section.substring(0, 30)}'!H:H)`])
+        ];
+
+        await writeValues(accessToken, spreadsheetId, 'Summary!A1', summaryData);
+
+        // Master Rates sheet (if included)
+        if (include_master_rates) {
+          const { data: materials } = await supabase
+            .from('master_materials')
+            .select('id, name, description, unit_of_measure, standard_supply_cost, standard_install_cost')
+            .order('name');
+
+          const ratesHeaders = ['ID', 'Name', 'Description', 'Unit', 'Supply Rate', 'Install Rate'];
+          const ratesData = [
+            ratesHeaders,
+            ...(materials || []).map(m => [
+              m.id,
+              m.name || '',
+              m.description || '',
+              m.unit_of_measure || '',
+              m.standard_supply_cost || 0,
+              m.standard_install_cost || 0
+            ])
+          ];
+
+          await writeValues(accessToken, spreadsheetId, 'Master Rates!A1', ratesData);
+        }
+
+        // Section sheets
+        for (const section of defaultSections) {
+          const sectionHeaders = ['Item Code', 'Description', 'Unit', 'Qty', 'Supply Rate', 'Install Rate', 'Total Rate', 'Total Cost', 'Notes'];
+          const sectionData = [sectionHeaders];
+          
+          for (let i = 0; i < 50; i++) {
+            const row = i + 2;
+            sectionData.push([
+              '',
+              '',
+              '',
+              '',
+              include_master_rates ? `=IF(B${row}="","",IFERROR(VLOOKUP(B${row},'Master Rates'!$B:$F,4,FALSE),0))` : '',
+              include_master_rates ? `=IF(B${row}="","",IFERROR(VLOOKUP(B${row},'Master Rates'!$B:$F,5,FALSE),0))` : '',
+              `=IF(B${row}="","",E${row}+F${row})`,
+              `=IF(B${row}="","",D${row}*G${row})`,
+              ''
+            ]);
+          }
+
+          await writeValues(accessToken, spreadsheetId, `'${section.substring(0, 30)}'!A1`, sectionData);
+        }
+
+        // Apply formatting
+        const formatRequests = [
+          { repeatCell: { 
+            range: { sheetId: 1, startRowIndex: 0, endRowIndex: 1, startColumnIndex: 0, endColumnIndex: 9 },
+            cell: { userEnteredFormat: { backgroundColor: COLORS.primary, textFormat: { foregroundColor: COLORS.white, bold: true } } },
+            fields: 'userEnteredFormat(backgroundColor,textFormat)'
+          }},
+          { repeatCell: { 
+            range: { sheetId: 1, startRowIndex: 1, endRowIndex: 101, startColumnIndex: 4, endColumnIndex: 8 },
+            cell: { userEnteredFormat: { numberFormat: { type: 'CURRENCY', pattern: 'R #,##0.00' } } },
+            fields: 'userEnteredFormat.numberFormat'
+          }},
+          { setBasicFilter: { filter: { range: { sheetId: 1, startRowIndex: 0, endRowIndex: 101, startColumnIndex: 0, endColumnIndex: 9 } } } },
+        ];
+
+        await batchUpdate(accessToken, spreadsheetId, formatRequests);
+        await shareFile(accessToken, spreadsheetId);
+
+        return new Response(JSON.stringify({
+          success: true,
+          spreadsheetId,
+          spreadsheetUrl: `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`,
+          sections: defaultSections,
+          hasMasterRates: include_master_rates
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
+      case 'sync_master_rates_to_sheet': {
+        // Update master rates in an existing sheet
+        const { spreadsheet_id } = body;
+        if (!spreadsheet_id) throw new Error('spreadsheet_id required');
+
+        const { data: materials } = await supabase
+          .from('master_materials')
+          .select('id, name, description, unit_of_measure, standard_supply_cost, standard_install_cost')
+          .order('name');
+
+        const ratesHeaders = ['ID', 'Name', 'Description', 'Unit', 'Supply Rate', 'Install Rate'];
+        const ratesData = [
+          ratesHeaders,
+          ...(materials || []).map(m => [
+            m.id,
+            m.name || '',
+            m.description || '',
+            m.unit_of_measure || '',
+            m.standard_supply_cost || 0,
+            m.standard_install_cost || 0
+          ])
+        ];
+
+        // Clear existing and write new data
+        await fetch(
+          `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheet_id}/values/'Master Rates'!A:F:clear`,
+          { method: 'POST', headers: { 'Authorization': `Bearer ${accessToken}` } }
+        );
+
+        await writeValues(accessToken, spreadsheet_id, 'Master Rates!A1', ratesData);
+
+        return new Response(JSON.stringify({
+          success: true,
+          materialCount: materials?.length || 0,
+          message: 'Master rates updated - formulas will recalculate automatically'
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+
       default:
         throw new Error(`Unknown action: ${action}`);
     }
