@@ -617,7 +617,12 @@ const ItemsTable = ({ items, selectedItems, toggleItem, getStatusBadge, getCompa
               : "—"}
           </TableCell>
           <TableCell className="text-right font-mono text-sm font-medium">
-            {item.total_rate ? formatCurrency(item.total_rate) : "—"}
+            {(() => {
+              const supply = item.supply_rate || item.supply_cost || 0;
+              const install = item.install_rate || item.install_cost || 0;
+              const calculatedTotal = supply + install;
+              return calculatedTotal > 0 ? formatCurrency(calculatedTotal) : "—";
+            })()}
             {item.profit_percentage && (
               <div className="text-xs text-muted-foreground">
                 +{item.profit_percentage}% profit
