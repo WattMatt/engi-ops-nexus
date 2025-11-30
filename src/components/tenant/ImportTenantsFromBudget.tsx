@@ -82,47 +82,65 @@ export function ImportTenantsFromBudget({ projectId, onSuccess }: ImportTenantsF
       // Get the budget sections
       const { data: sections } = await supabase
         .from("budget_sections")
-        .select("id")
+        .select("id, section_name")
         .eq("budget_id", selectedBudgetId);
 
       if (!sections?.length) return [];
 
-      // Get tenant line items from these sections
+      // Get tenant line items from these sections (is_tenant_item = true)
       const { data: items, error } = await supabase
         .from("budget_line_items")
         .select("shop_number, description, area, base_rate, ti_rate")
         .in("section_id", sections.map(s => s.id))
-        .eq("is_tenant_item", true)
-        .not("shop_number", "is", null);
+        .eq("is_tenant_item", true);
 
       if (error) throw error;
 
-      // Group by shop_number and get unique tenants
+      // Group tenants - handle both shop_number and description-based
       const tenantMap = new Map<string, TenantPreview>();
+      let autoIndex = 1;
       
       for (const item of items || []) {
         const shopNum = item.shop_number?.trim();
-        if (!shopNum || shopNum === "0") continue;
+        const description = item.description?.trim();
+        
+        // Skip items without meaningful data
+        if (!description && !shopNum) continue;
+        
+        let key: string;
+        let displayShopNumber: string;
+        
+        if (shopNum && shopNum !== "0") {
+          // Has shop number - use it
+          key = `shop_${shopNum.toLowerCase()}`;
+          displayShopNumber = shopNum;
+        } else {
+          // No shop number - use description as unique key
+          key = `desc_${description?.toLowerCase() || autoIndex}`;
+          displayShopNumber = String(autoIndex);
+          autoIndex++;
+        }
 
-        const key = shopNum.toLowerCase();
         const existing = tenantMap.get(key);
         
         // Use the item with the largest area or most data
         if (!existing || (item.area && item.area > (existing.area || 0))) {
+          const checkKey = displayShopNumber.toLowerCase();
           tenantMap.set(key, {
-            shop_number: shopNum,
-            shop_name: item.description || `Shop ${shopNum}`,
+            shop_number: displayShopNumber,
+            shop_name: description || `Shop ${displayShopNumber}`,
             area: item.area || 0,
             base_rate: item.base_rate,
             ti_rate: item.ti_rate,
-            exists: existingTenants.includes(key),
+            exists: existingTenants.includes(checkKey) || 
+                    existingTenants.some(e => e === description?.toLowerCase()),
           });
         }
       }
 
       return Array.from(tenantMap.values()).sort((a, b) => {
-        const numA = parseInt(a.shop_number.match(/\d+/)?.[0] || "0");
-        const numB = parseInt(b.shop_number.match(/\d+/)?.[0] || "0");
+        const numA = parseInt(a.shop_number.match(/\d+/)?.[0] || "999");
+        const numB = parseInt(b.shop_number.match(/\d+/)?.[0] || "999");
         return numA - numB;
       });
     },
