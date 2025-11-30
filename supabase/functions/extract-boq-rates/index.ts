@@ -56,7 +56,7 @@ serve(async (req) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const googleApiKey = Deno.env.get('GOOGLE_AI_API_KEY');
+    const lovableApiKey = Deno.env.get('LOVABLE_API_KEY');
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -103,7 +103,7 @@ serve(async (req) => {
       
       console.log(`[BOQ Extract] Processing sheet: ${sheet.name}`);
       
-      const sheetItems = await extractFromSheet(sheet, categoryList, googleApiKey);
+      const sheetItems = await extractFromSheet(sheet, categoryList, lovableApiKey);
       
       // Add global row numbers
       for (const item of sheetItems) {
@@ -341,59 +341,95 @@ function splitIntoSheets(content: string): { name: string; content: string }[] {
 async function extractFromSheet(
   sheet: { name: string; content: string },
   categoryList: string,
-  googleApiKey: string | undefined
+  lovableApiKey: string | undefined
 ): Promise<ExtractedItem[]> {
-  if (!googleApiKey) {
+  if (!lovableApiKey) {
+    console.log(`[BOQ Extract] No API key, using basic parsing for ${sheet.name}`);
     return parseSheetBasic(sheet.name, sheet.content);
   }
 
-  const prompt = `Extract ALL electrical BOQ line items from this sheet. Return a JSON array.
+  const systemPrompt = `You are an expert at extracting electrical Bills of Quantities (BOQ) data. Extract ALL line items accurately.
 
-SHEET: ${sheet.name}
+IMPORTANT RULES:
+1. Extract EVERY line item with an item code (A1, A2, B1, B2.1, C1.1, etc.)
+2. Include ALL electrical categories: MV switchgear, LV equipment, cables, conduits, cable tray, earthing, lighting, fire detection, CCTV, etc.
+3. Parse South African BOQ format with costs in Rands (R)
+4. Identify supply rate vs install rate columns correctly
+5. Mark items as "rate_only" if quantity shows "Rate Only" or "RATE ONLY"
+6. Extract section headers (A - MEDIUM VOLTAGE, B - LOW VOLTAGE, etc.)
 
-For EACH line item with an item code (like A1, B2.1, C1.1.1, D3.2), extract:
-- item_code: exact code (A1, B2.1, etc.)
-- item_description: full description
-- quantity: number or null if "Rate Only"
-- is_rate_only: true if quantity shows "Rate Only" or "RATE ONLY"
-- unit: each/m/m²/kg/No/Nr/Sum/Lot/%
-- supply_rate: supply cost per unit
-- install_rate: install cost per unit
-- total_rate: combined rate if not split
-- suggested_category_name: one of [${categoryList}]
-- bill_number: extract from sheet name if present (e.g., "BILL NO. 1" = 1)
-- section_code: A, B, C, D, etc.
+CATEGORIES for suggested_category_name:
+${categoryList}
+
+Common SA BOQ sections:
+- A: Medium Voltage (substations, RMUs, MV cables)
+- B: Low Voltage (DBs, panels, busbars)  
+- C: Cables & Conductors (XLPE, PVC, armoured)
+- D: Containment (conduit, trunking, cable tray)
+- E: Earthing (earth rods, tape, conductors)
+- F: Lighting (LED fittings, emergency lights)
+- G: Small Power (sockets, isolators)
+- H: Fire Detection
+- J: CCTV / Security
+- K: Telkom / Data`;
+
+  const userPrompt = `Extract ALL BOQ line items from this sheet: "${sheet.name}"
+
+For EACH item extract:
+- item_code: exact code (A1, B2.1, C1.1.1)
+- item_description: full description text
+- quantity: number or null if rate only
+- is_rate_only: true/false
+- unit: each/m/m²/kg/No/Nr/Sum/Lot/item/%
+- supply_rate: supply cost per unit (R value)
+- install_rate: install cost per unit (R value)
+- total_rate: if rates not split
+- section_code: letter (A, B, C...)
 - section_name: section title
+- suggested_category_name: from categories list
+- bill_number: from sheet name (e.g., "4 Boxer" = 4)
+- bill_name: tenant/area name
 
-South African BOQ format - costs in Rands (R).
-ONLY return valid JSON array, no markdown, no explanation.
+RESPOND WITH ONLY A JSON ARRAY, NO MARKDOWN BLOCKS.
 
-CONTENT:
-${sheet.content.substring(0, 30000)}`;
+SHEET CONTENT:
+${sheet.content.substring(0, 25000)}`;
 
   try {
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${googleApiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.1,
-            maxOutputTokens: 8192,
-          }
-        })
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${lovableApiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt }
+        ],
+        max_tokens: 16000,
+      })
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[BOQ Extract] API error ${response.status} for ${sheet.name}:`, errorText.substring(0, 300));
+      
+      if (response.status === 429) {
+        console.log(`[BOQ Extract] Rate limited, using basic parsing for ${sheet.name}`);
       }
-    );
+      return parseSheetBasic(sheet.name, sheet.content);
+    }
 
     const aiResult = await response.json();
     
-    if (aiResult.candidates?.[0]?.content?.parts?.[0]?.text) {
-      const rawText = aiResult.candidates[0].content.parts[0].text;
+    if (aiResult.choices?.[0]?.message?.content) {
+      const rawText = aiResult.choices[0].message.content;
+      console.log(`[BOQ Extract] AI response length for ${sheet.name}: ${rawText.length} chars`);
       return parseAIResponse(rawText, sheet.name);
     } else {
-      console.error(`[BOQ Extract] No AI response for sheet ${sheet.name}:`, JSON.stringify(aiResult).substring(0, 500));
+      console.error(`[BOQ Extract] No AI content for ${sheet.name}:`, JSON.stringify(aiResult).substring(0, 300));
       return parseSheetBasic(sheet.name, sheet.content);
     }
   } catch (error) {
