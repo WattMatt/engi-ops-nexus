@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, FileSpreadsheet, Clock, CheckCircle, XCircle, Eye, Loader2, Building2, MapPin, Calendar, Trash2, RefreshCw, MoreHorizontal, Download, Sheet, ExternalLink, RefreshCcw, FileText, Presentation, Mail, FolderPlus, ClipboardList, FileQuestion, ClipboardCheck, HardHat } from "lucide-react";
+import { Upload, FileSpreadsheet, Clock, CheckCircle, XCircle, Eye, Loader2, Building2, MapPin, Calendar, Trash2, RefreshCw, MoreHorizontal, Download, Sheet, ExternalLink, RefreshCcw, FileText, Presentation, Mail, FolderPlus, ClipboardList, FileQuestion, ClipboardCheck, HardHat, Sparkles, FileInput, FilePlus2, Database } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { BOQReviewDialog } from "./BOQReviewDialog";
@@ -705,6 +705,126 @@ export const BOQUploadTab = () => {
     URL.revokeObjectURL(url);
   };
 
+  // Export with Auto-Rates (matches items to master library)
+  const handleExportWithAutoRates = async (upload: BOQUpload) => {
+    if (upload.status !== "completed" && upload.status !== "reviewed") {
+      toast.error("Can only export completed BOQs");
+      return;
+    }
+
+    const toastId = toast.loading("Exporting with auto-rate matching...");
+    try {
+      const { data, error } = await supabase.functions.invoke("google-sheets-sync", {
+        body: {
+          action: "export_with_auto_rates",
+          upload_id: upload.id,
+        },
+      });
+
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error || "Export failed");
+
+      toast.success(`Exported ${data.itemCount} items (${data.matchedCount} matched to master rates - ${data.matchRate}%)`, {
+        id: toastId,
+        action: {
+          label: "Open Sheet",
+          onClick: () => window.open(data.spreadsheetUrl, "_blank"),
+        },
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to export", { id: toastId });
+    }
+  };
+
+  // Import BOQ from Google Sheet
+  const handleImportFromSheet = async () => {
+    const spreadsheetUrl = prompt("Enter Google Sheet URL or ID:");
+    if (!spreadsheetUrl) return;
+
+    // Extract spreadsheet ID from URL or use as-is
+    const idMatch = spreadsheetUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
+    const spreadsheetId = idMatch ? idMatch[1] : spreadsheetUrl;
+
+    const toastId = toast.loading("Importing from Google Sheet...");
+    try {
+      const { data, error } = await supabase.functions.invoke("google-sheets-sync", {
+        body: {
+          action: "import_from_sheet",
+          spreadsheet_id: spreadsheetId,
+          province: selectedProvince || null,
+          building_type: selectedBuildingType || null,
+          contractor_name: contractorName || null,
+          project_id: selectedProjectId || null,
+        },
+      });
+
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error || "Import failed");
+
+      toast.success(`Imported ${data.itemCount} items from "${data.spreadsheetTitle}"`, { id: toastId });
+      queryClient.invalidateQueries({ queryKey: ["boq-uploads"] });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to import", { id: toastId });
+    }
+  };
+
+  // Create BOQ Template with rate formulas
+  const handleCreateBOQTemplate = async () => {
+    const templateName = prompt("Enter template name:", "BOQ Template");
+    if (!templateName) return;
+
+    const includeMasterRates = confirm("Include Master Rates sheet with VLOOKUP formulas?");
+
+    const toastId = toast.loading("Creating BOQ template...");
+    try {
+      const { data, error } = await supabase.functions.invoke("google-sheets-sync", {
+        body: {
+          action: "create_boq_template",
+          template_name: templateName,
+          include_master_rates: includeMasterRates,
+        },
+      });
+
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error || "Failed to create template");
+
+      toast.success(`Created template with ${data.sections.length} sections${data.hasMasterRates ? ' + auto-rate lookup' : ''}`, {
+        id: toastId,
+        action: {
+          label: "Open Template",
+          onClick: () => window.open(data.spreadsheetUrl, "_blank"),
+        },
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to create template", { id: toastId });
+    }
+  };
+
+  // Create Master Rates Sheet
+  const handleCreateMasterRatesSheet = async () => {
+    const toastId = toast.loading("Creating Master Rates sheet...");
+    try {
+      const { data, error } = await supabase.functions.invoke("google-sheets-sync", {
+        body: {
+          action: "create_master_rates_sheet",
+        },
+      });
+
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error || "Failed to create sheet");
+
+      toast.success(`Created Master Rates sheet with ${data.materialCount} materials`, {
+        id: toastId,
+        action: {
+          label: "Open Sheet",
+          onClick: () => window.open(data.spreadsheetUrl, "_blank"),
+        },
+      });
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to create sheet", { id: toastId });
+    }
+  };
+
   const handleFileSelect = useCallback(
     (event: React.ChangeEvent<HTMLInputElement>) => {
       const file = event.target.files?.[0];
@@ -761,13 +881,31 @@ export const BOQUploadTab = () => {
       {/* Upload Section */}
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Upload className="h-5 w-5" />
-            Upload BOQ Document
-          </CardTitle>
-          <CardDescription>
-            Upload Excel, CSV, or PDF files to extract material rates using AI
-          </CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Upload className="h-5 w-5" />
+                Upload BOQ Document
+              </CardTitle>
+              <CardDescription>
+                Upload Excel, CSV, or PDF files to extract material rates using AI
+              </CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={handleImportFromSheet}>
+                <FileInput className="h-4 w-4 mr-2" />
+                Import from Sheet
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleCreateBOQTemplate}>
+                <FilePlus2 className="h-4 w-4 mr-2" />
+                Create Template
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleCreateMasterRatesSheet}>
+                <Database className="h-4 w-4 mr-2" />
+                Master Rates Sheet
+              </Button>
+            </div>
+          </div>
         </CardHeader>
         <CardContent className="space-y-4">
           {/* Project & Location Info */}
@@ -1038,6 +1176,12 @@ export const BOQUploadTab = () => {
                                   >
                                     <Sheet className={cn("h-4 w-4 mr-2", exportingId === upload.id && "animate-pulse")} />
                                     {exportingId === upload.id ? "Exporting..." : "Export to Google Sheets"}
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem 
+                                    onClick={() => handleExportWithAutoRates(upload)}
+                                  >
+                                    <Sparkles className="h-4 w-4 mr-2" />
+                                    Export with Auto-Rates
                                   </DropdownMenuItem>
                                   {getLinkedSheetUrl(upload) && (
                                     <>
