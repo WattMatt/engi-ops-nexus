@@ -139,7 +139,11 @@ export const MaterialCategoriesTab = () => {
       form.reset();
     },
     onError: (error: Error) => {
-      toast.error(error.message || "Failed to save category");
+      if (error.message?.includes("material_categories_category_code_key")) {
+        toast.error("A category with this code already exists. Please use a unique code.");
+      } else {
+        toast.error(error.message || "Failed to save category");
+      }
     },
   });
 
