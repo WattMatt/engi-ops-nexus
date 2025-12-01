@@ -112,10 +112,22 @@ export const MaterialDialog = ({ open, onOpenChange, material }: MaterialDialogP
     if (!isEditing && watchedCategoryId && categories && existingMaterials) {
       const selectedCategory = categories.find(c => c.id === watchedCategoryId);
       if (selectedCategory) {
-        // Count existing materials in this category
+        // Find highest existing number for this category
         const categoryMaterials = existingMaterials.filter(m => m.category_id === watchedCategoryId);
-        const nextNumber = categoryMaterials.length + 1;
-        const generatedCode = `${selectedCategory.category_code}-${String(nextNumber).padStart(3, '0')}`;
+        const codePrefix = `${selectedCategory.category_code}-`;
+        
+        let maxNumber = 0;
+        categoryMaterials.forEach(m => {
+          if (m.material_code?.startsWith(codePrefix)) {
+            const numPart = parseInt(m.material_code.replace(codePrefix, ''), 10);
+            if (!isNaN(numPart) && numPart > maxNumber) {
+              maxNumber = numPart;
+            }
+          }
+        });
+        
+        const nextNumber = maxNumber + 1;
+        const generatedCode = `${codePrefix}${String(nextNumber).padStart(3, '0')}`;
         form.setValue("material_code", generatedCode);
       }
     }
