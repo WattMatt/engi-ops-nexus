@@ -19,7 +19,7 @@ const MasterLibrary = () => {
           <Button 
             variant="ghost" 
             size="icon"
-            onClick={() => navigate("/project-select")}
+            onClick={() => navigate("/projects")}
             className="shrink-0"
           >
             <ArrowLeft className="h-5 w-5" />
