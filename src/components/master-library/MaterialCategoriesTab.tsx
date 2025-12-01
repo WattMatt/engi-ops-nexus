@@ -171,10 +171,18 @@ export const MaterialCategoriesTab = () => {
     setDialogOpen(true);
   };
 
+  // Natural sort by code number
+  const sortByCode = (a: Category, b: Category) => {
+    const numA = parseInt(a.category_code.match(/\d+/)?.[0] || '0', 10);
+    const numB = parseInt(b.category_code.match(/\d+/)?.[0] || '0', 10);
+    if (numA !== numB) return numA - numB;
+    return a.category_code.localeCompare(b.category_code, undefined, { numeric: true });
+  };
+
   // Build category tree
-  const rootCategories = categories?.filter((c) => !c.parent_category_id) || [];
+  const rootCategories = (categories?.filter((c) => !c.parent_category_id) || []).sort(sortByCode);
   const getChildren = (parentId: string) =>
-    categories?.filter((c) => c.parent_category_id === parentId) || [];
+    (categories?.filter((c) => c.parent_category_id === parentId) || []).sort(sortByCode);
 
   return (
     <Card>
