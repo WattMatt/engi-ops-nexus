@@ -31,7 +31,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { useForm } from "react-hook-form";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 
@@ -84,6 +84,30 @@ export const MaterialCategoriesTab = () => {
       sort_order: 0,
     },
   });
+
+  const watchedParentId = useWatch({ control: form.control, name: "parent_category_id" });
+  const watchedCode = useWatch({ control: form.control, name: "category_code" });
+
+  // Auto-prefix category code when parent is selected (for new categories)
+  const handleParentChange = (parentId: string) => {
+    if (!selectedCategory && parentId && parentId !== "__none__") {
+      const parentCategory = categories?.find(c => c.id === parentId);
+      if (parentCategory) {
+        const currentCode = form.getValues("category_code");
+        // Only add prefix if the code doesn't already start with parent prefix
+        if (!currentCode.startsWith(`${parentCategory.category_code}-`)) {
+          form.setValue("category_code", `${parentCategory.category_code}-`);
+        }
+      }
+    } else if (!selectedCategory && (!parentId || parentId === "__none__")) {
+      // If removing parent, clear the prefix if it matches a parent code
+      const currentCode = form.getValues("category_code");
+      const matchingParent = rootCategories.find(p => currentCode.startsWith(`${p.category_code}-`));
+      if (matchingParent && currentCode === `${matchingParent.category_code}-`) {
+        form.setValue("category_code", "");
+      }
+    }
+  };
 
   const mutation = useMutation({
     mutationFn: async (data: CategoryFormData) => {
@@ -299,7 +323,11 @@ export const MaterialCategoriesTab = () => {
                     <FormItem>
                       <FormLabel>Parent Category (Optional)</FormLabel>
                       <Select 
-                        onValueChange={(val) => field.onChange(val === "__none__" ? "" : val)} 
+                        onValueChange={(val) => {
+                          const actualVal = val === "__none__" ? "" : val;
+                          field.onChange(actualVal);
+                          handleParentChange(val);
+                        }} 
                         value={field.value || "__none__"}
                       >
                         <FormControl>
