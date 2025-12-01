@@ -109,12 +109,16 @@ export const MaterialsLibraryTab = () => {
     enabled: !!categories,
   });
 
-  // Natural sort by code number
+  // Natural sort by code prefix first, then by trailing number
   const sortByMaterialCode = (a: Material, b: Material) => {
+    const prefixA = a.material_code.replace(/\d+$/, '');
+    const prefixB = b.material_code.replace(/\d+$/, '');
+    // First sort by prefix to keep groups together
+    if (prefixA !== prefixB) return prefixA.localeCompare(prefixB);
+    // Then sort numerically within the same prefix
     const numA = parseInt(a.material_code.match(/\d+$/)?.[0] || '0', 10);
     const numB = parseInt(b.material_code.match(/\d+$/)?.[0] || '0', 10);
-    if (numA !== numB) return numA - numB;
-    return a.material_code.localeCompare(b.material_code, undefined, { numeric: true });
+    return numA - numB;
   };
 
   // Group materials by category
