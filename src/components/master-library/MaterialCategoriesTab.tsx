@@ -298,14 +298,17 @@ export const MaterialCategoriesTab = () => {
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Parent Category (Optional)</FormLabel>
-                      <Select onValueChange={field.onChange} value={field.value}>
+                      <Select 
+                        onValueChange={(val) => field.onChange(val === "__none__" ? "" : val)} 
+                        value={field.value || "__none__"}
+                      >
                         <FormControl>
                           <SelectTrigger>
                             <SelectValue placeholder="None (Top Level)" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="">None (Top Level)</SelectItem>
+                          <SelectItem value="__none__">None (Top Level)</SelectItem>
                           {rootCategories
                             .filter((c) => c.id !== selectedCategory?.id)
                             .map((c) => (
