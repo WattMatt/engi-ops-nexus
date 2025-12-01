@@ -70,13 +70,49 @@ export const MaterialDialog = ({ open, onOpenChange, material }: MaterialDialogP
     queryFn: async () => {
       const { data, error } = await supabase
         .from("material_categories")
-        .select("id, category_code, category_name")
+        .select("id, category_code, category_name, parent_category_id")
         .eq("is_active", true)
         .order("sort_order");
       if (error) throw error;
       return data;
     },
   });
+
+  // Organize categories into parent/child structure
+  const organizedCategories = useMemo(() => {
+    if (!categories) return [];
+    
+    const parents = categories.filter(c => !c.parent_category_id);
+    const children = categories.filter(c => c.parent_category_id);
+    
+    const result: Array<{
+      id: string;
+      category_code: string;
+      category_name: string;
+      isParent: boolean;
+      children?: typeof categories;
+    }> = [];
+    
+    parents.forEach(parent => {
+      const parentChildren = children.filter(c => c.parent_category_id === parent.id);
+      if (parentChildren.length > 0) {
+        // Parent with children - parent is a header, children are selectable
+        result.push({
+          ...parent,
+          isParent: true,
+          children: parentChildren,
+        });
+      } else {
+        // Standalone category (no children) - selectable
+        result.push({
+          ...parent,
+          isParent: false,
+        });
+      }
+    });
+    
+    return result;
+  }, [categories]);
 
   // Fetch existing materials to determine next sequence number
   const { data: existingMaterials } = useQuery({
@@ -250,10 +286,23 @@ export const MaterialDialog = ({ open, onOpenChange, material }: MaterialDialogP
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {categories?.map((cat) => (
-                          <SelectItem key={cat.id} value={cat.id}>
-                            {cat.category_code} - {cat.category_name}
-                          </SelectItem>
+                        {organizedCategories.map((cat) => (
+                          cat.isParent && cat.children ? (
+                            <div key={cat.id}>
+                              <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground">
+                                {cat.category_name}
+                              </div>
+                              {cat.children.map((child) => (
+                                <SelectItem key={child.id} value={child.id} className="pl-6">
+                                  {child.category_code} - {child.category_name}
+                                </SelectItem>
+                              ))}
+                            </div>
+                          ) : (
+                            <SelectItem key={cat.id} value={cat.id}>
+                              {cat.category_code} - {cat.category_name}
+                            </SelectItem>
+                          )
                         ))}
                       </SelectContent>
                     </Select>
