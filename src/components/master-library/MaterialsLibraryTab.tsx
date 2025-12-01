@@ -109,6 +109,14 @@ export const MaterialsLibraryTab = () => {
     enabled: !!categories,
   });
 
+  // Natural sort by code number
+  const sortByMaterialCode = (a: Material, b: Material) => {
+    const numA = parseInt(a.material_code.match(/\d+$/)?.[0] || '0', 10);
+    const numB = parseInt(b.material_code.match(/\d+$/)?.[0] || '0', 10);
+    if (numA !== numB) return numA - numB;
+    return a.material_code.localeCompare(b.material_code, undefined, { numeric: true });
+  };
+
   // Group materials by category
   const groupedMaterials = useMemo(() => {
     if (!materials || !categories) return new Map<string, { category: Category; materials: Material[] }>();
@@ -123,9 +131,9 @@ export const MaterialsLibraryTab = () => {
         .filter(c => c.parent_category_id === parent.id)
         .map(c => c.id);
       
-      const categoryMaterials = materials.filter(m => 
-        m.category_id === parent.id || childCategoryIds.includes(m.category_id)
-      );
+      const categoryMaterials = materials
+        .filter(m => m.category_id === parent.id || childCategoryIds.includes(m.category_id))
+        .sort(sortByMaterialCode);
       
       if (categoryMaterials.length > 0) {
         grouped.set(parent.id, { category: parent, materials: categoryMaterials });
@@ -133,7 +141,7 @@ export const MaterialsLibraryTab = () => {
     });
     
     // Also group uncategorized
-    const uncategorized = materials.filter(m => !m.material_categories);
+    const uncategorized = materials.filter(m => !m.material_categories).sort(sortByMaterialCode);
     if (uncategorized.length > 0) {
       grouped.set("uncategorized", { 
         category: { id: "uncategorized", category_code: "UC", category_name: "Uncategorized", parent_category_id: null, description: null }, 
@@ -335,7 +343,7 @@ export const MaterialsLibraryTab = () => {
           /* List View */
           <div className="rounded-md border overflow-x-auto">
             <MaterialsTable
-              materials={materials || []}
+              materials={[...(materials || [])].sort(sortByMaterialCode)}
               onEdit={handleEdit}
               onDelete={(id) => deleteMutation.mutate(id)}
               onHistory={setHistoryMaterial}
