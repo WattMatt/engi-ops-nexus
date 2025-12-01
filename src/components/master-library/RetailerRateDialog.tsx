@@ -185,14 +185,17 @@ export const RetailerRateDialog = ({ open, onOpenChange, rate }: RetailerRateDia
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Retailer (Optional)</FormLabel>
-                    <Select onValueChange={field.onChange} value={field.value}>
+                    <Select 
+                      onValueChange={(val) => field.onChange(val === "__none__" ? "" : val)} 
+                      value={field.value || "__none__"}
+                    >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Generic" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        <SelectItem value="">Generic (All Retailers)</SelectItem>
+                        <SelectItem value="__none__">Generic (All Retailers)</SelectItem>
                         {retailers?.map((r) => (
                           <SelectItem key={r.id} value={r.id}>
                             {r.retailer_name}
