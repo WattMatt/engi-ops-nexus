@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Folder, LogOut, Users, Settings, Library } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/useUserRole";
 import { CreateProjectDialog } from "@/components/CreateProjectDialog";
@@ -79,38 +80,48 @@ const ProjectSelect = () => {
                 : "Choose a project to access its modules and data"}
             </p>
           </div>
-          <div className="flex gap-3">
-            <Button variant="outline" onClick={() => navigate("/master-library")}>
-              <Library className="h-4 w-4 mr-2" />
-              Master Library
-            </Button>
-            {!isAdminRoute && isAdmin && (
-              <Button variant="outline" onClick={() => navigate("/admin/projects")}>
-                <Settings className="h-4 w-4 mr-2" />
-                Admin Portal
+          <div className="flex items-center gap-4">
+            {/* Navigation buttons group */}
+            <div className="flex items-center gap-4">
+              <Button variant="outline" onClick={() => navigate("/master-library")}>
+                <Library className="h-4 w-4 mr-2" />
+                Master Library
               </Button>
-            )}
-            {isAdminRoute && (
-              <>
-                <Button variant="outline" onClick={() => navigate("/admin/staff")}>
-                  <Users className="h-4 w-4 mr-2" />
-                  Staff Management
-                </Button>
-                <Button variant="outline" onClick={() => navigate("/admin/users")}>
-                  <Users className="h-4 w-4 mr-2" />
-                  User Management
-                </Button>
-                <Button variant="outline" onClick={() => navigate("/admin/settings")}>
+              {!isAdminRoute && isAdmin && (
+                <Button variant="outline" onClick={() => navigate("/admin/projects")}>
                   <Settings className="h-4 w-4 mr-2" />
-                  Settings
+                  Admin Portal
                 </Button>
-              </>
-            )}
-            <CreateProjectDialog onProjectCreated={loadProjects} />
-            <Button variant="outline" onClick={handleLogout}>
-              <LogOut className="h-4 w-4 mr-2" />
-              Logout
-            </Button>
+              )}
+              {isAdminRoute && (
+                <>
+                  <Button variant="outline" onClick={() => navigate("/admin/staff")}>
+                    <Users className="h-4 w-4 mr-2" />
+                    Staff Management
+                  </Button>
+                  <Button variant="outline" onClick={() => navigate("/admin/users")}>
+                    <Users className="h-4 w-4 mr-2" />
+                    User Management
+                  </Button>
+                  <Button variant="outline" onClick={() => navigate("/admin/settings")}>
+                    <Settings className="h-4 w-4 mr-2" />
+                    Settings
+                  </Button>
+                </>
+              )}
+            </div>
+            
+            {/* Visual separator */}
+            <Separator orientation="vertical" className="h-8" />
+            
+            {/* Action buttons group */}
+            <div className="flex items-center gap-4">
+              <CreateProjectDialog onProjectCreated={loadProjects} />
+              <Button variant="outline" onClick={handleLogout}>
+                <LogOut className="h-4 w-4 mr-2" />
+                Logout
+              </Button>
+            </div>
           </div>
         </div>
 
