@@ -190,6 +190,7 @@ export const MaterialDialog = ({ open, onOpenChange, material }: MaterialDialogP
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["master-materials"] });
+      queryClient.invalidateQueries({ queryKey: ["master-materials-for-code"] });
       toast.success(isEditing ? "Material updated" : "Material created");
       onOpenChange(false);
     },
