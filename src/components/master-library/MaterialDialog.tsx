@@ -1,5 +1,5 @@
-import { useEffect } from "react";
-import { useForm } from "react-hook-form";
+import { useEffect, useMemo } from "react";
+import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -78,6 +78,18 @@ export const MaterialDialog = ({ open, onOpenChange, material }: MaterialDialogP
     },
   });
 
+  // Fetch existing materials to determine next sequence number
+  const { data: existingMaterials } = useQuery({
+    queryKey: ["master-materials-for-code"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("master_materials")
+        .select("material_code, category_id");
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const form = useForm<MaterialFormData>({
     resolver: zodResolver(materialSchema),
     defaultValues: {
@@ -92,6 +104,22 @@ export const MaterialDialog = ({ open, onOpenChange, material }: MaterialDialogP
       notes: "",
     },
   });
+
+  const watchedCategoryId = useWatch({ control: form.control, name: "category_id" });
+
+  // Auto-generate material code when category changes (only for new materials)
+  useEffect(() => {
+    if (!isEditing && watchedCategoryId && categories && existingMaterials) {
+      const selectedCategory = categories.find(c => c.id === watchedCategoryId);
+      if (selectedCategory) {
+        // Count existing materials in this category
+        const categoryMaterials = existingMaterials.filter(m => m.category_id === watchedCategoryId);
+        const nextNumber = categoryMaterials.length + 1;
+        const generatedCode = `${selectedCategory.category_code}-${String(nextNumber).padStart(3, '0')}`;
+        form.setValue("material_code", generatedCode);
+      }
+    }
+  }, [watchedCategoryId, categories, existingMaterials, isEditing, form]);
 
   useEffect(() => {
     if (material) {
@@ -182,9 +210,14 @@ export const MaterialDialog = ({ open, onOpenChange, material }: MaterialDialogP
                 name="material_code"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Material Code</FormLabel>
+                    <FormLabel>Material Code {!isEditing && "(Auto-generated)"}</FormLabel>
                     <FormControl>
-                      <Input placeholder="e.g. RMU-12KV-3WAY" {...field} />
+                      <Input 
+                        placeholder={isEditing ? "e.g. RMU-12KV-3WAY" : "Select category first"} 
+                        {...field} 
+                        readOnly={!isEditing}
+                        className={!isEditing ? "bg-muted" : ""}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
