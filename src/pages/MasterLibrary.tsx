@@ -1,6 +1,8 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Package, Users, Upload, FolderTree, TrendingUp } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Package, Users, Upload, FolderTree, TrendingUp, ArrowLeft } from "lucide-react";
 import { MaterialsLibraryTab } from "@/components/master-library/MaterialsLibraryTab";
 import { RetailerRatesTab } from "@/components/master-library/RetailerRatesTab";
 import { BOQUploadTab } from "@/components/master-library/BOQUploadTab";
@@ -9,14 +11,25 @@ import { MaterialAnalyticsTab } from "@/components/master-library/MaterialAnalyt
 
 const MasterLibrary = () => {
   const [activeTab, setActiveTab] = useState("materials");
+  const navigate = useNavigate();
 
   return (
     <div className="container mx-auto py-6 space-y-6">
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Master Library</h1>
-          <p className="text-muted-foreground mt-1">
-            Centralized rate library, materials database, and BOQ analysis
-          </p>
+        <div className="flex items-center gap-4">
+          <Button 
+            variant="ghost" 
+            size="icon"
+            onClick={() => navigate("/project-select")}
+            className="shrink-0"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Master Library</h1>
+            <p className="text-muted-foreground mt-1">
+              Centralized rate library, materials database, and BOQ analysis
+            </p>
+          </div>
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
