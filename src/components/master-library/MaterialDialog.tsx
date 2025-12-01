@@ -292,17 +292,17 @@ export const MaterialDialog = ({ open, onOpenChange, material }: MaterialDialogP
                               <div className="px-2 py-1.5 text-sm font-semibold text-muted-foreground">
                                 {cat.category_name}
                               </div>
-                              {cat.children.map((child) => (
+                              {cat.children.filter(child => child.id).map((child) => (
                                 <SelectItem key={child.id} value={child.id} className="pl-6">
                                   {child.category_code} - {child.category_name}
                                 </SelectItem>
                               ))}
                             </div>
-                          ) : (
+                          ) : cat.id ? (
                             <SelectItem key={cat.id} value={cat.id}>
                               {cat.category_code} - {cat.category_name}
                             </SelectItem>
-                          )
+                          ) : null
                         ))}
                       </SelectContent>
                     </Select>
