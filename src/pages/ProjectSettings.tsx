@@ -250,6 +250,7 @@ export default function ProjectSettings() {
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
+                      <SelectItem value="proposal">Proposal</SelectItem>
                       <SelectItem value="active">Active</SelectItem>
                       <SelectItem value="completed">Completed</SelectItem>
                       <SelectItem value="on-hold">On Hold</SelectItem>
