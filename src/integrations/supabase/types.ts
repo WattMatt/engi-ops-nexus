@@ -1469,6 +1469,133 @@ export type Database = {
           },
         ]
       }
+      client_portal_access_log: {
+        Row: {
+          accessed_at: string | null
+          email: string | null
+          id: string
+          ip_address: string | null
+          project_id: string
+          token_id: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          accessed_at?: string | null
+          email?: string | null
+          id?: string
+          ip_address?: string | null
+          project_id: string
+          token_id?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          accessed_at?: string | null
+          email?: string | null
+          id?: string
+          ip_address?: string | null
+          project_id?: string
+          token_id?: string | null
+          user_agent?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_portal_access_log_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_portal_access_log_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "client_portal_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_portal_settings: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_enabled: boolean | null
+          link_expiry_hours: number | null
+          password_hash: string | null
+          project_id: string
+          require_email: boolean | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          link_expiry_hours?: number | null
+          password_hash?: string | null
+          project_id: string
+          require_email?: boolean | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_enabled?: boolean | null
+          link_expiry_hours?: number | null
+          password_hash?: string | null
+          project_id?: string
+          require_email?: boolean | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_portal_settings_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: true
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_portal_tokens: {
+        Row: {
+          access_count: number | null
+          accessed_at: string | null
+          created_at: string | null
+          email: string
+          expires_at: string
+          id: string
+          project_id: string
+          token: string
+        }
+        Insert: {
+          access_count?: number | null
+          accessed_at?: string | null
+          created_at?: string | null
+          email: string
+          expires_at: string
+          id?: string
+          project_id: string
+          token: string
+        }
+        Update: {
+          access_count?: number | null
+          accessed_at?: string | null
+          created_at?: string | null
+          email?: string
+          expires_at?: string
+          id?: string
+          project_id?: string
+          token?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_portal_tokens_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_project_access: {
         Row: {
           created_at: string | null
@@ -8320,6 +8447,10 @@ export type Database = {
         Args: { p_project_id: string; p_user_id: string }
         Returns: boolean
       }
+      generate_client_portal_token: {
+        Args: { p_email: string; p_expiry_hours?: number; p_project_id: string }
+        Returns: string
+      }
       get_current_tenant_schedule_version: {
         Args: { p_project_id: string }
         Returns: number
@@ -8362,6 +8493,15 @@ export type Database = {
       user_has_project_access: {
         Args: { _project_id: string }
         Returns: boolean
+      }
+      validate_client_portal_token: {
+        Args: { p_ip_address?: string; p_token: string; p_user_agent?: string }
+        Returns: {
+          email: string
+          expires_at: string
+          is_valid: boolean
+          project_id: string
+        }[]
       }
     }
     Enums: {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,21 +13,141 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { 
   Building2, FileText, Zap, Loader2, AlertCircle, CheckCircle, 
-  Clock, MessageSquare, Send, PenLine, Download, FolderOpen
+  Clock, MessageSquare, Send, PenLine, Download, FolderOpen, Shield, Lock, Mail
 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import JSZip from "jszip";
 
+interface TokenValidation {
+  is_valid: boolean;
+  project_id: string | null;
+  email: string | null;
+  expires_at: string | null;
+}
+
 const ClientView = () => {
   const [searchParams] = useSearchParams();
-  const projectId = searchParams.get("project");
+  const token = searchParams.get("token");
+  const projectIdParam = searchParams.get("project");
+  
+  const [isValidating, setIsValidating] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [projectId, setProjectId] = useState<string | null>(null);
+  const [clientEmail, setClientEmail] = useState<string | null>(null);
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
+  
+  // Password verification state
+  const [passwordRequired, setPasswordRequired] = useState(false);
+  const [passwordInput, setPasswordInput] = useState("");
+  const [verifyingPassword, setVerifyingPassword] = useState(false);
+  
+  // Portal content state
   const [activeTab, setActiveTab] = useState("overview");
   const [newComment, setNewComment] = useState("");
   const [clientName, setClientName] = useState("");
-  const [clientEmail, setClientEmail] = useState("");
+  const [commentEmail, setCommentEmail] = useState("");
   const [submittingComment, setSubmittingComment] = useState(false);
   const [isDownloadingAll, setIsDownloadingAll] = useState(false);
+
+  // Validate token on mount
+  useEffect(() => {
+    validateAccess();
+  }, [token, projectIdParam]);
+
+  const validateAccess = async () => {
+    setIsValidating(true);
+
+    try {
+      if (token) {
+        // Validate token via RPC function
+        const { data, error } = await supabase
+          .rpc('validate_client_portal_token', {
+            p_token: token,
+            p_user_agent: navigator.userAgent
+          });
+
+        if (error) throw error;
+
+        const result = data?.[0] as TokenValidation;
+        
+        if (result?.is_valid && result.project_id) {
+          setProjectId(result.project_id);
+          setClientEmail(result.email);
+          setExpiresAt(result.expires_at);
+          
+          // Check if password is required
+          const { data: settings } = await supabase
+            .from('client_portal_settings')
+            .select('password_hash')
+            .eq('project_id', result.project_id)
+            .maybeSingle();
+
+          if (settings?.password_hash) {
+            setPasswordRequired(true);
+          } else {
+            setIsAuthenticated(true);
+          }
+        } else {
+          throw new Error("Invalid or expired access link");
+        }
+      } else if (projectIdParam) {
+        // Legacy direct project access - requires password if set
+        const { data: settings } = await supabase
+          .from('client_portal_settings')
+          .select('password_hash, is_enabled')
+          .eq('project_id', projectIdParam)
+          .maybeSingle();
+
+        if (settings?.is_enabled === false) {
+          throw new Error("Client portal is disabled for this project");
+        }
+
+        setProjectId(projectIdParam);
+        
+        if (settings?.password_hash) {
+          setPasswordRequired(true);
+        } else {
+          setIsAuthenticated(true);
+        }
+      } else {
+        throw new Error("No access token or project ID provided");
+      }
+    } catch (error: any) {
+      toast.error(error.message || "Access denied");
+    } finally {
+      setIsValidating(false);
+    }
+  };
+
+  const handlePasswordSubmit = async () => {
+    if (!passwordInput.trim()) {
+      toast.error("Please enter the password");
+      return;
+    }
+
+    setVerifyingPassword(true);
+    try {
+      const { data: settings } = await supabase
+        .from('client_portal_settings')
+        .select('password_hash')
+        .eq('project_id', projectId)
+        .single();
+
+      // Simple password check (in production, use proper hashing)
+      if (settings?.password_hash === passwordInput) {
+        setIsAuthenticated(true);
+        setPasswordRequired(false);
+        toast.success("Access granted");
+      } else {
+        toast.error("Incorrect password");
+      }
+    } catch (error) {
+      toast.error("Failed to verify password");
+    } finally {
+      setVerifyingPassword(false);
+    }
+  };
 
   // Fetch project details
   const { data: project, isLoading: projectLoading, error: projectError } = useQuery({
@@ -43,7 +163,7 @@ const ClientView = () => {
       if (!data) throw new Error("Project not found");
       return data;
     },
-    enabled: !!projectId,
+    enabled: !!projectId && isAuthenticated,
     retry: false,
   });
 
@@ -65,7 +185,7 @@ const ClientView = () => {
       if (error) throw error;
       return data;
     },
-    enabled: !!projectId,
+    enabled: !!projectId && isAuthenticated,
   });
 
   // Fetch zones
@@ -78,7 +198,7 @@ const ClientView = () => {
       if (error) throw error;
       return (data || []) as any[];
     },
-    enabled: !!projectId,
+    enabled: !!projectId && isAuthenticated,
   });
 
   // Fetch handover documents
@@ -94,7 +214,7 @@ const ClientView = () => {
       if (error) throw error;
       return data;
     },
-    enabled: !!projectId,
+    enabled: !!projectId && isAuthenticated,
   });
 
   // Fetch client comments (public)
@@ -110,7 +230,7 @@ const ClientView = () => {
       if (error) throw error;
       return data;
     },
-    enabled: !!projectId,
+    enabled: !!projectId && isAuthenticated,
   });
 
   const isComplete = (tenant: any) => {
@@ -155,14 +275,14 @@ const ClientView = () => {
 
     setSubmittingComment(true);
     try {
-      // For public comments, we'll store the client info in the comment text
-      const commentWithInfo = `[${clientName}${clientEmail ? ` - ${clientEmail}` : ''}]: ${newComment}`;
+      const emailToUse = commentEmail || clientEmail || '';
+      const commentWithInfo = `[${clientName}${emailToUse ? ` - ${emailToUse}` : ''}]: ${newComment}`;
       
       const { error } = await supabase
         .from("client_comments")
         .insert({
           project_id: projectId,
-          user_id: '00000000-0000-0000-0000-000000000000', // Anonymous user placeholder
+          user_id: '00000000-0000-0000-0000-000000000000',
           report_type: activeTab,
           comment_text: commentWithInfo,
         });
@@ -222,6 +342,88 @@ const ClientView = () => {
     }
   };
 
+  // Loading state
+  if (isValidating) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Card className="w-full max-w-md">
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+            <p className="text-muted-foreground">Validating access...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Password required state
+  if (passwordRequired && !isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
+          <CardHeader className="text-center">
+            <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+              <Lock className="h-6 w-6 text-primary" />
+            </div>
+            <CardTitle>Password Required</CardTitle>
+            <CardDescription>
+              This portal is protected. Please enter the password to continue.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {clientEmail && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted p-3 rounded-lg">
+                <Mail className="h-4 w-4" />
+                <span>Accessing as: {clientEmail}</span>
+              </div>
+            )}
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="Enter password"
+                value={passwordInput}
+                onChange={(e) => setPasswordInput(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handlePasswordSubmit()}
+              />
+            </div>
+            <Button 
+              onClick={handlePasswordSubmit} 
+              className="w-full"
+              disabled={verifyingPassword}
+            >
+              {verifyingPassword ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Shield className="h-4 w-4 mr-2" />
+              )}
+              Access Portal
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Invalid access state
+  if (!projectId || (!isAuthenticated && !passwordRequired)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <Card className="w-full max-w-md">
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <AlertCircle className="h-12 w-12 text-destructive mb-4" />
+            <h2 className="text-2xl font-bold mb-2">Access Denied</h2>
+            <p className="text-muted-foreground text-center">
+              This link is invalid, expired, or you don't have permission to access this project.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Loading project data
   if (projectLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -235,15 +437,15 @@ const ClientView = () => {
     );
   }
 
-  if (projectError || !project || !projectId) {
+  if (projectError || !project) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <Card className="w-full max-w-md">
           <CardContent className="flex flex-col items-center justify-center py-12">
             <AlertCircle className="h-12 w-12 text-destructive mb-4" />
-            <h2 className="text-2xl font-bold mb-2">Invalid Link</h2>
+            <h2 className="text-2xl font-bold mb-2">Project Not Found</h2>
             <p className="text-muted-foreground text-center">
-              {projectError?.message || "This link is invalid or the project was not found."}
+              {projectError?.message || "The requested project could not be found."}
             </p>
           </CardContent>
         </Card>
@@ -260,12 +462,25 @@ const ClientView = () => {
         <div className="container mx-auto px-6 py-8">
           <div className="flex items-start justify-between">
             <div>
+              <div className="flex items-center gap-2 mb-2">
+                <Shield className="h-5 w-5 text-green-500" />
+                <span className="text-sm text-green-600 font-medium">Secure Client Portal</span>
+              </div>
               <h1 className="text-3xl font-bold text-foreground mb-2">
-                Client Portal
+                {project.name}
               </h1>
-              <p className="text-xl text-muted-foreground">{project.name}</p>
               {project.client_name && (
                 <p className="text-muted-foreground">{project.client_name}</p>
+              )}
+              {clientEmail && (
+                <p className="text-sm text-muted-foreground mt-1">
+                  Logged in as: {clientEmail}
+                </p>
+              )}
+              {expiresAt && (
+                <p className="text-xs text-muted-foreground mt-1">
+                  Access expires: {format(new Date(expiresAt), 'MMM d, yyyy h:mm a')}
+                </p>
               )}
             </div>
             <Badge variant={project.status === 'active' ? 'default' : 'secondary'} className="text-sm">
@@ -392,7 +607,6 @@ const ClientView = () => {
           {/* Generator Report Tab */}
           <TabsContent value="generator_report">
             <div className="space-y-6">
-              {/* Zone Summary */}
               {zones && zones.length > 0 && (
                 <Card>
                   <CardHeader>
@@ -419,7 +633,6 @@ const ClientView = () => {
                 </Card>
               )}
 
-              {/* Tenant Loading */}
               <Card>
                 <CardHeader>
                   <CardTitle>Tenant Loading Schedule</CardTitle>
@@ -473,7 +686,7 @@ const ClientView = () => {
                       Project Documents
                     </CardTitle>
                     <CardDescription>
-                      Available project documents for download
+                      Download project documents and reports
                     </CardDescription>
                   </div>
                   {documentsWithFiles.length > 0 && (
@@ -483,55 +696,43 @@ const ClientView = () => {
                       ) : (
                         <Download className="h-4 w-4 mr-2" />
                       )}
-                      Download All ({documentsWithFiles.length})
+                      Download All
                     </Button>
                   )}
                 </div>
               </CardHeader>
               <CardContent>
-                {documents?.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    No documents available
-                  </div>
+                {documentsWithFiles.length === 0 ? (
+                  <p className="text-center py-8 text-muted-foreground">No documents available</p>
                 ) : (
-                  <div className="rounded-md border">
+                  <div className="rounded-md border overflow-auto">
                     <Table>
                       <TableHeader>
                         <TableRow>
                           <TableHead>Document Name</TableHead>
                           <TableHead>Type</TableHead>
-                          <TableHead>Added</TableHead>
-                          <TableHead className="text-right">Action</TableHead>
+                          <TableHead>Uploaded</TableHead>
+                          <TableHead></TableHead>
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {documents?.map((doc: any) => (
+                        {documentsWithFiles.map((doc: any) => (
                           <TableRow key={doc.id}>
-                            <TableCell className="font-medium">
-                              <div className="flex items-center gap-2">
-                                <FileText className="h-4 w-4 text-muted-foreground" />
-                                {doc.document_name}
-                              </div>
-                            </TableCell>
+                            <TableCell className="font-medium">{doc.document_name}</TableCell>
                             <TableCell>
-                              <Badge variant="secondary">
-                                {doc.document_type?.replace(/_/g, " ")}
-                              </Badge>
+                              <Badge variant="outline">{doc.document_type}</Badge>
                             </TableCell>
-                            <TableCell>
+                            <TableCell className="text-sm text-muted-foreground">
                               {format(new Date(doc.created_at), 'MMM d, yyyy')}
                             </TableCell>
-                            <TableCell className="text-right">
-                              {doc.file_url && (
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => window.open(doc.file_url, '_blank')}
-                                >
-                                  <Download className="h-4 w-4 mr-2" />
-                                  Download
-                                </Button>
-                              )}
+                            <TableCell>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => window.open(doc.file_url, '_blank')}
+                              >
+                                <Download className="h-4 w-4" />
+                              </Button>
                             </TableCell>
                           </TableRow>
                         ))}
@@ -544,85 +745,76 @@ const ClientView = () => {
           </TabsContent>
         </Tabs>
 
-        {/* Comments Section - Always visible */}
-        <Card className="mt-8">
+        {/* Comments Section */}
+        <Card className="mt-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <MessageSquare className="h-5 w-5" />
               Comments & Feedback
             </CardTitle>
             <CardDescription>
-              Leave comments or questions about the project
+              Leave comments or feedback for the project team
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Comment Form */}
-            <div className="space-y-4 p-4 rounded-lg border bg-muted/30">
-              <div className="grid gap-4 md:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="clientName">Your Name *</Label>
-                  <Input
-                    id="clientName"
-                    placeholder="Enter your name"
-                    value={clientName}
-                    onChange={(e) => setClientName(e.target.value)}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="clientEmail">Email (optional)</Label>
-                  <Input
-                    id="clientEmail"
-                    type="email"
-                    placeholder="your@email.com"
-                    value={clientEmail}
-                    onChange={(e) => setClientEmail(e.target.value)}
-                  />
-                </div>
-              </div>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="comment">Comment *</Label>
-                <Textarea
-                  id="comment"
-                  placeholder="Enter your comment or feedback..."
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  className="min-h-[100px]"
+                <Label htmlFor="clientName">Your Name *</Label>
+                <Input
+                  id="clientName"
+                  placeholder="Enter your name"
+                  value={clientName}
+                  onChange={(e) => setClientName(e.target.value)}
                 />
               </div>
-              <div className="flex justify-between items-center">
-                <p className="text-xs text-muted-foreground">
-                  Commenting on: <Badge variant="outline">{activeTab.replace('_', ' ')}</Badge>
-                </p>
-                <Button onClick={handleSubmitComment} disabled={submittingComment}>
-                  {submittingComment ? (
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  ) : (
-                    <Send className="h-4 w-4 mr-2" />
-                  )}
-                  Submit Comment
-                </Button>
+              <div className="space-y-2">
+                <Label htmlFor="clientCommentEmail">Email (optional)</Label>
+                <Input
+                  id="clientCommentEmail"
+                  type="email"
+                  placeholder="your@email.com"
+                  value={commentEmail || clientEmail || ''}
+                  onChange={(e) => setCommentEmail(e.target.value)}
+                />
               </div>
             </div>
 
-            {/* Previous Comments */}
+            <div className="space-y-2">
+              <Label htmlFor="comment">Comment *</Label>
+              <Textarea
+                id="comment"
+                placeholder="Enter your comment or feedback..."
+                value={newComment}
+                onChange={(e) => setNewComment(e.target.value)}
+                rows={4}
+              />
+            </div>
+
+            <Button onClick={handleSubmitComment} disabled={submittingComment}>
+              {submittingComment ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Send className="h-4 w-4 mr-2" />
+              )}
+              Submit Comment
+            </Button>
+
+            {/* Display existing comments */}
             {comments && comments.length > 0 && (
-              <div className="space-y-3">
+              <div className="space-y-3 mt-6 pt-6 border-t">
                 <h4 className="font-medium">Previous Comments</h4>
                 {comments.map((comment: any) => (
-                  <div key={comment.id} className="p-4 rounded-lg border">
-                    <div className="flex items-center justify-between mb-2">
+                  <div key={comment.id} className={`p-4 rounded-lg border ${comment.is_resolved ? 'bg-muted/50' : ''}`}>
+                    <div className="flex items-center gap-2 mb-2">
                       <Badge variant="secondary">{comment.report_type?.replace('_', ' ')}</Badge>
-                      <span className="text-xs text-muted-foreground">
-                        {format(new Date(comment.created_at), 'MMM d, yyyy h:mm a')}
-                      </span>
+                      {comment.is_resolved && (
+                        <Badge className="bg-green-500">Resolved</Badge>
+                      )}
                     </div>
                     <p className="text-sm">{comment.comment_text}</p>
-                    {comment.is_resolved && (
-                      <Badge className="mt-2 bg-green-500">
-                        <CheckCircle className="h-3 w-3 mr-1" />
-                        Resolved
-                      </Badge>
-                    )}
+                    <p className="text-xs text-muted-foreground mt-2">
+                      {format(new Date(comment.created_at), 'MMM d, yyyy h:mm a')}
+                    </p>
                   </div>
                 ))}
               </div>
