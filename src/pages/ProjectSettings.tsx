@@ -20,6 +20,7 @@ import { LogoUpload } from "@/components/LogoUpload";
 import { ProjectMembers } from "@/components/settings/ProjectMembers";
 import { ProjectContacts } from "@/components/settings/ProjectContacts";
 import { GlobalContactsManager } from "@/components/settings/GlobalContactsManager";
+import { ClientPortalManagement } from "@/components/client-portal/ClientPortalManagement";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 
@@ -190,6 +191,7 @@ export default function ProjectSettings() {
           <TabsTrigger value="contacts">Project Contacts</TabsTrigger>
           <TabsTrigger value="global-contacts">Contacts Library</TabsTrigger>
           <TabsTrigger value="members">Team Members</TabsTrigger>
+          <TabsTrigger value="client-portal">Client Portal</TabsTrigger>
         </TabsList>
 
         <TabsContent value="settings">
@@ -682,6 +684,10 @@ export default function ProjectSettings() {
 
         <TabsContent value="members">
           {projectId && <ProjectMembers projectId={projectId} />}
+        </TabsContent>
+
+        <TabsContent value="client-portal">
+          {projectId && <ClientPortalManagement projectId={projectId} />}
         </TabsContent>
       </Tabs>
     </div>

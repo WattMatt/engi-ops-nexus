@@ -47,6 +47,7 @@ import Finance from "./pages/Finance";
 import ClientPortal from "./pages/ClientPortal";
 import ClientTenantReport from "./pages/client/ClientTenantReport";
 import ClientGeneratorReport from "./pages/client/ClientGeneratorReport";
+import ClientView from "./pages/ClientView";
 import { HelpButton } from "./components/feedback/HelpButton";
 
 const queryClient = new QueryClient();
@@ -75,6 +76,9 @@ const App = () => (
         <Route path="/client-portal" element={<ClientPortal />} />
         <Route path="/client/tenant-report/:projectId" element={<ClientTenantReport />} />
         <Route path="/client/generator-report/:projectId" element={<ClientGeneratorReport />} />
+        
+        {/* Public Client View - shareable link */}
+        <Route path="/client-view" element={<ClientView />} />
         
         {/* Global Master Library - accessible without selecting a project */}
         <Route path="/master-library" element={<MasterLibrary />} />
