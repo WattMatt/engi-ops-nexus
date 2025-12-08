@@ -1365,6 +1365,183 @@ export type Database = {
         }
         Relationships: []
       }
+      client_approvals: {
+        Row: {
+          approval_status: string
+          approved_at: string | null
+          id: string
+          notes: string | null
+          project_id: string
+          report_type: string
+          report_version: string | null
+          signature_data: string | null
+          user_id: string
+        }
+        Insert: {
+          approval_status?: string
+          approved_at?: string | null
+          id?: string
+          notes?: string | null
+          project_id: string
+          report_type: string
+          report_version?: string | null
+          signature_data?: string | null
+          user_id: string
+        }
+        Update: {
+          approval_status?: string
+          approved_at?: string | null
+          id?: string
+          notes?: string | null
+          project_id?: string
+          report_type?: string
+          report_version?: string | null
+          signature_data?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_approvals_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_comments: {
+        Row: {
+          comment_text: string
+          created_at: string | null
+          id: string
+          is_resolved: boolean | null
+          parent_comment_id: string | null
+          project_id: string
+          reference_id: string | null
+          report_type: string
+          resolved_at: string | null
+          resolved_by: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          comment_text: string
+          created_at?: string | null
+          id?: string
+          is_resolved?: boolean | null
+          parent_comment_id?: string | null
+          project_id: string
+          reference_id?: string | null
+          report_type: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          comment_text?: string
+          created_at?: string | null
+          id?: string
+          is_resolved?: boolean | null
+          parent_comment_id?: string | null
+          project_id?: string
+          reference_id?: string | null
+          report_type?: string
+          resolved_at?: string | null
+          resolved_by?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_comments_parent_comment_id_fkey"
+            columns: ["parent_comment_id"]
+            isOneToOne: false
+            referencedRelation: "client_comments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_comments_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_project_access: {
+        Row: {
+          created_at: string | null
+          granted_by: string | null
+          id: string
+          project_id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          granted_by?: string | null
+          id?: string
+          project_id: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          granted_by?: string | null
+          id?: string
+          project_id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_project_access_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      client_report_permissions: {
+        Row: {
+          can_approve: boolean | null
+          can_comment: boolean | null
+          can_view: boolean | null
+          client_access_id: string
+          created_at: string | null
+          id: string
+          report_type: string
+        }
+        Insert: {
+          can_approve?: boolean | null
+          can_comment?: boolean | null
+          can_view?: boolean | null
+          client_access_id: string
+          created_at?: string | null
+          id?: string
+          report_type: string
+        }
+        Update: {
+          can_approve?: boolean | null
+          can_comment?: boolean | null
+          can_view?: boolean | null
+          client_access_id?: string
+          created_at?: string | null
+          id?: string
+          report_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_report_permissions_client_access_id_fkey"
+            columns: ["client_access_id"]
+            isOneToOne: false
+            referencedRelation: "client_project_access"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       client_requests: {
         Row: {
           assigned_to: string | null
@@ -8139,6 +8316,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      client_has_project_access: {
+        Args: { p_project_id: string; p_user_id: string }
+        Returns: boolean
+      }
       get_current_tenant_schedule_version: {
         Args: { p_project_id: string }
         Returns: number
