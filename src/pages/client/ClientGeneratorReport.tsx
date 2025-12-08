@@ -68,13 +68,13 @@ const ClientGeneratorReport = () => {
   const { data: zones } = useQuery<any[]>({
     queryKey: ['client-zones', projectId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('zones')
-        .select('*')
-        .eq('project_id', projectId!);
+      const pid = projectId as string;
+      // Type assertion to avoid deep type instantiation
+      const query = (supabase as any).from('zones').select('id, name').eq('project_id', pid);
+      const { data, error } = await query;
       
       if (error) throw error;
-      return data || [];
+      return (data || []) as any[];
     },
     enabled: !!projectId
   });
