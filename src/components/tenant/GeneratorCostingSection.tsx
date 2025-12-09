@@ -37,12 +37,14 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
     enabled: !!projectId,
   });
 
+  // Get zone IDs for dependent query
+  const zoneIds = zones.map(z => z.id);
+
   const { data: zoneGenerators = [] } = useQuery({
-    queryKey: ["zone-generators-costing", projectId],
+    queryKey: ["zone-generators-costing", projectId, zoneIds],
     queryFn: async () => {
-      if (!zones.length) return [];
+      if (!zoneIds.length) return [];
       
-      const zoneIds = zones.map(z => z.id);
       const { data, error } = await supabase
         .from("zone_generators")
         .select("*")
@@ -51,7 +53,7 @@ export const GeneratorCostingSection = ({ projectId }: GeneratorCostingSectionPr
       if (error) throw error;
       return data || [];
     },
-    enabled: !!projectId && zones.length > 0,
+    enabled: !!projectId && zoneIds.length > 0,
   });
 
   const { data: tenants = [] } = useQuery({
