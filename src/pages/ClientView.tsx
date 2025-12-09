@@ -1170,9 +1170,8 @@ const ClientView = () => {
           {/* Documents Tab */}
           <TabsContent value="documents" className="space-y-6">
             <ClientHandoverDocuments 
-              documents={documentsWithFiles}
+              projectId={projectId!}
               projectName={project?.name}
-              tenants={tenants}
               isDownloadingAll={isDownloadingAll}
               onBulkDownload={handleBulkDownload}
             />
