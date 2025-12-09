@@ -376,9 +376,17 @@ export function GeneratorReportExportPDFButton({ projectId, onReportSaved }: Gen
       yPos += 10;
 
       // Tenant schedule with calculations (matching on-screen display 100%)
-      // Calculate loading for each tenant
+      // Calculate loading for each tenant - must match GeneratorTenantList exactly
       const calculateLoading = (tenant: any) => {
-        if (!tenant.area || tenant.own_generator_provided) return 0;
+        if (tenant.own_generator_provided) return 0;
+        
+        // Use manual override if set (matching GeneratorTenantList behavior)
+        if (tenant.manual_kw_override !== null && tenant.manual_kw_override !== undefined) {
+          return Number(tenant.manual_kw_override);
+        }
+        
+        // Otherwise calculate based on area and category
+        if (!tenant.area) return 0;
         
         const kwPerSqm = {
           standard: generatorSettings?.standard_kw_per_sqm || 0.03,
