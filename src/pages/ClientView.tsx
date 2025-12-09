@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,6 +22,7 @@ import { toast } from "sonner";
 import { format } from "date-fns";
 import JSZip from "jszip";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from "recharts";
+import { sortTenantsByShopNumber } from "@/utils/tenantSorting";
 
 interface TokenValidation {
   is_valid: boolean;
@@ -904,7 +905,7 @@ const ClientView = () => {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {tenants?.map((tenant: any) => (
+                        {sortTenantsByShopNumber(tenants || []).map((tenant: any) => (
                           <TableRow key={tenant.id}>
                             <TableCell className="font-mono font-medium">{tenant.shop_number}</TableCell>
                             <TableCell className="font-medium">{tenant.shop_name || '-'}</TableCell>
@@ -1069,7 +1070,7 @@ const ClientView = () => {
                         </TableRow>
                       </TableHeader>
                       <TableBody>
-                        {tenants?.map((tenant: any) => (
+                        {sortTenantsByShopNumber(tenants || []).map((tenant: any) => (
                           <TableRow key={tenant.id}>
                             <TableCell className="font-mono font-medium">{tenant.shop_number}</TableCell>
                             <TableCell className="font-medium">{tenant.shop_name || '-'}</TableCell>
