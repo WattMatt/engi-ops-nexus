@@ -8467,6 +8467,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      has_valid_client_portal_token: {
+        Args: { p_project_id: string }
+        Returns: boolean
+      }
       increment_tenant_schedule_version: {
         Args: { p_change_summary: string; p_project_id: string }
         Returns: string
