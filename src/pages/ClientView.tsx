@@ -23,13 +23,6 @@ import { format } from "date-fns";
 import JSZip from "jszip";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from "recharts";
 import { sortTenantsByShopNumber } from "@/utils/tenantSorting";
-import { ClientFeedbackForm } from "@/components/client-portal/ClientFeedbackForm";
-import { ClientRequestForm } from "@/components/client-portal/ClientRequestForm";
-import { ReviewChecklist } from "@/components/client-portal/ReviewChecklist";
-import { QuickActions } from "@/components/client-portal/QuickActions";
-import { FAQSection } from "@/components/client-portal/FAQSection";
-import { SectionReviewStatus } from "@/components/client-portal/SectionReviewStatus";
-import { ClientDocumentsList } from "@/components/client-portal/ClientDocumentsList";
 import { ClientHandoverDocuments } from "@/components/client-portal/ClientHandoverDocuments";
 
 interface TokenValidation {
@@ -646,7 +639,7 @@ const ClientView = () => {
       {/* Content */}
       <main className="container mx-auto px-6 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid grid-cols-5 w-full max-w-3xl bg-card border">
+          <TabsList className="grid grid-cols-4 w-full max-w-2xl bg-card border">
             <TabsTrigger value="dashboard" className="gap-2">
               <LayoutDashboard className="h-4 w-4" />
               <span className="hidden sm:inline">Dashboard</span>
@@ -662,10 +655,6 @@ const ClientView = () => {
             <TabsTrigger value="documents" className="gap-2">
               <FolderOpen className="h-4 w-4" />
               <span className="hidden sm:inline">Documents</span>
-            </TabsTrigger>
-            <TabsTrigger value="feedback" className="gap-2">
-              <MessageSquare className="h-4 w-4" />
-              <span className="hidden sm:inline">Feedback</span>
             </TabsTrigger>
           </TabsList>
 
@@ -988,13 +977,6 @@ const ClientView = () => {
                 </ScrollArea>
               </CardContent>
             </Card>
-
-            {/* Tenant Review Checklist */}
-            <ReviewChecklist 
-              projectId={projectId!}
-              section="tenant"
-              onSubmitSuccess={() => refetchComments()}
-            />
           </TabsContent>
 
           {/* Generator Tab */}
@@ -1158,13 +1140,6 @@ const ClientView = () => {
                 </ScrollArea>
               </CardContent>
             </Card>
-
-            {/* Generator Review Checklist */}
-            <ReviewChecklist 
-              projectId={projectId!}
-              section="generator"
-              onSubmitSuccess={() => refetchComments()}
-            />
           </TabsContent>
 
           {/* Documents Tab */}
@@ -1175,96 +1150,6 @@ const ClientView = () => {
               isDownloadingAll={isDownloadingAll}
               onBulkDownload={handleBulkDownload}
             />
-
-            {/* Documents Review Checklist */}
-            <ReviewChecklist 
-              projectId={projectId!}
-              section="documents"
-              onSubmitSuccess={() => refetchComments()}
-            />
-          </TabsContent>
-
-          {/* Feedback Tab */}
-          <TabsContent value="feedback" className="space-y-6">
-            {/* Quick Actions */}
-            <QuickActions onAction={handleQuickAction} />
-
-            <div className="grid gap-6 lg:grid-cols-2">
-              {/* Structured Feedback Form */}
-              <ClientFeedbackForm 
-                projectId={projectId!}
-                tenants={tenants}
-                zones={zones}
-                onSubmitSuccess={() => refetchComments()}
-              />
-
-              {/* Formal Request System */}
-              <ClientRequestForm 
-                projectId={projectId!}
-                existingRequests={clientRequests || []}
-                onSubmitSuccess={() => refetchRequests()}
-              />
-            </div>
-
-            <div className="grid gap-6 lg:grid-cols-2">
-              {/* Review Checklist - Dashboard */}
-              <ReviewChecklist 
-                projectId={projectId!}
-                section="dashboard"
-                onSubmitSuccess={() => refetchComments()}
-              />
-
-              {/* FAQ Section */}
-              <FAQSection />
-            </div>
-
-            {/* Feedback History */}
-            <Card className="border-0 shadow-md">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <FileText className="h-5 w-5" />
-                  Feedback History
-                </CardTitle>
-                <CardDescription>
-                  {comments?.length || 0} total comment{(comments?.length || 0) !== 1 ? 's' : ''}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {!comments || comments.length === 0 ? (
-                  <div className="text-center py-8">
-                    <MessageSquare className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
-                    <p className="text-muted-foreground">No comments yet</p>
-                  </div>
-                ) : (
-                  <ScrollArea className="h-[400px] pr-4">
-                    <div className="space-y-3">
-                      {comments.map((comment: any) => (
-                        <div 
-                          key={comment.id} 
-                          className={`p-4 rounded-lg border ${comment.is_resolved ? 'bg-green-50/50 dark:bg-green-900/20 border-green-200 dark:border-green-800' : 'bg-muted/30'}`}
-                        >
-                          <div className="flex items-center gap-2 mb-2 flex-wrap">
-                            <Badge variant="outline" className="text-xs">
-                              {comment.report_type?.replace('_', ' ') || 'General'}
-                            </Badge>
-                            {comment.is_resolved && (
-                              <Badge className="bg-green-500/10 text-green-600 dark:text-green-400 border-green-200 dark:border-green-800 text-xs">
-                                <CheckCircle className="h-3 w-3 mr-1" />
-                                Resolved
-                              </Badge>
-                            )}
-                          </div>
-                          <p className="text-sm whitespace-pre-wrap">{comment.comment_text}</p>
-                          <p className="text-xs text-muted-foreground mt-2">
-                            {format(new Date(comment.created_at), 'MMM d, yyyy h:mm a')}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </ScrollArea>
-                )}
-              </CardContent>
-            </Card>
           </TabsContent>
         </Tabs>
       </main>
