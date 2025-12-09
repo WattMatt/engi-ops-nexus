@@ -981,7 +981,7 @@ const ClientView = () => {
 
           {/* Generator Tab */}
           <TabsContent value="generator" className="space-y-6">
-            {/* Generator KPIs */}
+            {/* Generator KPIs - Row 1 */}
             <div className="grid gap-4 md:grid-cols-4">
               <Card className="border-0 shadow-md">
                 <CardContent className="pt-6">
@@ -1039,6 +1039,74 @@ const ClientView = () => {
               </Card>
             </div>
 
+            {/* Generator KPIs - Row 2: Financial & Generator Details */}
+            <div className="grid gap-4 md:grid-cols-4">
+              <Card className="border-0 shadow-md bg-gradient-to-br from-green-500/5 to-green-500/10">
+                <CardContent className="pt-6">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-green-500/10 flex items-center justify-center">
+                      <span className="text-green-600 font-bold text-sm">R</span>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-green-600">
+                        {(zones?.reduce((sum: number, z: any) => sum + ((z.generator_cost || 0) * (z.num_generators || 1)), 0) || 0).toLocaleString('en-ZA', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Total Generator Cost</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border-0 shadow-md">
+                <CardContent className="pt-6">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-orange-500/10 flex items-center justify-center">
+                      <Package className="h-5 w-5 text-orange-500" />
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold">
+                        {zones?.reduce((sum: number, z: any) => sum + (z.num_generators || 1), 0) || 0}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Total Generators</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border-0 shadow-md">
+                <CardContent className="pt-6">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-cyan-500/10 flex items-center justify-center">
+                      <span className="text-cyan-600 font-bold text-sm">R</span>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold">
+                        {tenants?.length ? (
+                          (zones?.reduce((sum: number, z: any) => sum + ((z.generator_cost || 0) * (z.num_generators || 1)), 0) || 0) / tenants.length
+                        ).toLocaleString('en-ZA', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '0'}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Avg Cost/Tenant</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+              <Card className="border-0 shadow-md">
+                <CardContent className="pt-6">
+                  <div className="flex items-center gap-3">
+                    <div className="h-10 w-10 rounded-full bg-pink-500/10 flex items-center justify-center">
+                      <span className="text-pink-600 font-bold text-sm">R</span>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold">
+                        {getTotalLoading() > 0 ? (
+                          (zones?.reduce((sum: number, z: any) => sum + ((z.generator_cost || 0) * (z.num_generators || 1)), 0) || 0) / getTotalLoading()
+                        ).toLocaleString('en-ZA', { minimumFractionDigits: 0, maximumFractionDigits: 0 }) : '0'}
+                      </p>
+                      <p className="text-xs text-muted-foreground">Cost per kW</p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
             {/* Zone Summary Cards */}
             {zones && zones.length > 0 && (
               <Card className="border-0 shadow-md">
@@ -1065,7 +1133,7 @@ const ClientView = () => {
                             <div className="space-y-2 text-sm">
                               <div className="flex justify-between">
                                 <span className="text-muted-foreground">Generator</span>
-                                <span className="font-medium">{zone.num_generators}x {zone.generator_size}</span>
+                                <span className="font-medium">{zone.num_generators || 1}x {zone.generator_size || 'TBD'}</span>
                               </div>
                               <div className="flex justify-between">
                                 <span className="text-muted-foreground">Tenants</span>
@@ -1075,10 +1143,22 @@ const ClientView = () => {
                                 <span className="text-muted-foreground">Area</span>
                                 <span className="font-medium">{zoneArea.toLocaleString()} m²</span>
                               </div>
+                              {zone.generator_cost && (
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground">Unit Cost</span>
+                                  <span className="font-medium text-green-600">R {(zone.generator_cost || 0).toLocaleString()}</span>
+                                </div>
+                              )}
                               <div className="flex justify-between pt-2 border-t">
                                 <span className="text-muted-foreground font-medium">Total Load</span>
                                 <span className="font-bold text-amber-600">{zoneLoad.toFixed(1)} kW</span>
                               </div>
+                              {zone.generator_cost && (
+                                <div className="flex justify-between">
+                                  <span className="text-muted-foreground font-medium">Total Cost</span>
+                                  <span className="font-bold text-green-600">R {((zone.generator_cost || 0) * (zone.num_generators || 1)).toLocaleString()}</span>
+                                </div>
+                              )}
                             </div>
                           </CardContent>
                         </Card>
