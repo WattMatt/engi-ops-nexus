@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { 
   FileText, Download, Loader2, FolderOpen, Search, 
@@ -384,26 +383,40 @@ export const ClientHandoverDocuments = ({
         </Button>
       </div>
 
-      {/* Tabs */}
+      {/* Tabs - Always show all categories like main handover page */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <ScrollArea className="w-full pb-2">
-          <TabsList className="w-full justify-start h-auto flex-wrap gap-1 p-1 bg-muted/50">
-            {DOCUMENT_CATEGORIES.map((cat) => {
-              const count = cat.isOverview ? stats.totalDocs : (documentsByCategory[cat.key]?.length || 0);
-              // Only show categories that have documents (except overview which always shows)
-              if (!cat.isOverview && count === 0) return null;
-              
-              const IconComponent = cat.icon;
-              return (
-                <TabsTrigger key={cat.key} value={cat.key} className="text-xs gap-1.5 px-3">
-                  <IconComponent className={`h-3.5 w-3.5 ${cat.color}`} />
-                  <span className="hidden sm:inline">{cat.label}</span>
-                  {!cat.isOverview && <Badge variant="secondary" className="ml-1 text-[10px] px-1.5">{count}</Badge>}
-                </TabsTrigger>
-              );
-            })}
-          </TabsList>
-        </ScrollArea>
+        <TabsList className="grid w-full grid-cols-4 lg:grid-cols-8 h-auto">
+          {DOCUMENT_CATEGORIES.slice(0, 8).map((cat) => {
+            const count = cat.isOverview ? stats.totalDocs : (documentsByCategory[cat.key]?.length || 0);
+            const IconComponent = cat.icon;
+            return (
+              <TabsTrigger key={cat.key} value={cat.key} className="text-xs gap-1 py-2">
+                <IconComponent className={`h-4 w-4 ${cat.color}`} />
+                <span className="hidden lg:inline">{cat.label}</span>
+                {!cat.isOverview && count > 0 && (
+                  <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 hidden sm:inline-flex">{count}</Badge>
+                )}
+              </TabsTrigger>
+            );
+          })}
+        </TabsList>
+        
+        {/* Second row of tabs for remaining categories */}
+        <TabsList className="grid w-full grid-cols-4 lg:grid-cols-7 h-auto mt-1">
+          {DOCUMENT_CATEGORIES.slice(8).map((cat) => {
+            const count = documentsByCategory[cat.key]?.length || 0;
+            const IconComponent = cat.icon;
+            return (
+              <TabsTrigger key={cat.key} value={cat.key} className="text-xs gap-1 py-2">
+                <IconComponent className={`h-4 w-4 ${cat.color}`} />
+                <span className="hidden lg:inline">{cat.label}</span>
+                {count > 0 && (
+                  <Badge variant="secondary" className="ml-1 text-[10px] px-1.5 hidden sm:inline-flex">{count}</Badge>
+                )}
+              </TabsTrigger>
+            );
+          })}
+        </TabsList>
 
         {/* Overview Tab */}
         <TabsContent value="overview" className="space-y-6 mt-4">
