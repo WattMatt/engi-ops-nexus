@@ -29,6 +29,7 @@ import { ReviewChecklist } from "@/components/client-portal/ReviewChecklist";
 import { QuickActions } from "@/components/client-portal/QuickActions";
 import { FAQSection } from "@/components/client-portal/FAQSection";
 import { SectionReviewStatus } from "@/components/client-portal/SectionReviewStatus";
+import { ClientDocumentsList } from "@/components/client-portal/ClientDocumentsList";
 
 interface TokenValidation {
   is_valid: boolean;
@@ -1166,75 +1167,13 @@ const ClientView = () => {
           </TabsContent>
 
           {/* Documents Tab */}
-          <TabsContent value="documents">
-            <Card className="border-0 shadow-md">
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="flex items-center gap-2">
-                      <FolderOpen className="h-5 w-5" />
-                      Project Documents
-                    </CardTitle>
-                    <CardDescription>
-                      {documentsWithFiles.length} document{documentsWithFiles.length !== 1 ? 's' : ''} available for download
-                    </CardDescription>
-                  </div>
-                  {documentsWithFiles.length > 0 && (
-                    <Button onClick={handleBulkDownload} disabled={isDownloadingAll}>
-                      {isDownloadingAll ? (
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      ) : (
-                        <Download className="h-4 w-4 mr-2" />
-                      )}
-                      Download All
-                    </Button>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent>
-                {documentsWithFiles.length === 0 ? (
-                  <div className="text-center py-12">
-                    <FolderOpen className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
-                    <p className="text-muted-foreground">No documents available yet</p>
-                  </div>
-                ) : (
-                  <div className="rounded-md border overflow-auto">
-                    <Table>
-                      <TableHeader>
-                        <TableRow className="bg-muted/50">
-                          <TableHead>Document Name</TableHead>
-                          <TableHead>Type</TableHead>
-                          <TableHead>Uploaded</TableHead>
-                          <TableHead className="w-20"></TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {documentsWithFiles.map((doc: any) => (
-                          <TableRow key={doc.id}>
-                            <TableCell className="font-medium">{doc.document_name}</TableCell>
-                            <TableCell>
-                              <Badge variant="outline">{doc.document_type}</Badge>
-                            </TableCell>
-                            <TableCell className="text-sm text-muted-foreground">
-                              {format(new Date(doc.created_at), 'MMM d, yyyy')}
-                            </TableCell>
-                            <TableCell>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => window.open(doc.file_url, '_blank')}
-                              >
-                                <Download className="h-4 w-4" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+          <TabsContent value="documents" className="space-y-6">
+            <ClientDocumentsList 
+              documents={documentsWithFiles}
+              projectName={project?.name}
+              isDownloadingAll={isDownloadingAll}
+              onBulkDownload={handleBulkDownload}
+            />
 
             {/* Documents Review Checklist */}
             <ReviewChecklist 
