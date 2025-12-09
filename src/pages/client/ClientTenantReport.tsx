@@ -12,6 +12,7 @@ import { Progress } from "@/components/ui/progress";
 import { ArrowLeft, Building2, CheckCircle, Clock, AlertCircle } from "lucide-react";
 import { useEffect } from "react";
 import { toast } from "sonner";
+import { sortTenantsByShopNumber } from "@/utils/tenantSorting";
 
 const ClientTenantReport = () => {
   const { projectId } = useParams();
@@ -179,7 +180,7 @@ const ClientTenantReport = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {tenants?.map((tenant: any) => (
+                  {sortTenantsByShopNumber(tenants || []).map((tenant: any) => (
                     <TableRow key={tenant.id}>
                       <TableCell className="font-medium">{tenant.shop_number}</TableCell>
                       <TableCell>{tenant.shop_name || '-'}</TableCell>

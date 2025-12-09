@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ArrowLeft, Zap, Building2 } from "lucide-react";
 import { useEffect } from "react";
 import { toast } from "sonner";
+import { sortTenantsByShopNumber } from "@/utils/tenantSorting";
 
 const ClientGeneratorReport = () => {
   const { projectId } = useParams();
@@ -236,7 +237,7 @@ const ClientGeneratorReport = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {tenants?.map((tenant: any) => (
+                  {sortTenantsByShopNumber(tenants || []).map((tenant: any) => (
                     <TableRow key={tenant.id}>
                       <TableCell className="font-medium">{tenant.shop_number}</TableCell>
                       <TableCell>{tenant.shop_name || '-'}</TableCell>
