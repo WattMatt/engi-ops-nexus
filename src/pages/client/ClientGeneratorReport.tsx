@@ -65,16 +65,31 @@ const ClientGeneratorReport = () => {
     enabled: !!projectId
   });
 
-  const { data: zones } = useQuery<any[]>({
-    queryKey: ['client-zones', projectId],
+  const { data: zones } = useQuery({
+    queryKey: ['client-generator-zones', projectId],
     queryFn: async () => {
-      const pid = projectId as string;
-      // Type assertion to avoid deep type instantiation
-      const query = (supabase as any).from('zones').select('id, name').eq('project_id', pid);
-      const { data, error } = await query;
+      const { data, error } = await supabase
+        .from('generator_zones')
+        .select('id, zone_name, zone_number, generator_size, num_generators')
+        .eq('project_id', projectId)
+        .order('display_order');
       
       if (error) throw error;
-      return (data || []) as any[];
+      return data || [];
+    },
+    enabled: !!projectId
+  });
+
+  const { data: generatorSettings } = useQuery({
+    queryKey: ['client-generator-settings', projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('generator_settings')
+        .select('*')
+        .eq('project_id', projectId);
+      
+      if (error) throw error;
+      return data?.[0] || null;
     },
     enabled: !!projectId
   });
@@ -82,12 +97,29 @@ const ClientGeneratorReport = () => {
   const canComment = projectId ? hasReportAccess(projectId, 'generator_report', 'comment') : false;
   const canApprove = projectId ? hasReportAccess(projectId, 'generator_report', 'approve') : false;
 
-  // Calculate tenant loading
+  // Calculate tenant loading - must match GeneratorTenantList exactly
   const getTenantLoading = (tenant: any) => {
-    if (tenant.manual_kw_override) return tenant.manual_kw_override;
-    const sector1 = tenant.generator_loading_sector_1 || 0;
-    const sector2 = tenant.generator_loading_sector_2 || 0;
-    return sector1 + sector2;
+    if (tenant.own_generator_provided) return 0;
+    
+    // Use manual override if set
+    if (tenant.manual_kw_override !== null && tenant.manual_kw_override !== undefined) {
+      return Number(tenant.manual_kw_override);
+    }
+    
+    // Otherwise calculate based on area and category
+    if (!tenant.area) return 0;
+    
+    const kwPerSqm = {
+      standard: generatorSettings?.standard_kw_per_sqm || 0.03,
+      fast_food: generatorSettings?.fast_food_kw_per_sqm || 0.045,
+      restaurant: generatorSettings?.restaurant_kw_per_sqm || 0.045,
+      national: generatorSettings?.national_kw_per_sqm || 0.03,
+    };
+    
+    const category = tenant.shop_category?.toLowerCase() || 'standard';
+    const rate = kwPerSqm[category as keyof typeof kwPerSqm] || kwPerSqm.standard;
+    
+    return tenant.area * rate;
   };
 
   // Calculate zone loading
@@ -165,7 +197,10 @@ const ClientGeneratorReport = () => {
               <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
                 {zones.map((zone: any) => (
                   <div key={zone.id} className="p-4 rounded-lg border bg-muted/50">
-                    <div className="font-medium">{zone.name}</div>
+                    <div className="font-medium">{zone.zone_name}</div>
+                    <div className="text-sm text-muted-foreground mb-1">
+                      {zone.num_generators}x {zone.generator_size}
+                    </div>
                     <div className="text-2xl font-bold text-primary">
                       {getZoneLoading(zone.id).toFixed(1)} kW
                     </div>
@@ -210,7 +245,7 @@ const ClientGeneratorReport = () => {
                       </TableCell>
                       <TableCell className="text-right">{tenant.area?.toLocaleString() || '-'}</TableCell>
                       <TableCell>
-                        {zones?.find((z: any) => z.id === tenant.generator_zone_id)?.name || '-'}
+                        {zones?.find((z: any) => z.id === tenant.generator_zone_id)?.zone_name || '-'}
                       </TableCell>
                       <TableCell className="text-right font-medium">
                         {getTenantLoading(tenant).toFixed(1)}
