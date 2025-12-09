@@ -30,6 +30,7 @@ import { QuickActions } from "@/components/client-portal/QuickActions";
 import { FAQSection } from "@/components/client-portal/FAQSection";
 import { SectionReviewStatus } from "@/components/client-portal/SectionReviewStatus";
 import { ClientDocumentsList } from "@/components/client-portal/ClientDocumentsList";
+import { ClientHandoverDocuments } from "@/components/client-portal/ClientHandoverDocuments";
 
 interface TokenValidation {
   is_valid: boolean;
@@ -1168,9 +1169,10 @@ const ClientView = () => {
 
           {/* Documents Tab */}
           <TabsContent value="documents" className="space-y-6">
-            <ClientDocumentsList 
+            <ClientHandoverDocuments 
               documents={documentsWithFiles}
               projectName={project?.name}
+              tenants={tenants}
               isDownloadingAll={isDownloadingAll}
               onBulkDownload={handleBulkDownload}
             />
