@@ -23,6 +23,12 @@ import { format } from "date-fns";
 import JSZip from "jszip";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from "recharts";
 import { sortTenantsByShopNumber } from "@/utils/tenantSorting";
+import { ClientFeedbackForm } from "@/components/client-portal/ClientFeedbackForm";
+import { ClientRequestForm } from "@/components/client-portal/ClientRequestForm";
+import { ReviewChecklist } from "@/components/client-portal/ReviewChecklist";
+import { QuickActions } from "@/components/client-portal/QuickActions";
+import { FAQSection } from "@/components/client-portal/FAQSection";
+import { SectionReviewStatus } from "@/components/client-portal/SectionReviewStatus";
 
 interface TokenValidation {
   is_valid: boolean;
@@ -247,6 +253,52 @@ const ClientView = () => {
     },
     enabled: !!projectId && isAuthenticated,
   });
+
+  // Fetch client requests
+  const { data: clientRequests, refetch: refetchRequests } = useQuery({
+    queryKey: ["client-view-requests", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("client_requests")
+        .select("*")
+        .eq("project_id", projectId)
+        .order("created_at", { ascending: false });
+      
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!projectId && isAuthenticated,
+  });
+
+  // State for quick action handling
+  const [feedbackCategory, setFeedbackCategory] = useState('general');
+  const [feedbackType, setFeedbackType] = useState('question');
+
+  const handleQuickAction = (action: string) => {
+    setActiveTab('feedback');
+    switch (action) {
+      case 'request_call':
+      case 'schedule_meeting':
+        setFeedbackCategory('general');
+        setFeedbackType('other');
+        break;
+      case 'report_issue':
+        setFeedbackCategory('general');
+        setFeedbackType('concern');
+        break;
+      case 'request_document':
+        setFeedbackCategory('documents');
+        setFeedbackType('change_request');
+        break;
+      case 'ask_question':
+        setFeedbackCategory('general');
+        setFeedbackType('question');
+        break;
+      default:
+        setFeedbackCategory('general');
+        setFeedbackType('question');
+    }
+  };
 
   // Helper functions
   const isComplete = (tenant: any) => {
@@ -934,6 +986,13 @@ const ClientView = () => {
                 </ScrollArea>
               </CardContent>
             </Card>
+
+            {/* Tenant Review Checklist */}
+            <ReviewChecklist 
+              projectId={projectId!}
+              section="tenant"
+              onSubmitSuccess={() => refetchComments()}
+            />
           </TabsContent>
 
           {/* Generator Tab */}
@@ -1097,6 +1156,13 @@ const ClientView = () => {
                 </ScrollArea>
               </CardContent>
             </Card>
+
+            {/* Generator Review Checklist */}
+            <ReviewChecklist 
+              projectId={projectId!}
+              section="generator"
+              onSubmitSuccess={() => refetchComments()}
+            />
           </TabsContent>
 
           {/* Documents Tab */}
@@ -1169,115 +1235,96 @@ const ClientView = () => {
                 )}
               </CardContent>
             </Card>
+
+            {/* Documents Review Checklist */}
+            <ReviewChecklist 
+              projectId={projectId!}
+              section="documents"
+              onSubmitSuccess={() => refetchComments()}
+            />
           </TabsContent>
 
           {/* Feedback Tab */}
           <TabsContent value="feedback" className="space-y-6">
+            {/* Quick Actions */}
+            <QuickActions onAction={handleQuickAction} />
+
             <div className="grid gap-6 lg:grid-cols-2">
-              {/* Submit Comment */}
-              <Card className="border-0 shadow-md">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <MessageSquare className="h-5 w-5" />
-                    Submit Feedback
-                  </CardTitle>
-                  <CardDescription>
-                    Share your comments, questions, or feedback with the project team
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="clientName">Your Name *</Label>
-                      <Input
-                        id="clientName"
-                        placeholder="Enter your name"
-                        value={clientName}
-                        onChange={(e) => setClientName(e.target.value)}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="clientCommentEmail">Email (optional)</Label>
-                      <Input
-                        id="clientCommentEmail"
-                        type="email"
-                        placeholder="your@email.com"
-                        value={commentEmail || clientEmail || ''}
-                        onChange={(e) => setCommentEmail(e.target.value)}
-                      />
-                    </div>
-                  </div>
+              {/* Structured Feedback Form */}
+              <ClientFeedbackForm 
+                projectId={projectId!}
+                tenants={tenants}
+                zones={zones}
+                onSubmitSuccess={() => refetchComments()}
+              />
 
-                  <div className="space-y-2">
-                    <Label htmlFor="comment">Your Feedback *</Label>
-                    <Textarea
-                      id="comment"
-                      placeholder="Enter your comment, question, or feedback..."
-                      value={newComment}
-                      onChange={(e) => setNewComment(e.target.value)}
-                      rows={5}
-                    />
-                  </div>
-
-                  <Button onClick={handleSubmitComment} disabled={submittingComment} className="w-full">
-                    {submittingComment ? (
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    ) : (
-                      <Send className="h-4 w-4 mr-2" />
-                    )}
-                    Submit Feedback
-                  </Button>
-                </CardContent>
-              </Card>
-
-              {/* Previous Comments */}
-              <Card className="border-0 shadow-md">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <FileText className="h-5 w-5" />
-                    Feedback History
-                  </CardTitle>
-                  <CardDescription>
-                    {comments?.length || 0} total comment{(comments?.length || 0) !== 1 ? 's' : ''}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  {!comments || comments.length === 0 ? (
-                    <div className="text-center py-8">
-                      <MessageSquare className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
-                      <p className="text-muted-foreground">No comments yet</p>
-                    </div>
-                  ) : (
-                    <ScrollArea className="h-[400px] pr-4">
-                      <div className="space-y-3">
-                        {comments.map((comment: any) => (
-                          <div 
-                            key={comment.id} 
-                            className={`p-4 rounded-lg border ${comment.is_resolved ? 'bg-green-50/50 border-green-200' : 'bg-muted/30'}`}
-                          >
-                            <div className="flex items-center gap-2 mb-2 flex-wrap">
-                              <Badge variant="outline" className="text-xs">
-                                {comment.report_type?.replace('_', ' ') || 'General'}
-                              </Badge>
-                              {comment.is_resolved && (
-                                <Badge className="bg-green-500/10 text-green-600 border-green-200 text-xs">
-                                  <CheckCircle className="h-3 w-3 mr-1" />
-                                  Resolved
-                                </Badge>
-                              )}
-                            </div>
-                            <p className="text-sm">{comment.comment_text}</p>
-                            <p className="text-xs text-muted-foreground mt-2">
-                              {format(new Date(comment.created_at), 'MMM d, yyyy h:mm a')}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    </ScrollArea>
-                  )}
-                </CardContent>
-              </Card>
+              {/* Formal Request System */}
+              <ClientRequestForm 
+                projectId={projectId!}
+                existingRequests={clientRequests || []}
+                onSubmitSuccess={() => refetchRequests()}
+              />
             </div>
+
+            <div className="grid gap-6 lg:grid-cols-2">
+              {/* Review Checklist - Dashboard */}
+              <ReviewChecklist 
+                projectId={projectId!}
+                section="dashboard"
+                onSubmitSuccess={() => refetchComments()}
+              />
+
+              {/* FAQ Section */}
+              <FAQSection />
+            </div>
+
+            {/* Feedback History */}
+            <Card className="border-0 shadow-md">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <FileText className="h-5 w-5" />
+                  Feedback History
+                </CardTitle>
+                <CardDescription>
+                  {comments?.length || 0} total comment{(comments?.length || 0) !== 1 ? 's' : ''}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {!comments || comments.length === 0 ? (
+                  <div className="text-center py-8">
+                    <MessageSquare className="h-12 w-12 text-muted-foreground/50 mx-auto mb-4" />
+                    <p className="text-muted-foreground">No comments yet</p>
+                  </div>
+                ) : (
+                  <ScrollArea className="h-[400px] pr-4">
+                    <div className="space-y-3">
+                      {comments.map((comment: any) => (
+                        <div 
+                          key={comment.id} 
+                          className={`p-4 rounded-lg border ${comment.is_resolved ? 'bg-green-50/50 dark:bg-green-900/20 border-green-200 dark:border-green-800' : 'bg-muted/30'}`}
+                        >
+                          <div className="flex items-center gap-2 mb-2 flex-wrap">
+                            <Badge variant="outline" className="text-xs">
+                              {comment.report_type?.replace('_', ' ') || 'General'}
+                            </Badge>
+                            {comment.is_resolved && (
+                              <Badge className="bg-green-500/10 text-green-600 dark:text-green-400 border-green-200 dark:border-green-800 text-xs">
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Resolved
+                              </Badge>
+                            )}
+                          </div>
+                          <p className="text-sm whitespace-pre-wrap">{comment.comment_text}</p>
+                          <p className="text-xs text-muted-foreground mt-2">
+                            {format(new Date(comment.created_at), 'MMM d, yyyy h:mm a')}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </ScrollArea>
+                )}
+              </CardContent>
+            </Card>
           </TabsContent>
         </Tabs>
       </main>
