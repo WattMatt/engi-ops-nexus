@@ -135,12 +135,22 @@ export const GeneratorTenantList = ({ tenants, capitalCostRecovery = 53009.71, o
 
   const handleUpdateTenant = async (tenantId: string, field: string, value: any) => {
     try {
+      // Get tenant info for change summary
+      const tenant = tenants.find(t => t.id === tenantId);
+      
       const { error } = await supabase
         .from("tenants")
         .update({ [field]: value })
         .eq("id", tenantId);
 
       if (error) throw error;
+      
+      // Increment tenant schedule version to track changes
+      await supabase.rpc("increment_tenant_schedule_version", {
+        p_project_id: projectId,
+        p_change_summary: `Tenant ${tenant?.shop_number || 'Unknown'}: ${field} updated`
+      });
+      
       toast.success("Tenant updated successfully");
       
       // Trigger refetch in parent component
@@ -175,12 +185,21 @@ export const GeneratorTenantList = ({ tenants, capitalCostRecovery = 53009.71, o
     }
 
     try {
+      const tenant = tenants.find(t => t.id === tenantId);
+      
       const { error } = await supabase
         .from("tenants")
         .update({ manual_kw_override: numericValue })
         .eq("id", tenantId);
 
       if (error) throw error;
+      
+      // Increment tenant schedule version to track changes
+      await supabase.rpc("increment_tenant_schedule_version", {
+        p_project_id: projectId,
+        p_change_summary: `Tenant ${tenant?.shop_number || 'Unknown'}: manual kW override set to ${numericValue}`
+      });
+      
       toast.success("Manual kW override saved");
       setEditingTenantId(null);
       setEditingKwValue("");
@@ -196,12 +215,21 @@ export const GeneratorTenantList = ({ tenants, capitalCostRecovery = 53009.71, o
 
   const handleResetKw = async (tenantId: string) => {
     try {
+      const tenant = tenants.find(t => t.id === tenantId);
+      
       const { error } = await supabase
         .from("tenants")
         .update({ manual_kw_override: null })
         .eq("id", tenantId);
 
       if (error) throw error;
+      
+      // Increment tenant schedule version to track changes
+      await supabase.rpc("increment_tenant_schedule_version", {
+        p_project_id: projectId,
+        p_change_summary: `Tenant ${tenant?.shop_number || 'Unknown'}: manual kW override reset`
+      });
+      
       toast.success("Reset to automatic calculation");
       
       if (onUpdate) {
