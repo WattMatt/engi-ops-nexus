@@ -40,6 +40,26 @@ export function CapitalRecoveryCalculator({ projectId }: CapitalRecoveryCalculat
     enabled: !!projectId,
   });
 
+  // Get zone IDs for dependent query
+  const zoneIds = zones.map(z => z.id);
+
+  // Fetch actual generator costs from zone_generators table
+  const { data: zoneGenerators = [] } = useQuery({
+    queryKey: ["zone-generators-capital", projectId, zoneIds],
+    queryFn: async () => {
+      if (!zoneIds.length) return [];
+      
+      const { data, error } = await supabase
+        .from("zone_generators")
+        .select("*")
+        .in("zone_id", zoneIds);
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!projectId && zoneIds.length > 0,
+  });
+
   const { data: tenants = [] } = useQuery({
     queryKey: ["tenants-capital", projectId],
     queryFn: async () => {
@@ -83,11 +103,9 @@ export function CapitalRecoveryCalculator({ projectId }: CapitalRecoveryCalculat
 
   // Update capital cost when data changes - use same calculation as GeneratorCostingSection
   useEffect(() => {
-    // Calculate generator cost accounting for quantity per zone
-    const generatorCost = zones.reduce((sum, zone) => {
-      const numGens = zone.num_generators || 1;
-      const costPerGen = zone.generator_cost || 0;
-      return sum + (costPerGen * numGens);
+    // Calculate generator cost from zone_generators table (matching GeneratorCostingSection)
+    const generatorCost = zoneGenerators.reduce((sum, gen) => {
+      return sum + (Number(gen.generator_cost) || 0);
     }, 0);
     
     // Calculate tenant DBs cost (auto-calculated based on tenants without own generator)
@@ -110,7 +128,7 @@ export function CapitalRecoveryCalculator({ projectId }: CapitalRecoveryCalculat
     if (totalCost > 0) {
       setCapitalCost(totalCost);
     }
-  }, [zones, tenants, settings]);
+  }, [zoneGenerators, tenants, settings]);
 
   // Calculate annual repayment using annuity formula
   // PMT = PV × [r(1 + r)^n] / [(1 + r)^n - 1]
