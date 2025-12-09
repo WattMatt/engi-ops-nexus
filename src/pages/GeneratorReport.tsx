@@ -70,6 +70,26 @@ const GeneratorReport = () => {
     enabled: !!projectId,
   });
 
+  // Get zone IDs for dependent query
+  const zoneIds = zones.map(z => z.id);
+
+  // Fetch actual generator costs from zone_generators table
+  const { data: zoneGenerators = [] } = useQuery({
+    queryKey: ["zone-generators-report", projectId, zoneIds],
+    queryFn: async () => {
+      if (!zoneIds.length) return [];
+      
+      const { data, error } = await supabase
+        .from("zone_generators")
+        .select("*")
+        .in("zone_id", zoneIds);
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!projectId && zoneIds.length > 0,
+  });
+
   const { data: generatorSettings } = useQuery({
     queryKey: ["generator-settings", projectId],
     queryFn: async () => {
@@ -123,10 +143,9 @@ const GeneratorReport = () => {
     };
   });
 
-  const totalGeneratorCost = zones.reduce((sum, zone) => {
-    const numGens = zone.num_generators || 1;
-    const costPerGen = zone.generator_cost || 0;
-    return sum + (costPerGen * numGens);
+  // Calculate total generator cost from zone_generators table (matching GeneratorCostingSection)
+  const totalGeneratorCost = zoneGenerators.reduce((sum, gen) => {
+    return sum + (Number(gen.generator_cost) || 0);
   }, 0);
 
   const numTenantDBs = tenants.filter(t => !t.own_generator_provided).length;
