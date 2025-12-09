@@ -80,7 +80,7 @@ export const ClientFeedbackForm = ({ projectId, tenants, zones, onSubmitSuccess 
           comment_text: feedbackText,
           report_type: category === 'general' ? 'general' : category,
           user_id: (await supabase.auth.getUser()).data.user?.id || 'anonymous',
-          reference_id: relatedItem || null,
+          reference_id: relatedItem && relatedItem !== 'none' ? relatedItem : null,
         });
 
       if (error) throw error;
@@ -166,7 +166,7 @@ export const ClientFeedbackForm = ({ projectId, tenants, zones, onSubmitSuccess 
                 <SelectValue placeholder="Select item..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">None</SelectItem>
+                <SelectItem value="none">None</SelectItem>
                 {tenants?.map(tenant => (
                   <SelectItem key={tenant.id} value={`tenant:${tenant.shop_number}`}>
                     Tenant: {tenant.shop_number} - {tenant.shop_name}
