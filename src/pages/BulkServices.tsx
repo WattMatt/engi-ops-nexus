@@ -1,42 +1,32 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Plus, FileText, Trash2 } from "lucide-react";
-import { CreateBulkServicesDialog } from "@/components/bulk-services/CreateBulkServicesDialog";
+import { Card, CardContent } from "@/components/ui/card";
 import { BulkServicesOverview } from "@/components/bulk-services/BulkServicesOverview";
 import { toast } from "sonner";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { Loader2, FileText, AlertCircle } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useNavigate } from "react-router-dom";
 
 const BulkServices = () => {
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
-  const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
-  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [documentToDelete, setDocumentToDelete] = useState<string | null>(null);
-
   const selectedProjectId = localStorage.getItem("selectedProjectId");
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const [isCreating, setIsCreating] = useState(false);
 
-  const { data: documents, refetch } = useQuery({
-    queryKey: ["bulk-services-documents", selectedProjectId],
+  // Fetch or create single document for project
+  const { data: document, isLoading, refetch } = useQuery({
+    queryKey: ["bulk-services-document", selectedProjectId],
     queryFn: async () => {
-      if (!selectedProjectId) return [];
+      if (!selectedProjectId) return null;
 
       const { data, error } = await supabase
         .from("bulk_services_documents")
         .select("*")
         .eq("project_id", selectedProjectId)
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
       if (error) throw error;
       return data;
@@ -44,166 +34,128 @@ const BulkServices = () => {
     enabled: !!selectedProjectId,
   });
 
-  const deleteMutation = useMutation({
-    mutationFn: async (documentId: string) => {
-      // First delete sections
-      const { error: sectionsError } = await supabase
-        .from("bulk_services_sections")
-        .delete()
-        .eq("document_id", documentId);
+  // Auto-create document if none exists
+  const createDocument = async () => {
+    if (!selectedProjectId || isCreating) return;
+    
+    setIsCreating(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
 
-      if (sectionsError) throw sectionsError;
+      // Get project details for document number
+      const { data: project } = await supabase
+        .from("projects")
+        .select("name, project_number")
+        .eq("id", selectedProjectId)
+        .single();
 
-      // Then delete document
-      const { error: docError } = await supabase
+      const docNumber = project?.project_number 
+        ? `BS-${project.project_number}` 
+        : `BS-${Date.now()}`;
+
+      const { data: newDoc, error } = await supabase
         .from("bulk_services_documents")
-        .delete()
-        .eq("id", documentId);
+        .insert({
+          project_id: selectedProjectId,
+          created_by: user.id,
+          document_number: docNumber,
+          revision: "Rev 0",
+          document_date: new Date().toISOString().split('T')[0],
+        })
+        .select()
+        .single();
 
-      if (docError) throw docError;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["bulk-services-documents"] });
-      toast.success("Document deleted successfully");
-      setDeleteDialogOpen(false);
-      setDocumentToDelete(null);
-    },
-    onError: (error: any) => {
-      toast.error(error.message || "Failed to delete document");
-    },
-  });
+      if (error) throw error;
 
-  const handleDeleteClick = (e: React.MouseEvent, documentId: string) => {
-    e.stopPropagation();
-    setDocumentToDelete(documentId);
-    setDeleteDialogOpen(true);
-  };
+      // Create default sections
+      const defaultSections = [
+        { section_number: "1", section_title: "Introduction", sort_order: 1 },
+        { section_number: "2", section_title: "Scope of Work", sort_order: 2 },
+        { section_number: "3", section_title: "Electrical Supply", sort_order: 3 },
+        { section_number: "4", section_title: "Load Schedule", sort_order: 4 },
+        { section_number: "5", section_title: "Distribution", sort_order: 5 },
+      ];
 
-  const handleConfirmDelete = () => {
-    if (documentToDelete) {
-      deleteMutation.mutate(documentToDelete);
+      await supabase
+        .from("bulk_services_sections")
+        .insert(
+          defaultSections.map(section => ({
+            ...section,
+            document_id: newDoc.id,
+          }))
+        );
+
+      await refetch();
+      toast.success("Bulk services report created");
+    } catch (error: any) {
+      console.error("Error creating document:", error);
+      toast.error(error.message || "Failed to create document");
+    } finally {
+      setIsCreating(false);
     }
   };
 
-  if (selectedDocumentId) {
+  // Auto-create on mount if no document exists
+  useEffect(() => {
+    if (!isLoading && !document && selectedProjectId && !isCreating) {
+      createDocument();
+    }
+  }, [isLoading, document, selectedProjectId]);
+
+  if (!selectedProjectId) {
     return (
-      <BulkServicesOverview
-        documentId={selectedDocumentId}
-        onBack={() => setSelectedDocumentId(null)}
-      />
+      <div className="container mx-auto px-6 py-6">
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <AlertCircle className="h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-lg font-medium mb-2">No project selected</p>
+            <p className="text-sm text-muted-foreground mb-4">
+              Please select a project to view the bulk services report
+            </p>
+            <Button onClick={() => navigate("/dashboard")}>
+              Go to Dashboard
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (isLoading || isCreating) {
+    return (
+      <div className="container mx-auto px-6 py-6">
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <Loader2 className="h-12 w-12 text-primary animate-spin mb-4" />
+            <p className="text-lg font-medium">
+              {isCreating ? "Creating bulk services report..." : "Loading..."}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (!document) {
+    return (
+      <div className="container mx-auto px-6 py-6">
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-12">
+            <FileText className="h-12 w-12 text-muted-foreground mb-4" />
+            <p className="text-lg font-medium mb-2">Setting up bulk services report</p>
+            <p className="text-sm text-muted-foreground">Please wait...</p>
+          </CardContent>
+        </Card>
+      </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-6 py-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold">Bulk Services Documents</h1>
-          <p className="text-muted-foreground">
-            Manage electrical bulk services documentation
-          </p>
-        </div>
-        <Button onClick={() => setCreateDialogOpen(true)}>
-          <Plus className="mr-2 h-4 w-4" />
-          Create Document
-        </Button>
-      </div>
-
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {documents?.map((doc) => (
-          <Card
-            key={doc.id}
-            className="cursor-pointer hover:border-primary transition-colors group"
-            onClick={() => setSelectedDocumentId(doc.id)}
-          >
-            <CardHeader>
-              <div className="flex items-start justify-between">
-                <FileText className="h-8 w-8 text-primary" />
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">{doc.revision}</span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={(e) => handleDeleteClick(e, doc.id)}
-                  >
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
-                </div>
-              </div>
-              <CardTitle className="text-lg">{doc.document_number}</CardTitle>
-              <CardDescription>
-                {new Date(doc.document_date).toLocaleDateString()}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-2 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Supply: </span>
-                  <span className="font-medium">{doc.primary_voltage || "N/A"}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Capacity: </span>
-                  <span className="font-medium">{doc.connection_size || "N/A"}</span>
-                </div>
-                <div>
-                  <span className="text-muted-foreground">Max Demand: </span>
-                  <span className="font-medium">
-                    {doc.maximum_demand ? `${doc.maximum_demand.toLocaleString()} kVA` : "N/A"}
-                  </span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {documents?.length === 0 && (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <FileText className="h-12 w-12 text-muted-foreground mb-4" />
-            <p className="text-lg font-medium mb-2">No bulk services documents yet</p>
-            <p className="text-sm text-muted-foreground mb-4">
-              Create your first document to get started
-            </p>
-            <Button onClick={() => setCreateDialogOpen(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              Create Document
-            </Button>
-          </CardContent>
-        </Card>
-      )}
-
-      <CreateBulkServicesDialog
-        open={createDialogOpen}
-        onOpenChange={setCreateDialogOpen}
-        onDocumentCreated={() => {
-          refetch();
-          setCreateDialogOpen(false);
-        }}
-      />
-
-      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Document</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete this bulk services document? This action cannot be undone.
-              All sections and content will be permanently deleted.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleConfirmDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
-    </div>
+    <BulkServicesOverview
+      documentId={document.id}
+      onBack={() => navigate("/dashboard")}
+    />
   );
 };
 
