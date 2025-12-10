@@ -129,11 +129,13 @@ const CLIMATIC_ZONES = [
 interface BulkServicesSettingsOverviewProps {
   documentId: string;
   currentCalculationType?: string;
+  currentCity?: string | null;
 }
 
 export const BulkServicesSettingsOverview = ({
   documentId,
   currentCalculationType,
+  currentCity,
 }: BulkServicesSettingsOverviewProps) => {
   const [calculationType, setCalculationType] = useState(
     currentCalculationType || "sans_204"
@@ -872,7 +874,7 @@ export const BulkServicesSettingsOverview = ({
         <p className="text-sm text-muted-foreground">
           Select the applicable municipal electricity tariff for this project. Tariffs are sourced from the greencalc-sa tariff database.
         </p>
-        <TariffSelector documentId={documentId} compact />
+        <TariffSelector documentId={documentId} currentCity={currentCity} compact />
       </div>
 
       {/* Conditional rendering based on calculation type */}
