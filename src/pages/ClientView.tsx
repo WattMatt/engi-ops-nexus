@@ -202,6 +202,22 @@ const ClientView = () => {
     enabled: !!projectId && isAuthenticated,
   });
 
+  // Fetch zone generators for cost calculation (matching GeneratorReport)
+  const zoneIds = zones?.map((z: any) => z.id) || [];
+  const { data: zoneGenerators } = useQuery({
+    queryKey: ["client-view-zone-generators", projectId, zoneIds],
+    queryFn: async () => {
+      if (!zoneIds.length) return [];
+      const { data, error } = await supabase
+        .from("zone_generators")
+        .select("*")
+        .in("zone_id", zoneIds);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!projectId && isAuthenticated && zoneIds.length > 0,
+  });
+
   // Fetch generator settings
   const { data: generatorSettings } = useQuery({
     queryKey: ["client-view-generator-settings", projectId],
@@ -366,13 +382,13 @@ const ClientView = () => {
     return zoneTenants.reduce((sum: number, t: any) => sum + getTenantLoading(t), 0);
   };
 
-  // Calculate capital cost recovery (matching GeneratorReport logic)
+  // Calculate capital cost recovery (matching GeneratorReport logic exactly)
   const capitalCostRecovery = useMemo(() => {
-    if (!generatorSettings || !zones) return 0;
+    if (!generatorSettings) return 0;
     
-    // Calculate total generator cost from zones
-    const totalGeneratorCost = zones.reduce((sum: number, zone: any) => {
-      return sum + (Number(zone.generator_cost) || 0);
+    // Calculate total generator cost from zone_generators table (matching GeneratorReport)
+    const totalGeneratorCost = (zoneGenerators || []).reduce((sum: number, gen: any) => {
+      return sum + (Number(gen.generator_cost) || 0);
     }, 0);
     
     const numTenantDBs = tenants?.filter((t: any) => !t.own_generator_provided).length || 0;
@@ -395,7 +411,7 @@ const ClientView = () => {
     const denominator = Math.pow(1 + rate, years) - 1;
     const annualRepayment = totalCapitalCost * (numerator / denominator);
     return annualRepayment / 12;
-  }, [generatorSettings, zones, tenants]);
+  }, [generatorSettings, zoneGenerators, tenants]);
 
   // Calculate portion of load (%) for a tenant - based on total project load
   const getPortionOfLoad = (tenant: any) => {
