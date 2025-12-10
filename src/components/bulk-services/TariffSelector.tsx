@@ -52,6 +52,8 @@ interface TariffSelectorProps {
   currentTariffId?: string | null;
   currentMunicipalityId?: string | null;
   currentCity?: string | null; // City from map pin
+  detectedMunicipality?: string | null; // Municipality detected from MDB ArcGIS
+  detectedProvince?: string | null; // Province detected from MDB ArcGIS
   onTariffSelect?: (tariffId: string | null, municipalityId: string | null) => void;
   compact?: boolean;
 }
@@ -62,6 +64,8 @@ export const TariffSelector = ({
   currentTariffId,
   currentMunicipalityId,
   currentCity,
+  detectedMunicipality,
+  detectedProvince,
   onTariffSelect,
   compact = false,
 }: TariffSelectorProps) => {
@@ -78,20 +82,51 @@ export const TariffSelector = ({
     fetchTariffs();
   }, []);
 
-  // Auto-match municipality based on city name from map pin
+  // Auto-match municipality based on detected municipality from MDB ArcGIS (priority) or city name from map
   useEffect(() => {
-    if (currentCity && tariffData && !selectedMunicipality) {
-      const cityLower = currentCity.toLowerCase().trim();
+    if (!tariffData || selectedMunicipality) return;
+    
+    // Priority 1: Use detected municipality from MDB ArcGIS
+    if (detectedMunicipality) {
+      const detectedLower = detectedMunicipality.toLowerCase().trim();
       
-      // Try to find a matching municipality
       for (const [province, municipalities] of Object.entries(tariffData.municipalitiesByProvince)) {
         for (const municipality of municipalities) {
           const munLower = municipality.name.toLowerCase();
-          // Check various matching strategies
+          // Check for match with MDB detected municipality
+          if (
+            munLower === detectedLower ||
+            munLower.includes(detectedLower) || 
+            detectedLower.includes(munLower) ||
+            // Handle SA municipal name prefixes like "u" in uMhlathuze
+            munLower.replace(/^u/i, '').includes(detectedLower.replace(/^u/i, '')) ||
+            detectedLower.replace(/^u/i, '').includes(munLower.replace(/^u/i, ''))
+          ) {
+            setSelectedProvince(province);
+            setSelectedMunicipality(municipality.id);
+            setAutoMatchedCity(detectedMunicipality);
+            toast.success(`Auto-selected ${municipality.name} municipality`);
+            return;
+          }
+        }
+      }
+      // Try province-based matching if we have detectedProvince
+      if (detectedProvince && tariffData.municipalitiesByProvince[detectedProvince]) {
+        setSelectedProvince(detectedProvince);
+        setAutoMatchedCity(detectedMunicipality);
+      }
+    }
+    
+    // Priority 2: Fallback to city name matching
+    if (currentCity && !detectedMunicipality) {
+      const cityLower = currentCity.toLowerCase().trim();
+      
+      for (const [province, municipalities] of Object.entries(tariffData.municipalitiesByProvince)) {
+        for (const municipality of municipalities) {
+          const munLower = municipality.name.toLowerCase();
           if (
             munLower.includes(cityLower) || 
             cityLower.includes(munLower) ||
-            // Handle common abbreviations
             munLower.replace(/^u/i, '').includes(cityLower) ||
             cityLower.includes(munLower.replace(/^u/i, ''))
           ) {
@@ -105,7 +140,7 @@ export const TariffSelector = ({
       // No match found - just note the city for display
       setAutoMatchedCity(currentCity);
     }
-  }, [currentCity, tariffData, selectedMunicipality]);
+  }, [currentCity, detectedMunicipality, detectedProvince, tariffData, selectedMunicipality]);
 
   useEffect(() => {
     if (currentMunicipalityId && tariffData) {

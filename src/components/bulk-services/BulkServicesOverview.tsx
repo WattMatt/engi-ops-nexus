@@ -23,6 +23,8 @@ export const BulkServicesOverview = ({ documentId, onBack }: BulkServicesOvervie
   const [reportsRefreshTrigger, setReportsRefreshTrigger] = useState(0);
   const [mapSelectedZone, setMapSelectedZone] = useState<string | null>(null);
   const [showMapSelector, setShowMapSelector] = useState(false);
+  const [detectedMunicipality, setDetectedMunicipality] = useState<string | null>(null);
+  const [detectedProvince, setDetectedProvince] = useState<string | null>(null);
   
   const { data: document, isLoading } = useQuery({
     queryKey: ["bulk-services-document", documentId],
@@ -72,6 +74,11 @@ export const BulkServicesOverview = ({ documentId, onBack }: BulkServicesOvervie
     setMapSelectedZone(zone);
   };
 
+  const handleMunicipalityDetected = (municipality: string, province: string) => {
+    setDetectedMunicipality(municipality);
+    setDetectedProvince(province);
+  };
+
   return (
     <div className="container mx-auto py-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -107,13 +114,19 @@ export const BulkServicesOverview = ({ documentId, onBack }: BulkServicesOvervie
                 documentId={documentId}
                 currentCalculationType={document?.building_calculation_type}
                 currentCity={document?.climatic_zone_city}
+                detectedMunicipality={detectedMunicipality}
+                detectedProvince={detectedProvince}
               />
             </CardContent>
           </Card>
         </TabsContent>
 
         <TabsContent value="map" className="space-y-4">
-          <SANS204Calculator documentId={documentId} onZoneSelect={handleZoneSelect} />
+          <SANS204Calculator 
+            documentId={documentId} 
+            onZoneSelect={handleZoneSelect}
+            onMunicipalityDetected={handleMunicipalityDetected}
+          />
         </TabsContent>
 
         <TabsContent value="details" className="space-y-4">
