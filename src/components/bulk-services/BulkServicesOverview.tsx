@@ -77,7 +77,7 @@ export const BulkServicesOverview = ({ documentId, onBack }: BulkServicesOvervie
       <div className="flex items-center justify-between">
         <Button variant="ghost" onClick={onBack}>
           <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Documents
+          Back to Dashboard
         </Button>
         <BulkServicesExportPDFButton
           documentId={documentId}
