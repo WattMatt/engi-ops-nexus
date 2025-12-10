@@ -24,6 +24,8 @@ import JSZip from "jszip";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from "recharts";
 import { sortTenantsByShopNumber } from "@/utils/tenantSorting";
 import { ClientHandoverDocuments } from "@/components/client-portal/ClientHandoverDocuments";
+import { ClientGeneratorCostingSection } from "@/components/client-portal/ClientGeneratorCostingSection";
+import { DollarSign } from "lucide-react";
 
 interface TokenValidation {
   is_valid: boolean;
@@ -722,7 +724,7 @@ const ClientView = () => {
       {/* Content */}
       <main className="container mx-auto px-6 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="grid grid-cols-4 w-full max-w-2xl bg-card border">
+          <TabsList className="grid grid-cols-5 w-full max-w-3xl bg-card border">
             <TabsTrigger value="dashboard" className="gap-2">
               <LayoutDashboard className="h-4 w-4" />
               <span className="hidden sm:inline">Dashboard</span>
@@ -734,6 +736,10 @@ const ClientView = () => {
             <TabsTrigger value="generator" className="gap-2">
               <Zap className="h-4 w-4" />
               <span className="hidden sm:inline">Generator</span>
+            </TabsTrigger>
+            <TabsTrigger value="costs" className="gap-2">
+              <DollarSign className="h-4 w-4" />
+              <span className="hidden sm:inline">Costs</span>
             </TabsTrigger>
             <TabsTrigger value="documents" className="gap-2">
               <FolderOpen className="h-4 w-4" />
@@ -1315,6 +1321,11 @@ const ClientView = () => {
                 </ScrollArea>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Costs Tab */}
+          <TabsContent value="costs" className="space-y-6">
+            {projectId && <ClientGeneratorCostingSection projectId={projectId} />}
           </TabsContent>
 
           {/* Documents Tab */}
