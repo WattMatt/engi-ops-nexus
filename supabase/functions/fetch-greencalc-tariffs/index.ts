@@ -50,7 +50,7 @@ serve(async (req) => {
 
     console.log(`Fetched ${municipalities?.length || 0} municipalities`);
 
-    // Fetch tariffs with their rates
+    // Fetch tariffs (without rates for now - schema may differ)
     const { data: tariffs, error: tariffsError } = await greencalcClient
       .from('tariffs')
       .select(`
@@ -60,16 +60,7 @@ serve(async (req) => {
         tariff_type,
         effective_date,
         is_active,
-        created_at,
-        tariff_rates (
-          id,
-          rate_type,
-          rate_value,
-          unit,
-          min_usage,
-          max_usage,
-          time_of_use_period
-        )
+        created_at
       `)
       .eq('is_active', true)
       .order('name');
