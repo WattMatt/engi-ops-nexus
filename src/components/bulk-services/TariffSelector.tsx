@@ -81,13 +81,20 @@ export const TariffSelector = ({
   // Auto-match municipality based on city name from map pin
   useEffect(() => {
     if (currentCity && tariffData && !selectedMunicipality) {
-      const cityLower = currentCity.toLowerCase();
+      const cityLower = currentCity.toLowerCase().trim();
       
+      // Try to find a matching municipality
       for (const [province, municipalities] of Object.entries(tariffData.municipalitiesByProvince)) {
         for (const municipality of municipalities) {
-          // Check if municipality name contains city name or vice versa
           const munLower = municipality.name.toLowerCase();
-          if (munLower.includes(cityLower) || cityLower.includes(munLower)) {
+          // Check various matching strategies
+          if (
+            munLower.includes(cityLower) || 
+            cityLower.includes(munLower) ||
+            // Handle common abbreviations
+            munLower.replace(/^u/i, '').includes(cityLower) ||
+            cityLower.includes(munLower.replace(/^u/i, ''))
+          ) {
             setSelectedProvince(province);
             setSelectedMunicipality(municipality.id);
             setAutoMatchedCity(currentCity);
@@ -95,6 +102,8 @@ export const TariffSelector = ({
           }
         }
       }
+      // No match found - just note the city for display
+      setAutoMatchedCity(currentCity);
     }
   }, [currentCity, tariffData, selectedMunicipality]);
 
@@ -238,6 +247,14 @@ export const TariffSelector = ({
   if (compact) {
     return (
       <div className="space-y-3">
+        {autoMatchedCity && !selectedMunicipality && (
+          <div className="p-2 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-md">
+            <p className="text-sm text-amber-800 dark:text-amber-200">
+              <MapPin className="h-4 w-4 inline mr-1" />
+              Map location: <strong>{autoMatchedCity}</strong> - Please select the corresponding municipality below
+            </p>
+          </div>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <div className="space-y-1.5">
             <Label className="text-xs">Province</Label>
@@ -245,7 +262,7 @@ export const TariffSelector = ({
               <SelectTrigger className="h-9">
                 <SelectValue placeholder="Select province" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-popover">
                 {provinces.map(province => (
                   <SelectItem key={province} value={province}>
                     {province}
