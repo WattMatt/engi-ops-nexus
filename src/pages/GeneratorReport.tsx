@@ -25,7 +25,6 @@ import { ChevronDown } from "lucide-react";
 const GeneratorReport = () => {
   const projectId = localStorage.getItem("selectedProjectId");
   const [refreshTrigger, setRefreshTrigger] = useState(0);
-  const [capitalCostRecovery, setCapitalCostRecovery] = useState(68985.48); // Monthly repayment
   const [reportsRefreshTrigger, setReportsRefreshTrigger] = useState(0);
 
   const { data: tenants = [], isLoading, refetch } = useQuery({
@@ -286,7 +285,7 @@ const GeneratorReport = () => {
             ) : (
               <GeneratorTenantList 
                 tenants={tenants} 
-                capitalCostRecovery={capitalCostRecovery}
+                capitalCostRecovery={monthlyCapitalRepayment}
                 onUpdate={() => refetch()}
                 projectId={projectId}
               />
