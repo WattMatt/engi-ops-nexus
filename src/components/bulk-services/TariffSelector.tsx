@@ -54,6 +54,7 @@ interface TariffSelectorProps {
   currentCity?: string | null; // City from map pin
   detectedMunicipality?: string | null; // Municipality detected from MDB ArcGIS
   detectedProvince?: string | null; // Province detected from MDB ArcGIS
+  savedMunicipalityName?: string | null; // Municipality name saved in database
   onTariffSelect?: (tariffId: string | null, municipalityId: string | null) => void;
   compact?: boolean;
 }
@@ -66,6 +67,7 @@ export const TariffSelector = ({
   currentCity,
   detectedMunicipality,
   detectedProvince,
+  savedMunicipalityName,
   onTariffSelect,
   compact = false,
 }: TariffSelectorProps) => {
@@ -142,10 +144,13 @@ export const TariffSelector = ({
     }
   }, [currentCity, detectedMunicipality, detectedProvince, tariffData, selectedMunicipality]);
 
+  // Restore saved municipality and tariff from database
   useEffect(() => {
-    if (currentMunicipalityId && tariffData) {
+    if (!tariffData) return;
+    
+    // Priority 1: Use currentMunicipalityId if provided
+    if (currentMunicipalityId) {
       setSelectedMunicipality(currentMunicipalityId);
-      // Find which province this municipality belongs to
       for (const [province, municipalities] of Object.entries(tariffData.municipalitiesByProvince)) {
         if (municipalities.some(m => m.id === currentMunicipalityId)) {
           setSelectedProvince(province);
@@ -153,10 +158,32 @@ export const TariffSelector = ({
         }
       }
     }
+    // Priority 2: Match by saved municipality name
+    else if (savedMunicipalityName && !selectedMunicipality) {
+      const savedLower = savedMunicipalityName.toLowerCase().trim();
+      
+      for (const [province, municipalities] of Object.entries(tariffData.municipalitiesByProvince)) {
+        for (const municipality of municipalities) {
+          const munLower = municipality.name.toLowerCase();
+          if (
+            munLower === savedLower ||
+            munLower.includes(savedLower) || 
+            savedLower.includes(munLower) ||
+            munLower.replace(/^u/i, '').includes(savedLower.replace(/^u/i, '')) ||
+            savedLower.replace(/^u/i, '').includes(munLower.replace(/^u/i, ''))
+          ) {
+            setSelectedProvince(province);
+            setSelectedMunicipality(municipality.id);
+            return;
+          }
+        }
+      }
+    }
+    
     if (currentTariffId) {
       setSelectedTariff(currentTariffId);
     }
-  }, [currentMunicipalityId, currentTariffId, tariffData]);
+  }, [currentMunicipalityId, currentTariffId, savedMunicipalityName, tariffData, selectedMunicipality]);
 
   const fetchTariffs = async () => {
     setLoading(true);
