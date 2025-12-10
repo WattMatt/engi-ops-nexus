@@ -366,43 +366,55 @@ const ClientView = () => {
     return zoneTenants.reduce((sum: number, t: any) => sum + getTenantLoading(t), 0);
   };
 
-  // Calculate portion of load (%) for a tenant
+  // Calculate capital cost recovery (matching GeneratorReport logic)
+  const capitalCostRecovery = useMemo(() => {
+    if (!generatorSettings || !zones) return 0;
+    
+    // Calculate total generator cost from zones
+    const totalGeneratorCost = zones.reduce((sum: number, zone: any) => {
+      return sum + (Number(zone.generator_cost) || 0);
+    }, 0);
+    
+    const numTenantDBs = tenants?.filter((t: any) => !t.own_generator_provided).length || 0;
+    const ratePerTenantDB = generatorSettings?.rate_per_tenant_db || 0;
+    const tenantDBsCost = numTenantDBs * ratePerTenantDB;
+    
+    const numMainBoards = generatorSettings?.num_main_boards || 0;
+    const ratePerMainBoard = generatorSettings?.rate_per_main_board || 0;
+    const mainBoardsCost = numMainBoards * ratePerMainBoard;
+    
+    const additionalCablingCost = generatorSettings?.additional_cabling_cost || 0;
+    const controlWiringCost = generatorSettings?.control_wiring_cost || 0;
+    
+    const totalCapitalCost = totalGeneratorCost + tenantDBsCost + mainBoardsCost + additionalCablingCost + controlWiringCost;
+    
+    // Calculate capital recovery using saved settings or defaults
+    const years = generatorSettings?.capital_recovery_period_years || 10;
+    const rate = (generatorSettings?.capital_recovery_rate_percent || 12) / 100;
+    const numerator = rate * Math.pow(1 + rate, years);
+    const denominator = Math.pow(1 + rate, years) - 1;
+    const annualRepayment = totalCapitalCost * (numerator / denominator);
+    return annualRepayment / 12;
+  }, [generatorSettings, zones, tenants]);
+
+  // Calculate portion of load (%) for a tenant - based on total project load
   const getPortionOfLoad = (tenant: any) => {
+    if (tenant.own_generator_provided) return 0;
     const totalLoad = getTotalLoading();
     if (totalLoad === 0) return 0;
     return (getTenantLoading(tenant) / totalLoad) * 100;
   };
 
-  // Calculate monthly rental for a tenant based on their zone's running recovery settings
+  // Calculate monthly rental for a tenant based on their portion of total load
   const getTenantMonthlyRental = (tenant: any) => {
-    if (!tenant.generator_zone_id) return 0;
-    
-    const zoneSettings = runningRecoverySettings?.find(
-      (s: any) => s.generator_zone_id === tenant.generator_zone_id
-    );
-    if (!zoneSettings) return 0;
-
-    // Get all tenants in this zone
-    const zoneTenants = tenants?.filter((t: any) => t.generator_zone_id === tenant.generator_zone_id) || [];
-    const zoneLoad = zoneTenants.reduce((sum: number, t: any) => sum + getTenantLoading(t), 0);
-    
-    if (zoneLoad === 0) return 0;
-
-    // Calculate monthly cost based on settings
-    const runningLoadPercent = zoneSettings.running_load / 100;
-    const netEnergy = zoneSettings.net_energy_kva * zoneSettings.kva_to_kwh_conversion;
-    const fuelCostPerHour = (netEnergy * runningLoadPercent * zoneSettings.fuel_consumption_rate / 1000) * zoneSettings.diesel_price_per_litre;
-    const monthlyFuelCost = fuelCostPerHour * zoneSettings.expected_hours_per_month;
-    const monthlyServicing = (zoneSettings.servicing_cost_per_250_hours / 250) * zoneSettings.expected_hours_per_month;
-    const totalMonthlyZoneCost = monthlyFuelCost + monthlyServicing;
-    
-    // Tenant's portion based on their load
-    const tenantLoad = getTenantLoading(tenant);
-    return (tenantLoad / zoneLoad) * totalMonthlyZoneCost;
+    if (tenant.own_generator_provided) return 0;
+    const portionOfLoad = getPortionOfLoad(tenant);
+    return (portionOfLoad / 100) * capitalCostRecovery;
   };
 
   // Calculate rental per m² for a tenant
   const getRentalPerSqm = (tenant: any) => {
+    if (tenant.own_generator_provided) return 0;
     if (!tenant.area || tenant.area === 0) return 0;
     return getTenantMonthlyRental(tenant) / tenant.area;
   };
