@@ -6,16 +6,20 @@ import "@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { supabase } from "@/integrations/supabase/client";
-import { Map, Satellite, Mountain, MapPin } from "lucide-react";
+import { Map, Satellite, Mountain, MapPin, Building2, Loader2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { SA_CITIES_ZONES, findClosestCity, getCitiesByZone } from "@/data/saCitiesZones";
+import { useMunicipalityQuery } from "@/hooks/useMunicipalityQuery";
 
 interface ClimaticZoneMapProps {
   selectedZone: string | null;
-  onZoneSelect: (zone: string, city?: string, coordinates?: [number, number]) => void;
+  onZoneSelect: (zone: string, city?: string, coordinates?: [number, number], municipality?: string) => void;
   selectedCity?: string | null;
   selectedCoordinates?: [number, number];
+  onMunicipalityDetected?: (municipality: string, province: string) => void;
 }
 
 const ZONE_COLORS = {
@@ -66,7 +70,10 @@ const ZONE_INFO = {
   },
 };
 
-export const ClimaticZoneMap = ({ selectedZone, onZoneSelect, selectedCity, selectedCoordinates }: ClimaticZoneMapProps) => {
+// MDB ArcGIS MapServer for municipality boundaries
+const MDB_MAPSERVER_URL = "https://csggis.drdlr.gov.za/server/rest/services/MDB/MapServer";
+
+export const ClimaticZoneMap = ({ selectedZone, onZoneSelect, selectedCity, selectedCoordinates, onMunicipalityDetected }: ClimaticZoneMapProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const geocoder = useRef<MapboxGeocoder | null>(null);
@@ -76,6 +83,9 @@ export const ClimaticZoneMap = ({ selectedZone, onZoneSelect, selectedCity, sele
   const [loading, setLoading] = useState(true);
   const [mapStyle, setMapStyle] = useState<'streets' | 'satellite' | 'terrain'>('streets');
   const [showCityMarkers, setShowCityMarkers] = useState(true);
+  const [showMunicipalityBoundaries, setShowMunicipalityBoundaries] = useState(true);
+  const [detectedMunicipality, setDetectedMunicipality] = useState<string | null>(null);
+  const { queryMunicipality, isQuerying } = useMunicipalityQuery();
 
   const MAP_STYLES = {
     streets: 'mapbox://styles/mapbox/light-v11',
@@ -121,6 +131,65 @@ export const ClimaticZoneMap = ({ selectedZone, onZoneSelect, selectedCity, sele
     map.current.on("load", () => {
       if (!map.current) return;
 
+      // Add municipality boundaries layer from MDB ArcGIS MapServer
+      if (showMunicipalityBoundaries) {
+        // Add source for municipality boundaries (using ArcGIS export as image tiles)
+        map.current.addSource('municipality-boundaries', {
+          type: 'raster',
+          tiles: [
+            `${MDB_MAPSERVER_URL}/export?bbox={bbox-epsg-3857}&bboxSR=3857&layers=show:4&size=256,256&format=png32&transparent=true&f=image`
+          ],
+          tileSize: 256,
+          attribution: '© Municipal Demarcation Board'
+        });
+
+        map.current.addLayer({
+          id: 'municipality-layer',
+          type: 'raster',
+          source: 'municipality-boundaries',
+          paint: {
+            'raster-opacity': 0.5
+          }
+        }, 'aeroway-line'); // Place below labels
+      }
+
+      // Add click handler for municipality detection
+      map.current.on('click', async (e) => {
+        const { lng, lat } = e.lngLat;
+        
+        // Query municipality at click location
+        const result = await queryMunicipality(lng, lat);
+        
+        if (result?.found && result.municipality) {
+          setDetectedMunicipality(result.municipality.name);
+          
+          // Notify parent about detected municipality
+          if (onMunicipalityDetected) {
+            onMunicipalityDetected(result.municipality.name, result.municipality.province || '');
+          }
+          
+          // Find closest city for zone
+          const closestCity = findClosestCity(lng, lat);
+          if (closestCity) {
+            onZoneSelect(closestCity.zone, closestCity.city, [lng, lat] as [number, number]);
+            toast({
+              title: "Location Selected",
+              description: `${result.municipality.name} Municipality • Zone ${closestCity.zone}: ${ZONE_INFO[closestCity.zone as keyof typeof ZONE_INFO].name}`,
+            });
+          }
+        } else {
+          // Fallback to closest city
+          const closestCity = findClosestCity(lng, lat);
+          if (closestCity) {
+            onZoneSelect(closestCity.zone, closestCity.city, [lng, lat] as [number, number]);
+            toast({
+              title: "Zone Selected",
+              description: `${closestCity.city} area • Zone ${closestCity.zone}: ${ZONE_INFO[closestCity.zone as keyof typeof ZONE_INFO].name}`,
+            });
+          }
+        }
+      });
+
       // Add city markers for each zone
       SA_CITIES_ZONES.forEach((city) => {
         const el = document.createElement('div');
@@ -148,8 +217,9 @@ export const ClimaticZoneMap = ({ selectedZone, onZoneSelect, selectedCity, sele
 
         cityMarkers.current.push(marker);
 
-        // Click handler to select zone
-        el.addEventListener('click', () => {
+        // Click handler to select zone (stop propagation to prevent map click)
+        el.addEventListener('click', (e) => {
+          e.stopPropagation();
           onZoneSelect(city.zone, city.city, city.coordinates);
           toast({
             title: "City Selected",
@@ -178,19 +248,34 @@ export const ClimaticZoneMap = ({ selectedZone, onZoneSelect, selectedCity, sele
     map.current.addControl(geocoder.current as any, "top-left");
 
     // Handle geocoder result selection
-    geocoder.current.on("result", (e: any) => {
+    geocoder.current.on("result", async (e: any) => {
       const coordinates = e.result.geometry.coordinates;
       const [lng, lat] = coordinates;
+      
+      // Query municipality for the searched location
+      const munResult = await queryMunicipality(lng, lat);
       
       // Find closest city to this coordinate
       const closestCity = findClosestCity(lng, lat);
       
       if (closestCity) {
-        onZoneSelect(closestCity.zone, closestCity.city, closestCity.coordinates);
-        toast({
-          title: "Zone Suggested",
-          description: `${e.result.place_name} is near ${closestCity.city} in ${ZONE_INFO[closestCity.zone as keyof typeof ZONE_INFO].name} (Zone ${closestCity.zone})`,
-        });
+        onZoneSelect(closestCity.zone, closestCity.city, [lng, lat] as [number, number]);
+        
+        if (munResult?.found && munResult.municipality) {
+          setDetectedMunicipality(munResult.municipality.name);
+          if (onMunicipalityDetected) {
+            onMunicipalityDetected(munResult.municipality.name, munResult.municipality.province || '');
+          }
+          toast({
+            title: "Location Found",
+            description: `${munResult.municipality.name} Municipality • Zone ${closestCity.zone}: ${ZONE_INFO[closestCity.zone as keyof typeof ZONE_INFO].name}`,
+          });
+        } else {
+          toast({
+            title: "Zone Suggested",
+            description: `${e.result.place_name} is near ${closestCity.city} in ${ZONE_INFO[closestCity.zone as keyof typeof ZONE_INFO].name} (Zone ${closestCity.zone})`,
+          });
+        }
         
         // Add a temporary marker at the searched location
         const marker = new mapboxgl.Marker({ color: "#ef4444" })
@@ -278,6 +363,19 @@ export const ClimaticZoneMap = ({ selectedZone, onZoneSelect, selectedCity, sele
       }
     });
   }, [showCityMarkers]);
+
+  // Toggle municipality boundaries visibility
+  useEffect(() => {
+    if (!map.current || !map.current.isStyleLoaded()) return;
+    
+    if (map.current.getLayer('municipality-layer')) {
+      map.current.setLayoutProperty(
+        'municipality-layer',
+        'visibility',
+        showMunicipalityBoundaries ? 'visible' : 'none'
+      );
+    }
+  }, [showMunicipalityBoundaries]);
 
   // Display persistent marker for selected zone
   useEffect(() => {
@@ -464,15 +562,42 @@ export const ClimaticZoneMap = ({ selectedZone, onZoneSelect, selectedCity, sele
             </Button>
           </div>
           
-          <Button
-            size="sm"
-            variant={showCityMarkers ? 'default' : 'outline'}
-            onClick={() => setShowCityMarkers(!showCityMarkers)}
-            className="shadow-lg"
-          >
-            <MapPin className="h-4 w-4 mr-2" />
-            {showCityMarkers ? 'Hide' : 'Show'} Cities
-          </Button>
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              variant={showCityMarkers ? 'default' : 'outline'}
+              onClick={() => setShowCityMarkers(!showCityMarkers)}
+              className="shadow-lg"
+            >
+              <MapPin className="h-4 w-4 mr-2" />
+              {showCityMarkers ? 'Hide' : 'Show'} Cities
+            </Button>
+            
+            <Button
+              size="sm"
+              variant={showMunicipalityBoundaries ? 'default' : 'outline'}
+              onClick={() => setShowMunicipalityBoundaries(!showMunicipalityBoundaries)}
+              className="shadow-lg"
+            >
+              <Building2 className="h-4 w-4 mr-2" />
+              {showMunicipalityBoundaries ? 'Hide' : 'Show'} Municipalities
+            </Button>
+          </div>
+          
+          {/* Municipality detection indicator */}
+          {isQuerying && (
+            <div className="flex items-center gap-2 bg-background/90 backdrop-blur-sm px-3 py-1.5 rounded-md shadow-lg">
+              <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              <span className="text-xs font-medium">Detecting municipality...</span>
+            </div>
+          )}
+          
+          {detectedMunicipality && !isQuerying && (
+            <div className="flex items-center gap-2 bg-primary/10 border border-primary/20 px-3 py-1.5 rounded-md shadow-lg">
+              <Building2 className="h-4 w-4 text-primary" />
+              <span className="text-xs font-medium text-primary">{detectedMunicipality}</span>
+            </div>
+          )}
         </div>
       </div>
 
