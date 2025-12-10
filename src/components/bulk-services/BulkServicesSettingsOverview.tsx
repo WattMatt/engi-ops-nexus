@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import { CalculationTutorial } from "./CalculationTutorial";
+import { TariffSelector } from "./TariffSelector";
 
 // SANS 10142-1 Socket outlet loads (VA/m²) by building type
 const SANS_10142_SOCKET_LOADS = {
@@ -863,6 +864,15 @@ export const BulkServicesSettingsOverview = ({
             <strong>Residential ADMD:</strong> After Diversity Maximum Demand method specifically designed for residential developments and multi-unit dwellings.
           </p>
         </div>
+      </div>
+
+      {/* Tariff Selection - linked to greencalc-sa */}
+      <div className="space-y-4 border rounded-lg p-6 bg-card">
+        <h3 className="text-lg font-semibold">Tariff Selection</h3>
+        <p className="text-sm text-muted-foreground">
+          Select the applicable municipal electricity tariff for this project. Tariffs are sourced from the greencalc-sa tariff database.
+        </p>
+        <TariffSelector documentId={documentId} compact />
       </div>
 
       {/* Conditional rendering based on calculation type */}
