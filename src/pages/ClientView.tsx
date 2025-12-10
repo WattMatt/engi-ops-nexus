@@ -1291,7 +1291,7 @@ const ClientView = () => {
                               {zones?.find((z: any) => z.id === tenant.generator_zone_id)?.zone_name || '-'}
                             </TableCell>
                             <TableCell className="text-right font-bold text-amber-600">
-                              {getTenantLoading(tenant).toFixed(1)}
+                              {getTenantLoading(tenant).toFixed(2)}
                             </TableCell>
                             <TableCell className="text-right font-mono">
                               {getPortionOfLoad(tenant).toFixed(2)}%
