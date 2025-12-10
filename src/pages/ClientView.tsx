@@ -217,6 +217,20 @@ const ClientView = () => {
     enabled: !!projectId && isAuthenticated,
   });
 
+  // Fetch running recovery settings for monthly rental calculations
+  const { data: runningRecoverySettings } = useQuery({
+    queryKey: ["client-view-running-recovery", projectId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("running_recovery_settings")
+        .select("*")
+        .eq("project_id", projectId);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!projectId && isAuthenticated,
+  });
+
   // Fetch handover documents
   const { data: documents } = useQuery({
     queryKey: ["client-view-documents", projectId],
@@ -350,6 +364,47 @@ const ClientView = () => {
   const getZoneLoading = (zoneId: string) => {
     const zoneTenants = tenants?.filter((t: any) => t.generator_zone_id === zoneId) || [];
     return zoneTenants.reduce((sum: number, t: any) => sum + getTenantLoading(t), 0);
+  };
+
+  // Calculate portion of load (%) for a tenant
+  const getPortionOfLoad = (tenant: any) => {
+    const totalLoad = getTotalLoading();
+    if (totalLoad === 0) return 0;
+    return (getTenantLoading(tenant) / totalLoad) * 100;
+  };
+
+  // Calculate monthly rental for a tenant based on their zone's running recovery settings
+  const getTenantMonthlyRental = (tenant: any) => {
+    if (!tenant.generator_zone_id) return 0;
+    
+    const zoneSettings = runningRecoverySettings?.find(
+      (s: any) => s.generator_zone_id === tenant.generator_zone_id
+    );
+    if (!zoneSettings) return 0;
+
+    // Get all tenants in this zone
+    const zoneTenants = tenants?.filter((t: any) => t.generator_zone_id === tenant.generator_zone_id) || [];
+    const zoneLoad = zoneTenants.reduce((sum: number, t: any) => sum + getTenantLoading(t), 0);
+    
+    if (zoneLoad === 0) return 0;
+
+    // Calculate monthly cost based on settings
+    const runningLoadPercent = zoneSettings.running_load / 100;
+    const netEnergy = zoneSettings.net_energy_kva * zoneSettings.kva_to_kwh_conversion;
+    const fuelCostPerHour = (netEnergy * runningLoadPercent * zoneSettings.fuel_consumption_rate / 1000) * zoneSettings.diesel_price_per_litre;
+    const monthlyFuelCost = fuelCostPerHour * zoneSettings.expected_hours_per_month;
+    const monthlyServicing = (zoneSettings.servicing_cost_per_250_hours / 250) * zoneSettings.expected_hours_per_month;
+    const totalMonthlyZoneCost = monthlyFuelCost + monthlyServicing;
+    
+    // Tenant's portion based on their load
+    const tenantLoad = getTenantLoading(tenant);
+    return (tenantLoad / zoneLoad) * totalMonthlyZoneCost;
+  };
+
+  // Calculate rental per m² for a tenant
+  const getRentalPerSqm = (tenant: any) => {
+    if (!tenant.area || tenant.area === 0) return 0;
+    return getTenantMonthlyRental(tenant) / tenant.area;
   };
 
   // Analytics data
@@ -1179,7 +1234,7 @@ const ClientView = () => {
               </CardHeader>
               <CardContent>
                 <ScrollArea className="w-full">
-                  <div className="rounded-md border min-w-[700px]">
+                  <div className="rounded-md border min-w-[1000px]">
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-muted/50">
@@ -1189,6 +1244,9 @@ const ClientView = () => {
                           <TableHead className="text-right">Area (m²)</TableHead>
                           <TableHead>Zone</TableHead>
                           <TableHead className="text-right">Load (kW)</TableHead>
+                          <TableHead className="text-right">Portion (%)</TableHead>
+                          <TableHead className="text-right">Monthly Rental</TableHead>
+                          <TableHead className="text-right">Rental/m²</TableHead>
                           <TableHead>Source</TableHead>
                         </TableRow>
                       </TableHeader>
@@ -1206,6 +1264,15 @@ const ClientView = () => {
                             </TableCell>
                             <TableCell className="text-right font-bold text-amber-600">
                               {getTenantLoading(tenant).toFixed(1)}
+                            </TableCell>
+                            <TableCell className="text-right font-mono">
+                              {getPortionOfLoad(tenant).toFixed(2)}%
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-green-600">
+                              R {getTenantMonthlyRental(tenant).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </TableCell>
+                            <TableCell className="text-right font-mono text-muted-foreground">
+                              R {getRentalPerSqm(tenant).toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                             </TableCell>
                             <TableCell>
                               <Badge variant={tenant.manual_kw_override ? "default" : "secondary"} className="text-xs">
