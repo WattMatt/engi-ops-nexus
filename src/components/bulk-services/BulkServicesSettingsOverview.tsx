@@ -132,6 +132,8 @@ interface BulkServicesSettingsOverviewProps {
   currentCity?: string | null;
   detectedMunicipality?: string | null;
   detectedProvince?: string | null;
+  savedTariffId?: string | null;
+  savedMunicipalityName?: string | null;
 }
 
 export const BulkServicesSettingsOverview = ({
@@ -140,6 +142,8 @@ export const BulkServicesSettingsOverview = ({
   currentCity,
   detectedMunicipality,
   detectedProvince,
+  savedTariffId,
+  savedMunicipalityName,
 }: BulkServicesSettingsOverviewProps) => {
   const [calculationType, setCalculationType] = useState(
     currentCalculationType || "sans_204"
@@ -881,6 +885,8 @@ export const BulkServicesSettingsOverview = ({
         <TariffSelector 
           documentId={documentId} 
           currentCity={currentCity} 
+          currentTariffId={savedTariffId}
+          savedMunicipalityName={savedMunicipalityName}
           detectedMunicipality={detectedMunicipality}
           detectedProvince={detectedProvince}
           compact 

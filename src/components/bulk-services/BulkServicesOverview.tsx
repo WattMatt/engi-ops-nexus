@@ -116,6 +116,8 @@ export const BulkServicesOverview = ({ documentId, onBack }: BulkServicesOvervie
                 currentCity={document?.climatic_zone_city}
                 detectedMunicipality={detectedMunicipality}
                 detectedProvince={detectedProvince}
+                savedTariffId={document?.tariff_structure}
+                savedMunicipalityName={document?.supply_authority}
               />
             </CardContent>
           </Card>
