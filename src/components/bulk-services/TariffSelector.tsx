@@ -51,6 +51,7 @@ interface TariffSelectorProps {
   projectId?: string;
   currentTariffId?: string | null;
   currentMunicipalityId?: string | null;
+  currentCity?: string | null; // City from map pin
   onTariffSelect?: (tariffId: string | null, municipalityId: string | null) => void;
   compact?: boolean;
 }
@@ -60,6 +61,7 @@ export const TariffSelector = ({
   projectId,
   currentTariffId,
   currentMunicipalityId,
+  currentCity,
   onTariffSelect,
   compact = false,
 }: TariffSelectorProps) => {
@@ -70,10 +72,31 @@ export const TariffSelector = ({
   const [selectedMunicipality, setSelectedMunicipality] = useState<string>(currentMunicipalityId || "");
   const [selectedTariff, setSelectedTariff] = useState<string>(currentTariffId || "");
   const [error, setError] = useState<string | null>(null);
+  const [autoMatchedCity, setAutoMatchedCity] = useState<string | null>(null);
 
   useEffect(() => {
     fetchTariffs();
   }, []);
+
+  // Auto-match municipality based on city name from map pin
+  useEffect(() => {
+    if (currentCity && tariffData && !selectedMunicipality) {
+      const cityLower = currentCity.toLowerCase();
+      
+      for (const [province, municipalities] of Object.entries(tariffData.municipalitiesByProvince)) {
+        for (const municipality of municipalities) {
+          // Check if municipality name contains city name or vice versa
+          const munLower = municipality.name.toLowerCase();
+          if (munLower.includes(cityLower) || cityLower.includes(munLower)) {
+            setSelectedProvince(province);
+            setSelectedMunicipality(municipality.id);
+            setAutoMatchedCity(currentCity);
+            return;
+          }
+        }
+      }
+    }
+  }, [currentCity, tariffData, selectedMunicipality]);
 
   useEffect(() => {
     if (currentMunicipalityId && tariffData) {

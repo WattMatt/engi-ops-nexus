@@ -106,6 +106,7 @@ export const BulkServicesOverview = ({ documentId, onBack }: BulkServicesOvervie
               <BulkServicesSettingsOverview
                 documentId={documentId}
                 currentCalculationType={document?.building_calculation_type}
+                currentCity={document?.climatic_zone_city}
               />
             </CardContent>
           </Card>
