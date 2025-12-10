@@ -25,7 +25,10 @@ import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, 
 import { sortTenantsByShopNumber } from "@/utils/tenantSorting";
 import { ClientHandoverDocuments } from "@/components/client-portal/ClientHandoverDocuments";
 import { ClientGeneratorCostingSection } from "@/components/client-portal/ClientGeneratorCostingSection";
-import { DollarSign } from "lucide-react";
+import { ClientCapitalRecoverySection } from "@/components/client-portal/ClientCapitalRecoverySection";
+import { ClientRunningRecoverySection } from "@/components/client-portal/ClientRunningRecoverySection";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { DollarSign, ChevronDown } from "lucide-react";
 
 interface TokenValidation {
   is_valid: boolean;
@@ -1324,8 +1327,30 @@ const ClientView = () => {
           </TabsContent>
 
           {/* Costs Tab */}
-          <TabsContent value="costs" className="space-y-6">
-            {projectId && <ClientGeneratorCostingSection projectId={projectId} />}
+          <TabsContent value="costs" className="space-y-4">
+            <div className="space-y-4">
+              {projectId && <ClientGeneratorCostingSection projectId={projectId} />}
+              
+              <Collapsible defaultOpen>
+                <CollapsibleTrigger className="flex items-center justify-between w-full p-4 bg-card rounded-lg border hover:bg-accent transition-colors">
+                  <h3 className="text-lg font-semibold">Capital Recovery</h3>
+                  <ChevronDown className="h-5 w-5 transition-transform duration-200" />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-2">
+                  {projectId && <ClientCapitalRecoverySection projectId={projectId} />}
+                </CollapsibleContent>
+              </Collapsible>
+
+              <Collapsible>
+                <CollapsibleTrigger className="flex items-center justify-between w-full p-4 bg-card rounded-lg border hover:bg-accent transition-colors">
+                  <h3 className="text-lg font-semibold">Running Recovery</h3>
+                  <ChevronDown className="h-5 w-5 transition-transform duration-200" />
+                </CollapsibleTrigger>
+                <CollapsibleContent className="mt-2">
+                  {projectId && <ClientRunningRecoverySection projectId={projectId} />}
+                </CollapsibleContent>
+              </Collapsible>
+            </div>
           </TabsContent>
 
           {/* Documents Tab */}
