@@ -8,9 +8,10 @@ import { toast } from "sonner";
 interface SANS204CalculatorProps {
   documentId: string;
   onZoneSelect?: (zone: string, city?: string, coordinates?: [number, number]) => void;
+  onMunicipalityDetected?: (municipality: string, province: string) => void;
 }
 
-export const SANS204Calculator = ({ documentId, onZoneSelect }: SANS204CalculatorProps) => {
+export const SANS204Calculator = ({ documentId, onZoneSelect, onMunicipalityDetected }: SANS204CalculatorProps) => {
   const [selectedZone, setSelectedZone] = useState<string | null>(null);
 
   // Fetch the document to get the current zone and location
@@ -77,6 +78,7 @@ export const SANS204Calculator = ({ documentId, onZoneSelect }: SANS204Calculato
               ? [Number(document.climatic_zone_lng), Number(document.climatic_zone_lat)]
               : undefined
           }
+          onMunicipalityDetected={onMunicipalityDetected}
         />
       </CardContent>
     </Card>
