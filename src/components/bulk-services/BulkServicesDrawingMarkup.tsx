@@ -51,11 +51,25 @@ export const BulkServicesDrawingMarkup = ({ documentId }: BulkServicesDrawingMar
     loadSavedMarkup();
   }, [documentId]);
 
+  // When PDF is loaded, set loadingPdf to false so canvases render, then render the page
   useEffect(() => {
-    if (pdfDoc && containerRef.current) {
-      renderPage();
+    if (pdfDoc && loadingPdf) {
+      setLoadingPdf(false);
     }
-  }, [pdfDoc, containerRef.current]);
+  }, [pdfDoc, loadingPdf]);
+
+  // Once canvases are in the DOM (loadingPdf is false), render the page
+  useEffect(() => {
+    if (pdfDoc && !loadingPdf) {
+      // Small delay to ensure canvas refs are available after render
+      const timer = setTimeout(() => {
+        if (canvasRef.current && containerRef.current) {
+          renderPage();
+        }
+      }, 50);
+      return () => clearTimeout(timer);
+    }
+  }, [pdfDoc, loadingPdf]);
 
   useEffect(() => {
     renderMarkup();
@@ -190,11 +204,9 @@ export const BulkServicesDrawingMarkup = ({ documentId }: BulkServicesDrawingMar
       const initialOffsetY = (containerHeight - viewport.height * initialZoom) / 2;
       
       setViewState({ zoom: initialZoom, offset: { x: initialOffsetX, y: initialOffsetY } });
-      setLoadingPdf(false);
       console.log('renderPage: view state set');
     } catch (error) {
       console.error('renderPage: error', error);
-      setLoadingPdf(false);
     }
   };
 
