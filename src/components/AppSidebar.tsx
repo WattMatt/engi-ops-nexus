@@ -59,6 +59,11 @@ const mainModules = [
     icon: Cable,
   },
   {
+    title: "Bulk Services",
+    url: "/dashboard/bulk-services",
+    icon: Layers,
+  },
+  {
     title: "Master Library",
     url: "/dashboard/master-library",
     icon: Package,
@@ -66,13 +71,7 @@ const mainModules = [
 ];
 
 
-const bulkServicesModule = {
-  title: "Bulk Services",
-  icon: Layers,
-  items: [
-    { title: "All Documents", url: "/dashboard/bulk-services" },
-  ],
-};
+
 
 const singleModules = [
   {
@@ -199,31 +198,6 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               ))}
 
-              {/* Bulk Services - Collapsible */}
-              <Collapsible defaultOpen={isGroupActive(bulkServicesModule.items)}>
-                <SidebarMenuItem>
-                  <CollapsibleTrigger asChild>
-                    <SidebarMenuButton className="hover:bg-muted/50">
-                      <bulkServicesModule.icon className="h-4 w-4" />
-                      {!collapsed && <span>{bulkServicesModule.title}</span>}
-                      {!collapsed && <ChevronDown className="ml-auto h-4 w-4" />}
-                    </SidebarMenuButton>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <SidebarMenuSub>
-                      {bulkServicesModule.items.map((item) => (
-                        <SidebarMenuSubItem key={item.title}>
-                          <SidebarMenuSubButton asChild>
-                            <NavLink to={item.url} className={getNavCls(item.url)}>
-                              <span>{item.title}</span>
-                            </NavLink>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                      ))}
-                    </SidebarMenuSub>
-                  </CollapsibleContent>
-                </SidebarMenuItem>
-              </Collapsible>
 
               {/* AI Tools & Cable Sizing */}
               {singleModules.map((item) => (
