@@ -41,7 +41,7 @@ export const SatelliteMarkup = ({ documentId, coordinates, locationName }: Satel
   const [activeTool, setActiveTool] = useState<Marker["type"] | null>(null);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [mapZoom, setMapZoom] = useState(16);
+  const [mapZoom, setMapZoom] = useState(15); // Default zoom 15 for ~500m area
   const [imageSize] = useState({ width: 1280, height: 1024 });
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -106,22 +106,36 @@ export const SatelliteMarkup = ({ documentId, coordinates, locationName }: Satel
         throw new Error("Failed to get Mapbox token");
       }
 
-      const { lng, lat } = coordinates;
-      const url = `${MAPBOX_STATIC_API}/${lng},${lat},${mapZoom},0/${imageSize.width}x${imageSize.height}@2x?access_token=${tokenData.token}`;
+      // Note: Mapbox Static API uses lon,lat order (not lat,lng)
+      const lon = coordinates.lng;
+      const lat = coordinates.lat;
+      
+      console.log(`Fetching satellite image for: ${lat}, ${lon} at zoom ${mapZoom}`);
+      
+      // Build the static map URL - format: lon,lat,zoom,bearing/widthxheight
+      const url = `${MAPBOX_STATIC_API}/${lon},${lat},${mapZoom},0/${imageSize.width}x${imageSize.height}@2x?access_token=${tokenData.token}`;
+      
+      console.log('Satellite URL:', url.replace(tokenData.token, 'TOKEN_HIDDEN'));
       
       // Load the image
       const img = new Image();
       img.crossOrigin = "anonymous";
       
       await new Promise((resolve, reject) => {
-        img.onload = resolve;
-        img.onerror = reject;
+        img.onload = () => {
+          console.log('Satellite image loaded successfully:', img.width, 'x', img.height);
+          resolve(true);
+        };
+        img.onerror = (e) => {
+          console.error('Failed to load satellite image:', e);
+          reject(e);
+        };
         img.src = url;
       });
 
       imageRef.current = img;
       setSatelliteImage(url);
-      toast.success("Satellite image loaded successfully");
+      toast.success(`Satellite image loaded for ${locationName || 'location'}`);
     } catch (error) {
       console.error("Error fetching satellite image:", error);
       toast.error("Failed to load satellite image");
@@ -407,19 +421,35 @@ export const SatelliteMarkup = ({ documentId, coordinates, locationName }: Satel
         </div>
 
         {hasCoordinates && !satelliteImage && (
-          <div className="mb-4 flex items-center gap-4">
+          <div className="mb-4 space-y-4">
+            <div className="p-3 bg-muted/50 rounded-lg">
+              <p className="text-sm font-medium">Location Details</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Latitude: {coordinates.lat.toFixed(6)}° | Longitude: {coordinates.lng.toFixed(6)}°
+              </p>
+              {locationName && (
+                <p className="text-xs text-muted-foreground">
+                  Near: {locationName}
+                </p>
+              )}
+            </div>
             <div className="flex-1">
-              <Label className="text-sm">Map Zoom Level: {mapZoom}</Label>
+              <Label className="text-sm">
+                Map Zoom Level: {mapZoom} 
+                <span className="text-muted-foreground ml-2">
+                  (~{mapZoom >= 18 ? '100m' : mapZoom >= 17 ? '200m' : mapZoom >= 16 ? '400m' : mapZoom >= 15 ? '800m' : mapZoom >= 14 ? '1.5km' : '3km'} area)
+                </span>
+              </Label>
               <Slider
                 value={[mapZoom]}
                 onValueChange={([value]) => setMapZoom(value)}
-                min={14}
+                min={13}
                 max={19}
                 step={1}
                 className="mt-2"
               />
               <p className="text-xs text-muted-foreground mt-1">
-                Higher zoom = more detail, smaller area
+                Lower zoom = larger area coverage. Adjust to capture your site boundaries.
               </p>
             </div>
           </div>
