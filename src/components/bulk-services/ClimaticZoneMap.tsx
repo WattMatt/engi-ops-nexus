@@ -345,12 +345,93 @@ export const ClimaticZoneMap = ({ selectedZone, onZoneSelect, selectedCity, sele
     };
   }, [mapboxToken, selectedZone, onZoneSelect, mapStyle]);
 
-  // Handle map style changes
+  // Handle map style changes - re-add marker after style loads
   useEffect(() => {
-    if (!map.current || !map.current.isStyleLoaded()) return;
+    if (!map.current) return;
+    
+    // Store current marker position before style change
+    const currentMarkerCoords = selectedMarker.current?.getLngLat();
+    
+    const handleStyleLoad = () => {
+      // Re-add municipality boundaries layer after style change
+      if (showMunicipalityBoundaries && map.current) {
+        // Municipality layer will be re-added by the onZoneSelect callback if needed
+      }
+      
+      // Re-add selected marker after style change
+      if (selectedZone && selectedCoordinates && map.current) {
+        // Remove any existing marker first
+        if (selectedMarker.current) {
+          selectedMarker.current.remove();
+          selectedMarker.current = null;
+        }
+        
+        // Create the marker element
+        const el = document.createElement('div');
+        el.className = 'selected-zone-marker';
+        
+        const glowRing = document.createElement('div');
+        glowRing.style.cssText = `
+          position: absolute;
+          width: 60px;
+          height: 60px;
+          top: -10px;
+          left: -10px;
+          border-radius: 50%;
+          background: radial-gradient(circle, ${ZONE_COLORS[selectedZone as keyof typeof ZONE_COLORS]}40 0%, transparent 70%);
+          animation: pulse-glow 2s ease-in-out infinite;
+          pointer-events: none;
+        `;
+        
+        const pinContainer = document.createElement('div');
+        pinContainer.style.cssText = `
+          position: relative;
+          width: 40px;
+          height: 40px;
+        `;
+        
+        pinContainer.innerHTML = `
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" style="filter: drop-shadow(0 4px 8px rgba(0,0,0,0.3));">
+            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z" 
+                  fill="${ZONE_COLORS[selectedZone as keyof typeof ZONE_COLORS]}" 
+                  stroke="white" 
+                  stroke-width="2"/>
+            <circle cx="12" cy="9" r="3" fill="white"/>
+            <text x="12" y="11" text-anchor="middle" font-size="8" font-weight="bold" fill="${ZONE_COLORS[selectedZone as keyof typeof ZONE_COLORS]}">${selectedZone}</text>
+          </svg>
+        `;
+        
+        el.appendChild(glowRing);
+        el.appendChild(pinContainer);
+        el.style.cssText = `
+          cursor: pointer;
+          position: relative;
+          width: 40px;
+          height: 40px;
+        `;
+
+        const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(`
+          <div style="padding: 8px 12px;">
+            <strong style="color: ${ZONE_COLORS[selectedZone as keyof typeof ZONE_COLORS]};">${selectedCity || 'Zone ' + selectedZone}</strong><br/>
+            <span style="color: #666;">${ZONE_INFO[selectedZone as keyof typeof ZONE_INFO].name}</span><br/>
+            <span style="color: #888; font-size: 12px;">${ZONE_INFO[selectedZone as keyof typeof ZONE_INFO].temp}</span>
+          </div>
+        `);
+
+        selectedMarker.current = new mapboxgl.Marker(el)
+          .setLngLat(selectedCoordinates)
+          .setPopup(popup)
+          .addTo(map.current!);
+      }
+    };
     
     map.current.setStyle(MAP_STYLES[mapStyle]);
-  }, [mapStyle]);
+    map.current.once('style.load', handleStyleLoad);
+    
+    return () => {
+      map.current?.off('style.load', handleStyleLoad);
+    };
+  }, [mapStyle, selectedZone, selectedCoordinates, selectedCity, showMunicipalityBoundaries]);
 
   // Toggle city markers visibility
   useEffect(() => {
