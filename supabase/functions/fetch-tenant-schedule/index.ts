@@ -13,18 +13,9 @@ serve(async (req) => {
   }
 
   try {
-    const { projectId } = await req.json();
+    console.log('Fetching all projects with tenant schedules');
 
-    if (!projectId) {
-      return new Response(
-        JSON.stringify({ error: 'projectId is required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log(`Fetching tenant schedule for project: ${projectId}`);
-
-    // Use service role key to bypass RLS for cross-application access
+    // Use service role key to bypass RLS
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
@@ -38,26 +29,23 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
-    // Fetch project details
-    const { data: project, error: projectError } = await supabase
+    // Fetch all projects
+    const { data: projects, error: projectsError } = await supabase
       .from('projects')
       .select('id, name, project_number, client_name, city, province')
-      .eq('id', projectId)
-      .single();
+      .order('project_number');
 
-    if (projectError) {
-      console.error('Error fetching project:', projectError);
-      return new Response(
-        JSON.stringify({ error: 'Project not found' }),
-        { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    if (projectsError) {
+      console.error('Error fetching projects:', projectsError);
+      throw projectsError;
     }
 
-    // Fetch tenants for the project
-    const { data: tenants, error: tenantsError } = await supabase
+    // Fetch all tenants
+    const { data: allTenants, error: tenantsError } = await supabase
       .from('tenants')
       .select(`
         id,
+        project_id,
         shop_number,
         shop_name,
         shop_category,
@@ -78,7 +66,6 @@ serve(async (req) => {
         created_at,
         updated_at
       `)
-      .eq('project_id', projectId)
       .order('shop_number');
 
     if (tenantsError) {
@@ -86,20 +73,29 @@ serve(async (req) => {
       throw tenantsError;
     }
 
-    console.log(`Fetched ${tenants?.length || 0} tenants for project ${projectId}`);
+    // Group tenants by project_id
+    const tenantsByProject = (allTenants || []).reduce((acc, tenant) => {
+      if (!acc[tenant.project_id]) {
+        acc[tenant.project_id] = [];
+      }
+      acc[tenant.project_id].push(tenant);
+      return acc;
+    }, {} as Record<string, any[]>);
+
+    // Combine projects with their tenants
+    const projectsWithTenants = (projects || []).map(project => ({
+      ...project,
+      tenants: tenantsByProject[project.id] || [],
+      tenant_count: (tenantsByProject[project.id] || []).length
+    }));
+
+    console.log(`Fetched ${projects?.length || 0} projects with ${allTenants?.length || 0} total tenants`);
 
     return new Response(
       JSON.stringify({
-        project: {
-          id: project.id,
-          name: project.name,
-          project_number: project.project_number,
-          client_name: project.client_name,
-          city: project.city,
-          province: project.province
-        },
-        tenants: tenants || [],
-        count: tenants?.length || 0,
+        projects: projectsWithTenants,
+        total_projects: projects?.length || 0,
+        total_tenants: allTenants?.length || 0,
         fetchedAt: new Date().toISOString()
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
