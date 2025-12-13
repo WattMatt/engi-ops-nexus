@@ -11,6 +11,7 @@ import { toast } from "sonner";
 import { Building2 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { ForgotPasswordDialog } from "@/components/auth/ForgotPasswordDialog";
+import { StoicQuote } from "@/components/StoicQuote";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -119,7 +120,7 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4" style={{ background: 'var(--gradient-hero)' }}>
+    <div className="min-h-screen flex flex-col items-center justify-center p-4 gap-8" style={{ background: 'var(--gradient-hero)' }}>
       <Card className="w-full max-w-md shadow-xl">
         <CardHeader className="space-y-1 text-center">
           <div className="flex justify-center mb-4">
@@ -223,6 +224,11 @@ const Auth = () => {
           </Tabs>
         </CardContent>
       </Card>
+      
+      {/* Daily Stoic Quote */}
+      <div className="w-full max-w-md">
+        <StoicQuote />
+      </div>
     </div>
   );
 };
