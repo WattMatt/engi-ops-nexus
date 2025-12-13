@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Building2 } from "lucide-react";
+import { Building2, Eye, EyeOff } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { ForgotPasswordDialog } from "@/components/auth/ForgotPasswordDialog";
 import { StoicQuote } from "@/components/StoicQuote";
@@ -20,6 +20,7 @@ const Auth = () => {
   const [password, setPassword] = useState("");
   const [fullName, setFullName] = useState("");
   const [session, setSession] = useState<Session | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   const { data: companySettings } = useQuery({
     queryKey: ["company-settings"],
@@ -164,13 +165,23 @@ const Auth = () => {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="login-password">Password</Label>
-                  <Input
-                    id="login-password"
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    required
-                  />
+                  <div className="relative">
+                    <Input
+                      id="login-password"
+                      type={showPassword ? "text" : "password"}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
+                      className="pr-10"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  </div>
                 </div>
                 <div className="flex justify-end">
                   <ForgotPasswordDialog />
