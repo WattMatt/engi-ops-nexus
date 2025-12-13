@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Building2, ArrowRight, Shield, Users, FileCheck } from "lucide-react";
+import { StoicQuote } from "@/components/StoicQuote";
 
 const Index = () => {
   const navigate = useNavigate();
@@ -107,6 +108,14 @@ const Index = () => {
               Role-based access, task assignment, and real-time team updates
             </p>
           </div>
+        </div>
+
+        {/* Daily Stoic Quote */}
+        <div className="mt-16">
+          <p className="text-white/60 text-sm text-center mb-4 uppercase tracking-wider">
+            Daily Wisdom
+          </p>
+          <StoicQuote />
         </div>
       </div>
     </div>
