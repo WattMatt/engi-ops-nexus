@@ -41,7 +41,7 @@ serve(async (req) => {
     // Fetch project details
     const { data: project, error: projectError } = await supabase
       .from('projects')
-      .select('id, name, address')
+      .select('id, name, project_number, client_name, city, province')
       .eq('id', projectId)
       .single();
 
@@ -60,17 +60,21 @@ serve(async (req) => {
         id,
         shop_number,
         shop_name,
-        category,
+        shop_category,
         area,
-        kw_allocated,
         manual_kw_override,
-        db_size,
+        db_size_allowance,
+        db_size_scope_of_work,
         layout_received,
         sow_received,
         lighting_ordered,
         db_ordered,
-        status,
-        zone,
+        generator_zone_id,
+        opening_date,
+        beneficial_occupation_days,
+        own_generator_provided,
+        generator_loading_sector_1,
+        generator_loading_sector_2,
         created_at,
         updated_at
       `)
@@ -89,7 +93,10 @@ serve(async (req) => {
         project: {
           id: project.id,
           name: project.name,
-          address: project.address
+          project_number: project.project_number,
+          client_name: project.client_name,
+          city: project.city,
+          province: project.province
         },
         tenants: tenants || [],
         count: tenants?.length || 0,
