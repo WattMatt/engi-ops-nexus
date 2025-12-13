@@ -98,3 +98,6 @@ verify_jwt = false
 
 [functions.fetch-greencalc-tariffs]
 verify_jwt = false
+
+[functions.fetch-tenant-schedule]
+verify_jwt = false
