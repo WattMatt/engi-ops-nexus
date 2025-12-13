@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, FileText, Satellite } from "lucide-react";
 import { BulkServicesHeader } from "./BulkServicesHeader";
 import { BulkServicesSections } from "./BulkServicesSections";
 import { BulkServicesExportPDFButton } from "./BulkServicesExportPDFButton";
@@ -13,7 +13,7 @@ import { BulkServicesSettingsOverview } from "./BulkServicesSettingsOverview";
 import { BulkServicesKPICard } from "./BulkServicesKPICard";
 import { SANS204Calculator } from "./SANS204Calculator";
 import { BulkServicesDrawingMarkup } from "./BulkServicesDrawingMarkup";
-
+import { SatelliteMarkup } from "./SatelliteMarkup";
 interface BulkServicesOverviewProps {
   documentId: string;
   onBack: () => void;
@@ -157,7 +157,34 @@ export const BulkServicesOverview = ({ documentId, onBack }: BulkServicesOvervie
         </TabsContent>
 
         <TabsContent value="markup" className="space-y-4">
-          <BulkServicesDrawingMarkup documentId={documentId} />
+          <Tabs defaultValue="satellite" className="w-full">
+            <TabsList className="mb-4">
+              <TabsTrigger value="satellite" className="flex items-center gap-2">
+                <Satellite className="h-4 w-4" />
+                Satellite Markup
+              </TabsTrigger>
+              <TabsTrigger value="drawing" className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Drawing Markup
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="satellite">
+              <SatelliteMarkup 
+                documentId={documentId}
+                coordinates={
+                  document?.climatic_zone_lat && document?.climatic_zone_lng
+                    ? { lat: document.climatic_zone_lat, lng: document.climatic_zone_lng }
+                    : null
+                }
+                locationName={document?.climatic_zone_city || undefined}
+              />
+            </TabsContent>
+            
+            <TabsContent value="drawing">
+              <BulkServicesDrawingMarkup documentId={documentId} />
+            </TabsContent>
+          </Tabs>
         </TabsContent>
 
         <TabsContent value="saved-reports" className="space-y-4">
