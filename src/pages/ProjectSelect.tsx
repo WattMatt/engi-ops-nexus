@@ -1,13 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Folder, LogOut, Users, Settings, Library } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Folder, LogOut, Users, Settings, Library, Sparkles } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { useUserRole } from "@/hooks/useUserRole";
 import { CreateProjectDialog } from "@/components/CreateProjectDialog";
+import { ProjectCard } from "@/components/projects/ProjectCard";
+import { ProjectFilters } from "@/components/projects/ProjectFilters";
+import { ProjectSkeleton } from "@/components/projects/ProjectSkeleton";
+import { cn } from "@/lib/utils";
 
 interface Project {
   id: string;
@@ -24,6 +28,9 @@ const ProjectSelect = () => {
   const location = useLocation();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const { isAdmin, loading: roleLoading } = useUserRole();
   const isAdminRoute = location.pathname.startsWith('/admin');
 
@@ -47,6 +54,19 @@ const ProjectSelect = () => {
     }
   };
 
+  const filteredProjects = useMemo(() => {
+    return projects.filter((project) => {
+      const matchesSearch = 
+        project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        project.project_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (project.description?.toLowerCase().includes(searchQuery.toLowerCase()) ?? false);
+      
+      const matchesStatus = statusFilter === "all" || project.status === statusFilter;
+      
+      return matchesSearch && matchesStatus;
+    });
+  }, [projects, searchQuery, statusFilter]);
+
   const handleProjectSelect = (projectId: string) => {
     localStorage.setItem("selectedProjectId", projectId);
     navigate("/dashboard");
@@ -57,146 +77,133 @@ const ProjectSelect = () => {
     navigate("/auth");
   };
 
-  // Wait for both projects and role to load before showing anything
-  if (loading || roleLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-muted-foreground">Loading...</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="min-h-screen bg-background p-8">
-      <div className="max-w-6xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground mb-2">
-              {isAdminRoute ? "Admin Portal" : "Select a Project"}
-            </h1>
-            <p className="text-muted-foreground">
-              {isAdminRoute 
-                ? "Manage organization-wide settings or select a project" 
-                : "Choose a project to access its modules and data"}
-            </p>
-          </div>
-          <div className="flex items-center gap-4">
-            {/* Navigation buttons group */}
+    <div className="min-h-screen bg-gradient-to-b from-background via-background to-muted/20">
+      {/* Header Section */}
+      <div className="border-b bg-background/80 backdrop-blur-sm sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4">
             <div className="flex items-center gap-4">
-              <Button variant="outline" onClick={() => navigate("/master-library")}>
+              <div className="p-2.5 rounded-xl bg-primary/10">
+                <Sparkles className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <h1 className="text-2xl font-bold text-foreground">
+                  {isAdminRoute ? "Admin Portal" : "Projects"}
+                </h1>
+                <p className="text-sm text-muted-foreground">
+                  {isAdminRoute 
+                    ? "Manage organization-wide settings" 
+                    : "Select a project to continue"}
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex flex-wrap items-center gap-3">
+              <Button variant="outline" size="sm" onClick={() => navigate("/master-library")}>
                 <Library className="h-4 w-4 mr-2" />
                 Master Library
               </Button>
+              
               {!isAdminRoute && isAdmin && (
-                <Button variant="outline" onClick={() => navigate("/admin/projects")}>
+                <Button variant="outline" size="sm" onClick={() => navigate("/admin/projects")}>
                   <Settings className="h-4 w-4 mr-2" />
                   Admin Portal
                 </Button>
               )}
+              
               {isAdminRoute && (
                 <>
-                  <Button variant="outline" onClick={() => navigate("/admin/staff")}>
+                  <Button variant="outline" size="sm" onClick={() => navigate("/admin/staff")}>
                     <Users className="h-4 w-4 mr-2" />
-                    Staff Management
+                    Staff
                   </Button>
-                  <Button variant="outline" onClick={() => navigate("/admin/users")}>
+                  <Button variant="outline" size="sm" onClick={() => navigate("/admin/users")}>
                     <Users className="h-4 w-4 mr-2" />
-                    User Management
+                    Users
                   </Button>
-                  <Button variant="outline" onClick={() => navigate("/admin/settings")}>
+                  <Button variant="outline" size="sm" onClick={() => navigate("/admin/settings")}>
                     <Settings className="h-4 w-4 mr-2" />
                     Settings
                   </Button>
                 </>
               )}
-            </div>
-            
-            {/* Visual separator */}
-            <Separator orientation="vertical" className="h-8" />
-            
-            {/* Action buttons group */}
-            <div className="flex items-center gap-4">
+              
+              <Separator orientation="vertical" className="h-6 hidden sm:block" />
+              
               <CreateProjectDialog onProjectCreated={loadProjects} />
-              <Button variant="outline" onClick={handleLogout}>
+              
+              <Button variant="ghost" size="sm" onClick={handleLogout}>
                 <LogOut className="h-4 w-4 mr-2" />
                 Logout
               </Button>
             </div>
           </div>
         </div>
+      </div>
 
-        {projects.length === 0 ? (
-          <Card className="text-center py-12">
-            <CardContent>
-              <Folder className="h-16 w-16 mx-auto text-muted-foreground mb-4" />
+      {/* Main Content */}
+      <div className="max-w-7xl mx-auto px-6 py-8">
+        {loading || roleLoading ? (
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            <ProjectSkeleton />
+          </div>
+        ) : projects.length === 0 ? (
+          <Card className="text-center py-16 animate-fade-in">
+            <CardContent className="flex flex-col items-center">
+              <div className="p-4 rounded-full bg-muted mb-4">
+                <Folder className="h-12 w-12 text-muted-foreground" />
+              </div>
               <h3 className="text-xl font-semibold mb-2">No Projects Yet</h3>
-              <p className="text-muted-foreground mb-6">
-                Contact your administrator to be added to a project
+              <p className="text-muted-foreground mb-6 max-w-sm">
+                Contact your administrator to be added to a project, or create a new one to get started.
               </p>
+              <CreateProjectDialog onProjectCreated={loadProjects} />
             </CardContent>
           </Card>
         ) : (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {projects.map((project) => (
-              <Card 
-                key={project.id} 
-                className="cursor-pointer hover:shadow-lg transition-all hover:border-primary"
-                onClick={() => handleProjectSelect(project.id)}
-              >
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <div className="p-2 rounded-lg bg-primary/10">
-                      <Folder className="h-6 w-6 text-primary" />
-                    </div>
-                    <span className="text-xs px-2 py-1 rounded-full bg-secondary text-secondary-foreground">
-                      {project.status}
-                    </span>
+          <>
+            <ProjectFilters
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+              statusFilter={statusFilter}
+              onStatusChange={setStatusFilter}
+              viewMode={viewMode}
+              onViewModeChange={setViewMode}
+              totalCount={projects.length}
+              filteredCount={filteredProjects.length}
+            />
+            
+            {filteredProjects.length === 0 ? (
+              <Card className="text-center py-12 animate-fade-in">
+                <CardContent className="flex flex-col items-center">
+                  <div className="p-3 rounded-full bg-muted mb-3">
+                    <Folder className="h-8 w-8 text-muted-foreground" />
                   </div>
-                  
-                  {(project.project_logo_url || project.client_logo_url) && (
-                    <div className="flex items-center justify-center gap-8 mt-6 pb-6 border-b">
-                      {project.project_logo_url && (
-                        <div className="flex-1 flex justify-center">
-                          <img 
-                            src={project.project_logo_url} 
-                            alt="Project Logo" 
-                            className="h-14 w-auto object-contain"
-                          />
-                        </div>
-                      )}
-                      {project.project_logo_url && project.client_logo_url && (
-                        <div className="h-14 w-px bg-border" />
-                      )}
-                      {project.client_logo_url && (
-                        <div className="flex-1 flex justify-center">
-                          <img 
-                            src={project.client_logo_url} 
-                            alt="Client Logo" 
-                            className="h-14 w-auto object-contain"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  )}
-                  
-                  <div className="mt-4">
-                    <div className="text-sm font-medium text-muted-foreground mb-1">
-                      {project.project_number}
-                    </div>
-                    <CardTitle>{project.name}</CardTitle>
-                  </div>
-                  <CardDescription>
-                    {project.description || "No description"}
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <Button className="w-full" variant="outline">
-                    Open Project
-                  </Button>
+                  <h3 className="text-lg font-semibold mb-1">No matching projects</h3>
+                  <p className="text-muted-foreground text-sm">
+                    Try adjusting your search or filter criteria
+                  </p>
                 </CardContent>
               </Card>
-            ))}
-          </div>
+            ) : (
+              <div className={cn(
+                viewMode === "grid" 
+                  ? "grid gap-4 md:grid-cols-2 lg:grid-cols-3" 
+                  : "flex flex-col gap-3"
+              )}>
+                {filteredProjects.map((project, index) => (
+                  <ProjectCard
+                    key={project.id}
+                    project={project}
+                    onSelect={handleProjectSelect}
+                    index={index}
+                    viewMode={viewMode}
+                  />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
