@@ -17,6 +17,7 @@ import { LightingRoadmap } from '@/components/lighting/LightingRoadmap';
 import { LightingLibraryTab } from '@/components/lighting/LightingLibraryTab';
 import { LightingOverview } from '@/components/lighting/LightingOverview';
 import { LightingTestDashboard } from '@/components/lighting/testing/LightingTestDashboard';
+import { SpecSheetUploadTab } from '@/components/lighting/specsheets/SpecSheetUploadTab';
 
 const LightingReport = () => {
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -116,11 +117,7 @@ const LightingReport = () => {
 
         {/* Spec Sheets Tab - Phase 2 */}
         <TabsContent value="specs">
-          <PlaceholderTab 
-            title="Specification Sheet Management" 
-            phase={2} 
-            icon={FileText} 
-          />
+          <SpecSheetUploadTab projectId={projectId} />
         </TabsContent>
 
         {/* Comparison Tab - Phase 3 */}
