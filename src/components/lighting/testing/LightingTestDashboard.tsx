@@ -1,26 +1,41 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { 
   CheckCircle2, 
   XCircle, 
   Clock,
   FlaskConical,
-  AlertTriangle
+  AlertTriangle,
+  PlayCircle,
+  RotateCcw
 } from 'lucide-react';
 import { PhaseTestRunner } from './PhaseTestRunner';
 import { PhaseValidation } from './types';
 import { phase1Suite } from './phase1Tests';
+import { phase2Suite } from './phase2Tests';
+import { updateRoadmapProgress } from './roadmapUpdater';
+import { toast } from 'sonner';
 
 export const LightingTestDashboard: React.FC = () => {
   const [validations, setValidations] = useState<Record<number, PhaseValidation>>({});
+  const [autoRunComplete, setAutoRunComplete] = useState(false);
+  const [isRunningAll, setIsRunningAll] = useState(false);
 
   const handleValidationComplete = (validation: PhaseValidation) => {
-    setValidations(prev => ({
-      ...prev,
-      [validation.phase]: validation,
-    }));
+    setValidations(prev => {
+      const updated = {
+        ...prev,
+        [validation.phase]: validation,
+      };
+      
+      // Auto-update roadmap when a phase validation completes
+      updateRoadmapProgress(validation);
+      
+      return updated;
+    });
   };
 
   const getPhaseStatus = (phase: number) => {
@@ -29,7 +44,7 @@ export const LightingTestDashboard: React.FC = () => {
     return validation.status;
   };
 
-  const getStatusBadge = (status: PhaseValidation['status']) => {
+  const getStatusBadge = (status: PhaseValidation['status'] | 'not_run') => {
     switch (status) {
       case 'passed':
         return (
@@ -66,14 +81,24 @@ export const LightingTestDashboard: React.FC = () => {
   const passedTests = Object.values(validations).reduce((sum, v) => sum + v.passedTests, 0);
   const failedTests = Object.values(validations).reduce((sum, v) => sum + v.failedTests, 0);
 
+  const allPhasesPassed = validations[1]?.status === 'passed' && validations[2]?.status === 'passed';
+
   return (
     <div className="space-y-6">
       {/* Summary Card */}
       <Card>
         <CardHeader>
-          <div className="flex items-center gap-2">
-            <FlaskConical className="h-5 w-5 text-primary" />
-            <CardTitle>Integration Test Dashboard</CardTitle>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <FlaskConical className="h-5 w-5 text-primary" />
+              <CardTitle>Integration Test Dashboard</CardTitle>
+            </div>
+            {allPhasesPassed && (
+              <Badge className="bg-green-500/20 text-green-400 border-green-500/30 text-sm px-3 py-1">
+                <CheckCircle2 className="h-4 w-4 mr-2" />
+                All Phases Validated - Roadmap Updated
+              </Badge>
+            )}
           </div>
         </CardHeader>
         <CardContent>
@@ -107,9 +132,9 @@ export const LightingTestDashboard: React.FC = () => {
             Phase 1
             {getStatusBadge(getPhaseStatus(1))}
           </TabsTrigger>
-          <TabsTrigger value="phase2" disabled className="flex items-center gap-2">
+          <TabsTrigger value="phase2" className="flex items-center gap-2">
             Phase 2
-            <Badge variant="outline" className="text-muted-foreground">Coming Soon</Badge>
+            {getStatusBadge(getPhaseStatus(2))}
           </TabsTrigger>
           <TabsTrigger value="phase3" disabled className="flex items-center gap-2">
             Phase 3
@@ -125,11 +150,10 @@ export const LightingTestDashboard: React.FC = () => {
         </TabsContent>
 
         <TabsContent value="phase2">
-          <Card>
-            <CardContent className="py-12 text-center">
-              <p className="text-muted-foreground">Phase 2 tests will be available after Phase 2 implementation</p>
-            </CardContent>
-          </Card>
+          <PhaseTestRunner 
+            suite={phase2Suite} 
+            onValidationComplete={handleValidationComplete}
+          />
         </TabsContent>
 
         <TabsContent value="phase3">
