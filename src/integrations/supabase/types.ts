@@ -4232,6 +4232,183 @@ export type Database = {
         }
         Relationships: []
       }
+      lighting_comparisons: {
+        Row: {
+          comparison_criteria: Json | null
+          comparison_name: string
+          created_at: string
+          created_by: string | null
+          fitting_ids: string[]
+          id: string
+          notes: string | null
+          project_id: string | null
+        }
+        Insert: {
+          comparison_criteria?: Json | null
+          comparison_name: string
+          created_at?: string
+          created_by?: string | null
+          fitting_ids: string[]
+          id?: string
+          notes?: string | null
+          project_id?: string | null
+        }
+        Update: {
+          comparison_criteria?: Json | null
+          comparison_name?: string
+          created_at?: string
+          created_by?: string | null
+          fitting_ids?: string[]
+          id?: string
+          notes?: string | null
+          project_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lighting_comparisons_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lighting_fittings: {
+        Row: {
+          beam_angle: number | null
+          category: string | null
+          color_temperature: number | null
+          created_at: string
+          created_by: string | null
+          cri: number | null
+          dimensions: string | null
+          driver_type: string | null
+          fitting_code: string
+          fitting_type: string
+          id: string
+          ik_rating: string | null
+          install_cost: number | null
+          ip_rating: string | null
+          is_dimmable: boolean | null
+          lifespan_hours: number | null
+          lumen_output: number | null
+          manufacturer: string | null
+          model_name: string
+          notes: string | null
+          project_id: string | null
+          subcategory: string | null
+          supply_cost: number | null
+          updated_at: string
+          wattage: number | null
+          weight: number | null
+        }
+        Insert: {
+          beam_angle?: number | null
+          category?: string | null
+          color_temperature?: number | null
+          created_at?: string
+          created_by?: string | null
+          cri?: number | null
+          dimensions?: string | null
+          driver_type?: string | null
+          fitting_code: string
+          fitting_type: string
+          id?: string
+          ik_rating?: string | null
+          install_cost?: number | null
+          ip_rating?: string | null
+          is_dimmable?: boolean | null
+          lifespan_hours?: number | null
+          lumen_output?: number | null
+          manufacturer?: string | null
+          model_name: string
+          notes?: string | null
+          project_id?: string | null
+          subcategory?: string | null
+          supply_cost?: number | null
+          updated_at?: string
+          wattage?: number | null
+          weight?: number | null
+        }
+        Update: {
+          beam_angle?: number | null
+          category?: string | null
+          color_temperature?: number | null
+          created_at?: string
+          created_by?: string | null
+          cri?: number | null
+          dimensions?: string | null
+          driver_type?: string | null
+          fitting_code?: string
+          fitting_type?: string
+          id?: string
+          ik_rating?: string | null
+          install_cost?: number | null
+          ip_rating?: string | null
+          is_dimmable?: boolean | null
+          lifespan_hours?: number | null
+          lumen_output?: number | null
+          manufacturer?: string | null
+          model_name?: string
+          notes?: string | null
+          project_id?: string | null
+          subcategory?: string | null
+          supply_cost?: number | null
+          updated_at?: string
+          wattage?: number | null
+          weight?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lighting_fittings_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lighting_spec_sheets: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_path: string
+          file_type: string | null
+          fitting_id: string | null
+          id: string
+          parsed_data: Json | null
+          uploaded_by: string | null
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_path: string
+          file_type?: string | null
+          fitting_id?: string | null
+          id?: string
+          parsed_data?: Json | null
+          uploaded_by?: string | null
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_path?: string
+          file_type?: string | null
+          fitting_id?: string | null
+          id?: string
+          parsed_data?: Json | null
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lighting_spec_sheets_fitting_id_fkey"
+            columns: ["fitting_id"]
+            isOneToOne: false
+            referencedRelation: "lighting_fittings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       master_materials: {
         Row: {
           approved_by: string | null
@@ -5455,6 +5632,76 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: []
+      }
+      project_lighting_schedules: {
+        Row: {
+          approval_status: string | null
+          created_at: string
+          created_by: string | null
+          fitting_id: string | null
+          id: string
+          notes: string | null
+          project_id: string
+          quantity: number | null
+          tenant_id: string | null
+          total_lumens: number | null
+          total_wattage: number | null
+          updated_at: string
+          zone_name: string | null
+        }
+        Insert: {
+          approval_status?: string | null
+          created_at?: string
+          created_by?: string | null
+          fitting_id?: string | null
+          id?: string
+          notes?: string | null
+          project_id: string
+          quantity?: number | null
+          tenant_id?: string | null
+          total_lumens?: number | null
+          total_wattage?: number | null
+          updated_at?: string
+          zone_name?: string | null
+        }
+        Update: {
+          approval_status?: string | null
+          created_at?: string
+          created_by?: string | null
+          fitting_id?: string | null
+          id?: string
+          notes?: string | null
+          project_id?: string
+          quantity?: number | null
+          tenant_id?: string | null
+          total_lumens?: number | null
+          total_wattage?: number | null
+          updated_at?: string
+          zone_name?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_lighting_schedules_fitting_id_fkey"
+            columns: ["fitting_id"]
+            isOneToOne: false
+            referencedRelation: "lighting_fittings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_lighting_schedules_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_lighting_schedules_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       project_materials: {
         Row: {

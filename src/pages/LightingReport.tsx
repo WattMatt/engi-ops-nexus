@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { 
   Lightbulb, 
@@ -13,10 +13,12 @@ import {
   Map
 } from 'lucide-react';
 import { LightingRoadmap } from '@/components/lighting/LightingRoadmap';
+import { LightingLibraryTab } from '@/components/lighting/LightingLibraryTab';
+import { LightingOverview } from '@/components/lighting/LightingOverview';
 
 const LightingReport = () => {
   const [projectId, setProjectId] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState('roadmap');
+  const [activeTab, setActiveTab] = useState('overview');
 
   useEffect(() => {
     const storedProjectId = localStorage.getItem('selectedProjectId');
@@ -55,17 +57,13 @@ const LightingReport = () => {
           </div>
         </div>
         <Badge variant="secondary" className="text-sm">
-          Development Preview
+          Phase 1 Active
         </Badge>
       </div>
 
       {/* Main tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="grid grid-cols-8 w-full">
-          <TabsTrigger value="roadmap" className="flex items-center gap-1">
-            <Map className="h-4 w-4" />
-            <span className="hidden sm:inline">Roadmap</span>
-          </TabsTrigger>
           <TabsTrigger value="overview" className="flex items-center gap-1">
             <Lightbulb className="h-4 w-4" />
             <span className="hidden sm:inline">Overview</span>
@@ -94,29 +92,20 @@ const LightingReport = () => {
             <Settings className="h-4 w-4" />
             <span className="hidden sm:inline">Settings</span>
           </TabsTrigger>
+          <TabsTrigger value="roadmap" className="flex items-center gap-1">
+            <Map className="h-4 w-4" />
+            <span className="hidden sm:inline">Roadmap</span>
+          </TabsTrigger>
         </TabsList>
-
-        {/* Roadmap Tab */}
-        <TabsContent value="roadmap">
-          <LightingRoadmap />
-        </TabsContent>
 
         {/* Overview Tab - Phase 1 */}
         <TabsContent value="overview">
-          <PlaceholderTab 
-            title="Lighting Overview Dashboard" 
-            phase={1} 
-            icon={Lightbulb} 
-          />
+          <LightingOverview projectId={projectId} />
         </TabsContent>
 
         {/* Library Tab - Phase 1 */}
         <TabsContent value="library">
-          <PlaceholderTab 
-            title="Lighting Fittings Library" 
-            phase={1} 
-            icon={Library} 
-          />
+          <LightingLibraryTab projectId={projectId} />
         </TabsContent>
 
         {/* Spec Sheets Tab - Phase 2 */}
@@ -162,6 +151,11 @@ const LightingReport = () => {
             phase={1} 
             icon={Settings} 
           />
+        </TabsContent>
+
+        {/* Roadmap Tab */}
+        <TabsContent value="roadmap">
+          <LightingRoadmap />
         </TabsContent>
       </Tabs>
     </div>
