@@ -4370,33 +4370,54 @@ export type Database = {
       }
       lighting_spec_sheets: {
         Row: {
+          confidence_scores: Json | null
           created_at: string
+          extracted_data: Json | null
+          extraction_error: string | null
+          extraction_status: string | null
           file_name: string
           file_path: string
+          file_size: number | null
           file_type: string | null
           fitting_id: string | null
           id: string
           parsed_data: Json | null
+          project_id: string | null
+          updated_at: string | null
           uploaded_by: string | null
         }
         Insert: {
+          confidence_scores?: Json | null
           created_at?: string
+          extracted_data?: Json | null
+          extraction_error?: string | null
+          extraction_status?: string | null
           file_name: string
           file_path: string
+          file_size?: number | null
           file_type?: string | null
           fitting_id?: string | null
           id?: string
           parsed_data?: Json | null
+          project_id?: string | null
+          updated_at?: string | null
           uploaded_by?: string | null
         }
         Update: {
+          confidence_scores?: Json | null
           created_at?: string
+          extracted_data?: Json | null
+          extraction_error?: string | null
+          extraction_status?: string | null
           file_name?: string
           file_path?: string
+          file_size?: number | null
           file_type?: string | null
           fitting_id?: string | null
           id?: string
           parsed_data?: Json | null
+          project_id?: string | null
+          updated_at?: string | null
           uploaded_by?: string | null
         }
         Relationships: [
@@ -4405,6 +4426,13 @@ export type Database = {
             columns: ["fitting_id"]
             isOneToOne: false
             referencedRelation: "lighting_fittings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lighting_spec_sheets_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
