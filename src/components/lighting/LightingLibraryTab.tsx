@@ -45,10 +45,12 @@ import {
   Pencil,
   Trash2,
   Download,
+  Upload,
   Filter,
   X,
 } from 'lucide-react';
 import { AddFittingDialog } from './AddFittingDialog';
+import { ImportFittingsDialog } from './ImportFittingsDialog';
 import { LightingFitting, FITTING_TYPES } from './lightingTypes';
 
 interface LightingLibraryTabProps {
@@ -60,6 +62,7 @@ export const LightingLibraryTab = ({ projectId }: LightingLibraryTabProps) => {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [editFitting, setEditFitting] = useState<LightingFitting | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
@@ -179,6 +182,10 @@ export const LightingLibraryTab = ({ projectId }: LightingLibraryTabProps) => {
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg">Lighting Fittings Library</CardTitle>
             <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => setImportDialogOpen(true)}>
+                <Upload className="h-4 w-4 mr-1" />
+                Import
+              </Button>
               <Button variant="outline" size="sm" onClick={exportToCSV}>
                 <Download className="h-4 w-4 mr-1" />
                 Export
@@ -341,6 +348,13 @@ export const LightingLibraryTab = ({ projectId }: LightingLibraryTabProps) => {
           if (!open) setEditFitting(null);
         }}
         editFitting={editFitting}
+        projectId={projectId}
+      />
+
+      {/* Import Dialog */}
+      <ImportFittingsDialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
         projectId={projectId}
       />
 
