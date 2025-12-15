@@ -10,11 +10,13 @@ import {
   Calendar, 
   FileOutput,
   Settings,
-  Map
+  Map,
+  FlaskConical
 } from 'lucide-react';
 import { LightingRoadmap } from '@/components/lighting/LightingRoadmap';
 import { LightingLibraryTab } from '@/components/lighting/LightingLibraryTab';
 import { LightingOverview } from '@/components/lighting/LightingOverview';
+import { LightingTestDashboard } from '@/components/lighting/testing/LightingTestDashboard';
 
 const LightingReport = () => {
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -63,7 +65,7 @@ const LightingReport = () => {
 
       {/* Main tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid grid-cols-8 w-full">
+        <TabsList className="grid grid-cols-9 w-full">
           <TabsTrigger value="overview" className="flex items-center gap-1">
             <Lightbulb className="h-4 w-4" />
             <span className="hidden sm:inline">Overview</span>
@@ -91,6 +93,10 @@ const LightingReport = () => {
           <TabsTrigger value="settings" className="flex items-center gap-1">
             <Settings className="h-4 w-4" />
             <span className="hidden sm:inline">Settings</span>
+          </TabsTrigger>
+          <TabsTrigger value="tests" className="flex items-center gap-1">
+            <FlaskConical className="h-4 w-4" />
+            <span className="hidden sm:inline">Tests</span>
           </TabsTrigger>
           <TabsTrigger value="roadmap" className="flex items-center gap-1">
             <Map className="h-4 w-4" />
@@ -151,6 +157,11 @@ const LightingReport = () => {
             phase={1} 
             icon={Settings} 
           />
+        </TabsContent>
+
+        {/* Tests Tab */}
+        <TabsContent value="tests">
+          <LightingTestDashboard />
         </TabsContent>
 
         {/* Roadmap Tab */}
