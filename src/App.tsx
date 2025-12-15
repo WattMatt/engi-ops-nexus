@@ -34,6 +34,7 @@ import TenantTracker from "./pages/TenantTracker";
 import FinalAccounts from "./pages/FinalAccounts";
 import FinalAccountDetail from "./pages/FinalAccountDetail";
 import GeneratorReport from "./pages/GeneratorReport";
+import LightingReport from "./pages/LightingReport";
 import ProjectOutline from "./pages/ProjectOutline";
 import AITools from "./pages/AITools";
 import AdminAIReview from "./pages/AdminAIReview";
@@ -118,6 +119,7 @@ const App = () => (
             <Route path="final-accounts/:accountId" element={<FinalAccountDetail />} />
             <Route path="messages" element={<Messages />} />
             <Route path="projects-report/generator" element={<GeneratorReport />} />
+            <Route path="projects-report/lighting" element={<LightingReport />} />
             <Route path="projects-report/outline" element={<ProjectOutline />} />
             <Route path="projects-report/handover" element={<HandoverDocuments />} />
             <Route path="bulk-services" element={<BulkServices />} />
