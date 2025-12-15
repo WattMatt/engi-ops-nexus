@@ -159,38 +159,40 @@ const testAIExtractionEndpoint: TestDefinition = {
     const start = performance.now();
     
     try {
-      // Just verify the function exists by calling with empty body (will fail but confirms endpoint exists)
-      const { error } = await supabase.functions.invoke('extract-lighting-specs', {
-        body: {}
-      });
+      // Call with empty body to test if the function is deployed
+      // We expect a 400 validation error (not 500) which confirms the function is working
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/extract-lighting-specs`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY}`,
+          },
+          body: JSON.stringify({}),
+        }
+      );
       
       const duration = performance.now() - start;
       
-      // We expect an error about missing parameters, not about function not found
-      if (error && error.message?.includes('Either imageBase64 or imageUrl is required')) {
+      // 400 means function is deployed and validating input correctly
+      if (response.status === 400) {
         return createTestResult('p2-ai-extraction', 'AI Extraction Edge Function', 'passed', duration, undefined, 
-          'Edge function deployed and responding');
+          'Edge function deployed and validating input');
       }
       
-      // Also accept if it returns any response (function is deployed)
-      if (error && !error.message?.includes('Function not found') && !error.message?.includes('404')) {
+      // Any other response that's not 404 means function exists
+      if (response.status !== 404) {
+        const data = await response.json().catch(() => ({}));
         return createTestResult('p2-ai-extraction', 'AI Extraction Edge Function', 'passed', duration, undefined, 
-          'Edge function deployed');
+          `Edge function deployed (status: ${response.status})`);
       }
       
       return createTestResult('p2-ai-extraction', 'AI Extraction Edge Function', 'failed', duration, 
-        error?.message || 'Unknown error');
+        'Edge function not found (404)');
     } catch (err) {
       const duration = performance.now() - start;
-      const errMsg = String(err);
-      
-      // If we get a validation error, the function is deployed
-      if (errMsg.includes('imageBase64') || errMsg.includes('imageUrl')) {
-        return createTestResult('p2-ai-extraction', 'AI Extraction Edge Function', 'passed', duration, undefined, 
-          'Edge function deployed and validating');
-      }
-      
-      return createTestResult('p2-ai-extraction', 'AI Extraction Edge Function', 'failed', duration, errMsg);
+      return createTestResult('p2-ai-extraction', 'AI Extraction Edge Function', 'failed', duration, String(err));
     }
   },
 };

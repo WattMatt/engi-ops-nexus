@@ -80,11 +80,33 @@ serve(async (req) => {
     const { imageBase64, imageUrl, mimeType } = await req.json();
 
     if (!imageBase64 && !imageUrl) {
-      throw new Error('Either imageBase64 or imageUrl is required');
+      // Return 400 for validation errors, not 500
+      return new Response(
+        JSON.stringify({ 
+          error: 'Either imageBase64 or imageUrl is required',
+          extracted_data: null,
+          confidence_scores: null
+        }), 
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     if (!LOVABLE_API_KEY) {
-      throw new Error('LOVABLE_API_KEY is not configured');
+      console.error('LOVABLE_API_KEY is not configured');
+      return new Response(
+        JSON.stringify({ 
+          error: 'AI service not configured. Please contact support.',
+          extracted_data: null,
+          confidence_scores: null
+        }), 
+        {
+          status: 503,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     console.log('Starting spec sheet extraction via Lovable AI...');
