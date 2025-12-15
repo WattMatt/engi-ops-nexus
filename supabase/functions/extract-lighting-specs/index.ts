@@ -1,4 +1,3 @@
-import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 
 const corsHeaders = {
@@ -6,7 +5,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-const GOOGLE_AI_API_KEY = Deno.env.get('GOOGLE_AI_API_KEY');
+const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
 const extractionPrompt = `You are an expert at extracting technical specifications from lighting product specification sheets.
 
@@ -84,74 +83,84 @@ serve(async (req) => {
       throw new Error('Either imageBase64 or imageUrl is required');
     }
 
-    if (!GOOGLE_AI_API_KEY) {
-      throw new Error('GOOGLE_AI_API_KEY is not configured');
+    if (!LOVABLE_API_KEY) {
+      throw new Error('LOVABLE_API_KEY is not configured');
     }
 
-    console.log('Starting spec sheet extraction...');
+    console.log('Starting spec sheet extraction via Lovable AI...');
     console.log('Image type:', mimeType || 'unknown');
 
-    // Build the image part for Gemini
-    let imagePart;
+    // Build the image content for the API
+    let imageContent;
     if (imageBase64) {
-      imagePart = {
-        inlineData: {
-          mimeType: mimeType || 'image/jpeg',
-          data: imageBase64
+      imageContent = {
+        type: "image_url",
+        image_url: {
+          url: `data:${mimeType || 'image/jpeg'};base64,${imageBase64}`
         }
       };
     } else {
-      // For URL-based images, we need to fetch and convert to base64
-      const imageResponse = await fetch(imageUrl);
-      const imageBuffer = await imageResponse.arrayBuffer();
-      const base64 = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)));
-      imagePart = {
-        inlineData: {
-          mimeType: imageResponse.headers.get('content-type') || 'image/jpeg',
-          data: base64
+      imageContent = {
+        type: "image_url",
+        image_url: {
+          url: imageUrl
         }
       };
     }
 
-    // Call Gemini API
-    const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${GOOGLE_AI_API_KEY}`,
-      {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                { text: extractionPrompt },
-                imagePart
-              ]
-            }
-          ],
-          generationConfig: {
-            temperature: 0.1,
-            maxOutputTokens: 2048,
+    // Call Lovable AI Gateway with google/gemini-2.5-flash
+    const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${LOVABLE_API_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: 'google/gemini-2.5-flash',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              { type: 'text', text: extractionPrompt },
+              imageContent
+            ]
           }
-        })
-      }
-    );
+        ],
+        max_tokens: 2048,
+      })
+    });
+
+    // Handle rate limit and payment errors
+    if (response.status === 429) {
+      console.error('Rate limit exceeded');
+      return new Response(
+        JSON.stringify({ error: 'Rate limits exceeded, please try again later.' }),
+        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    if (response.status === 402) {
+      console.error('Payment required');
+      return new Response(
+        JSON.stringify({ error: 'Payment required, please add funds to your Lovable AI workspace.' }),
+        { status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Gemini API error:', errorText);
-      throw new Error(`Gemini API error: ${response.status} - ${errorText}`);
+      console.error('Lovable AI Gateway error:', response.status, errorText);
+      throw new Error(`AI Gateway error: ${response.status} - ${errorText}`);
     }
 
     const result = await response.json();
-    console.log('Gemini response received');
+    console.log('Lovable AI response received');
 
     // Extract the text content from the response
-    const textContent = result.candidates?.[0]?.content?.parts?.[0]?.text;
+    const textContent = result.choices?.[0]?.message?.content;
     
     if (!textContent) {
-      throw new Error('No text content in Gemini response');
+      throw new Error('No text content in AI response');
     }
 
     // Parse the JSON from the response
