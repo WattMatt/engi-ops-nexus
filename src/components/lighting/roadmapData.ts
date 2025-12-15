@@ -31,15 +31,15 @@ export const roadmapPhases: RoadmapPhase[] = [
     description: 'Database schema design, lighting library, and overview dashboard with core functionality.',
     duration: '2-3 weeks',
     priority: 'critical',
-    status: 'pending',
+    status: 'complete',
     deliverables: [
-      { id: '1-1', title: 'Database Schema Design (lighting_fittings, lighting_spec_sheets, project_lighting_schedules, lighting_comparisons)', completed: false },
-      { id: '1-2', title: 'Lighting Library Tab with CRUD operations', completed: false },
-      { id: '1-3', title: 'Search & Filter (by type, manufacturer, wattage, color temp, IP rating)', completed: false },
-      { id: '1-4', title: 'Categories System (Downlights, Panel Lights, Linear, Floodlights, etc.)', completed: false },
-      { id: '1-5', title: 'CSV/Excel Import for bulk fitting data', completed: false },
-      { id: '1-6', title: 'Overview Dashboard with KPI cards and charts', completed: false },
-      { id: '1-7', title: 'Route and navigation menu integration', completed: false },
+      { id: '1-1', title: 'Database Schema Design (lighting_fittings, lighting_spec_sheets, project_lighting_schedules, lighting_comparisons)', completed: true },
+      { id: '1-2', title: 'Lighting Library Tab with CRUD operations', completed: true },
+      { id: '1-3', title: 'Search & Filter (by type, manufacturer, wattage, color temp, IP rating)', completed: true },
+      { id: '1-4', title: 'Categories System (Downlights, Panel Lights, Linear, Floodlights, etc.)', completed: true },
+      { id: '1-5', title: 'CSV/Excel Import for bulk fitting data', completed: true },
+      { id: '1-6', title: 'Overview Dashboard with KPI cards and charts', completed: true },
+      { id: '1-7', title: 'Route and navigation menu integration', completed: true },
     ],
     prompt: `Implement Phase 1 of the Lighting Module - Foundation & Core Infrastructure:
 
@@ -175,7 +175,7 @@ Implement these default categories:
     description: 'Upload system for specification sheets with AI-powered data extraction and library integration.',
     duration: '2 weeks',
     priority: 'high',
-    status: 'future',
+    status: 'pending',
     deliverables: [
       { id: '2-1', title: 'File Upload System (PDF, Images, Word docs)', completed: false },
       { id: '2-2', title: 'Supabase Storage bucket for spec sheets', completed: false },
