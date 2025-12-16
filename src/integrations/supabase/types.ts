@@ -4232,6 +4232,50 @@ export type Database = {
         }
         Relationships: []
       }
+      lighting_analysis_settings: {
+        Row: {
+          analysis_period_years: number | null
+          created_at: string
+          electricity_rate: number | null
+          id: string
+          include_vat: boolean | null
+          operating_hours_per_day: number | null
+          project_id: string | null
+          updated_at: string
+          vat_rate: number | null
+        }
+        Insert: {
+          analysis_period_years?: number | null
+          created_at?: string
+          electricity_rate?: number | null
+          id?: string
+          include_vat?: boolean | null
+          operating_hours_per_day?: number | null
+          project_id?: string | null
+          updated_at?: string
+          vat_rate?: number | null
+        }
+        Update: {
+          analysis_period_years?: number | null
+          created_at?: string
+          electricity_rate?: number | null
+          id?: string
+          include_vat?: boolean | null
+          operating_hours_per_day?: number | null
+          project_id?: string | null
+          updated_at?: string
+          vat_rate?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lighting_analysis_settings_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: true
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lighting_comparisons: {
         Row: {
           comparison_criteria: Json | null
