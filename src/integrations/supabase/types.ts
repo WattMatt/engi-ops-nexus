@@ -2891,6 +2891,70 @@ export type Database = {
           },
         ]
       }
+      floor_plan_lighting: {
+        Row: {
+          created_at: string
+          fitting_id: string
+          floor_plan_id: string
+          id: string
+          mounting_height: number | null
+          rotation: number | null
+          tenant_id: string | null
+          updated_at: string
+          x_position: number
+          y_position: number
+          zone_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          fitting_id: string
+          floor_plan_id: string
+          id?: string
+          mounting_height?: number | null
+          rotation?: number | null
+          tenant_id?: string | null
+          updated_at?: string
+          x_position: number
+          y_position: number
+          zone_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          fitting_id?: string
+          floor_plan_id?: string
+          id?: string
+          mounting_height?: number | null
+          rotation?: number | null
+          tenant_id?: string | null
+          updated_at?: string
+          x_position?: number
+          y_position?: number
+          zone_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "floor_plan_lighting_fitting_id_fkey"
+            columns: ["fitting_id"]
+            isOneToOne: false
+            referencedRelation: "lighting_fittings"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "floor_plan_lighting_floor_plan_id_fkey"
+            columns: ["floor_plan_id"]
+            isOneToOne: false
+            referencedRelation: "floor_plan_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "floor_plan_lighting_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       floor_plan_projects: {
         Row: {
           created_at: string
@@ -4479,6 +4543,113 @@ export type Database = {
           },
         ]
       }
+      lighting_photometric_data: {
+        Row: {
+          candela_data: Json | null
+          fitting_id: string
+          id: string
+          ies_file_path: string | null
+          lamp_type: string | null
+          lumens: number | null
+          mounting_type: string | null
+          parsed_at: string
+          utilization_data: Json | null
+        }
+        Insert: {
+          candela_data?: Json | null
+          fitting_id: string
+          id?: string
+          ies_file_path?: string | null
+          lamp_type?: string | null
+          lumens?: number | null
+          mounting_type?: string | null
+          parsed_at?: string
+          utilization_data?: Json | null
+        }
+        Update: {
+          candela_data?: Json | null
+          fitting_id?: string
+          id?: string
+          ies_file_path?: string | null
+          lamp_type?: string | null
+          lumens?: number | null
+          mounting_type?: string | null
+          parsed_at?: string
+          utilization_data?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lighting_photometric_data_fitting_id_fkey"
+            columns: ["fitting_id"]
+            isOneToOne: false
+            referencedRelation: "lighting_fittings"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lighting_quote_requests: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          id: string
+          items: Json
+          notes: string | null
+          project_id: string | null
+          quoted_total: number | null
+          reference_number: string | null
+          response_received_at: string | null
+          sent_at: string | null
+          status: string | null
+          supplier_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          items?: Json
+          notes?: string | null
+          project_id?: string | null
+          quoted_total?: number | null
+          reference_number?: string | null
+          response_received_at?: string | null
+          sent_at?: string | null
+          status?: string | null
+          supplier_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          items?: Json
+          notes?: string | null
+          project_id?: string | null
+          quoted_total?: number | null
+          reference_number?: string | null
+          response_received_at?: string | null
+          sent_at?: string | null
+          status?: string | null
+          supplier_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lighting_quote_requests_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lighting_quote_requests_supplier_id_fkey"
+            columns: ["supplier_id"]
+            isOneToOne: false
+            referencedRelation: "lighting_suppliers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lighting_report_templates: {
         Row: {
           config: Json
@@ -4591,6 +4762,54 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      lighting_suppliers: {
+        Row: {
+          address: string | null
+          categories: string[] | null
+          contact_person: string | null
+          created_at: string
+          created_by: string | null
+          email: string | null
+          id: string
+          is_preferred: boolean | null
+          name: string
+          notes: string | null
+          phone: string | null
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          address?: string | null
+          categories?: string[] | null
+          contact_person?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          is_preferred?: boolean | null
+          name: string
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          address?: string | null
+          categories?: string[] | null
+          contact_person?: string | null
+          created_at?: string
+          created_by?: string | null
+          email?: string | null
+          id?: string
+          is_preferred?: boolean | null
+          name?: string
+          notes?: string | null
+          phone?: string | null
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: []
       }
       master_materials: {
         Row: {
