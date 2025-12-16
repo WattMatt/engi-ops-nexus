@@ -66,8 +66,8 @@ export const FloorPlanLightingOverlay = ({
     const loadFittings = async () => {
       const { data, error } = await supabase
         .from('lighting_fittings')
-        .select('id, code, name, wattage, fitting_type')
-        .order('code');
+        .select('id, fitting_code, model_name, wattage, fitting_type')
+        .order('fitting_code');
 
       if (error) {
         console.error('Error loading fittings:', error);
@@ -76,8 +76,8 @@ export const FloorPlanLightingOverlay = ({
 
       const mappedData = (data || []).map(f => ({
         id: f.id,
-        fitting_code: f.code,
-        fitting_name: f.name,
+        fitting_code: f.fitting_code,
+        fitting_name: f.model_name,
         wattage: f.wattage,
         fitting_type: f.fitting_type
       }));
@@ -104,7 +104,7 @@ export const FloorPlanLightingOverlay = ({
           lighting_fittings (
             id,
             fitting_code,
-            fitting_name,
+            model_name,
             wattage,
             fitting_type
           )
@@ -129,8 +129,8 @@ export const FloorPlanLightingOverlay = ({
           tenantId: p.tenant_id,
           fitting: lf ? {
             id: lf.id,
-            fitting_code: lf.code,
-            fitting_name: lf.name,
+            fitting_code: lf.fitting_code,
+            fitting_name: lf.model_name,
             wattage: lf.wattage,
             fitting_type: lf.fitting_type
           } : undefined

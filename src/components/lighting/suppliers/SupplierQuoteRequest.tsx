@@ -72,15 +72,15 @@ export const SupplierQuoteRequest = ({ projectId }: SupplierQuoteRequestProps) =
   useEffect(() => {
     const loadData = async () => {
       const [fittingsRes, suppliersRes] = await Promise.all([
-        supabase.from('lighting_fittings').select('id, code, name, manufacturer, wattage').order('code'),
+        supabase.from('lighting_fittings').select('id, fitting_code, model_name, manufacturer, wattage').order('fitting_code'),
         supabase.from('lighting_suppliers').select('id, name, email, is_preferred').order('is_preferred', { ascending: false }).order('name')
       ]);
 
       if (fittingsRes.data) {
         const mapped = fittingsRes.data.map(f => ({
           id: f.id,
-          fitting_code: f.code,
-          fitting_name: f.name,
+          fitting_code: f.fitting_code,
+          fitting_name: f.model_name,
           manufacturer: f.manufacturer,
           wattage: f.wattage
         }));
