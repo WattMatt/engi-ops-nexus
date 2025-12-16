@@ -62,13 +62,22 @@ const Auth = () => {
     e.preventDefault();
     setLoading(true);
 
+    // Normalize email: trim whitespace and convert to lowercase
+    const normalizedEmail = email.trim().toLowerCase();
+
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: normalizedEmail,
         password,
       });
 
-      if (error) throw error;
+      if (error) {
+        // Provide more helpful error messages
+        if (error.message === "Invalid login credentials") {
+          throw new Error("Invalid email or password. Please check your credentials and try again.");
+        }
+        throw error;
+      }
 
       // Check if user needs to change password
       const { data: profile } = await supabase
@@ -86,9 +95,7 @@ const Auth = () => {
       }
     } catch (error: any) {
       console.error("Login error:", error);
-      // Show specific error message from Supabase
-      const errorMessage = error.message || "Failed to login";
-      toast.error(errorMessage);
+      toast.error(error.message || "Failed to login");
     } finally {
       setLoading(false);
     }
