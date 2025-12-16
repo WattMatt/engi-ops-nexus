@@ -19,6 +19,7 @@ import { LightingOverview } from '@/components/lighting/LightingOverview';
 import { LightingTestDashboard } from '@/components/lighting/testing/LightingTestDashboard';
 import { SpecSheetUploadTab } from '@/components/lighting/specsheets/SpecSheetUploadTab';
 import { FittingComparisonTab, LightingSettingsTab } from '@/components/lighting/comparison';
+import { LightingReportTab } from '@/components/lighting/reports/LightingReportTab';
 
 const LightingReport = () => {
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -61,7 +62,7 @@ const LightingReport = () => {
           </div>
         </div>
         <Badge variant="default" className="text-sm bg-green-500/20 text-green-400">
-          Phase 3 Complete
+          Phase 4 Complete
         </Badge>
       </div>
 
@@ -137,11 +138,7 @@ const LightingReport = () => {
 
         {/* Reports Tab - Phase 4 */}
         <TabsContent value="reports">
-          <PlaceholderTab 
-            title="Lighting Reports" 
-            phase={4} 
-            icon={FileOutput} 
-          />
+          <LightingReportTab projectId={projectId} />
         </TabsContent>
 
         {/* Settings Tab - Phase 3 */}
