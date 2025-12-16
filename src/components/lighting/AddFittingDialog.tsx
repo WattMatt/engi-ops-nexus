@@ -64,6 +64,8 @@ const fittingSchema = z.object({
   is_dimmable: z.boolean().default(false),
   driver_type: z.string().optional(),
   notes: z.string().optional(),
+  warranty_years: z.coerce.number().default(3),
+  warranty_terms: z.string().optional(),
 });
 
 type FittingFormData = z.infer<typeof fittingSchema>;
@@ -109,6 +111,8 @@ export const AddFittingDialog = ({
           is_dimmable: editFitting.is_dimmable || false,
           driver_type: editFitting.driver_type || '',
           notes: editFitting.notes || '',
+          warranty_years: editFitting.warranty_years || 3,
+          warranty_terms: editFitting.warranty_terms || '',
         }
       : {
           fitting_code: '',
@@ -118,6 +122,8 @@ export const AddFittingDialog = ({
           supply_cost: 0,
           install_cost: 0,
           is_dimmable: false,
+          warranty_years: 3,
+          warranty_terms: '',
         },
   });
 
@@ -147,6 +153,8 @@ export const AddFittingDialog = ({
         is_dimmable: data.is_dimmable || false,
         driver_type: data.driver_type || null,
         notes: data.notes || null,
+        warranty_years: data.warranty_years || 3,
+        warranty_terms: data.warranty_terms || null,
         project_id: projectId || null,
         created_by: userData.user?.id || null,
       };
@@ -558,6 +566,40 @@ export const AddFittingDialog = ({
                       )}
                     />
                   </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="warranty_years"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Warranty Period (years)</FormLabel>
+                          <FormControl>
+                            <Input type="number" min="0" max="25" placeholder="3" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+
+                  <FormField
+                    control={form.control}
+                    name="warranty_terms"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Warranty Terms</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="e.g., Standard manufacturer warranty covering defects..."
+                            className="min-h-[80px]"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
                   <FormField
                     control={form.control}

@@ -250,7 +250,7 @@ export const LightingLibraryTab = ({ projectId }: LightingLibraryTabProps) => {
                   <TableHead className="text-right">Wattage</TableHead>
                   <TableHead className="text-right">Lumens</TableHead>
                   <TableHead className="text-center">Color</TableHead>
-                  <TableHead className="text-center">IP</TableHead>
+                  <TableHead className="text-center">Warranty</TableHead>
                   <TableHead className="text-right">Total Cost</TableHead>
                   <TableHead className="w-[50px]" />
                 </TableRow>
@@ -295,7 +295,9 @@ export const LightingLibraryTab = ({ projectId }: LightingLibraryTabProps) => {
                         {fitting.color_temperature ? `${fitting.color_temperature}K` : '-'}
                       </TableCell>
                       <TableCell className="text-center">
-                        {fitting.ip_rating || '-'}
+                        <Badge variant="outline" className="text-xs">
+                          {(fitting as any).warranty_years || 3} yrs
+                        </Badge>
                       </TableCell>
                       <TableCell className="text-right font-medium">
                         {formatCurrency(fitting.supply_cost + fitting.install_cost)}
