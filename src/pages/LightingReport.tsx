@@ -12,7 +12,8 @@ import {
   Settings,
   Map,
   FlaskConical,
-  Sparkles
+  Sparkles,
+  BarChart3
 } from 'lucide-react';
 import { LightingRoadmap } from '@/components/lighting/LightingRoadmap';
 import { LightingLibraryTab } from '@/components/lighting/LightingLibraryTab';
@@ -22,6 +23,7 @@ import { SpecSheetUploadTab } from '@/components/lighting/specsheets/SpecSheetUp
 import { FittingComparisonTab, LightingSettingsTab } from '@/components/lighting/comparison';
 import { LightingReportTab } from '@/components/lighting/reports/LightingReportTab';
 import { AdvancedFeaturesTab } from '@/components/lighting/advanced/AdvancedFeaturesTab';
+import { AnalyticsTab } from '@/components/lighting/analytics';
 
 const LightingReport = () => {
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -70,7 +72,7 @@ const LightingReport = () => {
 
       {/* Main tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid grid-cols-10 w-full">
+        <TabsList className="grid grid-cols-11 w-full">
           <TabsTrigger value="overview" className="flex items-center gap-1">
             <Lightbulb className="h-4 w-4" />
             <span className="hidden sm:inline">Overview</span>
@@ -81,11 +83,11 @@ const LightingReport = () => {
           </TabsTrigger>
           <TabsTrigger value="specs" className="flex items-center gap-1">
             <FileText className="h-4 w-4" />
-            <span className="hidden sm:inline">Spec Sheets</span>
+            <span className="hidden sm:inline">Specs</span>
           </TabsTrigger>
           <TabsTrigger value="comparison" className="flex items-center gap-1">
             <GitCompare className="h-4 w-4" />
-            <span className="hidden sm:inline">Comparison</span>
+            <span className="hidden sm:inline">Compare</span>
           </TabsTrigger>
           <TabsTrigger value="schedule" className="flex items-center gap-1">
             <Calendar className="h-4 w-4" />
@@ -94,6 +96,10 @@ const LightingReport = () => {
           <TabsTrigger value="reports" className="flex items-center gap-1">
             <FileOutput className="h-4 w-4" />
             <span className="hidden sm:inline">Reports</span>
+          </TabsTrigger>
+          <TabsTrigger value="analytics" className="flex items-center gap-1">
+            <BarChart3 className="h-4 w-4" />
+            <span className="hidden sm:inline">Analytics</span>
           </TabsTrigger>
           <TabsTrigger value="advanced" className="flex items-center gap-1">
             <Sparkles className="h-4 w-4" />
@@ -145,6 +151,11 @@ const LightingReport = () => {
         {/* Reports Tab - Phase 4 */}
         <TabsContent value="reports">
           <LightingReportTab projectId={projectId} />
+        </TabsContent>
+
+        {/* Analytics Tab */}
+        <TabsContent value="analytics">
+          <AnalyticsTab />
         </TabsContent>
 
         {/* Advanced Tab - Phase 5 */}
