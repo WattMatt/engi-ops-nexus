@@ -18,6 +18,7 @@ import { LightingLibraryTab } from '@/components/lighting/LightingLibraryTab';
 import { LightingOverview } from '@/components/lighting/LightingOverview';
 import { LightingTestDashboard } from '@/components/lighting/testing/LightingTestDashboard';
 import { SpecSheetUploadTab } from '@/components/lighting/specsheets/SpecSheetUploadTab';
+import { FittingComparisonTab, LightingSettingsTab } from '@/components/lighting/comparison';
 
 const LightingReport = () => {
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -122,11 +123,7 @@ const LightingReport = () => {
 
         {/* Comparison Tab - Phase 3 */}
         <TabsContent value="comparison">
-          <PlaceholderTab 
-            title="Fitting Comparison Tool" 
-            phase={3} 
-            icon={GitCompare} 
-          />
+          <FittingComparisonTab projectId={projectId} />
         </TabsContent>
 
         {/* Schedule Tab - Phase 1 */}
@@ -147,13 +144,9 @@ const LightingReport = () => {
           />
         </TabsContent>
 
-        {/* Settings Tab - Phase 1 */}
+        {/* Settings Tab - Phase 3 */}
         <TabsContent value="settings">
-          <PlaceholderTab 
-            title="Lighting Settings" 
-            phase={1} 
-            icon={Settings} 
-          />
+          <LightingSettingsTab projectId={projectId} />
         </TabsContent>
 
         {/* Tests Tab */}
