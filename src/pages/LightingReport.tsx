@@ -11,7 +11,8 @@ import {
   FileOutput,
   Settings,
   Map,
-  FlaskConical
+  FlaskConical,
+  Sparkles
 } from 'lucide-react';
 import { LightingRoadmap } from '@/components/lighting/LightingRoadmap';
 import { LightingLibraryTab } from '@/components/lighting/LightingLibraryTab';
@@ -20,6 +21,7 @@ import { LightingTestDashboard } from '@/components/lighting/testing/LightingTes
 import { SpecSheetUploadTab } from '@/components/lighting/specsheets/SpecSheetUploadTab';
 import { FittingComparisonTab, LightingSettingsTab } from '@/components/lighting/comparison';
 import { LightingReportTab } from '@/components/lighting/reports/LightingReportTab';
+import { AdvancedFeaturesTab } from '@/components/lighting/advanced/AdvancedFeaturesTab';
 
 const LightingReport = () => {
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -62,13 +64,13 @@ const LightingReport = () => {
           </div>
         </div>
         <Badge variant="default" className="text-sm bg-green-500/20 text-green-400">
-          Phase 4 Complete
+          Phase 5 Complete
         </Badge>
       </div>
 
       {/* Main tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid grid-cols-9 w-full">
+        <TabsList className="grid grid-cols-10 w-full">
           <TabsTrigger value="overview" className="flex items-center gap-1">
             <Lightbulb className="h-4 w-4" />
             <span className="hidden sm:inline">Overview</span>
@@ -92,6 +94,10 @@ const LightingReport = () => {
           <TabsTrigger value="reports" className="flex items-center gap-1">
             <FileOutput className="h-4 w-4" />
             <span className="hidden sm:inline">Reports</span>
+          </TabsTrigger>
+          <TabsTrigger value="advanced" className="flex items-center gap-1">
+            <Sparkles className="h-4 w-4" />
+            <span className="hidden sm:inline">Advanced</span>
           </TabsTrigger>
           <TabsTrigger value="settings" className="flex items-center gap-1">
             <Settings className="h-4 w-4" />
@@ -139,6 +145,11 @@ const LightingReport = () => {
         {/* Reports Tab - Phase 4 */}
         <TabsContent value="reports">
           <LightingReportTab projectId={projectId} />
+        </TabsContent>
+
+        {/* Advanced Tab - Phase 5 */}
+        <TabsContent value="advanced">
+          <AdvancedFeaturesTab projectId={projectId} />
         </TabsContent>
 
         {/* Settings Tab - Phase 3 */}
