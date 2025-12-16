@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
@@ -53,8 +52,6 @@ export const LightingLayerControls = ({
   placementCount,
   totalWattage
 }: LightingLayerControlsProps) => {
-  const [showFilters, setShowFilters] = useState(false);
-
   const fittingTypes = [
     { value: 'all', label: 'All Types' },
     { value: 'downlight', label: 'Downlights' },
