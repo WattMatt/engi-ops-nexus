@@ -104,3 +104,6 @@ verify_jwt = false
 
 [functions.extract-lighting-specs]
 verify_jwt = true
+
+[functions.lighting-insights]
+verify_jwt = true
