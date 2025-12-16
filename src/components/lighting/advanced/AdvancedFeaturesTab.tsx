@@ -9,12 +9,11 @@ import {
   FileCheck, 
   Building2, 
   FileText,
-  RefreshCw
+  RefreshCw,
+  Leaf
 } from 'lucide-react';
 
 // Import Phase 5 components
-import { FloorPlanLightingOverlay } from '../floorplan/FloorPlanLightingOverlay';
-import { LightingLayerControls } from '../floorplan/LightingLayerControls';
 import { LightConePreview } from '../visualization/LightConePreview';
 import { LuxSimulation } from '../visualization/LuxSimulation';
 import { IESFileParser } from '../photometric/IESFileParser';
@@ -23,6 +22,7 @@ import { ComplianceChecker } from '../photometric/ComplianceChecker';
 import { SupplierManagement } from '../suppliers/SupplierManagement';
 import { SupplierQuoteRequest } from '../suppliers/SupplierQuoteRequest';
 import { SupplierPriceSync } from '../suppliers/SupplierPriceSync';
+import { SustainabilityTab } from '../sustainability';
 
 interface AdvancedFeaturesTabProps {
   projectId?: string | null;
@@ -30,12 +30,6 @@ interface AdvancedFeaturesTabProps {
 
 export const AdvancedFeaturesTab = ({ projectId }: AdvancedFeaturesTabProps) => {
   const [activeSection, setActiveSection] = useState('visualization');
-  
-  // State for floor plan integration demo
-  const [showLightingLayer, setShowLightingLayer] = useState(true);
-  const [layerOpacity, setLayerOpacity] = useState(100);
-  const [filterType, setFilterType] = useState<string | null>(null);
-  const [colorMode, setColorMode] = useState<'type' | 'status'>('type');
 
   // Demo photometric data
   const demoPhotometricData = {
@@ -61,10 +55,10 @@ export const AdvancedFeaturesTab = ({ projectId }: AdvancedFeaturesTabProps) => 
 
       {/* Main Tabs */}
       <Tabs value={activeSection} onValueChange={setActiveSection} className="space-y-4">
-        <TabsList className="grid grid-cols-4 w-full max-w-2xl">
+        <TabsList className="grid grid-cols-5 w-full max-w-3xl">
           <TabsTrigger value="visualization" className="flex items-center gap-1">
             <Box className="h-4 w-4" />
-            <span className="hidden sm:inline">3D Visualization</span>
+            <span className="hidden sm:inline">3D Viz</span>
           </TabsTrigger>
           <TabsTrigger value="photometric" className="flex items-center gap-1">
             <Calculator className="h-4 w-4" />
@@ -73,6 +67,10 @@ export const AdvancedFeaturesTab = ({ projectId }: AdvancedFeaturesTabProps) => 
           <TabsTrigger value="compliance" className="flex items-center gap-1">
             <FileCheck className="h-4 w-4" />
             <span className="hidden sm:inline">Compliance</span>
+          </TabsTrigger>
+          <TabsTrigger value="sustainability" className="flex items-center gap-1">
+            <Leaf className="h-4 w-4" />
+            <span className="hidden sm:inline">Sustainability</span>
           </TabsTrigger>
           <TabsTrigger value="suppliers" className="flex items-center gap-1">
             <Building2 className="h-4 w-4" />
@@ -115,6 +113,11 @@ export const AdvancedFeaturesTab = ({ projectId }: AdvancedFeaturesTabProps) => 
             colorRendering={85}
             energyDensity={10.5}
           />
+        </TabsContent>
+
+        {/* Sustainability Tab */}
+        <TabsContent value="sustainability" className="space-y-6">
+          <SustainabilityTab projectId={projectId} />
         </TabsContent>
 
         {/* Suppliers Tab */}
