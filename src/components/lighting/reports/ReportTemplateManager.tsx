@@ -53,18 +53,16 @@ export const ReportTemplateManager: React.FC<ReportTemplateManagerProps> = ({
     setIsSubmitting(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      
-      const insertData = {
-        name: templateName,
-        description: templateDescription || null,
-        config: currentConfig as unknown as Record<string, unknown>,
-        created_by: user?.id || null,
-        is_default: false,
-      };
 
       const { error } = await supabase
         .from('lighting_report_templates')
-        .insert(insertData);
+        .insert([{
+          name: templateName,
+          description: templateDescription || null,
+          config: JSON.parse(JSON.stringify(currentConfig)),
+          created_by: user?.id || null,
+          is_default: false,
+        }]);
 
       if (error) throw error;
 

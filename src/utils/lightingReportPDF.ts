@@ -55,12 +55,12 @@ export const generateLightingReportPDF = async (
   // Fetch project data
   const { data: project } = await supabase
     .from('projects')
-    .select('project_name, project_number')
+    .select('name, project_number')
     .eq('id', projectId)
     .single();
 
   const projectData: ProjectData = {
-    project_name: project?.project_name || 'Untitled Project',
+    project_name: project?.name || 'Untitled Project',
     project_number: project?.project_number || '',
   };
 
