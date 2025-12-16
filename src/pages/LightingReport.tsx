@@ -61,7 +61,7 @@ const LightingReport = () => {
           </div>
         </div>
         <Badge variant="default" className="text-sm bg-green-500/20 text-green-400">
-          Phase 1 Complete
+          Phase 3 Complete
         </Badge>
       </div>
 
