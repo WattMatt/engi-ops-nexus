@@ -64,8 +64,11 @@ serve(async (req) => {
 
     const { email, fullName, role, password } = await req.json();
 
+    // Normalize email: trim whitespace and convert to lowercase
+    const normalizedEmail = email?.trim().toLowerCase();
+
     // Validate input
-    if (!email || !fullName || !role || !password) {
+    if (!normalizedEmail || !fullName || !role || !password) {
       return new Response(
         JSON.stringify({ error: "Missing required fields: email, fullName, role, and password are required" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -82,7 +85,7 @@ serve(async (req) => {
 
     // Create new user with admin API
     const { data: userData, error: userError } = await supabaseAdmin.auth.admin.createUser({
-      email,
+      email: normalizedEmail,
       password: password,
       email_confirm: true, // Auto-confirm so they can log in immediately
       user_metadata: {
@@ -126,7 +129,7 @@ serve(async (req) => {
       );
     }
 
-    console.log("User and role created successfully for:", email);
+    console.log("User and role created successfully for:", normalizedEmail);
 
     return new Response(
       JSON.stringify({ 
