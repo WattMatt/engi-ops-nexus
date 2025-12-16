@@ -22,6 +22,9 @@ export interface LightingFitting {
   is_dimmable: boolean;
   driver_type: string | null;
   notes: string | null;
+  warranty_years: number | null;
+  warranty_terms: string | null;
+  spec_sheet_url: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;

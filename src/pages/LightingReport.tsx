@@ -10,7 +10,8 @@ import {
   FileOutput,
   Settings,
   Sparkles,
-  BarChart3
+  BarChart3,
+  Package
 } from 'lucide-react';
 import { LightingLibraryTab } from '@/components/lighting/LightingLibraryTab';
 import { LightingOverview } from '@/components/lighting/LightingOverview';
@@ -19,6 +20,7 @@ import { FittingComparisonTab, LightingSettingsTab } from '@/components/lighting
 import { LightingReportTab } from '@/components/lighting/reports/LightingReportTab';
 import { AdvancedFeaturesTab } from '@/components/lighting/advanced/AdvancedFeaturesTab';
 import { AnalyticsTab } from '@/components/lighting/analytics';
+import { LightingHandoverGenerator } from '@/components/lighting/handover';
 
 const LightingReport = () => {
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -46,7 +48,7 @@ const LightingReport = () => {
 
       {/* Main tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="grid grid-cols-9 w-full">
+        <TabsList className="grid grid-cols-10 w-full">
           <TabsTrigger value="overview" className="flex items-center gap-1">
             <Lightbulb className="h-4 w-4" />
             <span className="hidden sm:inline">Overview</span>
@@ -70,6 +72,10 @@ const LightingReport = () => {
           <TabsTrigger value="reports" className="flex items-center gap-1">
             <FileOutput className="h-4 w-4" />
             <span className="hidden sm:inline">Reports</span>
+          </TabsTrigger>
+          <TabsTrigger value="handover" className="flex items-center gap-1">
+            <Package className="h-4 w-4" />
+            <span className="hidden sm:inline">Handover</span>
           </TabsTrigger>
           <TabsTrigger value="analytics" className="flex items-center gap-1">
             <BarChart3 className="h-4 w-4" />
@@ -117,6 +123,10 @@ const LightingReport = () => {
 
         <TabsContent value="reports">
           <LightingReportTab projectId={projectId} />
+        </TabsContent>
+
+        <TabsContent value="handover">
+          <LightingHandoverGenerator projectId={projectId} />
         </TabsContent>
 
         <TabsContent value="analytics">

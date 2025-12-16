@@ -4471,9 +4471,12 @@ export type Database = {
           model_name: string
           notes: string | null
           project_id: string | null
+          spec_sheet_url: string | null
           subcategory: string | null
           supply_cost: number | null
           updated_at: string
+          warranty_terms: string | null
+          warranty_years: number | null
           wattage: number | null
           weight: number | null
         }
@@ -4499,9 +4502,12 @@ export type Database = {
           model_name: string
           notes?: string | null
           project_id?: string | null
+          spec_sheet_url?: string | null
           subcategory?: string | null
           supply_cost?: number | null
           updated_at?: string
+          warranty_terms?: string | null
+          warranty_years?: number | null
           wattage?: number | null
           weight?: number | null
         }
@@ -4527,9 +4533,12 @@ export type Database = {
           model_name?: string
           notes?: string | null
           project_id?: string | null
+          spec_sheet_url?: string | null
           subcategory?: string | null
           supply_cost?: number | null
           updated_at?: string
+          warranty_terms?: string | null
+          warranty_years?: number | null
           wattage?: number | null
           weight?: number | null
         }
