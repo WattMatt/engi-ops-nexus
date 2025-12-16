@@ -4276,6 +4276,73 @@ export type Database = {
           },
         ]
       }
+      lighting_approvals: {
+        Row: {
+          approved_at: string | null
+          approved_by: string | null
+          comments: string | null
+          created_at: string
+          id: string
+          project_id: string
+          schedule_id: string | null
+          section_type: string | null
+          signature_data: string | null
+          status: string | null
+          tenant_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
+          comments?: string | null
+          created_at?: string
+          id?: string
+          project_id: string
+          schedule_id?: string | null
+          section_type?: string | null
+          signature_data?: string | null
+          status?: string | null
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          approved_at?: string | null
+          approved_by?: string | null
+          comments?: string | null
+          created_at?: string
+          id?: string
+          project_id?: string
+          schedule_id?: string | null
+          section_type?: string | null
+          signature_data?: string | null
+          status?: string | null
+          tenant_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lighting_approvals_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lighting_approvals_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "project_lighting_schedules"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lighting_approvals_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lighting_comparisons: {
         Row: {
           comparison_criteria: Json | null
@@ -4405,6 +4472,50 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "lighting_fittings_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lighting_report_templates: {
+        Row: {
+          config: Json
+          created_at: string
+          created_by: string | null
+          description: string | null
+          id: string
+          is_default: boolean | null
+          name: string
+          project_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_default?: boolean | null
+          name: string
+          project_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          id?: string
+          is_default?: boolean | null
+          name?: string
+          project_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lighting_report_templates_project_id_fkey"
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
