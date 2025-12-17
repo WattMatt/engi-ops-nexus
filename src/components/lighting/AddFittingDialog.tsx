@@ -250,36 +250,12 @@ export const AddFittingDialog = ({
   const specSheetUrl = linkedSpecSheet?.url || editFitting?.spec_sheet_url;
   const isPdf = specSheetUrl?.toLowerCase().endsWith('.pdf') || linkedSpecSheet?.file_type === 'application/pdf';
 
-  const uploadImage = async (fittingId: string): Promise<string | null> => {
-    if (!imageFile) return imagePreview; // Keep existing image if no new file
-    
-    setIsUploadingImage(true);
-    try {
-      const fileExt = imageFile.name.split('.').pop();
-      const fileName = `${fittingId}/${Date.now()}.${fileExt}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('lighting-spec-sheets')
-        .upload(fileName, imageFile, { upsert: true });
-      
-      if (uploadError) throw uploadError;
-      
-      const { data: { publicUrl } } = supabase.storage
-        .from('lighting-spec-sheets')
-        .getPublicUrl(fileName);
-      
-      return publicUrl;
-    } catch (error) {
-      console.error('Image upload error:', error);
-      toast.error('Failed to upload image');
-      return null;
-    } finally {
-      setIsUploadingImage(false);
-    }
-  };
-
   const saveMutation = useMutation({
-    mutationFn: async (data: FittingFormData) => {
+    mutationFn: async ({ formData, currentImageFile, currentImagePreview }: { 
+      formData: FittingFormData; 
+      currentImageFile: File | null; 
+      currentImagePreview: string | null;
+    }) => {
       const { data: userData } = await supabase.auth.getUser();
       
       // If editing, use existing ID; otherwise we'll get the new ID after insert
@@ -287,38 +263,65 @@ export const AddFittingDialog = ({
       let imageUrl = editFitting?.image_url || null;
 
       const fittingData = {
-        fitting_code: data.fitting_code,
-        manufacturer: data.manufacturer || null,
-        model_name: data.model_name,
-        fitting_type: data.fitting_type,
-        wattage: data.wattage || null,
-        lumen_output: data.lumen_output || null,
-        color_temperature: data.color_temperature || null,
-        cri: data.cri || null,
-        beam_angle: data.beam_angle || null,
-        ip_rating: data.ip_rating || null,
-        ik_rating: data.ik_rating || null,
-        lifespan_hours: data.lifespan_hours || null,
-        dimensions: data.dimensions || null,
-        weight: data.weight || null,
-        supply_cost: data.supply_cost || 0,
-        install_cost: data.install_cost || 0,
-        category: data.category || null,
-        subcategory: data.subcategory || null,
-        is_dimmable: data.is_dimmable || false,
-        driver_type: data.driver_type || null,
-        notes: data.notes || null,
-        warranty_years: data.warranty_years || 3,
-        warranty_terms: data.warranty_terms || null,
+        fitting_code: formData.fitting_code,
+        manufacturer: formData.manufacturer || null,
+        model_name: formData.model_name,
+        fitting_type: formData.fitting_type,
+        wattage: formData.wattage || null,
+        lumen_output: formData.lumen_output || null,
+        color_temperature: formData.color_temperature || null,
+        cri: formData.cri || null,
+        beam_angle: formData.beam_angle || null,
+        ip_rating: formData.ip_rating || null,
+        ik_rating: formData.ik_rating || null,
+        lifespan_hours: formData.lifespan_hours || null,
+        dimensions: formData.dimensions || null,
+        weight: formData.weight || null,
+        supply_cost: formData.supply_cost || 0,
+        install_cost: formData.install_cost || 0,
+        category: formData.category || null,
+        subcategory: formData.subcategory || null,
+        is_dimmable: formData.is_dimmable || false,
+        driver_type: formData.driver_type || null,
+        notes: formData.notes || null,
+        warranty_years: formData.warranty_years || 3,
+        warranty_terms: formData.warranty_terms || null,
         project_id: projectId || null,
         created_by: userData.user?.id || null,
       };
 
+      // Local upload function that doesn't rely on closure
+      const doUploadImage = async (targetFittingId: string, file: File): Promise<string | null> => {
+        setIsUploadingImage(true);
+        try {
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${targetFittingId}/${Date.now()}.${fileExt}`;
+          
+          const { error: uploadError } = await supabase.storage
+            .from('lighting-spec-sheets')
+            .upload(fileName, file, { upsert: true });
+          
+          if (uploadError) throw uploadError;
+          
+          const { data: { publicUrl } } = supabase.storage
+            .from('lighting-spec-sheets')
+            .getPublicUrl(fileName);
+          
+          return publicUrl;
+        } catch (error) {
+          console.error('Image upload error:', error);
+          toast.error('Failed to upload image');
+          return null;
+        } finally {
+          setIsUploadingImage(false);
+        }
+      };
+
       if (editFitting) {
         // Upload image if new file selected
-        if (imageFile) {
-          imageUrl = await uploadImage(editFitting.id);
-        } else if (!imagePreview) {
+        if (currentImageFile) {
+          imageUrl = await doUploadImage(editFitting.id, currentImageFile);
+        } else if (!currentImagePreview) {
           imageUrl = null; // Image was removed
         }
         
@@ -339,8 +342,8 @@ export const AddFittingDialog = ({
         fittingId = insertedData.id;
         
         // Upload image with the new fitting ID
-        if (imageFile && fittingId) {
-          imageUrl = await uploadImage(fittingId);
+        if (currentImageFile && fittingId) {
+          imageUrl = await doUploadImage(fittingId, currentImageFile);
           if (imageUrl) {
             await supabase
               .from('lighting_fittings')
@@ -354,7 +357,6 @@ export const AddFittingDialog = ({
       queryClient.invalidateQueries({ queryKey: ['lighting-fittings'] });
       queryClient.invalidateQueries({ queryKey: ['fitting-spec-sheet'] });
       toast.success(editFitting ? 'Fitting updated' : 'Fitting added');
-      // Close dialog first - state will be reset by useEffect when dialog reopens
       onOpenChange(false);
     },
     onError: (error) => {
@@ -363,7 +365,12 @@ export const AddFittingDialog = ({
   });
 
   const onSubmit = (data: FittingFormData) => {
-    saveMutation.mutate(data);
+    // Capture current image state at submit time to avoid stale closure issues
+    saveMutation.mutate({ 
+      formData: data, 
+      currentImageFile: imageFile, 
+      currentImagePreview: imagePreview 
+    });
   };
 
   const subcategories = selectedType ? FITTING_CATEGORIES[selectedType] || [] : [];
