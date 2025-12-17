@@ -44,6 +44,7 @@ interface LightingFitting {
   lumen_output: number | null;
   color_temperature: number | null;
   fitting_type: string | null;
+  image_url: string | null;
 }
 
 interface ScheduleItem {
@@ -77,7 +78,7 @@ export function FittingSelector({ projectId }: FittingSelectorProps) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("lighting_fittings")
-        .select("id, fitting_code, model_name, manufacturer, wattage, lumen_output, color_temperature, fitting_type")
+        .select("id, fitting_code, model_name, manufacturer, wattage, lumen_output, color_temperature, fitting_type, image_url")
         .order("fitting_code");
       if (error) throw error;
       return data as LightingFitting[];
@@ -128,7 +129,8 @@ export function FittingSelector({ projectId }: FittingSelectorProps) {
             wattage,
             lumen_output,
             color_temperature,
-            fitting_type
+            fitting_type,
+            image_url
           ),
           lighting_zones (zone_name),
           tenants (shop_name, shop_number)
@@ -329,6 +331,7 @@ export function FittingSelector({ projectId }: FittingSelectorProps) {
               <Table>
                 <TableHeader>
                   <TableRow>
+                    <TableHead className="w-16">Image</TableHead>
                     <TableHead>Code</TableHead>
                     <TableHead>Model</TableHead>
                     <TableHead>Manufacturer</TableHead>
@@ -341,6 +344,19 @@ export function FittingSelector({ projectId }: FittingSelectorProps) {
                 <TableBody>
                   {filteredFittings.map((fitting) => (
                     <TableRow key={fitting.id}>
+                      <TableCell>
+                        <div className="w-12 h-12 rounded-md bg-muted flex items-center justify-center overflow-hidden">
+                          {fitting.image_url ? (
+                            <img 
+                              src={fitting.image_url} 
+                              alt={fitting.model_name}
+                              className="w-full h-full object-contain"
+                            />
+                          ) : (
+                            <Lightbulb className="h-5 w-5 text-muted-foreground" />
+                          )}
+                        </div>
+                      </TableCell>
                       <TableCell className="font-medium">{fitting.fitting_code}</TableCell>
                       <TableCell>{fitting.model_name}</TableCell>
                       <TableCell>{fitting.manufacturer || "-"}</TableCell>
