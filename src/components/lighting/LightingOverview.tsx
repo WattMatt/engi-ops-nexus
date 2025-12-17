@@ -4,6 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Alert, AlertDescription } from '@/components/ui/alert';
 import {
   Lightbulb,
   Zap,
@@ -11,8 +12,10 @@ import {
   TrendingUp,
   Sun,
   Gauge,
-  ShieldCheck,
-  Activity,
+  MapPin,
+  Users,
+  AlertCircle,
+  CheckCircle2,
 } from 'lucide-react';
 import {
   PieChart,
@@ -31,6 +34,34 @@ interface LightingOverviewProps {
   projectId?: string | null;
 }
 
+interface ScheduleItem {
+  id: string;
+  fitting_id: string | null;
+  quantity: number | null;
+  zone_id: string | null;
+  zone_name: string | null;
+  tenant_id: string | null;
+  total_wattage: number | null;
+  total_lumens: number | null;
+  approval_status: string | null;
+  fitting?: LightingFitting | null;
+}
+
+interface Zone {
+  id: string;
+  zone_name: string;
+  zone_type: string;
+  min_lux: number | null;
+  max_wattage_per_m2: number | null;
+  area_m2: number | null;
+}
+
+interface Tenant {
+  id: string;
+  shop_name: string;
+  area: number | null;
+}
+
 const CHART_COLORS = [
   'hsl(var(--primary))',
   'hsl(var(--chart-2))',
@@ -43,124 +74,205 @@ const CHART_COLORS = [
 ];
 
 export const LightingOverview = ({ projectId }: LightingOverviewProps) => {
-  const { data: fittings = [] } = useQuery({
-    queryKey: ['lighting-fittings', projectId],
-    queryFn: async () => {
-      let query = supabase
-        .from('lighting_fittings')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (projectId) {
-        query = query.or(`project_id.is.null,project_id.eq.${projectId}`);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-      return data as LightingFitting[];
-    },
-  });
-
+  // Fetch project schedule with fittings
   const { data: schedules = [] } = useQuery({
-    queryKey: ['lighting-schedules', projectId],
+    queryKey: ['project-lighting-schedules', projectId],
     queryFn: async () => {
       if (!projectId) return [];
       const { data, error } = await supabase
         .from('project_lighting_schedules')
-        .select('*')
+        .select(`
+          *,
+          fitting:lighting_fittings(*)
+        `)
         .eq('project_id', projectId);
       if (error) throw error;
-      return data;
+      return (data || []) as ScheduleItem[];
+    },
+    enabled: !!projectId,
+  });
+
+  // Fetch project zones
+  const { data: zones = [] } = useQuery({
+    queryKey: ['lighting-zones', projectId],
+    queryFn: async () => {
+      if (!projectId) return [];
+      const { data, error } = await supabase
+        .from('lighting_zones')
+        .select('*')
+        .eq('project_id', projectId)
+        .order('display_order');
+      if (error) throw error;
+      return data as Zone[];
+    },
+    enabled: !!projectId,
+  });
+
+  // Fetch project tenants
+  const { data: tenants = [] } = useQuery({
+    queryKey: ['project-tenants', projectId],
+    queryFn: async () => {
+      if (!projectId) return [];
+      const { data, error } = await supabase
+        .from('tenants')
+        .select('id, shop_name, area')
+        .eq('project_id', projectId);
+      if (error) throw error;
+      return data as Tenant[];
     },
     enabled: !!projectId,
   });
 
   const stats = useMemo(() => {
-    const totalFittings = fittings.length;
-    const totalScheduledQty = schedules.reduce((sum, s) => sum + (s.quantity || 0), 0);
+    // Calculate unique fittings and total quantities
+    const uniqueFittings = new Set(schedules.filter(s => s.fitting_id).map(s => s.fitting_id));
+    const totalQuantity = schedules.reduce((sum, s) => sum + (s.quantity || 0), 0);
+    const totalWattage = schedules.reduce((sum, s) => sum + (s.total_wattage || 0), 0);
+    const totalLumens = schedules.reduce((sum, s) => sum + (s.total_lumens || 0), 0);
     
-    // Performance metrics
-    const fittingsWithEfficacy = fittings.filter(f => f.wattage && f.lumen_output);
+    // Zone coverage
+    const zonesWithFittings = new Set(schedules.filter(s => s.zone_id).map(s => s.zone_id));
+    const zoneCoverage = zones.length > 0 ? (zonesWithFittings.size / zones.length) * 100 : 0;
+    
+    // Tenant coverage
+    const tenantsWithFittings = new Set(schedules.filter(s => s.tenant_id).map(s => s.tenant_id));
+    const tenantCoverage = tenants.length > 0 ? (tenantsWithFittings.size / tenants.length) * 100 : 0;
+    
+    // Approval status
+    const approved = schedules.filter(s => s.approval_status === 'approved').length;
+    const pending = schedules.filter(s => s.approval_status === 'pending' || !s.approval_status).length;
+    
+    // Average efficacy from scheduled fittings
+    const fittingsWithEfficacy = schedules.filter(s => s.fitting?.wattage && s.fitting?.lumen_output);
     const avgEfficacy = fittingsWithEfficacy.length > 0
-      ? fittingsWithEfficacy.reduce((sum, f) => sum + (f.lumen_output! / f.wattage!), 0) / fittingsWithEfficacy.length
-      : 0;
-    
-    const fittingsWithCri = fittings.filter(f => f.cri);
-    const avgCri = fittingsWithCri.length > 0
-      ? fittingsWithCri.reduce((sum, f) => sum + f.cri!, 0) / fittingsWithCri.length
-      : 0;
-    
-    const dimmableCount = fittings.filter(f => f.is_dimmable).length;
-    const dimmablePercentage = totalFittings > 0 ? (dimmableCount / totalFittings) * 100 : 0;
-    
-    const fittingsWithLumens = fittings.filter(f => f.lumen_output);
-    const totalLumens = fittingsWithLumens.reduce((sum, f) => sum + (f.lumen_output || 0), 0);
-    const avgLumens = fittingsWithLumens.length > 0 ? totalLumens / fittingsWithLumens.length : 0;
-    
-    const fittingsWithWattage = fittings.filter(f => f.wattage);
-    const avgWattage = fittingsWithWattage.length > 0
-      ? fittingsWithWattage.reduce((sum, f) => sum + f.wattage!, 0) / fittingsWithWattage.length
+      ? fittingsWithEfficacy.reduce((sum, s) => {
+          const efficacy = s.fitting!.lumen_output! / s.fitting!.wattage!;
+          return sum + efficacy * (s.quantity || 1);
+        }, 0) / fittingsWithEfficacy.reduce((sum, s) => sum + (s.quantity || 1), 0)
       : 0;
 
     return {
-      totalFittings,
-      totalScheduledQty,
+      uniqueFittingTypes: uniqueFittings.size,
+      totalQuantity,
+      totalWattage,
+      totalLumens,
+      zoneCoverage,
+      tenantCoverage,
+      zonesWithFittings: zonesWithFittings.size,
+      totalZones: zones.length,
+      tenantsWithFittings: tenantsWithFittings.size,
+      totalTenants: tenants.length,
+      approved,
+      pending,
       avgEfficacy,
-      avgCri,
-      dimmablePercentage,
-      avgLumens,
-      avgWattage,
     };
-  }, [fittings, schedules]);
+  }, [schedules, zones, tenants]);
 
+  // Distribution by zone
+  const zoneDistribution = useMemo(() => {
+    const counts: Record<string, { name: string; quantity: number; wattage: number }> = {};
+    schedules.forEach((s) => {
+      const zoneName = s.zone_name || 'Unassigned';
+      if (!counts[zoneName]) {
+        counts[zoneName] = { name: zoneName, quantity: 0, wattage: 0 };
+      }
+      counts[zoneName].quantity += s.quantity || 0;
+      counts[zoneName].wattage += s.total_wattage || 0;
+    });
+    return Object.values(counts).filter(z => z.quantity > 0);
+  }, [schedules]);
+
+  // Distribution by fitting type
   const typeDistribution = useMemo(() => {
     const counts: Record<string, number> = {};
-    fittings.forEach((f) => {
-      counts[f.fitting_type] = (counts[f.fitting_type] || 0) + 1;
+    schedules.forEach((s) => {
+      if (s.fitting) {
+        const type = s.fitting.fitting_type;
+        counts[type] = (counts[type] || 0) + (s.quantity || 1);
+      }
     });
     return Object.entries(counts).map(([type, count]) => ({
       name: FITTING_TYPES.find((t) => t.value === type)?.label || type,
       value: count,
     }));
-  }, [fittings]);
+  }, [schedules]);
 
-  const colorTempDistribution = useMemo(() => {
-    const counts: Record<string, number> = {};
-    fittings.forEach((f) => {
-      if (f.color_temperature) {
-        const label = `${f.color_temperature}K`;
-        counts[label] = (counts[label] || 0) + 1;
-      }
-    });
-    return Object.entries(counts)
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => parseInt(a.name) - parseInt(b.name));
-  }, [fittings]);
+  // Recent schedule entries
+  const recentEntries = useMemo(() => {
+    return schedules
+      .filter(s => s.fitting)
+      .slice(0, 5);
+  }, [schedules]);
 
-  const ipRatingDistribution = useMemo(() => {
-    const counts: Record<string, number> = {};
-    fittings.forEach((f) => {
-      if (f.ip_rating) {
-        counts[f.ip_rating] = (counts[f.ip_rating] || 0) + 1;
-      }
-    });
-    return Object.entries(counts)
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => a.name.localeCompare(b.name));
-  }, [fittings]);
+  if (!projectId) {
+    return (
+      <Alert>
+        <AlertCircle className="h-4 w-4" />
+        <AlertDescription>
+          Please select a project to view the lighting schedule overview.
+        </AlertDescription>
+      </Alert>
+    );
+  }
 
-  const recentFittings = useMemo(() => {
-    return fittings.slice(0, 5);
-  }, [fittings]);
+  if (schedules.length === 0 && zones.length === 0) {
+    return (
+      <div className="space-y-6">
+        <Alert>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            No lighting schedule data for this project yet. Start by defining zones in the Schedule tab and assigning fittings.
+          </AlertDescription>
+        </Alert>
 
-  const getEfficacyRating = (efficacy: number) => {
-    if (efficacy >= 130) return { label: 'Excellent', color: 'text-green-500' };
-    if (efficacy >= 100) return { label: 'Good', color: 'text-blue-500' };
-    if (efficacy >= 70) return { label: 'Average', color: 'text-yellow-500' };
-    return { label: 'Below Average', color: 'text-orange-500' };
-  };
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <Card className="opacity-60">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Fittings</CardTitle>
+              <Package className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">0</div>
+              <p className="text-xs text-muted-foreground">Scheduled in project</p>
+            </CardContent>
+          </Card>
 
-  const efficacyRating = getEfficacyRating(stats.avgEfficacy);
+          <Card className="opacity-60">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Zones Defined</CardTitle>
+              <MapPin className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">0</div>
+              <p className="text-xs text-muted-foreground">Create zones to start</p>
+            </CardContent>
+          </Card>
+
+          <Card className="opacity-60">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Tenants</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{tenants.length}</div>
+              <p className="text-xs text-muted-foreground">In project</p>
+            </CardContent>
+          </Card>
+
+          <Card className="opacity-60">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Total Power</CardTitle>
+              <Zap className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">0 <span className="text-sm font-normal">kW</span></div>
+              <p className="text-xs text-muted-foreground">Connected load</p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -172,8 +284,36 @@ export const LightingOverview = ({ projectId }: LightingOverviewProps) => {
             <Package className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalFittings}</div>
-            <p className="text-xs text-muted-foreground">In library</p>
+            <div className="text-2xl font-bold">{stats.totalQuantity}</div>
+            <p className="text-xs text-muted-foreground">
+              {stats.uniqueFittingTypes} unique types
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Power</CardTitle>
+            <Zap className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {(stats.totalWattage / 1000).toFixed(2)} <span className="text-sm font-normal">kW</span>
+            </div>
+            <p className="text-xs text-muted-foreground">Connected load</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Lumens</CardTitle>
+            <Sun className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">
+              {(stats.totalLumens / 1000).toFixed(1)} <span className="text-sm font-normal">klm</span>
+            </div>
+            <p className="text-xs text-muted-foreground">Light output</p>
           </CardContent>
         </Card>
 
@@ -183,72 +323,91 @@ export const LightingOverview = ({ projectId }: LightingOverviewProps) => {
             <Gauge className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.avgEfficacy.toFixed(1)} <span className="text-sm font-normal">lm/W</span></div>
-            <p className={`text-xs ${efficacyRating.color}`}>{efficacyRating.label}</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg CRI</CardTitle>
-            <Sun className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.avgCri.toFixed(0)}</div>
-            <p className="text-xs text-muted-foreground">Color Rendering Index</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Dimmable</CardTitle>
-            <Lightbulb className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.dimmablePercentage.toFixed(0)}%</div>
-            <Progress value={stats.dimmablePercentage} className="mt-2 h-2" />
+            <div className="text-2xl font-bold">
+              {stats.avgEfficacy.toFixed(1)} <span className="text-sm font-normal">lm/W</span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {stats.avgEfficacy >= 100 ? 'Good efficiency' : 'Could improve'}
+            </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Secondary Performance Metrics */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* Coverage Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg Light Output</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Zone Coverage</CardTitle>
+            <MapPin className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.avgLumens.toFixed(0)} <span className="text-sm font-normal">lm</span></div>
-            <p className="text-xs text-muted-foreground">Average lumens per fitting</p>
+          <CardContent className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-2xl font-bold">{stats.zoneCoverage.toFixed(0)}%</span>
+              <span className="text-sm text-muted-foreground">
+                {stats.zonesWithFittings} / {stats.totalZones} zones
+              </span>
+            </div>
+            <Progress value={stats.zoneCoverage} className="h-2" />
+            {stats.zoneCoverage < 100 && (
+              <p className="text-xs text-amber-600">
+                {stats.totalZones - stats.zonesWithFittings} zones need fittings assigned
+              </p>
+            )}
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Avg Power</CardTitle>
-            <Zap className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Tenant Coverage</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.avgWattage.toFixed(1)} <span className="text-sm font-normal">W</span></div>
-            <p className="text-xs text-muted-foreground">Average wattage per fitting</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Project Scheduled</CardTitle>
-            <ShieldCheck className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalScheduledQty}</div>
-            <p className="text-xs text-muted-foreground">Fittings in project schedules</p>
+          <CardContent className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-2xl font-bold">{stats.tenantCoverage.toFixed(0)}%</span>
+              <span className="text-sm text-muted-foreground">
+                {stats.tenantsWithFittings} / {stats.totalTenants} tenants
+              </span>
+            </div>
+            <Progress value={stats.tenantCoverage} className="h-2" />
+            {stats.tenantCoverage < 100 && stats.totalTenants > 0 && (
+              <p className="text-xs text-amber-600">
+                {stats.totalTenants - stats.tenantsWithFittings} tenants need lighting assigned
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
 
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Zone Distribution */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Fittings by Zone</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {zoneDistribution.length > 0 ? (
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={zoneDistribution} layout="vertical">
+                  <XAxis type="number" tick={{ fontSize: 11 }} />
+                  <YAxis dataKey="name" type="category" tick={{ fontSize: 11 }} width={100} />
+                  <Tooltip 
+                    formatter={(value: number, name: string) => [
+                      name === 'quantity' ? `${value} fittings` : `${value}W`,
+                      name === 'quantity' ? 'Quantity' : 'Wattage'
+                    ]}
+                  />
+                  <Bar dataKey="quantity" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[250px] flex items-center justify-center text-muted-foreground">
+                No zone data to display
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Type Distribution */}
         <Card>
           <CardHeader>
@@ -256,93 +415,45 @@ export const LightingOverview = ({ projectId }: LightingOverviewProps) => {
           </CardHeader>
           <CardContent>
             {typeDistribution.length > 0 ? (
-              <ResponsiveContainer width="100%" height={220}>
-                <PieChart>
-                  <Pie
-                    data={typeDistribution}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={50}
-                    outerRadius={80}
-                    paddingAngle={2}
-                    dataKey="value"
-                    label={({ name, percent }) =>
-                      `${(percent * 100).toFixed(0)}%`
-                    }
-                    labelLine={false}
-                  >
-                    {typeDistribution.map((_, index) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        fill={CHART_COLORS[index % CHART_COLORS.length]}
+              <>
+                <ResponsiveContainer width="100%" height={200}>
+                  <PieChart>
+                    <Pie
+                      data={typeDistribution}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={50}
+                      outerRadius={80}
+                      paddingAngle={2}
+                      dataKey="value"
+                      label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
+                      labelLine={false}
+                    >
+                      {typeDistribution.map((_, index) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          fill={CHART_COLORS[index % CHART_COLORS.length]}
+                        />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+                <div className="flex flex-wrap gap-2 mt-2 justify-center">
+                  {typeDistribution.map((item, index) => (
+                    <Badge key={item.name} variant="outline" className="text-xs">
+                      <span 
+                        className="w-2 h-2 rounded-full mr-1" 
+                        style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}
                       />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-[220px] flex items-center justify-center text-muted-foreground">
-                No fittings to display
-              </div>
-            )}
-            {typeDistribution.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-2 justify-center">
-                {typeDistribution.map((item, index) => (
-                  <Badge key={item.name} variant="outline" className="text-xs">
-                    <span 
-                      className="w-2 h-2 rounded-full mr-1" 
-                      style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}
-                    />
-                    {item.name}
-                  </Badge>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Color Temperature Distribution */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Color Temperature</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {colorTempDistribution.length > 0 ? (
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={colorTempDistribution}>
-                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+                      {item.name} ({item.value})
+                    </Badge>
+                  ))}
+                </div>
+              </>
             ) : (
               <div className="h-[250px] flex items-center justify-center text-muted-foreground">
-                No color temperature data
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* IP Rating Distribution */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">IP Ratings</CardTitle>
-          </CardHeader>
-          <CardContent>
-            {ipRatingDistribution.length > 0 ? (
-              <ResponsiveContainer width="100%" height={250}>
-                <BarChart data={ipRatingDistribution} layout="vertical">
-                  <XAxis type="number" tick={{ fontSize: 11 }} />
-                  <YAxis dataKey="name" type="category" tick={{ fontSize: 11 }} width={50} />
-                  <Tooltip />
-                  <Bar dataKey="count" fill="hsl(var(--chart-2))" radius={[0, 4, 4, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div className="h-[250px] flex items-center justify-center text-muted-foreground">
-                No IP rating data
+                No fittings assigned yet
               </div>
             )}
           </CardContent>
@@ -354,15 +465,15 @@ export const LightingOverview = ({ projectId }: LightingOverviewProps) => {
         <CardHeader>
           <CardTitle className="text-base flex items-center gap-2">
             <TrendingUp className="h-4 w-4" />
-            Recently Added Fittings
+            Recently Scheduled Fittings
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {recentFittings.length > 0 ? (
+          {recentEntries.length > 0 ? (
             <div className="space-y-3">
-              {recentFittings.map((fitting) => (
+              {recentEntries.map((entry) => (
                 <div
-                  key={fitting.id}
+                  key={entry.id}
                   className="flex items-center justify-between p-3 rounded-lg bg-muted/50"
                 >
                   <div className="flex items-center gap-3">
@@ -370,20 +481,23 @@ export const LightingOverview = ({ projectId }: LightingOverviewProps) => {
                       <Lightbulb className="h-4 w-4 text-primary" />
                     </div>
                     <div>
-                      <p className="font-medium text-sm">{fitting.model_name}</p>
+                      <p className="font-medium text-sm">{entry.fitting?.model_name}</p>
                       <p className="text-xs text-muted-foreground">
-                        {fitting.fitting_code} • {fitting.manufacturer || 'Unknown'}
+                        {entry.zone_name || 'No zone'} • Qty: {entry.quantity}
                       </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
-                    <Badge variant="outline">
-                      {FITTING_TYPES.find((t) => t.value === fitting.fitting_type)?.label}
-                    </Badge>
+                    {entry.approval_status === 'approved' ? (
+                      <Badge variant="default" className="bg-green-500">
+                        <CheckCircle2 className="h-3 w-3 mr-1" />
+                        Approved
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary">Pending</Badge>
+                    )}
                     <div className="text-right text-xs text-muted-foreground">
-                      {fitting.wattage && <span>{fitting.wattage}W</span>}
-                      {fitting.wattage && fitting.lumen_output && <span> • </span>}
-                      {fitting.lumen_output && <span>{fitting.lumen_output}lm</span>}
+                      {entry.total_wattage && <span>{entry.total_wattage}W</span>}
                     </div>
                   </div>
                 </div>
@@ -391,7 +505,7 @@ export const LightingOverview = ({ projectId }: LightingOverviewProps) => {
             </div>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
-              No fittings added yet. Start building your library!
+              No fittings scheduled yet. Go to the Schedule tab to assign fittings.
             </div>
           )}
         </CardContent>
