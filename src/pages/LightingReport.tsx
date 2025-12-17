@@ -21,6 +21,7 @@ import { LightingReportTab } from '@/components/lighting/reports/LightingReportT
 import { AdvancedFeaturesTab } from '@/components/lighting/advanced/AdvancedFeaturesTab';
 import { AnalyticsTab } from '@/components/lighting/analytics';
 import { LightingHandoverGenerator } from '@/components/lighting/handover';
+import { LightingScheduleTab } from '@/components/lighting/schedule';
 
 const LightingReport = () => {
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -108,17 +109,7 @@ const LightingReport = () => {
         </TabsContent>
 
         <TabsContent value="schedule">
-          <Card className="border-dashed">
-            <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-              <div className="p-4 bg-muted rounded-full mb-4">
-                <Calendar className="h-8 w-8 text-muted-foreground" />
-              </div>
-              <h3 className="text-lg font-semibold mb-2">Project Lighting Schedule</h3>
-              <p className="text-muted-foreground max-w-md">
-                Coming soon - manage project-specific lighting schedules and quantities.
-              </p>
-            </CardContent>
-          </Card>
+          <LightingScheduleTab projectId={projectId} />
         </TabsContent>
 
         <TabsContent value="reports">
