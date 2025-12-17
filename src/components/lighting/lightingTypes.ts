@@ -25,6 +25,7 @@ export interface LightingFitting {
   warranty_years: number | null;
   warranty_terms: string | null;
   spec_sheet_url: string | null;
+  image_url: string | null;
   created_by: string | null;
   created_at: string;
   updated_at: string;

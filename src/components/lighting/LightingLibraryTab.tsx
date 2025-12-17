@@ -38,6 +38,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import {
   Plus,
   Search,
@@ -48,6 +49,7 @@ import {
   Upload,
   Filter,
   X,
+  Lightbulb,
 } from 'lucide-react';
 import { AddFittingDialog } from './AddFittingDialog';
 import { ImportFittingsDialog } from './ImportFittingsDialog';
@@ -243,6 +245,7 @@ export const LightingLibraryTab = ({ projectId }: LightingLibraryTabProps) => {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-[60px]"></TableHead>
                   <TableHead className="w-[100px]">Code</TableHead>
                   <TableHead>Manufacturer</TableHead>
                   <TableHead>Model</TableHead>
@@ -258,13 +261,13 @@ export const LightingLibraryTab = ({ projectId }: LightingLibraryTabProps) => {
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8">
+                    <TableCell colSpan={11} className="text-center py-8">
                       Loading fittings...
                     </TableCell>
                   </TableRow>
                 ) : filteredFittings.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={10} className="text-center py-8">
+                    <TableCell colSpan={11} className="text-center py-8">
                       <div className="text-muted-foreground">
                         {fittings.length === 0
                           ? 'No fittings in library. Add your first fitting.'
@@ -275,6 +278,14 @@ export const LightingLibraryTab = ({ projectId }: LightingLibraryTabProps) => {
                 ) : (
                   filteredFittings.map((fitting) => (
                     <TableRow key={fitting.id}>
+                      <TableCell>
+                        <Avatar className="h-10 w-10 rounded-md">
+                          <AvatarImage src={fitting.image_url || undefined} alt={fitting.model_name} className="object-cover" />
+                          <AvatarFallback className="rounded-md bg-muted">
+                            <Lightbulb className="h-5 w-5 text-muted-foreground" />
+                          </AvatarFallback>
+                        </Avatar>
+                      </TableCell>
                       <TableCell className="font-mono text-sm">
                         {fitting.fitting_code}
                       </TableCell>
