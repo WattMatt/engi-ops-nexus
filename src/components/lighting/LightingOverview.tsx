@@ -90,13 +90,8 @@ export const LightingOverview = ({ projectId }: LightingOverviewProps) => {
       ? fittingsWithCri.reduce((sum, f) => sum + f.cri!, 0) / fittingsWithCri.length
       : 0;
     
-    const ledCount = fittings.filter(f => 
-      f.fitting_type === 'led_panel' || 
-      f.fitting_type === 'led_downlight' || 
-      f.fitting_type === 'led_strip' ||
-      f.fitting_type === 'led_tube'
-    ).length;
-    const ledPercentage = totalFittings > 0 ? (ledCount / totalFittings) * 100 : 0;
+    const dimmableCount = fittings.filter(f => f.is_dimmable).length;
+    const dimmablePercentage = totalFittings > 0 ? (dimmableCount / totalFittings) * 100 : 0;
     
     const fittingsWithLumens = fittings.filter(f => f.lumen_output);
     const totalLumens = fittingsWithLumens.reduce((sum, f) => sum + (f.lumen_output || 0), 0);
@@ -112,7 +107,7 @@ export const LightingOverview = ({ projectId }: LightingOverviewProps) => {
       totalScheduledQty,
       avgEfficacy,
       avgCri,
-      ledPercentage,
+      dimmablePercentage,
       avgLumens,
       avgWattage,
     };
@@ -206,12 +201,12 @@ export const LightingOverview = ({ projectId }: LightingOverviewProps) => {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">LED Adoption</CardTitle>
+            <CardTitle className="text-sm font-medium">Dimmable</CardTitle>
             <Lightbulb className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.ledPercentage.toFixed(0)}%</div>
-            <Progress value={stats.ledPercentage} className="mt-2 h-2" />
+            <div className="text-2xl font-bold">{stats.dimmablePercentage.toFixed(0)}%</div>
+            <Progress value={stats.dimmablePercentage} className="mt-2 h-2" />
           </CardContent>
         </Card>
       </div>
