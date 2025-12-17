@@ -186,6 +186,7 @@ export const ImageAreaSelector: React.FC<ImageAreaSelectorProps> = ({
         </div>
         <div className="flex items-center gap-2">
           <Button
+            type="button"
             variant="ghost"
             size="sm"
             onClick={handleReset}
@@ -195,6 +196,7 @@ export const ImageAreaSelector: React.FC<ImageAreaSelectorProps> = ({
             Reset
           </Button>
           <Button
+            type="button"
             variant="ghost"
             size="sm"
             onClick={onCancel}
@@ -203,6 +205,7 @@ export const ImageAreaSelector: React.FC<ImageAreaSelectorProps> = ({
             Cancel
           </Button>
           <Button
+            type="button"
             size="sm"
             onClick={handleCrop}
             disabled={!hasValidSelection}
