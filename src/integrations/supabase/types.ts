@@ -4462,6 +4462,7 @@ export type Database = {
           fitting_type: string
           id: string
           ik_rating: string | null
+          image_url: string | null
           install_cost: number | null
           ip_rating: string | null
           is_dimmable: boolean | null
@@ -4493,6 +4494,7 @@ export type Database = {
           fitting_type: string
           id?: string
           ik_rating?: string | null
+          image_url?: string | null
           install_cost?: number | null
           ip_rating?: string | null
           is_dimmable?: boolean | null
@@ -4524,6 +4526,7 @@ export type Database = {
           fitting_type?: string
           id?: string
           ik_rating?: string | null
+          image_url?: string | null
           install_cost?: number | null
           ip_rating?: string | null
           is_dimmable?: boolean | null

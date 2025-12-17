@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -32,6 +32,7 @@ import {
 } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ImagePlus, X, Loader2 } from 'lucide-react';
 import {
   FITTING_TYPES,
   FITTING_CATEGORIES,
@@ -85,6 +86,10 @@ export const AddFittingDialog = ({
 }: AddFittingDialogProps) => {
   const queryClient = useQueryClient();
   const [selectedType, setSelectedType] = useState(editFitting?.fitting_type || '');
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(editFitting?.image_url || null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<FittingFormData>({
     resolver: zodResolver(fittingSchema),
@@ -127,10 +132,73 @@ export const AddFittingDialog = ({
         },
   });
 
+  // Reset image state when editFitting changes
+  useEffect(() => {
+    setImageFile(null);
+    setImagePreview(editFitting?.image_url || null);
+    setSelectedType(editFitting?.fitting_type || '');
+  }, [editFitting]);
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        toast.error('Please select an image file');
+        return;
+      }
+      if (file.size > 5 * 1024 * 1024) {
+        toast.error('Image must be less than 5MB');
+        return;
+      }
+      setImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
+    }
+  };
+
+  const removeImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const uploadImage = async (fittingId: string): Promise<string | null> => {
+    if (!imageFile) return imagePreview; // Keep existing image if no new file
+    
+    setIsUploadingImage(true);
+    try {
+      const fileExt = imageFile.name.split('.').pop();
+      const fileName = `${fittingId}/${Date.now()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from('lighting-spec-sheets')
+        .upload(fileName, imageFile, { upsert: true });
+      
+      if (uploadError) throw uploadError;
+      
+      const { data: { publicUrl } } = supabase.storage
+        .from('lighting-spec-sheets')
+        .getPublicUrl(fileName);
+      
+      return publicUrl;
+    } catch (error) {
+      console.error('Image upload error:', error);
+      toast.error('Failed to upload image');
+      return null;
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
   const saveMutation = useMutation({
     mutationFn: async (data: FittingFormData) => {
       const { data: userData } = await supabase.auth.getUser();
       
+      // If editing, use existing ID; otherwise we'll get the new ID after insert
+      let fittingId = editFitting?.id;
+      let imageUrl = editFitting?.image_url || null;
+
       const fittingData = {
         fitting_code: data.fitting_code,
         manufacturer: data.manufacturer || null,
@@ -160,16 +228,39 @@ export const AddFittingDialog = ({
       };
 
       if (editFitting) {
+        // Upload image if new file selected
+        if (imageFile) {
+          imageUrl = await uploadImage(editFitting.id);
+        } else if (!imagePreview) {
+          imageUrl = null; // Image was removed
+        }
+        
         const { error } = await supabase
           .from('lighting_fittings')
-          .update(fittingData)
+          .update({ ...fittingData, image_url: imageUrl })
           .eq('id', editFitting.id);
         if (error) throw error;
       } else {
-        const { error } = await supabase
+        // Insert first to get the ID
+        const { data: insertedData, error } = await supabase
           .from('lighting_fittings')
-          .insert([fittingData]);
+          .insert([fittingData])
+          .select('id')
+          .single();
         if (error) throw error;
+        
+        fittingId = insertedData.id;
+        
+        // Upload image with the new fitting ID
+        if (imageFile && fittingId) {
+          imageUrl = await uploadImage(fittingId);
+          if (imageUrl) {
+            await supabase
+              .from('lighting_fittings')
+              .update({ image_url: imageUrl })
+              .eq('id', fittingId);
+          }
+        }
       }
     },
     onSuccess: () => {
@@ -177,6 +268,8 @@ export const AddFittingDialog = ({
       toast.success(editFitting ? 'Fitting updated' : 'Fitting added');
       onOpenChange(false);
       form.reset();
+      setImageFile(null);
+      setImagePreview(null);
     },
     onError: (error) => {
       toast.error('Failed to save fitting', { description: error.message });
@@ -331,6 +424,63 @@ export const AddFittingDialog = ({
                       </FormItem>
                     )}
                   />
+
+                  {/* Image Upload */}
+                  <div className="space-y-2">
+                    <FormLabel>Product Image</FormLabel>
+                    <div className="flex items-start gap-4">
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleImageSelect}
+                        className="hidden"
+                      />
+                      
+                      {imagePreview ? (
+                        <div className="relative">
+                          <img
+                            src={imagePreview}
+                            alt="Fitting preview"
+                            className="w-24 h-24 object-cover rounded-lg border"
+                          />
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="icon"
+                            className="absolute -top-2 -right-2 h-6 w-6"
+                            onClick={removeImage}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="w-24 h-24 flex flex-col items-center justify-center gap-1"
+                          onClick={() => fileInputRef.current?.click()}
+                        >
+                          <ImagePlus className="h-6 w-6 text-muted-foreground" />
+                          <span className="text-xs text-muted-foreground">Add Image</span>
+                        </Button>
+                      )}
+                      
+                      {imagePreview && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => fileInputRef.current?.click()}
+                        >
+                          Change Image
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Upload a product image (max 5MB)
+                    </p>
+                  </div>
                 </TabsContent>
 
                 <TabsContent value="specs" className="space-y-4 mt-4">
