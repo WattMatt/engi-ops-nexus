@@ -53,8 +53,8 @@ interface LightingZone {
 // Based on SANS 10114 / South African Environmental Regulations for Workplace Lighting (1987)
 const ZONE_TYPES = [
   { value: "mall", label: "Mall Circulation", defaultLux: 300 },
-  { value: "parking_covered", label: "Parking - Covered", defaultLux: 100 },
-  { value: "parking_open", label: "Parking - Open Air", defaultLux: 50 },
+  { value: "parking_basement", label: "Parking - Basement", defaultLux: 100 },
+  { value: "parking_lot", label: "Parking Lot (Open Air)", defaultLux: 30 },
   { value: "parking_ramps", label: "Parking - Ramps", defaultLux: 300 },
   { value: "back_of_house", label: "Back of House", defaultLux: 200 },
   { value: "ablutions", label: "Ablutions", defaultLux: 150 },
@@ -81,16 +81,16 @@ const ZONE_TYPES = [
 
 const ZONE_TEMPLATES = [
   { name: "Shopping Centre", zones: [
-    { zone_name: "Parking - Covered", zone_type: "parking_covered", min_lux: 100 },
+    { zone_name: "Basement Parking", zone_type: "parking_basement", min_lux: 100 },
     { zone_name: "Mall Circulation", zone_type: "mall", min_lux: 300 },
     { zone_name: "Back of House", zone_type: "back_of_house", min_lux: 200 },
     { zone_name: "Ablutions", zone_type: "ablutions", min_lux: 150 },
     { zone_name: "Service Passages", zone_type: "service_passage", min_lux: 100 },
   ]},
   { name: "Shopping Centre (Extended)", zones: [
-    { zone_name: "Parking - Basement", zone_type: "parking_covered", min_lux: 100 },
-    { zone_name: "Parking - Surface", zone_type: "parking_open", min_lux: 50 },
-    { zone_name: "Parking - Ramps", zone_type: "parking_ramps", min_lux: 300 },
+    { zone_name: "Basement Parking", zone_type: "parking_basement", min_lux: 100 },
+    { zone_name: "Parking Lot", zone_type: "parking_lot", min_lux: 30 },
+    { zone_name: "Parking Ramps", zone_type: "parking_ramps", min_lux: 300 },
     { zone_name: "Mall - Ground Floor", zone_type: "mall", min_lux: 300 },
     { zone_name: "Mall - Upper Level", zone_type: "mall", min_lux: 300 },
     { zone_name: "Food Court", zone_type: "food_court", min_lux: 200 },
@@ -116,7 +116,7 @@ const ZONE_TEMPLATES = [
     { zone_name: "Corridors", zone_type: "corridor", min_lux: 100 },
     { zone_name: "Ablutions", zone_type: "ablutions", min_lux: 150 },
     { zone_name: "Stairwells", zone_type: "stairwell", min_lux: 150 },
-    { zone_name: "Parking", zone_type: "parking_covered", min_lux: 100 },
+    { zone_name: "Basement Parking", zone_type: "parking_basement", min_lux: 100 },
   ]},
   { name: "Restaurant / Food Service", zones: [
     { zone_name: "Dining Area", zone_type: "food_court", min_lux: 200 },
