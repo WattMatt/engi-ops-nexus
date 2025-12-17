@@ -284,7 +284,7 @@ export const LightingLibraryTab = ({ projectId }: LightingLibraryTabProps) => {
                 ) : (
                   filteredFittings.map((fitting) => (
                     <TableRow key={fitting.id}>
-                      <TableCell>
+                      <TableCell className="w-[60px]">
                         <Avatar className="h-10 w-10 rounded-md">
                           <AvatarImage src={fitting.image_url || undefined} alt={fitting.model_name} className="object-cover" />
                           <AvatarFallback className="rounded-md bg-muted">
@@ -292,34 +292,34 @@ export const LightingLibraryTab = ({ projectId }: LightingLibraryTabProps) => {
                           </AvatarFallback>
                         </Avatar>
                       </TableCell>
-                      <TableCell className="font-mono text-sm">
+                      <TableCell className="w-[100px] font-mono text-sm">
                         {fitting.fitting_code}
                       </TableCell>
-                      <TableCell>{fitting.manufacturer || '-'}</TableCell>
-                      <TableCell className="max-w-[200px] truncate">
+                      <TableCell className="w-[120px]">{fitting.manufacturer || '-'}</TableCell>
+                      <TableCell className="w-[200px] max-w-[200px] truncate">
                         {fitting.model_name}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="w-[100px]">
                         <Badge variant="outline">{getTypeLabel(fitting.fitting_type)}</Badge>
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="w-[80px] text-right">
                         {fitting.wattage ? `${fitting.wattage}W` : '-'}
                       </TableCell>
-                      <TableCell className="text-right">
+                      <TableCell className="w-[80px] text-right">
                         {fitting.lumen_output ? `${fitting.lumen_output}lm` : '-'}
                       </TableCell>
-                      <TableCell className="text-center">
+                      <TableCell className="w-[80px] text-center">
                         {fitting.color_temperature ? `${fitting.color_temperature}K` : '-'}
                       </TableCell>
-                      <TableCell className="text-center">
+                      <TableCell className="w-[80px] text-center">
                         <Badge variant="outline" className="text-xs">
                           {(fitting as any).warranty_years || 3} yrs
                         </Badge>
                       </TableCell>
-                      <TableCell className="text-right font-medium">
+                      <TableCell className="w-[100px] text-right font-medium">
                         {formatCurrency(fitting.supply_cost + fitting.install_cost)}
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="w-[50px]">
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="h-8 w-8">
