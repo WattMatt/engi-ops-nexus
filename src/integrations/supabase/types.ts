@@ -4457,6 +4457,7 @@ export type Database = {
           created_by: string | null
           cri: number | null
           dimensions: string | null
+          dimmable: boolean | null
           driver_type: string | null
           fitting_code: string
           fitting_type: string
@@ -4489,6 +4490,7 @@ export type Database = {
           created_by?: string | null
           cri?: number | null
           dimensions?: string | null
+          dimmable?: boolean | null
           driver_type?: string | null
           fitting_code: string
           fitting_type: string
@@ -4521,6 +4523,7 @@ export type Database = {
           created_by?: string | null
           cri?: number | null
           dimensions?: string | null
+          dimmable?: boolean | null
           driver_type?: string | null
           fitting_code?: string
           fitting_type?: string
