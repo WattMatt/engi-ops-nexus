@@ -352,11 +352,10 @@ export const AddFittingDialog = ({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lighting-fittings'] });
+      queryClient.invalidateQueries({ queryKey: ['fitting-spec-sheet'] });
       toast.success(editFitting ? 'Fitting updated' : 'Fitting added');
+      // Close dialog first - state will be reset by useEffect when dialog reopens
       onOpenChange(false);
-      form.reset();
-      setImageFile(null);
-      setImagePreview(null);
     },
     onError: (error) => {
       toast.error('Failed to save fitting', { description: error.message });
