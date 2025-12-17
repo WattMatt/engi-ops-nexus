@@ -243,19 +243,19 @@ export const LightingLibraryTab = ({ projectId }: LightingLibraryTabProps) => {
           {/* Table */}
           <ScrollArea className="h-[500px] rounded-md border">
             <Table>
-              <TableHeader>
+              <TableHeader className="sticky top-0 z-10 bg-background">
                 <TableRow>
-                  <TableHead className="w-[60px]"></TableHead>
-                  <TableHead className="w-[100px]">Code</TableHead>
-                  <TableHead>Manufacturer</TableHead>
-                  <TableHead>Model</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead className="text-right">Wattage</TableHead>
-                  <TableHead className="text-right">Lumens</TableHead>
-                  <TableHead className="text-center">Color</TableHead>
-                  <TableHead className="text-center">Warranty</TableHead>
-                  <TableHead className="text-right">Total Cost</TableHead>
-                  <TableHead className="w-[50px]" />
+                  <TableHead className="w-[60px] bg-background"></TableHead>
+                  <TableHead className="w-[100px] bg-background">Code</TableHead>
+                  <TableHead className="bg-background">Manufacturer</TableHead>
+                  <TableHead className="bg-background">Model</TableHead>
+                  <TableHead className="bg-background">Type</TableHead>
+                  <TableHead className="text-right bg-background">Wattage</TableHead>
+                  <TableHead className="text-right bg-background">Lumens</TableHead>
+                  <TableHead className="text-center bg-background">Color</TableHead>
+                  <TableHead className="text-center bg-background">Warranty</TableHead>
+                  <TableHead className="text-right bg-background">Total Cost</TableHead>
+                  <TableHead className="w-[50px] bg-background" />
                 </TableRow>
               </TableHeader>
               <TableBody>
