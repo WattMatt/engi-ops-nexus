@@ -17,10 +17,13 @@ import {
   FileText,
   Image as ImageIcon,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Crop
 } from 'lucide-react';
 import { SpecSheet } from './types';
 import { toast } from 'sonner';
+import { ImageAreaSelector } from './ImageAreaSelector';
+import { PdfPageSelector } from './PdfPageSelector';
 
 // Set up PDF.js worker
 pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
@@ -29,12 +32,14 @@ interface SpecSheetViewerProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   specSheet: SpecSheet;
+  onImageExtracted?: (blob: Blob, specSheetId: string) => void;
 }
 
 export const SpecSheetViewer: React.FC<SpecSheetViewerProps> = ({
   open,
   onOpenChange,
   specSheet,
+  onImageExtracted,
 }) => {
   const [fileUrl, setFileUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -42,6 +47,7 @@ export const SpecSheetViewer: React.FC<SpecSheetViewerProps> = ({
   const [rotation, setRotation] = useState(0);
   const [numPages, setNumPages] = useState<number | null>(null);
   const [pageNumber, setPageNumber] = useState(1);
+  const [cropMode, setCropMode] = useState(false);
 
   useEffect(() => {
     if (open && specSheet) {
@@ -49,6 +55,7 @@ export const SpecSheetViewer: React.FC<SpecSheetViewerProps> = ({
       setPageNumber(1);
       setZoom(1);
       setRotation(0);
+      setCropMode(false);
     }
     return () => {
       if (fileUrl) {
@@ -96,6 +103,14 @@ export const SpecSheetViewer: React.FC<SpecSheetViewerProps> = ({
     }
   };
 
+  const handleCrop = async (blob: Blob) => {
+    if (onImageExtracted) {
+      onImageExtracted(blob, specSheet.id);
+      setCropMode(false);
+      toast.success('Image extracted successfully');
+    }
+  };
+
   const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
     setNumPages(numPages);
     setLoading(false);
@@ -123,123 +138,154 @@ export const SpecSheetViewer: React.FC<SpecSheetViewerProps> = ({
           </DialogTitle>
         </DialogHeader>
 
-        {/* Toolbar */}
-        <div className="flex items-center gap-2 border-b pb-3">
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setZoom(z => Math.max(0.5, z - 0.25))}
-            disabled={zoom <= 0.5}
-          >
-            <ZoomOut className="h-4 w-4" />
-          </Button>
-          <span className="text-sm text-muted-foreground w-16 text-center">
-            {Math.round(zoom * 100)}%
-          </span>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setZoom(z => Math.min(3, z + 0.25))}
-            disabled={zoom >= 3}
-          >
-            <ZoomIn className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="outline"
-            size="icon"
-            onClick={() => setRotation(r => (r + 90) % 360)}
-          >
-            <RotateCw className="h-4 w-4" />
-          </Button>
-          
-          {isPdf && numPages && numPages > 1 && (
-            <>
-              <div className="h-4 w-px bg-border mx-2" />
+        {cropMode && fileUrl ? (
+          // Crop mode view
+          isPdf ? (
+            <PdfPageSelector
+              pdfUrl={fileUrl}
+              onCrop={handleCrop}
+              onCancel={() => setCropMode(false)}
+            />
+          ) : isImage ? (
+            <ImageAreaSelector
+              imageUrl={fileUrl}
+              onCrop={handleCrop}
+              onCancel={() => setCropMode(false)}
+            />
+          ) : null
+        ) : (
+          <>
+            {/* Toolbar */}
+            <div className="flex items-center gap-2 border-b pb-3">
               <Button
                 variant="outline"
                 size="icon"
-                onClick={goToPrevPage}
-                disabled={pageNumber <= 1}
+                onClick={() => setZoom(z => Math.max(0.5, z - 0.25))}
+                disabled={zoom <= 0.5}
               >
-                <ChevronLeft className="h-4 w-4" />
+                <ZoomOut className="h-4 w-4" />
               </Button>
-              <span className="text-sm text-muted-foreground">
-                {pageNumber} / {numPages}
+              <span className="text-sm text-muted-foreground w-16 text-center">
+                {Math.round(zoom * 100)}%
               </span>
               <Button
                 variant="outline"
                 size="icon"
-                onClick={goToNextPage}
-                disabled={pageNumber >= numPages}
+                onClick={() => setZoom(z => Math.min(3, z + 0.25))}
+                disabled={zoom >= 3}
               >
-                <ChevronRight className="h-4 w-4" />
+                <ZoomIn className="h-4 w-4" />
               </Button>
-            </>
-          )}
-          
-          <div className="flex-1" />
-          <Button variant="outline" size="sm" onClick={handleDownload}>
-            <Download className="h-4 w-4 mr-2" />
-            Download
-          </Button>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-auto bg-muted/30 rounded-lg flex items-center justify-center">
-          {loading && !fileUrl ? (
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          ) : fileUrl ? (
-            isImage ? (
-              <div className="overflow-auto w-full h-full flex items-center justify-center p-4">
-                <img
-                  src={fileUrl}
-                  alt={specSheet.file_name}
-                  style={{
-                    transform: `scale(${zoom}) rotate(${rotation}deg)`,
-                    transition: 'transform 0.2s ease',
-                    maxWidth: zoom <= 1 ? '100%' : 'none',
-                    maxHeight: zoom <= 1 ? '100%' : 'none',
-                  }}
-                  className="object-contain"
-                />
-              </div>
-            ) : isPdf ? (
-              <div className="overflow-auto w-full h-full flex justify-center p-4">
-                <Document
-                  file={fileUrl}
-                  onLoadSuccess={onDocumentLoadSuccess}
-                  onLoadError={onDocumentLoadError}
-                  loading={
-                    <div className="flex items-center justify-center h-full">
-                      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                    </div>
-                  }
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => setRotation(r => (r + 90) % 360)}
+              >
+                <RotateCw className="h-4 w-4" />
+              </Button>
+              
+              {isPdf && numPages && numPages > 1 && (
+                <>
+                  <div className="h-4 w-px bg-border mx-2" />
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={goToPrevPage}
+                    disabled={pageNumber <= 1}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="text-sm text-muted-foreground">
+                    {pageNumber} / {numPages}
+                  </span>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={goToNextPage}
+                    disabled={pageNumber >= numPages}
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </>
+              )}
+              
+              <div className="flex-1" />
+              
+              {onImageExtracted && (isPdf || isImage) && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => setCropMode(true)}
                 >
-                  <Page
-                    pageNumber={pageNumber}
-                    scale={zoom}
-                    rotate={rotation}
-                    renderTextLayer={true}
-                    renderAnnotationLayer={true}
-                    className="shadow-lg"
-                  />
-                </Document>
-              </div>
-            ) : (
-              <div className="text-center text-muted-foreground">
-                <FileText className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                <p>Preview not available for this file type</p>
-                <Button variant="link" onClick={handleDownload}>
-                  Download to view
+                  <Crop className="h-4 w-4 mr-2" />
+                  Extract Image
                 </Button>
-              </div>
-            )
-          ) : (
-            <div className="text-center text-muted-foreground">
-              <p>Failed to load file</p>
+              )}
+              
+              <Button variant="outline" size="sm" onClick={handleDownload}>
+                <Download className="h-4 w-4 mr-2" />
+                Download
+              </Button>
             </div>
-          )}
-        </div>
+
+            {/* Content */}
+            <div className="flex-1 overflow-auto bg-muted/30 rounded-lg flex items-center justify-center">
+              {loading && !fileUrl ? (
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              ) : fileUrl ? (
+                isImage ? (
+                  <div className="overflow-auto w-full h-full flex items-center justify-center p-4">
+                    <img
+                      src={fileUrl}
+                      alt={specSheet.file_name}
+                      style={{
+                        transform: `scale(${zoom}) rotate(${rotation}deg)`,
+                        transition: 'transform 0.2s ease',
+                        maxWidth: zoom <= 1 ? '100%' : 'none',
+                        maxHeight: zoom <= 1 ? '100%' : 'none',
+                      }}
+                      className="object-contain"
+                    />
+                  </div>
+                ) : isPdf ? (
+                  <div className="overflow-auto w-full h-full flex justify-center p-4">
+                    <Document
+                      file={fileUrl}
+                      onLoadSuccess={onDocumentLoadSuccess}
+                      onLoadError={onDocumentLoadError}
+                      loading={
+                        <div className="flex items-center justify-center h-full">
+                          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                        </div>
+                      }
+                    >
+                      <Page
+                        pageNumber={pageNumber}
+                        scale={zoom}
+                        rotate={rotation}
+                        renderTextLayer={true}
+                        renderAnnotationLayer={true}
+                        className="shadow-lg"
+                      />
+                    </Document>
+                  </div>
+                ) : (
+                  <div className="text-center text-muted-foreground">
+                    <FileText className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                    <p>Preview not available for this file type</p>
+                    <Button variant="link" onClick={handleDownload}>
+                      Download to view
+                    </Button>
+                  </div>
+                )
+              ) : (
+                <div className="text-center text-muted-foreground">
+                  <p>Failed to load file</p>
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

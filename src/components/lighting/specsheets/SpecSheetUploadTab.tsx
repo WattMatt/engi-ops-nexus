@@ -539,6 +539,44 @@ export const SpecSheetUploadTab: React.FC<SpecSheetUploadTabProps> = ({ projectI
           open={viewerOpen}
           onOpenChange={setViewerOpen}
           specSheet={selectedSheet}
+          onImageExtracted={async (blob, specSheetId) => {
+            try {
+              // Upload the extracted image
+              const fileName = `fitting-images/${Date.now()}-extracted.png`;
+              const { data: uploadData, error: uploadError } = await supabase.storage
+                .from('lighting-spec-sheets')
+                .upload(fileName, blob, {
+                  contentType: 'image/png',
+                  upsert: false,
+                });
+
+              if (uploadError) throw uploadError;
+
+              const { data: urlData } = supabase.storage
+                .from('lighting-spec-sheets')
+                .getPublicUrl(uploadData.path);
+
+              // Check if spec sheet has a linked fitting
+              const sheet = specSheets.find(s => s.id === specSheetId);
+              if (sheet?.fitting_id) {
+                // Update the fitting's image_url
+                const { error: updateError } = await supabase
+                  .from('lighting_fittings')
+                  .update({ image_url: urlData.publicUrl })
+                  .eq('id', sheet.fitting_id);
+
+                if (updateError) throw updateError;
+                
+                queryClient.invalidateQueries({ queryKey: ['lighting-fittings'] });
+                toast.success('Fitting image updated');
+              } else {
+                toast.success('Image extracted - link spec sheet to a fitting to use it');
+              }
+            } catch (error) {
+              console.error('Error saving extracted image:', error);
+              toast.error('Failed to save extracted image');
+            }
+          }}
         />
       )}
 
