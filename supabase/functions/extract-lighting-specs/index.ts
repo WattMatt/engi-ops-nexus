@@ -40,8 +40,14 @@ Required fields:
   - "Highbay", "High Bay" = highbay
   - IP65/IP66 surface mounted long fixtures are usually vapourproof, not linear
 
-- wattage: Power consumption in Watts (number only)
-- lumen_output: Light output in lumens (number only)
+- wattage: Power consumption in Watts (number only). Look for "W", "Watt", "System Power", "Power consumption"
+- lumen_output: Light output in lumens (number only). IMPORTANT: Look carefully for:
+  * "lm" or "lumen" or "lumens" values
+  * "Luminous flux" - this IS the lumen value
+  * "Light output" or "Output"
+  * Tables showing wattage vs lumen output - use the value matching the wattage
+  * May appear as "3000lm", "3000 lm", "3,000 lumens", etc.
+  * If multiple lumen values exist for different wattages, use the one matching the primary wattage
 - color_temperature: Color temperature in Kelvin (number only, e.g., 3000, 4000, 6500)
 - cri: Color Rendering Index (number only, typically 80-100)
 - beam_angle: Beam angle in degrees (number only)
