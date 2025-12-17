@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import {
@@ -93,6 +93,35 @@ export const AddFittingDialog = ({
   const [isUploadingImage, setIsUploadingImage] = useState(false);
   const [showSpecSheetCropper, setShowSpecSheetCropper] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Fetch linked spec sheet for the fitting
+  const { data: linkedSpecSheet } = useQuery({
+    queryKey: ['fitting-spec-sheet', editFitting?.id],
+    queryFn: async () => {
+      if (!editFitting?.id) return null;
+      
+      const { data, error } = await supabase
+        .from('lighting_spec_sheets')
+        .select('id, file_path, file_type')
+        .eq('fitting_id', editFitting.id)
+        .maybeSingle();
+      
+      if (error) {
+        console.error('Error fetching spec sheet:', error);
+        return null;
+      }
+      
+      if (data?.file_path) {
+        const { data: urlData } = supabase.storage
+          .from('lighting-spec-sheets')
+          .getPublicUrl(data.file_path);
+        return { ...data, url: urlData.publicUrl };
+      }
+      
+      return null;
+    },
+    enabled: !!editFitting?.id && open,
+  });
 
   const form = useForm<FittingFormData>({
     resolver: zodResolver(fittingSchema),
@@ -217,8 +246,9 @@ export const AddFittingDialog = ({
     setShowSpecSheetCropper(false);
   };
 
-  const specSheetUrl = editFitting?.spec_sheet_url;
-  const isPdf = specSheetUrl?.toLowerCase().endsWith('.pdf');
+  // Use linked spec sheet URL if available, otherwise fall back to fitting's spec_sheet_url
+  const specSheetUrl = linkedSpecSheet?.url || editFitting?.spec_sheet_url;
+  const isPdf = specSheetUrl?.toLowerCase().endsWith('.pdf') || linkedSpecSheet?.file_type === 'application/pdf';
 
   const uploadImage = async (fittingId: string): Promise<string | null> => {
     if (!imageFile) return imagePreview; // Keep existing image if no new file
