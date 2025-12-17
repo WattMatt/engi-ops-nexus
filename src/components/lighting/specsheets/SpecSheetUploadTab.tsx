@@ -491,18 +491,26 @@ export const SpecSheetUploadTab: React.FC<SpecSheetUploadTabProps> = ({ projectI
                       <Eye className="h-4 w-4" />
                     </Button>
                     
-                    {sheet.extraction_status === 'completed' && (
+                    {sheet.extraction_status === 'completed' && !sheet.fitting_id && (
                       <Button
-                        variant="ghost"
-                        size="icon"
+                        variant="secondary"
+                        size="sm"
                         onClick={() => {
                           setSelectedSheet(sheet);
                           setReviewOpen(true);
                         }}
-                        title="Review Extracted Data"
+                        className="gap-1"
                       >
                         <Sparkles className="h-4 w-4" />
+                        Add to Library
                       </Button>
+                    )}
+                    
+                    {sheet.extraction_status === 'completed' && sheet.fitting_id && (
+                      <Badge variant="outline" className="bg-green-500/10 text-green-500 border-green-500/30">
+                        <CheckCircle2 className="h-3 w-3 mr-1" />
+                        In Library
+                      </Badge>
                     )}
 
                     {(sheet.extraction_status === 'failed' || sheet.extraction_status === 'pending') && 
