@@ -241,24 +241,30 @@ export const LightingLibraryTab = ({ projectId }: LightingLibraryTabProps) => {
           </div>
 
           {/* Table */}
-          <ScrollArea className="h-[500px] rounded-md border">
+          <div className="rounded-md border">
+            {/* Fixed Header */}
             <Table>
-              <TableHeader className="sticky top-0 z-10 bg-background">
+              <TableHeader className="bg-muted/50">
                 <TableRow>
-                  <TableHead className="w-[60px] bg-background"></TableHead>
-                  <TableHead className="w-[100px] bg-background">Code</TableHead>
-                  <TableHead className="bg-background">Manufacturer</TableHead>
-                  <TableHead className="bg-background">Model</TableHead>
-                  <TableHead className="bg-background">Type</TableHead>
-                  <TableHead className="text-right bg-background">Wattage</TableHead>
-                  <TableHead className="text-right bg-background">Lumens</TableHead>
-                  <TableHead className="text-center bg-background">Color</TableHead>
-                  <TableHead className="text-center bg-background">Warranty</TableHead>
-                  <TableHead className="text-right bg-background">Total Cost</TableHead>
-                  <TableHead className="w-[50px] bg-background" />
+                  <TableHead className="w-[60px]"></TableHead>
+                  <TableHead className="w-[100px]">Code</TableHead>
+                  <TableHead className="w-[120px]">Manufacturer</TableHead>
+                  <TableHead className="w-[200px]">Model</TableHead>
+                  <TableHead className="w-[100px]">Type</TableHead>
+                  <TableHead className="w-[80px] text-right">Wattage</TableHead>
+                  <TableHead className="w-[80px] text-right">Lumens</TableHead>
+                  <TableHead className="w-[80px] text-center">Color</TableHead>
+                  <TableHead className="w-[80px] text-center">Warranty</TableHead>
+                  <TableHead className="w-[100px] text-right">Total Cost</TableHead>
+                  <TableHead className="w-[50px]" />
                 </TableRow>
               </TableHeader>
-              <TableBody>
+            </Table>
+            
+            {/* Scrollable Body */}
+            <ScrollArea className="h-[450px]">
+              <Table>
+                <TableBody>
                 {isLoading ? (
                   <TableRow>
                     <TableCell colSpan={11} className="text-center py-8">
@@ -343,9 +349,10 @@ export const LightingLibraryTab = ({ projectId }: LightingLibraryTabProps) => {
                     </TableRow>
                   ))
                 )}
-              </TableBody>
-            </Table>
-          </ScrollArea>
+                </TableBody>
+              </Table>
+            </ScrollArea>
+          </div>
 
           <div className="mt-2 text-sm text-muted-foreground">
             Showing {filteredFittings.length} of {fittings.length} fittings
