@@ -36,12 +36,17 @@ import {
   Plus, 
   AlertTriangle, 
   CheckCircle2,
-  Loader2
+  Loader2,
+  Crop,
+  Image as ImageIcon,
+  X
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { SpecSheet, ExtractedLightingData, ConfidenceScores } from './types';
 import { FITTING_TYPES, IP_RATINGS, IK_RATINGS, DRIVER_TYPES, COLOR_TEMPERATURES } from '../lightingTypes';
+import { ImageAreaSelector } from './ImageAreaSelector';
+import { PdfPageSelector } from './PdfPageSelector';
 
 interface ExtractionReviewDialogProps {
   open: boolean;
@@ -64,6 +69,29 @@ export const ExtractionReviewDialog: React.FC<ExtractionReviewDialogProps> = ({
   const [formData, setFormData] = useState<FormData>({} as FormData);
   const [duplicateWarning, setDuplicateWarning] = useState<any[]>([]);
   const [showDuplicateDialog, setShowDuplicateDialog] = useState(false);
+  const [extractedImage, setExtractedImage] = useState<Blob | null>(null);
+  const [extractedImagePreview, setExtractedImagePreview] = useState<string | null>(null);
+  const [cropMode, setCropMode] = useState(false);
+  const [fileUrl, setFileUrl] = useState<string | null>(null);
+
+  // Load spec sheet URL for cropping
+  useEffect(() => {
+    if (open && specSheet) {
+      loadFileUrl();
+    }
+  }, [open, specSheet]);
+
+  const loadFileUrl = async () => {
+    try {
+      const { data, error } = await supabase.storage
+        .from('lighting-spec-sheets')
+        .createSignedUrl(specSheet.file_path, 3600);
+      if (error) throw error;
+      setFileUrl(data.signedUrl);
+    } catch (error) {
+      console.error('Error loading file URL:', error);
+    }
+  };
 
   // Check for duplicates
   const { data: existingFittings = [] } = useQuery({
@@ -84,6 +112,9 @@ export const ExtractionReviewDialog: React.FC<ExtractionReviewDialogProps> = ({
         ...extracted,
         fitting_code: generateFittingCode(extracted),
       });
+      setExtractedImage(null);
+      setExtractedImagePreview(null);
+      setCropMode(false);
     }
   }, [open, specSheet]);
 
@@ -153,6 +184,28 @@ export const ExtractionReviewDialog: React.FC<ExtractionReviewDialogProps> = ({
   // Add to library mutation
   const addToLibraryMutation = useMutation({
     mutationFn: async () => {
+      let imageUrl: string | null = null;
+
+      // Upload extracted image if present
+      if (extractedImage) {
+        const fileName = `fitting-images/${Date.now()}-${formData.fitting_code || 'fitting'}.png`;
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('lighting-spec-sheets')
+          .upload(fileName, extractedImage, {
+            contentType: 'image/png',
+            upsert: false,
+          });
+
+        if (uploadError) {
+          console.error('Image upload error:', uploadError);
+        } else {
+          const { data: urlData } = supabase.storage
+            .from('lighting-spec-sheets')
+            .getPublicUrl(uploadData.path);
+          imageUrl = urlData.publicUrl;
+        }
+      }
+
       const fittingData = {
         fitting_code: formData.fitting_code,
         manufacturer: formData.manufacturer,
@@ -169,6 +222,7 @@ export const ExtractionReviewDialog: React.FC<ExtractionReviewDialogProps> = ({
         driver_type: formData.driver_type,
         lifespan_hours: formData.lifespan_hours,
         project_id: projectId,
+        image_url: imageUrl,
       };
 
       const { data, error } = await supabase
@@ -199,6 +253,21 @@ export const ExtractionReviewDialog: React.FC<ExtractionReviewDialogProps> = ({
     },
   });
 
+  const handleImageCrop = (blob: Blob) => {
+    setExtractedImage(blob);
+    setExtractedImagePreview(URL.createObjectURL(blob));
+    setCropMode(false);
+    toast.success('Image extracted');
+  };
+
+  const clearExtractedImage = () => {
+    if (extractedImagePreview) {
+      URL.revokeObjectURL(extractedImagePreview);
+    }
+    setExtractedImage(null);
+    setExtractedImagePreview(null);
+  };
+
   const handleAddToLibrary = () => {
     if (duplicateWarning.length > 0) {
       setShowDuplicateDialog(true);
@@ -211,30 +280,95 @@ export const ExtractionReviewDialog: React.FC<ExtractionReviewDialogProps> = ({
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
+  const isImage = specSheet.file_type?.startsWith('image/');
+  const isPdf = specSheet.file_type === 'application/pdf';
+
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
+        <DialogContent className={cn(
+          "flex flex-col",
+          cropMode ? "max-w-5xl h-[85vh]" : "max-w-2xl max-h-[90vh]"
+        )}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-primary" />
-              Review Extracted Data
+              {cropMode ? 'Extract Fitting Image' : 'Review Extracted Data'}
             </DialogTitle>
           </DialogHeader>
 
-          <ScrollArea className="flex-1 pr-4">
-            <div className="space-y-6 py-4">
-              {/* Fitting Code */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label>Fitting Code</Label>
-                  <Input
-                    value={formData.fitting_code || ''}
-                    onChange={(e) => updateField('fitting_code', e.target.value)}
-                    placeholder="Auto-generated"
-                  />
-                </div>
-              </div>
+          {cropMode && fileUrl ? (
+            // Crop mode view
+            isPdf ? (
+              <PdfPageSelector
+                pdfUrl={fileUrl}
+                onCrop={handleImageCrop}
+                onCancel={() => setCropMode(false)}
+              />
+            ) : isImage ? (
+              <ImageAreaSelector
+                imageUrl={fileUrl}
+                onCrop={handleImageCrop}
+                onCancel={() => setCropMode(false)}
+              />
+            ) : null
+          ) : (
+            <>
+              <ScrollArea className="flex-1 pr-4">
+                <div className="space-y-6 py-4">
+                  {/* Image Extraction Section */}
+                  <div className="space-y-3">
+                    <h4 className="font-medium text-sm text-muted-foreground">Fitting Image</h4>
+                    <div className="flex items-start gap-4">
+                      {extractedImagePreview ? (
+                        <div className="relative">
+                          <img 
+                            src={extractedImagePreview} 
+                            alt="Extracted fitting" 
+                            className="w-24 h-24 object-contain border rounded bg-background"
+                          />
+                          <Button
+                            variant="destructive"
+                            size="icon"
+                            className="absolute -top-2 -right-2 h-6 w-6"
+                            onClick={clearExtractedImage}
+                          >
+                            <X className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="w-24 h-24 border-2 border-dashed rounded flex items-center justify-center bg-muted/30">
+                          <ImageIcon className="h-8 w-8 text-muted-foreground/50" />
+                        </div>
+                      )}
+                      <div className="flex-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setCropMode(true)}
+                          disabled={!fileUrl || (!isImage && !isPdf)}
+                        >
+                          <Crop className="h-4 w-4 mr-2" />
+                          {extractedImagePreview ? 'Re-extract Image' : 'Extract from Spec Sheet'}
+                        </Button>
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Select an area from the spec sheet to use as the fitting thumbnail
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Fitting Code */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label>Fitting Code</Label>
+                      <Input
+                        value={formData.fitting_code || ''}
+                        onChange={(e) => updateField('fitting_code', e.target.value)}
+                        placeholder="Auto-generated"
+                      />
+                    </div>
+                  </div>
 
               {/* Basic Info */}
               <div className="space-y-4">
@@ -475,6 +609,8 @@ export const ExtractionReviewDialog: React.FC<ExtractionReviewDialogProps> = ({
               Add to Library
             </Button>
           </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 
