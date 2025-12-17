@@ -220,8 +220,8 @@ export const SpecSheetUploadTab: React.FC<SpecSheetUploadTabProps> = ({ projectI
           prev.map(u => u.id === upload.id ? { ...u, progress: 70, specSheetId: specSheet.id } : u)
         );
 
-        // Trigger AI extraction (only for images for now)
-        if (upload.file.type.startsWith('image/')) {
+        // Trigger AI extraction for images and PDFs
+        if (upload.file.type.startsWith('image/') || upload.file.type === 'application/pdf') {
           try {
             const extractionResult = await extractData(filePath, upload.file.type);
             
@@ -246,7 +246,7 @@ export const SpecSheetUploadTab: React.FC<SpecSheetUploadTabProps> = ({ projectI
               .eq('id', specSheet.id);
           }
         } else {
-          // For non-image files, mark as pending (requires manual processing)
+          // For non-supported files (like DOCX), mark as pending
           await supabase
             .from('lighting_spec_sheets')
             .update({ extraction_status: 'pending' })
