@@ -40,14 +40,18 @@ Required fields:
   - "Highbay", "High Bay" = highbay
   - IP65/IP66 surface mounted long fixtures are usually vapourproof, not linear
 
-- wattage: Power consumption in Watts (number only). Look for "W", "Watt", "System Power", "Power consumption"
-- lumen_output: Light output in lumens (number only). IMPORTANT: Look carefully for:
+- wattage: Primary/default power consumption in Watts (number only). Look for "W", "Watt", "System Power", "Power consumption"
+- lumen_output: Primary/default light output in lumens (number only). IMPORTANT: Look carefully for:
   * "lm" or "lumen" or "lumens" values
   * "Luminous flux" - this IS the lumen value
   * "Light output" or "Output"
-  * Tables showing wattage vs lumen output - use the value matching the wattage
+  * Tables showing wattage vs lumen output
   * May appear as "3000lm", "3000 lm", "3,000 lumens", etc.
-  * If multiple lumen values exist for different wattages, use the one matching the primary wattage
+- wattage_variants: CRITICAL - If the fitting comes in multiple wattage options, extract ALL of them as an array.
+  Look for tables or lists showing different wattage/lumen combinations.
+  Each variant should include: wattage (W), lumen_output (lm), and optionally color_temperature (K) if different per variant.
+  Example: A fitting available in 18W/1800lm, 36W/3600lm, and 58W/5800lm should have 3 variants.
+  If only one wattage exists, return an empty array [].
 - color_temperature: Color temperature in Kelvin (number only, e.g., 3000, 4000, 6500)
 - cri: Color Rendering Index (number only, typically 80-100)
 - beam_angle: Beam angle in degrees (number only)
@@ -74,6 +78,7 @@ Return ONLY a valid JSON object with this exact structure:
     "fitting_type": "string (one of: downlight, linear, vapourproof, panel, highbay, floodlight, streetlight, bulkhead, spotlight, pendant, wall, strip, emergency, other)",
     "wattage": number or null,
     "lumen_output": number or null,
+    "wattage_variants": [{ "wattage": number, "lumen_output": number, "color_temperature": number or null }] or [],
     "color_temperature": number or null,
     "cri": number or null,
     "beam_angle": number or null,
@@ -91,6 +96,7 @@ Return ONLY a valid JSON object with this exact structure:
     "fitting_type": number,
     "wattage": number,
     "lumen_output": number,
+    "wattage_variants": number,
     "color_temperature": number,
     "cri": number,
     "beam_angle": number,
@@ -146,7 +152,7 @@ serve(async (req) => {
     console.log('Mime type:', mimeType || 'unknown');
 
     let base64Data = imageBase64;
-    let actualMimeType = mimeType;
+    const actualMimeType = mimeType;
 
     // If we have a URL (for PDFs or images), download and convert to base64
     if (imageUrl && !imageBase64) {
@@ -267,6 +273,9 @@ serve(async (req) => {
 
     console.log('Extraction completed successfully');
     console.log('Fields extracted:', Object.keys(extractedResult.extracted_data || {}).length);
+    if (extractedResult.extracted_data?.wattage_variants?.length > 0) {
+      console.log('Wattage variants found:', extractedResult.extracted_data.wattage_variants.length);
+    }
 
     return new Response(JSON.stringify(extractedResult), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

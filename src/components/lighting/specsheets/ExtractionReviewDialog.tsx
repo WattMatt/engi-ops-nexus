@@ -213,6 +213,7 @@ export const ExtractionReviewDialog: React.FC<ExtractionReviewDialogProps> = ({
         fitting_type: 'downlight', // Default, can be updated
         wattage: formData.wattage ? Math.round(formData.wattage) : null,
         lumen_output: formData.lumen_output ? Math.round(formData.lumen_output) : null,
+        wattage_variants: (formData.wattage_variants || []) as unknown as Record<string, unknown>[],
         color_temperature: formData.color_temperature ? Math.round(formData.color_temperature) : null,
         cri: formData.cri ? Math.round(formData.cri) : null,
         beam_angle: formData.beam_angle ? Math.round(formData.beam_angle) : null,
@@ -227,7 +228,7 @@ export const ExtractionReviewDialog: React.FC<ExtractionReviewDialogProps> = ({
 
       const { data, error } = await supabase
         .from('lighting_fittings')
-        .insert(fittingData)
+        .insert(fittingData as any)
         .select()
         .single();
 

@@ -4480,6 +4480,7 @@ export type Database = {
           warranty_terms: string | null
           warranty_years: number | null
           wattage: number | null
+          wattage_variants: Json | null
           weight: number | null
         }
         Insert: {
@@ -4513,6 +4514,7 @@ export type Database = {
           warranty_terms?: string | null
           warranty_years?: number | null
           wattage?: number | null
+          wattage_variants?: Json | null
           weight?: number | null
         }
         Update: {
@@ -4546,6 +4548,7 @@ export type Database = {
           warranty_terms?: string | null
           warranty_years?: number | null
           wattage?: number | null
+          wattage_variants?: Json | null
           weight?: number | null
         }
         Relationships: [
