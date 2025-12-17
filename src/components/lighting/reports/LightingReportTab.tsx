@@ -5,13 +5,14 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { FileText, Download, Eye, Settings, Save, Loader2 } from 'lucide-react';
+import { FileText, Download, Eye, Settings, Save, Loader2, Scale } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { LightingScheduleSection } from './LightingScheduleSection';
 import { SpecificationSummarySection } from './SpecificationSummarySection';
 import { ApprovalTrackingSection } from './ApprovalTrackingSection';
 import { ReportTemplateManager } from './ReportTemplateManager';
+import { RegulatoryComplianceSection } from './RegulatoryComplianceSection';
 import { generateLightingReportPDF } from '@/utils/lightingReportPDF';
 
 export interface LightingReportConfig {
@@ -26,6 +27,7 @@ export interface LightingReportConfig {
     energyAnalysis: boolean;
     approvalStatus: boolean;
     comparisons: boolean;
+    regulatoryCompliance: boolean;
   };
 }
 
@@ -53,6 +55,7 @@ const defaultConfig: LightingReportConfig = {
     energyAnalysis: true,
     approvalStatus: true,
     comparisons: false,
+    regulatoryCompliance: true,
   },
 };
 
@@ -149,7 +152,7 @@ export const LightingReportTab: React.FC<LightingReportTabProps> = ({ projectId 
   return (
     <div className="space-y-6">
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-4 w-full max-w-2xl">
+        <TabsList className="grid grid-cols-5 w-full max-w-3xl">
           <TabsTrigger value="generate">
             <FileText className="h-4 w-4 mr-2" />
             Generate
@@ -157,6 +160,10 @@ export const LightingReportTab: React.FC<LightingReportTabProps> = ({ projectId 
           <TabsTrigger value="preview">
             <Eye className="h-4 w-4 mr-2" />
             Preview
+          </TabsTrigger>
+          <TabsTrigger value="compliance">
+            <Scale className="h-4 w-4 mr-2" />
+            Compliance
           </TabsTrigger>
           <TabsTrigger value="templates">
             <Settings className="h-4 w-4 mr-2" />
@@ -287,6 +294,9 @@ export const LightingReportTab: React.FC<LightingReportTabProps> = ({ projectId 
               {config.sections.specificationSheets && (
                 <SpecificationSummarySection projectId={projectId} />
               )}
+              {config.sections.regulatoryCompliance && (
+                <RegulatoryComplianceSection />
+              )}
             </div>
           ) : (
             <Card className="py-12">
@@ -302,6 +312,10 @@ export const LightingReportTab: React.FC<LightingReportTabProps> = ({ projectId 
               </CardContent>
             </Card>
           )}
+        </TabsContent>
+
+        <TabsContent value="compliance">
+          <RegulatoryComplianceSection showFullSchedule />
         </TabsContent>
 
         <TabsContent value="templates">

@@ -283,6 +283,7 @@ export const LightingHandoverGenerator: React.FC<LightingHandoverGeneratorProps>
             energyAnalysis: false,
             approvalStatus: false,
             comparisons: false,
+            regulatoryCompliance: false,
           },
         });
         generatedDocs.push('Lighting Schedule');
