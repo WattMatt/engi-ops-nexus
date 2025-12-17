@@ -18,7 +18,8 @@ import {
   Clock,
   Loader2,
   Search,
-  Download
+  Download,
+  RefreshCw
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -47,6 +48,8 @@ export const SpecSheetUploadTab: React.FC<SpecSheetUploadTabProps> = ({ projectI
   const [selectedSheet, setSelectedSheet] = useState<SpecSheet | null>(null);
   const [viewerOpen, setViewerOpen] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
+  const [isReExtracting, setIsReExtracting] = useState(false);
+  const [reExtractProgress, setReExtractProgress] = useState({ current: 0, total: 0 });
 
   // Fetch existing spec sheets
   const { data: specSheets = [], isLoading } = useQuery({
@@ -334,9 +337,71 @@ export const SpecSheetUploadTab: React.FC<SpecSheetUploadTabProps> = ({ projectI
     }
   };
 
+  // Bulk re-extract fitting types from all spec sheets with linked fittings
+  const handleBulkReExtract = async () => {
+    const sheetsWithFittings = specSheets.filter(s => 
+      s.fitting_id && 
+      s.extraction_status === 'completed' &&
+      (s.file_type.startsWith('image/') || s.file_type === 'application/pdf')
+    );
+    
+    if (sheetsWithFittings.length === 0) {
+      toast.error('No spec sheets with linked fittings found');
+      return;
+    }
+
+    setIsReExtracting(true);
+    setReExtractProgress({ current: 0, total: sheetsWithFittings.length });
+
+    let updated = 0;
+    let failed = 0;
+
+    for (let i = 0; i < sheetsWithFittings.length; i++) {
+      const sheet = sheetsWithFittings[i];
+      setReExtractProgress({ current: i + 1, total: sheetsWithFittings.length });
+
+      try {
+        const result = await extractData(sheet.file_path, sheet.file_type);
+
+        if (result?.extracted_data?.fitting_type && sheet.fitting_id) {
+          const { error: updateError } = await supabase
+            .from('lighting_fittings')
+            .update({ fitting_type: result.extracted_data.fitting_type })
+            .eq('id', sheet.fitting_id);
+
+          if (updateError) throw updateError;
+          updated++;
+        }
+      } catch (err) {
+        console.error(`Failed to re-extract ${sheet.file_name}:`, err);
+        failed++;
+      }
+
+      // Small delay to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    setIsReExtracting(false);
+    queryClient.invalidateQueries({ queryKey: ['lighting-fittings'] });
+    
+    if (updated > 0) {
+      toast.success(`Updated ${updated} fitting type(s)`, {
+        description: failed > 0 ? `${failed} failed` : undefined,
+      });
+    } else if (failed > 0) {
+      toast.error(`Failed to update fittings`, { description: `${failed} failed` });
+    }
+  };
+
   // Filter spec sheets
   const filteredSheets = specSheets.filter(sheet =>
     sheet.file_name.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  const sheetsWithFittings = specSheets.filter(s => 
+    s.fitting_id && 
+    s.extraction_status === 'completed' &&
+    (s.file_type.startsWith('image/') || s.file_type === 'application/pdf')
   );
 
   const getStatusBadge = (status: string) => {
@@ -430,19 +495,52 @@ export const SpecSheetUploadTab: React.FC<SpecSheetUploadTabProps> = ({ projectI
         </CardContent>
       </Card>
 
+      {/* Bulk Re-Extract Progress */}
+      {isReExtracting && (
+        <Card className="border-primary/50 bg-primary/5">
+          <CardContent className="py-4">
+            <div className="flex items-center gap-4">
+              <RefreshCw className="h-5 w-5 animate-spin text-primary" />
+              <div className="flex-1">
+                <p className="text-sm font-medium">Re-extracting fitting types...</p>
+                <Progress 
+                  value={(reExtractProgress.current / reExtractProgress.total) * 100} 
+                  className="h-2 mt-2"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {reExtractProgress.current} of {reExtractProgress.total} spec sheets
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Spec Sheets List */}
       <Card className="flex flex-col max-h-[600px]">
         <CardHeader className="flex-shrink-0 border-b bg-card sticky top-0 z-10">
           <div className="flex items-center justify-between">
             <CardTitle>Uploaded Spec Sheets</CardTitle>
-            <div className="relative w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search files..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
+            <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleBulkReExtract}
+                disabled={isReExtracting || sheetsWithFittings.length === 0}
+                title={sheetsWithFittings.length === 0 ? 'No spec sheets with linked fittings' : `Re-extract types for ${sheetsWithFittings.length} fittings`}
+              >
+                <RefreshCw className={cn("h-4 w-4 mr-1", isReExtracting && "animate-spin")} />
+                Re-Extract Types ({sheetsWithFittings.length})
+              </Button>
+              <div className="relative w-64">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search files..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
             </div>
           </div>
         </CardHeader>
