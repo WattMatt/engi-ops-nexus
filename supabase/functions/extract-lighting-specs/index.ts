@@ -14,6 +14,29 @@ Analyze this lighting specification sheet and extract the following data. Be pre
 Required fields:
 - manufacturer: Company/brand name
 - model_name: Model name or number
+- fitting_type: Classify the fixture type based on its form factor and application. Use ONLY one of these values:
+  * "downlight" - Recessed ceiling fixtures that direct light downward (round or square recessed)
+  * "linear" - Long, linear fixtures like battens, strips, trunking systems (e.g., DP S 1500, DP S 1200)
+  * "panel" - Flat panel fixtures, typically recessed or surface mounted (600x600, 300x1200, backlit panels)
+  * "highbay" - High-ceiling industrial fixtures (warehouses, factories)
+  * "floodlight" - Outdoor or area lighting, wide beam fixtures for illuminating large areas
+  * "bulkhead" - Wall/ceiling mounted enclosed fixtures, often for corridors or outdoor use
+  * "spotlight" - Directional accent lighting, track lights
+  * "pendant" - Suspended/hanging fixtures
+  * "wall" - Wall-mounted fixtures (wall washers, sconces)
+  * "strip" - LED strip/tape lights
+  * "emergency" - Emergency lighting fixtures
+  * "other" - Only if none of the above fit
+  
+  IMPORTANT: Look for keywords in the model name and description:
+  - "DP S" prefix usually indicates LINEAR fixtures
+  - "Batten", "Trunking" = linear
+  - "Flood", "Tango" = floodlight
+  - "Bulkhead", "Bulky" = bulkhead
+  - "Panel", "Backlit", "BackLit" = panel
+  - "Highbay", "High Bay" = highbay
+  - Dimensions like 1200mm, 1500mm length suggest linear
+
 - wattage: Power consumption in Watts (number only)
 - lumen_output: Light output in lumens (number only)
 - color_temperature: Color temperature in Kelvin (number only, e.g., 3000, 4000, 6500)
@@ -39,6 +62,7 @@ Return ONLY a valid JSON object with this exact structure:
   "extracted_data": {
     "manufacturer": "string or null",
     "model_name": "string or null",
+    "fitting_type": "string (one of: downlight, linear, panel, highbay, floodlight, bulkhead, spotlight, pendant, wall, strip, emergency, other)",
     "wattage": number or null,
     "lumen_output": number or null,
     "color_temperature": number or null,
@@ -55,6 +79,7 @@ Return ONLY a valid JSON object with this exact structure:
   "confidence_scores": {
     "manufacturer": number,
     "model_name": number,
+    "fitting_type": number,
     "wattage": number,
     "lumen_output": number,
     "color_temperature": number,
