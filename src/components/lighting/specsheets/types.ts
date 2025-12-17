@@ -1,8 +1,15 @@
+export interface WattageVariant {
+  wattage: number;
+  lumen_output: number;
+  color_temperature?: number | null;
+}
+
 export interface ExtractedLightingData {
   manufacturer: string | null;
   model_name: string | null;
   wattage: number | null;
   lumen_output: number | null;
+  wattage_variants: WattageVariant[] | null;
   color_temperature: number | null;
   cri: number | null;
   beam_angle: number | null;
@@ -24,6 +31,7 @@ export interface ConfidenceScores {
   model_name: number;
   wattage: number;
   lumen_output: number;
+  wattage_variants: number;
   color_temperature: number;
   cri: number;
   beam_angle: number;

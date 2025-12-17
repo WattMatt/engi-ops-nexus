@@ -363,14 +363,48 @@ export const SpecSheetUploadTab: React.FC<SpecSheetUploadTabProps> = ({ projectI
       try {
         const result = await extractData(sheet.file_path, sheet.file_type);
 
-        if (result?.extracted_data?.fitting_type && sheet.fitting_id) {
-          const { error: updateError } = await supabase
-            .from('lighting_fittings')
-            .update({ fitting_type: result.extracted_data.fitting_type })
-            .eq('id', sheet.fitting_id);
+        if (result?.extracted_data && sheet.fitting_id) {
+          const updateData: Record<string, unknown> = {};
+          
+          // Always update fitting_type if extracted
+          if (result.extracted_data.fitting_type) {
+            updateData.fitting_type = result.extracted_data.fitting_type;
+          }
+          
+          // Update wattage if extracted and fitting doesn't have one
+          if (result.extracted_data.wattage) {
+            updateData.wattage = result.extracted_data.wattage;
+          }
+          
+          // Update lumen_output if extracted and fitting doesn't have one  
+          if (result.extracted_data.lumen_output) {
+            updateData.lumen_output = result.extracted_data.lumen_output;
+          }
+          
+          // Save wattage_variants if any were extracted
+          if (result.extracted_data.wattage_variants && result.extracted_data.wattage_variants.length > 0) {
+            updateData.wattage_variants = result.extracted_data.wattage_variants;
+          }
 
-          if (updateError) throw updateError;
-          updated++;
+          if (Object.keys(updateData).length > 0) {
+            const { error: updateError } = await supabase
+              .from('lighting_fittings')
+              .update(updateData)
+              .eq('id', sheet.fitting_id);
+
+            if (updateError) throw updateError;
+            
+            // Also update the spec sheet's extracted_data
+            await supabase
+              .from('lighting_spec_sheets')
+              .update({ 
+                extracted_data: result.extracted_data,
+                confidence_scores: result.confidence_scores
+              })
+              .eq('id', sheet.id);
+            
+            updated++;
+          }
         }
       } catch (err) {
         console.error(`Failed to re-extract ${sheet.file_name}:`, err);
