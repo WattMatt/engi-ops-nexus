@@ -39,6 +39,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Progress } from '@/components/ui/progress';
 import {
   Plus,
   Search,
@@ -50,6 +51,7 @@ import {
   Filter,
   X,
   Lightbulb,
+  RefreshCw,
 } from 'lucide-react';
 import { AddFittingDialog } from './AddFittingDialog';
 import { ImportFittingsDialog } from './ImportFittingsDialog';
@@ -67,6 +69,8 @@ export const LightingLibraryTab = ({ projectId }: LightingLibraryTabProps) => {
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [editFitting, setEditFitting] = useState<LightingFitting | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [isReExtracting, setIsReExtracting] = useState(false);
+  const [reExtractProgress, setReExtractProgress] = useState({ current: 0, total: 0 });
 
   const { data: fittings = [], isLoading } = useQuery({
     queryKey: ['lighting-fittings', projectId],
@@ -103,6 +107,68 @@ export const LightingLibraryTab = ({ projectId }: LightingLibraryTabProps) => {
       toast.error('Failed to delete fitting', { description: error.message });
     },
   });
+
+  // Re-extract fitting types from spec sheets
+  const handleBulkReExtract = async () => {
+    // Get fittings with spec sheets
+    const fittingsWithSpecs = fittings.filter(f => f.spec_sheet_url);
+    
+    if (fittingsWithSpecs.length === 0) {
+      toast.error('No fittings with spec sheets found');
+      return;
+    }
+
+    setIsReExtracting(true);
+    setReExtractProgress({ current: 0, total: fittingsWithSpecs.length });
+
+    let updated = 0;
+    let failed = 0;
+
+    for (let i = 0; i < fittingsWithSpecs.length; i++) {
+      const fitting = fittingsWithSpecs[i];
+      setReExtractProgress({ current: i + 1, total: fittingsWithSpecs.length });
+
+      try {
+        // Call the extraction function
+        const { data, error } = await supabase.functions.invoke('extract-lighting-specs', {
+          body: {
+            imageUrl: fitting.spec_sheet_url,
+            mimeType: fitting.spec_sheet_url?.endsWith('.pdf') ? 'application/pdf' : 'image/png',
+          },
+        });
+
+        if (error) throw error;
+
+        if (data?.extracted_data?.fitting_type) {
+          // Update only the fitting_type
+          const { error: updateError } = await supabase
+            .from('lighting_fittings')
+            .update({ fitting_type: data.extracted_data.fitting_type })
+            .eq('id', fitting.id);
+
+          if (updateError) throw updateError;
+          updated++;
+        }
+      } catch (err) {
+        console.error(`Failed to re-extract ${fitting.fitting_code}:`, err);
+        failed++;
+      }
+
+      // Small delay to avoid rate limiting
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    setIsReExtracting(false);
+    queryClient.invalidateQueries({ queryKey: ['lighting-fittings'] });
+    
+    if (updated > 0) {
+      toast.success(`Updated ${updated} fitting type(s)`, {
+        description: failed > 0 ? `${failed} failed` : undefined,
+      });
+    } else if (failed > 0) {
+      toast.error(`Failed to update fittings`, { description: `${failed} failed` });
+    }
+  };
 
   const filteredFittings = useMemo(() => {
     return fittings.filter((fitting) => {
@@ -179,11 +245,39 @@ export const LightingLibraryTab = ({ projectId }: LightingLibraryTabProps) => {
 
   return (
     <div className="space-y-4">
+      {isReExtracting && (
+        <Card className="border-primary/50 bg-primary/5">
+          <CardContent className="py-4">
+            <div className="flex items-center gap-4">
+              <RefreshCw className="h-5 w-5 animate-spin text-primary" />
+              <div className="flex-1">
+                <p className="text-sm font-medium">Re-extracting fitting types...</p>
+                <Progress 
+                  value={(reExtractProgress.current / reExtractProgress.total) * 100} 
+                  className="h-2 mt-2"
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {reExtractProgress.current} of {reExtractProgress.total} fittings
+                </p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
       <Card>
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg">Lighting Fittings Library</CardTitle>
             <div className="flex items-center gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleBulkReExtract}
+                disabled={isReExtracting || fittings.filter(f => f.spec_sheet_url).length === 0}
+              >
+                <RefreshCw className={`h-4 w-4 mr-1 ${isReExtracting ? 'animate-spin' : ''}`} />
+                Re-Extract Types
+              </Button>
               <Button variant="outline" size="sm" onClick={() => setImportDialogOpen(true)}>
                 <Upload className="h-4 w-4 mr-1" />
                 Import

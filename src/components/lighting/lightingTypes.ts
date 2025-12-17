@@ -50,24 +50,38 @@ export interface LightingScheduleItem {
 
 export const FITTING_TYPES = [
   { value: 'downlight', label: 'Downlight' },
-  { value: 'panel', label: 'Panel Light' },
   { value: 'linear', label: 'Linear' },
+  { value: 'panel', label: 'Panel Light' },
+  { value: 'highbay', label: 'Highbay' },
   { value: 'floodlight', label: 'Floodlight' },
-  { value: 'decorative', label: 'Decorative' },
+  { value: 'bulkhead', label: 'Bulkhead' },
+  { value: 'spotlight', label: 'Spotlight' },
+  { value: 'pendant', label: 'Pendant' },
+  { value: 'wall', label: 'Wall Light' },
+  { value: 'strip', label: 'Strip Light' },
   { value: 'emergency', label: 'Emergency' },
   { value: 'exit_sign', label: 'Exit Sign' },
+  { value: 'decorative', label: 'Decorative' },
   { value: 'outdoor', label: 'Outdoor' },
+  { value: 'other', label: 'Other' },
 ] as const;
 
 export const FITTING_CATEGORIES: Record<string, string[]> = {
   downlight: ['LED', 'Halogen', 'Recessed', 'Surface'],
-  panel: ['Recessed', 'Surface', 'Suspended'],
   linear: ['Battens', 'Strip Lights', 'Trunking'],
-  floodlight: ['Exterior', 'Interior', 'Emergency'],
-  decorative: ['Pendants', 'Wall Lights', 'Chandeliers'],
+  panel: ['Recessed', 'Surface', 'Suspended'],
+  highbay: ['LED', 'Metal Halide', 'Industrial'],
+  floodlight: ['Exterior', 'Interior', 'Area'],
+  bulkhead: ['Round', 'Square', 'Emergency'],
+  spotlight: ['Track', 'Surface', 'Recessed'],
+  pendant: ['Decorative', 'Industrial', 'Commercial'],
+  wall: ['Sconces', 'Wall Washers', 'Up/Down'],
+  strip: ['LED', 'RGB', 'Flexible'],
   emergency: ['Exit Signs', 'Emergency Packs', 'Combined'],
   exit_sign: ['LED', 'Illuminated', 'Photoluminescent'],
+  decorative: ['Pendants', 'Chandeliers', 'Feature'],
   outdoor: ['Bollards', 'Post Tops', 'Wall Packs'],
+  other: ['Custom', 'Specialty'],
 };
 
 export const COLOR_TEMPERATURES = [
