@@ -4829,6 +4829,54 @@ export type Database = {
         }
         Relationships: []
       }
+      lighting_zones: {
+        Row: {
+          area_m2: number | null
+          color_temperature_max: number | null
+          color_temperature_min: number | null
+          created_at: string
+          description: string | null
+          display_order: number | null
+          id: string
+          max_wattage_per_m2: number | null
+          min_lux: number | null
+          project_id: string
+          updated_at: string
+          zone_name: string
+          zone_type: string
+        }
+        Insert: {
+          area_m2?: number | null
+          color_temperature_max?: number | null
+          color_temperature_min?: number | null
+          created_at?: string
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          max_wattage_per_m2?: number | null
+          min_lux?: number | null
+          project_id: string
+          updated_at?: string
+          zone_name: string
+          zone_type?: string
+        }
+        Update: {
+          area_m2?: number | null
+          color_temperature_max?: number | null
+          color_temperature_min?: number | null
+          created_at?: string
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          max_wattage_per_m2?: number | null
+          min_lux?: number | null
+          project_id?: string
+          updated_at?: string
+          zone_name?: string
+          zone_type?: string
+        }
+        Relationships: []
+      }
       master_materials: {
         Row: {
           approved_by: string | null
@@ -6067,6 +6115,7 @@ export type Database = {
           total_lumens: number | null
           total_wattage: number | null
           updated_at: string
+          zone_id: string | null
           zone_name: string | null
         }
         Insert: {
@@ -6082,6 +6131,7 @@ export type Database = {
           total_lumens?: number | null
           total_wattage?: number | null
           updated_at?: string
+          zone_id?: string | null
           zone_name?: string | null
         }
         Update: {
@@ -6097,6 +6147,7 @@ export type Database = {
           total_lumens?: number | null
           total_wattage?: number | null
           updated_at?: string
+          zone_id?: string | null
           zone_name?: string | null
         }
         Relationships: [
@@ -6119,6 +6170,13 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_lighting_schedules_zone_id_fkey"
+            columns: ["zone_id"]
+            isOneToOne: false
+            referencedRelation: "lighting_zones"
             referencedColumns: ["id"]
           },
         ]
