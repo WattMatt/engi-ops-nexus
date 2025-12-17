@@ -9,7 +9,7 @@ const LOVABLE_API_KEY = Deno.env.get('LOVABLE_API_KEY');
 
 const extractionPrompt = `You are an expert at extracting technical specifications from lighting product specification sheets.
 
-Analyze this lighting specification sheet image and extract the following data. Be precise and extract exact values as shown in the document:
+Analyze this lighting specification sheet and extract the following data. Be precise and extract exact values as shown in the document:
 
 Required fields:
 - manufacturer: Company/brand name
@@ -80,7 +80,6 @@ serve(async (req) => {
     const { imageBase64, imageUrl, mimeType } = await req.json();
 
     if (!imageBase64 && !imageUrl) {
-      // Return 400 for validation errors, not 500
       return new Response(
         JSON.stringify({ 
           error: 'Either imageBase64 or imageUrl is required',
@@ -110,25 +109,56 @@ serve(async (req) => {
     }
 
     console.log('Starting spec sheet extraction via Lovable AI...');
-    console.log('Image type:', mimeType || 'unknown');
+    console.log('Mime type:', mimeType || 'unknown');
 
-    // Build the image content for the API
-    let imageContent;
-    if (imageBase64) {
-      imageContent = {
-        type: "image_url",
-        image_url: {
-          url: `data:${mimeType || 'image/jpeg'};base64,${imageBase64}`
+    let base64Data = imageBase64;
+    let actualMimeType = mimeType;
+
+    // If we have a URL (for PDFs or images), download and convert to base64
+    if (imageUrl && !imageBase64) {
+      console.log('Downloading file from URL...');
+      try {
+        const fileResponse = await fetch(imageUrl);
+        if (!fileResponse.ok) {
+          throw new Error(`Failed to download file: ${fileResponse.status}`);
         }
-      };
-    } else {
-      imageContent = {
-        type: "image_url",
-        image_url: {
-          url: imageUrl
+        
+        const arrayBuffer = await fileResponse.arrayBuffer();
+        const uint8Array = new Uint8Array(arrayBuffer);
+        
+        // Convert to base64
+        let binary = '';
+        for (let i = 0; i < uint8Array.length; i++) {
+          binary += String.fromCharCode(uint8Array[i]);
         }
-      };
+        base64Data = btoa(binary);
+        
+        console.log('File downloaded and converted to base64, size:', base64Data.length);
+      } catch (downloadError) {
+        console.error('Download error:', downloadError);
+        return new Response(
+          JSON.stringify({ 
+            error: `Failed to download file: ${downloadError instanceof Error ? downloadError.message : 'Unknown error'}`,
+            extracted_data: null,
+            confidence_scores: null
+          }), 
+          {
+            status: 500,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
+      }
     }
+
+    // Build the content for the API
+    const imageContent = {
+      type: "image_url",
+      image_url: {
+        url: `data:${actualMimeType || 'application/pdf'};base64,${base64Data}`
+      }
+    };
+
+    console.log('Calling Lovable AI Gateway...');
 
     // Call Lovable AI Gateway with google/gemini-2.5-flash
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
