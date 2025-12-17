@@ -513,17 +513,17 @@ export const AddFittingDialog = ({
                         </div>
                       ) : (
                         <div className="flex gap-2">
-                          {specSheetUrl && (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              className="h-24 w-24 flex flex-col items-center justify-center gap-1"
-                              onClick={() => setShowSpecSheetCropper(true)}
-                            >
-                              <FileImage className="h-6 w-6 text-muted-foreground" />
-                              <span className="text-xs text-muted-foreground text-center">From Spec Sheet</span>
-                            </Button>
-                          )}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-24 w-24 flex flex-col items-center justify-center gap-1"
+                            onClick={() => setShowSpecSheetCropper(true)}
+                            disabled={!specSheetUrl}
+                            title={!specSheetUrl ? 'No spec sheet attached' : 'Capture from spec sheet'}
+                          >
+                            <FileImage className={`h-6 w-6 ${specSheetUrl ? 'text-muted-foreground' : 'text-muted-foreground/40'}`} />
+                            <span className={`text-xs text-center ${specSheetUrl ? 'text-muted-foreground' : 'text-muted-foreground/40'}`}>From Spec Sheet</span>
+                          </Button>
                           <Button
                             type="button"
                             variant="outline"
@@ -538,17 +538,17 @@ export const AddFittingDialog = ({
                       
                       {imagePreview && (
                         <div className="flex flex-col gap-2">
-                          {specSheetUrl && (
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => setShowSpecSheetCropper(true)}
-                            >
-                              <FileImage className="h-4 w-4 mr-1" />
-                              From Spec Sheet
-                            </Button>
-                          )}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setShowSpecSheetCropper(true)}
+                            disabled={!specSheetUrl}
+                            title={!specSheetUrl ? 'No spec sheet attached' : 'Capture from spec sheet'}
+                          >
+                            <FileImage className="h-4 w-4 mr-1" />
+                            From Spec Sheet
+                          </Button>
                           <Button
                             type="button"
                             variant="outline"
