@@ -132,12 +132,55 @@ export const AddFittingDialog = ({
         },
   });
 
-  // Reset image state when editFitting changes
+  // Reset form and image state when editFitting changes or dialog opens
   useEffect(() => {
-    setImageFile(null);
-    setImagePreview(editFitting?.image_url || null);
-    setSelectedType(editFitting?.fitting_type || '');
-  }, [editFitting]);
+    if (open) {
+      setImageFile(null);
+      setImagePreview(editFitting?.image_url || null);
+      setSelectedType(editFitting?.fitting_type || '');
+      
+      // Reset form with edit values or empty defaults
+      form.reset(
+        editFitting
+          ? {
+              fitting_code: editFitting.fitting_code,
+              manufacturer: editFitting.manufacturer || '',
+              model_name: editFitting.model_name,
+              fitting_type: editFitting.fitting_type,
+              wattage: editFitting.wattage || undefined,
+              lumen_output: editFitting.lumen_output || undefined,
+              color_temperature: editFitting.color_temperature || undefined,
+              cri: editFitting.cri || undefined,
+              beam_angle: editFitting.beam_angle || undefined,
+              ip_rating: editFitting.ip_rating || '',
+              ik_rating: editFitting.ik_rating || '',
+              lifespan_hours: editFitting.lifespan_hours || undefined,
+              dimensions: editFitting.dimensions || '',
+              weight: editFitting.weight || undefined,
+              supply_cost: editFitting.supply_cost || 0,
+              install_cost: editFitting.install_cost || 0,
+              category: editFitting.category || '',
+              subcategory: editFitting.subcategory || '',
+              is_dimmable: editFitting.is_dimmable || false,
+              driver_type: editFitting.driver_type || '',
+              notes: editFitting.notes || '',
+              warranty_years: editFitting.warranty_years || 3,
+              warranty_terms: editFitting.warranty_terms || '',
+            }
+          : {
+              fitting_code: '',
+              manufacturer: '',
+              model_name: '',
+              fitting_type: '',
+              supply_cost: 0,
+              install_cost: 0,
+              is_dimmable: false,
+              warranty_years: 3,
+              warranty_terms: '',
+            }
+      );
+    }
+  }, [editFitting, open, form]);
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
