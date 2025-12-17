@@ -32,7 +32,9 @@ import {
 } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ImagePlus, X, Loader2 } from 'lucide-react';
+import { ImagePlus, X, Loader2, FileImage } from 'lucide-react';
+import { ImageAreaSelector } from './specsheets/ImageAreaSelector';
+import { PdfPageSelector } from './specsheets/PdfPageSelector';
 import {
   FITTING_TYPES,
   FITTING_CATEGORIES,
@@ -89,6 +91,7 @@ export const AddFittingDialog = ({
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(editFitting?.image_url || null);
   const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [showSpecSheetCropper, setShowSpecSheetCropper] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<FittingFormData>({
@@ -138,6 +141,7 @@ export const AddFittingDialog = ({
       setImageFile(null);
       setImagePreview(editFitting?.image_url || null);
       setSelectedType(editFitting?.fitting_type || '');
+      setShowSpecSheetCropper(false);
       
       // Reset form with edit values or empty defaults
       form.reset(
@@ -205,6 +209,16 @@ export const AddFittingDialog = ({
       fileInputRef.current.value = '';
     }
   };
+
+  const handleSpecSheetCrop = (blob: Blob) => {
+    const file = new File([blob], 'cropped-image.png', { type: 'image/png' });
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(blob));
+    setShowSpecSheetCropper(false);
+  };
+
+  const specSheetUrl = editFitting?.spec_sheet_url;
+  const isPdf = specSheetUrl?.toLowerCase().endsWith('.pdf');
 
   const uploadImage = async (fittingId: string): Promise<string | null> => {
     if (!imageFile) return imagePreview; // Keep existing image if no new file
@@ -498,32 +512,94 @@ export const AddFittingDialog = ({
                           </Button>
                         </div>
                       ) : (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          className="w-24 h-24 flex flex-col items-center justify-center gap-1"
-                          onClick={() => fileInputRef.current?.click()}
-                        >
-                          <ImagePlus className="h-6 w-6 text-muted-foreground" />
-                          <span className="text-xs text-muted-foreground">Add Image</span>
-                        </Button>
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-24 w-24 flex flex-col items-center justify-center gap-1"
+                            onClick={() => fileInputRef.current?.click()}
+                          >
+                            <ImagePlus className="h-6 w-6 text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground text-center">Upload Image</span>
+                          </Button>
+                          
+                          {specSheetUrl && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="h-24 w-24 flex flex-col items-center justify-center gap-1"
+                              onClick={() => setShowSpecSheetCropper(true)}
+                            >
+                              <FileImage className="h-6 w-6 text-muted-foreground" />
+                              <span className="text-xs text-muted-foreground text-center">From Spec Sheet</span>
+                            </Button>
+                          )}
+                        </div>
                       )}
                       
                       {imagePreview && (
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => fileInputRef.current?.click()}
-                        >
-                          Change Image
-                        </Button>
+                        <div className="flex flex-col gap-2">
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => fileInputRef.current?.click()}
+                          >
+                            <ImagePlus className="h-4 w-4 mr-1" />
+                            Upload New
+                          </Button>
+                          {specSheetUrl && (
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setShowSpecSheetCropper(true)}
+                            >
+                              <FileImage className="h-4 w-4 mr-1" />
+                              From Spec Sheet
+                            </Button>
+                          )}
+                        </div>
                       )}
                     </div>
                     <p className="text-xs text-muted-foreground">
-                      Upload a product image (max 5MB)
+                      Upload an image or {specSheetUrl ? 'capture from spec sheet' : 'attach a spec sheet first to capture from it'}
                     </p>
                   </div>
+
+                  {/* Spec Sheet Cropper Dialog */}
+                  {showSpecSheetCropper && specSheetUrl && (
+                    <div className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-center justify-center">
+                      <div className="bg-background border rounded-lg shadow-lg w-[90vw] h-[85vh] flex flex-col">
+                        <div className="flex items-center justify-between p-4 border-b">
+                          <h3 className="font-semibold">Select Image Area from Spec Sheet</h3>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setShowSpecSheetCropper(false)}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        <div className="flex-1 p-4 overflow-hidden">
+                          {isPdf ? (
+                            <PdfPageSelector
+                              pdfUrl={specSheetUrl}
+                              onCrop={handleSpecSheetCrop}
+                              onCancel={() => setShowSpecSheetCropper(false)}
+                            />
+                          ) : (
+                            <ImageAreaSelector
+                              imageUrl={specSheetUrl}
+                              onCrop={handleSpecSheetCrop}
+                              onCancel={() => setShowSpecSheetCropper(false)}
+                            />
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </TabsContent>
 
                 <TabsContent value="specs" className="space-y-4 mt-4">
