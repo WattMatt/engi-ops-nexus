@@ -420,14 +420,14 @@ export function FittingSelector({ projectId }: FittingSelectorProps) {
                 <div className="space-y-2">
                   <Label htmlFor="zone">Assign to Zone</Label>
                   <Select 
-                    value={formData.zone_id} 
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, zone_id: value }))}
+                    value={formData.zone_id || "none"} 
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, zone_id: value === "none" ? "" : value }))}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select zone (optional)" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">No zone</SelectItem>
+                      <SelectItem value="none">No zone</SelectItem>
                       {zones?.map((zone) => (
                         <SelectItem key={zone.id} value={zone.id}>
                           {zone.zone_name}
@@ -440,14 +440,14 @@ export function FittingSelector({ projectId }: FittingSelectorProps) {
                 <div className="space-y-2">
                   <Label htmlFor="tenant">Assign to Tenant</Label>
                   <Select 
-                    value={formData.tenant_id} 
-                    onValueChange={(value) => setFormData(prev => ({ ...prev, tenant_id: value }))}
+                    value={formData.tenant_id || "none"} 
+                    onValueChange={(value) => setFormData(prev => ({ ...prev, tenant_id: value === "none" ? "" : value }))}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Select tenant (optional)" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">No tenant</SelectItem>
+                      <SelectItem value="none">No tenant</SelectItem>
                       {tenants?.map((tenant) => (
                         <SelectItem key={tenant.id} value={tenant.id}>
                           {tenant.shop_number} - {tenant.shop_name}
