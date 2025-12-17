@@ -506,14 +506,14 @@ export const SpecSheetUploadTab: React.FC<SpecSheetUploadTabProps> = ({ projectI
                     )}
 
                     {(sheet.extraction_status === 'failed' || sheet.extraction_status === 'pending') && 
-                     sheet.file_type.startsWith('image/') && (
+                     (sheet.file_type.startsWith('image/') || sheet.file_type === 'application/pdf') && (
                       <Button
                         variant="ghost"
                         size="icon"
                         onClick={() => handleReExtract(sheet)}
-                        title="Re-extract"
+                        title="Extract Data"
                       >
-                        <Sparkles className="h-4 w-4" />
+                        <Sparkles className="h-4 w-4 text-primary" />
                       </Button>
                     )}
 
