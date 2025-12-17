@@ -27,14 +27,30 @@ export const ImageAreaSelector: React.FC<ImageAreaSelectorProps> = ({
   const [isSelecting, setIsSelecting] = useState(false);
   const [scale, setScale] = useState(1);
 
-  // Load image
+  // Load image - fetch as blob to avoid CORS issues
   useEffect(() => {
-    const img = new Image();
-    img.crossOrigin = 'anonymous';
-    img.onload = () => {
-      setImage(img);
+    const loadImage = async () => {
+      try {
+        const response = await fetch(imageUrl);
+        const blob = await response.blob();
+        const objectUrl = URL.createObjectURL(blob);
+        
+        const img = new Image();
+        img.onload = () => {
+          setImage(img);
+        };
+        img.onerror = () => {
+          console.error('Failed to load image');
+        };
+        img.src = objectUrl;
+        
+        return () => URL.revokeObjectURL(objectUrl);
+      } catch (error) {
+        console.error('Failed to fetch image:', error);
+      }
     };
-    img.src = imageUrl;
+    
+    loadImage();
   }, [imageUrl]);
 
   // Draw canvas
