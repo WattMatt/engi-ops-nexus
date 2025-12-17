@@ -16,7 +16,8 @@ Required fields:
 - model_name: Model name or number
 - fitting_type: Classify the fixture type based on its form factor and application. Use ONLY one of these values:
   * "downlight" - Recessed ceiling fixtures that direct light downward (round or square recessed)
-  * "linear" - Long, linear fixtures like battens, strips, trunking systems (e.g., DP S 1500, DP S 1200)
+  * "linear" - Long, linear fixtures like battens, strips, trunking systems (continuous lighting systems)
+  * "vapourproof" - Surface mounted weatherproof/damp proof fixtures (DP S, damp proof, vapor proof, IP65 surface fixtures)
   * "panel" - Flat panel fixtures, typically recessed or surface mounted (600x600, 300x1200, backlit panels)
   * "highbay" - High-ceiling industrial fixtures (warehouses, factories)
   * "floodlight" - Outdoor or area lighting, wide beam fixtures for illuminating large areas
@@ -30,14 +31,14 @@ Required fields:
   * "other" - Only if none of the above fit
   
   IMPORTANT: Look for keywords in the model name and description:
-  - "DP S" prefix usually indicates LINEAR fixtures
-  - "Batten", "Trunking" = linear
+  - "DP S", "DPS", "Damp Proof", "Vapor Proof", "Vapour Proof", "Weatherproof" = vapourproof (NOT linear!)
+  - "Batten", "Trunking", "continuous" = linear
   - "Flood", "Tango" = floodlight
   - "GreenVision", "Xceed", "Iridium", "Luma", "road", "street" = streetlight
   - "Bulkhead", "Bulky" = bulkhead
   - "Panel", "Backlit", "BackLit" = panel
   - "Highbay", "High Bay" = highbay
-  - Dimensions like 1200mm, 1500mm length suggest linear
+  - IP65/IP66 surface mounted long fixtures are usually vapourproof, not linear
 
 - wattage: Power consumption in Watts (number only)
 - lumen_output: Light output in lumens (number only)
@@ -64,7 +65,7 @@ Return ONLY a valid JSON object with this exact structure:
   "extracted_data": {
     "manufacturer": "string or null",
     "model_name": "string or null",
-    "fitting_type": "string (one of: downlight, linear, panel, highbay, floodlight, streetlight, bulkhead, spotlight, pendant, wall, strip, emergency, other)",
+    "fitting_type": "string (one of: downlight, linear, vapourproof, panel, highbay, floodlight, streetlight, bulkhead, spotlight, pendant, wall, strip, emergency, other)",
     "wattage": number or null,
     "lumen_output": number or null,
     "color_temperature": number or null,

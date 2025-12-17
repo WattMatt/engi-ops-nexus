@@ -51,6 +51,7 @@ export interface LightingScheduleItem {
 export const FITTING_TYPES = [
   { value: 'downlight', label: 'Downlight' },
   { value: 'linear', label: 'Linear' },
+  { value: 'vapourproof', label: 'Vapour Proof' },
   { value: 'panel', label: 'Panel Light' },
   { value: 'highbay', label: 'Highbay' },
   { value: 'floodlight', label: 'Floodlight' },
@@ -69,7 +70,8 @@ export const FITTING_TYPES = [
 
 export const FITTING_CATEGORIES: Record<string, string[]> = {
   downlight: ['LED', 'Halogen', 'Recessed', 'Surface'],
-  linear: ['Battens', 'Strip Lights', 'Trunking'],
+  linear: ['Battens', 'Trunking', 'Continuous'],
+  vapourproof: ['Damp Proof', 'Weatherproof', 'IP65', 'IP66'],
   panel: ['Recessed', 'Surface', 'Suspended'],
   highbay: ['LED', 'Metal Halide', 'Industrial'],
   floodlight: ['Exterior', 'Interior', 'Area'],
