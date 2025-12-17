@@ -431,8 +431,8 @@ export const SpecSheetUploadTab: React.FC<SpecSheetUploadTabProps> = ({ projectI
       </Card>
 
       {/* Spec Sheets List */}
-      <Card>
-        <CardHeader>
+      <Card className="flex flex-col max-h-[600px]">
+        <CardHeader className="flex-shrink-0 border-b bg-card sticky top-0 z-10">
           <div className="flex items-center justify-between">
             <CardTitle>Uploaded Spec Sheets</CardTitle>
             <div className="relative w-64">
@@ -446,7 +446,7 @@ export const SpecSheetUploadTab: React.FC<SpecSheetUploadTabProps> = ({ projectI
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="flex-1 overflow-y-auto">
           {isLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
