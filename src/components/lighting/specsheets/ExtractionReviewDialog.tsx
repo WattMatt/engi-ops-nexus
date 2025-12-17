@@ -120,19 +120,26 @@ export const ExtractionReviewDialog: React.FC<ExtractionReviewDialogProps> = ({
 
   const confidenceScores = specSheet.confidence_scores as unknown as ConfidenceScores | null;
 
-  // Check for duplicates when manufacturer or model changes
+  // Check for duplicates when form fields change - using stable references
+  const manufacturer = formData.manufacturer;
+  const modelName = formData.model_name;
+  const wattage = formData.wattage;
+  const lumenOutput = formData.lumen_output;
+  
   useEffect(() => {
-    if (formData.manufacturer || formData.model_name) {
+    if (!open) return; // Only run when dialog is open
+    
+    if (manufacturer || modelName) {
       const duplicates = existingFittings.filter(f => {
-        const sameManufacturer = f.manufacturer?.toLowerCase() === formData.manufacturer?.toLowerCase();
-        const sameModel = f.model_name?.toLowerCase() === formData.model_name?.toLowerCase();
+        const sameManufacturer = f.manufacturer?.toLowerCase() === manufacturer?.toLowerCase();
+        const sameModel = f.model_name?.toLowerCase() === modelName?.toLowerCase();
         
         // Check if wattage/lumens are within 5%
-        const wattageClose = formData.wattage && f.wattage 
-          ? Math.abs(f.wattage - formData.wattage) / formData.wattage < 0.05
+        const wattageClose = wattage && f.wattage 
+          ? Math.abs(f.wattage - wattage) / wattage < 0.05
           : false;
-        const lumensClose = formData.lumen_output && f.lumen_output
-          ? Math.abs(f.lumen_output - formData.lumen_output) / formData.lumen_output < 0.05
+        const lumensClose = lumenOutput && f.lumen_output
+          ? Math.abs(f.lumen_output - lumenOutput) / lumenOutput < 0.05
           : false;
 
         return (sameManufacturer && sameModel) || (wattageClose && lumensClose);
@@ -141,7 +148,7 @@ export const ExtractionReviewDialog: React.FC<ExtractionReviewDialogProps> = ({
     } else {
       setDuplicateWarning([]);
     }
-  }, [formData.manufacturer, formData.model_name, formData.wattage, formData.lumen_output, existingFittings]);
+  }, [open, manufacturer, modelName, wattage, lumenOutput, existingFittings]);
 
   // Add to library mutation
   const addToLibraryMutation = useMutation({
