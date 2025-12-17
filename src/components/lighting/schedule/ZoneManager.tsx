@@ -51,31 +51,48 @@ interface LightingZone {
 }
 
 const ZONE_TYPES = [
+  { value: "mall", label: "Mall", defaultLux: 300 },
+  { value: "parking", label: "Parking", defaultLux: 75 },
+  { value: "back_of_house", label: "Back of House", defaultLux: 200 },
+  { value: "ablutions", label: "Ablutions", defaultLux: 200 },
+  { value: "service_passage", label: "Service Passages", defaultLux: 150 },
   { value: "sales_floor", label: "Sales Floor", defaultLux: 500 },
-  { value: "back_of_house", label: "Back of House", defaultLux: 300 },
   { value: "storage", label: "Storage", defaultLux: 150 },
   { value: "corridor", label: "Corridor", defaultLux: 100 },
   { value: "exterior", label: "Exterior", defaultLux: 50 },
   { value: "food_court", label: "Food Court", defaultLux: 300 },
   { value: "anchor", label: "Anchor Store", defaultLux: 500 },
   { value: "office", label: "Office", defaultLux: 400 },
-  { value: "ablutions", label: "Ablutions", defaultLux: 200 },
-  { value: "parking", label: "Parking", defaultLux: 75 },
+  { value: "plant_room", label: "Plant Room", defaultLux: 200 },
+  { value: "loading_dock", label: "Loading Dock", defaultLux: 150 },
   { value: "general", label: "General", defaultLux: 300 },
 ];
 
 const ZONE_TEMPLATES = [
+  { name: "Shopping Centre", zones: [
+    { zone_name: "Parking", zone_type: "parking", min_lux: 75 },
+    { zone_name: "Mall", zone_type: "mall", min_lux: 300 },
+    { zone_name: "Back of House", zone_type: "back_of_house", min_lux: 200 },
+    { zone_name: "Ablutions", zone_type: "ablutions", min_lux: 200 },
+    { zone_name: "Service Passages", zone_type: "service_passage", min_lux: 150 },
+  ]},
+  { name: "Shopping Centre (Extended)", zones: [
+    { zone_name: "Parking - Basement", zone_type: "parking", min_lux: 75 },
+    { zone_name: "Parking - Surface", zone_type: "parking", min_lux: 50 },
+    { zone_name: "Mall - Ground Floor", zone_type: "mall", min_lux: 300 },
+    { zone_name: "Mall - Upper Level", zone_type: "mall", min_lux: 300 },
+    { zone_name: "Food Court", zone_type: "food_court", min_lux: 300 },
+    { zone_name: "Back of House", zone_type: "back_of_house", min_lux: 200 },
+    { zone_name: "Ablutions - Public", zone_type: "ablutions", min_lux: 200 },
+    { zone_name: "Ablutions - Staff", zone_type: "ablutions", min_lux: 150 },
+    { zone_name: "Service Passages", zone_type: "service_passage", min_lux: 150 },
+    { zone_name: "Loading Dock", zone_type: "loading_dock", min_lux: 150 },
+    { zone_name: "Plant Rooms", zone_type: "plant_room", min_lux: 200 },
+  ]},
   { name: "Standard Retail", zones: [
     { zone_name: "Sales Floor", zone_type: "sales_floor", min_lux: 500 },
-    { zone_name: "Back of House", zone_type: "back_of_house", min_lux: 300 },
+    { zone_name: "Back of House", zone_type: "back_of_house", min_lux: 200 },
     { zone_name: "Storage", zone_type: "storage", min_lux: 150 },
-  ]},
-  { name: "Shopping Mall", zones: [
-    { zone_name: "Mall Corridor", zone_type: "corridor", min_lux: 300 },
-    { zone_name: "Food Court", zone_type: "food_court", min_lux: 300 },
-    { zone_name: "Anchor Tenant", zone_type: "anchor", min_lux: 500 },
-    { zone_name: "Ablutions", zone_type: "ablutions", min_lux: 200 },
-    { zone_name: "Parking", zone_type: "parking", min_lux: 75 },
   ]},
   { name: "Office Building", zones: [
     { zone_name: "Open Plan Office", zone_type: "office", min_lux: 400 },
