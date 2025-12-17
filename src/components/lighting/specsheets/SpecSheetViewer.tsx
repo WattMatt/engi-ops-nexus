@@ -1,4 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { Document, Page, pdfjs } from 'react-pdf';
+import 'react-pdf/dist/esm/Page/AnnotationLayer.css';
+import 'react-pdf/dist/esm/Page/TextLayer.css';
 import {
   Dialog,
   DialogContent,
@@ -14,10 +17,15 @@ import {
   RotateCw,
   Loader2,
   FileText,
-  Image as ImageIcon
+  Image as ImageIcon,
+  ChevronLeft,
+  ChevronRight
 } from 'lucide-react';
 import { SpecSheet } from './types';
 import { toast } from 'sonner';
+
+// Set up PDF.js worker
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 interface SpecSheetViewerProps {
   open: boolean;
@@ -34,10 +42,15 @@ export const SpecSheetViewer: React.FC<SpecSheetViewerProps> = ({
   const [loading, setLoading] = useState(true);
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
+  const [numPages, setNumPages] = useState<number | null>(null);
+  const [pageNumber, setPageNumber] = useState(1);
 
   useEffect(() => {
     if (open && specSheet) {
       loadFile();
+      setPageNumber(1);
+      setZoom(1);
+      setRotation(0);
     }
     return () => {
       if (fileUrl) {
@@ -85,8 +98,22 @@ export const SpecSheetViewer: React.FC<SpecSheetViewerProps> = ({
     }
   };
 
+  const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
+    setNumPages(numPages);
+    setLoading(false);
+  };
+
+  const onDocumentLoadError = (error: Error) => {
+    console.error('PDF load error:', error);
+    toast.error('Failed to load PDF');
+    setLoading(false);
+  };
+
   const isImage = specSheet.file_type.startsWith('image/');
   const isPdf = specSheet.file_type === 'application/pdf';
+
+  const goToPrevPage = () => setPageNumber(p => Math.max(1, p - 1));
+  const goToNextPage = () => setPageNumber(p => Math.min(numPages || 1, p + 1));
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -100,36 +127,58 @@ export const SpecSheetViewer: React.FC<SpecSheetViewerProps> = ({
 
         {/* Toolbar */}
         <div className="flex items-center gap-2 border-b pb-3">
-          {isImage && (
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setZoom(z => Math.max(0.5, z - 0.25))}
+            disabled={zoom <= 0.5}
+          >
+            <ZoomOut className="h-4 w-4" />
+          </Button>
+          <span className="text-sm text-muted-foreground w-16 text-center">
+            {Math.round(zoom * 100)}%
+          </span>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setZoom(z => Math.min(3, z + 0.25))}
+            disabled={zoom >= 3}
+          >
+            <ZoomIn className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => setRotation(r => (r + 90) % 360)}
+          >
+            <RotateCw className="h-4 w-4" />
+          </Button>
+          
+          {isPdf && numPages && numPages > 1 && (
             <>
+              <div className="h-4 w-px bg-border mx-2" />
               <Button
                 variant="outline"
                 size="icon"
-                onClick={() => setZoom(z => Math.max(0.25, z - 0.25))}
-                disabled={zoom <= 0.25}
+                onClick={goToPrevPage}
+                disabled={pageNumber <= 1}
               >
-                <ZoomOut className="h-4 w-4" />
+                <ChevronLeft className="h-4 w-4" />
               </Button>
-              <span className="text-sm text-muted-foreground w-16 text-center">
-                {Math.round(zoom * 100)}%
+              <span className="text-sm text-muted-foreground">
+                {pageNumber} / {numPages}
               </span>
               <Button
                 variant="outline"
                 size="icon"
-                onClick={() => setZoom(z => Math.min(3, z + 0.25))}
-                disabled={zoom >= 3}
+                onClick={goToNextPage}
+                disabled={pageNumber >= numPages}
               >
-                <ZoomIn className="h-4 w-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => setRotation(r => (r + 90) % 360)}
-              >
-                <RotateCw className="h-4 w-4" />
+                <ChevronRight className="h-4 w-4" />
               </Button>
             </>
           )}
+          
           <div className="flex-1" />
           <Button variant="outline" size="sm" onClick={handleDownload}>
             <Download className="h-4 w-4 mr-2" />
@@ -139,7 +188,7 @@ export const SpecSheetViewer: React.FC<SpecSheetViewerProps> = ({
 
         {/* Content */}
         <div className="flex-1 overflow-auto bg-muted/30 rounded-lg flex items-center justify-center">
-          {loading ? (
+          {loading && !fileUrl ? (
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
           ) : fileUrl ? (
             isImage ? (
@@ -157,11 +206,27 @@ export const SpecSheetViewer: React.FC<SpecSheetViewerProps> = ({
                 />
               </div>
             ) : isPdf ? (
-              <iframe
-                src={fileUrl}
-                className="w-full h-full rounded-lg"
-                title={specSheet.file_name}
-              />
+              <div className="overflow-auto w-full h-full flex justify-center p-4">
+                <Document
+                  file={fileUrl}
+                  onLoadSuccess={onDocumentLoadSuccess}
+                  onLoadError={onDocumentLoadError}
+                  loading={
+                    <div className="flex items-center justify-center h-full">
+                      <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                    </div>
+                  }
+                >
+                  <Page
+                    pageNumber={pageNumber}
+                    scale={zoom}
+                    rotate={rotation}
+                    renderTextLayer={true}
+                    renderAnnotationLayer={true}
+                    className="shadow-lg"
+                  />
+                </Document>
+              </div>
             ) : (
               <div className="text-center text-muted-foreground">
                 <FileText className="h-16 w-16 mx-auto mb-4 opacity-50" />
