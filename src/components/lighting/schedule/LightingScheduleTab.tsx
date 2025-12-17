@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { LayoutDashboard, MapPin, Lightbulb } from "lucide-react";
-import { ScheduleDashboard } from "./ScheduleDashboard";
+import { MapPin, Lightbulb } from "lucide-react";
 import { ZoneManager } from "./ZoneManager";
 import { FittingSelector } from "./FittingSelector";
 
@@ -10,7 +9,7 @@ interface LightingScheduleTabProps {
 }
 
 export function LightingScheduleTab({ projectId }: LightingScheduleTabProps) {
-  const [activeTab, setActiveTab] = useState("dashboard");
+  const [activeTab, setActiveTab] = useState("zones");
 
   if (!projectId) {
     return (
@@ -31,10 +30,6 @@ export function LightingScheduleTab({ projectId }: LightingScheduleTabProps) {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
-          <TabsTrigger value="dashboard" className="gap-2">
-            <LayoutDashboard className="h-4 w-4" />
-            Dashboard
-          </TabsTrigger>
           <TabsTrigger value="zones" className="gap-2">
             <MapPin className="h-4 w-4" />
             Zones
@@ -44,10 +39,6 @@ export function LightingScheduleTab({ projectId }: LightingScheduleTabProps) {
             Assign Fittings
           </TabsTrigger>
         </TabsList>
-
-        <TabsContent value="dashboard" className="mt-6">
-          <ScheduleDashboard projectId={projectId} />
-        </TabsContent>
 
         <TabsContent value="zones" className="mt-6">
           <ZoneManager projectId={projectId} />
