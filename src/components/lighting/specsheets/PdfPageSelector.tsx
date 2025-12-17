@@ -209,6 +209,7 @@ export const PdfPageSelector: React.FC<PdfPageSelectorProps> = ({
           {numPages > 1 && (
             <>
               <Button
+                type="button"
                 variant="outline"
                 size="icon"
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
@@ -220,6 +221,7 @@ export const PdfPageSelector: React.FC<PdfPageSelectorProps> = ({
                 {currentPage} / {numPages}
               </span>
               <Button
+                type="button"
                 variant="outline"
                 size="icon"
                 onClick={() => setCurrentPage(p => Math.min(numPages, p + 1))}
@@ -231,6 +233,7 @@ export const PdfPageSelector: React.FC<PdfPageSelectorProps> = ({
             </>
           )}
           <Button
+            type="button"
             variant="ghost"
             size="sm"
             onClick={handleReset}
@@ -240,6 +243,7 @@ export const PdfPageSelector: React.FC<PdfPageSelectorProps> = ({
             Reset
           </Button>
           <Button
+            type="button"
             variant="ghost"
             size="sm"
             onClick={onCancel}
@@ -248,6 +252,7 @@ export const PdfPageSelector: React.FC<PdfPageSelectorProps> = ({
             Cancel
           </Button>
           <Button
+            type="button"
             size="sm"
             onClick={handleCrop}
             disabled={!hasValidSelection}
