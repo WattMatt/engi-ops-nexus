@@ -20,6 +20,7 @@ Required fields:
   * "panel" - Flat panel fixtures, typically recessed or surface mounted (600x600, 300x1200, backlit panels)
   * "highbay" - High-ceiling industrial fixtures (warehouses, factories)
   * "floodlight" - Outdoor or area lighting, wide beam fixtures for illuminating large areas
+  * "streetlight" - Road and street lighting fixtures, pole-mounted outdoor lights (GreenVision, Xceed, Iridium, Luma, road lighting)
   * "bulkhead" - Wall/ceiling mounted enclosed fixtures, often for corridors or outdoor use
   * "spotlight" - Directional accent lighting, track lights
   * "pendant" - Suspended/hanging fixtures
@@ -32,6 +33,7 @@ Required fields:
   - "DP S" prefix usually indicates LINEAR fixtures
   - "Batten", "Trunking" = linear
   - "Flood", "Tango" = floodlight
+  - "GreenVision", "Xceed", "Iridium", "Luma", "road", "street" = streetlight
   - "Bulkhead", "Bulky" = bulkhead
   - "Panel", "Backlit", "BackLit" = panel
   - "Highbay", "High Bay" = highbay
@@ -62,7 +64,7 @@ Return ONLY a valid JSON object with this exact structure:
   "extracted_data": {
     "manufacturer": "string or null",
     "model_name": "string or null",
-    "fitting_type": "string (one of: downlight, linear, panel, highbay, floodlight, bulkhead, spotlight, pendant, wall, strip, emergency, other)",
+    "fitting_type": "string (one of: downlight, linear, panel, highbay, floodlight, streetlight, bulkhead, spotlight, pendant, wall, strip, emergency, other)",
     "wattage": number or null,
     "lumen_output": number or null,
     "color_temperature": number or null,
