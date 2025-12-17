@@ -513,16 +513,6 @@ export const AddFittingDialog = ({
                         </div>
                       ) : (
                         <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className="h-24 w-24 flex flex-col items-center justify-center gap-1"
-                            onClick={() => fileInputRef.current?.click()}
-                          >
-                            <ImagePlus className="h-6 w-6 text-muted-foreground" />
-                            <span className="text-xs text-muted-foreground text-center">Upload Image</span>
-                          </Button>
-                          
                           {specSheetUrl && (
                             <Button
                               type="button"
@@ -534,20 +524,20 @@ export const AddFittingDialog = ({
                               <span className="text-xs text-muted-foreground text-center">From Spec Sheet</span>
                             </Button>
                           )}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            className="h-24 w-24 flex flex-col items-center justify-center gap-1"
+                            onClick={() => fileInputRef.current?.click()}
+                          >
+                            <ImagePlus className="h-6 w-6 text-muted-foreground" />
+                            <span className="text-xs text-muted-foreground text-center">Upload Image</span>
+                          </Button>
                         </div>
                       )}
                       
                       {imagePreview && (
                         <div className="flex flex-col gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => fileInputRef.current?.click()}
-                          >
-                            <ImagePlus className="h-4 w-4 mr-1" />
-                            Upload New
-                          </Button>
                           {specSheetUrl && (
                             <Button
                               type="button"
@@ -559,6 +549,15 @@ export const AddFittingDialog = ({
                               From Spec Sheet
                             </Button>
                           )}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => fileInputRef.current?.click()}
+                          >
+                            <ImagePlus className="h-4 w-4 mr-1" />
+                            Upload New
+                          </Button>
                         </div>
                       )}
                     </div>
