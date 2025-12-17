@@ -3,12 +3,16 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
 import {
   Lightbulb,
-  DollarSign,
   Zap,
   Package,
   TrendingUp,
+  Sun,
+  Gauge,
+  ShieldCheck,
+  Activity,
 } from 'lucide-react';
 import {
   PieChart,
@@ -20,7 +24,6 @@ import {
   YAxis,
   Tooltip,
   ResponsiveContainer,
-  Legend,
 } from 'recharts';
 import { LightingFitting, FITTING_TYPES } from './lightingTypes';
 
@@ -74,19 +77,44 @@ export const LightingOverview = ({ projectId }: LightingOverviewProps) => {
 
   const stats = useMemo(() => {
     const totalFittings = fittings.length;
-    const totalCost = fittings.reduce(
-      (sum, f) => sum + (f.supply_cost || 0) + (f.install_cost || 0),
-      0
-    );
-    const avgCost = totalFittings > 0 ? totalCost / totalFittings : 0;
     const totalScheduledQty = schedules.reduce((sum, s) => sum + (s.quantity || 0), 0);
-    const totalWattage = fittings.reduce((sum, f) => sum + (f.wattage || 0), 0);
+    
+    // Performance metrics
+    const fittingsWithEfficacy = fittings.filter(f => f.wattage && f.lumen_output);
+    const avgEfficacy = fittingsWithEfficacy.length > 0
+      ? fittingsWithEfficacy.reduce((sum, f) => sum + (f.lumen_output! / f.wattage!), 0) / fittingsWithEfficacy.length
+      : 0;
+    
+    const fittingsWithCri = fittings.filter(f => f.cri);
+    const avgCri = fittingsWithCri.length > 0
+      ? fittingsWithCri.reduce((sum, f) => sum + f.cri!, 0) / fittingsWithCri.length
+      : 0;
+    
+    const ledCount = fittings.filter(f => 
+      f.fitting_type === 'led_panel' || 
+      f.fitting_type === 'led_downlight' || 
+      f.fitting_type === 'led_strip' ||
+      f.fitting_type === 'led_tube'
+    ).length;
+    const ledPercentage = totalFittings > 0 ? (ledCount / totalFittings) * 100 : 0;
+    
+    const fittingsWithLumens = fittings.filter(f => f.lumen_output);
+    const totalLumens = fittingsWithLumens.reduce((sum, f) => sum + (f.lumen_output || 0), 0);
+    const avgLumens = fittingsWithLumens.length > 0 ? totalLumens / fittingsWithLumens.length : 0;
+    
+    const fittingsWithWattage = fittings.filter(f => f.wattage);
+    const avgWattage = fittingsWithWattage.length > 0
+      ? fittingsWithWattage.reduce((sum, f) => sum + f.wattage!, 0) / fittingsWithWattage.length
+      : 0;
 
     return {
       totalFittings,
-      avgCost,
       totalScheduledQty,
-      totalWattage,
+      avgEfficacy,
+      avgCri,
+      ledPercentage,
+      avgLumens,
+      avgWattage,
     };
   }, [fittings, schedules]);
 
@@ -114,21 +142,34 @@ export const LightingOverview = ({ projectId }: LightingOverviewProps) => {
       .sort((a, b) => parseInt(a.name) - parseInt(b.name));
   }, [fittings]);
 
+  const ipRatingDistribution = useMemo(() => {
+    const counts: Record<string, number> = {};
+    fittings.forEach((f) => {
+      if (f.ip_rating) {
+        counts[f.ip_rating] = (counts[f.ip_rating] || 0) + 1;
+      }
+    });
+    return Object.entries(counts)
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [fittings]);
+
   const recentFittings = useMemo(() => {
     return fittings.slice(0, 5);
   }, [fittings]);
 
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('en-ZA', {
-      style: 'currency',
-      currency: 'ZAR',
-      minimumFractionDigits: 0,
-    }).format(value);
+  const getEfficacyRating = (efficacy: number) => {
+    if (efficacy >= 130) return { label: 'Excellent', color: 'text-green-500' };
+    if (efficacy >= 100) return { label: 'Good', color: 'text-blue-500' };
+    if (efficacy >= 70) return { label: 'Average', color: 'text-yellow-500' };
+    return { label: 'Below Average', color: 'text-orange-500' };
   };
+
+  const efficacyRating = getEfficacyRating(stats.avgEfficacy);
 
   return (
     <div className="space-y-6">
-      {/* KPI Cards */}
+      {/* Primary KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -143,59 +184,95 @@ export const LightingOverview = ({ projectId }: LightingOverviewProps) => {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Average Cost</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Avg Efficacy</CardTitle>
+            <Gauge className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(stats.avgCost)}</div>
-            <p className="text-xs text-muted-foreground">Per fitting</p>
+            <div className="text-2xl font-bold">{stats.avgEfficacy.toFixed(1)} <span className="text-sm font-normal">lm/W</span></div>
+            <p className={`text-xs ${efficacyRating.color}`}>{efficacyRating.label}</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Scheduled Qty</CardTitle>
+            <CardTitle className="text-sm font-medium">Avg CRI</CardTitle>
+            <Sun className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.avgCri.toFixed(0)}</div>
+            <p className="text-xs text-muted-foreground">Color Rendering Index</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">LED Adoption</CardTitle>
             <Lightbulb className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalScheduledQty}</div>
-            <p className="text-xs text-muted-foreground">Project fittings</p>
+            <div className="text-2xl font-bold">{stats.ledPercentage.toFixed(0)}%</div>
+            <Progress value={stats.ledPercentage} className="mt-2 h-2" />
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Secondary Performance Metrics */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Avg Light Output</CardTitle>
+            <Activity className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.avgLumens.toFixed(0)} <span className="text-sm font-normal">lm</span></div>
+            <p className="text-xs text-muted-foreground">Average lumens per fitting</p>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Wattage</CardTitle>
+            <CardTitle className="text-sm font-medium">Avg Power</CardTitle>
             <Zap className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalWattage}W</div>
-            <p className="text-xs text-muted-foreground">Library sum</p>
+            <div className="text-2xl font-bold">{stats.avgWattage.toFixed(1)} <span className="text-sm font-normal">W</span></div>
+            <p className="text-xs text-muted-foreground">Average wattage per fitting</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Project Scheduled</CardTitle>
+            <ShieldCheck className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.totalScheduledQty}</div>
+            <p className="text-xs text-muted-foreground">Fittings in project schedules</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Type Distribution */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Fitting Distribution by Type</CardTitle>
+            <CardTitle className="text-base">Fitting Types</CardTitle>
           </CardHeader>
           <CardContent>
             {typeDistribution.length > 0 ? (
-              <ResponsiveContainer width="100%" height={250}>
+              <ResponsiveContainer width="100%" height={220}>
                 <PieChart>
                   <Pie
                     data={typeDistribution}
                     cx="50%"
                     cy="50%"
-                    innerRadius={60}
-                    outerRadius={90}
+                    innerRadius={50}
+                    outerRadius={80}
                     paddingAngle={2}
                     dataKey="value"
                     label={({ name, percent }) =>
-                      `${name} (${(percent * 100).toFixed(0)}%)`
+                      `${(percent * 100).toFixed(0)}%`
                     }
                     labelLine={false}
                   >
@@ -210,8 +287,21 @@ export const LightingOverview = ({ projectId }: LightingOverviewProps) => {
                 </PieChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-[250px] flex items-center justify-center text-muted-foreground">
+              <div className="h-[220px] flex items-center justify-center text-muted-foreground">
                 No fittings to display
+              </div>
+            )}
+            {typeDistribution.length > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2 justify-center">
+                {typeDistribution.map((item, index) => (
+                  <Badge key={item.name} variant="outline" className="text-xs">
+                    <span 
+                      className="w-2 h-2 rounded-full mr-1" 
+                      style={{ backgroundColor: CHART_COLORS[index % CHART_COLORS.length] }}
+                    />
+                    {item.name}
+                  </Badge>
+                ))}
               </div>
             )}
           </CardContent>
@@ -220,14 +310,14 @@ export const LightingOverview = ({ projectId }: LightingOverviewProps) => {
         {/* Color Temperature Distribution */}
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Color Temperature Distribution</CardTitle>
+            <CardTitle className="text-base">Color Temperature</CardTitle>
           </CardHeader>
           <CardContent>
             {colorTempDistribution.length > 0 ? (
               <ResponsiveContainer width="100%" height={250}>
                 <BarChart data={colorTempDistribution}>
-                  <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} />
+                  <XAxis dataKey="name" tick={{ fontSize: 11 }} />
+                  <YAxis tick={{ fontSize: 11 }} />
                   <Tooltip />
                   <Bar dataKey="count" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                 </BarChart>
@@ -235,6 +325,29 @@ export const LightingOverview = ({ projectId }: LightingOverviewProps) => {
             ) : (
               <div className="h-[250px] flex items-center justify-center text-muted-foreground">
                 No color temperature data
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* IP Rating Distribution */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">IP Ratings</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {ipRatingDistribution.length > 0 ? (
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={ipRatingDistribution} layout="vertical">
+                  <XAxis type="number" tick={{ fontSize: 11 }} />
+                  <YAxis dataKey="name" type="category" tick={{ fontSize: 11 }} width={50} />
+                  <Tooltip />
+                  <Bar dataKey="count" fill="hsl(var(--chart-2))" radius={[0, 4, 4, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div className="h-[250px] flex items-center justify-center text-muted-foreground">
+                No IP rating data
               </div>
             )}
           </CardContent>
@@ -272,11 +385,11 @@ export const LightingOverview = ({ projectId }: LightingOverviewProps) => {
                     <Badge variant="outline">
                       {FITTING_TYPES.find((t) => t.value === fitting.fitting_type)?.label}
                     </Badge>
-                    {fitting.wattage && (
-                      <span className="text-sm text-muted-foreground">
-                        {fitting.wattage}W
-                      </span>
-                    )}
+                    <div className="text-right text-xs text-muted-foreground">
+                      {fitting.wattage && <span>{fitting.wattage}W</span>}
+                      {fitting.wattage && fitting.lumen_output && <span> • </span>}
+                      {fitting.lumen_output && <span>{fitting.lumen_output}lm</span>}
+                    </div>
                   </div>
                 </div>
               ))}
