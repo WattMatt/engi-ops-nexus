@@ -10,7 +10,8 @@ import {
   Building2, 
   FileText,
   RefreshCw,
-  Leaf
+  Leaf,
+  Sparkles
 } from 'lucide-react';
 
 // Import Phase 5 components
@@ -23,13 +24,14 @@ import { SupplierManagement } from '../suppliers/SupplierManagement';
 import { SupplierQuoteRequest } from '../suppliers/SupplierQuoteRequest';
 import { SupplierPriceSync } from '../suppliers/SupplierPriceSync';
 import { SustainabilityTab } from '../sustainability';
+import { AILightingRecommendations } from '../recommendations/AILightingRecommendations';
 
 interface AdvancedFeaturesTabProps {
   projectId?: string | null;
 }
 
 export const AdvancedFeaturesTab = ({ projectId }: AdvancedFeaturesTabProps) => {
-  const [activeSection, setActiveSection] = useState('visualization');
+  const [activeSection, setActiveSection] = useState('recommendations');
 
   // Demo photometric data
   const demoPhotometricData = {
@@ -55,7 +57,11 @@ export const AdvancedFeaturesTab = ({ projectId }: AdvancedFeaturesTabProps) => 
 
       {/* Main Tabs */}
       <Tabs value={activeSection} onValueChange={setActiveSection} className="space-y-4">
-        <TabsList className="grid grid-cols-5 w-full max-w-3xl">
+        <TabsList className="grid grid-cols-6 w-full max-w-4xl">
+          <TabsTrigger value="recommendations" className="flex items-center gap-1">
+            <Sparkles className="h-4 w-4" />
+            <span className="hidden sm:inline">AI Insights</span>
+          </TabsTrigger>
           <TabsTrigger value="visualization" className="flex items-center gap-1">
             <Box className="h-4 w-4" />
             <span className="hidden sm:inline">3D Viz</span>
@@ -77,6 +83,11 @@ export const AdvancedFeaturesTab = ({ projectId }: AdvancedFeaturesTabProps) => 
             <span className="hidden sm:inline">Suppliers</span>
           </TabsTrigger>
         </TabsList>
+
+        {/* AI Recommendations Tab */}
+        <TabsContent value="recommendations" className="space-y-6">
+          <AILightingRecommendations projectId={projectId} />
+        </TabsContent>
 
         {/* 3D Visualization Tab */}
         <TabsContent value="visualization" className="space-y-6">
