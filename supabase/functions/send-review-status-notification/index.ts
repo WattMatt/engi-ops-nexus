@@ -1,8 +1,24 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { Resend } from "npm:resend@2.0.0";
 
-const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+
+async function sendEmail(to: string, subject: string, html: string) {
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${RESEND_API_KEY}`,
+    },
+    body: JSON.stringify({
+      from: "Final Accounts <onboarding@resend.dev>",
+      to: [to],
+      subject,
+      html,
+    }),
+  });
+  return res.json();
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -73,60 +89,61 @@ const handler = async (req: Request): Promise<Response> => {
     const statusText = status === "approved" ? "Approved" : "Disputed";
     const statusColor = status === "approved" ? "#22c55e" : "#ef4444";
 
-    // Send email notification
-    const emailResponse = await resend.emails.send({
-      from: "Final Accounts <onboarding@resend.dev>",
-      to: [senderProfile.email],
-      subject: `Section ${statusText}: ${sectionName}`,
-      html: `
-        <!DOCTYPE html>
-        <html>
-        <head>
-          <style>
-            body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
-            .container { max-width: 600px; margin: 0 auto; padding: 20px; }
-            .header { background: ${statusColor}; color: white; padding: 20px; text-align: center; }
-            .content { padding: 20px; background: #f9f9f9; }
-            .status-badge { display: inline-block; padding: 8px 16px; background: ${statusColor}; color: white; border-radius: 4px; font-weight: bold; }
-            .details { background: white; padding: 15px; border-radius: 8px; margin: 15px 0; }
-            .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="header">
-              <h1>Section Review Update</h1>
-            </div>
-            <div class="content">
-              <p>Dear ${senderProfile.full_name || 'Team'},</p>
-              
-              <p>The following section has been reviewed:</p>
-              
-              <div class="details">
-                <p><strong>Project:</strong> ${projectName}</p>
-                <p><strong>Section:</strong> ${sectionName}</p>
-                <p><strong>Reviewer:</strong> ${reviewerName}</p>
-                <p><strong>Status:</strong> <span class="status-badge">${statusText}</span></p>
-              </div>
-              
-              ${status === "disputed" ? `
-                <div style="background: #fef2f2; padding: 15px; border-left: 4px solid #ef4444; margin: 15px 0;">
-                  <p><strong>Action Required:</strong> A dispute has been raised. Please review the comments in the Final Accounts system and address any concerns.</p>
-                </div>
-              ` : `
-                <div style="background: #f0fdf4; padding: 15px; border-left: 4px solid #22c55e; margin: 15px 0;">
-                  <p>This section has been approved by the contractor. You may proceed with the next steps.</p>
-                </div>
-              `}
-            </div>
-            <div class="footer">
-              <p>This is an automated message from the Final Accounts Management System.</p>
-            </div>
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <style>
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+          .header { background: ${statusColor}; color: white; padding: 20px; text-align: center; }
+          .content { padding: 20px; background: #f9f9f9; }
+          .status-badge { display: inline-block; padding: 8px 16px; background: ${statusColor}; color: white; border-radius: 4px; font-weight: bold; }
+          .details { background: white; padding: 15px; border-radius: 8px; margin: 15px 0; }
+          .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>Section Review Update</h1>
           </div>
-        </body>
-        </html>
-      `,
-    });
+          <div class="content">
+            <p>Dear ${senderProfile.full_name || 'Team'},</p>
+            
+            <p>The following section has been reviewed:</p>
+            
+            <div class="details">
+              <p><strong>Project:</strong> ${projectName}</p>
+              <p><strong>Section:</strong> ${sectionName}</p>
+              <p><strong>Reviewer:</strong> ${reviewerName}</p>
+              <p><strong>Status:</strong> <span class="status-badge">${statusText}</span></p>
+            </div>
+            
+            ${status === "disputed" ? `
+              <div style="background: #fef2f2; padding: 15px; border-left: 4px solid #ef4444; margin: 15px 0;">
+                <p><strong>Action Required:</strong> A dispute has been raised. Please review the comments in the Final Accounts system and address any concerns.</p>
+              </div>
+            ` : `
+              <div style="background: #f0fdf4; padding: 15px; border-left: 4px solid #22c55e; margin: 15px 0;">
+                <p>This section has been approved by the contractor. You may proceed with the next steps.</p>
+              </div>
+            `}
+          </div>
+          <div class="footer">
+            <p>This is an automated message from the Final Accounts Management System.</p>
+          </div>
+        </div>
+      </body>
+      </html>
+    `;
+
+    // Send email notification
+    const emailResponse = await sendEmail(
+      senderProfile.email,
+      `Section ${statusText}: ${sectionName}`,
+      htmlContent
+    );
 
     console.log("Status notification sent:", emailResponse);
 

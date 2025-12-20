@@ -2769,6 +2769,7 @@ export type Database = {
           created_at: string
           id: string
           message: string | null
+          pdf_url: string | null
           reviewed_at: string | null
           reviewer_contact_id: string | null
           reviewer_email: string | null
@@ -2784,6 +2785,7 @@ export type Database = {
           created_at?: string
           id?: string
           message?: string | null
+          pdf_url?: string | null
           reviewed_at?: string | null
           reviewer_contact_id?: string | null
           reviewer_email?: string | null
@@ -2799,6 +2801,7 @@ export type Database = {
           created_at?: string
           id?: string
           message?: string | null
+          pdf_url?: string | null
           reviewed_at?: string | null
           reviewer_contact_id?: string | null
           reviewer_email?: string | null
