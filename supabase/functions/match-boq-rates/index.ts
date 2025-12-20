@@ -327,6 +327,7 @@ async function processMatching(
     // Process matches and create price history
     let matchedCount = 0;
     let newItemCount = 0;
+    let ratesUpdatedCount = 0;
     const priceHistoryEntries: any[] = [];
 
     for (const result of matchResults) {
@@ -361,10 +362,11 @@ async function processMatching(
         const masterMaterial = masterMaterials.find((m: MasterMaterial) => m.id === result.matched_material_id);
         
         if (masterMaterial && (result.supply_rate || result.install_rate || result.total_rate)) {
-          // Create price history entry
+          // Calculate rates from BOQ
           const boqSupply = result.supply_rate || (result.total_rate ? result.total_rate * 0.7 : null);
           const boqInstall = result.install_rate || (result.total_rate ? result.total_rate * 0.3 : null);
           
+          // Create price history entry
           priceHistoryEntries.push({
             material_id: result.matched_material_id,
             old_supply_cost: masterMaterial.standard_supply_cost,
@@ -379,13 +381,41 @@ async function processMatching(
             ),
             change_reason: `BOQ rate from upload: ${upload_id}`,
           });
+
+          // AUTO-UPDATE: Update master material with BOQ rates (high confidence matches)
+          if (result.match_confidence >= 0.7 && (boqSupply || boqInstall)) {
+            const updateData: any = {};
+            
+            // Only update if BOQ has a rate and master is 0 or BOQ has higher value
+            if (boqSupply && (masterMaterial.standard_supply_cost === 0 || masterMaterial.standard_supply_cost === null)) {
+              updateData.standard_supply_cost = boqSupply;
+            }
+            if (boqInstall && (masterMaterial.standard_install_cost === 0 || masterMaterial.standard_install_cost === null)) {
+              updateData.standard_install_cost = boqInstall;
+            }
+            
+            // Update if we have data to update
+            if (Object.keys(updateData).length > 0) {
+              const { error: updateError } = await supabase
+                .from('master_materials')
+                .update(updateData)
+                .eq('id', result.matched_material_id);
+              
+              if (updateError) {
+                console.error(`[BOQ Match] Failed to update master material ${result.matched_material_id}:`, updateError);
+              } else {
+                ratesUpdatedCount++;
+                console.log(`[BOQ Match] Updated rates for ${masterMaterial.material_code}: Supply=${boqSupply}, Install=${boqInstall}`);
+              }
+            }
+          }
         }
       } else {
         newItemCount++;
       }
     }
 
-    // Insert price history entries (for reference, not updating master)
+    // Insert price history entries
     if (priceHistoryEntries.length > 0) {
       // Get the current user from the upload
       const { data: uploadData } = await supabase
@@ -404,6 +434,8 @@ async function processMatching(
       }
       console.log(`[BOQ Match] Created ${priceHistoryEntries.length} price history entries`);
     }
+
+    console.log(`[BOQ Match] Auto-updated ${ratesUpdatedCount} master material rates`);
 
     // Update upload status
     await supabase
