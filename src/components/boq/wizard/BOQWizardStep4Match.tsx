@@ -137,54 +137,41 @@ export function BOQWizardStep4Match({ state, updateState }: Props) {
         throw new Error("No valid content to process. Check column mappings.");
       }
 
-      // Call the matching edge function
-      try {
-        await supabase.functions.invoke("match-boq-rates", {
-          body: {
-            upload_id: uploadRecord.id,
-            file_content: contentToProcess,
-          },
-        });
-      } catch (invokeError) {
-        // Edge function may timeout but still process in background
-        console.log("Edge function invoke returned:", invokeError);
-      }
-
-      setProgress(70);
-      setStatusMessage("Matching in progress (this may take a minute)...");
-
-      // Poll for completion
-      let attempts = 0;
-      const maxAttempts = 60; // 5 minutes max
+      // Call the matching edge function (now synchronous)
+      setStatusMessage("AI matching in progress (this may take 1-2 minutes)...");
       
-      while (attempts < maxAttempts) {
-        await new Promise(resolve => setTimeout(resolve, 5000));
-        
-        const { data: uploadStatus } = await supabase
-          .from("boq_uploads")
-          .select("status, total_items_extracted, items_matched_to_master, error_message")
-          .eq("id", uploadRecord.id)
-          .single();
+      const { data: matchResult, error: matchError } = await supabase.functions.invoke("match-boq-rates", {
+        body: {
+          upload_id: uploadRecord.id,
+          file_content: contentToProcess,
+        },
+      });
 
-        if (uploadStatus?.status === "completed") {
-          setProgress(100);
-          return {
-            uploadId: uploadRecord.id,
-            itemsExtracted: uploadStatus.total_items_extracted || 0,
-            itemsMatched: uploadStatus.items_matched_to_master || 0,
-          };
-        }
-
-        if (uploadStatus?.status === "error") {
-          throw new Error(uploadStatus.error_message || "Processing failed");
-        }
-
-        attempts++;
-        setProgress(70 + Math.min(attempts, 25));
-        setStatusMessage(`AI matching in progress... (${attempts * 5}s)`);
+      if (matchError) {
+        console.error("Edge function error:", matchError);
+        throw new Error(matchError.message || "AI matching failed");
       }
 
-      throw new Error("Processing timeout - check status later");
+      setProgress(90);
+      setStatusMessage("Retrieving results...");
+
+      // Get final status
+      const { data: uploadStatus } = await supabase
+        .from("boq_uploads")
+        .select("status, total_items_extracted, items_matched_to_master, error_message")
+        .eq("id", uploadRecord.id)
+        .single();
+
+      if (uploadStatus?.status === "error") {
+        throw new Error(uploadStatus.error_message || "Processing failed");
+      }
+
+      setProgress(100);
+      return {
+        uploadId: uploadRecord.id,
+        itemsExtracted: uploadStatus?.total_items_extracted || 0,
+        itemsMatched: uploadStatus?.items_matched_to_master || 0,
+      };
     },
     onSuccess: (result) => {
       setStatusMessage("Matching completed!");
