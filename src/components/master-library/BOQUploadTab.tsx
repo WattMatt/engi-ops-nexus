@@ -8,11 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Upload, FileSpreadsheet, Clock, CheckCircle, XCircle, Eye, Loader2, Building2, MapPin, Calendar, Trash2, RefreshCw, MoreHorizontal, Download, Sheet, ExternalLink, RefreshCcw, FileText, Presentation, Mail, FolderPlus, ClipboardList, FileQuestion, ClipboardCheck, HardHat, Sparkles, FileInput, FilePlus2, Database } from "lucide-react";
+import { Upload, FileSpreadsheet, Clock, CheckCircle, XCircle, Eye, Loader2, Building2, MapPin, Calendar, Trash2, RefreshCw, MoreHorizontal, Download, Sheet, ExternalLink, RefreshCcw, FileText, Presentation, Mail, FolderPlus, ClipboardList, FileQuestion, ClipboardCheck, HardHat, Sparkles, FileInput, FilePlus2, Database, Wand2 } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 import { BOQReviewDialog } from "./BOQReviewDialog";
 import { BOQPreviewDialog } from "./BOQPreviewDialog";
+import { BOQProcessingWizard } from "../boq/BOQProcessingWizard";
 import { Label } from "@/components/ui/label";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
@@ -83,6 +84,7 @@ export const BOQUploadTab = () => {
   const [previewFile, setPreviewFile] = useState<File | null>(null);
   const [exportingId, setExportingId] = useState<string | null>(null);
   const [syncingId, setSyncingId] = useState<string | null>(null);
+  const [wizardOpen, setWizardOpen] = useState(false);
   const queryClient = useQueryClient();
 
   // Fetch projects for dropdown
@@ -907,6 +909,16 @@ export const BOQUploadTab = () => {
 
   return (
     <div className="space-y-6">
+      {/* Wizard Dialog */}
+      <BOQProcessingWizard 
+        open={wizardOpen} 
+        onOpenChange={setWizardOpen}
+        onComplete={() => {
+          queryClient.invalidateQueries({ queryKey: ["boq-uploads"] });
+          queryClient.invalidateQueries({ queryKey: ["master-materials"] });
+        }}
+      />
+
       {/* Upload Section */}
       <Card>
         <CardHeader>
@@ -921,6 +933,10 @@ export const BOQUploadTab = () => {
               </CardDescription>
             </div>
             <div className="flex items-center gap-2">
+              <Button onClick={() => setWizardOpen(true)} className="gap-2">
+                <Wand2 className="h-4 w-4" />
+                Process BOQ Wizard
+              </Button>
               <Button variant="outline" size="sm" onClick={handleImportFromSheet}>
                 <FileInput className="h-4 w-4 mr-2" />
                 Import from Sheet
