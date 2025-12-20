@@ -44,9 +44,7 @@ interface MatchResult {
   section_name: string | null;
 }
 
-declare const EdgeRuntime: {
-  waitUntil: (promise: Promise<unknown>) => void;
-};
+// Processing is now synchronous - no EdgeRuntime needed
 
 /**
  * Get Google Access Token using service account
@@ -206,26 +204,18 @@ serve(async (req) => {
       })
       .eq('id', upload_id);
 
-    // Process in background
-    const processingPromise = processMatching(
+    // Process synchronously (Supabase has 150s timeout which is enough)
+    await processMatching(
       supabase,
       upload_id,
       contentToProcess,
       lovableApiKey
     );
 
-    if (typeof EdgeRuntime !== 'undefined' && EdgeRuntime.waitUntil) {
-      EdgeRuntime.waitUntil(processingPromise);
-    } else {
-      processingPromise.catch(err => {
-        console.error('[BOQ Match] Background processing error:', err);
-      });
-    }
-
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'Matching started. Check upload status for results.',
+        message: 'Matching completed.',
         upload_id
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
