@@ -36,16 +36,18 @@ interface BOQItemRow {
 
 type EditableField = 'item_code' | 'item_description' | 'quantity' | 'unit' | 'supply_rate' | 'install_rate';
 
-const COLUMNS: { key: EditableField | 'total_rate' | 'amount' | 'actions'; label: string; width: string; editable: boolean; type: 'text' | 'number' | 'currency'; align: 'left' | 'right' }[] = [
-  { key: 'item_code', label: 'Code', width: 'w-[100px]', editable: true, type: 'text', align: 'left' },
-  { key: 'item_description', label: 'Description', width: 'flex-1 min-w-[250px]', editable: true, type: 'text', align: 'left' },
+// Column structure matching typical BOQ Excel format
+const COLUMNS: { key: string; label: string; width: string; editable: boolean; type: 'text' | 'number' | 'currency'; align: 'left' | 'right' | 'center' }[] = [
+  { key: 'row_number', label: 'No.', width: 'w-[50px]', editable: false, type: 'number', align: 'center' },
+  { key: 'item_code', label: 'Item Ref', width: 'w-[100px]', editable: true, type: 'text', align: 'left' },
+  { key: 'item_description', label: 'Description', width: 'flex-1 min-w-[300px]', editable: true, type: 'text', align: 'left' },
+  { key: 'unit', label: 'Unit', width: 'w-[70px]', editable: true, type: 'text', align: 'center' },
   { key: 'quantity', label: 'Qty', width: 'w-[80px]', editable: true, type: 'number', align: 'right' },
-  { key: 'unit', label: 'Unit', width: 'w-[60px]', editable: true, type: 'text', align: 'left' },
-  { key: 'supply_rate', label: 'Supply Rate', width: 'w-[100px]', editable: true, type: 'currency', align: 'right' },
-  { key: 'install_rate', label: 'Install Rate', width: 'w-[100px]', editable: true, type: 'currency', align: 'right' },
-  { key: 'total_rate', label: 'Total Rate', width: 'w-[100px]', editable: false, type: 'currency', align: 'right' },
-  { key: 'amount', label: 'Amount', width: 'w-[110px]', editable: false, type: 'currency', align: 'right' },
-  { key: 'actions', label: '', width: 'w-[40px]', editable: false, type: 'text', align: 'left' },
+  { key: 'supply_rate', label: 'Supply', width: 'w-[100px]', editable: true, type: 'currency', align: 'right' },
+  { key: 'install_rate', label: 'Install', width: 'w-[100px]', editable: true, type: 'currency', align: 'right' },
+  { key: 'total_rate', label: 'Rate', width: 'w-[100px]', editable: false, type: 'currency', align: 'right' },
+  { key: 'amount', label: 'Amount', width: 'w-[120px]', editable: false, type: 'currency', align: 'right' },
+  { key: 'actions', label: '', width: 'w-[40px]', editable: false, type: 'text', align: 'center' },
 ];
 
 export function BOQSpreadsheetTable({ uploadId, billNumber, sectionCode }: BOQSpreadsheetTableProps) {
@@ -92,12 +94,10 @@ export function BOQSpreadsheetTable({ uploadId, billNumber, sectionCode }: BOQSp
 
       const updates: any = { [field]: value };
       
-      // Recalculate total_rate if supply or install rate changed
       const supplyRate = field === 'supply_rate' ? (value || 0) : (item.supply_rate || 0);
       const installRate = field === 'install_rate' ? (value || 0) : (item.install_rate || 0);
       updates.total_rate = supplyRate + installRate;
       
-      // Recalculate costs if quantity or rates changed
       const quantity = field === 'quantity' ? (value || 0) : (item.quantity || 0);
       updates.supply_cost = quantity * supplyRate;
       updates.install_cost = quantity * installRate;
@@ -237,7 +237,7 @@ export function BOQSpreadsheetTable({ uploadId, billNumber, sectionCode }: BOQSp
     }
   }, [activeCell]);
 
-  const renderCell = (item: BOQItemRow, column: typeof COLUMNS[0]) => {
+  const renderCell = (item: BOQItemRow, column: typeof COLUMNS[0], rowIndex: number) => {
     const isActive = activeCell?.rowId === item.id && activeCell?.field === column.key;
     
     if (column.key === 'actions') {
@@ -252,19 +252,33 @@ export function BOQSpreadsheetTable({ uploadId, billNumber, sectionCode }: BOQSp
       );
     }
 
-    // Calculate amount for display
-    if (column.key === 'amount') {
-      const amount = (item.quantity || 0) * (item.total_rate || 0);
+    if (column.key === 'row_number') {
       return (
-        <div className="px-1.5 py-1 text-xs text-right font-medium">
+        <div className="px-2 py-1.5 text-xs text-center text-muted-foreground font-mono">
+          {rowIndex + 1}
+        </div>
+      );
+    }
+
+    if (column.key === 'amount') {
+      const amount = (item.quantity || 0) * ((item.supply_rate || 0) + (item.install_rate || 0));
+      return (
+        <div className="px-2 py-1.5 text-xs text-right font-medium font-mono">
           {formatCurrency(amount)}
         </div>
       );
     }
 
-    const value = column.key === 'total_rate' 
-      ? (item.supply_rate || 0) + (item.install_rate || 0)
-      : item[column.key as keyof BOQItemRow];
+    if (column.key === 'total_rate') {
+      const rate = (item.supply_rate || 0) + (item.install_rate || 0);
+      return (
+        <div className="px-2 py-1.5 text-xs text-right font-mono">
+          {formatCurrency(rate)}
+        </div>
+      );
+    }
+
+    const value = item[column.key as keyof BOQItemRow];
     
     if (isActive && column.editable) {
       return (
@@ -276,8 +290,9 @@ export function BOQSpreadsheetTable({ uploadId, billNumber, sectionCode }: BOQSp
           onBlur={commitEdit}
           onKeyDown={handleKeyDown}
           className={cn(
-            "w-full h-full bg-primary/10 border-2 border-primary outline-none px-1.5 py-0.5 text-xs",
-            column.align === 'right' && "text-right"
+            "w-full h-full bg-blue-50 dark:bg-blue-950 border-2 border-blue-500 outline-none px-2 py-1 text-xs font-mono",
+            column.align === 'right' && "text-right",
+            column.align === 'center' && "text-center"
           )}
           step={column.type === 'currency' ? '0.01' : '1'}
         />
@@ -287,16 +302,17 @@ export function BOQSpreadsheetTable({ uploadId, billNumber, sectionCode }: BOQSp
     const displayValue = column.type === 'currency' 
       ? formatCurrency(value as number)
       : column.type === 'number'
-      ? (value ?? '-')
-      : (value || '-');
+      ? (value ?? '')
+      : (value || '');
     
     return (
       <div
         onClick={() => column.editable && startEditing(item.id, column.key)}
         className={cn(
-          "px-1.5 py-1 text-xs truncate",
-          column.editable && "cursor-cell hover:bg-muted/50",
-          column.align === 'right' && "text-right"
+          "px-2 py-1.5 text-xs font-mono truncate",
+          column.editable && "cursor-cell hover:bg-blue-50 dark:hover:bg-blue-950/50",
+          column.align === 'right' && "text-right",
+          column.align === 'center' && "text-center"
         )}
         title={typeof value === 'string' ? value : undefined}
       >
@@ -306,28 +322,29 @@ export function BOQSpreadsheetTable({ uploadId, billNumber, sectionCode }: BOQSp
   };
 
   if (isLoading) {
-    return <div className="text-center py-4 text-muted-foreground text-xs">Loading...</div>;
+    return <div className="text-center py-8 text-muted-foreground text-sm">Loading items...</div>;
   }
 
   // Calculate totals
   const totals = items.reduce((acc, item) => ({
     quantity: acc.quantity + (item.quantity || 0),
-    supplyTotal: acc.supplyTotal + (item.supply_cost || 0),
-    installTotal: acc.installTotal + (item.install_cost || 0),
+    supplyTotal: acc.supplyTotal + ((item.quantity || 0) * (item.supply_rate || 0)),
+    installTotal: acc.installTotal + ((item.quantity || 0) * (item.install_rate || 0)),
     grandTotal: acc.grandTotal + ((item.quantity || 0) * ((item.supply_rate || 0) + (item.install_rate || 0))),
   }), { quantity: 0, supplyTotal: 0, installTotal: 0, grandTotal: 0 });
 
   return (
-    <div className="border rounded-md overflow-hidden bg-card">
-      {/* Header */}
-      <div className="flex bg-muted/70 border-b sticky top-0 z-10">
+    <div className="border-0 overflow-hidden bg-background">
+      {/* Excel-style Header */}
+      <div className="flex bg-muted border-b border-border sticky top-0 z-10">
         {COLUMNS.map((col) => (
           <div
             key={col.key}
             className={cn(
-              "px-1.5 py-2 text-xs font-medium text-muted-foreground border-r last:border-r-0",
+              "px-2 py-2 text-xs font-semibold text-muted-foreground border-r border-border last:border-r-0 bg-muted",
               col.width,
-              col.align === 'right' && "text-right"
+              col.align === 'right' && "text-right",
+              col.align === 'center' && "text-center"
             )}
           >
             {col.label}
@@ -335,24 +352,30 @@ export function BOQSpreadsheetTable({ uploadId, billNumber, sectionCode }: BOQSp
         ))}
       </div>
       
-      {/* Rows */}
-      <div className="divide-y max-h-[500px] overflow-y-auto">
+      {/* Data Rows */}
+      <div className="divide-y divide-border">
         {items.length === 0 ? (
-          <div className="py-8 text-center text-muted-foreground text-sm">
-            No items in this section. Click "Add Row" to start.
+          <div className="py-12 text-center text-muted-foreground text-sm">
+            No items in this sheet. Click "Add Row" below to start adding items.
           </div>
         ) : (
-          items.map((item) => (
-            <div key={item.id} className="flex group hover:bg-muted/30 transition-colors">
+          items.map((item, index) => (
+            <div 
+              key={item.id} 
+              className={cn(
+                "flex group transition-colors",
+                index % 2 === 0 ? "bg-background" : "bg-muted/30"
+              )}
+            >
               {COLUMNS.map((col) => (
                 <div
                   key={col.key}
                   className={cn(
-                    "border-r last:border-r-0 min-h-[32px] flex items-center",
+                    "border-r border-border last:border-r-0 min-h-[32px] flex items-center",
                     col.width
                   )}
                 >
-                  {renderCell(item, col)}
+                  {renderCell(item, col, index)}
                 </div>
               ))}
             </div>
@@ -362,27 +385,30 @@ export function BOQSpreadsheetTable({ uploadId, billNumber, sectionCode }: BOQSp
       
       {/* Totals Row */}
       {items.length > 0 && (
-        <div className="flex bg-muted/50 border-t font-medium">
-          <div className="w-[100px] px-1.5 py-2 text-xs border-r"></div>
-          <div className="flex-1 min-w-[250px] px-1.5 py-2 text-xs border-r">Total ({items.length} items)</div>
-          <div className="w-[80px] px-1.5 py-2 text-xs border-r text-right">{totals.quantity.toFixed(2)}</div>
-          <div className="w-[60px] px-1.5 py-2 text-xs border-r"></div>
-          <div className="w-[100px] px-1.5 py-2 text-xs border-r text-right">{formatCurrency(totals.supplyTotal)}</div>
-          <div className="w-[100px] px-1.5 py-2 text-xs border-r text-right">{formatCurrency(totals.installTotal)}</div>
-          <div className="w-[100px] px-1.5 py-2 text-xs border-r text-right"></div>
-          <div className="w-[110px] px-1.5 py-2 text-xs border-r text-right font-semibold">{formatCurrency(totals.grandTotal)}</div>
+        <div className="flex bg-muted/70 border-t-2 border-border font-semibold">
+          <div className="w-[50px] px-2 py-2 text-xs border-r border-border"></div>
+          <div className="w-[100px] px-2 py-2 text-xs border-r border-border"></div>
+          <div className="flex-1 min-w-[300px] px-2 py-2 text-xs border-r border-border font-semibold">
+            TOTAL ({items.length} items)
+          </div>
+          <div className="w-[70px] px-2 py-2 text-xs border-r border-border text-center"></div>
+          <div className="w-[80px] px-2 py-2 text-xs border-r border-border text-right font-mono">{totals.quantity.toFixed(2)}</div>
+          <div className="w-[100px] px-2 py-2 text-xs border-r border-border text-right font-mono">{formatCurrency(totals.supplyTotal)}</div>
+          <div className="w-[100px] px-2 py-2 text-xs border-r border-border text-right font-mono">{formatCurrency(totals.installTotal)}</div>
+          <div className="w-[100px] px-2 py-2 text-xs border-r border-border text-right"></div>
+          <div className="w-[120px] px-2 py-2 text-xs border-r border-border text-right font-mono font-bold">{formatCurrency(totals.grandTotal)}</div>
           <div className="w-[40px]"></div>
         </div>
       )}
       
-      {/* Add row button */}
-      <div className="border-t bg-muted/30">
+      {/* Add Row Button */}
+      <div className="border-t border-border bg-muted/30">
         <button
           onClick={() => addMutation.mutate()}
           disabled={addMutation.isPending}
-          className="w-full py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors flex items-center justify-center gap-1"
+          className="w-full py-2.5 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors flex items-center justify-center gap-1.5"
         >
-          <Plus className="h-3.5 w-3.5" />
+          <Plus className="h-4 w-4" />
           Add Row
         </button>
       </div>
