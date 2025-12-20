@@ -5,7 +5,7 @@ import { ArrowLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FinalAccountOverview } from "@/components/final-accounts/FinalAccountOverview";
-import { FinalAccountItemsManager } from "@/components/final-accounts/FinalAccountItemsManager";
+import { FinalAccountBillsManager } from "@/components/final-accounts/FinalAccountBillsManager";
 
 const FinalAccountDetail = () => {
   const { accountId } = useParams();
@@ -42,13 +42,13 @@ const FinalAccountDetail = () => {
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="items">Line Items</TabsTrigger>
+          <TabsTrigger value="bills">Bills & Sections</TabsTrigger>
         </TabsList>
         <TabsContent value="overview" className="space-y-4">
           {account && <FinalAccountOverview account={account} />}
         </TabsContent>
-        <TabsContent value="items" className="space-y-4">
-          {accountId && <FinalAccountItemsManager accountId={accountId} />}
+        <TabsContent value="bills" className="space-y-4">
+          {accountId && <FinalAccountBillsManager accountId={accountId} />}
         </TabsContent>
       </Tabs>
     </div>
