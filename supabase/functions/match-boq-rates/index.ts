@@ -328,7 +328,7 @@ async function processMatching(
           match_confidence: result.match_confidence,
           suggested_category_id: result.suggested_category_id,
           suggested_category_name: result.suggested_category_name,
-          review_status: result.is_new_item ? 'pending' : 'matched',
+          review_status: 'pending',
           bill_number: result.bill_number,
           bill_name: result.bill_name,
           section_code: result.section_code,
