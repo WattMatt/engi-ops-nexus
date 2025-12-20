@@ -2652,6 +2652,7 @@ export type Database = {
           item_code: string
           notes: string | null
           section_id: string
+          shop_subsection_id: string | null
           supply_rate: number | null
           unit: string | null
           updated_at: string
@@ -2671,6 +2672,7 @@ export type Database = {
           item_code: string
           notes?: string | null
           section_id: string
+          shop_subsection_id?: string | null
           supply_rate?: number | null
           unit?: string | null
           updated_at?: string
@@ -2690,6 +2692,7 @@ export type Database = {
           item_code?: string
           notes?: string | null
           section_id?: string
+          shop_subsection_id?: string | null
           supply_rate?: number | null
           unit?: string | null
           updated_at?: string
@@ -2701,6 +2704,13 @@ export type Database = {
             columns: ["section_id"]
             isOneToOne: false
             referencedRelation: "final_account_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "final_account_items_shop_subsection_id_fkey"
+            columns: ["shop_subsection_id"]
+            isOneToOne: false
+            referencedRelation: "final_account_shop_subsections"
             referencedColumns: ["id"]
           },
         ]
@@ -2751,6 +2761,53 @@ export type Database = {
             columns: ["bill_id"]
             isOneToOne: false
             referencedRelation: "final_account_bills"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      final_account_shop_subsections: {
+        Row: {
+          contract_total: number
+          created_at: string
+          display_order: number
+          final_total: number
+          id: string
+          section_id: string
+          shop_name: string
+          shop_number: string
+          updated_at: string
+          variation_total: number
+        }
+        Insert: {
+          contract_total?: number
+          created_at?: string
+          display_order?: number
+          final_total?: number
+          id?: string
+          section_id: string
+          shop_name: string
+          shop_number: string
+          updated_at?: string
+          variation_total?: number
+        }
+        Update: {
+          contract_total?: number
+          created_at?: string
+          display_order?: number
+          final_total?: number
+          id?: string
+          section_id?: string
+          shop_name?: string
+          shop_number?: string
+          updated_at?: string
+          variation_total?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "final_account_shop_subsections_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "final_account_sections"
             referencedColumns: ["id"]
           },
         ]

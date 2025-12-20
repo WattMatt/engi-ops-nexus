@@ -2,11 +2,13 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Plus, ChevronDown, ChevronRight, Trash2, Pencil } from "lucide-react";
+import { Plus, ChevronDown, ChevronRight, Trash2, Pencil, Zap } from "lucide-react";
 import { toast } from "sonner";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { AddSectionDialog } from "./AddSectionDialog";
 import { FinalAccountItemsTable } from "./FinalAccountItemsTable";
+import { QuickSetupWizard } from "./QuickSetupWizard";
+import { LineShopsManager } from "./LineShopsManager";
 import { formatCurrency } from "@/utils/formatters";
 
 interface FinalAccountSectionsManagerProps {
@@ -16,6 +18,7 @@ interface FinalAccountSectionsManagerProps {
 
 export function FinalAccountSectionsManager({ billId, accountId }: FinalAccountSectionsManagerProps) {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [quickSetupOpen, setQuickSetupOpen] = useState(false);
   const [editingSection, setEditingSection] = useState<any>(null);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const queryClient = useQueryClient();
@@ -64,19 +67,28 @@ export function FinalAccountSectionsManager({ billId, accountId }: FinalAccountS
     return <div className="text-center py-4 text-muted-foreground text-sm">Loading sections...</div>;
   }
 
+  // Check if a section is Line Shops (Section E)
+  const isLineShopsSection = (sectionCode: string) => sectionCode === "E";
+
   return (
     <div className="space-y-2 pl-4 border-l-2 border-muted">
       <div className="flex items-center justify-between mb-2">
         <span className="text-sm font-medium text-muted-foreground">Sections</span>
-        <Button onClick={() => setAddDialogOpen(true)} size="sm" variant="outline">
-          <Plus className="h-3 w-3 mr-1" />
-          Add Section
-        </Button>
+        <div className="flex gap-2">
+          <Button onClick={() => setQuickSetupOpen(true)} size="sm" variant="outline">
+            <Zap className="h-3 w-3 mr-1" />
+            Quick Setup
+          </Button>
+          <Button onClick={() => setAddDialogOpen(true)} size="sm" variant="outline">
+            <Plus className="h-3 w-3 mr-1" />
+            Add Section
+          </Button>
+        </div>
       </div>
 
       {sections.length === 0 ? (
         <p className="text-sm text-muted-foreground py-4 text-center">
-          No sections yet. Add your first section (e.g., Section A - Preliminary & General).
+          No sections yet. Use Quick Setup to add standard BOQ sections, or add individually.
         </p>
       ) : (
         sections.map((section) => (
@@ -143,7 +155,11 @@ export function FinalAccountSectionsManager({ billId, accountId }: FinalAccountS
               </div>
               <CollapsibleContent>
                 <div className="p-3 border-t">
-                  <FinalAccountItemsTable sectionId={section.id} billId={billId} accountId={accountId} />
+                  {isLineShopsSection(section.section_code) ? (
+                    <LineShopsManager sectionId={section.id} billId={billId} accountId={accountId} />
+                  ) : (
+                    <FinalAccountItemsTable sectionId={section.id} billId={billId} accountId={accountId} />
+                  )}
                 </div>
               </CollapsibleContent>
             </div>
@@ -165,6 +181,13 @@ export function FinalAccountSectionsManager({ billId, accountId }: FinalAccountS
           setAddDialogOpen(false);
           setEditingSection(null);
         }}
+      />
+
+      <QuickSetupWizard
+        open={quickSetupOpen}
+        onOpenChange={setQuickSetupOpen}
+        billId={billId}
+        existingSectionCodes={sections.map(s => s.section_code)}
       />
     </div>
   );

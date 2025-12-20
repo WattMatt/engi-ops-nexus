@@ -15,6 +15,7 @@ interface AddItemDialogProps {
   sectionId: string;
   billId: string;
   accountId: string;
+  shopSubsectionId?: string;
   editingItem?: any;
   onSuccess: () => void;
 }
@@ -25,6 +26,7 @@ export function AddItemDialog({
   sectionId,
   billId,
   accountId,
+  shopSubsectionId,
   editingItem,
   onSuccess,
 }: AddItemDialogProps) {
@@ -86,6 +88,7 @@ export function AddItemDialog({
 
     const itemData = {
       section_id: sectionId,
+      shop_subsection_id: shopSubsectionId || null,
       item_code: formData.item_code,
       description: formData.description,
       unit: formData.unit || null,
