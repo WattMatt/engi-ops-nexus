@@ -184,6 +184,11 @@ async function fetchGoogleSheetContent(spreadsheetId: string): Promise<string> {
   return combinedContent;
 }
 
+// Declare EdgeRuntime for background task processing
+declare const EdgeRuntime: {
+  waitUntil(promise: Promise<unknown>): void;
+};
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -211,7 +216,7 @@ serve(async (req) => {
       contentToProcess = await fetchGoogleSheetContent(google_sheet_id);
     }
 
-    // Update status to processing
+    // Update status to processing immediately
     await supabase
       .from('boq_uploads')
       .update({ 
@@ -220,20 +225,25 @@ serve(async (req) => {
       })
       .eq('id', upload_id);
 
-    // Process synchronously but optimized with batch operations
-    const result = await processMatching(
+    // Use background task processing for large files
+    // This allows the function to return immediately while processing continues
+    const backgroundTask = processMatching(
       supabase,
       upload_id,
       contentToProcess,
       lovableApiKey
     );
 
+    // Start background processing
+    EdgeRuntime.waitUntil(backgroundTask);
+
+    // Return immediately - client will poll for status
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'Matching completed.',
+        message: 'Processing started. Please poll for status.',
         upload_id,
-        ...result
+        status: 'processing'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
