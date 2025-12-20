@@ -129,54 +129,54 @@ export function BOQWizardStep2Sheets({ state, updateState }: Props) {
         </CardHeader>
         <CardContent className="p-0">
           {currentPreviewSheet ? (
-            <ScrollArea className="h-[400px]">
+            <div className="h-[400px] overflow-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="w-12 sticky left-0 bg-background">#</TableHead>
-                    {currentPreviewSheet.headers.slice(0, 10).map((header, idx) => (
-                      <TableHead key={idx} className="min-w-[100px] max-w-[200px]">
-                        <div className="truncate" title={header || `Col ${idx + 1}`}>
-                          {header || `Col ${idx + 1}`}
+                    <TableHead className="w-12 sticky left-0 bg-background z-10 border-r">#</TableHead>
+                    {currentPreviewSheet.headers.map((header, idx) => (
+                      <TableHead key={idx} className="min-w-[120px] whitespace-nowrap">
+                        <div className="truncate max-w-[200px]" title={header || `Column_${idx + 1}`}>
+                          {header || `Column_${idx + 1}`}
                         </div>
                       </TableHead>
                     ))}
-                    {currentPreviewSheet.headers.length > 10 && (
-                      <TableHead className="text-muted-foreground">
-                        +{currentPreviewSheet.headers.length - 10} more
-                      </TableHead>
-                    )}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {currentPreviewSheet.rows.slice(0, 20).map((row, rowIdx) => (
-                    <TableRow key={rowIdx} className="text-xs">
-                      <TableCell className="sticky left-0 bg-background font-mono text-muted-foreground">
-                        {rowIdx + 1}
-                      </TableCell>
-                      {currentPreviewSheet.headers.slice(0, 10).map((header, cellIdx) => {
-                        const value = String(row[header] ?? "");
-                        return (
-                          <TableCell key={cellIdx} className="max-w-[200px]">
-                            <div className="truncate" title={value}>
-                              {value}
-                            </div>
-                          </TableCell>
-                        );
-                      })}
-                      {currentPreviewSheet.headers.length > 10 && (
-                        <TableCell className="text-muted-foreground">...</TableCell>
-                      )}
-                    </TableRow>
-                  ))}
+                  {currentPreviewSheet.rows.slice(0, 20).map((row, rowIdx) => {
+                    const rowKeys = Object.keys(row);
+                    return (
+                      <TableRow key={rowIdx} className="text-xs">
+                        <TableCell className="sticky left-0 bg-background z-10 border-r font-mono text-muted-foreground">
+                          {rowIdx + 1}
+                        </TableCell>
+                        {currentPreviewSheet.headers.map((header, cellIdx) => {
+                          // Try to get value by header name first, then by key at same index
+                          let value = row[header];
+                          if (value === undefined && rowKeys[cellIdx]) {
+                            value = row[rowKeys[cellIdx]];
+                          }
+                          const displayValue = value !== null && value !== undefined ? String(value) : "";
+                          return (
+                            <TableCell key={cellIdx} className="whitespace-nowrap">
+                              <div className="truncate max-w-[200px]" title={displayValue}>
+                                {displayValue || <span className="text-muted-foreground/30">—</span>}
+                              </div>
+                            </TableCell>
+                          );
+                        })}
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
               {currentPreviewSheet.rows.length > 20 && (
-                <div className="p-3 text-center text-sm text-muted-foreground border-t">
+                <div className="p-3 text-center text-sm text-muted-foreground border-t sticky bottom-0 bg-background">
                   Showing 20 of {currentPreviewSheet.rows.length} rows
                 </div>
               )}
-            </ScrollArea>
+            </div>
           ) : (
             <div className="h-[400px] flex items-center justify-center text-muted-foreground">
               <div className="text-center">
