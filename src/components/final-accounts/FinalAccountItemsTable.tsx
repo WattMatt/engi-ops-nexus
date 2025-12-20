@@ -20,21 +20,31 @@ interface FinalAccountItemsTableProps {
   sectionId: string;
   billId: string;
   accountId: string;
+  shopSubsectionId?: string;
 }
 
-export function FinalAccountItemsTable({ sectionId, billId, accountId }: FinalAccountItemsTableProps) {
+export function FinalAccountItemsTable({ sectionId, billId, accountId, shopSubsectionId }: FinalAccountItemsTableProps) {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<any>(null);
   const queryClient = useQueryClient();
 
   const { data: items = [], isLoading } = useQuery({
-    queryKey: ["final-account-items", sectionId],
+    queryKey: ["final-account-items", sectionId, shopSubsectionId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from("final_account_items")
         .select("*")
         .eq("section_id", sectionId)
         .order("display_order", { ascending: true });
+      
+      // Filter by shop subsection if provided
+      if (shopSubsectionId) {
+        query = query.eq("shop_subsection_id", shopSubsectionId);
+      } else {
+        query = query.is("shop_subsection_id", null);
+      }
+      
+      const { data, error } = await query;
       if (error) throw error;
       return data || [];
     },
@@ -190,6 +200,7 @@ export function FinalAccountItemsTable({ sectionId, billId, accountId }: FinalAc
         sectionId={sectionId}
         billId={billId}
         accountId={accountId}
+        shopSubsectionId={shopSubsectionId}
         editingItem={editingItem}
         onSuccess={() => {
           setAddDialogOpen(false);
