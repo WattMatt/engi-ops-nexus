@@ -5,12 +5,25 @@ export interface ParsedSheet {
   headers: string[];
   rows: Record<string, string | number | null>[];
   rawText: string;
+  rowCount: number;
+}
+
+export interface ColumnDetectionResult {
+  itemCode?: number;
+  description?: number;
+  quantity?: number;
+  unit?: number;
+  supplyRate?: number;
+  installRate?: number;
+  totalRate?: number;
+  amount?: number;
 }
 
 export interface ParsedExcelResult {
   sheets: ParsedSheet[];
   totalRows: number;
   combinedText: string;
+  columnDetection: Record<string, ColumnDetectionResult>;
 }
 
 /**
@@ -73,17 +86,25 @@ export async function parseExcelFile(file: File): Promise<ParsedExcelResult> {
             name: sheetName,
             headers,
             rows,
-            rawText
+            rawText,
+            rowCount: rows.length
           });
           
           totalRows += rows.length;
           textParts.push(rawText);
         }
         
+        // Detect columns for each sheet
+        const columnDetection: Record<string, ColumnDetectionResult> = {};
+        for (const sheet of sheets) {
+          columnDetection[sheet.name] = detectBOQColumns(sheet.headers);
+        }
+        
         resolve({
           sheets,
           totalRows,
-          combinedText: textParts.join('\n\n')
+          combinedText: textParts.join('\n\n'),
+          columnDetection
         });
       } catch (error) {
         reject(new Error(`Failed to parse Excel file: ${error instanceof Error ? error.message : 'Unknown error'}`));
@@ -197,49 +218,102 @@ function formatNumber(num: number): string {
 }
 
 /**
- * Detect common BOQ column patterns in headers
+ * Detect common BOQ column patterns in headers using Phase 1 patterns
+ * COLUMN DETECTION PATTERNS (from BOQ Development Phase 1):
+ * - Item Code: /item|code|no\.?|ref/i
+ * - Description: /desc|name|particular/i  
+ * - Unit: /unit|uom/i
+ * - Quantity: /qty|quantity/i
+ * - Rate: /rate|price|cost/i
+ * - Amount: /amount|total|value/i
  */
-export function detectBOQColumns(headers: string[]): {
-  itemCode?: number;
-  description?: number;
-  quantity?: number;
-  unit?: number;
-  supplyRate?: number;
-  installRate?: number;
-  totalRate?: number;
-  amount?: number;
-} {
-  const result: ReturnType<typeof detectBOQColumns> = {};
+export function detectBOQColumns(headers: string[]): ColumnDetectionResult {
+  const result: ColumnDetectionResult = {};
   
-  // Patterns ordered by specificity (more specific first)
-  const patterns = {
-    itemCode: /item\s*(?:no|code|ref)?|ref(?:erence)?\.?\s*(?:no)?|^no\.?$|^code$|^nr\.?$/i,
-    description: /desc(?:ription)?|particular|detail|specification|^item$|work\s*item/i,
-    quantity: /qty|quantity|qnty|^q$/i,
-    unit: /^unit[s]?$|^u$|^uom$|measurement|measure/i,
-    supplyRate: /supply|material|mat\s*rate|supp\s*rate|mat\s*cost/i,
-    installRate: /install|labour|labor|lab\s*rate|inst\s*rate|lab\s*cost/i,
-    totalRate: /^rate$|unit\s*rate|combined|rate\s*\/\s*unit/i,
-    amount: /amount|^total$|^sum$|^value$|line\s*total|extended/i
-  };
+  // Patterns from Phase 1 specification - ordered by priority
+  const patterns: { key: keyof ColumnDetectionResult; pattern: RegExp; priority: number }[] = [
+    // Item Code detection
+    { key: 'itemCode', pattern: /item|code|no\.?|ref/i, priority: 1 },
+    // Description detection (higher priority for "name" or "particular")
+    { key: 'description', pattern: /desc|name|particular/i, priority: 2 },
+    // Unit detection
+    { key: 'unit', pattern: /unit|uom/i, priority: 3 },
+    // Quantity detection
+    { key: 'quantity', pattern: /qty|quantity/i, priority: 4 },
+    // Supply rate detection
+    { key: 'supplyRate', pattern: /supply|material/i, priority: 5 },
+    // Install rate detection  
+    { key: 'installRate', pattern: /install|labour|labor/i, priority: 6 },
+    // Generic rate detection (only if supply/install not found)
+    { key: 'totalRate', pattern: /rate|price|cost/i, priority: 7 },
+    // Amount detection
+    { key: 'amount', pattern: /amount|total|value/i, priority: 8 },
+  ];
   
   // Track used indices to avoid double-mapping
   const usedIndices = new Set<number>();
   
-  headers.forEach((header, index) => {
-    if (!header) return;
-    const h = header.toLowerCase().trim();
+  // First pass: exact matches for high-priority patterns
+  for (const { key, pattern, priority } of patterns) {
+    if (result[key] !== undefined) continue;
     
-    for (const [key, pattern] of Object.entries(patterns)) {
-      if (pattern.test(h) && result[key as keyof typeof result] === undefined && !usedIndices.has(index)) {
-        result[key as keyof typeof result] = index;
+    for (let index = 0; index < headers.length; index++) {
+      const header = headers[index];
+      if (!header || usedIndices.has(index)) continue;
+      
+      const h = header.toLowerCase().trim();
+      
+      // Skip if this looks like it belongs to another category
+      // (prevent "Total Amount" from matching "total" for rate)
+      if (key === 'totalRate' && /amount|value|sum/i.test(h)) continue;
+      if (key === 'amount' && /rate|price|cost/i.test(h) && !/amount/i.test(h)) continue;
+      
+      if (pattern.test(h)) {
+        result[key] = index;
         usedIndices.add(index);
-        break; // Don't match multiple patterns for same column
+        break;
       }
     }
-  });
+  }
   
-  console.log("detectBOQColumns - Headers:", headers, "Result:", result);
+  console.log("detectBOQColumns - Headers:", headers);
+  console.log("detectBOQColumns - Detected:", result);
   
   return result;
+}
+
+/**
+ * Get column detection summary for display
+ */
+export function getColumnDetectionSummary(detection: ColumnDetectionResult, headers: string[]): {
+  detected: string[];
+  missing: string[];
+  mappings: { field: string; column: string; index: number }[];
+} {
+  const fieldNames: Record<keyof ColumnDetectionResult, string> = {
+    itemCode: 'Item Code',
+    description: 'Description',
+    unit: 'Unit',
+    quantity: 'Quantity',
+    supplyRate: 'Supply Rate',
+    installRate: 'Install Rate',
+    totalRate: 'Rate',
+    amount: 'Amount',
+  };
+  
+  const detected: string[] = [];
+  const missing: string[] = [];
+  const mappings: { field: string; column: string; index: number }[] = [];
+  
+  for (const [key, name] of Object.entries(fieldNames)) {
+    const index = detection[key as keyof ColumnDetectionResult];
+    if (index !== undefined && headers[index]) {
+      detected.push(name);
+      mappings.push({ field: name, column: headers[index], index });
+    } else {
+      missing.push(name);
+    }
+  }
+  
+  return { detected, missing, mappings };
 }

@@ -120,6 +120,10 @@ export const BOQUploadTab = () => {
     },
   });
 
+  // Maximum file size: 10MB
+  const MAX_FILE_SIZE = 10 * 1024 * 1024;
+  const ALLOWED_FILE_TYPES = ["xlsx", "xls", "csv"];
+
   const uploadMutation = useMutation({
     mutationFn: async (file: File) => {
       setUploading(true);
@@ -128,10 +132,20 @@ export const BOQUploadTab = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
-      // Determine file type
+      // Validate file type
       const fileExt = file.name.split(".").pop()?.toLowerCase();
-      if (!["xlsx", "xls", "csv", "pdf"].includes(fileExt || "")) {
-        throw new Error("Unsupported file type. Please upload Excel, CSV, or PDF.");
+      if (!ALLOWED_FILE_TYPES.includes(fileExt || "")) {
+        throw new Error(`Invalid file type. Please upload Excel (.xlsx, .xls) or CSV files only.`);
+      }
+
+      // Validate file size
+      if (file.size > MAX_FILE_SIZE) {
+        throw new Error(`File too large. Maximum size is ${MAX_FILE_SIZE / (1024 * 1024)}MB.`);
+      }
+
+      // Validate file is not empty
+      if (file.size === 0) {
+        throw new Error("File is empty. Please upload a file with data.");
       }
 
       // Upload file to storage
