@@ -62,6 +62,7 @@ export function BOQWizardStep1Upload({ state, updateState }: Props) {
   });
 
   const handleFileSelect = useCallback(async (file: File) => {
+    console.log("BOQ Wizard: File selected:", file.name, file.size);
     const ext = file.name.split(".").pop()?.toLowerCase();
     if (!["xlsx", "xls", "csv"].includes(ext || "")) {
       toast.error("Please upload an Excel or CSV file");
@@ -71,7 +72,9 @@ export function BOQWizardStep1Upload({ state, updateState }: Props) {
     setParsing(true);
     try {
       // Parse the file immediately to get sheets
+      console.log("BOQ Wizard: Parsing file...");
       const parsed = await parseExcelFile(file);
+      console.log("BOQ Wizard: Parsed result:", parsed.sheets.length, "sheets,", parsed.totalRows, "rows");
       
       // Pre-select sheets that look like BOQ data
       const selectedSheets = new Set<string>();
@@ -86,6 +89,7 @@ export function BOQWizardStep1Upload({ state, updateState }: Props) {
         }
       });
 
+      console.log("BOQ Wizard: Updating state with file and", selectedSheets.size, "pre-selected sheets");
       updateState({
         file,
         parsedSheets: parsed.sheets,
@@ -94,8 +98,8 @@ export function BOQWizardStep1Upload({ state, updateState }: Props) {
       
       toast.success(`Parsed ${parsed.sheets.length} sheets with ${parsed.totalRows} total rows`);
     } catch (error) {
-      toast.error("Failed to parse file");
-      console.error(error);
+      console.error("BOQ Wizard: Parse error:", error);
+      toast.error("Failed to parse file: " + (error instanceof Error ? error.message : "Unknown error"));
     } finally {
       setParsing(false);
     }

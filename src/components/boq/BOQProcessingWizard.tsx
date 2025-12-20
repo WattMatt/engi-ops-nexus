@@ -91,7 +91,22 @@ const initialState: BOQWizardState = {
 
 export function BOQProcessingWizard({ open, onOpenChange, onComplete }: BOQProcessingWizardProps) {
   const [currentStep, setCurrentStep] = useState(1);
-  const [state, setState] = useState<BOQWizardState>(initialState);
+  const [state, setState] = useState<BOQWizardState>(() => ({
+    ...initialState,
+    selectedSheets: new Set<string>(),
+  }));
+  
+  // Reset state when dialog opens
+  const handleOpenChange = useCallback((isOpen: boolean) => {
+    if (!isOpen) {
+      setState({
+        ...initialState,
+        selectedSheets: new Set<string>(),
+      });
+      setCurrentStep(1);
+    }
+    onOpenChange(isOpen);
+  }, [onOpenChange]);
   
   const updateState = useCallback((updates: Partial<BOQWizardState>) => {
     setState(prev => ({ ...prev, ...updates }));
@@ -128,11 +143,8 @@ export function BOQProcessingWizard({ open, onOpenChange, onComplete }: BOQProce
   }, [currentStep]);
   
   const handleClose = useCallback(() => {
-    // Reset state when closing
-    setState(initialState);
-    setCurrentStep(1);
-    onOpenChange(false);
-  }, [onOpenChange]);
+    handleOpenChange(false);
+  }, [handleOpenChange]);
   
   const handleComplete = useCallback(() => {
     onComplete?.();
@@ -142,7 +154,7 @@ export function BOQProcessingWizard({ open, onOpenChange, onComplete }: BOQProce
   const progressPercent = (currentStep / 5) * 100;
   
   return (
-    <Dialog open={open} onOpenChange={handleClose}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-[95vw] w-[1200px] max-h-[90vh] flex flex-col p-0 gap-0">
         {/* Header with step indicator */}
         <DialogHeader className="px-6 pt-6 pb-4 border-b">
