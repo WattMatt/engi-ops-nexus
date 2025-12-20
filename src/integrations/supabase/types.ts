@@ -2587,20 +2587,74 @@ export type Database = {
         }
         Relationships: []
       }
+      final_account_bills: {
+        Row: {
+          bill_name: string
+          bill_number: number
+          contract_total: number | null
+          created_at: string
+          description: string | null
+          display_order: number | null
+          final_account_id: string
+          final_total: number | null
+          id: string
+          updated_at: string
+          variation_total: number | null
+        }
+        Insert: {
+          bill_name: string
+          bill_number: number
+          contract_total?: number | null
+          created_at?: string
+          description?: string | null
+          display_order?: number | null
+          final_account_id: string
+          final_total?: number | null
+          id?: string
+          updated_at?: string
+          variation_total?: number | null
+        }
+        Update: {
+          bill_name?: string
+          bill_number?: number
+          contract_total?: number | null
+          created_at?: string
+          description?: string | null
+          display_order?: number | null
+          final_account_id?: string
+          final_total?: number | null
+          id?: string
+          updated_at?: string
+          variation_total?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "final_account_bills_final_account_id_fkey"
+            columns: ["final_account_id"]
+            isOneToOne: false
+            referencedRelation: "final_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       final_account_items: {
         Row: {
           contract_amount: number | null
           contract_quantity: number | null
           created_at: string
           description: string
-          final_account_id: string
+          display_order: number | null
           final_amount: number | null
           final_quantity: number | null
           id: string
-          item_number: string | null
+          install_rate: number | null
+          is_rate_only: boolean | null
+          item_code: string
           notes: string | null
-          rate: number | null
+          section_id: string
+          supply_rate: number | null
           unit: string | null
+          updated_at: string
           variation_amount: number | null
         }
         Insert: {
@@ -2608,14 +2662,18 @@ export type Database = {
           contract_quantity?: number | null
           created_at?: string
           description: string
-          final_account_id: string
+          display_order?: number | null
           final_amount?: number | null
           final_quantity?: number | null
           id?: string
-          item_number?: string | null
+          install_rate?: number | null
+          is_rate_only?: boolean | null
+          item_code: string
           notes?: string | null
-          rate?: number | null
+          section_id: string
+          supply_rate?: number | null
           unit?: string | null
+          updated_at?: string
           variation_amount?: number | null
         }
         Update: {
@@ -2623,22 +2681,76 @@ export type Database = {
           contract_quantity?: number | null
           created_at?: string
           description?: string
-          final_account_id?: string
+          display_order?: number | null
           final_amount?: number | null
           final_quantity?: number | null
           id?: string
-          item_number?: string | null
+          install_rate?: number | null
+          is_rate_only?: boolean | null
+          item_code?: string
           notes?: string | null
-          rate?: number | null
+          section_id?: string
+          supply_rate?: number | null
           unit?: string | null
+          updated_at?: string
           variation_amount?: number | null
         }
         Relationships: [
           {
-            foreignKeyName: "final_account_items_final_account_id_fkey"
-            columns: ["final_account_id"]
+            foreignKeyName: "final_account_items_section_id_fkey"
+            columns: ["section_id"]
             isOneToOne: false
-            referencedRelation: "final_accounts"
+            referencedRelation: "final_account_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      final_account_sections: {
+        Row: {
+          bill_id: string
+          contract_total: number | null
+          created_at: string
+          description: string | null
+          display_order: number | null
+          final_total: number | null
+          id: string
+          section_code: string
+          section_name: string
+          updated_at: string
+          variation_total: number | null
+        }
+        Insert: {
+          bill_id: string
+          contract_total?: number | null
+          created_at?: string
+          description?: string | null
+          display_order?: number | null
+          final_total?: number | null
+          id?: string
+          section_code: string
+          section_name: string
+          updated_at?: string
+          variation_total?: number | null
+        }
+        Update: {
+          bill_id?: string
+          contract_total?: number | null
+          created_at?: string
+          description?: string | null
+          display_order?: number | null
+          final_total?: number | null
+          id?: string
+          section_code?: string
+          section_name?: string
+          updated_at?: string
+          variation_total?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "final_account_sections_bill_id_fkey"
+            columns: ["bill_id"]
+            isOneToOne: false
+            referencedRelation: "final_account_bills"
             referencedColumns: ["id"]
           },
         ]
