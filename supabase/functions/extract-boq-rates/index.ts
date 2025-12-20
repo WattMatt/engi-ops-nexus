@@ -464,6 +464,9 @@ async function processExtraction(
         }
       }
 
+      // Extract notes from raw_data if present
+      const extractionNotes = item.raw_data?.extraction_notes || null;
+      
       return {
         upload_id,
         row_number: item.row_number || index + 1,
@@ -488,6 +491,7 @@ async function processExtraction(
         matched_material_id: matchedMaterial?.id || null,
         match_confidence: matchConfidence,
         raw_data: item.raw_data || {},
+        extraction_notes: extractionNotes,
         review_status: 'pending'
       };
     });
@@ -574,6 +578,56 @@ function splitIntoSheets(content: string): { name: string; content: string }[] {
 }
 
 /**
+ * Standardize units to consistent format
+ */
+function standardizeUnit(unit: string | null): string | null {
+  if (!unit) return null;
+  const u = unit.toLowerCase().trim();
+  
+  // Unit standardization map per Phase 2 requirements
+  const unitMap: Record<string, string> = {
+    'm2': 'M2', 'sqm': 'M2', 'm.sq': 'M2', 'sq.m': 'M2', 'sq m': 'M2',
+    'm3': 'M3', 'cum': 'M3', 'cu.m': 'M3', 'cu m': 'M3',
+    'm': 'M', 'lm': 'M', 'l.m': 'M', 'lin.m': 'M', 'linear m': 'M', 'metre': 'M', 'meter': 'M',
+    'nr': 'NO', 'no': 'NO', 'no.': 'NO', 'each': 'NO', 'ea': 'NO', 'unit': 'NO', 'pce': 'NO', 'pc': 'NO',
+    'kg': 'KG', 'kgs': 'KG', 'kilogram': 'KG',
+    'set': 'SET', 'sets': 'SET',
+    'ps': 'PS', 'prov sum': 'PS', 'provisional sum': 'PS', 'p.s.': 'PS', 'p sum': 'PS',
+    'sum': 'SUM', 'item': 'ITEM', 'lot': 'LOT',
+    '%': '%', 'percent': '%', 'pct': '%',
+  };
+  
+  return unitMap[u] || unit.toUpperCase();
+}
+
+/**
+ * Validate math: Quantity × Rate = Amount (5% tolerance)
+ */
+function validateMath(quantity: number | null, rate: number | null, amount: number | null): { valid: boolean; note: string | null } {
+  if (quantity === null || rate === null || amount === null) {
+    return { valid: true, note: null };
+  }
+  
+  if (quantity === 0 || rate === 0) {
+    return { valid: true, note: null };
+  }
+  
+  const expected = quantity * rate;
+  const tolerance = 0.05; // 5% tolerance
+  const diff = Math.abs(expected - amount);
+  const percentDiff = (diff / Math.max(expected, amount)) * 100;
+  
+  if (percentDiff > 5) {
+    return { 
+      valid: false, 
+      note: `Math discrepancy: ${quantity} × R${rate.toFixed(2)} = R${expected.toFixed(2)}, but amount is R${amount.toFixed(2)} (${percentDiff.toFixed(1)}% diff)` 
+    };
+  }
+  
+  return { valid: true, note: null };
+}
+
+/**
  * Extract items from a single sheet using AI
  */
 async function extractFromSheet(
@@ -586,70 +640,85 @@ async function extractFromSheet(
     return parseSheetBasic(sheet.name, sheet.content);
   }
 
-  const systemPrompt = `You are an expert at extracting electrical Bills of Quantities (BOQ) data. Extract ONLY actual material/work items.
+  // Phase 2 AI Prompt - Construction Data Analyst role
+  const systemPrompt = `You are an expert Construction Data Analyst and Quantity Surveyor specializing in South African electrical BOQs.
 
-CRITICAL - DO NOT EXTRACT THESE:
-- "NOTES TO TENDERER" or any notes/preamble text
-- Row numbers alone (1, 2, 3, etc.)
-- Section headers without items (just "A. CABLES" alone)
-- Instructions like "Failure to comply with...", "The tenderer shall...", etc.
-- Blank or summary rows
-- Text that is clearly NOT a physical material or work item
-- Percentage adjustments or contingencies without descriptions
-- "Ditto", "As above", "Refer to" references alone
+ROLE: Extract structured data from Bills of Quantities with high accuracy.
 
-EXTRACT ONLY items that are:
-- Physical materials (cables, conduit, switches, DBs, lights, etc.)
-- Measurable work items with quantities and units
-- Items with item codes like A1, B2.1, C1.1.1, etc.
-- Items that have an actual material/work DESCRIPTION (not just numbers)
+TASK 1 - DATA EXTRACTION:
+1. Identify main headers (Item No, Description, Unit, Quantity, Rate, Amount)
+2. Handle merged cells and sub-headings by inheriting parent context
+3. Assign parent categories/sections to each row
+4. Remove empty/redundant rows (notes, instructions, headers without items)
 
-IMPORTANT RULES:
-1. Item descriptions must be meaningful (e.g., "4mm² 4-core XLPE cable" NOT "1" or "2")
-2. Skip any row that doesn't describe actual electrical materials or work
-3. Parse South African BOQ format with costs in Rands (R)
-4. Identify supply rate vs install rate columns correctly
-5. Mark items as "rate_only" if quantity shows "Rate Only" or "RATE ONLY"
+TASK 2 - UNIT STANDARDIZATION (CRITICAL):
+Convert all units to standard format:
+- m2, sqm, m.sq, sq.m → M2
+- m3, cum, cu.m → M3
+- m, lm, lin.m, metre → M
+- nr, no, each, ea, pce → NO
+- kg, kgs → KG
+- set, sets → SET
+- ps, prov sum, provisional sum → PS
+- sum → SUM
+- item → ITEM
+- lot → LOT
 
-CATEGORIES for suggested_category_name:
+TASK 3 - RATE BREAKDOWN:
+- Identify supply_rate (material cost) vs install_rate (labour cost)
+- If only one rate column exists, use total_rate
+- If supply + install columns exist, total_rate = supply + install
+- Mark items as is_rate_only if "Rate Only" or no quantity
+
+TASK 4 - STRUCTURE DETECTION:
+Detect document structure using these patterns:
+- "BILL No. X" or "BILL X" or "Bill X" → New bill_number
+- "SECTION A" or "A." at start of line → Section header (section_code + section_name)
+- "1.0", "2.0" numbered headings → Section
+- CAPITALIZED lines with no rate → Category/Section header
+- Indented items → Belong to section above
+
+AVAILABLE CATEGORIES:
 ${categoryList}
 
-Common SA BOQ sections:
-- A: Medium Voltage (substations, RMUs, MV cables)
-- B: Low Voltage (DBs, panels, busbars)  
-- C: Cables & Conductors (XLPE, PVC, armoured)
-- D: Containment (conduit, trunking, cable tray)
-- E: Earthing (earth rods, tape, conductors)
-- F: Lighting (LED fittings, emergency lights)
-- G: Small Power (sockets, isolators)
-- H: Fire Detection
-- J: CCTV / Security
-- K: Telkom / Data`;
+CRITICAL - DO NOT EXTRACT:
+- "NOTES TO TENDERER" or any notes/preamble
+- Instructions ("Failure to comply...", "The tenderer shall...")
+- Row numbers alone
+- Headers without items
+- "Ditto", "As above" references alone
+- Subtotals, carried forward lines`;
 
-  const userPrompt = `Extract ONLY actual material/work line items from this sheet: "${sheet.name}"
+  const userPrompt = `Extract ALL material/work line items from sheet: "${sheet.name}"
 
-SKIP: notes, instructions, headers without items, row numbers alone, preamble text.
-ONLY INCLUDE: items with real material descriptions + quantities + rates.
+For EACH valid item, output a JSON object with these EXACT fields:
+{
+  "row_number": <sequential number>,
+  "item_code": "<exact code like A1, B2.1, C1.1.1>",
+  "item_description": "<full material/work description>",
+  "unit": "<STANDARDIZED unit: M2, M3, M, NO, KG, SET, PS, SUM, ITEM, LOT>",
+  "quantity": <number or null if rate only>,
+  "is_rate_only": <true/false>,
+  "supply_rate": <material cost per unit or null>,
+  "install_rate": <labour cost per unit or null>,
+  "total_rate": <combined rate if not split>,
+  "bill_number": <number from sheet name or document>,
+  "bill_name": "<tenant/area name from sheet>",
+  "section_code": "<letter like A, B, C>",
+  "section_name": "<section title>",
+  "suggested_category_name": "<from categories list>",
+  "math_validated": <true if qty × rate ≈ amount within 5%>
+}
 
-For EACH valid material item extract:
-- item_code: exact code (A1, B2.1, C1.1.1) - REQUIRED
-- item_description: full material description (NOT just numbers) - REQUIRED, must be meaningful
-- quantity: number or null if rate only
-- is_rate_only: true/false
-- unit: each/m/m²/kg/No/Nr/Sum/Lot/item/%
-- supply_rate: supply cost per unit (R value)
-- install_rate: install cost per unit (R value)
-- total_rate: if rates not split
-- section_code: letter (A, B, C...)
-- section_name: section title
-- suggested_category_name: from categories list
-- bill_number: from sheet name (e.g., "4 Boxer" = 4)
-- bill_name: tenant/area name
-
-RESPOND WITH ONLY A JSON ARRAY, NO MARKDOWN BLOCKS. Return empty array [] if no valid materials found.
+IMPORTANT:
+1. STANDARDIZE all units (m2→M2, nr→NO, etc.)
+2. Detect bill structure from sheet name and content
+3. Extract section headers to set section_code/section_name
+4. Skip notes, instructions, and non-material rows
+5. Return ONLY a valid JSON array, no markdown
 
 SHEET CONTENT:
-${sheet.content.substring(0, 25000)}`;
+${sheet.content.substring(0, 30000)}`;
 
   try {
     const response = await fetch('https://ai.gateway.lovable.dev/v1/chat/completions', {
@@ -659,12 +728,11 @@ ${sheet.content.substring(0, 25000)}`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'google/gemini-3-pro-preview',
+        model: 'google/gemini-2.5-flash',
         messages: [
           { role: 'system', content: systemPrompt },
           { role: 'user', content: userPrompt }
         ],
-        max_tokens: 32000,
       })
     });
 
@@ -695,7 +763,7 @@ ${sheet.content.substring(0, 25000)}`;
 }
 
 /**
- * Parse AI response with robust error handling
+ * Parse AI response with robust error handling and apply standardization
  */
 function parseAIResponse(rawText: string, sheetName: string): ExtractedItem[] {
   // Clean up response
@@ -715,28 +783,59 @@ function parseAIResponse(rawText: string, sheetName: string): ExtractedItem[] {
   try {
     const items = JSON.parse(cleanedText);
     if (Array.isArray(items)) {
-      return items.map((item, idx) => ({
-        row_number: idx + 1,
-        bill_number: item.bill_number || extractBillNumber(sheetName),
-        bill_name: item.bill_name || extractBillName(sheetName),
-        section_code: item.section_code || null,
-        section_name: item.section_name || null,
-        item_code: item.item_code || null,
-        item_description: item.item_description || '',
-        quantity: item.is_rate_only ? null : (parseFloat(item.quantity) || null),
-        is_rate_only: item.is_rate_only || false,
-        unit: item.unit || null,
-        supply_rate: parseFloat(item.supply_rate) || null,
-        install_rate: parseFloat(item.install_rate) || null,
-        total_rate: parseFloat(item.total_rate) || null,
-        supply_cost: parseFloat(item.supply_cost) || null,
-        install_cost: parseFloat(item.install_cost) || null,
-        prime_cost: parseFloat(item.prime_cost) || null,
-        profit_percentage: parseFloat(item.profit_percentage) || null,
-        suggested_category_name: item.suggested_category_name || null,
-        match_confidence: 0.5,
-        raw_data: item
-      }));
+      return items.map((item, idx) => {
+        // Standardize unit
+        const standardizedUnit = standardizeUnit(item.unit);
+        
+        // Calculate total rate if not provided
+        const supplyRate = parseFloat(item.supply_rate) || null;
+        const installRate = parseFloat(item.install_rate) || null;
+        let totalRate = parseFloat(item.total_rate) || null;
+        
+        if (!totalRate && (supplyRate || installRate)) {
+          totalRate = (supplyRate || 0) + (installRate || 0);
+        }
+        
+        // Math validation
+        const quantity = item.is_rate_only ? null : (parseFloat(item.quantity) || null);
+        const mathResult = validateMath(quantity, totalRate, parseFloat(item.amount) || null);
+        
+        // Build extraction notes
+        const notes: string[] = [];
+        if (!mathResult.valid && mathResult.note) {
+          notes.push(mathResult.note);
+        }
+        if (item.unit && standardizedUnit !== item.unit.toUpperCase()) {
+          notes.push(`Unit standardized: ${item.unit} → ${standardizedUnit}`);
+        }
+        
+        return {
+          row_number: idx + 1,
+          bill_number: item.bill_number || extractBillNumber(sheetName),
+          bill_name: item.bill_name || extractBillName(sheetName),
+          section_code: item.section_code || null,
+          section_name: item.section_name || null,
+          item_code: item.item_code || null,
+          item_description: item.item_description || '',
+          quantity: quantity,
+          is_rate_only: item.is_rate_only || false,
+          unit: standardizedUnit,
+          supply_rate: supplyRate,
+          install_rate: installRate,
+          total_rate: totalRate,
+          supply_cost: parseFloat(item.supply_cost) || null,
+          install_cost: parseFloat(item.install_cost) || null,
+          prime_cost: parseFloat(item.prime_cost) || null,
+          profit_percentage: parseFloat(item.profit_percentage) || null,
+          suggested_category_name: item.suggested_category_name || null,
+          match_confidence: item.math_validated === false ? 0.3 : 0.5,
+          raw_data: { 
+            ...item, 
+            extraction_notes: notes.length > 0 ? notes.join('; ') : null,
+            math_validated: mathResult.valid
+          }
+        };
+      });
     }
   } catch (parseError) {
     console.error(`[BOQ Extract] JSON parse error for ${sheetName}:`, parseError);
@@ -762,6 +861,8 @@ function extractPartialItems(text: string, sheetName: string): ExtractedItem[] {
     for (const match of matches) {
       try {
         const item = JSON.parse(match);
+        const standardizedUnit = standardizeUnit(item.unit);
+        
         items.push({
           row_number: items.length + 1,
           bill_number: extractBillNumber(sheetName),
@@ -772,7 +873,7 @@ function extractPartialItems(text: string, sheetName: string): ExtractedItem[] {
           item_description: item.item_description,
           quantity: parseFloat(item.quantity) || null,
           is_rate_only: item.is_rate_only || false,
-          unit: item.unit || null,
+          unit: standardizedUnit,
           supply_rate: parseFloat(item.supply_rate) || null,
           install_rate: parseFloat(item.install_rate) || null,
           total_rate: parseFloat(item.total_rate) || null,
@@ -930,6 +1031,18 @@ function parseSheetBasic(sheetName: string, content: string): ExtractedItem[] {
       }
     }
     
+    // Standardize unit
+    const standardizedUnit = standardizeUnit(unit);
+    
+    // Calculate total rate if missing
+    if (!totalRate && (supplyRate || installRate)) {
+      totalRate = (supplyRate || 0) + (installRate || 0);
+    }
+    
+    // Math validation for basic parsing
+    const amount = columnMap.amount >= 0 ? parseFloat(parts[columnMap.amount]?.replace(/[R,\s]/g, '')) : null;
+    const mathResult = validateMath(quantity, totalRate, amount);
+    
     items.push({
       row_number: rowNum,
       bill_number: extractBillNumber(sheetName),
@@ -940,7 +1053,7 @@ function parseSheetBasic(sheetName: string, content: string): ExtractedItem[] {
       item_description: description,
       quantity: isRateOnly ? null : quantity,
       is_rate_only: isRateOnly,
-      unit,
+      unit: standardizedUnit,
       supply_rate: supplyRate,
       install_rate: installRate,
       total_rate: totalRate,
@@ -949,8 +1062,12 @@ function parseSheetBasic(sheetName: string, content: string): ExtractedItem[] {
       prime_cost: null,
       profit_percentage: null,
       suggested_category_name: suggestedCategory,
-      match_confidence: 0.4,
-      raw_data: { original_line: trimmed }
+      match_confidence: mathResult.valid ? 0.4 : 0.3,
+      raw_data: { 
+        original_line: trimmed,
+        extraction_notes: mathResult.note,
+        math_validated: mathResult.valid
+      }
     });
   }
   
