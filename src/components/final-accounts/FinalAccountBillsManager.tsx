@@ -3,19 +3,22 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, ChevronDown, ChevronRight, Trash2, Pencil } from "lucide-react";
+import { Plus, ChevronDown, ChevronRight, Trash2, Pencil, FileSpreadsheet } from "lucide-react";
 import { toast } from "sonner";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { AddBillDialog } from "./AddBillDialog";
 import { FinalAccountSectionsManager } from "./FinalAccountSectionsManager";
+import { ImportBOQDialog } from "./ImportBOQDialog";
 import { formatCurrency } from "@/utils/formatters";
 
 interface FinalAccountBillsManagerProps {
+  projectId: string;
   accountId: string;
 }
 
-export function FinalAccountBillsManager({ accountId }: FinalAccountBillsManagerProps) {
+export function FinalAccountBillsManager({ accountId, projectId }: FinalAccountBillsManagerProps) {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [editingBill, setEditingBill] = useState<any>(null);
   const [expandedBills, setExpandedBills] = useState<Set<string>>(new Set());
   const queryClient = useQueryClient();
@@ -79,10 +82,16 @@ export function FinalAccountBillsManager({ accountId }: FinalAccountBillsManager
       <Card>
         <CardHeader className="flex flex-row items-center justify-between py-4">
           <CardTitle className="text-lg">Bills Summary</CardTitle>
-          <Button onClick={() => setAddDialogOpen(true)} size="sm">
-            <Plus className="h-4 w-4 mr-2" />
-            Add Bill
-          </Button>
+          <div className="flex gap-2">
+            <Button onClick={() => setImportDialogOpen(true)} size="sm" variant="outline">
+              <FileSpreadsheet className="h-4 w-4 mr-2" />
+              Import from BOQ
+            </Button>
+            <Button onClick={() => setAddDialogOpen(true)} size="sm">
+              <Plus className="h-4 w-4 mr-2" />
+              Add Bill
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-3 gap-4 text-sm">
@@ -201,6 +210,13 @@ export function FinalAccountBillsManager({ accountId }: FinalAccountBillsManager
           setAddDialogOpen(false);
           setEditingBill(null);
         }}
+      />
+
+      <ImportBOQDialog
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+        accountId={accountId}
+        projectId={projectId}
       />
     </div>
   );

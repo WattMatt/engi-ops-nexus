@@ -2653,6 +2653,7 @@ export type Database = {
           notes: string | null
           section_id: string
           shop_subsection_id: string | null
+          source_boq_item_id: string | null
           supply_rate: number | null
           unit: string | null
           updated_at: string
@@ -2673,6 +2674,7 @@ export type Database = {
           notes?: string | null
           section_id: string
           shop_subsection_id?: string | null
+          source_boq_item_id?: string | null
           supply_rate?: number | null
           unit?: string | null
           updated_at?: string
@@ -2693,6 +2695,7 @@ export type Database = {
           notes?: string | null
           section_id?: string
           shop_subsection_id?: string | null
+          source_boq_item_id?: string | null
           supply_rate?: number | null
           unit?: string | null
           updated_at?: string
@@ -2711,6 +2714,13 @@ export type Database = {
             columns: ["shop_subsection_id"]
             isOneToOne: false
             referencedRelation: "final_account_shop_subsections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "final_account_items_source_boq_item_id_fkey"
+            columns: ["source_boq_item_id"]
+            isOneToOne: false
+            referencedRelation: "boq_extracted_items"
             referencedColumns: ["id"]
           },
         ]
@@ -2947,6 +2957,7 @@ export type Database = {
           id: string
           notes: string | null
           project_id: string
+          source_boq_upload_id: string | null
           status: string | null
           submission_date: string | null
           updated_at: string
@@ -2963,6 +2974,7 @@ export type Database = {
           id?: string
           notes?: string | null
           project_id: string
+          source_boq_upload_id?: string | null
           status?: string | null
           submission_date?: string | null
           updated_at?: string
@@ -2979,6 +2991,7 @@ export type Database = {
           id?: string
           notes?: string | null
           project_id?: string
+          source_boq_upload_id?: string | null
           status?: string | null
           submission_date?: string | null
           updated_at?: string
@@ -2990,6 +3003,13 @@ export type Database = {
             columns: ["project_id"]
             isOneToOne: false
             referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "final_accounts_source_boq_upload_id_fkey"
+            columns: ["source_boq_upload_id"]
+            isOneToOne: false
+            referencedRelation: "boq_uploads"
             referencedColumns: ["id"]
           },
         ]
