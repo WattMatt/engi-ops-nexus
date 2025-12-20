@@ -2715,6 +2715,117 @@ export type Database = {
           },
         ]
       }
+      final_account_section_comments: {
+        Row: {
+          author_id: string | null
+          author_name: string
+          author_type: string
+          comment_text: string
+          created_at: string
+          id: string
+          review_id: string | null
+          section_id: string
+        }
+        Insert: {
+          author_id?: string | null
+          author_name: string
+          author_type: string
+          comment_text: string
+          created_at?: string
+          id?: string
+          review_id?: string | null
+          section_id: string
+        }
+        Update: {
+          author_id?: string | null
+          author_name?: string
+          author_type?: string
+          comment_text?: string
+          created_at?: string
+          id?: string
+          review_id?: string | null
+          section_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "final_account_section_comments_review_id_fkey"
+            columns: ["review_id"]
+            isOneToOne: false
+            referencedRelation: "final_account_section_reviews"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "final_account_section_comments_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "final_account_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      final_account_section_reviews: {
+        Row: {
+          access_token: string | null
+          created_at: string
+          id: string
+          message: string | null
+          reviewed_at: string | null
+          reviewer_contact_id: string | null
+          reviewer_email: string | null
+          reviewer_name: string | null
+          section_id: string
+          sent_at: string | null
+          sent_by: string | null
+          status: Database["public"]["Enums"]["section_review_status"]
+          updated_at: string
+        }
+        Insert: {
+          access_token?: string | null
+          created_at?: string
+          id?: string
+          message?: string | null
+          reviewed_at?: string | null
+          reviewer_contact_id?: string | null
+          reviewer_email?: string | null
+          reviewer_name?: string | null
+          section_id: string
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: Database["public"]["Enums"]["section_review_status"]
+          updated_at?: string
+        }
+        Update: {
+          access_token?: string | null
+          created_at?: string
+          id?: string
+          message?: string | null
+          reviewed_at?: string | null
+          reviewer_contact_id?: string | null
+          reviewer_email?: string | null
+          reviewer_name?: string | null
+          section_id?: string
+          sent_at?: string | null
+          sent_by?: string | null
+          status?: Database["public"]["Enums"]["section_review_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "final_account_section_reviews_reviewer_contact_id_fkey"
+            columns: ["reviewer_contact_id"]
+            isOneToOne: false
+            referencedRelation: "project_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "final_account_section_reviews_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "final_account_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       final_account_sections: {
         Row: {
           bill_id: string
@@ -2724,6 +2835,9 @@ export type Database = {
           display_order: number | null
           final_total: number | null
           id: string
+          review_status:
+            | Database["public"]["Enums"]["section_review_status"]
+            | null
           section_code: string
           section_name: string
           updated_at: string
@@ -2737,6 +2851,9 @@ export type Database = {
           display_order?: number | null
           final_total?: number | null
           id?: string
+          review_status?:
+            | Database["public"]["Enums"]["section_review_status"]
+            | null
           section_code: string
           section_name: string
           updated_at?: string
@@ -2750,6 +2867,9 @@ export type Database = {
           display_order?: number | null
           final_total?: number | null
           id?: string
+          review_status?:
+            | Database["public"]["Enums"]["section_review_status"]
+            | null
           section_code?: string
           section_name?: string
           updated_at?: string
@@ -9345,6 +9465,7 @@ export type Database = {
         Args: { p_email: string; p_expiry_hours?: number; p_project_id: string }
         Returns: string
       }
+      generate_review_access_token: { Args: never; Returns: string }
       get_current_tenant_schedule_version: {
         Args: { p_project_id: string }
         Returns: number
@@ -9423,6 +9544,12 @@ export type Database = {
       leave_status: "pending" | "approved" | "rejected" | "cancelled"
       onboarding_status: "not_started" | "in_progress" | "completed"
       review_status: "draft" | "pending" | "completed"
+      section_review_status:
+        | "draft"
+        | "sent_for_review"
+        | "under_review"
+        | "disputed"
+        | "approved"
       task_priority: "low" | "medium" | "high" | "urgent"
       task_status: "pending" | "in_progress" | "completed" | "cancelled"
       user_role: "admin" | "user"
@@ -9567,6 +9694,13 @@ export const Constants = {
       leave_status: ["pending", "approved", "rejected", "cancelled"],
       onboarding_status: ["not_started", "in_progress", "completed"],
       review_status: ["draft", "pending", "completed"],
+      section_review_status: [
+        "draft",
+        "sent_for_review",
+        "under_review",
+        "disputed",
+        "approved",
+      ],
       task_priority: ["low", "medium", "high", "urgent"],
       task_status: ["pending", "in_progress", "completed", "cancelled"],
       user_role: ["admin", "user"],

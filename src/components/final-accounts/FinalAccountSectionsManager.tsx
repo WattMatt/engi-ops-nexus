@@ -2,13 +2,15 @@ import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Plus, ChevronDown, ChevronRight, Trash2, Pencil, Zap } from "lucide-react";
+import { Plus, ChevronDown, ChevronRight, Trash2, Pencil, Zap, Send } from "lucide-react";
 import { toast } from "sonner";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { AddSectionDialog } from "./AddSectionDialog";
 import { FinalAccountItemsTable } from "./FinalAccountItemsTable";
 import { QuickSetupWizard } from "./QuickSetupWizard";
 import { LineShopsManager } from "./LineShopsManager";
+import { SendForReviewDialog } from "./SendForReviewDialog";
+import { SectionReviewStatusBadge } from "./SectionReviewStatusBadge";
 import { formatCurrency } from "@/utils/formatters";
 
 interface FinalAccountSectionsManagerProps {
@@ -21,6 +23,7 @@ export function FinalAccountSectionsManager({ billId, accountId }: FinalAccountS
   const [quickSetupOpen, setQuickSetupOpen] = useState(false);
   const [editingSection, setEditingSection] = useState<any>(null);
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+  const [reviewDialogSection, setReviewDialogSection] = useState<any>(null);
   const queryClient = useQueryClient();
 
   const { data: sections = [], isLoading } = useQuery({
@@ -110,6 +113,7 @@ export function FinalAccountSectionsManager({ billId, accountId }: FinalAccountS
                   </span>
                 </CollapsibleTrigger>
                 <div className="flex items-center gap-4">
+                  <SectionReviewStatusBadge status={section.review_status} />
                   <div className="flex gap-4 text-xs">
                     <span>
                       <span className="text-muted-foreground mr-1">Contract:</span>
@@ -125,6 +129,18 @@ export function FinalAccountSectionsManager({ billId, accountId }: FinalAccountS
                     </span>
                   </div>
                   <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      title="Send for Review"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setReviewDialogSection(section);
+                      }}
+                    >
+                      <Send className="h-3 w-3" />
+                    </Button>
                     <Button
                       variant="ghost"
                       size="sm"
@@ -189,6 +205,16 @@ export function FinalAccountSectionsManager({ billId, accountId }: FinalAccountS
         billId={billId}
         existingSectionCodes={sections.map(s => s.section_code)}
       />
+
+      {reviewDialogSection && (
+        <SendForReviewDialog
+          open={!!reviewDialogSection}
+          onOpenChange={(open) => !open && setReviewDialogSection(null)}
+          sectionId={reviewDialogSection.id}
+          sectionName={`${reviewDialogSection.section_code} - ${reviewDialogSection.section_name}`}
+          accountId={accountId}
+        />
+      )}
     </div>
   );
 }

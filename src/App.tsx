@@ -49,6 +49,7 @@ import ClientPortal from "./pages/ClientPortal";
 import ClientTenantReport from "./pages/client/ClientTenantReport";
 import ClientGeneratorReport from "./pages/client/ClientGeneratorReport";
 import ClientView from "./pages/ClientView";
+import ContractorReviewPortal from "./pages/ContractorReviewPortal";
 import { HelpButton } from "./components/feedback/HelpButton";
 
 const queryClient = new QueryClient();
@@ -80,6 +81,9 @@ const App = () => (
         
         {/* Public Client View - shareable link */}
         <Route path="/client-view" element={<ClientView />} />
+        
+        {/* Contractor Review Portal - public access via token */}
+        <Route path="/review/:accessToken" element={<ContractorReviewPortal />} />
         
         {/* Global Master Library - accessible without selecting a project */}
         <Route path="/master-library" element={<MasterLibrary />} />
