@@ -211,26 +211,35 @@ export function detectBOQColumns(headers: string[]): {
 } {
   const result: ReturnType<typeof detectBOQColumns> = {};
   
+  // Patterns ordered by specificity (more specific first)
   const patterns = {
-    itemCode: /item|ref|no\.?|code|^nr$/i,
-    description: /desc|particular|detail|specification/i,
-    quantity: /qty|quantity|qnty/i,
-    unit: /^unit$|^u$|measurement/i,
-    supplyRate: /supply|material|mat|supp/i,
-    installRate: /install|labour|labor|lab|inst/i,
-    totalRate: /^rate$|unit.*rate|combined/i,
-    amount: /amount|total|sum|value/i
+    itemCode: /item\s*(?:no|code|ref)?|ref(?:erence)?\.?\s*(?:no)?|^no\.?$|^code$|^nr\.?$/i,
+    description: /desc(?:ription)?|particular|detail|specification|^item$|work\s*item/i,
+    quantity: /qty|quantity|qnty|^q$/i,
+    unit: /^unit[s]?$|^u$|^uom$|measurement|measure/i,
+    supplyRate: /supply|material|mat\s*rate|supp\s*rate|mat\s*cost/i,
+    installRate: /install|labour|labor|lab\s*rate|inst\s*rate|lab\s*cost/i,
+    totalRate: /^rate$|unit\s*rate|combined|rate\s*\/\s*unit/i,
+    amount: /amount|^total$|^sum$|^value$|line\s*total|extended/i
   };
   
+  // Track used indices to avoid double-mapping
+  const usedIndices = new Set<number>();
+  
   headers.forEach((header, index) => {
+    if (!header) return;
     const h = header.toLowerCase().trim();
     
     for (const [key, pattern] of Object.entries(patterns)) {
-      if (pattern.test(h) && result[key as keyof typeof result] === undefined) {
+      if (pattern.test(h) && result[key as keyof typeof result] === undefined && !usedIndices.has(index)) {
         result[key as keyof typeof result] = index;
+        usedIndices.add(index);
+        break; // Don't match multiple patterns for same column
       }
     }
   });
+  
+  console.log("detectBOQColumns - Headers:", headers, "Result:", result);
   
   return result;
 }

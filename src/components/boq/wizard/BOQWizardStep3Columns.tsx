@@ -28,7 +28,6 @@ interface Props {
 
 export function BOQWizardStep3Columns({ state, updateState }: Props) {
   const [activeSheet, setActiveSheet] = useState<string>("");
-  const [initialized, setInitialized] = useState(false);
 
   // Get only selected sheets
   const selectedSheets = useMemo(() => 
@@ -36,23 +35,24 @@ export function BOQWizardStep3Columns({ state, updateState }: Props) {
     [state.parsedSheets, state.selectedSheets]
   );
 
-  // Set initial active sheet once
+  // Set initial active sheet and auto-detect on mount
   useEffect(() => {
-    if (selectedSheets.length > 0 && !activeSheet) {
+    if (selectedSheets.length === 0) return;
+    
+    // Set active sheet if not set
+    if (!activeSheet) {
       setActiveSheet(selectedSheets[0].name);
     }
-  }, [selectedSheets.length]); // Only depend on length, not the full array
-
-  // Auto-detect columns for sheets that haven't been mapped yet - only on first load
-  useEffect(() => {
-    if (initialized) return;
     
+    // Auto-detect columns for sheets that haven't been mapped yet
     const newMappings = { ...state.columnMappings };
     let changed = false;
 
     selectedSheets.forEach(sheet => {
       if (!newMappings[sheet.name]) {
+        console.log("Step3: Auto-detecting columns for sheet:", sheet.name, "Headers:", sheet.headers);
         const detected = detectBOQColumns(sheet.headers);
+        console.log("Step3: Detected columns:", detected);
         newMappings[sheet.name] = {
           sheetName: sheet.name,
           itemCode: detected.itemCode ?? null,
@@ -69,10 +69,10 @@ export function BOQWizardStep3Columns({ state, updateState }: Props) {
     });
 
     if (changed) {
+      console.log("Step3: Updating mappings:", newMappings);
       updateState({ columnMappings: newMappings });
     }
-    setInitialized(true);
-  }, [selectedSheets, initialized]); // Only run once per mount
+  }, [selectedSheets]); // Run when selected sheets change
 
   const currentSheet = selectedSheets.find(s => s.name === activeSheet);
   const currentMapping = state.columnMappings[activeSheet];
@@ -129,11 +129,20 @@ export function BOQWizardStep3Columns({ state, updateState }: Props) {
     return currentSheet.rows.slice(0, 5).map((row, idx) => {
       const mappedRow: Record<string, string> = { _row: String(idx + 1) };
       
+      // Get all row keys in order (they correspond to header order)
+      const rowKeys = Object.keys(row);
+      
       COLUMN_FIELDS.forEach(field => {
         const colIndex = currentMapping[field.key as keyof ColumnMapping];
         if (colIndex !== null && typeof colIndex === 'number') {
+          // Get the header at this index
           const header = currentSheet.headers[colIndex];
-          mappedRow[field.key] = String(row[header] ?? "");
+          // Try to get value by header name first, then by key at same index position
+          let value = row[header];
+          if (value === undefined && rowKeys[colIndex]) {
+            value = row[rowKeys[colIndex]];
+          }
+          mappedRow[field.key] = value !== null && value !== undefined ? String(value) : "";
         } else {
           mappedRow[field.key] = "-";
         }
