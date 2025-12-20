@@ -10,7 +10,7 @@ import { Plus, Store, ChevronDown, ChevronRight, Trash2, Pencil } from "lucide-r
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
 import { formatCurrency } from "@/utils/formatters";
-import { FinalAccountItemsTable } from "./FinalAccountItemsTable";
+import { SpreadsheetItemsTable } from "./SpreadsheetItemsTable";
 
 interface LineShopsManagerProps {
   sectionId: string;
@@ -269,7 +269,7 @@ export function LineShopsManager({ sectionId, billId, accountId }: LineShopsMana
                 </div>
                 <CollapsibleContent>
                   <div className="p-3 border-t">
-                    <FinalAccountItemsTable
+                    <SpreadsheetItemsTable
                       sectionId={sectionId}
                       billId={billId}
                       accountId={accountId}

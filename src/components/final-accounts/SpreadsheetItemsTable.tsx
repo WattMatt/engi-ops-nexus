@@ -1,0 +1,386 @@
+import { useState, useRef, useEffect, useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { formatCurrency } from "@/utils/formatters";
+import { Plus, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
+interface SpreadsheetItemsTableProps {
+  sectionId: string;
+  billId: string;
+  accountId: string;
+  shopSubsectionId?: string;
+}
+
+interface ItemRow {
+  id: string;
+  item_code: string;
+  description: string;
+  unit: string;
+  contract_quantity: number | null;
+  final_quantity: number | null;
+  supply_rate: number | null;
+  install_rate: number | null;
+  contract_amount: number;
+  final_amount: number;
+  variation_amount: number;
+  is_rate_only: boolean;
+  display_order: number;
+  notes: string | null;
+}
+
+type EditableField = 'item_code' | 'description' | 'unit' | 'contract_quantity' | 'final_quantity' | 'supply_rate' | 'install_rate' | 'notes';
+
+const COLUMNS: { key: EditableField | 'contract_amount' | 'final_amount' | 'variation_amount' | 'actions'; label: string; width: string; editable: boolean; type: 'text' | 'number' | 'currency'; align: 'left' | 'right' }[] = [
+  { key: 'item_code', label: 'Code', width: 'w-[80px]', editable: true, type: 'text', align: 'left' },
+  { key: 'description', label: 'Description', width: 'flex-1 min-w-[200px]', editable: true, type: 'text', align: 'left' },
+  { key: 'unit', label: 'Unit', width: 'w-[60px]', editable: true, type: 'text', align: 'left' },
+  { key: 'contract_quantity', label: 'Contract Qty', width: 'w-[90px]', editable: true, type: 'number', align: 'right' },
+  { key: 'final_quantity', label: 'Final Qty', width: 'w-[90px]', editable: true, type: 'number', align: 'right' },
+  { key: 'supply_rate', label: 'Supply Rate', width: 'w-[100px]', editable: true, type: 'currency', align: 'right' },
+  { key: 'install_rate', label: 'Install Rate', width: 'w-[100px]', editable: true, type: 'currency', align: 'right' },
+  { key: 'contract_amount', label: 'Contract Amt', width: 'w-[100px]', editable: false, type: 'currency', align: 'right' },
+  { key: 'final_amount', label: 'Final Amt', width: 'w-[100px]', editable: false, type: 'currency', align: 'right' },
+  { key: 'variation_amount', label: 'Variation', width: 'w-[100px]', editable: false, type: 'currency', align: 'right' },
+  { key: 'actions', label: '', width: 'w-[40px]', editable: false, type: 'text', align: 'left' },
+];
+
+export function SpreadsheetItemsTable({ sectionId, billId, accountId, shopSubsectionId }: SpreadsheetItemsTableProps) {
+  const [activeCell, setActiveCell] = useState<{ rowId: string; field: string } | null>(null);
+  const [editValue, setEditValue] = useState<string>("");
+  const inputRef = useRef<HTMLInputElement>(null);
+  const queryClient = useQueryClient();
+
+  const { data: items = [], isLoading } = useQuery({
+    queryKey: ["final-account-items", sectionId, shopSubsectionId],
+    queryFn: async () => {
+      let query = supabase
+        .from("final_account_items")
+        .select("*")
+        .eq("section_id", sectionId)
+        .order("display_order", { ascending: true });
+      
+      if (shopSubsectionId) {
+        query = query.eq("shop_subsection_id", shopSubsectionId);
+      } else {
+        query = query.is("shop_subsection_id", null);
+      }
+      
+      const { data, error } = await query;
+      if (error) throw error;
+      return (data || []) as ItemRow[];
+    },
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: async ({ id, field, value }: { id: string; field: string; value: any }) => {
+      // Calculate amounts if quantity or rate changed
+      const item = items.find(i => i.id === id);
+      if (!item) throw new Error("Item not found");
+
+      const updates: any = { [field]: value };
+      
+      // Recalculate amounts
+      const contractQty = field === 'contract_quantity' ? (value || 0) : (item.contract_quantity || 0);
+      const finalQty = field === 'final_quantity' ? (value || 0) : (item.final_quantity || 0);
+      const supplyRate = field === 'supply_rate' ? (value || 0) : (item.supply_rate || 0);
+      const installRate = field === 'install_rate' ? (value || 0) : (item.install_rate || 0);
+      
+      const totalRate = supplyRate + installRate;
+      updates.contract_amount = contractQty * totalRate;
+      updates.final_amount = finalQty * totalRate;
+      updates.variation_amount = updates.final_amount - updates.contract_amount;
+
+      const { error } = await supabase
+        .from("final_account_items")
+        .update(updates)
+        .eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["final-account-items", sectionId, shopSubsectionId] });
+      recalculateSectionTotals();
+    },
+    onError: () => {
+      toast.error("Failed to update item");
+    },
+  });
+
+  const addMutation = useMutation({
+    mutationFn: async () => {
+      const maxOrder = items.length > 0 ? Math.max(...items.map(i => i.display_order)) : 0;
+      const { error } = await supabase
+        .from("final_account_items")
+        .insert({
+          section_id: sectionId,
+          shop_subsection_id: shopSubsectionId || null,
+          item_code: '',
+          description: 'New item',
+          unit: 'No.',
+          contract_quantity: 0,
+          final_quantity: 0,
+          supply_rate: 0,
+          install_rate: 0,
+          contract_amount: 0,
+          final_amount: 0,
+          variation_amount: 0,
+          display_order: maxOrder + 1,
+        });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["final-account-items", sectionId, shopSubsectionId] });
+    },
+    onError: () => {
+      toast.error("Failed to add item");
+    },
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async (itemId: string) => {
+      const { error } = await supabase
+        .from("final_account_items")
+        .delete()
+        .eq("id", itemId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["final-account-items", sectionId, shopSubsectionId] });
+      recalculateSectionTotals();
+    },
+    onError: () => {
+      toast.error("Failed to delete item");
+    },
+  });
+
+  const recalculateSectionTotals = async () => {
+    const { data: allItems } = await supabase
+      .from("final_account_items")
+      .select("contract_amount, final_amount, variation_amount")
+      .eq("section_id", sectionId);
+
+    if (allItems) {
+      const totals = allItems.reduce(
+        (acc, item) => ({
+          contract: acc.contract + Number(item.contract_amount || 0),
+          final: acc.final + Number(item.final_amount || 0),
+          variation: acc.variation + Number(item.variation_amount || 0),
+        }),
+        { contract: 0, final: 0, variation: 0 }
+      );
+
+      await supabase
+        .from("final_account_sections")
+        .update({
+          contract_total: totals.contract,
+          final_total: totals.final,
+          variation_total: totals.variation,
+        })
+        .eq("id", sectionId);
+
+      queryClient.invalidateQueries({ queryKey: ["final-account-sections", billId] });
+      queryClient.invalidateQueries({ queryKey: ["final-account-bills", accountId] });
+    }
+  };
+
+  const startEditing = useCallback((rowId: string, field: string) => {
+    const item = items.find(i => i.id === rowId);
+    if (!item) return;
+    
+    const value = item[field as keyof ItemRow];
+    setActiveCell({ rowId, field });
+    setEditValue(value?.toString() || '');
+  }, [items]);
+
+  const commitEdit = useCallback(() => {
+    if (!activeCell) return;
+    
+    const item = items.find(i => i.id === activeCell.rowId);
+    if (!item) return;
+    
+    const column = COLUMNS.find(c => c.key === activeCell.field);
+    let newValue: any = editValue;
+    
+    if (column?.type === 'number' || column?.type === 'currency') {
+      newValue = parseFloat(editValue) || 0;
+    }
+    
+    const currentValue = item[activeCell.field as keyof ItemRow];
+    if (newValue !== currentValue) {
+      updateMutation.mutate({ id: activeCell.rowId, field: activeCell.field, value: newValue });
+    }
+    
+    setActiveCell(null);
+    setEditValue("");
+  }, [activeCell, editValue, items, updateMutation]);
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (!activeCell) return;
+    
+    if (e.key === 'Enter' || e.key === 'Tab') {
+      e.preventDefault();
+      commitEdit();
+      
+      // Move to next cell
+      const currentRowIndex = items.findIndex(i => i.id === activeCell.rowId);
+      const editableColumns = COLUMNS.filter(c => c.editable);
+      const currentColIndex = editableColumns.findIndex(c => c.key === activeCell.field);
+      
+      if (e.key === 'Tab') {
+        if (e.shiftKey) {
+          // Move left or up
+          if (currentColIndex > 0) {
+            startEditing(activeCell.rowId, editableColumns[currentColIndex - 1].key);
+          } else if (currentRowIndex > 0) {
+            startEditing(items[currentRowIndex - 1].id, editableColumns[editableColumns.length - 1].key);
+          }
+        } else {
+          // Move right or down
+          if (currentColIndex < editableColumns.length - 1) {
+            startEditing(activeCell.rowId, editableColumns[currentColIndex + 1].key);
+          } else if (currentRowIndex < items.length - 1) {
+            startEditing(items[currentRowIndex + 1].id, editableColumns[0].key);
+          }
+        }
+      } else if (e.key === 'Enter') {
+        // Move down
+        if (currentRowIndex < items.length - 1) {
+          startEditing(items[currentRowIndex + 1].id, activeCell.field);
+        }
+      }
+    } else if (e.key === 'Escape') {
+      setActiveCell(null);
+      setEditValue("");
+    }
+  }, [activeCell, commitEdit, items, startEditing]);
+
+  useEffect(() => {
+    if (activeCell && inputRef.current) {
+      inputRef.current.focus();
+      inputRef.current.select();
+    }
+  }, [activeCell]);
+
+  const renderCell = (item: ItemRow, column: typeof COLUMNS[0]) => {
+    const isActive = activeCell?.rowId === item.id && activeCell?.field === column.key;
+    const value = item[column.key as keyof ItemRow];
+    
+    if (column.key === 'actions') {
+      return (
+        <button
+          onClick={() => deleteMutation.mutate(item.id)}
+          className="p-1 text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
+          title="Delete row"
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </button>
+      );
+    }
+    
+    if (isActive && column.editable) {
+      return (
+        <input
+          ref={inputRef}
+          type={column.type === 'text' ? 'text' : 'number'}
+          value={editValue}
+          onChange={(e) => setEditValue(e.target.value)}
+          onBlur={commitEdit}
+          onKeyDown={handleKeyDown}
+          className={cn(
+            "w-full h-full bg-primary/10 border-2 border-primary outline-none px-1.5 py-0.5 text-xs",
+            column.align === 'right' && "text-right"
+          )}
+          step={column.type === 'currency' ? '0.01' : '1'}
+        />
+      );
+    }
+    
+    const displayValue = column.type === 'currency' 
+      ? formatCurrency(value as number)
+      : column.type === 'number'
+      ? (value ?? '-')
+      : (value || '-');
+    
+    const variationClass = column.key === 'variation_amount' 
+      ? Number(value) >= 0 ? 'text-green-600 font-medium' : 'text-destructive font-medium'
+      : '';
+    
+    return (
+      <div
+        onClick={() => column.editable && startEditing(item.id, column.key)}
+        className={cn(
+          "px-1.5 py-1 text-xs truncate",
+          column.editable && "cursor-cell hover:bg-muted/50",
+          column.align === 'right' && "text-right",
+          variationClass
+        )}
+        title={typeof value === 'string' ? value : undefined}
+      >
+        {displayValue}
+      </div>
+    );
+  };
+
+  if (isLoading) {
+    return <div className="text-center py-4 text-muted-foreground text-xs">Loading...</div>;
+  }
+
+  return (
+    <div className="border rounded-md overflow-hidden bg-card">
+      {/* Header */}
+      <div className="flex bg-muted/70 border-b sticky top-0 z-10">
+        {COLUMNS.map((col) => (
+          <div
+            key={col.key}
+            className={cn(
+              "px-1.5 py-2 text-xs font-medium text-muted-foreground border-r last:border-r-0",
+              col.width,
+              col.align === 'right' && "text-right"
+            )}
+          >
+            {col.label}
+          </div>
+        ))}
+      </div>
+      
+      {/* Rows */}
+      <div className="divide-y">
+        {items.length === 0 ? (
+          <div className="py-8 text-center text-muted-foreground text-sm">
+            No items yet. Click "Add Row" to start.
+          </div>
+        ) : (
+          items.map((item) => (
+            <div key={item.id} className="flex group hover:bg-muted/30 transition-colors">
+              {COLUMNS.map((col) => (
+                <div
+                  key={col.key}
+                  className={cn(
+                    "border-r last:border-r-0 min-h-[32px] flex items-center",
+                    col.width
+                  )}
+                >
+                  {renderCell(item, col)}
+                </div>
+              ))}
+            </div>
+          ))
+        )}
+      </div>
+      
+      {/* Add row button */}
+      <div className="border-t bg-muted/30">
+        <button
+          onClick={() => addMutation.mutate()}
+          disabled={addMutation.isPending}
+          className="w-full py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors flex items-center justify-center gap-1"
+        >
+          <Plus className="h-3.5 w-3.5" />
+          Add Row
+        </button>
+      </div>
+    </div>
+  );
+}

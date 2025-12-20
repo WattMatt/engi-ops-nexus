@@ -6,7 +6,7 @@ import { Plus, ChevronDown, ChevronRight, Trash2, Pencil, Zap, Send } from "luci
 import { toast } from "sonner";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { AddSectionDialog } from "./AddSectionDialog";
-import { FinalAccountItemsTable } from "./FinalAccountItemsTable";
+import { SpreadsheetItemsTable } from "./SpreadsheetItemsTable";
 import { QuickSetupWizard } from "./QuickSetupWizard";
 import { LineShopsManager } from "./LineShopsManager";
 import { SendForReviewDialog } from "./SendForReviewDialog";
@@ -174,7 +174,7 @@ export function FinalAccountSectionsManager({ billId, accountId }: FinalAccountS
                   {isLineShopsSection(section.section_code) ? (
                     <LineShopsManager sectionId={section.id} billId={billId} accountId={accountId} />
                   ) : (
-                    <FinalAccountItemsTable sectionId={section.id} billId={billId} accountId={accountId} />
+                    <SpreadsheetItemsTable sectionId={section.id} billId={billId} accountId={accountId} />
                   )}
                 </div>
               </CollapsibleContent>
