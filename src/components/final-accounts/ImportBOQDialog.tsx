@@ -51,7 +51,7 @@ export function ImportBOQDialog({ open, onOpenChange, accountId, projectId }: Im
         .from("boq_uploads")
         .select("*")
         .eq("project_id", projectId)
-        .eq("status", "completed")
+        .in("status", ["completed", "reviewed"])
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
