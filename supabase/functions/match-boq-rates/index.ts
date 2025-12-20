@@ -305,6 +305,35 @@ async function processMatching(
       .delete()
       .eq('upload_id', upload_id);
 
+    // Extract unique sections from results and ensure they have proper structure
+    const sectionsMap = new Map<string, { 
+      section_code: string; 
+      section_name: string; 
+      bill_number: number | null;
+      bill_name: string | null;
+      display_order: number;
+    }>();
+    
+    let sectionOrder = 0;
+    for (const result of matchResults) {
+      const sectionKey = `${result.bill_number || 0}-${result.section_code || 'UNASSIGNED'}`;
+      if (!sectionsMap.has(sectionKey)) {
+        sectionsMap.set(sectionKey, {
+          section_code: result.section_code || 'UNASSIGNED',
+          section_name: result.section_name || 'Unassigned Items',
+          bill_number: result.bill_number,
+          bill_name: result.bill_name,
+          display_order: sectionOrder++,
+        });
+      }
+    }
+
+    // Log the extracted structure
+    console.log(`[BOQ Match] Extracted ${sectionsMap.size} unique sections from BOQ`);
+    for (const [key, section] of sectionsMap) {
+      console.log(`[BOQ Match]   Bill ${section.bill_number}: ${section.bill_name} > Section ${section.section_code}: ${section.section_name}`);
+    }
+
     // Process matches and create price history
     let matchedCount = 0;
     let newItemCount = 0;
@@ -456,7 +485,10 @@ async function extractAndMatchWithAI(
       `${c.category_code}: ${c.category_name}`
     ).join('\n') || '';
 
-    const prompt = `You are analyzing a Bill of Quantities (BOQ) document to extract material items and match them against an existing master material library.
+    const prompt = `You are analyzing a Bill of Quantities (BOQ) document. Your task is to:
+1. PRESERVE THE BOQ STRUCTURE - identify Bills, Sections, and Subsections
+2. Extract each material/item line with its rates and quantities
+3. Match items against the master materials library
 
 MASTER MATERIALS LIBRARY (match items to these):
 ${materialList}
@@ -467,18 +499,24 @@ ${categoryList}
 BOQ CONTENT TO ANALYZE:
 ${truncatedContent}
 
-TASK:
-1. Extract each material/item line from the BOQ
-2. For each item, try to MATCH it to a material from the MASTER MATERIALS LIBRARY using description similarity
-3. For unmatched items, suggest the most appropriate category
+CRITICAL - BOQ STRUCTURE EXTRACTION:
+BOQs are typically organized as:
+- BILL (e.g., "BILL No. 1 - ELECTRICAL INSTALLATION", "BILL 2: LIGHTING")
+- SECTION (e.g., "A - PRELIMINARIES", "B - DISTRIBUTION BOARDS", "1.0 CABLE CONTAINMENT")
+- SUBSECTION (e.g., "A1 - General Items", "B2.1 - DB Boards")
 
-Return a JSON array with this structure:
+Look for patterns like:
+- "BILL No. X", "BILL X:", "SECTION X", numbered headings (1.0, 2.0, A, B)
+- Indentation and formatting that indicates hierarchy
+- Headers in CAPS or bold markers
+
+Return a JSON array. EVERY item MUST have bill_number, bill_name, section_code, section_name:
 [
   {
     "row_number": 1,
     "item_description": "The item description from BOQ",
-    "item_code": "Item code if present",
-    "unit": "Unit (m, m2, each, etc)",
+    "item_code": "Item code if present (e.g., A1.01, 1.2.3)",
+    "unit": "Unit (m, m2, each, nr, etc)",
     "quantity": 10,
     "supply_rate": 100.00,
     "install_rate": 50.00,
@@ -487,17 +525,23 @@ Return a JSON array with this structure:
     "match_confidence": 0.85,
     "suggested_category_code": "Category code for unmatched items",
     "bill_number": 1,
-    "bill_name": "Bill name if present",
-    "section_code": "Section code",
-    "section_name": "Section name"
+    "bill_name": "ELECTRICAL INSTALLATION",
+    "section_code": "A",
+    "section_name": "PRELIMINARIES"
   }
 ]
 
+STRUCTURE RULES:
+- bill_number: Sequential number (1, 2, 3...) - infer from document order if not explicit
+- bill_name: The bill title/description (e.g., "ELECTRICAL INSTALLATION", "LIGHTING", "CABLING")
+- section_code: Code like "A", "B", "1.0", "2.0" from the BOQ
+- section_name: Full section name (e.g., "CABLE CONTAINMENT", "DISTRIBUTION BOARDS")
+- If structure is unclear, group logically by item type (cables together, DBs together, etc.)
+
 MATCHING RULES:
 - Match confidence >= 0.8: Strong match (same item type, similar specs)
-- Match confidence 0.6-0.79: Partial match (similar item, different specs)
+- Match confidence 0.6-0.79: Partial match (similar item, different specs)  
 - Match confidence < 0.6: No match (flag as new item)
-- Focus on core item description, ignore quantity/measurement differences
 - Cable: match by type and size (e.g., "4c 95mm XLPE" matches "4 Core 95mm² XLPE")
 - Fittings: match by type (e.g., "LED Panel 600x600" matches "600x600 LED Panel Light")
 
