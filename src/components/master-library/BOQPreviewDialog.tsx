@@ -19,8 +19,10 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, FileSpreadsheet, Check } from "lucide-react";
-import { parseExcelFile, ParsedSheet } from "@/utils/excelParser";
+import { Loader2, FileSpreadsheet, Check, AlertCircle, CheckCircle2, XCircle, Info } from "lucide-react";
+import { parseExcelFile, ParsedSheet, ColumnDetectionResult, getColumnDetectionSummary } from "@/utils/excelParser";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface SheetSelection {
   name: string;
@@ -28,6 +30,8 @@ interface SheetSelection {
   rows: Record<string, string | number | null>[];
   selected: boolean;
   selectedRows: Set<number>;
+  rowCount: number;
+  columnDetection: ColumnDetectionResult;
 }
 
 interface BOQPreviewDialogProps {
@@ -37,6 +41,8 @@ interface BOQPreviewDialogProps {
   onConfirm: (selectedContent: string, selectedSheets: string[]) => void;
 }
 
+const MAX_PREVIEW_ROWS = 10;
+
 export const BOQPreviewDialog = ({
   open,
   onOpenChange,
@@ -44,6 +50,7 @@ export const BOQPreviewDialog = ({
   onConfirm,
 }: BOQPreviewDialogProps) => {
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [sheets, setSheets] = useState<SheetSelection[]>([]);
   const [activeSheet, setActiveSheet] = useState<string>("");
   const [selectAllRows, setSelectAllRows] = useState<Record<string, boolean>>({});
@@ -58,14 +65,22 @@ export const BOQPreviewDialog = ({
     if (!file) return;
     
     setLoading(true);
+    setError(null);
+    
     try {
       const parsed = await parseExcelFile(file);
+      
+      if (parsed.sheets.length === 0) {
+        setError("No data found in file. The file appears to be empty.");
+        setSheets([]);
+        return;
+      }
       
       const sheetData: SheetSelection[] = parsed.sheets.map((sheet: ParsedSheet) => {
         // Skip sheets that are likely not BOQ data
         const isLikelyBOQ = !sheet.name.toLowerCase().includes("notes") &&
                            !sheet.name.toLowerCase().includes("qualification") &&
-                           !sheet.name.toLowerCase().includes("summary") &&
+                           !sheet.name.toLowerCase().includes("summary only") &&
                            sheet.rows.length > 0;
         
         return {
@@ -74,6 +89,8 @@ export const BOQPreviewDialog = ({
           rows: sheet.rows,
           selected: isLikelyBOQ,
           selectedRows: new Set<number>(isLikelyBOQ ? sheet.rows.map((_, i) => i) : []),
+          rowCount: sheet.rowCount,
+          columnDetection: parsed.columnDetection[sheet.name] || {},
         };
       });
       
@@ -87,8 +104,9 @@ export const BOQPreviewDialog = ({
         });
         setSelectAllRows(selectAllState);
       }
-    } catch (error) {
-      console.error("Error parsing file:", error);
+    } catch (err) {
+      console.error("Error parsing file:", err);
+      setError(err instanceof Error ? err.message : "Failed to parse file");
     } finally {
       setLoading(false);
     }
@@ -180,6 +198,50 @@ export const BOQPreviewDialog = ({
   const selectedSheetCount = sheets.filter(s => s.selected).length;
   const totalSelectedRows = sheets.reduce((acc, s) => acc + s.selectedRows.size, 0);
 
+  // Get column detection info for current sheet
+  const currentDetection = currentSheet ? currentSheet.columnDetection : {};
+  const detectionSummary = currentSheet 
+    ? getColumnDetectionSummary(currentDetection, currentSheet.headers)
+    : { detected: [], missing: [], mappings: [] };
+
+  // Check if column is a detected BOQ column
+  const getColumnType = (index: number): string | null => {
+    for (const [key, idx] of Object.entries(currentDetection)) {
+      if (idx === index) {
+        return key;
+      }
+    }
+    return null;
+  };
+
+  const getColumnBadgeColor = (columnType: string | null): string => {
+    switch (columnType) {
+      case 'description': return 'bg-blue-500/10 text-blue-600 border-blue-500/20';
+      case 'quantity': return 'bg-green-500/10 text-green-600 border-green-500/20';
+      case 'unit': return 'bg-purple-500/10 text-purple-600 border-purple-500/20';
+      case 'totalRate':
+      case 'supplyRate':
+      case 'installRate': return 'bg-orange-500/10 text-orange-600 border-orange-500/20';
+      case 'amount': return 'bg-amber-500/10 text-amber-600 border-amber-500/20';
+      case 'itemCode': return 'bg-slate-500/10 text-slate-600 border-slate-500/20';
+      default: return '';
+    }
+  };
+
+  const getColumnLabel = (columnType: string | null): string => {
+    switch (columnType) {
+      case 'description': return 'DESC';
+      case 'quantity': return 'QTY';
+      case 'unit': return 'UNIT';
+      case 'totalRate': return 'RATE';
+      case 'supplyRate': return 'SUPPLY';
+      case 'installRate': return 'INSTALL';
+      case 'amount': return 'AMOUNT';
+      case 'itemCode': return 'CODE';
+      default: return '';
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-[95vw] w-[1400px] max-h-[90vh] flex flex-col">
@@ -198,13 +260,19 @@ export const BOQPreviewDialog = ({
             <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             <span className="ml-2 text-muted-foreground">Parsing spreadsheet...</span>
           </div>
+        ) : error ? (
+          <Alert variant="destructive" className="my-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error Parsing File</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
         ) : sheets.length === 0 ? (
           <div className="flex-1 flex items-center justify-center py-12 text-muted-foreground">
             No data found in file
           </div>
         ) : (
           <div className="flex-1 flex flex-col min-h-0">
-            {/* Sheet tabs with selection */}
+            {/* Sheet tabs with selection and row counts */}
             <div className="flex items-center gap-2 mb-4">
               <span className="text-sm font-medium">Sheets:</span>
               <div className="flex flex-wrap gap-2">
@@ -228,16 +296,60 @@ export const BOQPreviewDialog = ({
                       className="h-7"
                     >
                       {sheet.name}
-                      {sheet.selected && (
-                        <Badge variant="secondary" className="ml-1 h-4 px-1 text-xs">
-                          {sheet.selectedRows.size}
-                        </Badge>
-                      )}
+                      <Badge variant="secondary" className="ml-1 h-4 px-1 text-xs">
+                        {sheet.rowCount} rows
+                      </Badge>
                     </Button>
                   </div>
                 ))}
               </div>
             </div>
+
+            {/* Column Detection Summary */}
+            {currentSheet && currentSheet.selected && (
+              <div className="mb-4 p-3 border rounded-lg bg-muted/30">
+                <div className="flex items-center gap-2 mb-2">
+                  <Info className="h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm font-medium">Auto-Detected Columns</span>
+                </div>
+                <div className="flex flex-wrap gap-4">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-green-500" />
+                    <span className="text-sm">
+                      <strong>Detected:</strong>{" "}
+                      {detectionSummary.detected.length > 0 
+                        ? detectionSummary.detected.join(", ") 
+                        : "None"}
+                    </span>
+                  </div>
+                  {detectionSummary.missing.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <XCircle className="h-4 w-4 text-amber-500" />
+                      <span className="text-sm text-muted-foreground">
+                        <strong>Not detected:</strong> {detectionSummary.missing.join(", ")}
+                      </span>
+                    </div>
+                  )}
+                </div>
+                {detectionSummary.mappings.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mt-2">
+                    {detectionSummary.mappings.map(m => (
+                      <Badge key={m.field} variant="outline" className={getColumnBadgeColor(Object.keys(currentDetection).find(k => currentDetection[k as keyof ColumnDetectionResult] === m.index) || null)}>
+                        {m.field} → "{m.column}"
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+                {detectionSummary.detected.length < 3 && (
+                  <Alert className="mt-2" variant="default">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription className="text-sm">
+                      Few columns detected. Consider using manual column mapping if auto-detection doesn't match your BOQ structure.
+                    </AlertDescription>
+                  </Alert>
+                )}
+              </div>
+            )}
 
             {/* Current sheet content - only show if sheet is selected */}
             {currentSheet && currentSheet.selected ? (
@@ -253,51 +365,89 @@ export const BOQPreviewDialog = ({
                       Select all rows ({currentSheet.rows.length})
                     </label>
                   </div>
-                  <Badge variant="outline">
-                    {currentSheet.selectedRows.size} of {currentSheet.rows.length} rows selected
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline">
+                      Showing first {Math.min(MAX_PREVIEW_ROWS, currentSheet.rows.length)} of {currentSheet.rows.length} rows
+                    </Badge>
+                    <Badge variant="secondary">
+                      {currentSheet.selectedRows.size} selected
+                    </Badge>
+                  </div>
                 </div>
                 
-                <ScrollArea className="h-[400px]">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-12 sticky left-0 bg-background"></TableHead>
-                        {currentSheet.headers.map((header, idx) => (
-                          <TableHead key={idx} className="min-w-[100px] max-w-[300px] truncate">
-                            {header || `Column ${idx + 1}`}
-                          </TableHead>
-                        ))}
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {currentSheet.rows.map((row, rowIdx) => (
-                        <TableRow 
-                          key={rowIdx}
-                          className={currentSheet.selectedRows.has(rowIdx) ? "bg-primary/5" : ""}
-                        >
-                          <TableCell className="sticky left-0 bg-background">
-                            <Checkbox
-                              checked={currentSheet.selectedRows.has(rowIdx)}
-                              onCheckedChange={() => toggleRowSelection(currentSheet.name, rowIdx)}
-                            />
-                          </TableCell>
-                          {currentSheet.headers.map((header, cellIdx) => {
-                            const cellValue = String(row[header] ?? "");
+                <ScrollArea className="h-[350px]">
+                  <TooltipProvider>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-12 sticky left-0 bg-background"></TableHead>
+                          {currentSheet.headers.map((header, idx) => {
+                            const columnType = getColumnType(idx);
                             return (
-                              <TableCell 
-                                key={cellIdx} 
-                                className="max-w-[300px] truncate"
-                                title={cellValue}
+                              <TableHead 
+                                key={idx} 
+                                className={`min-w-[100px] max-w-[300px] ${columnType ? getColumnBadgeColor(columnType) : ''}`}
                               >
-                                {cellValue}
-                              </TableCell>
+                                <div className="flex flex-col gap-1">
+                                  <span className="truncate">{header || `Column ${idx + 1}`}</span>
+                                  {columnType && (
+                                    <Badge variant="outline" className={`text-[10px] px-1 py-0 h-4 w-fit ${getColumnBadgeColor(columnType)}`}>
+                                      {getColumnLabel(columnType)}
+                                    </Badge>
+                                  )}
+                                </div>
+                              </TableHead>
                             );
                           })}
                         </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
+                      </TableHeader>
+                      <TableBody>
+                        {currentSheet.rows.slice(0, MAX_PREVIEW_ROWS).map((row, rowIdx) => (
+                          <TableRow 
+                            key={rowIdx}
+                            className={currentSheet.selectedRows.has(rowIdx) ? "bg-primary/5" : ""}
+                          >
+                            <TableCell className="sticky left-0 bg-background">
+                              <Checkbox
+                                checked={currentSheet.selectedRows.has(rowIdx)}
+                                onCheckedChange={() => toggleRowSelection(currentSheet.name, rowIdx)}
+                              />
+                            </TableCell>
+                            {currentSheet.headers.map((header, cellIdx) => {
+                              const cellValue = String(row[header] ?? "");
+                              const columnType = getColumnType(cellIdx);
+                              return (
+                                <Tooltip key={cellIdx}>
+                                  <TooltipTrigger asChild>
+                                    <TableCell 
+                                      className={`max-w-[300px] truncate ${columnType ? 'font-medium' : ''}`}
+                                    >
+                                      {cellValue}
+                                    </TableCell>
+                                  </TooltipTrigger>
+                                  {cellValue.length > 30 && (
+                                    <TooltipContent side="bottom" className="max-w-md">
+                                      <p className="break-words">{cellValue}</p>
+                                    </TooltipContent>
+                                  )}
+                                </Tooltip>
+                              );
+                            })}
+                          </TableRow>
+                        ))}
+                        {currentSheet.rows.length > MAX_PREVIEW_ROWS && (
+                          <TableRow>
+                            <TableCell 
+                              colSpan={currentSheet.headers.length + 1} 
+                              className="text-center text-muted-foreground py-4"
+                            >
+                              ... and {currentSheet.rows.length - MAX_PREVIEW_ROWS} more rows (all will be extracted)
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </TableBody>
+                    </Table>
+                  </TooltipProvider>
                 </ScrollArea>
               </div>
             ) : currentSheet && !currentSheet.selected ? (
