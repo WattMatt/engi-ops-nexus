@@ -1,4 +1,5 @@
 import { useState, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -68,6 +69,7 @@ interface Project {
 }
 
 export const BOQUploadTab = () => {
+  const navigate = useNavigate();
   const [selectedUpload, setSelectedUpload] = useState<BOQUpload | null>(null);
   const [uploading, setUploading] = useState(false);
   const [sourceDescription, setSourceDescription] = useState("");
@@ -1194,6 +1196,18 @@ export const BOQUploadTab = () => {
                                 Re-process
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
+                              {/* Spreadsheet View */}
+                              {(upload.status === "completed" || upload.status === "reviewed") && (
+                                <>
+                                  <DropdownMenuItem 
+                                    onClick={() => navigate(`/dashboard/boq/${upload.id}`)}
+                                  >
+                                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                                    View in Spreadsheet
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                </>
+                              )}
                               {/* Google Sheets Options */}
                               {(upload.status === "completed" || upload.status === "reviewed") && (
                                 <>
