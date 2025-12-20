@@ -587,14 +587,45 @@ CRITICAL: Return ONLY valid JSON array. No markdown, no explanation.`;
     const data = await response.json();
     const aiText = data.choices?.[0]?.message?.content || '';
     
-    // Parse AI response
-    const jsonMatch = aiText.match(/\[[\s\S]*\]/);
-    if (!jsonMatch) {
-      console.log('[BOQ Match] Could not parse AI response as JSON');
+    console.log('[BOQ Match] Raw AI response length:', aiText.length);
+    
+    // Clean up AI response - remove markdown fences, extra text
+    let cleanedText = aiText
+      .replace(/```json\s*/gi, '')
+      .replace(/```\s*/g, '')
+      .trim();
+    
+    // Parse AI response - try multiple approaches
+    let parsed: any[] = [];
+    
+    // Try 1: Direct parse
+    try {
+      parsed = JSON.parse(cleanedText);
+    } catch (e1) {
+      // Try 2: Extract JSON array from text
+      const jsonMatch = cleanedText.match(/\[[\s\S]*?\](?=\s*$|\s*\n|$)/);
+      if (jsonMatch) {
+        try {
+          parsed = JSON.parse(jsonMatch[0]);
+        } catch (e2) {
+          // Try 3: Find the largest JSON array in the text
+          const allArrays = cleanedText.match(/\[[\s\S]*?\]/g) || [];
+          for (const arr of allArrays.sort((a: string, b: string) => b.length - a.length)) {
+            try {
+              parsed = JSON.parse(arr);
+              if (Array.isArray(parsed) && parsed.length > 0) break;
+            } catch {}
+          }
+        }
+      }
+    }
+    
+    if (!Array.isArray(parsed) || parsed.length === 0) {
+      console.log('[BOQ Match] Could not parse AI response as JSON, using enhanced basic parse');
+      console.log('[BOQ Match] First 500 chars:', cleanedText.substring(0, 500));
       return basicParse(content, materialReference, categories);
     }
 
-    const parsed = JSON.parse(jsonMatch[0]);
     console.log(`[BOQ Match] AI extracted ${parsed.length} items`);
     
     // Convert AI response to our format
@@ -649,53 +680,121 @@ CRITICAL: Return ONLY valid JSON array. No markdown, no explanation.`;
 }
 
 /**
- * Basic parsing fallback without AI
+ * Enhanced basic parsing fallback - uses column structure from mapped data
  */
 function basicParse(
   content: string,
-  materialReference: { id: string; code: string; name: string; unit: string | null }[],
+  materialReference: { id: string; code: string; name: string; unit: string | null; supply_cost?: number | null; install_cost?: number | null }[],
   categories: MaterialCategory[] | null
 ): MatchResult[] {
   const results: MatchResult[] = [];
   const lines = content.split('\n');
   let rowNumber = 0;
+  let currentSheet = '';
+  let currentBillNumber = 0;
+  let headerIndices: { [key: string]: number } = {};
 
-  for (const line of lines) {
+  console.log('[BOQ Match] Basic parsing', lines.length, 'lines');
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
     const trimmed = line.trim();
-    if (!trimmed || trimmed.length < 10) continue;
+    if (!trimmed) continue;
     
-    if (/^(note|bill|section|item|description|qty|unit|rate|amount)$/i.test(trimmed)) continue;
-    if (/^(total|subtotal|carried|summary)$/i.test(trimmed)) continue;
+    // Detect sheet name
+    if (trimmed.startsWith('=== SHEET:')) {
+      currentSheet = trimmed.replace('=== SHEET:', '').replace('===', '').trim();
+      currentBillNumber++;
+      headerIndices = {};
+      continue;
+    }
+    
+    // Detect header row (tab-separated headers from our column mapping)
+    if (trimmed.includes('\t') && 
+        (trimmed.toLowerCase().includes('description') || 
+         trimmed.toLowerCase().includes('item'))) {
+      const headers = trimmed.split('\t').map(h => h.trim().toLowerCase());
+      headers.forEach((h, idx) => {
+        if (h.includes('item') && h.includes('code')) headerIndices['itemCode'] = idx;
+        else if (h.includes('description') || h === 'desc') headerIndices['description'] = idx;
+        else if (h.includes('qty') || h.includes('quantity')) headerIndices['quantity'] = idx;
+        else if (h === 'unit') headerIndices['unit'] = idx;
+        else if (h.includes('supply') && h.includes('rate')) headerIndices['supplyRate'] = idx;
+        else if (h.includes('install') && h.includes('rate')) headerIndices['installRate'] = idx;
+        else if ((h.includes('total') || h === 'rate') && !h.includes('amount')) headerIndices['totalRate'] = idx;
+        else if (h.includes('amount') || h.includes('total')) headerIndices['amount'] = idx;
+      });
+      console.log('[BOQ Match] Found headers:', headerIndices);
+      continue;
+    }
 
-    const parts = trimmed.split(/\t|,/).map(p => p.trim()).filter(p => p);
-    if (parts.length < 2) continue;
+    // Skip non-data lines
+    if (/^(note|bill|section|item\s+no|description|qty|unit|rate|amount)$/i.test(trimmed)) continue;
+    if (/^(total|subtotal|sub-total|carried|summary|brought)$/i.test(trimmed.split(/\t/)[0]?.toLowerCase() || '')) continue;
 
+    // Parse data rows
+    const parts = trimmed.split('\t').map(p => p.trim());
+    
+    // Try to extract using header indices first
     let description = '';
+    let itemCode = '';
     let unit = '';
-    let rate = 0;
     let quantity = 0;
-    
-    for (const part of parts) {
-      if (part.length > description.length && !/^\d+\.?\d*$/.test(part)) {
-        description = part;
-      }
-      if (/^(m|m2|m²|each|no|nr|item|set|lot|kg|l)$/i.test(part)) {
-        unit = part;
-      }
-      const num = parseFloat(part.replace(/[^\d.]/g, ''));
-      if (!isNaN(num) && num > 0) {
-        if (num < 1000) {
-          quantity = num;
-        } else if (num < 100000) {
-          rate = num;
+    let supplyRate = 0;
+    let installRate = 0;
+    let totalRate = 0;
+    let amount = 0;
+
+    if (Object.keys(headerIndices).length > 0) {
+      // Use mapped column positions
+      if (headerIndices['itemCode'] !== undefined) itemCode = parts[headerIndices['itemCode']] || '';
+      if (headerIndices['description'] !== undefined) description = parts[headerIndices['description']] || '';
+      if (headerIndices['unit'] !== undefined) unit = parts[headerIndices['unit']] || '';
+      if (headerIndices['quantity'] !== undefined) quantity = parseFloat(parts[headerIndices['quantity']]?.replace(/[^\d.-]/g, '') || '0') || 0;
+      if (headerIndices['supplyRate'] !== undefined) supplyRate = parseFloat(parts[headerIndices['supplyRate']]?.replace(/[^\d.-]/g, '') || '0') || 0;
+      if (headerIndices['installRate'] !== undefined) installRate = parseFloat(parts[headerIndices['installRate']]?.replace(/[^\d.-]/g, '') || '0') || 0;
+      if (headerIndices['totalRate'] !== undefined) totalRate = parseFloat(parts[headerIndices['totalRate']]?.replace(/[^\d.-]/g, '') || '0') || 0;
+      if (headerIndices['amount'] !== undefined) amount = parseFloat(parts[headerIndices['amount']]?.replace(/[^\d.-]/g, '') || '0') || 0;
+    } else {
+      // Fallback: heuristic parsing
+      for (const part of parts) {
+        if (part.length > description.length && !/^[\d.,\s]+$/.test(part) && part.length > 3) {
+          description = part;
+        }
+        if (/^(m|m2|m²|m3|m³|each|no|nr|item|set|lot|kg|l|lm|ps|pc)$/i.test(part)) {
+          unit = part;
+        }
+        const num = parseFloat(part.replace(/[^\d.-]/g, ''));
+        if (!isNaN(num) && num > 0) {
+          if (num < 10000 && quantity === 0) {
+            quantity = num;
+          } else if (num > 0) {
+            totalRate = num;
+          }
         }
       }
     }
 
-    if (!description || description.length < 5) continue;
+    if (!description || description.length < 3) continue;
+
+    // Calculate rates if not provided
+    if (totalRate === 0 && (supplyRate > 0 || installRate > 0)) {
+      totalRate = supplyRate + installRate;
+    }
+    if (totalRate > 0 && supplyRate === 0 && installRate === 0) {
+      supplyRate = totalRate * 0.7;
+      installRate = totalRate * 0.3;
+    }
+    // If we have amount and quantity, calculate rate
+    if (totalRate === 0 && amount > 0 && quantity > 0) {
+      totalRate = amount / quantity;
+      supplyRate = totalRate * 0.7;
+      installRate = totalRate * 0.3;
+    }
 
     rowNumber++;
 
+    // Match to master materials
     let matchedId: string | null = null;
     let matchConfidence = 0;
     const descLower = description.toLowerCase();
@@ -709,39 +808,45 @@ function basicParse(
         break;
       }
       
-      if (descLower.includes(nameLower) || nameLower.includes(descLower)) {
-        const similarity = Math.min(descLower.length, nameLower.length) / Math.max(descLower.length, nameLower.length);
-        if (similarity > matchConfidence) {
-          matchedId = material.id;
-          matchConfidence = similarity;
-        }
+      // Check for significant word overlap
+      const descWords = descLower.split(/\s+/).filter(w => w.length > 2);
+      const nameWords = nameLower.split(/\s+/).filter(w => w.length > 2);
+      const commonWords = descWords.filter(w => nameWords.some(nw => nw.includes(w) || w.includes(nw)));
+      const wordOverlap = commonWords.length / Math.max(descWords.length, nameWords.length, 1);
+      
+      if (wordOverlap > matchConfidence && wordOverlap >= 0.4) {
+        matchedId = material.id;
+        matchConfidence = wordOverlap;
       }
     }
 
     results.push({
       row_number: rowNumber,
       item_description: description,
-      item_code: null,
+      item_code: itemCode || null,
       unit: standardizeUnit(unit) || null,
       quantity: quantity || null,
-      supply_rate: rate * 0.7 || null,
-      install_rate: rate * 0.3 || null,
-      total_rate: rate || null,
-      matched_material_id: matchConfidence >= 0.6 ? matchedId : null,
+      supply_rate: supplyRate || null,
+      install_rate: installRate || null,
+      total_rate: totalRate || null,
+      matched_material_id: matchConfidence >= 0.5 ? matchedId : null,
       match_confidence: matchConfidence,
       suggested_category_id: null,
       suggested_category_name: null,
-      is_new_item: matchConfidence < 0.6,
-      bill_number: null,
-      bill_name: null,
+      is_new_item: matchConfidence < 0.5,
+      bill_number: currentBillNumber || null,
+      bill_name: currentSheet || null,
       section_code: null,
       section_name: null,
       is_outlier: false,
       outlier_reason: null,
       math_validated: true,
-      calculated_total: (quantity || 0) * (rate || 0),
+      calculated_total: (quantity || 0) * (totalRate || 0),
     });
   }
 
+  console.log('[BOQ Match] Basic parse extracted', results.length, 'items');
+  console.log('[BOQ Match] Items with rates:', results.filter(r => (r.total_rate || 0) > 0).length);
+  
   return results;
 }
