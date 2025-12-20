@@ -48,7 +48,7 @@ const FinalAccountDetail = () => {
           {account && <FinalAccountOverview account={account} />}
         </TabsContent>
         <TabsContent value="bills" className="space-y-4">
-          {accountId && <FinalAccountBillsManager accountId={accountId} />}
+          {accountId && account && <FinalAccountBillsManager accountId={accountId} projectId={account.project_id} />}
         </TabsContent>
       </Tabs>
     </div>

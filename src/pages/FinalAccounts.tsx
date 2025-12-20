@@ -105,7 +105,7 @@ const FinalAccounts = () => {
           <TabsTrigger value="overview">Account Details</TabsTrigger>
         </TabsList>
         <TabsContent value="bills" className="space-y-4">
-          <FinalAccountBillsManager accountId={account.id} />
+          <FinalAccountBillsManager accountId={account.id} projectId={projectId || ""} />
         </TabsContent>
         <TabsContent value="overview" className="space-y-4">
           <FinalAccountOverview account={account} />
