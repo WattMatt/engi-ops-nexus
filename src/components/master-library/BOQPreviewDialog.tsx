@@ -218,7 +218,13 @@ export const BOQPreviewDialog = ({
                     <Button
                       variant={activeSheet === sheet.name ? "default" : "outline"}
                       size="sm"
-                      onClick={() => setActiveSheet(sheet.name)}
+                      onClick={() => {
+                        setActiveSheet(sheet.name);
+                        // Auto-select sheet when clicking its tab to view
+                        if (!sheet.selected) {
+                          toggleSheetSelection(sheet.name);
+                        }
+                      }}
                       className="h-7"
                     >
                       {sheet.name}
@@ -233,8 +239,8 @@ export const BOQPreviewDialog = ({
               </div>
             </div>
 
-            {/* Current sheet content */}
-            {currentSheet && (
+            {/* Current sheet content - only show if sheet is selected */}
+            {currentSheet && currentSheet.selected ? (
               <div className="flex-1 min-h-0 border rounded-lg">
                 <div className="p-2 border-b bg-muted/50 flex items-center justify-between">
                   <div className="flex items-center gap-2">
@@ -294,7 +300,21 @@ export const BOQPreviewDialog = ({
                   </Table>
                 </ScrollArea>
               </div>
-            )}
+            ) : currentSheet && !currentSheet.selected ? (
+              <div className="flex-1 min-h-0 border rounded-lg flex items-center justify-center bg-muted/20">
+                <div className="text-center text-muted-foreground">
+                  <p className="text-sm">This sheet is not selected for extraction.</p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="mt-2"
+                    onClick={() => toggleSheetSelection(currentSheet.name)}
+                  >
+                    Select "{currentSheet.name}" sheet
+                  </Button>
+                </div>
+              </div>
+            ) : null}
           </div>
         )}
 
