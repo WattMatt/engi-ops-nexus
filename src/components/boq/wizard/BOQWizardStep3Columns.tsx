@@ -28,6 +28,7 @@ interface Props {
 
 export function BOQWizardStep3Columns({ state, updateState }: Props) {
   const [activeSheet, setActiveSheet] = useState<string>("");
+  const [initialized, setInitialized] = useState(false);
 
   // Get only selected sheets
   const selectedSheets = useMemo(() => 
@@ -35,15 +36,17 @@ export function BOQWizardStep3Columns({ state, updateState }: Props) {
     [state.parsedSheets, state.selectedSheets]
   );
 
-  // Set initial active sheet
+  // Set initial active sheet once
   useEffect(() => {
     if (selectedSheets.length > 0 && !activeSheet) {
       setActiveSheet(selectedSheets[0].name);
     }
-  }, [selectedSheets, activeSheet]);
+  }, [selectedSheets.length]); // Only depend on length, not the full array
 
-  // Auto-detect columns for sheets that haven't been mapped yet
+  // Auto-detect columns for sheets that haven't been mapped yet - only on first load
   useEffect(() => {
+    if (initialized) return;
+    
     const newMappings = { ...state.columnMappings };
     let changed = false;
 
@@ -68,7 +71,8 @@ export function BOQWizardStep3Columns({ state, updateState }: Props) {
     if (changed) {
       updateState({ columnMappings: newMappings });
     }
-  }, [selectedSheets, state.columnMappings, updateState]);
+    setInitialized(true);
+  }, [selectedSheets, initialized]); // Only run once per mount
 
   const currentSheet = selectedSheets.find(s => s.name === activeSheet);
   const currentMapping = state.columnMappings[activeSheet];

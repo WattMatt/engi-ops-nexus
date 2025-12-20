@@ -23,7 +23,8 @@ import {
   TrendingUp, 
   TrendingDown,
   AlertCircle,
-  Loader2 
+  Loader2,
+  RefreshCw
 } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency } from "@/lib/utils";
@@ -65,7 +66,7 @@ export function BOQWizardStep5Review({ state, updateState }: Props) {
   const queryClient = useQueryClient();
 
   // Fetch extracted items
-  const { data: items, isLoading } = useQuery({
+  const { data: items, isLoading, error: itemsError, refetch } = useQuery({
     queryKey: ["boq-extracted-items", state.uploadId],
     queryFn: async () => {
       if (!state.uploadId) return [];
@@ -78,6 +79,8 @@ export function BOQWizardStep5Review({ state, updateState }: Props) {
       return data as ExtractedItem[];
     },
     enabled: !!state.uploadId,
+    retry: 3,
+    retryDelay: 1000,
   });
 
   // Fetch categories
@@ -306,10 +309,29 @@ export function BOQWizardStep5Review({ state, updateState }: Props) {
             <div className="flex items-center justify-center py-12">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
+          ) : itemsError ? (
+            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+              <AlertCircle className="h-8 w-8 mb-2 text-destructive" />
+              <p className="text-destructive">Failed to load items</p>
+              <Button variant="outline" size="sm" onClick={() => refetch()} className="mt-2">
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Retry
+              </Button>
+            </div>
+          ) : !state.uploadId ? (
+            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+              <AlertCircle className="h-8 w-8 mb-2" />
+              <p>No upload ID - please go back and process the BOQ</p>
+            </div>
           ) : filteredItems.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
               <AlertCircle className="h-8 w-8 mb-2" />
-              <p>No items found</p>
+              <p>{filter === 'all' ? "No items found" : `No ${filter} items found`}</p>
+              {filter !== 'all' && (
+                <Button variant="link" size="sm" onClick={() => setFilter('all')}>
+                  Show all items
+                </Button>
+              )}
             </div>
           ) : (
             <Table>

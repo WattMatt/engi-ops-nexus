@@ -1,11 +1,11 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Sparkles, Loader2, CheckCircle, XCircle, RefreshCw, Database, ArrowRight } from "lucide-react";
+import { Sparkles, Loader2, CheckCircle, XCircle, RefreshCw, Database, ArrowRight, Play } from "lucide-react";
 import { toast } from "sonner";
 import type { BOQWizardState, ColumnMapping } from "../BOQProcessingWizard";
 
@@ -18,10 +18,11 @@ export function BOQWizardStep4Match({ state, updateState }: Props) {
   const [progress, setProgress] = useState(0);
   const [statusMessage, setStatusMessage] = useState("Ready to start matching");
   const queryClient = useQueryClient();
+  const hasStarted = useRef(false);
 
   // Build content string from selected sheets with column mappings
   const buildContentString = useCallback(() => {
-    let contentParts: string[] = [];
+    const contentParts: string[] = [];
 
     state.parsedSheets
       .filter(sheet => state.selectedSheets.has(sheet.name))
@@ -51,17 +52,25 @@ export function BOQWizardStep4Match({ state, updateState }: Props) {
         });
         sheetContent += mappedHeaders.join('\t') + '\n';
 
-        // Build data rows
+        // Build data rows - filter out empty rows
         sheet.rows.forEach(row => {
           const values: string[] = [];
+          let hasContent = false;
+          
           headerMap.forEach(({ key }) => {
             const colIndex = mapping[key];
             if (colIndex !== null && typeof colIndex === 'number') {
               const header = sheet.headers[colIndex];
-              values.push(String(row[header] ?? ''));
+              const value = String(row[header] ?? '').trim();
+              values.push(value);
+              if (value && key === 'description') hasContent = true;
             }
           });
-          sheetContent += values.join('\t') + '\n';
+          
+          // Only add rows that have a description
+          if (hasContent) {
+            sheetContent += values.join('\t') + '\n';
+          }
         });
 
         contentParts.push(sheetContent);
@@ -123,6 +132,10 @@ export function BOQWizardStep4Match({ state, updateState }: Props) {
 
       // Build content from column mappings
       const contentToProcess = buildContentString();
+      
+      if (!contentToProcess.trim()) {
+        throw new Error("No valid content to process. Check column mappings.");
+      }
 
       // Call the matching edge function
       try {
@@ -193,29 +206,37 @@ export function BOQWizardStep4Match({ state, updateState }: Props) {
     },
   });
 
-  // Auto-start processing when entering this step
-  useEffect(() => {
-    if (state.matchingStatus === 'idle' && !processMutation.isPending) {
-      // Small delay to let the UI render
-      const timer = setTimeout(() => {
-        updateState({ matchingStatus: 'processing' });
-        processMutation.mutate();
-      }, 500);
-      return () => clearTimeout(timer);
+  // Start processing - called by button click instead of auto-start
+  const startProcessing = useCallback(() => {
+    if (state.matchingStatus !== 'idle' || processMutation.isPending || hasStarted.current) {
+      return;
     }
-  }, []);
+    hasStarted.current = true;
+    updateState({ matchingStatus: 'processing' });
+    processMutation.mutate();
+  }, [state.matchingStatus, processMutation, updateState]);
 
   const retry = () => {
+    hasStarted.current = false;
     setProgress(0);
-    updateState({ matchingStatus: 'processing', matchingError: null });
-    processMutation.mutate();
+    updateState({ matchingStatus: 'idle', matchingError: null });
   };
+
+  // Calculate row count for selected sheets with valid mappings
+  const validRowCount = state.parsedSheets
+    .filter(s => state.selectedSheets.has(s.name) && state.columnMappings[s.name]?.description !== null)
+    .reduce((acc, s) => acc + s.rows.length, 0);
 
   return (
     <div className="max-w-2xl mx-auto">
       <Card>
         <CardHeader className="text-center">
           <div className="mx-auto mb-4">
+            {state.matchingStatus === 'idle' && (
+              <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
+                <Play className="h-10 w-10 text-primary" />
+              </div>
+            )}
             {state.matchingStatus === 'processing' && (
               <div className="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center">
                 <Sparkles className="h-10 w-10 text-primary animate-pulse" />
@@ -239,12 +260,28 @@ export function BOQWizardStep4Match({ state, updateState }: Props) {
             {state.matchingStatus === 'error' && "Processing Error"}
           </CardTitle>
           <CardDescription className="text-base">
-            {statusMessage}
+            {state.matchingStatus === 'idle' 
+              ? `${validRowCount} rows from ${state.selectedSheets.size} sheets will be processed`
+              : statusMessage
+            }
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Start button for idle state */}
+          {state.matchingStatus === 'idle' && (
+            <Button 
+              onClick={startProcessing} 
+              size="lg" 
+              className="w-full"
+              disabled={validRowCount === 0}
+            >
+              <Sparkles className="h-5 w-5 mr-2" />
+              Start AI Matching
+            </Button>
+          )}
+
           {/* Progress bar */}
-          {(state.matchingStatus === 'processing' || state.matchingStatus === 'idle') && (
+          {state.matchingStatus === 'processing' && (
             <div className="space-y-2">
               <Progress value={progress} className="h-2" />
               <div className="flex justify-between text-xs text-muted-foreground">
@@ -306,7 +343,7 @@ export function BOQWizardStep4Match({ state, updateState }: Props) {
               </div>
               <Button onClick={retry} className="w-full">
                 <RefreshCw className="h-4 w-4 mr-2" />
-                Retry Processing
+                Try Again
               </Button>
             </div>
           )}
@@ -315,19 +352,17 @@ export function BOQWizardStep4Match({ state, updateState }: Props) {
           <div className="space-y-2 pt-4 border-t">
             <div className="flex items-center justify-between text-sm">
               <span className="text-muted-foreground">File</span>
-              <span className="font-medium">{state.file?.name}</span>
+              <span className="font-medium truncate max-w-[200px]">{state.file?.name}</span>
             </div>
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Sheets</span>
-              <Badge variant="outline">{state.selectedSheets.size} selected</Badge>
+              <span className="text-muted-foreground">Sheets with mappings</span>
+              <Badge variant="outline">
+                {Object.values(state.columnMappings).filter(m => m.description !== null).length} sheets
+              </Badge>
             </div>
             <div className="flex items-center justify-between text-sm">
-              <span className="text-muted-foreground">Total Rows</span>
-              <span className="font-medium">
-                {state.parsedSheets
-                  .filter(s => state.selectedSheets.has(s.name))
-                  .reduce((acc, s) => acc + s.rows.length, 0)}
-              </span>
+              <span className="text-muted-foreground">Rows to process</span>
+              <span className="font-medium">{validRowCount}</span>
             </div>
           </div>
 
