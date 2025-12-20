@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
@@ -8,8 +8,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Send, Mail } from "lucide-react";
-
+import { Send, Mail, FileDown, Loader2 } from "lucide-react";
+import { generateSectionPDF, downloadSectionPDF } from "@/utils/sectionPdfExport";
 interface SendForReviewDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -31,7 +31,7 @@ export function SendForReviewDialog({
   const [customName, setCustomName] = useState("");
   const [message, setMessage] = useState("");
   const [useCustom, setUseCustom] = useState(false);
-
+  const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   // Fetch project ID from final account
   const { data: finalAccount } = useQuery({
     queryKey: ["final-account-project", accountId],
@@ -67,6 +67,38 @@ export function SendForReviewDialog({
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
 
+      // Generate PDF for the section
+      setIsGeneratingPdf(true);
+      let pdfUrl: string | null = null;
+      
+      try {
+        const pdfBlob = await generateSectionPDF(sectionId);
+        const fileName = `section_review_${sectionId}_${Date.now()}.pdf`;
+        
+        // Upload PDF to storage
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from("final-account-reviews")
+          .upload(fileName, pdfBlob, {
+            contentType: "application/pdf",
+            upsert: true,
+          });
+
+        if (uploadError) {
+          console.error("PDF upload error:", uploadError);
+          // Continue without PDF if upload fails
+        } else {
+          const { data: urlData } = supabase.storage
+            .from("final-account-reviews")
+            .getPublicUrl(fileName);
+          pdfUrl = urlData.publicUrl;
+        }
+      } catch (pdfError) {
+        console.error("PDF generation error:", pdfError);
+        // Continue without PDF
+      } finally {
+        setIsGeneratingPdf(false);
+      }
+
       // Generate access token
       const { data: tokenData, error: tokenError } = await supabase
         .rpc("generate_review_access_token");
@@ -90,6 +122,7 @@ export function SendForReviewDialog({
           sent_by: user.id,
           access_token: tokenData,
           message,
+          pdf_url: pdfUrl,
         })
         .select()
         .single();
@@ -114,6 +147,7 @@ export function SendForReviewDialog({
           sectionName,
           message,
           reviewUrl,
+          pdfUrl,
         },
       });
 
@@ -137,6 +171,19 @@ export function SendForReviewDialog({
     setCustomName("");
     setMessage("");
     setUseCustom(false);
+    setIsGeneratingPdf(false);
+  };
+
+  const handleDownloadPdf = async () => {
+    try {
+      setIsGeneratingPdf(true);
+      await downloadSectionPDF(sectionId, sectionName);
+      toast.success("PDF downloaded");
+    } catch (error) {
+      toast.error("Failed to generate PDF");
+    } finally {
+      setIsGeneratingPdf(false);
+    }
   };
 
   const handleSubmit = () => {
@@ -162,9 +209,24 @@ export function SendForReviewDialog({
         </DialogHeader>
 
         <div className="space-y-4 py-4">
-          <div className="bg-muted p-3 rounded-md">
-            <p className="text-sm text-muted-foreground">Section:</p>
-            <p className="font-medium">{sectionName}</p>
+          <div className="bg-muted p-3 rounded-md flex items-center justify-between">
+            <div>
+              <p className="text-sm text-muted-foreground">Section:</p>
+              <p className="font-medium">{sectionName}</p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleDownloadPdf}
+              disabled={isGeneratingPdf}
+            >
+              {isGeneratingPdf ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileDown className="h-4 w-4" />
+              )}
+              <span className="ml-2">Preview PDF</span>
+            </Button>
           </div>
 
           <div className="space-y-2">
