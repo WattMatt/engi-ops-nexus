@@ -50,22 +50,15 @@ interface MatchResult {
 
 // Unit standardization mapping
 const UNIT_MAPPING: Record<string, string> = {
-  // Area
   'm2': 'M2', 'm²': 'M2', 'sqm': 'M2', 'sq.m': 'M2', 'sq m': 'M2', 'm.sq': 'M2', 'square meter': 'M2', 'square metre': 'M2',
-  // Volume
   'm3': 'M3', 'm³': 'M3', 'cum': 'M3', 'cu.m': 'M3', 'cubic meter': 'M3', 'cubic metre': 'M3',
-  // Length
   'm': 'M', 'lm': 'M', 'lin.m': 'M', 'linear meter': 'M', 'metre': 'M', 'meter': 'M',
-  // Count
   'nr': 'NO', 'no': 'NO', 'no.': 'NO', 'nos': 'NO', 'ea': 'NO', 'each': 'NO', 'pcs': 'NO', 'pc': 'NO', 'unit': 'NO', 'units': 'NO',
-  // Weight
   'kg': 'KG', 'kgs': 'KG', 'kilogram': 'KG',
   't': 'TON', 'ton': 'TON', 'tonne': 'TON', 'tons': 'TON',
-  // Sets
   'set': 'SET', 'sets': 'SET',
   'lot': 'LOT', 'lots': 'LOT',
   'item': 'ITEM', 'items': 'ITEM',
-  // Provisional
   'ps': 'PS', 'p.s.': 'PS', 'prov sum': 'PS', 'provisional sum': 'PS',
   'pc sum': 'PC', 'prime cost': 'PC',
 };
@@ -76,9 +69,6 @@ function standardizeUnit(unit: string | null): string | null {
   return UNIT_MAPPING[normalized] || unit.toUpperCase();
 }
 
-/**
- * Get Google Access Token using service account
- */
 async function getGoogleAccessToken(): Promise<string> {
   const serviceEmail = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_EMAIL');
   const privateKey = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY');
@@ -88,7 +78,6 @@ async function getGoogleAccessToken(): Promise<string> {
   }
 
   const cleanedKey = privateKey.replace(/\\n/g, '\n');
-
   const header = { alg: 'RS256', typ: 'JWT' };
   const now = Math.floor(Date.now() / 1000);
   const scopes = [
@@ -150,9 +139,6 @@ async function getGoogleAccessToken(): Promise<string> {
   return (await tokenResponse.json()).access_token;
 }
 
-/**
- * Fetch content from Google Sheets
- */
 async function fetchGoogleSheetContent(spreadsheetId: string): Promise<string> {
   const accessToken = await getGoogleAccessToken();
   
@@ -234,8 +220,8 @@ serve(async (req) => {
       })
       .eq('id', upload_id);
 
-    // Process synchronously (Supabase has 150s timeout which is enough)
-    await processMatching(
+    // Process synchronously but optimized with batch operations
+    const result = await processMatching(
       supabase,
       upload_id,
       contentToProcess,
@@ -246,7 +232,8 @@ serve(async (req) => {
       JSON.stringify({
         success: true,
         message: 'Matching completed.',
-        upload_id
+        upload_id,
+        ...result
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -266,34 +253,34 @@ serve(async (req) => {
 });
 
 /**
- * Main matching processing
+ * Main matching processing - OPTIMIZED with batch operations
  */
 async function processMatching(
   supabase: any,
   upload_id: string,
   file_content: string,
   lovableApiKey: string | undefined
-): Promise<void> {
+): Promise<{ total_items: number; matched_count: number; new_count: number }> {
   try {
-    // Fetch master materials and categories
-    const { data: masterMaterials } = await supabase
-      .from('master_materials')
-      .select('id, material_code, material_name, category_id, standard_supply_cost, standard_install_cost, unit')
-      .eq('is_active', true);
+    // Fetch master materials and categories in parallel
+    const [materialsResult, categoriesResult] = await Promise.all([
+      supabase
+        .from('master_materials')
+        .select('id, material_code, material_name, category_id, standard_supply_cost, standard_install_cost, unit')
+        .eq('is_active', true),
+      supabase
+        .from('material_categories')
+        .select('id, category_code, category_name, parent_category_id')
+        .eq('is_active', true)
+    ]);
 
-    const { data: categories } = await supabase
-      .from('material_categories')
-      .select('id, category_code, category_name, parent_category_id')
-      .eq('is_active', true);
+    const masterMaterials = materialsResult.data || [];
+    const categories = categoriesResult.data || [];
 
-    if (!masterMaterials || masterMaterials.length === 0) {
-      console.log('[BOQ Match] No master materials found - will create new entries from BOQ');
-    }
-
-    console.log(`[BOQ Match] Found ${masterMaterials?.length || 0} master materials to match against`);
+    console.log(`[BOQ Match] Found ${masterMaterials.length} master materials to match against`);
 
     // Build the material reference for AI
-    const materialReference = (masterMaterials || []).map((m: MasterMaterial) => ({
+    const materialReference = masterMaterials.map((m: MasterMaterial) => ({
       id: m.id,
       code: m.material_code,
       name: m.material_name,
@@ -318,150 +305,62 @@ async function processMatching(
       .delete()
       .eq('upload_id', upload_id);
 
-    // Extract unique sections from results
-    const sectionsMap = new Map<string, { 
-      section_code: string; 
-      section_name: string; 
-      bill_number: number | null;
-      bill_name: string | null;
-      display_order: number;
-    }>();
-    
-    let sectionOrder = 0;
-    for (const result of matchResults) {
-      const sectionKey = `${result.bill_number || 0}-${result.section_code || 'UNASSIGNED'}`;
-      if (!sectionsMap.has(sectionKey)) {
-        sectionsMap.set(sectionKey, {
-          section_code: result.section_code || 'UNASSIGNED',
-          section_name: result.section_name || 'Unassigned Items',
-          bill_number: result.bill_number,
-          bill_name: result.bill_name,
-          display_order: sectionOrder++,
-        });
-      }
-    }
-
-    console.log(`[BOQ Match] Extracted ${sectionsMap.size} unique sections from BOQ`);
-    for (const [key, section] of sectionsMap) {
-      console.log(`[BOQ Match]   Bill ${section.bill_number}: ${section.bill_name} > Section ${section.section_code}: ${section.section_name}`);
-    }
-
-    // Process matches, track rate averages, and create price history
+    // Prepare batch insert data
+    const itemsToInsert: any[] = [];
     let matchedCount = 0;
     let newItemCount = 0;
-    let ratesUpdatedCount = 0;
-    let outliersCount = 0;
-    let mathErrorsCount = 0;
-    const priceHistoryEntries: any[] = [];
-    
-    // Track rates for averaging (for duplicate items in same upload)
-    const rateTracker = new Map<string, { rates: number[]; count: number }>();
+    const masterUpdates = new Map<string, any>();
 
     for (const result of matchResults) {
-      // Standardize unit
       const standardizedUnit = standardizeUnit(result.unit);
       
-      // Create unique key for deduplication (description + unit)
-      const uniqueKey = `${result.item_description?.toLowerCase().trim()}_${standardizedUnit}`;
-      
-      // Track rates for averaging
-      if (result.total_rate && result.total_rate > 0) {
-        if (!rateTracker.has(uniqueKey)) {
-          rateTracker.set(uniqueKey, { rates: [], count: 0 });
-        }
-        const tracker = rateTracker.get(uniqueKey)!;
-        tracker.rates.push(result.total_rate);
-        tracker.count++;
-      }
-
-      // Count outliers and math errors
-      if (result.is_outlier) outliersCount++;
-      if (!result.math_validated && result.quantity && result.total_rate) mathErrorsCount++;
-
-      // Insert into boq_extracted_items
-      const { error: insertError } = await supabase
-        .from('boq_extracted_items')
-        .insert({
-          upload_id,
-          row_number: result.row_number,
-          item_code: result.item_code,
-          item_description: result.item_description,
-          unit: standardizedUnit,
-          quantity: result.quantity,
-          supply_rate: result.supply_rate,
-          install_rate: result.install_rate,
-          total_rate: result.total_rate,
-          matched_material_id: result.matched_material_id,
-          match_confidence: result.match_confidence,
-          suggested_category_id: result.suggested_category_id,
-          suggested_category_name: result.suggested_category_name,
-          review_status: 'pending',
-          bill_number: result.bill_number,
-          bill_name: result.bill_name,
-          section_code: result.section_code,
-          section_name: result.section_name,
-          extraction_notes: result.is_outlier ? `OUTLIER: ${result.outlier_reason}` : 
-                           (!result.math_validated ? 'Math validation failed' : null),
-        });
-
-      if (insertError) {
-        console.error(`[BOQ Match] Insert error for row ${result.row_number}:`, insertError);
-      }
+      // Prepare item for batch insert
+      itemsToInsert.push({
+        upload_id,
+        row_number: result.row_number,
+        item_code: result.item_code,
+        item_description: result.item_description,
+        unit: standardizedUnit,
+        quantity: result.quantity,
+        supply_rate: result.supply_rate,
+        install_rate: result.install_rate,
+        total_rate: result.total_rate,
+        matched_material_id: result.matched_material_id,
+        match_confidence: result.match_confidence,
+        suggested_category_id: result.suggested_category_id,
+        suggested_category_name: result.suggested_category_name,
+        review_status: 'pending',
+        bill_number: result.bill_number,
+        bill_name: result.bill_name,
+        section_code: result.section_code,
+        section_name: result.section_name,
+        extraction_notes: result.is_outlier ? `OUTLIER: ${result.outlier_reason}` : 
+                         (!result.math_validated ? 'Math validation failed' : null),
+      });
 
       if (result.matched_material_id && result.match_confidence >= 0.7) {
         matchedCount++;
         
-        // Find the master material to get current rates
-        const masterMaterial = materialReference.find((m: any) => m.id === result.matched_material_id);
-        
-        if (masterMaterial && (result.supply_rate || result.install_rate || result.total_rate)) {
-          const boqSupply = result.supply_rate || (result.total_rate ? result.total_rate * 0.7 : null);
-          const boqInstall = result.install_rate || (result.total_rate ? result.total_rate * 0.3 : null);
-          
-          // Create price history entry
-          priceHistoryEntries.push({
-            material_id: result.matched_material_id,
-            old_supply_cost: masterMaterial.supply_cost,
-            new_supply_cost: boqSupply,
-            old_install_cost: masterMaterial.install_cost,
-            new_install_cost: boqInstall,
-            change_percent: calculateChangePercent(
-              masterMaterial.supply_cost,
-              masterMaterial.install_cost,
-              boqSupply,
-              boqInstall
-            ),
-            change_reason: `BOQ rate from upload: ${upload_id}`,
-          });
-
-          // AUTO-UPDATE: Update master material with BOQ rates (high confidence matches)
-          // Only update if master rate is 0/null or if BOQ rate is more complete
-          if (result.match_confidence >= 0.7 && (boqSupply || boqInstall)) {
-            const updateData: any = {};
+        // Collect master material updates (only update if no rate exists)
+        if (!masterUpdates.has(result.matched_material_id)) {
+          const masterMaterial = materialReference.find((m: any) => m.id === result.matched_material_id);
+          if (masterMaterial) {
+            const boqSupply = result.supply_rate || (result.total_rate ? result.total_rate * 0.7 : null);
+            const boqInstall = result.install_rate || (result.total_rate ? result.total_rate * 0.3 : null);
             
+            const updateData: any = {};
             if (boqSupply && (masterMaterial.supply_cost === 0 || masterMaterial.supply_cost === null)) {
               updateData.standard_supply_cost = boqSupply;
             }
             if (boqInstall && (masterMaterial.install_cost === 0 || masterMaterial.install_cost === null)) {
               updateData.standard_install_cost = boqInstall;
             }
-            // Also update unit if master doesn't have one
             if (standardizedUnit && !masterMaterial.unit) {
               updateData.unit = standardizedUnit;
             }
             
             if (Object.keys(updateData).length > 0) {
-              const { error: updateError } = await supabase
-                .from('master_materials')
-                .update(updateData)
-                .eq('id', result.matched_material_id);
-              
-              if (updateError) {
-                console.error(`[BOQ Match] Failed to update master material ${result.matched_material_id}:`, updateError);
-              } else {
-                ratesUpdatedCount++;
-                console.log(`[BOQ Match] Updated rates for ${masterMaterial.code}: Supply=${boqSupply}, Install=${boqInstall}`);
-              }
+              masterUpdates.set(result.matched_material_id, updateData);
             }
           }
         }
@@ -470,23 +369,34 @@ async function processMatching(
       }
     }
 
-    // Insert price history entries
-    if (priceHistoryEntries.length > 0) {
-      const { data: uploadData } = await supabase
-        .from('boq_uploads')
-        .select('uploaded_by')
-        .eq('id', upload_id)
-        .single();
-
-      for (const entry of priceHistoryEntries) {
-        await supabase
-          .from('material_price_audit')
-          .insert({
-            ...entry,
-            changed_by: uploadData?.uploaded_by || '00000000-0000-0000-0000-000000000000',
-          });
+    // BATCH INSERT all items at once (much faster than individual inserts)
+    if (itemsToInsert.length > 0) {
+      // Insert in chunks of 100 to avoid payload size limits
+      const chunkSize = 100;
+      for (let i = 0; i < itemsToInsert.length; i += chunkSize) {
+        const chunk = itemsToInsert.slice(i, i + chunkSize);
+        const { error: insertError } = await supabase
+          .from('boq_extracted_items')
+          .insert(chunk);
+        
+        if (insertError) {
+          console.error(`[BOQ Match] Batch insert error for chunk ${i / chunkSize + 1}:`, insertError);
+        }
       }
-      console.log(`[BOQ Match] Created ${priceHistoryEntries.length} price history entries`);
+      console.log(`[BOQ Match] Batch inserted ${itemsToInsert.length} items`);
+    }
+
+    // Apply master material updates
+    let ratesUpdatedCount = 0;
+    for (const [materialId, updateData] of masterUpdates) {
+      const { error: updateError } = await supabase
+        .from('master_materials')
+        .update(updateData)
+        .eq('id', materialId);
+      
+      if (!updateError) {
+        ratesUpdatedCount++;
+      }
     }
 
     // Log summary
@@ -495,9 +405,6 @@ async function processMatching(
     console.log(`  - Matched to master: ${matchedCount}`);
     console.log(`  - New items (unmatched): ${newItemCount}`);
     console.log(`  - Master rates updated: ${ratesUpdatedCount}`);
-    console.log(`  - Price outliers flagged: ${outliersCount}`);
-    console.log(`  - Math validation errors: ${mathErrorsCount}`);
-    console.log(`  - Unique rate entries tracked: ${rateTracker.size}`);
 
     // Update upload status with summary
     await supabase
@@ -513,6 +420,12 @@ async function processMatching(
 
     console.log(`[BOQ Match] Completed successfully`);
 
+    return {
+      total_items: matchResults.length,
+      matched_count: matchedCount,
+      new_count: newItemCount
+    };
+
   } catch (error) {
     console.error('[BOQ Match] Processing error:', error);
     await supabase
@@ -523,25 +436,12 @@ async function processMatching(
         extraction_completed_at: new Date().toISOString()
       })
       .eq('id', upload_id);
+    throw error;
   }
-}
-
-function calculateChangePercent(
-  oldSupply: number | null,
-  oldInstall: number | null,
-  newSupply: number | null,
-  newInstall: number | null
-): number {
-  const oldTotal = (oldSupply || 0) + (oldInstall || 0);
-  const newTotal = (newSupply || 0) + (newInstall || 0);
-  
-  if (oldTotal === 0) return newTotal > 0 ? 100 : 0;
-  return ((newTotal - oldTotal) / oldTotal) * 100;
 }
 
 /**
  * Use AI to extract items from BOQ and match them to master materials
- * Enhanced with: unit standardization, math validation, category assignment, outlier detection
  */
 async function extractAndMatchWithAI(
   content: string,
@@ -754,15 +654,12 @@ function basicParse(
     const trimmed = line.trim();
     if (!trimmed || trimmed.length < 10) continue;
     
-    // Skip obvious headers/notes
     if (/^(note|bill|section|item|description|qty|unit|rate|amount)$/i.test(trimmed)) continue;
     if (/^(total|subtotal|carried|summary)$/i.test(trimmed)) continue;
 
-    // Try to parse as tab/comma separated
     const parts = trimmed.split(/\t|,/).map(p => p.trim()).filter(p => p);
     if (parts.length < 2) continue;
 
-    // Look for description (longest text field)
     let description = '';
     let unit = '';
     let rate = 0;
@@ -789,7 +686,6 @@ function basicParse(
 
     rowNumber++;
 
-    // Try to match to master materials
     let matchedId: string | null = null;
     let matchConfidence = 0;
     const descLower = description.toLowerCase();
@@ -797,14 +693,12 @@ function basicParse(
     for (const material of materialReference) {
       const nameLower = material.name.toLowerCase();
       
-      // Exact match
       if (descLower === nameLower) {
         matchedId = material.id;
         matchConfidence = 0.95;
         break;
       }
       
-      // Contains match
       if (descLower.includes(nameLower) || nameLower.includes(descLower)) {
         const similarity = Math.min(descLower.length, nameLower.length) / Math.max(descLower.length, nameLower.length);
         if (similarity > matchConfidence) {
