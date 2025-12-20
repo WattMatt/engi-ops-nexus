@@ -601,32 +601,73 @@ CRITICAL: Return ONLY valid JSON array. No markdown, no explanation.`;
     // Try 1: Direct parse
     try {
       parsed = JSON.parse(cleanedText);
+      console.log('[BOQ Match] Direct JSON parse succeeded');
     } catch (e1) {
-      // Try 2: Extract JSON array from text
-      const jsonMatch = cleanedText.match(/\[[\s\S]*?\](?=\s*$|\s*\n|$)/);
-      if (jsonMatch) {
+      console.log('[BOQ Match] Direct parse failed, trying repair strategies...');
+      
+      // Try 2: The response might be truncated - try to repair
+      // Find where the array starts
+      const arrayStart = cleanedText.indexOf('[');
+      if (arrayStart >= 0) {
+        let jsonContent = cleanedText.substring(arrayStart);
+        
+        // Try 3: Parse as-is first
         try {
-          parsed = JSON.parse(jsonMatch[0]);
+          parsed = JSON.parse(jsonContent);
+          console.log('[BOQ Match] Parse after array extraction succeeded');
         } catch (e2) {
-          // Try 3: Find the largest JSON array in the text
-          const allArrays = cleanedText.match(/\[[\s\S]*?\]/g) || [];
-          for (const arr of allArrays.sort((a: string, b: string) => b.length - a.length)) {
+          // Try 4: Repair truncated JSON - find the last complete object
+          // Look for the last complete object pattern "}," or "}" before potential truncation
+          const lastCompleteObj = jsonContent.lastIndexOf('},');
+          const lastSingleObj = jsonContent.lastIndexOf('}');
+          
+          let repairPoint = -1;
+          if (lastCompleteObj > 0) {
+            repairPoint = lastCompleteObj + 1; // Include the }
+          } else if (lastSingleObj > 0) {
+            repairPoint = lastSingleObj + 1;
+          }
+          
+          if (repairPoint > 0) {
+            // Try to close the array
+            const repairedJson = jsonContent.substring(0, repairPoint) + ']';
             try {
-              parsed = JSON.parse(arr);
-              if (Array.isArray(parsed) && parsed.length > 0) break;
-            } catch {}
+              parsed = JSON.parse(repairedJson);
+              console.log(`[BOQ Match] Repaired JSON parse succeeded with ${parsed.length} items`);
+            } catch (e3) {
+              // Try 5: More aggressive repair - extract individual objects
+              console.log('[BOQ Match] Repair failed, trying object extraction...');
+              const objectPattern = /\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g;
+              const objects = jsonContent.match(objectPattern) || [];
+              console.log(`[BOQ Match] Found ${objects.length} potential objects`);
+              
+              for (const obj of objects) {
+                try {
+                  const item = JSON.parse(obj);
+                  if (item.item_description) {
+                    parsed.push(item);
+                  }
+                } catch {}
+              }
+              
+              if (parsed.length > 0) {
+                console.log(`[BOQ Match] Extracted ${parsed.length} valid items from objects`);
+              }
+            }
           }
         }
       }
     }
     
     if (!Array.isArray(parsed) || parsed.length === 0) {
-      console.log('[BOQ Match] Could not parse AI response as JSON, using enhanced basic parse');
+      console.log('[BOQ Match] All JSON parsing failed, using enhanced basic parse');
       console.log('[BOQ Match] First 500 chars:', cleanedText.substring(0, 500));
       return basicParse(content, materialReference, categories);
     }
-
-    console.log(`[BOQ Match] AI extracted ${parsed.length} items`);
+    
+    // Log success stats
+    const itemsWithRates = parsed.filter((p: any) => (p.total_rate || p.supply_rate || p.install_rate) > 0).length;
+    console.log(`[BOQ Match] AI JSON parsed: ${parsed.length} items, ${itemsWithRates} with rates`);
     
     // Convert AI response to our format
     return parsed.map((item: any, index: number) => {
