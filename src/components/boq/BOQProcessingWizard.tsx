@@ -1,9 +1,12 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { cn } from "@/lib/utils";
-import { Check, Upload, Layers, Columns, Sparkles, ClipboardCheck, ArrowLeft, ArrowRight, X } from "lucide-react";
+import { Check, Upload, Layers, Columns, Sparkles, ClipboardCheck, ArrowLeft, ArrowRight, X, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+import { parseExcelFile } from "@/utils/excelParser";
 import { BOQWizardStep1Upload } from "./wizard/BOQWizardStep1Upload";
 import { BOQWizardStep2Sheets } from "./wizard/BOQWizardStep2Sheets";
 import { BOQWizardStep3Columns } from "./wizard/BOQWizardStep3Columns";
@@ -66,6 +69,21 @@ interface BOQProcessingWizardProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onComplete?: () => void;
+  // Optional: pre-populate with an existing upload
+  existingUpload?: {
+    id: string;
+    file_name: string;
+    file_path: string;
+    file_type: string;
+    metadata?: {
+      sourceDescription?: string;
+      contractorName?: string;
+      projectId?: string;
+      province?: string;
+      buildingType?: string;
+      tenderDate?: Date;
+    };
+  } | null;
 }
 
 const initialState: BOQWizardState = {
@@ -89,14 +107,78 @@ const initialState: BOQWizardState = {
   reviewComplete: false,
 };
 
-export function BOQProcessingWizard({ open, onOpenChange, onComplete }: BOQProcessingWizardProps) {
+export function BOQProcessingWizard({ open, onOpenChange, onComplete, existingUpload }: BOQProcessingWizardProps) {
   const [currentStep, setCurrentStep] = useState(1);
   const [state, setState] = useState<BOQWizardState>(() => ({
     ...initialState,
     selectedSheets: new Set<string>(),
   }));
+  const [loadingExistingFile, setLoadingExistingFile] = useState(false);
   
-  // Reset state when dialog opens
+  // Load existing upload file when provided
+  useEffect(() => {
+    if (open && existingUpload && !state.file) {
+      loadExistingUploadFile();
+    }
+  }, [open, existingUpload]);
+  
+  const loadExistingUploadFile = async () => {
+    if (!existingUpload) return;
+    
+    setLoadingExistingFile(true);
+    try {
+      // Download file from storage
+      const { data: fileData, error } = await supabase.storage
+        .from("boq-uploads")
+        .download(existingUpload.file_path);
+      
+      if (error) throw error;
+      
+      // Create File object
+      const file = new File([fileData], existingUpload.file_name, { type: fileData.type });
+      
+      // Parse the file
+      const parsed = await parseExcelFile(file);
+      
+      // Pre-select sheets
+      const selectedSheets = new Set<string>();
+      parsed.sheets.forEach(sheet => {
+        const isLikelyBOQ = !sheet.name.toLowerCase().includes("notes") &&
+                          !sheet.name.toLowerCase().includes("qualification") &&
+                          !sheet.name.toLowerCase().includes("summary") &&
+                          !sheet.name.toLowerCase().includes("cover") &&
+                          sheet.rows.length > 0;
+        if (isLikelyBOQ) {
+          selectedSheets.add(sheet.name);
+        }
+      });
+      
+      setState(prev => ({
+        ...prev,
+        file,
+        uploadId: existingUpload.id,
+        parsedSheets: parsed.sheets,
+        selectedSheets,
+        metadata: {
+          sourceDescription: existingUpload.metadata?.sourceDescription || "",
+          contractorName: existingUpload.metadata?.contractorName || "",
+          projectId: existingUpload.metadata?.projectId || "",
+          province: existingUpload.metadata?.province || "",
+          buildingType: existingUpload.metadata?.buildingType || "",
+          tenderDate: existingUpload.metadata?.tenderDate,
+        },
+      }));
+      
+      toast.success(`Loaded ${parsed.sheets.length} sheets from ${existingUpload.file_name}`);
+    } catch (error) {
+      console.error("Failed to load existing file:", error);
+      toast.error("Failed to load existing file");
+    } finally {
+      setLoadingExistingFile(false);
+    }
+  };
+  
+  // Reset state when dialog closes
   const handleOpenChange = useCallback((isOpen: boolean) => {
     if (!isOpen) {
       setState({
@@ -115,7 +197,7 @@ export function BOQProcessingWizard({ open, onOpenChange, onComplete }: BOQProce
   const canGoNext = useCallback(() => {
     switch (currentStep) {
       case 1:
-        return state.file !== null;
+        return state.file !== null && !loadingExistingFile;
       case 2:
         return state.selectedSheets.size > 0;
       case 3:
@@ -219,20 +301,29 @@ export function BOQProcessingWizard({ open, onOpenChange, onComplete }: BOQProce
         
         {/* Step content */}
         <div className="flex-1 overflow-auto p-6">
-          {currentStep === 1 && (
-            <BOQWizardStep1Upload state={state} updateState={updateState} />
-          )}
-          {currentStep === 2 && (
-            <BOQWizardStep2Sheets state={state} updateState={updateState} />
-          )}
-          {currentStep === 3 && (
-            <BOQWizardStep3Columns state={state} updateState={updateState} />
-          )}
-          {currentStep === 4 && (
-            <BOQWizardStep4Match state={state} updateState={updateState} />
-          )}
-          {currentStep === 5 && (
-            <BOQWizardStep5Review state={state} updateState={updateState} />
+          {loadingExistingFile ? (
+            <div className="flex flex-col items-center justify-center h-64 gap-4">
+              <Loader2 className="h-10 w-10 animate-spin text-primary" />
+              <p className="text-muted-foreground">Loading file from storage...</p>
+            </div>
+          ) : (
+            <>
+              {currentStep === 1 && (
+                <BOQWizardStep1Upload state={state} updateState={updateState} />
+              )}
+              {currentStep === 2 && (
+                <BOQWizardStep2Sheets state={state} updateState={updateState} />
+              )}
+              {currentStep === 3 && (
+                <BOQWizardStep3Columns state={state} updateState={updateState} />
+              )}
+              {currentStep === 4 && (
+                <BOQWizardStep4Match state={state} updateState={updateState} />
+              )}
+              {currentStep === 5 && (
+                <BOQWizardStep5Review state={state} updateState={updateState} />
+              )}
+            </>
           )}
         </div>
         

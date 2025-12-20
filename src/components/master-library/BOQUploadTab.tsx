@@ -85,6 +85,7 @@ export const BOQUploadTab = () => {
   const [exportingId, setExportingId] = useState<string | null>(null);
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [wizardUpload, setWizardUpload] = useState<BOQUpload | null>(null);
   const queryClient = useQueryClient();
 
   // Fetch projects for dropdown
@@ -1176,10 +1177,13 @@ export const BOQUploadTab = () => {
                             <Button
                               variant="default"
                               size="sm"
-                              onClick={() => handleOpenPreview(upload)}
+                              onClick={() => {
+                                setWizardUpload(upload);
+                                setWizardOpen(true);
+                              }}
                             >
-                              <Eye className="h-4 w-4 mr-1" />
-                              Preview & Process
+                              <Wand2 className="h-4 w-4 mr-1" />
+                              Process
                             </Button>
                           ) : (
                             <Button
@@ -1365,6 +1369,31 @@ export const BOQUploadTab = () => {
         onOpenChange={setPreviewOpen}
         file={previewFile}
         onConfirm={processWithSelectedContent}
+      />
+
+      <BOQProcessingWizard
+        open={wizardOpen}
+        onOpenChange={(open) => {
+          setWizardOpen(open);
+          if (!open) setWizardUpload(null);
+        }}
+        onComplete={() => {
+          queryClient.invalidateQueries({ queryKey: ["boq-uploads"] });
+        }}
+        existingUpload={wizardUpload ? {
+          id: wizardUpload.id,
+          file_name: wizardUpload.file_name,
+          file_path: wizardUpload.file_path,
+          file_type: wizardUpload.file_type,
+          metadata: {
+            sourceDescription: wizardUpload.source_description || undefined,
+            contractorName: wizardUpload.contractor_name || undefined,
+            projectId: wizardUpload.project_id || undefined,
+            province: wizardUpload.province || undefined,
+            buildingType: wizardUpload.building_type || undefined,
+            tenderDate: wizardUpload.tender_date ? new Date(wizardUpload.tender_date) : undefined,
+          },
+        } : null}
       />
     </div>
   );
