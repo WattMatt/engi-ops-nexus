@@ -1204,13 +1204,27 @@ export const BOQUploadTab = () => {
                                 <Download className="h-4 w-4 mr-2" />
                                 Download Original
                               </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                onClick={() => reprocessMutation.mutate(upload)}
-                                disabled={reprocessMutation.isPending || upload.status === "processing"}
-                              >
-                                <RefreshCw className={cn("h-4 w-4 mr-2", reprocessMutation.isPending && "animate-spin")} />
-                                Re-process
-                              </DropdownMenuItem>
+                              {/* Re-extract for completed/reviewed BOQs */}
+                              {(upload.status === "completed" || upload.status === "reviewed") && (
+                                <DropdownMenuItem 
+                                  onClick={() => reprocessMutation.mutate(upload)}
+                                  disabled={reprocessMutation.isPending}
+                                  className="text-orange-600 dark:text-orange-400"
+                                >
+                                  <RefreshCw className={cn("h-4 w-4 mr-2", reprocessMutation.isPending && "animate-spin")} />
+                                  Re-extract (Reset & Process Again)
+                                </DropdownMenuItem>
+                              )}
+                              {/* Re-process for pending/failed */}
+                              {(upload.status === "pending" || upload.status === "failed") && (
+                                <DropdownMenuItem 
+                                  onClick={() => reprocessMutation.mutate(upload)}
+                                  disabled={reprocessMutation.isPending}
+                                >
+                                  <RefreshCw className={cn("h-4 w-4 mr-2", reprocessMutation.isPending && "animate-spin")} />
+                                  Process Now
+                                </DropdownMenuItem>
+                              )}
                               <DropdownMenuSeparator />
                               {/* Spreadsheet View */}
                               {(upload.status === "completed" || upload.status === "reviewed") && (
