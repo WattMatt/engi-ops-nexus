@@ -79,6 +79,45 @@ export function BOQWizardStep4Match({ state, updateState }: Props) {
     return contentParts.join('\n');
   }, [state.parsedSheets, state.selectedSheets, state.columnMappings]);
 
+  // Poll for completion
+  const pollForCompletion = useCallback(async (uploadId: string): Promise<{ itemsExtracted: number; itemsMatched: number }> => {
+    const maxPolls = 120; // 10 minutes max (5 second intervals)
+    let polls = 0;
+    
+    while (polls < maxPolls) {
+      await new Promise(resolve => setTimeout(resolve, 5000)); // Wait 5 seconds
+      polls++;
+      
+      const { data: status, error } = await supabase
+        .from("boq_uploads")
+        .select("status, total_items_extracted, items_matched_to_master, error_message")
+        .eq("id", uploadId)
+        .single();
+      
+      if (error) {
+        console.error("Poll error:", error);
+        continue;
+      }
+      
+      // Update progress based on polling
+      setProgress(Math.min(50 + (polls * 0.5), 90));
+      setStatusMessage(`Processing... (${Math.floor(polls * 5 / 60)}m ${(polls * 5) % 60}s elapsed)`);
+      
+      if (status?.status === "completed") {
+        return {
+          itemsExtracted: status.total_items_extracted || 0,
+          itemsMatched: status.items_matched_to_master || 0,
+        };
+      }
+      
+      if (status?.status === "error") {
+        throw new Error(status.error_message || "Processing failed");
+      }
+    }
+    
+    throw new Error("Processing timed out. Please try again.");
+  }, []);
+
   // Upload and process mutation
   const processMutation = useMutation({
     mutationFn: async () => {
@@ -117,8 +156,7 @@ export function BOQWizardStep4Match({ state, updateState }: Props) {
           building_type: state.metadata.buildingType || null,
           tender_date: state.metadata.tenderDate?.toISOString().split('T')[0] || null,
           uploaded_by: user.id,
-          status: "processing",
-          extraction_started_at: new Date().toISOString(),
+          status: "pending",
         })
         .select()
         .single();
@@ -127,8 +165,8 @@ export function BOQWizardStep4Match({ state, updateState }: Props) {
 
       updateState({ uploadId: uploadRecord.id });
 
-      setProgress(50);
-      setStatusMessage("Starting AI matching...");
+      setProgress(40);
+      setStatusMessage("Starting AI processing...");
 
       // Build content from column mappings
       const contentToProcess = buildContentString();
@@ -137,10 +175,8 @@ export function BOQWizardStep4Match({ state, updateState }: Props) {
         throw new Error("No valid content to process. Check column mappings.");
       }
 
-      // Call the matching edge function (now synchronous)
-      setStatusMessage("AI matching in progress (this may take 1-2 minutes)...");
-      
-      const { data: matchResult, error: matchError } = await supabase.functions.invoke("match-boq-rates", {
+      // Call the matching edge function (returns immediately, processes in background)
+      const { error: matchError } = await supabase.functions.invoke("match-boq-rates", {
         body: {
           upload_id: uploadRecord.id,
           file_content: contentToProcess,
@@ -149,28 +185,20 @@ export function BOQWizardStep4Match({ state, updateState }: Props) {
 
       if (matchError) {
         console.error("Edge function error:", matchError);
-        throw new Error(matchError.message || "AI matching failed");
+        throw new Error(matchError.message || "Failed to start AI matching");
       }
 
-      setProgress(90);
-      setStatusMessage("Retrieving results...");
+      setProgress(50);
+      setStatusMessage("AI processing in background. Polling for completion...");
 
-      // Get final status
-      const { data: uploadStatus } = await supabase
-        .from("boq_uploads")
-        .select("status, total_items_extracted, items_matched_to_master, error_message")
-        .eq("id", uploadRecord.id)
-        .single();
-
-      if (uploadStatus?.status === "error") {
-        throw new Error(uploadStatus.error_message || "Processing failed");
-      }
+      // Poll for completion
+      const result = await pollForCompletion(uploadRecord.id);
 
       setProgress(100);
       return {
         uploadId: uploadRecord.id,
-        itemsExtracted: uploadStatus?.total_items_extracted || 0,
-        itemsMatched: uploadStatus?.items_matched_to_master || 0,
+        itemsExtracted: result.itemsExtracted,
+        itemsMatched: result.itemsMatched,
       };
     },
     onSuccess: (result) => {
