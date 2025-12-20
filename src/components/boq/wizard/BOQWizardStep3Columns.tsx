@@ -1,10 +1,10 @@
 import { useState, useEffect, useMemo } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Columns, Wand2, Check, AlertCircle, Loader2, ChevronRight, Sparkles } from "lucide-react";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Check, AlertCircle, Wand2, ChevronDown, ChevronUp } from "lucide-react";
 import { toast } from "sonner";
 import type { BOQWizardState, ColumnMapping } from "../BOQProcessingWizard";
 import type { ParsedSheet } from "@/utils/excelParser";
@@ -14,29 +14,19 @@ interface Props {
   updateState: (updates: Partial<BOQWizardState>) => void;
 }
 
-interface DetectedColumn {
-  field: string;
-  label: string;
-  columnIndex: number | null;
-  headerName: string | null;
-  confidence: number; // 0-100
-  reason: string;
-}
-
 const COLUMN_FIELDS = [
-  { key: "description", label: "Description", required: true },
-  { key: "quantity", label: "Quantity", required: false },
-  { key: "unit", label: "Unit", required: false },
-  { key: "supplyRate", label: "Supply Rate", required: false },
-  { key: "installRate", label: "Install Rate", required: false },
-  { key: "totalRate", label: "Total Rate", required: false },
-  { key: "amount", label: "Amount", required: false },
-  { key: "itemCode", label: "Item Code", required: false },
+  { key: "description", label: "Description", required: true, color: "bg-blue-500" },
+  { key: "quantity", label: "Qty", required: false, color: "bg-green-500" },
+  { key: "unit", label: "Unit", required: false, color: "bg-purple-500" },
+  { key: "supplyRate", label: "Supply Rate", required: false, color: "bg-orange-500" },
+  { key: "installRate", label: "Install Rate", required: false, color: "bg-pink-500" },
+  { key: "totalRate", label: "Rate", required: false, color: "bg-cyan-500" },
+  { key: "amount", label: "Amount", required: false, color: "bg-amber-500" },
+  { key: "itemCode", label: "Item Code", required: false, color: "bg-slate-500" },
 ];
 
 export function BOQWizardStep3Columns({ state, updateState }: Props) {
-  const [detecting, setDetecting] = useState(false);
-  const [detectedColumns, setDetectedColumns] = useState<Record<string, DetectedColumn[]>>({});
+  const [expandedSheets, setExpandedSheets] = useState<Set<string>>(new Set());
 
   // Get only selected sheets
   const selectedSheets = useMemo(() => 
@@ -44,226 +34,105 @@ export function BOQWizardStep3Columns({ state, updateState }: Props) {
     [state.parsedSheets, state.selectedSheets]
   );
 
-  // Auto-detect on mount
+  // Auto-expand first sheet
   useEffect(() => {
-    if (selectedSheets.length > 0 && Object.keys(detectedColumns).length === 0) {
-      detectAllSheets();
+    if (selectedSheets.length > 0 && expandedSheets.size === 0) {
+      setExpandedSheets(new Set([selectedSheets[0].name]));
     }
-  }, [selectedSheets.length]);
+  }, [selectedSheets]);
 
-  const detectAllSheets = async () => {
-    setDetecting(true);
+  // Initialize mappings if not present
+  useEffect(() => {
+    const newMappings = { ...state.columnMappings };
+    let changed = false;
     
-    const allDetections: Record<string, DetectedColumn[]> = {};
-    const allMappings: Record<string, ColumnMapping> = {};
-    
-    for (const sheet of selectedSheets) {
-      const detected = analyzeSheetColumns(sheet);
-      allDetections[sheet.name] = detected;
-      
-      // Convert to mapping format
-      const mapping: ColumnMapping = {
-        sheetName: sheet.name,
-        itemCode: null,
-        description: null,
-        quantity: null,
-        unit: null,
-        supplyRate: null,
-        installRate: null,
-        totalRate: null,
-        amount: null,
-      };
-      
-      detected.forEach(d => {
-        if (d.columnIndex !== null && d.confidence >= 50 && d.field !== 'sheetName') {
-          (mapping as any)[d.field] = d.columnIndex;
-        }
-      });
-      
-      allMappings[sheet.name] = mapping;
-    }
-    
-    setDetectedColumns(allDetections);
-    updateState({ columnMappings: allMappings });
-    setDetecting(false);
-    
-    // Check if we have high confidence for all required fields
-    const allHighConfidence = selectedSheets.every(sheet => {
-      const sheetDetections = allDetections[sheet.name] || [];
-      const descDetection = sheetDetections.find(d => d.field === "description");
-      return descDetection && descDetection.confidence >= 70;
+    selectedSheets.forEach(sheet => {
+      if (!newMappings[sheet.name]) {
+        newMappings[sheet.name] = createEmptyMapping(sheet.name);
+        changed = true;
+      }
     });
     
-    if (allHighConfidence) {
-      toast.success("Column mapping auto-detected with high confidence!");
+    if (changed) {
+      updateState({ columnMappings: newMappings });
     }
-  };
+  }, [selectedSheets]);
 
-  // Smart column detection using data patterns
-  const analyzeSheetColumns = (sheet: ParsedSheet): DetectedColumn[] => {
-    const { headers, rows } = sheet;
-    const sampleRows = rows.slice(0, 20); // Analyze more rows
-    
-    const detections: DetectedColumn[] = [];
-    
-    // Analyze each column
-    const columnAnalysis = headers.map((header, colIndex) => {
-      const values = sampleRows.map(row => {
-        const keys = Object.keys(row);
-        return row[header] ?? row[keys[colIndex]] ?? null;
-      }).filter(v => v !== null && v !== undefined && v !== "");
-      
-      return {
-        index: colIndex,
-        header: header || `Column ${colIndex + 1}`,
-        values,
-        stats: analyzeColumnValues(values),
-      };
-    });
-    
-    // Find best match for each field
-    COLUMN_FIELDS.forEach(field => {
-      const match = findBestColumnMatch(field.key, columnAnalysis);
-      detections.push({
-        field: field.key,
-        label: field.label,
-        columnIndex: match?.index ?? null,
-        headerName: match?.header ?? null,
-        confidence: match?.confidence ?? 0,
-        reason: match?.reason ?? "No match found",
-      });
-    });
-    
-    return detections;
-  };
+  const createEmptyMapping = (sheetName: string): ColumnMapping => ({
+    sheetName,
+    itemCode: null,
+    description: null,
+    quantity: null,
+    unit: null,
+    supplyRate: null,
+    installRate: null,
+    totalRate: null,
+    amount: null,
+  });
 
-  const analyzeColumnValues = (values: any[]) => {
-    const nonEmpty = values.filter(v => v !== null && v !== "");
-    const numbers = nonEmpty.filter(v => !isNaN(parseFloat(String(v).replace(/[,\s]/g, ""))));
-    const avgLength = nonEmpty.reduce((sum, v) => sum + String(v).length, 0) / (nonEmpty.length || 1);
-    
-    return {
-      totalCount: nonEmpty.length,
-      numberCount: numbers.length,
-      numberRatio: nonEmpty.length > 0 ? numbers.length / nonEmpty.length : 0,
-      avgLength,
-      hasDecimals: numbers.some(v => String(v).includes(".")),
-      maxValue: numbers.length > 0 ? Math.max(...numbers.map(v => parseFloat(String(v).replace(/[,\s]/g, "")))) : 0,
-    };
-  };
-
-  const findBestColumnMatch = (
-    fieldKey: string, 
-    columns: { index: number; header: string; values: any[]; stats: ReturnType<typeof analyzeColumnValues> }[]
-  ): { index: number; header: string; confidence: number; reason: string } | null => {
+  const autoDetectColumns = (sheet: ParsedSheet) => {
+    const { headers } = sheet;
+    const mapping = createEmptyMapping(sheet.name);
     
     const headerPatterns: Record<string, RegExp[]> = {
-      description: [/desc/i, /particular/i, /detail/i, /item\s*description/i, /specification/i, /work/i],
-      quantity: [/qty/i, /quantity/i, /qnty/i, /^q$/i, /quant/i],
-      unit: [/^unit[s]?$/i, /^uom$/i, /^u$/i, /measure/i],
-      supplyRate: [/supply/i, /material/i, /mat.*rate/i, /supp.*rate/i],
+      description: [/desc/i, /particular/i, /detail/i, /specification/i, /^item$/i],
+      quantity: [/qty/i, /quantity/i, /qnty/i, /^q$/i],
+      unit: [/^unit[s]?$/i, /^uom$/i, /measure/i],
+      supplyRate: [/supply/i, /material.*rate/i, /mat.*rate/i],
       installRate: [/install/i, /labour/i, /labor/i, /lab.*rate/i],
-      totalRate: [/^rate$/i, /unit.*rate/i, /combined/i, /rate.*unit/i],
-      amount: [/amount/i, /^total$/i, /extended/i, /^sum$/i, /line.*total/i],
-      itemCode: [/item.*no/i, /ref/i, /^no\.?$/i, /code/i, /^nr/i, /item.*code/i],
+      totalRate: [/^rate$/i, /unit.*rate/i, /rate.*unit/i],
+      amount: [/amount/i, /^total$/i, /extended/i, /^sum$/i],
+      itemCode: [/item.*no/i, /ref/i, /^no\.?$/i, /code/i, /^nr/i],
     };
     
-    let bestMatch: { index: number; header: string; confidence: number; reason: string } | null = null;
+    const usedIndices = new Set<number>();
     
-    columns.forEach(col => {
-      let confidence = 0;
-      let reason = "";
-      
-      // Check header patterns
-      const patterns = headerPatterns[fieldKey] || [];
-      const headerMatch = patterns.some(p => p.test(col.header));
-      if (headerMatch) {
-        confidence += 50;
-        reason = `Header matches "${col.header}"`;
-      }
-      
-      // Check data patterns
-      const stats = col.stats;
-      
-      switch (fieldKey) {
-        case "description":
-          // Descriptions are typically long text with low number ratio
-          if (stats.avgLength > 20 && stats.numberRatio < 0.3) {
-            confidence += 30;
-            reason += (reason ? " + " : "") + "Long text values";
-          }
-          break;
-          
-        case "quantity":
-          // Quantities are numbers, usually small-medium values
-          if (stats.numberRatio > 0.8 && stats.maxValue < 10000) {
-            confidence += 25;
-            reason += (reason ? " + " : "") + "Numeric values";
-          }
-          break;
-          
-        case "unit":
-          // Units are short text (m, m², kg, etc.)
-          if (stats.avgLength < 10 && stats.numberRatio < 0.3) {
-            confidence += 25;
-            reason += (reason ? " + " : "") + "Short text values";
-          }
-          break;
-          
-        case "supplyRate":
-        case "installRate":
-        case "totalRate":
-          // Rates are numbers, often with decimals
-          if (stats.numberRatio > 0.7 && stats.hasDecimals) {
-            confidence += 20;
-            reason += (reason ? " + " : "") + "Decimal numbers";
-          }
-          break;
-          
-        case "amount":
-          // Amounts are typically larger numbers
-          if (stats.numberRatio > 0.7 && stats.maxValue > 100) {
-            confidence += 20;
-            reason += (reason ? " + " : "") + "Large numeric values";
-          }
-          break;
-          
-        case "itemCode":
-          // Item codes are short, often alphanumeric
-          if (stats.avgLength < 15 && stats.avgLength > 1) {
-            confidence += 15;
-            reason += (reason ? " + " : "") + "Short reference values";
-          }
-          break;
-      }
-      
-      if (confidence > (bestMatch?.confidence || 0)) {
-        bestMatch = { index: col.index, header: col.header, confidence: Math.min(confidence, 100), reason };
-      }
-    });
-    
-    return bestMatch;
-  };
-
-  // Get preview data for a sheet
-  const getSheetPreview = (sheet: ParsedSheet) => {
-    const mapping = state.columnMappings[sheet.name];
-    if (!mapping) return [];
-    
-    return sheet.rows.slice(0, 10).map((row, idx) => {
-      const keys = Object.keys(row);
-      const preview: Record<string, any> = { _idx: idx + 1 };
-      
-      COLUMN_FIELDS.forEach(field => {
-        const colIndex = mapping[field.key as keyof ColumnMapping];
-        if (typeof colIndex === "number") {
-          const header = sheet.headers[colIndex];
-          preview[field.key] = row[header] ?? row[keys[colIndex]] ?? "";
+    // First pass: exact header matches
+    Object.entries(headerPatterns).forEach(([field, patterns]) => {
+      headers.forEach((header, idx) => {
+        if (usedIndices.has(idx)) return;
+        if (patterns.some(p => p.test(header))) {
+          (mapping as any)[field] = idx;
+          usedIndices.add(idx);
         }
       });
-      
-      return preview;
     });
+    
+    return mapping;
+  };
+
+  const handleAutoDetect = () => {
+    const newMappings = { ...state.columnMappings };
+    
+    selectedSheets.forEach(sheet => {
+      newMappings[sheet.name] = autoDetectColumns(sheet);
+    });
+    
+    updateState({ columnMappings: newMappings });
+    toast.success("Auto-detection complete - please review the mappings");
+  };
+
+  const updateColumnMapping = (sheetName: string, field: string, columnIndex: number | null) => {
+    const newMappings = { ...state.columnMappings };
+    if (!newMappings[sheetName]) {
+      newMappings[sheetName] = createEmptyMapping(sheetName);
+    }
+    (newMappings[sheetName] as any)[field] = columnIndex;
+    updateState({ columnMappings: newMappings });
+  };
+
+  const getColumnMapping = (sheetName: string, field: string): number | null => {
+    return state.columnMappings[sheetName]?.[field as keyof ColumnMapping] as number | null;
+  };
+
+  const toggleSheet = (sheetName: string) => {
+    const newExpanded = new Set(expandedSheets);
+    if (newExpanded.has(sheetName)) {
+      newExpanded.delete(sheetName);
+    } else {
+      newExpanded.add(sheetName);
+    }
+    setExpandedSheets(newExpanded);
   };
 
   const hasRequiredMappings = useMemo(() => {
@@ -273,33 +142,11 @@ export function BOQWizardStep3Columns({ state, updateState }: Props) {
     });
   }, [selectedSheets, state.columnMappings]);
 
-  const overallConfidence = useMemo(() => {
-    if (Object.keys(detectedColumns).length === 0) return 0;
-    
-    let totalConf = 0;
-    let count = 0;
-    
-    Object.values(detectedColumns).forEach(sheetDetections => {
-      sheetDetections.forEach(d => {
-        if (d.columnIndex !== null) {
-          totalConf += d.confidence;
-          count++;
-        }
-      });
-    });
-    
-    return count > 0 ? Math.round(totalConf / count) : 0;
-  }, [detectedColumns]);
-
-  if (detecting) {
-    return (
-      <div className="flex flex-col items-center justify-center h-[500px] gap-4">
-        <Loader2 className="h-12 w-12 animate-spin text-primary" />
-        <p className="text-lg font-medium">Analyzing column structure...</p>
-        <p className="text-sm text-muted-foreground">Detecting data patterns in {selectedSheets.length} sheet(s)</p>
-      </div>
-    );
-  }
+  const getMappedFieldsCount = (sheetName: string): number => {
+    const mapping = state.columnMappings[sheetName];
+    if (!mapping) return 0;
+    return COLUMN_FIELDS.filter(f => mapping[f.key as keyof ColumnMapping] !== null).length;
+  };
 
   return (
     <div className="space-y-4">
@@ -315,108 +162,161 @@ export function BOQWizardStep3Columns({ state, updateState }: Props) {
           </div>
           <div>
             <p className="font-medium">
-              {hasRequiredMappings ? "Column mapping ready" : "Description column required"}
+              {hasRequiredMappings ? "Ready to proceed" : "Map the Description column for each sheet"}
             </p>
             <p className="text-sm text-muted-foreground">
-              {selectedSheets.length} sheet(s) analyzed • {overallConfidence}% average confidence
+              Select which columns contain each type of data
             </p>
           </div>
         </div>
-        <Button variant="outline" size="sm" onClick={detectAllSheets}>
+        <Button variant="outline" size="sm" onClick={handleAutoDetect}>
           <Wand2 className="h-4 w-4 mr-2" />
-          Re-analyze
+          Auto-detect
         </Button>
       </div>
 
-      {/* Detection results per sheet */}
-      <ScrollArea className="h-[450px]">
-        <div className="space-y-4 pr-4">
-          {selectedSheets.map(sheet => {
-            const sheetDetections = detectedColumns[sheet.name] || [];
-            const preview = getSheetPreview(sheet);
-            
-            return (
-              <Card key={sheet.name}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-base flex items-center gap-2">
-                      <Sparkles className="h-4 w-4 text-primary" />
-                      {sheet.name}
-                      <Badge variant="outline" className="ml-2">
-                        {sheet.rows.length} rows
-                      </Badge>
-                    </CardTitle>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Detected mappings */}
-                  <div className="flex flex-wrap gap-2">
-                    {sheetDetections.filter(d => d.columnIndex !== null).map(d => (
-                      <Badge 
-                        key={d.field}
-                        variant={d.confidence >= 70 ? "default" : d.confidence >= 50 ? "secondary" : "outline"}
-                        className="gap-1"
-                      >
-                        <span className="font-medium">{d.label}:</span>
-                        <span className="opacity-80">{d.headerName}</span>
-                        <span className={`ml-1 text-xs ${
-                          d.confidence >= 70 ? "text-green-200" : 
-                          d.confidence >= 50 ? "text-foreground/70" : "text-amber-500"
-                        }`}>
-                          ({d.confidence}%)
-                        </span>
-                      </Badge>
-                    ))}
-                    {sheetDetections.filter(d => d.columnIndex === null).map(d => (
-                      <Badge key={d.field} variant="outline" className="opacity-50">
-                        {d.label}: Not found
-                      </Badge>
-                    ))}
+      {/* Sheet mapping sections */}
+      <div className="space-y-3 max-h-[450px] overflow-y-auto pr-2">
+        {selectedSheets.map(sheet => {
+          const isExpanded = expandedSheets.has(sheet.name);
+          const mappedCount = getMappedFieldsCount(sheet.name);
+          
+          return (
+            <Card key={sheet.name} className="overflow-hidden">
+              <CardHeader 
+                className="py-3 cursor-pointer hover:bg-muted/50 transition-colors"
+                onClick={() => toggleSheet(sheet.name)}
+              >
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-base flex items-center gap-2">
+                    {sheet.name}
+                    <Badge variant="outline" className="font-normal">
+                      {sheet.rows.length} rows
+                    </Badge>
+                    <Badge variant="secondary" className="font-normal">
+                      {mappedCount}/{COLUMN_FIELDS.length} mapped
+                    </Badge>
+                  </CardTitle>
+                  {isExpanded ? (
+                    <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </div>
+              </CardHeader>
+              
+              {isExpanded && (
+                <CardContent className="pt-0 pb-4">
+                  {/* Column mapping selectors */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+                    {COLUMN_FIELDS.map(field => {
+                      const currentValue = getColumnMapping(sheet.name, field.key);
+                      return (
+                        <div key={field.key} className="space-y-1">
+                          <label className="text-xs font-medium flex items-center gap-1">
+                            <div className={`w-2 h-2 rounded-full ${field.color}`} />
+                            {field.label}
+                            {field.required && <span className="text-destructive">*</span>}
+                          </label>
+                          <Select
+                            value={currentValue !== null ? String(currentValue) : "none"}
+                            onValueChange={(val) => updateColumnMapping(
+                              sheet.name, 
+                              field.key, 
+                              val === "none" ? null : parseInt(val)
+                            )}
+                          >
+                            <SelectTrigger className="h-8 text-xs">
+                              <SelectValue placeholder="Select column" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="none">— Not mapped —</SelectItem>
+                              {sheet.headers.map((header, idx) => (
+                                <SelectItem key={idx} value={String(idx)}>
+                                  {header || `Column ${idx + 1}`}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      );
+                    })}
                   </div>
                   
-                  {/* Data preview */}
-                  {preview.length > 0 && (
-                    <div className="border rounded-md overflow-hidden">
-                      <Table>
-                        <TableHeader>
-                          <TableRow className="bg-muted/50">
-                            <TableHead className="w-10 text-xs">#</TableHead>
-                            {COLUMN_FIELDS.filter(f => {
-                              const mapping = state.columnMappings[sheet.name];
-                              return mapping && mapping[f.key as keyof ColumnMapping] !== null;
-                            }).map(f => (
-                              <TableHead key={f.key} className="text-xs min-w-[80px]">
-                                {f.label}
+                  {/* Data preview with ALL columns */}
+                  <div className="border rounded-md overflow-auto max-h-[250px]">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-muted/50">
+                          <TableHead className="w-10 text-xs sticky left-0 bg-muted z-10 border-r">#</TableHead>
+                          {sheet.headers.map((header, idx) => {
+                            // Find if this column is mapped
+                            const mappedField = COLUMN_FIELDS.find(f => 
+                              getColumnMapping(sheet.name, f.key) === idx
+                            );
+                            return (
+                              <TableHead 
+                                key={idx} 
+                                className={`text-xs whitespace-nowrap min-w-[100px] ${
+                                  mappedField ? 'font-bold' : ''
+                                }`}
+                              >
+                                <div className="flex items-center gap-1">
+                                  {mappedField && (
+                                    <div className={`w-2 h-2 rounded-full ${mappedField.color}`} />
+                                  )}
+                                  <span className="truncate max-w-[150px]" title={header || `Column ${idx + 1}`}>
+                                    {header || `Column ${idx + 1}`}
+                                  </span>
+                                </div>
                               </TableHead>
-                            ))}
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {preview.slice(0, 3).map((row, idx) => (
-                            <TableRow key={idx} className="text-xs">
-                              <TableCell className="text-muted-foreground">{row._idx}</TableCell>
-                              {COLUMN_FIELDS.filter(f => {
-                                const mapping = state.columnMappings[sheet.name];
-                                return mapping && mapping[f.key as keyof ColumnMapping] !== null;
-                              }).map(f => (
-                                <TableCell key={f.key} className="max-w-[200px]">
-                                  <div className="truncate" title={String(row[f.key] || "")}>
-                                    {row[f.key] || <span className="text-muted-foreground/40">—</span>}
-                                  </div>
-                                </TableCell>
-                              ))}
+                            );
+                          })}
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {sheet.rows.slice(0, 8).map((row, rowIdx) => {
+                          const rowKeys = Object.keys(row);
+                          return (
+                            <TableRow key={rowIdx} className="text-xs">
+                              <TableCell className="sticky left-0 bg-background z-10 border-r font-mono text-muted-foreground">
+                                {rowIdx + 1}
+                              </TableCell>
+                              {sheet.headers.map((header, cellIdx) => {
+                                let value = row[header];
+                                if (value === undefined && rowKeys[cellIdx]) {
+                                  value = row[rowKeys[cellIdx]];
+                                }
+                                const displayValue = value !== null && value !== undefined ? String(value) : "";
+                                const mappedField = COLUMN_FIELDS.find(f => 
+                                  getColumnMapping(sheet.name, f.key) === cellIdx
+                                );
+                                return (
+                                  <TableCell 
+                                    key={cellIdx} 
+                                    className={`whitespace-nowrap ${mappedField ? 'bg-muted/30' : ''}`}
+                                  >
+                                    <div className="truncate max-w-[200px]" title={displayValue}>
+                                      {displayValue || <span className="text-muted-foreground/30">—</span>}
+                                    </div>
+                                  </TableCell>
+                                );
+                              })}
                             </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  )}
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    Showing first 8 rows • Mapped columns are highlighted
+                  </p>
                 </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-      </ScrollArea>
+              )}
+            </Card>
+          );
+        })}
+      </div>
     </div>
   );
 }
