@@ -5,6 +5,7 @@ import { Loader2 } from "lucide-react";
 import { FinalAccountOverview } from "@/components/final-accounts/FinalAccountOverview";
 import { FinalAccountBillsManager } from "@/components/final-accounts/FinalAccountBillsManager";
 import { BOQDiscrepanciesSummary } from "@/components/final-accounts/BOQDiscrepanciesSummary";
+import { PrimeCostManager } from "@/components/final-accounts/PrimeCostManager";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const FinalAccounts = () => {
@@ -103,11 +104,15 @@ const FinalAccounts = () => {
       <Tabs defaultValue="bills" className="space-y-4">
         <TabsList>
           <TabsTrigger value="bills">Bills & Sections</TabsTrigger>
+          <TabsTrigger value="prime-costs">Prime Costs</TabsTrigger>
           <TabsTrigger value="discrepancies">BOQ Discrepancies</TabsTrigger>
           <TabsTrigger value="overview">Account Details</TabsTrigger>
         </TabsList>
         <TabsContent value="bills" className="space-y-4">
           <FinalAccountBillsManager accountId={account.id} projectId={projectId || ""} />
+        </TabsContent>
+        <TabsContent value="prime-costs" className="space-y-4">
+          <PrimeCostManager accountId={account.id} projectId={projectId || ""} />
         </TabsContent>
         <TabsContent value="discrepancies" className="space-y-4">
           <BOQDiscrepanciesSummary accountId={account.id} />
