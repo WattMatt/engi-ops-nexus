@@ -65,6 +65,29 @@ interface ReconciliationStatus {
   itemCount: number;
 }
 
+// Parse number from various formats (South African: "1 234,56" or "R 1 234,56" or standard)
+function parseNumber(value: any): number {
+  if (typeof value === 'number') return value;
+  if (!value) return 0;
+  
+  let str = String(value).trim();
+  
+  // Remove currency symbol and spaces
+  str = str.replace(/^R\s*/i, '').replace(/\s/g, '');
+  
+  // Handle South African format: comma as decimal separator
+  // If there's a comma followed by exactly 2 digits at end, treat as decimal
+  if (/,\d{2}$/.test(str)) {
+    str = str.replace(/,/g, '.');
+  } else {
+    // Otherwise remove commas (thousand separators)
+    str = str.replace(/,/g, '');
+  }
+  
+  const num = parseFloat(str);
+  return isNaN(num) ? 0 : num;
+}
+
 // Helper to find columns in a row by matching patterns
 function findColumnsInRow(values: string[], patterns: Record<string, RegExp>): Record<string, number> {
   const colMap: Record<string, number> = {};
@@ -142,15 +165,15 @@ function parseSheetForBOQ(worksheet: XLSX.WorkSheet, sheetName: string): {
   
   if (allRows.length === 0) return { items, sectionCode, sectionName, billNumber };
   
-  // Patterns for finding column headers
+  // Patterns for finding column headers (order matters - more specific first)
   const patterns = {
     description: /desc|particular|item\s*description|work\s*description/i,
     quantity: /qty|quantity|qnty/i,
     unit: /^unit$|^uom$/i,
-    rate: /^rate$|unit\s*rate|total\s*rate/i,
     supplyRate: /supply|material/i,
     installRate: /install|labour|labor/i,
-    amount: /amount|total|value|sum/i,
+    rate: /^rate$|unit\s*rate|total\s*rate/i,
+    amount: /tender\s*price|amount|^total$|value|sum/i,
     itemCode: /^no$|^item$|^code$|^ref$|item\s*no|item\s*code/i,
   };
   
@@ -194,11 +217,11 @@ function parseSheetForBOQ(worksheet: XLSX.WorkSheet, sheetName: string): {
     // Extract values
     const itemCode = colMap.itemCode !== undefined ? row[colMap.itemCode] : "";
     const unit = colMap.unit !== undefined ? row[colMap.unit] : "Nr";
-    const quantity = colMap.quantity !== undefined ? parseFloat(row[colMap.quantity]) || 0 : 0;
-    const supplyRate = colMap.supplyRate !== undefined ? parseFloat(row[colMap.supplyRate]) || 0 : 0;
-    const installRate = colMap.installRate !== undefined ? parseFloat(row[colMap.installRate]) || 0 : 0;
-    const totalRate = colMap.rate !== undefined ? parseFloat(row[colMap.rate]) || 0 : supplyRate + installRate;
-    const amount = colMap.amount !== undefined ? parseFloat(row[colMap.amount]) || 0 : quantity * (totalRate || supplyRate + installRate);
+    const quantity = colMap.quantity !== undefined ? parseNumber(row[colMap.quantity]) : 0;
+    const supplyRate = colMap.supplyRate !== undefined ? parseNumber(row[colMap.supplyRate]) : 0;
+    const installRate = colMap.installRate !== undefined ? parseNumber(row[colMap.installRate]) : 0;
+    const totalRate = colMap.rate !== undefined ? parseNumber(row[colMap.rate]) : supplyRate + installRate;
+    const amount = colMap.amount !== undefined ? parseNumber(row[colMap.amount]) : quantity * (totalRate || supplyRate + installRate);
     
     // Skip rows with no meaningful data
     if (quantity === 0 && amount === 0) continue;
