@@ -128,9 +128,26 @@ export function PrimeCostManager({ accountId, projectId }: PrimeCostManagerProps
         itemsBySection.set(item.section_id, existing);
       });
       
+      // Helper function to parse section code numerically (e.g., "1.3" -> [1, 3])
+      const parseSectionCode = (code: string): number[] => {
+        return code.split('.').map(part => parseInt(part, 10) || 0);
+      };
+      
+      // Sort sections numerically by section_code
+      const sortedSections = [...sections].sort((a, b) => {
+        const aParts = parseSectionCode(a.section_code);
+        const bParts = parseSectionCode(b.section_code);
+        for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
+          const aVal = aParts[i] || 0;
+          const bVal = bParts[i] || 0;
+          if (aVal !== bVal) return aVal - bVal;
+        }
+        return 0;
+      });
+      
       // Group sections by bill, only include sections with PC items
       const sectionsByBill = new Map<string, any[]>();
-      sections.forEach((section) => {
+      sortedSections.forEach((section) => {
         const sectionItems = itemsBySection.get(section.id) || [];
         if (sectionItems.length > 0) {
           const existing = sectionsByBill.get(section.bill_id) || [];
