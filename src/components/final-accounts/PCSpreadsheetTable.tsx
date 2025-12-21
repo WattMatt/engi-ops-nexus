@@ -14,7 +14,7 @@ interface PCSpreadsheetTableProps {
 type EditableField = 'item_code' | 'description' | 'pc_allowance' | 'pc_actual_cost' | 'pc_profit_attendance_percent';
 
 const COLUMNS: { 
-  key: EditableField | 'adjustment'; 
+  key: EditableField | 'pa_value' | 'adjustment'; 
   label: string; 
   width: string; 
   editable: boolean; 
@@ -22,11 +22,12 @@ const COLUMNS: {
   align: 'left' | 'right';
 }[] = [
   { key: 'item_code', label: 'Code', width: 'w-[80px]', editable: false, type: 'text', align: 'left' },
-  { key: 'description', label: 'Description', width: 'flex-1 min-w-[250px]', editable: false, type: 'text', align: 'left' },
-  { key: 'pc_allowance', label: 'PC Allowance', width: 'w-[120px]', editable: false, type: 'currency', align: 'right' },
-  { key: 'pc_actual_cost', label: 'Actual Cost', width: 'w-[120px]', editable: true, type: 'currency', align: 'right' },
-  { key: 'pc_profit_attendance_percent', label: 'P&A %', width: 'w-[80px]', editable: true, type: 'percent', align: 'right' },
-  { key: 'adjustment', label: 'Adjustment', width: 'w-[120px]', editable: false, type: 'currency', align: 'right' },
+  { key: 'description', label: 'Description', width: 'flex-1 min-w-[200px]', editable: false, type: 'text', align: 'left' },
+  { key: 'pc_allowance', label: 'PC Allowance', width: 'w-[110px]', editable: false, type: 'currency', align: 'right' },
+  { key: 'pc_actual_cost', label: 'Actual Cost', width: 'w-[110px]', editable: true, type: 'currency', align: 'right' },
+  { key: 'pc_profit_attendance_percent', label: 'P&A %', width: 'w-[70px]', editable: true, type: 'percent', align: 'right' },
+  { key: 'pa_value', label: 'P&A Value', width: 'w-[100px]', editable: false, type: 'currency', align: 'right' },
+  { key: 'adjustment', label: 'Adjustment', width: 'w-[110px]', editable: false, type: 'currency', align: 'right' },
 ];
 
 export function PCSpreadsheetTable({ items, sectionId, accountId }: PCSpreadsheetTableProps) {
@@ -131,6 +132,12 @@ export function PCSpreadsheetTable({ items, sectionId, accountId }: PCSpreadshee
     }
   }, [activeCell]);
 
+  const calculatePAValue = (item: any) => {
+    const allowance = Number(item.pc_allowance) || Number(item.contract_amount) || 0;
+    const paPercent = Number(item.pc_profit_attendance_percent) || 0;
+    return allowance * (paPercent / 100);
+  };
+
   const calculateAdjustment = (item: any) => {
     const allowance = Number(item.pc_allowance) || Number(item.contract_amount) || 0;
     const actual = Number(item.pc_actual_cost) || 0;
@@ -141,7 +148,17 @@ export function PCSpreadsheetTable({ items, sectionId, accountId }: PCSpreadshee
   const renderCell = (item: any, column: typeof COLUMNS[0]) => {
     const isActive = activeCell?.rowId === item.id && activeCell?.field === column.key;
     
-    // Special handling for calculated fields
+    // Special handling for P&A Value (calculated)
+    if (column.key === 'pa_value') {
+      const paValue = calculatePAValue(item);
+      return (
+        <div className="px-1.5 py-1 text-xs text-right text-muted-foreground">
+          {paValue > 0 ? formatCurrency(paValue) : "-"}
+        </div>
+      );
+    }
+    
+    // Special handling for adjustment (calculated)
     if (column.key === 'adjustment') {
       const adjustment = calculateAdjustment(item);
       return (
@@ -215,13 +232,15 @@ export function PCSpreadsheetTable({ items, sectionId, accountId }: PCSpreadshee
     (acc, item) => {
       const allowance = Number(item.pc_allowance) || Number(item.contract_amount) || 0;
       const actual = Number(item.pc_actual_cost) || 0;
+      const paValue = calculatePAValue(item);
       return {
         allowance: acc.allowance + allowance,
         actual: acc.actual + actual,
+        paValue: acc.paValue + paValue,
         adjustment: acc.adjustment + calculateAdjustment(item),
       };
     },
-    { allowance: 0, actual: 0, adjustment: 0 }
+    { allowance: 0, actual: 0, paValue: 0, adjustment: 0 }
   );
 
   return (
@@ -281,9 +300,12 @@ export function PCSpreadsheetTable({ items, sectionId, accountId }: PCSpreadshee
         <div className={cn("px-1.5 py-2 text-xs text-right border-r", COLUMNS[4].width)}>
           -
         </div>
+        <div className={cn("px-1.5 py-2 text-xs text-right border-r", COLUMNS[5].width)}>
+          {formatCurrency(totals.paValue)}
+        </div>
         <div className={cn(
           "px-1.5 py-2 text-xs text-right font-medium",
-          COLUMNS[5].width,
+          COLUMNS[6].width,
           totals.adjustment >= 0 ? "text-destructive" : "text-green-600"
         )}>
           {totals.adjustment >= 0 ? "+" : ""}{formatCurrency(totals.adjustment)}

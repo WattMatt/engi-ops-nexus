@@ -415,14 +415,18 @@ export function PrimeCostManager({ accountId, projectId }: PrimeCostManagerProps
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-4 gap-4 text-sm">
+          <div className="grid grid-cols-5 gap-4 text-sm">
             <div>
               <p className="text-muted-foreground">Total Items</p>
               <p className="text-xl font-semibold">{totalItemCount}</p>
             </div>
             <div>
-              <p className="text-muted-foreground">PC Allowance</p>
+              <p className="text-muted-foreground">Total PC Allowance</p>
               <p className="text-xl font-semibold">{formatCurrency(totals.allowanceTotal)}</p>
+            </div>
+            <div>
+              <p className="text-muted-foreground">Total P&A Value</p>
+              <p className="text-xl font-semibold">{formatCurrency(totals.paAllowanceTotal)}</p>
             </div>
             <div>
               <p className="text-muted-foreground">Actual Cost</p>
