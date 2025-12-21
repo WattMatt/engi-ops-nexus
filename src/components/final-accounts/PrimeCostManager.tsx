@@ -11,6 +11,7 @@ import { formatCurrency } from "@/utils/formatters";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { PCSpreadsheetTable } from "./PCSpreadsheetTable";
 
 interface PrimeCostManagerProps {
   accountId: string;
@@ -479,8 +480,8 @@ export function PrimeCostManager({ accountId, projectId }: PrimeCostManagerProps
                         onOpenChange={() => toggleSection(section.id)}
                         defaultOpen
                       >
-                        <div className="border rounded-lg">
-                          <CollapsibleTrigger className="flex items-center gap-2 p-3 hover:bg-muted/50 transition-colors w-full">
+                        <div className="border rounded-lg overflow-hidden">
+                          <CollapsibleTrigger className="flex items-center gap-2 p-3 hover:bg-muted/50 transition-colors w-full bg-muted/30">
                             {expandedSections.has(section.id) ? (
                               <ChevronDown className="h-4 w-4" />
                             ) : (
@@ -494,41 +495,11 @@ export function PrimeCostManager({ accountId, projectId }: PrimeCostManagerProps
                             </span>
                           </CollapsibleTrigger>
                           <CollapsibleContent>
-                            <Table>
-                              <TableHeader>
-                                <TableRow>
-                                  <TableHead className="w-[80px]">Code</TableHead>
-                                  <TableHead>Description</TableHead>
-                                  <TableHead className="text-right w-[120px]">PC Allowance</TableHead>
-                                  <TableHead className="text-right w-[120px]">Actual Cost</TableHead>
-                                  <TableHead className="text-right w-[80px]">P&A %</TableHead>
-                                  <TableHead className="text-right w-[120px]">Adjustment</TableHead>
-                                </TableRow>
-                              </TableHeader>
-                              <TableBody>
-                                {section.items.map((item: any) => {
-                                  const allowance = Number(item.pc_allowance) || Number(item.contract_amount) || 0;
-                                  const actual = Number(item.pc_actual_cost) || 0;
-                                  const paPercent = Number(item.pc_profit_attendance_percent) || 0;
-                                  const adjustment = (actual - allowance) * (1 + paPercent / 100);
-
-                                  return (
-                                    <TableRow key={item.id}>
-                                      <TableCell className="font-mono text-sm">{item.item_code || "-"}</TableCell>
-                                      <TableCell className="max-w-md truncate" title={item.description}>
-                                        {item.description}
-                                      </TableCell>
-                                      <TableCell className="text-right">{formatCurrency(allowance)}</TableCell>
-                                      <TableCell className="text-right">{formatCurrency(actual)}</TableCell>
-                                      <TableCell className="text-right">{paPercent.toFixed(1)}%</TableCell>
-                                      <TableCell className={`text-right font-medium ${adjustment >= 0 ? "text-destructive" : "text-green-600"}`}>
-                                        {adjustment !== 0 ? (adjustment >= 0 ? "+" : "") + formatCurrency(adjustment) : "-"}
-                                      </TableCell>
-                                    </TableRow>
-                                  );
-                                })}
-                              </TableBody>
-                            </Table>
+                            <PCSpreadsheetTable 
+                              items={section.items} 
+                              sectionId={section.id}
+                              accountId={accountId}
+                            />
                           </CollapsibleContent>
                         </div>
                       </Collapsible>
