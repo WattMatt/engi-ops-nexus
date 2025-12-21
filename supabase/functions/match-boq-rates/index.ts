@@ -130,6 +130,228 @@ function parseRate(value: string | number | null | undefined): number {
   return isNaN(num) ? 0 : num;
 }
 
+/**
+ * PHASE 3: Master Material Matching with specialized patterns
+ * 
+ * MATCHING RULES:
+ * - Confidence >= 0.8: Strong match (same item + specs)
+ * - Confidence 0.6-0.79: Partial match (similar item)
+ * - Confidence < 0.6: No match → New item
+ */
+function matchToMasterMaterial(
+  description: string,
+  materialReference: { id: string; code: string; name: string; unit: string | null }[],
+  categories: MaterialCategory[] | null
+): { materialId: string | null; confidence: number; categoryId: string | null; categoryName: string | null } {
+  const descLower = description.toLowerCase().trim();
+  
+  if (!descLower || descLower.length < 3) {
+    return { materialId: null, confidence: 0, categoryId: null, categoryName: null };
+  }
+
+  let bestMatchId: string | null = null;
+  let bestConfidence = 0;
+  
+  // Extract key specifications from description
+  const specs = extractSpecifications(descLower);
+
+  for (const material of materialReference) {
+    const nameLower = material.name.toLowerCase();
+    const materialSpecs = extractSpecifications(nameLower);
+    
+    // 1. EXACT MATCH
+    if (descLower === nameLower) {
+      return { materialId: material.id, confidence: 0.98, categoryId: null, categoryName: null };
+    }
+    
+    // 2. CABLE MATCHING: Match by type + size + cores
+    if (specs.isCable && materialSpecs.isCable) {
+      const cableConfidence = matchCable(specs, materialSpecs);
+      if (cableConfidence > bestConfidence) {
+        bestConfidence = cableConfidence;
+        bestMatchId = material.id;
+      }
+      continue;
+    }
+    
+    // 3. LIGHT FITTING MATCHING: Match by type + dimensions
+    if (specs.isLight && materialSpecs.isLight) {
+      const lightConfidence = matchLight(specs, materialSpecs);
+      if (lightConfidence > bestConfidence) {
+        bestConfidence = lightConfidence;
+        bestMatchId = material.id;
+      }
+      continue;
+    }
+    
+    // 4. DISTRIBUTION BOARD MATCHING: Match by type + ways
+    if (specs.isDB && materialSpecs.isDB) {
+      const dbConfidence = matchDB(specs, materialSpecs);
+      if (dbConfidence > bestConfidence) {
+        bestConfidence = dbConfidence;
+        bestMatchId = material.id;
+      }
+      continue;
+    }
+    
+    // 5. GENERIC MATCHING: Word overlap
+    const genericConfidence = matchGeneric(descLower, nameLower);
+    if (genericConfidence > bestConfidence) {
+      bestConfidence = genericConfidence;
+      bestMatchId = material.id;
+    }
+  }
+  
+  // Suggest category for unmatched items
+  let suggestedCategoryId: string | null = null;
+  let suggestedCategoryName: string | null = null;
+  
+  if (bestConfidence < 0.6 && categories && categories.length > 0) {
+    const categoryMatch = suggestCategory(descLower, categories);
+    suggestedCategoryId = categoryMatch.id;
+    suggestedCategoryName = categoryMatch.name;
+  }
+  
+  return {
+    materialId: bestConfidence >= 0.6 ? bestMatchId : null,
+    confidence: bestConfidence,
+    categoryId: suggestedCategoryId,
+    categoryName: suggestedCategoryName
+  };
+}
+
+interface ExtractedSpecs {
+  isCable: boolean;
+  isLight: boolean;
+  isDB: boolean;
+  cores: number | null;
+  size: number | null;
+  cableType: string | null;
+  dimensions: string | null;
+  lightType: string | null;
+  ways: number | null;
+  dbType: string | null;
+  keywords: string[];
+}
+
+function extractSpecifications(text: string): ExtractedSpecs {
+  const specs: ExtractedSpecs = {
+    isCable: false, isLight: false, isDB: false,
+    cores: null, size: null, cableType: null,
+    dimensions: null, lightType: null, ways: null, dbType: null,
+    keywords: []
+  };
+  
+  const lower = text.toLowerCase();
+  
+  // CABLE DETECTION
+  const cablePatterns = ['cable', 'xlpe', 'pvc', 'swa', 'pilc', 'core', 'conductor'];
+  const hasCableKeyword = cablePatterns.some(p => lower.includes(p));
+  const coreMatch = lower.match(/(\d+)\s*(?:c|core|cre)/i);
+  const sizeMatch = lower.match(/(\d+(?:\.\d+)?)\s*(?:mm²?|sqmm)/i);
+  
+  if (hasCableKeyword || (coreMatch && sizeMatch)) {
+    specs.isCable = true;
+    if (coreMatch) specs.cores = parseInt(coreMatch[1]);
+    if (sizeMatch) specs.size = parseFloat(sizeMatch[1]);
+    if (lower.includes('xlpe')) specs.cableType = 'XLPE';
+    else if (lower.includes('pvc')) specs.cableType = 'PVC';
+    else if (lower.includes('swa')) specs.cableType = 'SWA';
+  }
+  
+  // LIGHT DETECTION
+  const lightPatterns = ['led', 'light', 'luminaire', 'fitting', 'downlight', 'panel', 'bulkhead'];
+  if (lightPatterns.some(p => lower.includes(p))) {
+    specs.isLight = true;
+    const dimMatch = lower.match(/(\d+)\s*[x×]\s*(\d+)/);
+    if (dimMatch) specs.dimensions = `${dimMatch[1]}x${dimMatch[2]}`;
+    if (lower.includes('panel')) specs.lightType = 'Panel';
+    else if (lower.includes('downlight')) specs.lightType = 'Downlight';
+    else if (lower.includes('bulkhead')) specs.lightType = 'Bulkhead';
+  }
+  
+  // DB DETECTION
+  const dbPatterns = ['db', 'distribution', 'board', 'mcb', 'way', 'tpn', 'spn'];
+  if (dbPatterns.some(p => lower.includes(p))) {
+    specs.isDB = true;
+    const waysMatch = lower.match(/(\d+)\s*(?:way|w\b)/i);
+    if (waysMatch) specs.ways = parseInt(waysMatch[1]);
+    if (lower.includes('tpn') || lower.includes('three phase')) specs.dbType = 'TPN';
+    else if (lower.includes('spn') || lower.includes('single phase')) specs.dbType = 'SPN';
+  }
+  
+  specs.keywords = lower.split(/\s+/).filter(w => w.length > 2);
+  return specs;
+}
+
+function matchCable(desc: ExtractedSpecs, master: ExtractedSpecs): number {
+  let score = 0.5;
+  if (desc.cores && master.cores) {
+    if (desc.cores === master.cores) score += 0.2;
+    else return score * 0.5;
+  }
+  if (desc.size && master.size) {
+    if (desc.size === master.size) score += 0.25;
+    else if (Math.abs(desc.size - master.size) <= 5) score += 0.1;
+    else return score * 0.5;
+  }
+  if (desc.cableType && master.cableType && desc.cableType === master.cableType) score += 0.1;
+  return Math.min(score, 0.95);
+}
+
+function matchLight(desc: ExtractedSpecs, master: ExtractedSpecs): number {
+  let score = 0.5;
+  if (desc.dimensions && master.dimensions) {
+    if (desc.dimensions === master.dimensions) score += 0.3;
+    else return score * 0.6;
+  }
+  if (desc.lightType && master.lightType && desc.lightType === master.lightType) score += 0.15;
+  return Math.min(score, 0.95);
+}
+
+function matchDB(desc: ExtractedSpecs, master: ExtractedSpecs): number {
+  let score = 0.5;
+  if (desc.ways && master.ways) {
+    if (desc.ways === master.ways) score += 0.25;
+    else return score * 0.5;
+  }
+  if (desc.dbType && master.dbType) {
+    if (desc.dbType === master.dbType) score += 0.15;
+    else return score * 0.6;
+  }
+  return Math.min(score, 0.90);
+}
+
+function matchGeneric(desc: string, master: string): number {
+  const descWords = desc.split(/\s+/).filter(w => w.length > 2);
+  const masterWords = master.split(/\s+/).filter(w => w.length > 2);
+  if (descWords.length === 0 || masterWords.length === 0) return 0;
+  
+  let matches = 0;
+  for (const dw of descWords) {
+    if (masterWords.some(mw => dw === mw || dw.includes(mw) || mw.includes(dw))) matches++;
+  }
+  return Math.min((matches / Math.max(descWords.length, masterWords.length)) * 0.9, 0.75);
+}
+
+function suggestCategory(desc: string, categories: MaterialCategory[]): { id: string | null; name: string | null } {
+  const keywords: Record<string, string[]> = {
+    'cable': ['cable', 'conductor', 'xlpe', 'pvc', 'core'],
+    'light': ['light', 'led', 'luminaire', 'fitting', 'panel'],
+    'db': ['db', 'distribution', 'board', 'mcb'],
+    'switch': ['switch', 'isolator', 'socket'],
+    'conduit': ['conduit', 'trunking', 'containment', 'tray'],
+  };
+  
+  for (const [keyword, patterns] of Object.entries(keywords)) {
+    if (patterns.some(p => desc.includes(p))) {
+      const cat = categories.find(c => c.category_name.toLowerCase().includes(keyword));
+      if (cat) return { id: cat.id, name: cat.category_name };
+    }
+  }
+  return { id: null, name: null };
+}
+
 async function getGoogleAccessToken(): Promise<string> {
   const serviceEmail = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_EMAIL');
   const privateKey = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY');
@@ -467,31 +689,38 @@ async function processMatching(
                          (!result.math_validated ? 'Math validation failed' : null),
       });
 
-      if (result.matched_material_id && result.match_confidence >= 0.5) {
+      // MATCHING THRESHOLDS per Phase 3 spec:
+      // >= 0.8: Strong match (same item + specs)
+      // 0.6-0.79: Partial match (similar item)
+      // < 0.6: No match → New item
+      const isMatched = result.matched_material_id && result.match_confidence >= 0.6;
+      
+      if (isMatched) {
         matchedCount++;
         
-        // Collect master material updates (only update if no rate exists)
-        if (!masterUpdates.has(result.matched_material_id)) {
+        // AUTO-UPDATE MASTER RATES when confidence >= 0.7 (per Phase 3 spec)
+        if (result.match_confidence >= 0.7 && !masterUpdates.has(result.matched_material_id!)) {
           const masterMaterial = materialReference.find((m: any) => m.id === result.matched_material_id);
           if (masterMaterial) {
             const boqSupply = result.supply_rate || (result.total_rate ? result.total_rate * 0.7 : null);
             const boqInstall = result.install_rate || (result.total_rate ? result.total_rate * 0.3 : null);
             
             const updateData: any = {};
-            if (boqSupply && (masterMaterial.supply_cost === 0 || masterMaterial.supply_cost === null)) {
+            // Only update if master rate is 0 or null
+            if (boqSupply && boqSupply > 0 && (masterMaterial.supply_cost === 0 || masterMaterial.supply_cost === null)) {
               updateData.standard_supply_cost = Math.round(boqSupply * 100) / 100;
-              console.log(`[BOQ Match] Will update ${masterMaterial.code} supply_cost to ${updateData.standard_supply_cost}`);
+              console.log(`[BOQ Match] Will update ${masterMaterial.code} supply_cost to R${updateData.standard_supply_cost} (confidence: ${result.match_confidence.toFixed(2)})`);
             }
-            if (boqInstall && (masterMaterial.install_cost === 0 || masterMaterial.install_cost === null)) {
+            if (boqInstall && boqInstall > 0 && (masterMaterial.install_cost === 0 || masterMaterial.install_cost === null)) {
               updateData.standard_install_cost = Math.round(boqInstall * 100) / 100;
-              console.log(`[BOQ Match] Will update ${masterMaterial.code} install_cost to ${updateData.standard_install_cost}`);
+              console.log(`[BOQ Match] Will update ${masterMaterial.code} install_cost to R${updateData.standard_install_cost} (confidence: ${result.match_confidence.toFixed(2)})`);
             }
             if (standardizedUnit && !masterMaterial.unit) {
               updateData.unit = standardizedUnit;
             }
             
             if (Object.keys(updateData).length > 0) {
-              masterUpdates.set(result.matched_material_id, updateData);
+              masterUpdates.set(result.matched_material_id!, updateData);
             }
           }
         }
@@ -697,30 +926,8 @@ function basicParseWithMappings(
       console.log(`[BOQ Match] Row ${rowNumber}: "${description.substring(0, 40)}..." | Qty: ${quantity} | Supply: R${supplyRate} | Install: R${installRate} | Total: R${totalRate}`);
     }
 
-    // Match to master materials
-    let matchedId: string | null = null;
-    let matchConfidence = 0;
-
-    for (const material of materialReference) {
-      const nameLower = material.name.toLowerCase();
-      
-      if (descLower === nameLower) {
-        matchedId = material.id;
-        matchConfidence = 0.95;
-        break;
-      }
-      
-      // Check for significant word overlap
-      const descWords = descLower.split(/\s+/).filter(w => w.length > 2);
-      const nameWords = nameLower.split(/\s+/).filter(w => w.length > 2);
-      const commonWords = descWords.filter(w => nameWords.some(nw => nw.includes(w) || w.includes(nw)));
-      const wordOverlap = commonWords.length / Math.max(descWords.length, nameWords.length, 1);
-      
-      if (wordOverlap > matchConfidence && wordOverlap >= 0.4) {
-        matchedId = material.id;
-        matchConfidence = wordOverlap;
-      }
-    }
+    // Match to master materials using specialized pattern matching
+    const matchResult = matchToMasterMaterial(descLower, materialReference, categories);
 
     results.push({
       row_number: rowNumber,
@@ -731,11 +938,11 @@ function basicParseWithMappings(
       supply_rate: supplyRate || null,
       install_rate: installRate || null,
       total_rate: totalRate || null,
-      matched_material_id: matchConfidence >= 0.5 ? matchedId : null,
-      match_confidence: matchConfidence,
-      suggested_category_id: null,
-      suggested_category_name: null,
-      is_new_item: matchConfidence < 0.5,
+      matched_material_id: matchResult.confidence >= 0.6 ? matchResult.materialId : null,
+      match_confidence: matchResult.confidence,
+      suggested_category_id: matchResult.categoryId,
+      suggested_category_name: matchResult.categoryName,
+      is_new_item: matchResult.confidence < 0.6,
       bill_number: currentBillNumber || null,
       bill_name: currentSheet || null,
       section_code: null,
