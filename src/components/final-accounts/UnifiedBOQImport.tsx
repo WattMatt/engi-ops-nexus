@@ -48,6 +48,10 @@ interface ParsedBOQItem {
   billName: string;
   isPrimeCost?: boolean;
   pcProfitAttendancePercent?: number;
+  // P&A item tracking
+  isPAItem?: boolean;
+  paParentItemCode?: string;
+  paPercentage?: number;
 }
 
 interface BOQSectionSummary {
@@ -357,17 +361,17 @@ function parseSheet(worksheet: XLSX.WorkSheet, sheetName: string): BOQSectionSum
     
     // Check if this is a P&A row BEFORE adding to items
     const paInfo = detectPARow(description, itemCode, quantity, unitRaw, row);
-    if (paInfo && paInfo.percentage > 0) {
+    const isPARow = paInfo && paInfo.percentage > 0;
+    if (isPARow) {
       paRows.push({
         rowIdx: i,
         referencedCode: paInfo.referencedItemCode,
         percentage: paInfo.percentage,
       });
-      // Still add the P&A row as an item (it has an amount)
     }
     
     // Check if this is a Prime Cost item
-    const isPrimeC = isPrimeCostItem(description, itemCode);
+    const isPrimeC = !isPARow && isPrimeCostItem(description, itemCode);
     
     const item: ParsedBOQItem = {
       rowIndex: i,
@@ -385,6 +389,9 @@ function parseSheet(worksheet: XLSX.WorkSheet, sheetName: string): BOQSectionSum
       billName: sheetName,
       isPrimeCost: isPrimeC,
       pcProfitAttendancePercent: 0,
+      // Mark P&A items - will link to parent in second pass
+      isPAItem: isPARow,
+      paPercentage: isPARow ? paInfo.percentage : 0,
     };
     
     items.push(item);
@@ -400,35 +407,40 @@ function parseSheet(worksheet: XLSX.WorkSheet, sheetName: string): BOQSectionSum
     }
   }
   
-  // Second pass: Apply P&A percentages to their parent PC items
+  // Second pass: Link P&A items to their parent PC items
   for (const pa of paRows) {
-    let matched = false;
+    // Find the P&A item in the items array
+    const paItem = items.find(item => item.rowIndex === pa.rowIdx && item.isPAItem);
+    if (!paItem) continue;
+    
+    let parentCode: string | null = null;
     
     // First try: Match by explicit item code reference
     if (pa.referencedCode) {
       const parentItem = itemsByCode.get(pa.referencedCode);
       if (parentItem && parentItem.isPrimeCost) {
+        parentCode = parentItem.itemCode;
         parentItem.pcProfitAttendancePercent = pa.percentage;
-        console.log(`[P&A] Applied ${pa.percentage}% to ${parentItem.itemCode} (code reference match)`);
-        matched = true;
+        console.log(`[P&A] Linked P&A row ${pa.rowIdx} to ${parentItem.itemCode} (code reference match)`);
       }
     }
     
     // Second try: Find the closest preceding PC item by row index
-    if (!matched && primeCostItems.length > 0) {
-      // Find PC items that appear before this P&A row
+    if (!parentCode && primeCostItems.length > 0) {
       const precedingPCs = primeCostItems.filter(pc => pc.rowIndex < pa.rowIdx);
       if (precedingPCs.length > 0) {
-        // Get the most recent (closest) PC item
         const nearestPC = precedingPCs[precedingPCs.length - 1];
+        parentCode = nearestPC.itemCode;
         nearestPC.pcProfitAttendancePercent = pa.percentage;
-        console.log(`[P&A] Applied ${pa.percentage}% to ${nearestPC.itemCode} (nearest preceding PC at row ${nearestPC.rowIndex})`);
-        matched = true;
+        console.log(`[P&A] Linked P&A row ${pa.rowIdx} to ${nearestPC.itemCode} (nearest preceding PC)`);
       }
     }
     
-    if (!matched) {
-      console.log(`[P&A] Warning: Could not match P&A row ${pa.rowIdx} with ${pa.percentage}% to any PC item`);
+    // Store the parent reference on the P&A item
+    if (parentCode) {
+      paItem.paParentItemCode = parentCode;
+    } else {
+      console.log(`[P&A] Warning: Could not find parent PC for P&A row ${pa.rowIdx}`);
     }
   }
   
@@ -606,7 +618,7 @@ export function UnifiedBOQImport({ open, onOpenChange, accountId, projectId }: U
           sectionId = newSection.id;
         }
 
-        // Insert items
+        // Insert items - first pass without P&A parent links
         const itemsToInsert = section.items.map((item, index) => {
           const isHeader = isHeaderOrSubtotalRow(item.itemCode, item.description);
           const amount = isHeader ? 0 : item.amount;
@@ -627,13 +639,48 @@ export function UnifiedBOQImport({ open, onOpenChange, accountId, projectId }: U
             pc_allowance: item.isPrimeCost ? amount : 0,
             pc_actual_cost: 0,
             pc_profit_attendance_percent: item.pcProfitAttendancePercent || 0,
+            // P&A fields
+            is_pa_item: item.isPAItem || false,
+            pa_percentage: item.paPercentage || 0,
+            // pa_parent_item_id will be set in second pass
           };
         });
 
-        const { error: itemsError } = await supabase
+        const { data: insertedItems, error: itemsError } = await supabase
           .from("final_account_items")
-          .insert(itemsToInsert);
+          .insert(itemsToInsert)
+          .select("id, item_code, is_prime_cost, display_order");
         if (itemsError) throw itemsError;
+
+        // Second pass: Link P&A items to their parent PC items by matching item codes
+        if (insertedItems) {
+          const pcItemsById: Map<string, string> = new Map();
+          insertedItems.forEach(item => {
+            if (item.is_prime_cost && item.item_code) {
+              pcItemsById.set(item.item_code.toUpperCase(), item.id);
+            }
+          });
+
+          // Find P&A items that need linking
+          const paItemsToUpdate: { id: string; parentId: string }[] = [];
+          section.items.forEach((parseItem, index) => {
+            if (parseItem.isPAItem && parseItem.paParentItemCode) {
+              const insertedItem = insertedItems.find(i => i.display_order === index + 1);
+              const parentId = pcItemsById.get(parseItem.paParentItemCode.toUpperCase());
+              if (insertedItem && parentId) {
+                paItemsToUpdate.push({ id: insertedItem.id, parentId });
+              }
+            }
+          });
+
+          // Update P&A items with parent references
+          for (const update of paItemsToUpdate) {
+            await supabase
+              .from("final_account_items")
+              .update({ pa_parent_item_id: update.parentId })
+              .eq("id", update.id);
+          }
+        }
 
         // Update section totals
         await supabase
