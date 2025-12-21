@@ -323,13 +323,19 @@ function parseSheet(worksheet: XLSX.WorkSheet, sheetName: string): BOQSectionSum
   // Store P&A rows to process after all items are parsed
   const paRows: { rowIdx: number; referencedCode: string | null; percentage: number }[] = [];
   
-  // Skip patterns for totals
-  const skipPatterns = [
-    /^(sub)?total/i, /^carried/i, /^brought/i, /^to\s+(collection|summary)/i,
-    /^page\s+(total|sub)/i, /^total\s+to/i, /^total\s+carried/i,
-    /^section\s+total/i, /^bill\s+total/i, /^grand\s+total/i,
-    /total\s+for\s+section/i, /carried\s+to\s+summary/i,
+  // Skip patterns for totals - BUT capture the total amount first
+  const totalPatterns = [
+    /^(sub)?total/i, /^section\s+total/i, /^bill\s+total/i,
+    /total\s+for\s+section/i, /total\s+to\s+collection/i,
+    /^total\s+carried/i, /carried\s+to\s+summary/i,
   ];
+  const skipPatterns = [
+    /^carried\s+forward/i, /^brought\s+forward/i, /^to\s+(collection|summary)/i,
+    /^page\s+(total|sub)/i, /^grand\s+total/i, /c\/fwd/i, /b\/fwd/i,
+  ];
+  
+  // Track the BOQ stated total (from total row)
+  let boqStatedTotal: number | null = null;
   
   // First pass: Parse all rows and identify P&A rows
   for (let i = headerRowIdx + 1; i < allRows.length; i++) {
@@ -353,8 +359,18 @@ function parseSheet(worksheet: XLSX.WorkSheet, sheetName: string): BOQSectionSum
     // Skip completely empty rows (but don't reset tracking)
     if (!itemCode && !description) continue;
     
-    // Skip totals
     const textToCheck = `${itemCode} ${description}`.toLowerCase();
+    
+    // Check for total rows - capture the stated total but don't add as item
+    if (totalPatterns.some(pattern => pattern.test(description) || pattern.test(textToCheck))) {
+      if (parsedAmount > 0 && boqStatedTotal === null) {
+        boqStatedTotal = parsedAmount;
+        console.log(`[Parse] Found BOQ stated total: ${parsedAmount} from "${description}"`);
+      }
+      continue;
+    }
+    
+    // Skip other non-item rows
     if (skipPatterns.some(pattern => pattern.test(itemCode) || pattern.test(description) || pattern.test(textToCheck))) {
       continue;
     }
@@ -455,7 +471,7 @@ function parseSheet(worksheet: XLSX.WorkSheet, sheetName: string): BOQSectionSum
     billNumber,
     billName: sheetName,
     itemCount: items.length,
-    boqTotal: calculatedTotal,
+    boqTotal: boqStatedTotal ?? calculatedTotal, // Use stated total if found, otherwise calculated
     calculatedTotal,
     items,
     primeCostItems,
