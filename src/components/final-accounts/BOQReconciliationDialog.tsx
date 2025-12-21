@@ -72,7 +72,7 @@ function isPrimeCostItem(description: string, itemCode: string): boolean {
   return PRIME_COST_PATTERNS.some(pattern => pattern.test(textToCheck));
 }
 
-// Extract P&A percentage from description if present
+// Extract P&A percentage from description if present (inline in same row)
 function extractProfitAttendancePercent(description: string): number {
   // Match patterns like "P&A 10%", "profit and attendance 15%", "10% P&A"
   const patterns = [
@@ -88,6 +88,73 @@ function extractProfitAttendancePercent(description: string): number {
     }
   }
   return 0;
+}
+
+// Detect if this is a P&A row that references another item
+// Returns { referencedItemCode, percentage } or null
+function detectProfitAttendanceRow(description: string, itemCode: string, quantity: number): { referencedItemCode: string; percentage: number } | null {
+  // Patterns like "Allow profit to item B1.1" or "Add P&A to B1.1"
+  const patterns = [
+    /allow\s*(?:for\s*)?profit\s*(?:and\s*attendance\s*)?(?:to|on|for)\s*(?:item\s*)?([A-Z]\d+(?:\.\d+)*)/i,
+    /(?:add|allow)\s*(?:for\s*)?(?:P\.?&\.?A\.?|profit)\s*(?:to|on|for)\s*(?:item\s*)?([A-Z]\d+(?:\.\d+)*)/i,
+    /profit\s*(?:and\s*attendance\s*)?(?:to|on|for)\s*(?:item\s*)?([A-Z]\d+(?:\.\d+)*)/i,
+    /(?:P\.?&\.?A\.?)\s*(?:to|on|for)\s*(?:item\s*)?([A-Z]\d+(?:\.\d+)*)/i,
+  ];
+  
+  for (const pattern of patterns) {
+    const match = description.match(pattern);
+    if (match && match[1]) {
+      // The quantity field often contains the percentage value (e.g., 10 for 10%)
+      // Or it might be in the description
+      let percentage = quantity || 0;
+      
+      // Also check if percentage is in description
+      const pctMatch = description.match(/(\d+(?:\.\d+)?)\s*%/);
+      if (pctMatch) {
+        percentage = parseFloat(pctMatch[1]) || percentage;
+      }
+      
+      return {
+        referencedItemCode: match[1].toUpperCase(),
+        percentage: percentage,
+      };
+    }
+  }
+  
+  return null;
+}
+
+// Apply P&A percentages from separate rows to their parent PC items
+function applyProfitAttendanceToItems(items: ParsedBOQItem[]): ParsedBOQItem[] {
+  const itemsByCode = new Map<string, ParsedBOQItem>();
+  const paRows: { index: number; referencedCode: string; percentage: number }[] = [];
+  
+  // First pass: identify all items and P&A rows
+  items.forEach((item, index) => {
+    if (item.itemCode) {
+      itemsByCode.set(item.itemCode.toUpperCase(), item);
+    }
+    
+    // Check if this is a P&A row
+    const paInfo = detectProfitAttendanceRow(item.description, item.itemCode, item.quantity);
+    if (paInfo) {
+      paRows.push({
+        index,
+        referencedCode: paInfo.referencedItemCode,
+        percentage: paInfo.percentage,
+      });
+    }
+  });
+  
+  // Second pass: apply P&A percentages to parent items
+  for (const paRow of paRows) {
+    const parentItem = itemsByCode.get(paRow.referencedCode);
+    if (parentItem && parentItem.isPrimeCost) {
+      parentItem.pcProfitAttendancePercent = paRow.percentage;
+    }
+  }
+  
+  return items;
 }
 
 // Detect if an item is a header or subtotal row that should be excluded from totals
@@ -575,24 +642,28 @@ export function BOQReconciliationDialog({
         }
         
         const worksheet = workbook.Sheets[sheetName];
-        const { items, sectionCode, sectionName, billNumber } = parseSheetForBOQ(worksheet, sheetName);
+        const parseResult = parseSheetForBOQ(worksheet, sheetName);
+        
+        // Apply P&A percentages from separate rows to their parent PC items
+        const itemsWithPA = applyProfitAttendanceToItems(parseResult.items);
+        const { sectionCode, sectionName, billNumber } = parseResult;
         
         // Calculate BOQ total EXCLUDING header/subtotal rows (same filtering used during import)
         // This ensures boqTotal matches what will be stored as contract_total
-        const boqTotal = items
+        const boqTotal = itemsWithPA
           .filter(item => !isHeaderOrSubtotalRow(item.itemCode, item.description))
           .reduce((sum, item) => sum + item.amount, 0);
         
         // Calculate extraction confidence based on items found and totals
         let extractionConfidence: 'high' | 'medium' | 'low' | 'failed' = 'failed';
-        if (items.length > 0) {
+        if (itemsWithPA.length > 0) {
           // High confidence: has items with valid amounts
-          const itemsWithAmounts = items.filter(i => i.amount > 0).length;
-          const amountRatio = itemsWithAmounts / items.length;
+          const itemsWithAmounts = itemsWithPA.filter(i => i.amount > 0).length;
+          const amountRatio = itemsWithAmounts / itemsWithPA.length;
           
           if (amountRatio > 0.5 && boqTotal > 0) {
             extractionConfidence = 'high';
-          } else if (amountRatio > 0.2 || items.length > 3) {
+          } else if (amountRatio > 0.2 || itemsWithPA.length > 3) {
             extractionConfidence = 'medium';
           } else {
             extractionConfidence = 'low';
@@ -605,17 +676,17 @@ export function BOQReconciliationDialog({
           sectionName,
           billNumber,
           billName: sheetName,
-          itemCount: items.length,
+          itemCount: itemsWithPA.length,
           boqTotal,
-          items,
+          items: itemsWithPA,
           extractionConfidence,
           parseAttempts: 1,
           lastParseStrategy: 'standard',
         });
         
-        totalItems += items.length;
+        totalItems += itemsWithPA.length;
         
-        if (items.length === 0) {
+        if (itemsWithPA.length === 0) {
           console.log(`[BOQ Parse] Sheet "${sheetName}" has no items - marked for retry`);
         }
       }
@@ -1029,21 +1100,24 @@ export function BOQReconciliationDialog({
       console.log(`[Retry] Attempting alternative parse for section ${sectionCode}`);
       const altResult = parseSheetAlternative(worksheet, sectionToRetry.billName);
       
-      if (altResult.items.length === 0) {
+      // Apply P&A percentages to alternative results
+      const altItemsWithPA = applyProfitAttendanceToItems(altResult.items);
+      
+      if (altItemsWithPA.length === 0) {
         toast.warning(`Alternative parsing also found no items for ${sectionCode}`);
         return;
       }
       
-      if (altResult.items.length > sectionToRetry.items.length) {
+      if (altItemsWithPA.length > sectionToRetry.items.length) {
         // Alternative found more items - update the section
-        const boqTotal = altResult.items.reduce((sum, item) => sum + item.amount, 0);
+        const boqTotal = altItemsWithPA.reduce((sum, item) => sum + item.amount, 0);
         
         const updatedSections = parsedSections.map(s => {
           if (s.sectionCode === sectionCode) {
             return {
               ...s,
-              items: altResult.items,
-              itemCount: altResult.items.length,
+              items: altItemsWithPA,
+              itemCount: altItemsWithPA.length,
               boqTotal,
               extractionConfidence: 'medium' as const,
               parseAttempts: s.parseAttempts + 1,
@@ -1054,12 +1128,12 @@ export function BOQReconciliationDialog({
         });
         
         setParsedSections(updatedSections);
-        toast.success(`Retry found ${altResult.items.length} items (was ${sectionToRetry.items.length})`);
+        toast.success(`Retry found ${altItemsWithPA.length} items (was ${sectionToRetry.items.length})`);
         
         // Auto-import the retried section
         await importSectionMutation.mutateAsync(sectionCode);
       } else {
-        toast.info(`Alternative parsing found ${altResult.items.length} items (same or fewer than current ${sectionToRetry.items.length})`);
+        toast.info(`Alternative parsing found ${altItemsWithPA.length} items (same or fewer than current ${sectionToRetry.items.length})`);
       }
     } catch (error) {
       console.error("Retry failed:", error);
