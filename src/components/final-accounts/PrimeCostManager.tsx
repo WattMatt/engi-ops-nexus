@@ -61,34 +61,53 @@ export function PrimeCostManager({ accountId, projectId }: PrimeCostManagerProps
   });
 
   // Fetch prime cost items from final_account_items (imported from BOQ)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const client = supabase as any;
-  
   const { data: importedPrimeCosts = [] } = useQuery({
     queryKey: ["final-account-items-prime-costs", accountId],
     queryFn: async () => {
       // Get all bills for this account
-      const billsResult = await client.from("final_account_bills").select("id").eq("account_id", accountId);
-      const bills = billsResult.data || [];
+      const { data: bills, error: billsError } = await supabase
+        .from("final_account_bills")
+        .select("id")
+        .eq("final_account_id", accountId);
       
-      if (!bills.length) return [];
+      if (billsError) {
+        console.error("Error fetching bills for PC:", billsError);
+        return [];
+      }
       
-      const billIds = bills.map((b: any) => b.id);
+      if (!bills || bills.length === 0) return [];
+      
+      const billIds = bills.map((b) => b.id);
       
       // Get all sections for these bills
-      const sectionsResult = await client.from("final_account_sections").select("id, section_code, section_name, bill_id");
-      const sections = sectionsResult.data || [];
+      const { data: sections, error: sectionsError } = await supabase
+        .from("final_account_sections")
+        .select("id, section_code, section_name, bill_id")
+        .in("bill_id", billIds);
       
-      const sectionIds = sections.filter((s: any) => billIds.includes(s.bill_id)).map((s: any) => s.id);
-      const sectionMap = new Map(sections.map((s: any) => [s.id, s]));
+      if (sectionsError) {
+        console.error("Error fetching sections for PC:", sectionsError);
+        return [];
+      }
       
-      if (sectionIds.length === 0) return [];
+      if (!sections || sections.length === 0) return [];
+      
+      const sectionIds = sections.map((s) => s.id);
+      const sectionMap = new Map(sections.map((s) => [s.id, s]));
       
       // Get prime cost items from final_account_items
-      const itemsResult = await client.from("final_account_items").select("*").in("section_id", sectionIds).eq("is_prime_cost", true);
-      const items = itemsResult.data || [];
+      const { data: items, error: itemsError } = await supabase
+        .from("final_account_items")
+        .select("*")
+        .in("section_id", sectionIds)
+        .eq("is_prime_cost", true);
       
-      return items.map((item: any) => ({
+      if (itemsError) {
+        console.error("Error fetching PC items:", itemsError);
+        return [];
+      }
+      
+      return (items || []).map((item) => ({
         ...item,
         section: sectionMap.get(item.section_id),
       }));
@@ -99,7 +118,8 @@ export function PrimeCostManager({ accountId, projectId }: PrimeCostManagerProps
   const { data: boqPrimeCosts } = useQuery({
     queryKey: ["boq-prime-costs", projectId],
     queryFn: async () => {
-      const { data, error } = await client
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
         .from("boq_extracted_items")
         .select(`
           id,
