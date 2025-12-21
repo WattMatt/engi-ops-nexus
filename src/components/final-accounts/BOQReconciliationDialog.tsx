@@ -422,15 +422,18 @@ export function BOQReconciliationDialog({
     enabled: open,
   });
 
-  // Fetch already imported items for this account
-  const { data: importedItems = [], refetch: refetchImported } = useQuery({
-    queryKey: ["final-account-all-items", accountId],
+  // Fetch already imported sections for this account (simplified - just check which sections exist)
+  const { data: importedSections = [], refetch: refetchImported } = useQuery({
+    queryKey: ["final-account-sections-status", accountId],
     queryFn: async () => {
+      // Get all sections with their item counts directly
       const { data: sections, error: sectionsError } = await supabase
         .from("final_account_sections")
         .select(`
           id,
           section_code,
+          section_name,
+          contract_total,
           bill_id,
           final_account_bills!inner(final_account_id)
         `)
@@ -438,22 +441,32 @@ export function BOQReconciliationDialog({
       
       if (sectionsError) throw sectionsError;
       
+      // Get item counts per section
       const sectionIds = sections?.map(s => s.id) || [];
       if (sectionIds.length === 0) return [];
       
-      const { data: items, error: itemsError } = await supabase
+      // Use a more efficient count query
+      const { data: itemCounts, error: countError } = await supabase
         .from("final_account_items")
-        .select("*, section_id")
+        .select("section_id")
         .in("section_id", sectionIds);
       
-      if (itemsError) throw itemsError;
+      if (countError) throw countError;
       
-      return items?.map(item => ({
-        ...item,
-        sectionCode: sections?.find(s => s.id === item.section_id)?.section_code
+      // Count items per section
+      const countMap: Record<string, number> = {};
+      itemCounts?.forEach(item => {
+        countMap[item.section_id] = (countMap[item.section_id] || 0) + 1;
+      });
+      
+      return sections?.map(s => ({
+        sectionCode: s.section_code,
+        sectionName: s.section_name,
+        contractTotal: s.contract_total || 0,
+        itemCount: countMap[s.id] || 0,
       })) || [];
     },
-    enabled: !!accountId && parsedSections.length > 0,
+    enabled: !!accountId,
   });
 
   // Parse BOQ file from storage using XLSX directly - returns parsed sections
@@ -564,22 +577,23 @@ export function BOQReconciliationDialog({
     await parseBoqFile(boq);
   }, [parseBoqFile]);
 
-  // Calculate reconciliation status per section
+  // Calculate reconciliation status per section - use importedSections directly
   const reconciliationStatus = useMemo((): Record<string, ReconciliationStatus> => {
     const status: Record<string, ReconciliationStatus> = {};
     
-    const importedBySection: Record<string, number> = {};
-    const itemCountBySection: Record<string, number> = {};
-    
-    importedItems.forEach(item => {
-      const code = item.sectionCode || "UNKNOWN";
-      importedBySection[code] = (importedBySection[code] || 0) + Number(item.contract_amount || 0);
-      itemCountBySection[code] = (itemCountBySection[code] || 0) + 1;
+    // Build map from imported sections data
+    const importedByCode: Record<string, { total: number; count: number }> = {};
+    importedSections.forEach(section => {
+      importedByCode[section.sectionCode] = {
+        total: section.contractTotal || 0,
+        count: section.itemCount || 0,
+      };
     });
     
     parsedSections.forEach(section => {
-      const rebuiltTotal = importedBySection[section.sectionCode] || 0;
-      const itemCount = itemCountBySection[section.sectionCode] || 0;
+      const imported = importedByCode[section.sectionCode];
+      const rebuiltTotal = imported?.total || 0;
+      const itemCount = imported?.count || 0;
       const matchPercentage = section.boqTotal > 0 
         ? Math.min(100, (rebuiltTotal / section.boqTotal) * 100)
         : (itemCount > 0 ? 100 : 0);
@@ -593,7 +607,7 @@ export function BOQReconciliationDialog({
     });
     
     return status;
-  }, [parsedSections, importedItems]);
+  }, [parsedSections, importedSections]);
 
   // Calculate overall progress
   const overallProgress = useMemo(() => {
