@@ -87,6 +87,27 @@ export function BOQWizardStep5Review({ state, updateState }: Props) {
     retryDelay: 1000,
   });
 
+  // Fetch upload metadata for rate source tracking
+  const { data: uploadMetadata } = useQuery({
+    queryKey: ["boq-upload-metadata", state.uploadId],
+    queryFn: async () => {
+      if (!state.uploadId) return null;
+      const { data, error } = await supabase
+        .from("boq_uploads")
+        .select("contractor_name, province, tender_date, projects(name)")
+        .eq("id", state.uploadId)
+        .single();
+      if (error) throw error;
+      return data as {
+        contractor_name: string | null;
+        province: string | null;
+        tender_date: string | null;
+        projects: { name: string } | null;
+      };
+    },
+    enabled: !!state.uploadId,
+  });
+
   // Fetch categories
   const { data: categories } = useQuery({
     queryKey: ["material-categories"],
@@ -162,6 +183,22 @@ export function BOQWizardStep5Review({ state, updateState }: Props) {
           continue;
         }
 
+        // Insert rate source for tracking/analytics
+        await supabase
+          .from("material_rate_sources")
+          .insert({
+            material_id: material.id,
+            boq_upload_id: state.uploadId,
+            boq_item_id: item.id,
+            supply_rate: item.supply_rate || (item.total_rate ? item.total_rate * 0.7 : 0),
+            install_rate: item.install_rate || (item.total_rate ? item.total_rate * 0.3 : 0),
+            contractor_name: uploadMetadata?.contractor_name,
+            province: uploadMetadata?.province,
+            tender_date: uploadMetadata?.tender_date,
+            project_name: uploadMetadata?.projects?.name,
+            is_primary_source: true,
+          });
+
         await supabase
           .from("boq_extracted_items")
           .update({
@@ -175,7 +212,8 @@ export function BOQWizardStep5Review({ state, updateState }: Props) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["boq-extracted-items"] });
       queryClient.invalidateQueries({ queryKey: ["master-materials"] });
-      toast.success("Items added to master library");
+      queryClient.invalidateQueries({ queryKey: ["material-rate-sources"] });
+      toast.success("Items added to master library with rate source tracking");
       setSelectedItems(new Set());
     },
     onError: (error: Error) => {
@@ -183,28 +221,57 @@ export function BOQWizardStep5Review({ state, updateState }: Props) {
     },
   });
 
-  // Approve all matched items
+  // Approve all matched items and track rate sources
   const approveAllMatched = async () => {
-    const matchedIds = items
+    const matchedItems = items
       ?.filter(i => i.matched_material_id && (i.match_confidence || 0) >= 0.6 && i.review_status !== 'approved')
-      .map(i => i.id) || [];
+      || [];
     
-    if (matchedIds.length === 0) {
+    if (matchedItems.length === 0) {
       toast.info("No items to approve");
       return;
     }
 
+    // Update review status
     const { error } = await supabase
       .from("boq_extracted_items")
       .update({ review_status: "approved" })
-      .in("id", matchedIds);
+      .in("id", matchedItems.map(i => i.id));
 
     if (error) {
       toast.error("Failed to approve items");
-    } else {
-      queryClient.invalidateQueries({ queryKey: ["boq-extracted-items"] });
-      toast.success(`Approved ${matchedIds.length} matched items`);
+      return;
     }
+
+    // Insert rate sources for matched items (comparing rates from this BOQ)
+    for (const item of matchedItems) {
+      if (item.matched_material_id) {
+        await supabase
+          .from("material_rate_sources")
+          .insert({
+            material_id: item.matched_material_id,
+            boq_upload_id: state.uploadId,
+            boq_item_id: item.id,
+            supply_rate: item.supply_rate || 0,
+            install_rate: item.install_rate || 0,
+            contractor_name: uploadMetadata?.contractor_name,
+            province: uploadMetadata?.province,
+            tender_date: uploadMetadata?.tender_date,
+            project_name: uploadMetadata?.projects?.name,
+            is_primary_source: false,
+          })
+          .then(({ error: insertError }) => {
+            // Ignore duplicate errors (same item already tracked)
+            if (insertError && !insertError.message.includes('duplicate')) {
+              console.error("Error tracking rate source:", insertError);
+            }
+          });
+      }
+    }
+
+    queryClient.invalidateQueries({ queryKey: ["boq-extracted-items"] });
+    queryClient.invalidateQueries({ queryKey: ["material-rate-sources"] });
+    toast.success(`Approved ${matchedItems.length} matched items with rate tracking`);
   };
 
   // Mark complete

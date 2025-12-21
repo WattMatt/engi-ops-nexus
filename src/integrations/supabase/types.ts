@@ -484,11 +484,53 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "boq_extracted_items_added_material_id_fkey"
+            columns: ["added_material_id"]
+            isOneToOne: false
+            referencedRelation: "material_rate_analytics"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "boq_extracted_items_added_material_id_fkey"
+            columns: ["added_material_id"]
+            isOneToOne: false
+            referencedRelation: "material_rate_by_contractor"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "boq_extracted_items_added_material_id_fkey"
+            columns: ["added_material_id"]
+            isOneToOne: false
+            referencedRelation: "material_rate_by_province"
+            referencedColumns: ["material_id"]
+          },
+          {
             foreignKeyName: "boq_extracted_items_matched_material_id_fkey"
             columns: ["matched_material_id"]
             isOneToOne: false
             referencedRelation: "master_materials"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "boq_extracted_items_matched_material_id_fkey"
+            columns: ["matched_material_id"]
+            isOneToOne: false
+            referencedRelation: "material_rate_analytics"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "boq_extracted_items_matched_material_id_fkey"
+            columns: ["matched_material_id"]
+            isOneToOne: false
+            referencedRelation: "material_rate_by_contractor"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "boq_extracted_items_matched_material_id_fkey"
+            columns: ["matched_material_id"]
+            isOneToOne: false
+            referencedRelation: "material_rate_by_province"
+            referencedColumns: ["material_id"]
           },
           {
             foreignKeyName: "boq_extracted_items_suggested_category_id_fkey"
@@ -698,6 +740,27 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "master_materials"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "budget_line_items_master_material_id_fkey"
+            columns: ["master_material_id"]
+            isOneToOne: false
+            referencedRelation: "material_rate_analytics"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "budget_line_items_master_material_id_fkey"
+            columns: ["master_material_id"]
+            isOneToOne: false
+            referencedRelation: "material_rate_by_contractor"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "budget_line_items_master_material_id_fkey"
+            columns: ["master_material_id"]
+            isOneToOne: false
+            referencedRelation: "material_rate_by_province"
+            referencedColumns: ["material_id"]
           },
           {
             foreignKeyName: "budget_line_items_master_rate_id_fkey"
@@ -5464,6 +5527,27 @@ export type Database = {
             referencedRelation: "master_materials"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "material_analytics_snapshots_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "material_rate_analytics"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "material_analytics_snapshots_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "material_rate_by_contractor"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "material_analytics_snapshots_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "material_rate_by_province"
+            referencedColumns: ["material_id"]
+          },
         ]
       }
       material_categories: {
@@ -5554,6 +5638,127 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "master_materials"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_price_audit_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "material_rate_analytics"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "material_price_audit_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "material_rate_by_contractor"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "material_price_audit_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "material_rate_by_province"
+            referencedColumns: ["material_id"]
+          },
+        ]
+      }
+      material_rate_sources: {
+        Row: {
+          boq_item_id: string | null
+          boq_upload_id: string | null
+          confidence_score: number | null
+          contractor_name: string | null
+          created_at: string | null
+          created_by: string | null
+          id: string
+          install_rate: number
+          is_primary_source: boolean | null
+          material_id: string
+          notes: string | null
+          project_name: string | null
+          province: string | null
+          supply_rate: number
+          tender_date: string | null
+          total_rate: number | null
+        }
+        Insert: {
+          boq_item_id?: string | null
+          boq_upload_id?: string | null
+          confidence_score?: number | null
+          contractor_name?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          install_rate?: number
+          is_primary_source?: boolean | null
+          material_id: string
+          notes?: string | null
+          project_name?: string | null
+          province?: string | null
+          supply_rate?: number
+          tender_date?: string | null
+          total_rate?: number | null
+        }
+        Update: {
+          boq_item_id?: string | null
+          boq_upload_id?: string | null
+          confidence_score?: number | null
+          contractor_name?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          id?: string
+          install_rate?: number
+          is_primary_source?: boolean | null
+          material_id?: string
+          notes?: string | null
+          project_name?: string | null
+          province?: string | null
+          supply_rate?: number
+          tender_date?: string | null
+          total_rate?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "material_rate_sources_boq_item_id_fkey"
+            columns: ["boq_item_id"]
+            isOneToOne: false
+            referencedRelation: "boq_extracted_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_rate_sources_boq_upload_id_fkey"
+            columns: ["boq_upload_id"]
+            isOneToOne: false
+            referencedRelation: "boq_uploads"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_rate_sources_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "master_materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "material_rate_sources_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "material_rate_analytics"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "material_rate_sources_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "material_rate_by_contractor"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "material_rate_sources_material_id_fkey"
+            columns: ["material_id"]
+            isOneToOne: false
+            referencedRelation: "material_rate_by_province"
+            referencedColumns: ["material_id"]
           },
         ]
       }
@@ -6587,6 +6792,27 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "master_materials"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_materials_master_material_id_fkey"
+            columns: ["master_material_id"]
+            isOneToOne: false
+            referencedRelation: "material_rate_analytics"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "project_materials_master_material_id_fkey"
+            columns: ["master_material_id"]
+            isOneToOne: false
+            referencedRelation: "material_rate_by_contractor"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "project_materials_master_material_id_fkey"
+            columns: ["master_material_id"]
+            isOneToOne: false
+            referencedRelation: "material_rate_by_province"
+            referencedColumns: ["material_id"]
           },
           {
             foreignKeyName: "project_materials_project_id_fkey"
@@ -9477,9 +9703,68 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      material_rate_analytics: {
+        Row: {
+          avg_install_rate: number | null
+          avg_supply_rate: number | null
+          avg_total_rate: number | null
+          category_name: string | null
+          contractors: string[] | null
+          material_code: string | null
+          material_id: string | null
+          material_name: string | null
+          max_total_rate: number | null
+          min_total_rate: number | null
+          provinces: string[] | null
+          rate_stddev: number | null
+          source_count: number | null
+          standard_install_cost: number | null
+          standard_supply_cost: number | null
+          unit: string | null
+        }
+        Relationships: []
+      }
+      material_rate_by_contractor: {
+        Row: {
+          avg_install_rate: number | null
+          avg_supply_rate: number | null
+          avg_total_rate: number | null
+          contractor_name: string | null
+          earliest_tender: string | null
+          latest_tender: string | null
+          material_code: string | null
+          material_id: string | null
+          material_name: string | null
+          source_count: number | null
+        }
+        Relationships: []
+      }
+      material_rate_by_province: {
+        Row: {
+          avg_install_rate: number | null
+          avg_supply_rate: number | null
+          avg_total_rate: number | null
+          material_code: string | null
+          material_id: string | null
+          material_name: string | null
+          max_rate: number | null
+          min_rate: number | null
+          province: string | null
+          source_count: number | null
+        }
+        Relationships: []
+      }
     }
     Functions: {
+      calculate_recommended_rate: {
+        Args: { p_material_id: string }
+        Returns: {
+          confidence_level: string
+          recommended_install_rate: number
+          recommended_supply_rate: number
+          source_count: number
+        }[]
+      }
       client_has_project_access: {
         Args: { p_project_id: string; p_user_id: string }
         Returns: boolean
