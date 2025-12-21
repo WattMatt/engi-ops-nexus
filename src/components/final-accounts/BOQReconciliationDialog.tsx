@@ -623,18 +623,55 @@ export function BOQReconciliationDialog({
   const handleImportAll = async () => {
     setProcessing(true);
     
+    let successCount = 0;
+    const failedSections: string[] = [];
+    const skippedSections: string[] = [];
+    
     for (const section of parsedSections) {
+      // Skip already imported sections
+      if (reconciliationStatus[section.sectionCode]?.imported) {
+        continue;
+      }
+      
       setSelectedSection(section.sectionCode);
+      
+      // Skip sections with no items
+      if (section.items.length === 0) {
+        skippedSections.push(`${section.sectionCode} (no items)`);
+        continue;
+      }
+      
       try {
         await importSectionMutation.mutateAsync(section.sectionCode);
-      } catch (error) {
+        successCount++;
+      } catch (error: any) {
         console.error(`Failed to import section ${section.sectionCode}:`, error);
+        failedSections.push(`${section.sectionCode}: ${error.message || 'Unknown error'}`);
       }
     }
     
     setProcessing(false);
     setSelectedSection(null);
-    toast.success("All sections imported");
+    
+    // Show summary
+    if (failedSections.length > 0 || skippedSections.length > 0) {
+      const messages: string[] = [];
+      if (successCount > 0) messages.push(`${successCount} imported`);
+      if (skippedSections.length > 0) messages.push(`${skippedSections.length} skipped (no items)`);
+      if (failedSections.length > 0) messages.push(`${failedSections.length} failed`);
+      toast.warning(`Import complete: ${messages.join(', ')}`);
+      
+      if (skippedSections.length > 0) {
+        console.log("[Import All] Skipped sections:", skippedSections);
+      }
+      if (failedSections.length > 0) {
+        console.log("[Import All] Failed sections:", failedSections);
+      }
+    } else if (successCount > 0) {
+      toast.success(`${successCount} sections imported`);
+    } else {
+      toast.info("No remaining sections to import");
+    }
   };
 
   // Reprise All - Re-parse BOQ and update ALL sections with fresh data
@@ -659,17 +696,49 @@ export function BOQReconciliationDialog({
       
       toast.info(`BOQ re-parsed. Now updating ${freshSections.length} sections...`);
       
+      // Track success/failure
+      let successCount = 0;
+      const failedSections: string[] = [];
+      const skippedSections: string[] = [];
+      
       // Import all sections using the freshly parsed data
       for (const section of freshSections) {
         setSelectedSection(section.sectionCode);
+        
+        // Skip sections with no items
+        if (section.items.length === 0) {
+          console.log(`[Reprise] Skipping section ${section.sectionCode} - no items`);
+          skippedSections.push(`${section.sectionCode} (no items)`);
+          continue;
+        }
+        
         try {
           await importSectionMutation.mutateAsync(section.sectionCode);
-        } catch (error) {
+          successCount++;
+        } catch (error: any) {
           console.error(`Failed to update section ${section.sectionCode}:`, error);
+          failedSections.push(`${section.sectionCode}: ${error.message || 'Unknown error'}`);
         }
       }
       
-      toast.success("All sections reprised with updated items");
+      // Show summary
+      if (failedSections.length > 0 || skippedSections.length > 0) {
+        const messages: string[] = [];
+        if (successCount > 0) messages.push(`${successCount} imported`);
+        if (skippedSections.length > 0) messages.push(`${skippedSections.length} skipped (no items found)`);
+        if (failedSections.length > 0) messages.push(`${failedSections.length} failed`);
+        toast.warning(`Import complete: ${messages.join(', ')}`);
+        
+        // Log details for debugging
+        if (skippedSections.length > 0) {
+          console.log("[Reprise] Skipped sections:", skippedSections);
+        }
+        if (failedSections.length > 0) {
+          console.log("[Reprise] Failed sections:", failedSections);
+        }
+      } else {
+        toast.success(`All ${successCount} sections reprised with updated items`);
+      }
     } catch (error) {
       console.error("Reprise failed:", error);
       toast.error("Failed to reprise sections");
