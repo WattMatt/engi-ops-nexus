@@ -46,6 +46,10 @@ interface ExtractedItem {
   added_to_master: boolean;
   suggested_category_id: string | null;
   suggested_category_name: string | null;
+  is_rate_only: boolean | null;
+  extraction_notes: string | null;
+  section_name: string | null;
+  bill_name: string | null;
 }
 
 interface MaterialCategory {
@@ -62,7 +66,7 @@ interface Props {
 export function BOQWizardStep5Review({ state, updateState }: Props) {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [itemCategories, setItemCategories] = useState<Record<string, string>>({});
-  const [filter, setFilter] = useState<'all' | 'matched' | 'unmatched'>('all');
+  const [filter, setFilter] = useState<'all' | 'matched' | 'unmatched' | 'flagged' | 'rate-only'>('all');
   const queryClient = useQueryClient();
 
   // Fetch extracted items
@@ -105,6 +109,10 @@ export function BOQWizardStep5Review({ state, updateState }: Props) {
         return items.filter(i => i.matched_material_id && (i.match_confidence || 0) >= 0.6);
       case 'unmatched':
         return items.filter(i => !i.matched_material_id || (i.match_confidence || 0) < 0.6);
+      case 'flagged':
+        return items.filter(i => i.extraction_notes && i.extraction_notes.includes('OUTLIER'));
+      case 'rate-only':
+        return items.filter(i => i.is_rate_only);
       default:
         return items;
     }
@@ -112,14 +120,18 @@ export function BOQWizardStep5Review({ state, updateState }: Props) {
 
   // Stats
   const stats = useMemo(() => {
-    if (!items) return { total: 0, matched: 0, unmatched: 0, approved: 0 };
+    if (!items) return { total: 0, matched: 0, unmatched: 0, approved: 0, flagged: 0, rateOnly: 0 };
     const matched = items.filter(i => i.matched_material_id && (i.match_confidence || 0) >= 0.6).length;
     const approved = items.filter(i => i.review_status === 'approved' || i.added_to_master).length;
+    const flagged = items.filter(i => i.extraction_notes && i.extraction_notes.includes('OUTLIER')).length;
+    const rateOnly = items.filter(i => i.is_rate_only).length;
     return {
       total: items.length,
       matched,
       unmatched: items.length - matched,
       approved,
+      flagged,
+      rateOnly,
     };
   }, [items]);
 
@@ -249,6 +261,18 @@ export function BOQWizardStep5Review({ state, updateState }: Props) {
           <CheckCircle className="h-3 w-3" />
           {stats.approved} Approved
         </Badge>
+        {stats.flagged > 0 && (
+          <Badge className="gap-1 bg-red-100 text-red-800 dark:bg-red-900/30">
+            <AlertCircle className="h-3 w-3" />
+            {stats.flagged} Flagged
+          </Badge>
+        )}
+        {stats.rateOnly > 0 && (
+          <Badge className="gap-1 bg-purple-100 text-purple-800 dark:bg-purple-900/30">
+            <TrendingUp className="h-3 w-3" />
+            {stats.rateOnly} Rate Only
+          </Badge>
+        )}
         
         <div className="ml-auto flex items-center gap-2">
           <Select value={filter} onValueChange={(v) => setFilter(v as any)}>
@@ -259,6 +283,8 @@ export function BOQWizardStep5Review({ state, updateState }: Props) {
               <SelectItem value="all">All Items</SelectItem>
               <SelectItem value="matched">Matched Only</SelectItem>
               <SelectItem value="unmatched">Unmatched Only</SelectItem>
+              <SelectItem value="flagged">Flagged/Outliers</SelectItem>
+              <SelectItem value="rate-only">Rate Only Items</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -350,9 +376,17 @@ export function BOQWizardStep5Review({ state, updateState }: Props) {
               <TableBody>
                 {filteredItems.map((item) => {
                   const isMatched = item.matched_material_id && (item.match_confidence || 0) >= 0.6;
+                  const hasOutlier = item.extraction_notes && item.extraction_notes.includes('OUTLIER');
+                  const rowClass = item.added_to_master 
+                    ? "bg-green-50/50 dark:bg-green-900/10" 
+                    : hasOutlier 
+                      ? "bg-red-50/50 dark:bg-red-900/10"
+                      : item.is_rate_only 
+                        ? "bg-purple-50/50 dark:bg-purple-900/10"
+                        : "";
                   
                   return (
-                    <TableRow key={item.id} className={item.added_to_master ? "bg-green-50/50 dark:bg-green-900/10" : ""}>
+                    <TableRow key={item.id} className={rowClass}>
                       <TableCell>
                         <Checkbox
                           checked={selectedItems.has(item.id)}
@@ -370,6 +404,20 @@ export function BOQWizardStep5Review({ state, updateState }: Props) {
                           </p>
                           {item.item_code && (
                             <p className="text-xs text-muted-foreground">{item.item_code}</p>
+                          )}
+                          {item.section_name && (
+                            <p className="text-xs text-muted-foreground">Section: {item.section_name}</p>
+                          )}
+                          {hasOutlier && (
+                            <p className="text-xs text-red-600 flex items-center gap-1 mt-1">
+                              <AlertCircle className="h-3 w-3" />
+                              {item.extraction_notes?.replace('OUTLIER: ', '')}
+                            </p>
+                          )}
+                          {item.is_rate_only && (
+                            <Badge variant="outline" className="text-xs mt-1 bg-purple-100 text-purple-800 dark:bg-purple-900/30">
+                              Rate Only
+                            </Badge>
                           )}
                         </div>
                       </TableCell>
