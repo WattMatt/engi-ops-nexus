@@ -118,6 +118,27 @@ export const BOQReviewDialog = ({ upload, open, onOpenChange }: BOQReviewDialogP
     enabled: !!upload,
   });
 
+  // Fetch upload metadata for rate source tracking
+  const { data: uploadMetadata } = useQuery({
+    queryKey: ["boq-upload-metadata", upload?.id],
+    queryFn: async () => {
+      if (!upload) return null;
+      const { data, error } = await supabase
+        .from("boq_uploads")
+        .select("contractor_name, province, tender_date, projects(name)")
+        .eq("id", upload.id)
+        .single();
+      if (error) throw error;
+      return data as {
+        contractor_name: string | null;
+        province: string | null;
+        tender_date: string | null;
+        projects: { name: string } | null;
+      };
+    },
+    enabled: !!upload,
+  });
+
   // Fetch master materials for cross-checking
   const { data: masterMaterials } = useQuery({
     queryKey: ["master-materials-for-check"],
@@ -238,6 +259,8 @@ export const BOQReviewDialog = ({ upload, open, onOpenChange }: BOQReviewDialogP
         );
 
         const code = item.item_code || `BOQ-${Date.now()}-${item.row_number}`;
+        const supplyRate = item.supply_rate || item.supply_cost || (item.total_rate ? item.total_rate * 0.7 : 0);
+        const installRate = item.install_rate || item.install_cost || (item.total_rate ? item.total_rate * 0.3 : 0);
 
         const { data: material, error: materialError } = await supabase
           .from("master_materials")
@@ -245,8 +268,8 @@ export const BOQReviewDialog = ({ upload, open, onOpenChange }: BOQReviewDialogP
             material_code: code,
             material_name: item.item_description,
             category_id: category?.id || categories?.[0]?.id,
-            standard_supply_cost: item.supply_rate || item.supply_cost || (item.total_rate ? item.total_rate * 0.7 : 0),
-            standard_install_cost: item.install_rate || item.install_cost || (item.total_rate ? item.total_rate * 0.3 : 0),
+            standard_supply_cost: supplyRate,
+            standard_install_cost: installRate,
             unit: item.unit || "each",
           })
           .select()
@@ -256,6 +279,22 @@ export const BOQReviewDialog = ({ upload, open, onOpenChange }: BOQReviewDialogP
           console.error("Error adding material:", materialError);
           continue;
         }
+
+        // Insert rate source for tracking/analytics
+        await supabase
+          .from("material_rate_sources")
+          .insert({
+            material_id: material.id,
+            boq_upload_id: upload?.id,
+            boq_item_id: item.id,
+            supply_rate: supplyRate,
+            install_rate: installRate,
+            contractor_name: uploadMetadata?.contractor_name,
+            province: uploadMetadata?.province,
+            tender_date: uploadMetadata?.tender_date,
+            project_name: uploadMetadata?.projects?.name,
+            is_primary_source: true,
+          });
 
         await supabase
           .from("boq_extracted_items")
@@ -271,7 +310,8 @@ export const BOQReviewDialog = ({ upload, open, onOpenChange }: BOQReviewDialogP
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["boq-extracted-items"] });
       queryClient.invalidateQueries({ queryKey: ["master-materials"] });
-      toast.success("Items added to master library");
+      queryClient.invalidateQueries({ queryKey: ["material-rate-sources"] });
+      toast.success("Items added to master library with rate tracking");
       setSelectedItems(new Set());
       setItemCategories({});
     },
