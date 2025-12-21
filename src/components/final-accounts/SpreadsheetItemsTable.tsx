@@ -29,10 +29,24 @@ interface ItemRow {
   is_rate_only: boolean;
   display_order: number;
   notes: string | null;
+  // Prime Cost fields
+  is_prime_cost: boolean;
+  pc_allowance: number | null;
+  pc_actual_cost: number | null;
+  // P&A fields
+  is_pa_item: boolean;
+  pa_parent_item_id: string | null;
+  pa_percentage: number | null;
 }
 
-// Determine the row type based on item code pattern
-function getItemRowType(item: ItemRow): 'header' | 'subheader' | 'description' | 'item' {
+// Determine the row type based on item code pattern and flags
+function getItemRowType(item: ItemRow): 'header' | 'subheader' | 'description' | 'item' | 'prime_cost' | 'pa_item' {
+  // Check for P&A item first
+  if (item.is_pa_item) return 'pa_item';
+  
+  // Check for Prime Cost item
+  if (item.is_prime_cost) return 'prime_cost';
+  
   const code = item.item_code?.trim() || '';
   const hasValues = (item.contract_quantity ?? 0) > 0 || (item.contract_amount ?? 0) > 0;
   
@@ -115,6 +129,26 @@ export function SpreadsheetItemsTable({ sectionId, billId, accountId, shopSubsec
         .update(updates)
         .eq("id", id);
       if (error) throw error;
+
+      // If this is a Prime Cost item, recalculate any linked P&A items
+      if (item.is_prime_cost) {
+        const childPAItems = items.filter(i => i.pa_parent_item_id === id);
+        for (const paItem of childPAItems) {
+          const paPercentage = paItem.pa_percentage || 0;
+          // P&A amount = parent final amount * percentage / 100
+          const paContractAmount = updates.contract_amount * (paPercentage / 100);
+          const paFinalAmount = updates.final_amount * (paPercentage / 100);
+          
+          await supabase
+            .from("final_account_items")
+            .update({
+              contract_amount: paContractAmount,
+              final_amount: paFinalAmount,
+              variation_amount: paFinalAmount - paContractAmount,
+            })
+            .eq("id", paItem.id);
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["final-account-items", sectionId, shopSubsectionId] });
@@ -280,12 +314,14 @@ export function SpreadsheetItemsTable({ sectionId, billId, accountId, shopSubsec
     }
   }, [activeCell]);
 
-  const renderCell = (item: ItemRow, column: typeof COLUMNS[0], rowType: 'header' | 'subheader' | 'description' | 'item' = 'item') => {
+  const renderCell = (item: ItemRow, column: typeof COLUMNS[0], rowType: 'header' | 'subheader' | 'description' | 'item' | 'prime_cost' | 'pa_item' = 'item') => {
     const isActive = activeCell?.rowId === item.id && activeCell?.field === column.key;
     const value = item[column.key as keyof ItemRow];
     const isHeader = rowType === 'header';
     const isSubheader = rowType === 'subheader';
     const isDescription = rowType === 'description';
+    const isPrimeCost = rowType === 'prime_cost';
+    const isPAItem = rowType === 'pa_item';
     
     if (column.key === 'actions') {
       return (
@@ -388,6 +424,8 @@ export function SpreadsheetItemsTable({ sectionId, billId, accountId, shopSubsec
             const isHeader = rowType === 'header';
             const isSubheader = rowType === 'subheader';
             const isDescription = rowType === 'description';
+            const isPrimeCost = rowType === 'prime_cost';
+            const isPAItem = rowType === 'pa_item';
             
             return (
               <div 
@@ -397,7 +435,9 @@ export function SpreadsheetItemsTable({ sectionId, billId, accountId, shopSubsec
                   isHeader && "bg-primary/10 font-semibold",
                   isSubheader && "bg-muted/50 font-medium",
                   isDescription && "bg-muted/20 italic",
-                  !isHeader && !isSubheader && !isDescription && "hover:bg-muted/30"
+                  isPrimeCost && "bg-amber-50 dark:bg-amber-950/30",
+                  isPAItem && "bg-blue-50 dark:bg-blue-950/30 pl-4",
+                  !isHeader && !isSubheader && !isDescription && !isPrimeCost && !isPAItem && "hover:bg-muted/30"
                 )}
               >
                 {COLUMNS.map((col) => (
@@ -406,8 +446,9 @@ export function SpreadsheetItemsTable({ sectionId, billId, accountId, shopSubsec
                     className={cn(
                       "border-r last:border-r-0 min-h-[32px] flex items-center",
                       col.width,
-                      // Indent descriptions
-                      col.key === 'description' && isDescription && "pl-6"
+                      // Indent descriptions and P&A items
+                      col.key === 'description' && isDescription && "pl-6",
+                      col.key === 'description' && isPAItem && "pl-8"
                     )}
                   >
                     {renderCell(item, col, rowType)}

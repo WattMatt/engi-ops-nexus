@@ -2711,10 +2711,13 @@ export type Database = {
           final_quantity: number | null
           id: string
           install_rate: number | null
+          is_pa_item: boolean | null
           is_prime_cost: boolean | null
           is_rate_only: boolean | null
           item_code: string
           notes: string | null
+          pa_parent_item_id: string | null
+          pa_percentage: number | null
           pc_actual_cost: number | null
           pc_allowance: number | null
           pc_profit_attendance_percent: number | null
@@ -2736,10 +2739,13 @@ export type Database = {
           final_quantity?: number | null
           id?: string
           install_rate?: number | null
+          is_pa_item?: boolean | null
           is_prime_cost?: boolean | null
           is_rate_only?: boolean | null
           item_code: string
           notes?: string | null
+          pa_parent_item_id?: string | null
+          pa_percentage?: number | null
           pc_actual_cost?: number | null
           pc_allowance?: number | null
           pc_profit_attendance_percent?: number | null
@@ -2761,10 +2767,13 @@ export type Database = {
           final_quantity?: number | null
           id?: string
           install_rate?: number | null
+          is_pa_item?: boolean | null
           is_prime_cost?: boolean | null
           is_rate_only?: boolean | null
           item_code?: string
           notes?: string | null
+          pa_parent_item_id?: string | null
+          pa_percentage?: number | null
           pc_actual_cost?: number | null
           pc_allowance?: number | null
           pc_profit_attendance_percent?: number | null
@@ -2777,6 +2786,13 @@ export type Database = {
           variation_amount?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "final_account_items_pa_parent_item_id_fkey"
+            columns: ["pa_parent_item_id"]
+            isOneToOne: false
+            referencedRelation: "final_account_items"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "final_account_items_section_id_fkey"
             columns: ["section_id"]
