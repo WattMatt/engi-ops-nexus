@@ -337,13 +337,22 @@ export function BOQReconciliationDialog({
         totalItems += items.length;
       }
       
-      // Sort sections: by bill number, then by section code (natural sort for numbers)
+      // Sort sections: by bill number, then by section code (proper numerical sort)
       const sortedSections = sections.sort((a, b) => {
         if (a.billNumber !== b.billNumber) return a.billNumber - b.billNumber;
-        // Natural sort for section codes
-        const aNum = parseFloat(a.sectionCode);
-        const bNum = parseFloat(b.sectionCode);
-        if (!isNaN(aNum) && !isNaN(bNum)) return aNum - bNum;
+        
+        // Natural sort for section codes like "1.2", "1.10", "P&G"
+        const aParts = a.sectionCode.split('.').map(p => parseInt(p) || 0);
+        const bParts = b.sectionCode.split('.').map(p => parseInt(p) || 0);
+        
+        // Compare each part numerically
+        for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
+          const aVal = aParts[i] || 0;
+          const bVal = bParts[i] || 0;
+          if (aVal !== bVal) return aVal - bVal;
+        }
+        
+        // Fallback to string comparison for non-numeric codes
         return a.sectionCode.localeCompare(b.sectionCode);
       });
       
@@ -665,7 +674,7 @@ export function BOQReconciliationDialog({
               </div>
 
               {/* Section List */}
-              <ScrollArea className="flex-1">
+              <ScrollArea className="flex-1 h-[350px]">
                 {parsedSections.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <p>No sections found in BOQ.</p>
