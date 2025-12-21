@@ -201,22 +201,28 @@ export function ImportBOQDialog({ open, onOpenChange, accountId, projectId }: Im
           let displayOrder = (maxOrderData?.display_order || 0) + 1;
 
           // Insert items
-          const itemsToInsert = items.map((item) => ({
-            section_id: sectionId,
-            item_code: item.item_code || "",
-            description: item.item_description,
-            unit: item.unit || "Nr",
-            contract_quantity: item.quantity || 0,
-            final_quantity: importMode === "both" ? (item.quantity || 0) : 0,
-            supply_rate: item.supply_rate || 0,
-            install_rate: item.install_rate || 0,
-            contract_amount: (item.quantity || 0) * ((item.supply_rate || 0) + (item.install_rate || 0)),
-            final_amount: importMode === "both" 
-              ? (item.quantity || 0) * ((item.supply_rate || 0) + (item.install_rate || 0))
-              : 0,
-            display_order: displayOrder++,
-            source_boq_item_id: item.id,
-          }));
+          const itemsToInsert = items.map((item) => {
+            const isPrimeCost = !!item.prime_cost || /prime\s*cost/i.test(item.item_description || "");
+            const contractAmount = (item.quantity || 0) * ((item.supply_rate || 0) + (item.install_rate || 0));
+            
+            return {
+              section_id: sectionId,
+              item_code: item.item_code || "",
+              description: item.item_description,
+              unit: item.unit || "Nr",
+              contract_quantity: item.quantity || 0,
+              final_quantity: importMode === "both" ? (item.quantity || 0) : 0,
+              supply_rate: item.supply_rate || 0,
+              install_rate: item.install_rate || 0,
+              contract_amount: contractAmount,
+              final_amount: importMode === "both" ? contractAmount : 0,
+              display_order: displayOrder++,
+              source_boq_item_id: item.id,
+              is_prime_cost: isPrimeCost,
+              pc_allowance: isPrimeCost ? (item.prime_cost || contractAmount) : 0,
+              pc_profit_attendance_percent: item.pc_profit_attendance_percent || item.profit_attendance_percent || 0,
+            };
+          });
 
           const { error: itemsError } = await supabase
             .from("final_account_items")
