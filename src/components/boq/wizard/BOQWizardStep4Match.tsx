@@ -175,11 +175,31 @@ export function BOQWizardStep4Match({ state, updateState }: Props) {
         throw new Error("No valid content to process. Check column mappings.");
       }
 
+      // Build column mappings to pass to edge function
+      const columnMappingsToSend: Record<string, any> = {};
+      Object.entries(state.columnMappings).forEach(([sheetName, mapping]) => {
+        if (state.selectedSheets.has(sheetName)) {
+          columnMappingsToSend[sheetName] = {
+            itemCode: mapping.itemCode,
+            description: mapping.description,
+            quantity: mapping.quantity,
+            unit: mapping.unit,
+            supplyRate: mapping.supplyRate,
+            installRate: mapping.installRate,
+            totalRate: mapping.totalRate,
+            amount: mapping.amount,
+          };
+        }
+      });
+
+      console.log('[BOQ Wizard] Sending column mappings:', columnMappingsToSend);
+
       // Call the matching edge function (returns immediately, processes in background)
       const { error: matchError } = await supabase.functions.invoke("match-boq-rates", {
         body: {
           upload_id: uploadRecord.id,
           file_content: contentToProcess,
+          column_mappings: columnMappingsToSend,
         },
       });
 
