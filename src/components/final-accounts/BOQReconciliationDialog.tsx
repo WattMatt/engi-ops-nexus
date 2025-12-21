@@ -703,31 +703,42 @@ export function BOQReconciliationDialog({
         sectionId = newSection.id;
       }
 
-      // Insert items
-      const itemsToInsert = items.map((item, index) => ({
-        section_id: sectionId,
-        item_code: item.itemCode || `${sectionCode}${index + 1}`,
-        description: item.description,
-        unit: item.unit || "Nr",
-        contract_quantity: item.quantity,
-        final_quantity: 0,
-        supply_rate: item.supplyRate,
-        install_rate: item.installRate,
-        contract_amount: item.amount,
-        final_amount: 0,
-        display_order: index + 1,
-      }));
+      // Insert items - exclude amounts from header rows to prevent double-counting
+      const itemsToInsert = items.map((item, index) => {
+        // Header rows (single letter codes like A, B, C) contain subtotals - zero them out
+        const isHeaderRow = /^[A-Z]$/i.test(item.itemCode);
+        const amount = isHeaderRow ? 0 : item.amount;
+        
+        return {
+          section_id: sectionId,
+          item_code: item.itemCode || "",
+          description: item.description,
+          unit: item.unit || "",
+          contract_quantity: isHeaderRow ? 0 : item.quantity,
+          final_quantity: 0,
+          supply_rate: isHeaderRow ? 0 : item.supplyRate,
+          install_rate: isHeaderRow ? 0 : item.installRate,
+          contract_amount: amount,
+          final_amount: 0,
+          display_order: index + 1,
+        };
+      });
+      
+      // Calculate actual total from non-header items only
+      const actualTotal = items
+        .filter(item => !/^[A-Z]$/i.test(item.itemCode))
+        .reduce((sum, item) => sum + item.amount, 0);
 
       const { error: itemsError } = await supabase
         .from("final_account_items")
         .insert(itemsToInsert);
       if (itemsError) throw itemsError;
 
-      // Update section totals
+      // Update section totals with actual calculated total (excluding headers)
       await supabase
         .from("final_account_sections")
         .update({
-          contract_total: section.boqTotal,
+          contract_total: actualTotal,
           final_total: 0,
         })
         .eq("id", sectionId);
