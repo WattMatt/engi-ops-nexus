@@ -24,6 +24,17 @@ interface MaterialCategory {
   parent_category_id: string | null;
 }
 
+interface ColumnMapping {
+  itemCode: number | null;
+  description: number | null;
+  quantity: number | null;
+  unit: number | null;
+  supplyRate: number | null;
+  installRate: number | null;
+  totalRate: number | null;
+  amount: number | null;
+}
+
 interface MatchResult {
   row_number: number;
   item_description: string;
@@ -67,6 +78,56 @@ function standardizeUnit(unit: string | null): string | null {
   if (!unit) return null;
   const normalized = unit.toLowerCase().trim();
   return UNIT_MAPPING[normalized] || unit.toUpperCase();
+}
+
+/**
+ * Parse a currency/number string to a float
+ * Handles formats like: "R 1,234.56", "1234.56", "R1234", "1 234,56"
+ */
+function parseRate(value: string | number | null | undefined): number {
+  if (value === null || value === undefined) return 0;
+  if (typeof value === 'number') return isNaN(value) ? 0 : value;
+  
+  const str = String(value).trim();
+  if (!str) return 0;
+  
+  // Remove currency symbols and spaces
+  let cleaned = str.replace(/^[R$€£]\s*/i, '').trim();
+  
+  // Handle different number formats:
+  // 1,234.56 (US/ZA format) -> 1234.56
+  // 1.234,56 (EU format) -> 1234.56
+  // 1 234,56 (FR format) -> 1234.56
+  
+  // Check if comma is decimal separator (EU format)
+  if (cleaned.includes(',') && !cleaned.includes('.')) {
+    // Single comma could be decimal (1234,56) or thousands (1,234)
+    const parts = cleaned.split(',');
+    if (parts.length === 2 && parts[1].length === 2) {
+      // Likely decimal: 1234,56
+      cleaned = cleaned.replace(',', '.');
+    } else {
+      // Likely thousands: 1,234
+      cleaned = cleaned.replace(/,/g, '');
+    }
+  } else if (cleaned.includes(',') && cleaned.includes('.')) {
+    // Both present: determine which is decimal
+    const lastComma = cleaned.lastIndexOf(',');
+    const lastDot = cleaned.lastIndexOf('.');
+    if (lastComma > lastDot) {
+      // EU format: 1.234,56
+      cleaned = cleaned.replace(/\./g, '').replace(',', '.');
+    } else {
+      // US format: 1,234.56
+      cleaned = cleaned.replace(/,/g, '');
+    }
+  }
+  
+  // Remove any remaining non-numeric chars except . and -
+  cleaned = cleaned.replace(/[^\d.-]/g, '');
+  
+  const num = parseFloat(cleaned);
+  return isNaN(num) ? 0 : num;
 }
 
 async function getGoogleAccessToken(): Promise<string> {
@@ -201,13 +262,17 @@ serve(async (req) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { upload_id, file_content, google_sheet_id } = await req.json();
+    const { upload_id, file_content, google_sheet_id, column_mappings } = await req.json();
 
     if (!upload_id) {
       throw new Error('upload_id is required');
     }
 
     console.log(`[BOQ Match] Starting matching for upload: ${upload_id}`);
+    console.log(`[BOQ Match] Column mappings provided: ${column_mappings ? 'YES' : 'NO'}`);
+    if (column_mappings) {
+      console.log('[BOQ Match] Column mappings:', JSON.stringify(column_mappings));
+    }
     
     let contentToProcess = file_content;
 
@@ -216,22 +281,30 @@ serve(async (req) => {
       contentToProcess = await fetchGoogleSheetContent(google_sheet_id);
     }
 
-    // Update status to processing immediately
-    await supabase
+    // Update status to processing immediately - with error handling
+    const { error: statusError } = await supabase
       .from('boq_uploads')
       .update({ 
         status: 'processing',
-        extraction_started_at: new Date().toISOString()
+        extraction_started_at: new Date().toISOString(),
+        error_message: null
       })
       .eq('id', upload_id);
 
+    if (statusError) {
+      console.error('[BOQ Match] Failed to update status to processing:', statusError);
+      throw new Error(`Failed to update status: ${statusError.message}`);
+    }
+
+    console.log('[BOQ Match] Status updated to processing, starting background task...');
+
     // Use background task processing for large files
-    // This allows the function to return immediately while processing continues
     const backgroundTask = processMatching(
       supabase,
       upload_id,
       contentToProcess,
-      lovableApiKey
+      lovableApiKey,
+      column_mappings
     );
 
     // Start background processing
@@ -269,10 +342,14 @@ async function processMatching(
   supabase: any,
   upload_id: string,
   file_content: string,
-  lovableApiKey: string | undefined
+  lovableApiKey: string | undefined,
+  columnMappings?: Record<string, ColumnMapping>
 ): Promise<{ total_items: number; matched_count: number; new_count: number }> {
+  console.log('[BOQ Match] processMatching() started');
+  
   try {
     // Fetch master materials and categories in parallel
+    console.log('[BOQ Match] Fetching master materials and categories...');
     const [materialsResult, categoriesResult] = await Promise.all([
       supabase
         .from('master_materials')
@@ -284,10 +361,19 @@ async function processMatching(
         .eq('is_active', true)
     ]);
 
+    if (materialsResult.error) {
+      console.error('[BOQ Match] Error fetching materials:', materialsResult.error);
+      throw new Error(`Failed to fetch materials: ${materialsResult.error.message}`);
+    }
+    if (categoriesResult.error) {
+      console.error('[BOQ Match] Error fetching categories:', categoriesResult.error);
+      throw new Error(`Failed to fetch categories: ${categoriesResult.error.message}`);
+    }
+
     const masterMaterials = materialsResult.data || [];
     const categories = categoriesResult.data || [];
 
-    console.log(`[BOQ Match] Found ${masterMaterials.length} master materials to match against`);
+    console.log(`[BOQ Match] Found ${masterMaterials.length} master materials, ${categories.length} categories`);
 
     // Build the material reference for AI
     const materialReference = masterMaterials.map((m: MasterMaterial) => ({
@@ -299,21 +385,54 @@ async function processMatching(
       install_cost: m.standard_install_cost,
     }));
 
-    // Use AI to extract items AND match them
-    const matchResults = await extractAndMatchWithAI(
-      file_content,
-      materialReference,
-      categories,
-      lovableApiKey
-    );
+    // Use enhanced basic parse with column mappings OR AI
+    let matchResults: MatchResult[];
+    
+    // If we have column mappings, use the improved basicParse directly for reliability
+    // This ensures we get the exact columns the user mapped
+    if (columnMappings && Object.keys(columnMappings).length > 0) {
+      console.log('[BOQ Match] Using basicParse with provided column mappings');
+      matchResults = basicParseWithMappings(
+        file_content,
+        materialReference,
+        categories,
+        columnMappings
+      );
+    } else if (lovableApiKey) {
+      // Fallback to AI extraction
+      console.log('[BOQ Match] No column mappings, using AI extraction');
+      matchResults = await extractAndMatchWithAI(
+        file_content,
+        materialReference,
+        categories,
+        lovableApiKey
+      );
+    } else {
+      console.log('[BOQ Match] No API key or mappings, using basic parse');
+      matchResults = basicParse(file_content, materialReference, categories);
+    }
 
-    console.log(`[BOQ Match] AI returned ${matchResults.length} items`);
+    console.log(`[BOQ Match] Extraction returned ${matchResults.length} items`);
+    
+    // Log rate statistics
+    const itemsWithRates = matchResults.filter(r => (r.total_rate || 0) > 0);
+    console.log(`[BOQ Match] Items with rates: ${itemsWithRates.length}`);
+    if (itemsWithRates.length > 0) {
+      console.log('[BOQ Match] Sample items with rates:');
+      itemsWithRates.slice(0, 5).forEach((item, i) => {
+        console.log(`  ${i + 1}. "${item.item_description?.substring(0, 50)}..." - Supply: R${item.supply_rate}, Install: R${item.install_rate}, Total: R${item.total_rate}`);
+      });
+    }
 
     // Delete existing items for this upload
-    await supabase
+    const { error: deleteError } = await supabase
       .from('boq_extracted_items')
       .delete()
       .eq('upload_id', upload_id);
+    
+    if (deleteError) {
+      console.error('[BOQ Match] Error deleting existing items:', deleteError);
+    }
 
     // Prepare batch insert data
     const itemsToInsert: any[] = [];
@@ -348,7 +467,7 @@ async function processMatching(
                          (!result.math_validated ? 'Math validation failed' : null),
       });
 
-      if (result.matched_material_id && result.match_confidence >= 0.7) {
+      if (result.matched_material_id && result.match_confidence >= 0.5) {
         matchedCount++;
         
         // Collect master material updates (only update if no rate exists)
@@ -360,10 +479,12 @@ async function processMatching(
             
             const updateData: any = {};
             if (boqSupply && (masterMaterial.supply_cost === 0 || masterMaterial.supply_cost === null)) {
-              updateData.standard_supply_cost = boqSupply;
+              updateData.standard_supply_cost = Math.round(boqSupply * 100) / 100;
+              console.log(`[BOQ Match] Will update ${masterMaterial.code} supply_cost to ${updateData.standard_supply_cost}`);
             }
             if (boqInstall && (masterMaterial.install_cost === 0 || masterMaterial.install_cost === null)) {
-              updateData.standard_install_cost = boqInstall;
+              updateData.standard_install_cost = Math.round(boqInstall * 100) / 100;
+              console.log(`[BOQ Match] Will update ${masterMaterial.code} install_cost to ${updateData.standard_install_cost}`);
             }
             if (standardizedUnit && !masterMaterial.unit) {
               updateData.unit = standardizedUnit;
@@ -381,6 +502,7 @@ async function processMatching(
 
     // BATCH INSERT all items at once (much faster than individual inserts)
     if (itemsToInsert.length > 0) {
+      console.log(`[BOQ Match] Inserting ${itemsToInsert.length} items in batches...`);
       // Insert in chunks of 100 to avoid payload size limits
       const chunkSize = 100;
       for (let i = 0; i < itemsToInsert.length; i += chunkSize) {
@@ -391,6 +513,8 @@ async function processMatching(
         
         if (insertError) {
           console.error(`[BOQ Match] Batch insert error for chunk ${i / chunkSize + 1}:`, insertError);
+        } else {
+          console.log(`[BOQ Match] Inserted chunk ${Math.floor(i / chunkSize) + 1}/${Math.ceil(itemsToInsert.length / chunkSize)}`);
         }
       }
       console.log(`[BOQ Match] Batch inserted ${itemsToInsert.length} items`);
@@ -398,6 +522,7 @@ async function processMatching(
 
     // Apply master material updates
     let ratesUpdatedCount = 0;
+    console.log(`[BOQ Match] Applying ${masterUpdates.size} master material updates...`);
     for (const [materialId, updateData] of masterUpdates) {
       const { error: updateError } = await supabase
         .from('master_materials')
@@ -406,18 +531,22 @@ async function processMatching(
       
       if (!updateError) {
         ratesUpdatedCount++;
+      } else {
+        console.error(`[BOQ Match] Failed to update material ${materialId}:`, updateError);
       }
     }
 
     // Log summary
-    console.log(`[BOQ Match] Processing Summary:`);
-    console.log(`  - Total items extracted: ${matchResults.length}`);
-    console.log(`  - Matched to master: ${matchedCount}`);
-    console.log(`  - New items (unmatched): ${newItemCount}`);
-    console.log(`  - Master rates updated: ${ratesUpdatedCount}`);
+    console.log(`[BOQ Match] ========== Processing Summary ==========`);
+    console.log(`  Total items extracted: ${matchResults.length}`);
+    console.log(`  Items with rates: ${itemsWithRates.length}`);
+    console.log(`  Matched to master: ${matchedCount}`);
+    console.log(`  New items (unmatched): ${newItemCount}`);
+    console.log(`  Master rates updated: ${ratesUpdatedCount}`);
+    console.log(`[BOQ Match] =======================================`);
 
     // Update upload status with summary
-    await supabase
+    const { error: finalStatusError } = await supabase
       .from('boq_uploads')
       .update({ 
         status: 'completed',
@@ -425,8 +554,13 @@ async function processMatching(
         total_items_extracted: matchResults.length,
         items_matched_to_master: matchedCount,
         items_added_to_master: ratesUpdatedCount,
+        error_message: null
       })
       .eq('id', upload_id);
+
+    if (finalStatusError) {
+      console.error('[BOQ Match] Failed to update final status:', finalStatusError);
+    }
 
     console.log(`[BOQ Match] Completed successfully`);
 
@@ -438,16 +572,185 @@ async function processMatching(
 
   } catch (error) {
     console.error('[BOQ Match] Processing error:', error);
-    await supabase
-      .from('boq_uploads')
-      .update({ 
-        status: 'error',
-        error_message: error instanceof Error ? error.message : 'Unknown error',
-        extraction_completed_at: new Date().toISOString()
-      })
-      .eq('id', upload_id);
+    
+    // Always update status to error
+    try {
+      await supabase
+        .from('boq_uploads')
+        .update({ 
+          status: 'error',
+          error_message: error instanceof Error ? error.message : 'Unknown error',
+          extraction_completed_at: new Date().toISOString()
+        })
+        .eq('id', upload_id);
+      console.log('[BOQ Match] Status updated to error');
+    } catch (statusError) {
+      console.error('[BOQ Match] Failed to update error status:', statusError);
+    }
+    
     throw error;
   }
+}
+
+/**
+ * Enhanced basic parsing that uses explicit column mappings from the wizard
+ */
+function basicParseWithMappings(
+  content: string,
+  materialReference: { id: string; code: string; name: string; unit: string | null; supply_cost?: number | null; install_cost?: number | null }[],
+  categories: MaterialCategory[] | null,
+  columnMappings: Record<string, ColumnMapping>
+): MatchResult[] {
+  const results: MatchResult[] = [];
+  const lines = content.split('\n');
+  let rowNumber = 0;
+  let currentSheet = '';
+  let currentBillNumber = 0;
+  let currentMapping: ColumnMapping | null = null;
+  let isFirstDataRow = true;
+
+  console.log('[BOQ Match] basicParseWithMappings processing', lines.length, 'lines');
+  console.log('[BOQ Match] Available mappings for sheets:', Object.keys(columnMappings));
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    
+    // Detect sheet name
+    if (trimmed.startsWith('=== SHEET:')) {
+      currentSheet = trimmed.replace('=== SHEET:', '').replace('===', '').trim();
+      currentBillNumber++;
+      currentMapping = columnMappings[currentSheet] || null;
+      isFirstDataRow = true;
+      
+      console.log(`[BOQ Match] Processing sheet: "${currentSheet}", mapping found: ${currentMapping ? 'YES' : 'NO'}`);
+      if (currentMapping) {
+        console.log(`[BOQ Match] Column indices - desc:${currentMapping.description}, unit:${currentMapping.unit}, qty:${currentMapping.quantity}, supplyRate:${currentMapping.supplyRate}, installRate:${currentMapping.installRate}, totalRate:${currentMapping.totalRate}, amount:${currentMapping.amount}`);
+      }
+      continue;
+    }
+
+    // Skip if no mapping for this sheet
+    if (!currentMapping || currentMapping.description === null) continue;
+    
+    // Skip header row (first row after sheet marker)
+    if (isFirstDataRow && trimmed.includes('\t')) {
+      const parts = trimmed.split('\t');
+      // Check if this looks like a header (contains typical header words)
+      const headerWords = ['description', 'item', 'unit', 'qty', 'rate', 'amount', 'total', 'code'];
+      const isHeader = parts.some(p => headerWords.some(h => p.toLowerCase().includes(h)));
+      if (isHeader) {
+        console.log('[BOQ Match] Skipping header row');
+        isFirstDataRow = false;
+        continue;
+      }
+      isFirstDataRow = false;
+    }
+
+    // Parse data rows using the mapped column positions
+    const parts = trimmed.split('\t').map(p => p.trim());
+    
+    // Extract values using exact column positions
+    const itemCode = currentMapping.itemCode !== null ? (parts[currentMapping.itemCode] || '') : '';
+    const description = currentMapping.description !== null ? (parts[currentMapping.description] || '') : '';
+    const unit = currentMapping.unit !== null ? (parts[currentMapping.unit] || '') : '';
+    const quantityRaw = currentMapping.quantity !== null ? parts[currentMapping.quantity] : '';
+    const supplyRateRaw = currentMapping.supplyRate !== null ? parts[currentMapping.supplyRate] : '';
+    const installRateRaw = currentMapping.installRate !== null ? parts[currentMapping.installRate] : '';
+    const totalRateRaw = currentMapping.totalRate !== null ? parts[currentMapping.totalRate] : '';
+    const amountRaw = currentMapping.amount !== null ? parts[currentMapping.amount] : '';
+
+    // Skip rows without meaningful description
+    if (!description || description.length < 3) continue;
+    
+    // Skip total/subtotal rows
+    const descLower = description.toLowerCase();
+    if (/^(total|subtotal|sub-total|carried|summary|brought|section\s*total)/i.test(descLower)) continue;
+
+    // Parse numeric values with currency handling
+    const quantity = parseRate(quantityRaw);
+    let supplyRate = parseRate(supplyRateRaw);
+    let installRate = parseRate(installRateRaw);
+    let totalRate = parseRate(totalRateRaw);
+    const amount = parseRate(amountRaw);
+
+    // Calculate missing rates
+    if (totalRate === 0 && (supplyRate > 0 || installRate > 0)) {
+      totalRate = supplyRate + installRate;
+    }
+    if (totalRate > 0 && supplyRate === 0 && installRate === 0) {
+      supplyRate = Math.round(totalRate * 0.7 * 100) / 100;
+      installRate = Math.round(totalRate * 0.3 * 100) / 100;
+    }
+    // If we have amount and quantity but no rate, calculate it
+    if (totalRate === 0 && amount > 0 && quantity > 0) {
+      totalRate = Math.round((amount / quantity) * 100) / 100;
+      supplyRate = Math.round(totalRate * 0.7 * 100) / 100;
+      installRate = Math.round(totalRate * 0.3 * 100) / 100;
+    }
+
+    rowNumber++;
+
+    // Log first few items with rates for debugging
+    if (rowNumber <= 5 && totalRate > 0) {
+      console.log(`[BOQ Match] Row ${rowNumber}: "${description.substring(0, 40)}..." | Qty: ${quantity} | Supply: R${supplyRate} | Install: R${installRate} | Total: R${totalRate}`);
+    }
+
+    // Match to master materials
+    let matchedId: string | null = null;
+    let matchConfidence = 0;
+
+    for (const material of materialReference) {
+      const nameLower = material.name.toLowerCase();
+      
+      if (descLower === nameLower) {
+        matchedId = material.id;
+        matchConfidence = 0.95;
+        break;
+      }
+      
+      // Check for significant word overlap
+      const descWords = descLower.split(/\s+/).filter(w => w.length > 2);
+      const nameWords = nameLower.split(/\s+/).filter(w => w.length > 2);
+      const commonWords = descWords.filter(w => nameWords.some(nw => nw.includes(w) || w.includes(nw)));
+      const wordOverlap = commonWords.length / Math.max(descWords.length, nameWords.length, 1);
+      
+      if (wordOverlap > matchConfidence && wordOverlap >= 0.4) {
+        matchedId = material.id;
+        matchConfidence = wordOverlap;
+      }
+    }
+
+    results.push({
+      row_number: rowNumber,
+      item_description: description,
+      item_code: itemCode || null,
+      unit: standardizeUnit(unit) || null,
+      quantity: quantity || null,
+      supply_rate: supplyRate || null,
+      install_rate: installRate || null,
+      total_rate: totalRate || null,
+      matched_material_id: matchConfidence >= 0.5 ? matchedId : null,
+      match_confidence: matchConfidence,
+      suggested_category_id: null,
+      suggested_category_name: null,
+      is_new_item: matchConfidence < 0.5,
+      bill_number: currentBillNumber || null,
+      bill_name: currentSheet || null,
+      section_code: null,
+      section_name: null,
+      is_outlier: false,
+      outlier_reason: null,
+      math_validated: true,
+      calculated_total: (quantity || 0) * (totalRate || 0),
+    });
+  }
+
+  const itemsWithRates = results.filter(r => (r.total_rate || 0) > 0);
+  console.log(`[BOQ Match] basicParseWithMappings extracted ${results.length} items, ${itemsWithRates.length} with rates`);
+  
+  return results;
 }
 
 /**
@@ -606,7 +909,6 @@ CRITICAL: Return ONLY valid JSON array. No markdown, no explanation.`;
       console.log('[BOQ Match] Direct parse failed, trying repair strategies...');
       
       // Try 2: The response might be truncated - try to repair
-      // Find where the array starts
       const arrayStart = cleanedText.indexOf('[');
       if (arrayStart >= 0) {
         let jsonContent = cleanedText.substring(arrayStart);
@@ -616,26 +918,23 @@ CRITICAL: Return ONLY valid JSON array. No markdown, no explanation.`;
           parsed = JSON.parse(jsonContent);
           console.log('[BOQ Match] Parse after array extraction succeeded');
         } catch (e2) {
-          // Try 4: Repair truncated JSON - find the last complete object
-          // Look for the last complete object pattern "}," or "}" before potential truncation
+          // Try 4: Repair truncated JSON
           const lastCompleteObj = jsonContent.lastIndexOf('},');
           const lastSingleObj = jsonContent.lastIndexOf('}');
           
           let repairPoint = -1;
           if (lastCompleteObj > 0) {
-            repairPoint = lastCompleteObj + 1; // Include the }
+            repairPoint = lastCompleteObj + 1;
           } else if (lastSingleObj > 0) {
             repairPoint = lastSingleObj + 1;
           }
           
           if (repairPoint > 0) {
-            // Try to close the array
             const repairedJson = jsonContent.substring(0, repairPoint) + ']';
             try {
               parsed = JSON.parse(repairedJson);
               console.log(`[BOQ Match] Repaired JSON parse succeeded with ${parsed.length} items`);
             } catch (e3) {
-              // Try 5: More aggressive repair - extract individual objects
               console.log('[BOQ Match] Repair failed, trying object extraction...');
               const objectPattern = /\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}/g;
               const objects = jsonContent.match(objectPattern) || [];
@@ -660,7 +959,7 @@ CRITICAL: Return ONLY valid JSON array. No markdown, no explanation.`;
     }
     
     if (!Array.isArray(parsed) || parsed.length === 0) {
-      console.log('[BOQ Match] All JSON parsing failed, using enhanced basic parse');
+      console.log('[BOQ Match] All JSON parsing failed, using basic parse');
       console.log('[BOQ Match] First 500 chars:', cleanedText.substring(0, 500));
       return basicParse(content, materialReference, categories);
     }
@@ -721,7 +1020,7 @@ CRITICAL: Return ONLY valid JSON array. No markdown, no explanation.`;
 }
 
 /**
- * Enhanced basic parsing fallback - uses column structure from mapped data
+ * Basic parsing fallback without column mappings
  */
 function basicParse(
   content: string,
@@ -791,11 +1090,11 @@ function basicParse(
       if (headerIndices['itemCode'] !== undefined) itemCode = parts[headerIndices['itemCode']] || '';
       if (headerIndices['description'] !== undefined) description = parts[headerIndices['description']] || '';
       if (headerIndices['unit'] !== undefined) unit = parts[headerIndices['unit']] || '';
-      if (headerIndices['quantity'] !== undefined) quantity = parseFloat(parts[headerIndices['quantity']]?.replace(/[^\d.-]/g, '') || '0') || 0;
-      if (headerIndices['supplyRate'] !== undefined) supplyRate = parseFloat(parts[headerIndices['supplyRate']]?.replace(/[^\d.-]/g, '') || '0') || 0;
-      if (headerIndices['installRate'] !== undefined) installRate = parseFloat(parts[headerIndices['installRate']]?.replace(/[^\d.-]/g, '') || '0') || 0;
-      if (headerIndices['totalRate'] !== undefined) totalRate = parseFloat(parts[headerIndices['totalRate']]?.replace(/[^\d.-]/g, '') || '0') || 0;
-      if (headerIndices['amount'] !== undefined) amount = parseFloat(parts[headerIndices['amount']]?.replace(/[^\d.-]/g, '') || '0') || 0;
+      if (headerIndices['quantity'] !== undefined) quantity = parseRate(parts[headerIndices['quantity']]);
+      if (headerIndices['supplyRate'] !== undefined) supplyRate = parseRate(parts[headerIndices['supplyRate']]);
+      if (headerIndices['installRate'] !== undefined) installRate = parseRate(parts[headerIndices['installRate']]);
+      if (headerIndices['totalRate'] !== undefined) totalRate = parseRate(parts[headerIndices['totalRate']]);
+      if (headerIndices['amount'] !== undefined) amount = parseRate(parts[headerIndices['amount']]);
     } else {
       // Fallback: heuristic parsing
       for (const part of parts) {
@@ -805,8 +1104,8 @@ function basicParse(
         if (/^(m|m2|m²|m3|m³|each|no|nr|item|set|lot|kg|l|lm|ps|pc)$/i.test(part)) {
           unit = part;
         }
-        const num = parseFloat(part.replace(/[^\d.-]/g, ''));
-        if (!isNaN(num) && num > 0) {
+        const num = parseRate(part);
+        if (num > 0) {
           if (num < 10000 && quantity === 0) {
             quantity = num;
           } else if (num > 0) {
@@ -823,14 +1122,14 @@ function basicParse(
       totalRate = supplyRate + installRate;
     }
     if (totalRate > 0 && supplyRate === 0 && installRate === 0) {
-      supplyRate = totalRate * 0.7;
-      installRate = totalRate * 0.3;
+      supplyRate = Math.round(totalRate * 0.7 * 100) / 100;
+      installRate = Math.round(totalRate * 0.3 * 100) / 100;
     }
     // If we have amount and quantity, calculate rate
     if (totalRate === 0 && amount > 0 && quantity > 0) {
-      totalRate = amount / quantity;
-      supplyRate = totalRate * 0.7;
-      installRate = totalRate * 0.3;
+      totalRate = Math.round((amount / quantity) * 100) / 100;
+      supplyRate = Math.round(totalRate * 0.7 * 100) / 100;
+      installRate = Math.round(totalRate * 0.3 * 100) / 100;
     }
 
     rowNumber++;
