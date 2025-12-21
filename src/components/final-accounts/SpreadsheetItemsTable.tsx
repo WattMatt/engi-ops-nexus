@@ -362,11 +362,22 @@ export function SpreadsheetItemsTable({ sectionId, billId, accountId, shopSubsec
       return <div className="px-1.5 py-1 text-xs">&nbsp;</div>;
     }
     
-    const displayValue = column.type === 'currency' 
-      ? formatCurrency(value as number)
-      : column.type === 'number'
-      ? (value ?? '-')
-      : (value || '-');
+    // For P&A items, show percentage in rate columns instead of currency
+    let displayValue;
+    if (isPAItem && (column.key === 'supply_rate' || column.key === 'install_rate')) {
+      // Show the pa_percentage as a percentage value
+      if (column.key === 'supply_rate' && item.pa_percentage) {
+        displayValue = `${item.pa_percentage.toFixed(2)}%`;
+      } else {
+        displayValue = '-';
+      }
+    } else if (column.type === 'currency') {
+      displayValue = formatCurrency(value as number);
+    } else if (column.type === 'number') {
+      displayValue = value ?? '-';
+    } else {
+      displayValue = value || '-';
+    }
     
     const variationClass = column.key === 'variation_amount' 
       ? Number(value) >= 0 ? 'text-green-600 font-medium' : 'text-destructive font-medium'
