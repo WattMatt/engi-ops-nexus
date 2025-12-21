@@ -209,8 +209,23 @@ function parseSheetForBOQ(worksheet: XLSX.WorkSheet, sheetName: string): {
       continue;
     }
     
-    // Skip totals, subtotals, and carried forward lines
-    if (/^(sub)?total|^carried|^brought|^to\s+collection|^page\s+total/i.test(description)) {
+    // Skip totals, subtotals, collection, and carried forward lines (expanded patterns)
+    const skipPatterns = [
+      /^(sub)?total/i,
+      /^carried/i,
+      /^brought/i,
+      /^to\s+(collection|summary)/i,
+      /^page\s+(total|sub)/i,
+      /collection$/i,
+      /summary$/i,
+      /^total\s+to/i,
+      /^total\s+carried/i,
+      /^section\s+total/i,
+      /^bill\s+total/i,
+      /^grand\s+total/i,
+    ];
+    
+    if (skipPatterns.some(pattern => pattern.test(description))) {
       continue;
     }
     
@@ -223,8 +238,8 @@ function parseSheetForBOQ(worksheet: XLSX.WorkSheet, sheetName: string): {
     const totalRate = colMap.rate !== undefined ? parseNumber(row[colMap.rate]) : supplyRate + installRate;
     const amount = colMap.amount !== undefined ? parseNumber(row[colMap.amount]) : quantity * (totalRate || supplyRate + installRate);
     
-    // Skip rows with no meaningful data
-    if (quantity === 0 && amount === 0) continue;
+    // Skip rows with no quantity (these are likely subtotals or headers)
+    if (quantity === 0) continue;
     
     items.push({
       rowIndex: i,
