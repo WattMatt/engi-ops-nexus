@@ -204,13 +204,20 @@ function parseSheetForBOQ(worksheet: XLSX.WorkSheet, sheetName: string): {
     const description = colMap.description !== undefined ? String(row[colMap.description] || "").trim() : "";
     
     // Extract all values from the row
-    const itemCode = colMap.itemCode !== undefined ? String(row[colMap.itemCode] || "").trim() : "";
+    let itemCode = colMap.itemCode !== undefined ? String(row[colMap.itemCode] || "").trim() : "";
     const unitRaw = colMap.unit !== undefined ? String(row[colMap.unit] || "").trim() : "";
     const quantity = colMap.quantity !== undefined ? parseNumber(row[colMap.quantity]) : 0;
     const supplyRate = colMap.supplyRate !== undefined ? parseNumber(row[colMap.supplyRate]) : 0;
     const installRate = colMap.installRate !== undefined ? parseNumber(row[colMap.installRate]) : 0;
     const totalRate = colMap.rate !== undefined ? parseNumber(row[colMap.rate]) : supplyRate + installRate;
     const amount = colMap.amount !== undefined ? parseNumber(row[colMap.amount]) : quantity * (totalRate || supplyRate + installRate);
+    
+    // VALIDATION: Item codes must follow BOQ patterns (e.g., "B1", "B1.2", "C3.4.1")
+    // Reject pure numbers like "1.217" which are likely from wrong columns
+    if (itemCode && !/^[A-Z]/i.test(itemCode)) {
+      console.log(`[BOQ Parse] Invalid item code "${itemCode}" at row ${i} - clearing`);
+      itemCode = "";
+    }
     
     // Skip completely empty rows (no item code and no description)
     if (!itemCode && !description) continue;
