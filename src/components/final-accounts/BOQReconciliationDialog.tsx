@@ -83,18 +83,49 @@ function findColumnsInRow(values: string[], patterns: Record<string, RegExp>): R
   return colMap;
 }
 
-// Parse a single sheet with proper header detection
+// Parse section code and name from sheet name
+function parseSectionFromSheetName(sheetName: string): { sectionCode: string; sectionName: string; billNumber: number } {
+  const trimmed = sheetName.trim();
+  
+  // Pattern: "1.2 Medium Voltage" -> code: "1.2", name: "Medium Voltage"
+  const numericDotPattern = trimmed.match(/^(\d+(?:\.\d+)?)\s+(.+)$/);
+  if (numericDotPattern) {
+    return {
+      sectionCode: numericDotPattern[1],
+      sectionName: numericDotPattern[2].trim(),
+      billNumber: parseInt(numericDotPattern[1].split('.')[0]) || 1,
+    };
+  }
+  
+  // Pattern: "4 Boxer" -> code: "4", name: "Boxer"
+  const numericSpacePattern = trimmed.match(/^(\d+)\s+(.+)$/);
+  if (numericSpacePattern) {
+    return {
+      sectionCode: numericSpacePattern[1],
+      sectionName: numericSpacePattern[2].trim(),
+      billNumber: parseInt(numericSpacePattern[1]) >= 3 ? 2 : 1, // Shops (3+) go to Bill 2
+    };
+  }
+  
+  // Pattern: "P&G" or just a name -> code is the name
+  return {
+    sectionCode: trimmed,
+    sectionName: trimmed,
+    billNumber: 1,
+  };
+}
+
+// Parse a single sheet - treat entire sheet as one section
 function parseSheetForBOQ(worksheet: XLSX.WorkSheet, sheetName: string): {
   items: ParsedBOQItem[];
+  sectionCode: string;
+  sectionName: string;
   billNumber: number;
-  billName: string;
 } {
   const items: ParsedBOQItem[] = [];
   
-  // Detect bill number from sheet name
-  const billMatch = sheetName.match(/bill\s*(?:no\.?\s*)?(\d+)/i);
-  const billNumber = billMatch ? parseInt(billMatch[1]) : 1;
-  const billName = sheetName;
+  // Derive section info from sheet name
+  const { sectionCode, sectionName, billNumber } = parseSectionFromSheetName(sheetName);
   
   // Get all data from the sheet
   const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
@@ -109,7 +140,7 @@ function parseSheetForBOQ(worksheet: XLSX.WorkSheet, sheetName: string): {
     allRows.push(row);
   }
   
-  if (allRows.length === 0) return { items, billNumber, billName };
+  if (allRows.length === 0) return { items, sectionCode, sectionName, billNumber };
   
   // Patterns for finding column headers
   const patterns = {
@@ -140,26 +171,18 @@ function parseSheetForBOQ(worksheet: XLSX.WorkSheet, sheetName: string): {
   
   if (headerRowIdx === -1) {
     console.log(`[BOQ Parse] No header row found in sheet "${sheetName}"`);
-    return { items, billNumber, billName };
+    return { items, sectionCode, sectionName, billNumber };
   }
   
-  // Track current section
-  let currentSectionCode = "A";
-  let currentSectionName = "General";
-  
-  // Process data rows after header
+  // Process data rows after header - ALL items belong to this sheet's section
   for (let i = headerRowIdx + 1; i < allRows.length; i++) {
     const row = allRows[i];
     const description = colMap.description !== undefined ? row[colMap.description] : "";
     
     if (!description) continue;
     
-    // Check for section headers (e.g., "A. PRELIMINARY", "B. DISTRIBUTION BOARDS")
-    const sectionMatch = description.match(/^([A-Z])[\.\s]+(.+)/i) ||
-                        description.match(/^SECTION\s+([A-Z])\s*[:\-]?\s*(.+)/i);
-    if (sectionMatch && !description.match(/^\d/)) {
-      currentSectionCode = sectionMatch[1].toUpperCase();
-      currentSectionName = sectionMatch[2].trim();
+    // Skip section header-like rows (they're just subsection markers within the sheet)
+    if (/^[A-Z][\.\s]+[A-Z]/i.test(description) && !/\d/.test(description.slice(0, 5))) {
       continue;
     }
     
@@ -190,15 +213,15 @@ function parseSheetForBOQ(worksheet: XLSX.WorkSheet, sheetName: string): {
       installRate,
       totalRate: totalRate || supplyRate + installRate,
       amount: amount || quantity * (totalRate || supplyRate + installRate),
-      sectionCode: currentSectionCode,
-      sectionName: currentSectionName,
+      sectionCode,
+      sectionName,
       billNumber,
-      billName,
+      billName: sheetName,
     });
   }
   
-  console.log(`[BOQ Parse] Sheet "${sheetName}" parsed: ${items.length} items`);
-  return { items, billNumber, billName };
+  console.log(`[BOQ Parse] Sheet "${sheetName}" -> Section "${sectionCode}: ${sectionName}" with ${items.length} items`);
+  return { items, sectionCode, sectionName, billNumber };
 }
 
 export function BOQReconciliationDialog({ 
@@ -280,52 +303,53 @@ export function BOQReconciliationDialog({
       
       console.log(`[BOQ Parse] Workbook has ${workbook.SheetNames.length} sheets:`, workbook.SheetNames);
       
-      // Parse each sheet
-      const allItems: ParsedBOQItem[] = [];
+      // Parse each sheet - each sheet becomes a section
+      const sections: BOQSectionSummary[] = [];
+      let totalItems = 0;
       
       for (const sheetName of workbook.SheetNames) {
         // Skip summary/cover sheets
-        if (/summary|cover|note|qualification|index/i.test(sheetName)) {
+        if (/summary|cover|note|qualification|index|contents/i.test(sheetName)) {
           console.log(`[BOQ Parse] Skipping sheet: ${sheetName}`);
           continue;
         }
         
         const worksheet = workbook.Sheets[sheetName];
-        const { items } = parseSheetForBOQ(worksheet, sheetName);
-        allItems.push(...items);
-      }
-      
-      // Group items by section
-      const sections: Record<string, BOQSectionSummary> = {};
-      
-      for (const item of allItems) {
-        const key = `${item.billNumber}-${item.sectionCode}`;
+        const { items, sectionCode, sectionName, billNumber } = parseSheetForBOQ(worksheet, sheetName);
         
-        if (!sections[key]) {
-          sections[key] = {
-            sectionCode: item.sectionCode,
-            sectionName: item.sectionName,
-            billNumber: item.billNumber,
-            billName: item.billName,
-            itemCount: 0,
-            boqTotal: 0,
-            items: [],
-          };
+        if (items.length === 0) {
+          console.log(`[BOQ Parse] Sheet "${sheetName}" has no items, skipping`);
+          continue;
         }
         
-        sections[key].items.push(item);
-        sections[key].itemCount++;
-        sections[key].boqTotal += item.amount;
+        const boqTotal = items.reduce((sum, item) => sum + item.amount, 0);
+        
+        sections.push({
+          sectionCode,
+          sectionName,
+          billNumber,
+          billName: sheetName,
+          itemCount: items.length,
+          boqTotal,
+          items,
+        });
+        
+        totalItems += items.length;
       }
       
-      const sortedSections = Object.values(sections).sort((a, b) => {
+      // Sort sections: by bill number, then by section code (natural sort for numbers)
+      const sortedSections = sections.sort((a, b) => {
         if (a.billNumber !== b.billNumber) return a.billNumber - b.billNumber;
+        // Natural sort for section codes
+        const aNum = parseFloat(a.sectionCode);
+        const bNum = parseFloat(b.sectionCode);
+        if (!isNaN(aNum) && !isNaN(bNum)) return aNum - bNum;
         return a.sectionCode.localeCompare(b.sectionCode);
       });
       
-      console.log(`[BOQ Parse] Total sections: ${sortedSections.length}, Total items: ${allItems.length}`);
+      console.log(`[BOQ Parse] Total sections: ${sortedSections.length}, Total items: ${totalItems}`);
       setParsedSections(sortedSections);
-      toast.success(`Parsed ${sortedSections.length} sections with ${allItems.length} items from BOQ`);
+      toast.success(`Parsed ${sortedSections.length} sections with ${totalItems} items from BOQ`);
     } catch (error) {
       console.error("Failed to parse BOQ:", error);
       toast.error("Failed to parse BOQ file");
