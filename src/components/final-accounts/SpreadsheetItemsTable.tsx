@@ -31,6 +31,23 @@ interface ItemRow {
   notes: string | null;
 }
 
+// Determine the row type based on item code pattern
+function getItemRowType(item: ItemRow): 'header' | 'subheader' | 'description' | 'item' {
+  const code = item.item_code?.trim() || '';
+  const hasValues = (item.contract_quantity ?? 0) > 0 || (item.contract_amount ?? 0) > 0;
+  
+  // No item code = description row
+  if (!code) return 'description';
+  
+  // Main header: B1, B2, C1, etc. (letter + single number, no dots)
+  if (/^[A-Z]\d*$/i.test(code) && !hasValues) return 'header';
+  
+  // Sub-header: B2.3, B2.4 without values (parent item for sub-items)
+  if (/^[A-Z]\d+\.\d+$/i.test(code) && !hasValues) return 'subheader';
+  
+  return 'item';
+}
+
 type EditableField = 'item_code' | 'description' | 'unit' | 'contract_quantity' | 'final_quantity' | 'supply_rate' | 'install_rate' | 'notes';
 
 const COLUMNS: { key: EditableField | 'contract_amount' | 'final_amount' | 'variation_amount' | 'actions'; label: string; width: string; editable: boolean; type: 'text' | 'number' | 'currency'; align: 'left' | 'right' }[] = [
@@ -263,9 +280,12 @@ export function SpreadsheetItemsTable({ sectionId, billId, accountId, shopSubsec
     }
   }, [activeCell]);
 
-  const renderCell = (item: ItemRow, column: typeof COLUMNS[0]) => {
+  const renderCell = (item: ItemRow, column: typeof COLUMNS[0], rowType: 'header' | 'subheader' | 'description' | 'item' = 'item') => {
     const isActive = activeCell?.rowId === item.id && activeCell?.field === column.key;
     const value = item[column.key as keyof ItemRow];
+    const isHeader = rowType === 'header';
+    const isSubheader = rowType === 'subheader';
+    const isDescription = rowType === 'description';
     
     if (column.key === 'actions') {
       return (
@@ -297,6 +317,15 @@ export function SpreadsheetItemsTable({ sectionId, billId, accountId, shopSubsec
       );
     }
     
+    // For header/description rows, show empty for numeric columns
+    const shouldHideValue = (isHeader || isSubheader || isDescription) && 
+      (column.type === 'number' || column.type === 'currency') &&
+      column.key !== 'contract_amount'; // Show contract_amount if it has a value
+    
+    if (shouldHideValue && (value === 0 || value === null)) {
+      return <div className="px-1.5 py-1 text-xs">&nbsp;</div>;
+    }
+    
     const displayValue = column.type === 'currency' 
       ? formatCurrency(value as number)
       : column.type === 'number'
@@ -314,7 +343,9 @@ export function SpreadsheetItemsTable({ sectionId, billId, accountId, shopSubsec
           "px-1.5 py-1 text-xs truncate",
           column.editable && "cursor-cell hover:bg-muted/50",
           column.align === 'right' && "text-right",
-          variationClass
+          variationClass,
+          isHeader && "font-semibold text-primary",
+          isDescription && "italic text-muted-foreground"
         )}
         title={typeof value === 'string' ? value : undefined}
       >
@@ -352,21 +383,39 @@ export function SpreadsheetItemsTable({ sectionId, billId, accountId, shopSubsec
             No items yet. Click "Add Row" to start.
           </div>
         ) : (
-          items.map((item) => (
-            <div key={item.id} className="flex group hover:bg-muted/30 transition-colors">
-              {COLUMNS.map((col) => (
-                <div
-                  key={col.key}
-                  className={cn(
-                    "border-r last:border-r-0 min-h-[32px] flex items-center",
-                    col.width
-                  )}
-                >
-                  {renderCell(item, col)}
-                </div>
-              ))}
-            </div>
-          ))
+          items.map((item) => {
+            const rowType = getItemRowType(item);
+            const isHeader = rowType === 'header';
+            const isSubheader = rowType === 'subheader';
+            const isDescription = rowType === 'description';
+            
+            return (
+              <div 
+                key={item.id} 
+                className={cn(
+                  "flex group transition-colors",
+                  isHeader && "bg-primary/10 font-semibold",
+                  isSubheader && "bg-muted/50 font-medium",
+                  isDescription && "bg-muted/20 italic",
+                  !isHeader && !isSubheader && !isDescription && "hover:bg-muted/30"
+                )}
+              >
+                {COLUMNS.map((col) => (
+                  <div
+                    key={col.key}
+                    className={cn(
+                      "border-r last:border-r-0 min-h-[32px] flex items-center",
+                      col.width,
+                      // Indent descriptions
+                      col.key === 'description' && isDescription && "pl-6"
+                    )}
+                  >
+                    {renderCell(item, col, rowType)}
+                  </div>
+                ))}
+              </div>
+            );
+          })
         )}
       </div>
       
