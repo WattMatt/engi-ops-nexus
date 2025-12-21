@@ -9,7 +9,6 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Progress } from "@/components/ui/progress";
 import { toast } from "sonner";
@@ -24,7 +23,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { formatCurrency } from "@/utils/formatters";
-import { parseExcelFile, detectBOQColumns } from "@/utils/excelParser";
+import * as XLSX from "xlsx";
 
 interface BOQReconciliationDialogProps {
   open: boolean;
@@ -64,6 +63,142 @@ interface ReconciliationStatus {
   rebuiltTotal: number;
   matchPercentage: number;
   itemCount: number;
+}
+
+// Helper to find columns in a row by matching patterns
+function findColumnsInRow(values: string[], patterns: Record<string, RegExp>): Record<string, number> {
+  const colMap: Record<string, number> = {};
+  
+  values.forEach((val, idx) => {
+    const v = (val || "").toLowerCase().trim();
+    if (!v || v.startsWith("column_")) return;
+    
+    for (const [key, pattern] of Object.entries(patterns)) {
+      if (colMap[key] === undefined && pattern.test(v)) {
+        colMap[key] = idx;
+      }
+    }
+  });
+  
+  return colMap;
+}
+
+// Parse a single sheet with proper header detection
+function parseSheetForBOQ(worksheet: XLSX.WorkSheet, sheetName: string): {
+  items: ParsedBOQItem[];
+  billNumber: number;
+  billName: string;
+} {
+  const items: ParsedBOQItem[] = [];
+  
+  // Detect bill number from sheet name
+  const billMatch = sheetName.match(/bill\s*(?:no\.?\s*)?(\d+)/i);
+  const billNumber = billMatch ? parseInt(billMatch[1]) : 1;
+  const billName = sheetName;
+  
+  // Get all data from the sheet
+  const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
+  const allRows: string[][] = [];
+  
+  for (let r = range.s.r; r <= range.e.r; r++) {
+    const row: string[] = [];
+    for (let c = range.s.c; c <= range.e.c; c++) {
+      const cell = worksheet[XLSX.utils.encode_cell({ r, c })];
+      row.push(cell ? String(cell.v ?? "").trim() : "");
+    }
+    allRows.push(row);
+  }
+  
+  if (allRows.length === 0) return { items, billNumber, billName };
+  
+  // Patterns for finding column headers
+  const patterns = {
+    description: /desc|particular|item\s*description|work\s*description/i,
+    quantity: /qty|quantity|qnty/i,
+    unit: /^unit$|^uom$/i,
+    rate: /^rate$|unit\s*rate|total\s*rate/i,
+    supplyRate: /supply|material/i,
+    installRate: /install|labour|labor/i,
+    amount: /amount|total|value|sum/i,
+    itemCode: /^no$|^item$|^code$|^ref$|item\s*no|item\s*code/i,
+  };
+  
+  // Find header row by scanning for column names
+  let headerRowIdx = -1;
+  let colMap: Record<string, number> = {};
+  
+  for (let i = 0; i < Math.min(30, allRows.length); i++) {
+    const row = allRows[i];
+    const testMap = findColumnsInRow(row, patterns);
+    if (testMap.description !== undefined) {
+      headerRowIdx = i;
+      colMap = testMap;
+      console.log(`[BOQ Parse] Found header row at index ${i} in sheet "${sheetName}":`, colMap);
+      break;
+    }
+  }
+  
+  if (headerRowIdx === -1) {
+    console.log(`[BOQ Parse] No header row found in sheet "${sheetName}"`);
+    return { items, billNumber, billName };
+  }
+  
+  // Track current section
+  let currentSectionCode = "A";
+  let currentSectionName = "General";
+  
+  // Process data rows after header
+  for (let i = headerRowIdx + 1; i < allRows.length; i++) {
+    const row = allRows[i];
+    const description = colMap.description !== undefined ? row[colMap.description] : "";
+    
+    if (!description) continue;
+    
+    // Check for section headers (e.g., "A. PRELIMINARY", "B. DISTRIBUTION BOARDS")
+    const sectionMatch = description.match(/^([A-Z])[\.\s]+(.+)/i) ||
+                        description.match(/^SECTION\s+([A-Z])\s*[:\-]?\s*(.+)/i);
+    if (sectionMatch && !description.match(/^\d/)) {
+      currentSectionCode = sectionMatch[1].toUpperCase();
+      currentSectionName = sectionMatch[2].trim();
+      continue;
+    }
+    
+    // Skip totals, subtotals, and carried forward lines
+    if (/^(sub)?total|^carried|^brought|^to\s+collection|^page\s+total/i.test(description)) {
+      continue;
+    }
+    
+    // Extract values
+    const itemCode = colMap.itemCode !== undefined ? row[colMap.itemCode] : "";
+    const unit = colMap.unit !== undefined ? row[colMap.unit] : "Nr";
+    const quantity = colMap.quantity !== undefined ? parseFloat(row[colMap.quantity]) || 0 : 0;
+    const supplyRate = colMap.supplyRate !== undefined ? parseFloat(row[colMap.supplyRate]) || 0 : 0;
+    const installRate = colMap.installRate !== undefined ? parseFloat(row[colMap.installRate]) || 0 : 0;
+    const totalRate = colMap.rate !== undefined ? parseFloat(row[colMap.rate]) || 0 : supplyRate + installRate;
+    const amount = colMap.amount !== undefined ? parseFloat(row[colMap.amount]) || 0 : quantity * (totalRate || supplyRate + installRate);
+    
+    // Skip rows with no meaningful data
+    if (quantity === 0 && amount === 0) continue;
+    
+    items.push({
+      rowIndex: i,
+      itemCode: itemCode || "",
+      description,
+      unit: unit || "Nr",
+      quantity,
+      supplyRate,
+      installRate,
+      totalRate: totalRate || supplyRate + installRate,
+      amount: amount || quantity * (totalRate || supplyRate + installRate),
+      sectionCode: currentSectionCode,
+      sectionName: currentSectionName,
+      billNumber,
+      billName,
+    });
+  }
+  
+  console.log(`[BOQ Parse] Sheet "${sheetName}" parsed: ${items.length} items`);
+  return { items, billNumber, billName };
 }
 
 export function BOQReconciliationDialog({ 
@@ -120,7 +255,6 @@ export function BOQReconciliationDialog({
       
       if (itemsError) throw itemsError;
       
-      // Return items with section info
       return items?.map(item => ({
         ...item,
         sectionCode: sections?.find(s => s.id === item.section_id)?.section_code
@@ -129,7 +263,7 @@ export function BOQReconciliationDialog({
     enabled: !!accountId && parsedSections.length > 0,
   });
 
-  // Parse BOQ file from storage
+  // Parse BOQ file from storage using XLSX directly
   const parseBoqFile = useCallback(async (boq: any) => {
     setParsingFile(true);
     try {
@@ -140,113 +274,48 @@ export function BOQReconciliationDialog({
       
       if (downloadError) throw downloadError;
       
-      // Create File object and parse
-      const file = new File([fileData], boq.file_name, { type: fileData.type });
-      const parsed = await parseExcelFile(file);
+      // Parse with XLSX
+      const arrayBuffer = await fileData.arrayBuffer();
+      const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
       
-      // Extract sections and items from parsed sheets
-      const sections: Record<string, BOQSectionSummary> = {};
-      let currentBillNumber = 1;
-      let currentBillName = "Bill 1";
-      let currentSectionCode = "A";
-      let currentSectionName = "General";
+      console.log(`[BOQ Parse] Workbook has ${workbook.SheetNames.length} sheets:`, workbook.SheetNames);
       
-      for (const sheet of parsed.sheets) {
+      // Parse each sheet
+      const allItems: ParsedBOQItem[] = [];
+      
+      for (const sheetName of workbook.SheetNames) {
         // Skip summary/cover sheets
-        if (/summary|cover|note|qualification/i.test(sheet.name)) continue;
-        
-        // Detect columns for this sheet
-        const colMap = detectBOQColumns(sheet.headers);
-        if (colMap.description === undefined) continue;
-        
-        // Check if sheet name indicates a bill
-        const billMatch = sheet.name.match(/bill\s*(\d+)/i);
-        if (billMatch) {
-          currentBillNumber = parseInt(billMatch[1]);
-          currentBillName = sheet.name;
+        if (/summary|cover|note|qualification|index/i.test(sheetName)) {
+          console.log(`[BOQ Parse] Skipping sheet: ${sheetName}`);
+          continue;
         }
         
-        // Process each row
-        for (let rowIdx = 0; rowIdx < sheet.rows.length; rowIdx++) {
-          const row = sheet.rows[rowIdx];
-          const descCol = sheet.headers[colMap.description!];
-          const description = String(row[descCol] || "").trim();
-          
-          if (!description) continue;
-          
-          // Check if this is a section header
-          const sectionMatch = description.match(/^([A-Z])\.\s*(.+)/i) || 
-                              description.match(/^SECTION\s+([A-Z])\s*[:-]?\s*(.+)/i);
-          if (sectionMatch) {
-            currentSectionCode = sectionMatch[1].toUpperCase();
-            currentSectionName = sectionMatch[2].trim();
-            continue;
-          }
-          
-          // Skip totals and subtotals
-          if (/^(sub)?total|^carried|^brought/i.test(description)) continue;
-          
-          // Extract item data
-          const itemCode = colMap.itemCode !== undefined 
-            ? String(row[sheet.headers[colMap.itemCode]] || "").trim() 
-            : "";
-          const unit = colMap.unit !== undefined 
-            ? String(row[sheet.headers[colMap.unit]] || "Nr").trim() 
-            : "Nr";
-          const quantity = colMap.quantity !== undefined 
-            ? parseFloat(String(row[sheet.headers[colMap.quantity]] || 0)) || 0 
-            : 0;
-          const supplyRate = colMap.supplyRate !== undefined 
-            ? parseFloat(String(row[sheet.headers[colMap.supplyRate]] || 0)) || 0 
-            : 0;
-          const installRate = colMap.installRate !== undefined 
-            ? parseFloat(String(row[sheet.headers[colMap.installRate]] || 0)) || 0 
-            : 0;
-          const totalRate = colMap.totalRate !== undefined 
-            ? parseFloat(String(row[sheet.headers[colMap.totalRate]] || 0)) || 0 
-            : supplyRate + installRate;
-          const amount = colMap.amount !== undefined 
-            ? parseFloat(String(row[sheet.headers[colMap.amount]] || 0)) || 0 
-            : quantity * totalRate;
-          
-          // Skip rate-only items (no quantity)
-          if (quantity === 0 && amount === 0) continue;
-          
-          // Create section key
-          const sectionKey = `${currentBillNumber}-${currentSectionCode}`;
-          
-          if (!sections[sectionKey]) {
-            sections[sectionKey] = {
-              sectionCode: currentSectionCode,
-              sectionName: currentSectionName,
-              billNumber: currentBillNumber,
-              billName: currentBillName,
-              itemCount: 0,
-              boqTotal: 0,
-              items: [],
-            };
-          }
-          
-          const item: ParsedBOQItem = {
-            rowIndex: rowIdx,
-            itemCode,
-            description,
-            unit,
-            quantity,
-            supplyRate,
-            installRate,
-            totalRate: totalRate || supplyRate + installRate,
-            amount: amount || quantity * (totalRate || supplyRate + installRate),
-            sectionCode: currentSectionCode,
-            sectionName: currentSectionName,
-            billNumber: currentBillNumber,
-            billName: currentBillName,
+        const worksheet = workbook.Sheets[sheetName];
+        const { items } = parseSheetForBOQ(worksheet, sheetName);
+        allItems.push(...items);
+      }
+      
+      // Group items by section
+      const sections: Record<string, BOQSectionSummary> = {};
+      
+      for (const item of allItems) {
+        const key = `${item.billNumber}-${item.sectionCode}`;
+        
+        if (!sections[key]) {
+          sections[key] = {
+            sectionCode: item.sectionCode,
+            sectionName: item.sectionName,
+            billNumber: item.billNumber,
+            billName: item.billName,
+            itemCount: 0,
+            boqTotal: 0,
+            items: [],
           };
-          
-          sections[sectionKey].items.push(item);
-          sections[sectionKey].itemCount++;
-          sections[sectionKey].boqTotal += item.amount;
         }
+        
+        sections[key].items.push(item);
+        sections[key].itemCount++;
+        sections[key].boqTotal += item.amount;
       }
       
       const sortedSections = Object.values(sections).sort((a, b) => {
@@ -254,8 +323,9 @@ export function BOQReconciliationDialog({
         return a.sectionCode.localeCompare(b.sectionCode);
       });
       
+      console.log(`[BOQ Parse] Total sections: ${sortedSections.length}, Total items: ${allItems.length}`);
       setParsedSections(sortedSections);
-      toast.success(`Parsed ${sortedSections.length} sections from BOQ`);
+      toast.success(`Parsed ${sortedSections.length} sections with ${allItems.length} items from BOQ`);
     } catch (error) {
       console.error("Failed to parse BOQ:", error);
       toast.error("Failed to parse BOQ file");
@@ -274,7 +344,6 @@ export function BOQReconciliationDialog({
   const reconciliationStatus = useMemo((): Record<string, ReconciliationStatus> => {
     const status: Record<string, ReconciliationStatus> = {};
     
-    // Group imported items by section code
     const importedBySection: Record<string, number> = {};
     const itemCountBySection: Record<string, number> = {};
     
@@ -474,7 +543,7 @@ export function BOQReconciliationDialog({
     onOpenChange(false);
   };
 
-  const getStatusIcon = (status: ReconciliationStatus | undefined, boqTotal: number) => {
+  const getStatusIcon = (status: ReconciliationStatus | undefined) => {
     if (!status?.imported) {
       return <Circle className="h-5 w-5 text-muted-foreground" />;
     }
@@ -504,7 +573,6 @@ export function BOQReconciliationDialog({
 
         <div className="flex-1 overflow-hidden flex flex-col">
           {!selectedBoqId ? (
-            // BOQ Selection
             <ScrollArea className="flex-1">
               {loadingUploads ? (
                 <div className="flex items-center justify-center py-8">
@@ -549,7 +617,6 @@ export function BOQReconciliationDialog({
               <p className="text-muted-foreground">Parsing BOQ file...</p>
             </div>
           ) : (
-            // Section Reconciliation View
             <>
               {/* Progress Summary */}
               <div className="bg-muted/50 rounded-lg p-4 mb-4 space-y-3">
@@ -571,11 +638,6 @@ export function BOQReconciliationDialog({
                   </div>
                 </div>
                 <Progress value={overallProgress.percentageMatched} className="h-2" />
-                {overallProgress.variance !== 0 && (
-                  <p className={`text-sm ${overallProgress.variance > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    Variance: {formatCurrency(overallProgress.variance)}
-                  </p>
-                )}
               </div>
 
               {/* Section List */}
@@ -598,7 +660,7 @@ export function BOQReconciliationDialog({
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                              {getStatusIcon(status, section.boqTotal)}
+                              {getStatusIcon(status)}
                               <div>
                                 <p className="font-medium">
                                   Section {section.sectionCode} - {section.sectionName}
