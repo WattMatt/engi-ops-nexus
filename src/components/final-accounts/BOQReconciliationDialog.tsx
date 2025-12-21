@@ -352,8 +352,8 @@ export function BOQReconciliationDialog({
     enabled: !!accountId && parsedSections.length > 0,
   });
 
-  // Parse BOQ file from storage using XLSX directly
-  const parseBoqFile = useCallback(async (boq: any) => {
+  // Parse BOQ file from storage using XLSX directly - returns parsed sections
+  const parseBoqFile = useCallback(async (boq: any): Promise<BOQSectionSummary[]> => {
     setParsingFile(true);
     try {
       // Download file from storage
@@ -425,9 +425,11 @@ export function BOQReconciliationDialog({
       console.log(`[BOQ Parse] Total sections: ${sortedSections.length}, Total items: ${totalItems}`);
       setParsedSections(sortedSections);
       toast.success(`Parsed ${sortedSections.length} sections with ${totalItems} items from BOQ`);
+      return sortedSections;
     } catch (error) {
       console.error("Failed to parse BOQ:", error);
       toast.error("Failed to parse BOQ file");
+      return [];
     } finally {
       setParsingFile(false);
     }
@@ -647,16 +649,18 @@ export function BOQReconciliationDialog({
       const selectedBoq = boqUploads.find(b => b.id === selectedBoqId);
       if (!selectedBoq) throw new Error("BOQ not found");
       
-      // Re-parse the BOQ file
-      await parseBoqFile(selectedBoq);
+      // Re-parse the BOQ file and get fresh sections directly
+      const freshSections = await parseBoqFile(selectedBoq);
       
-      // Wait for parsing to complete
-      await new Promise(resolve => setTimeout(resolve, 500));
+      if (freshSections.length === 0) {
+        toast.error("No sections found in BOQ");
+        return;
+      }
       
-      toast.info("BOQ re-parsed. Now updating all sections...");
+      toast.info(`BOQ re-parsed. Now updating ${freshSections.length} sections...`);
       
-      // Import all sections (which will update existing ones)
-      for (const section of parsedSections) {
+      // Import all sections using the freshly parsed data
+      for (const section of freshSections) {
         setSelectedSection(section.sectionCode);
         try {
           await importSectionMutation.mutateAsync(section.sectionCode);
