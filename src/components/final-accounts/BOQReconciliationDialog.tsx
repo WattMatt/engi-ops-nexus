@@ -628,6 +628,46 @@ export function BOQReconciliationDialog({
     toast.success("All sections imported");
   };
 
+  // Reprise All - Re-parse BOQ and update ALL sections with fresh data
+  const handleRepriseAll = async () => {
+    if (!selectedBoqId) return;
+    
+    setProcessing(true);
+    setSelectedSection("Reparsing...");
+    
+    try {
+      // Get the selected BOQ
+      const selectedBoq = boqUploads.find(b => b.id === selectedBoqId);
+      if (!selectedBoq) throw new Error("BOQ not found");
+      
+      // Re-parse the BOQ file
+      await parseBoqFile(selectedBoq);
+      
+      // Wait for parsing to complete
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      toast.info("BOQ re-parsed. Now updating all sections...");
+      
+      // Import all sections (which will update existing ones)
+      for (const section of parsedSections) {
+        setSelectedSection(section.sectionCode);
+        try {
+          await importSectionMutation.mutateAsync(section.sectionCode);
+        } catch (error) {
+          console.error(`Failed to update section ${section.sectionCode}:`, error);
+        }
+      }
+      
+      toast.success("All sections reprised with updated items");
+    } catch (error) {
+      console.error("Reprise failed:", error);
+      toast.error("Failed to reprise sections");
+    } finally {
+      setProcessing(false);
+      setSelectedSection(null);
+    }
+  };
+
   const handleClose = () => {
     setSelectedBoqId(null);
     setSelectedSection(null);
@@ -837,13 +877,21 @@ export function BOQReconciliationDialog({
                 Change BOQ
               </Button>
               <Button
+                variant="secondary"
+                onClick={handleRepriseAll}
+                disabled={processing}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Reprise All
+              </Button>
+              <Button
                 onClick={handleImportAll}
                 disabled={processing}
               >
                 {processing ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Importing {selectedSection}...
+                    {selectedSection}...
                   </>
                 ) : (
                   "Import All Remaining"
