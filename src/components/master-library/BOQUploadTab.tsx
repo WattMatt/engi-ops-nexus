@@ -156,7 +156,7 @@ export const BOQUploadTab = () => {
 
       if (uploadError) throw uploadError;
 
-      // Create upload record with all metadata (status = pending, NOT processing yet)
+      // Create upload record with status = processing (one-click flow)
       const { data: uploadRecord, error: recordError } = await supabase
         .from("boq_uploads")
         .insert({
@@ -171,19 +171,41 @@ export const BOQUploadTab = () => {
           building_type: selectedBuildingType || null,
           tender_date: tenderDate?.toISOString().split('T')[0] || null,
           uploaded_by: user.id,
-          status: "pending", // File uploaded but not yet processed
+          status: "processing", // Start processing immediately
+          extraction_started_at: new Date().toISOString(),
         })
         .select()
         .single();
 
       if (recordError) throw recordError;
 
-      // File is stored - extraction will happen when user clicks "Process"
+      // Parse the file and start processing immediately (one-click)
+      let fileContent = "";
+      if (fileExt === "csv") {
+        fileContent = await file.text();
+      } else if (fileExt === "xlsx" || fileExt === "xls") {
+        const parsed = await parseExcelFile(file);
+        fileContent = parsed.combinedText;
+      }
+
+      // Call the matching edge function (processes in background)
+      try {
+        await supabase.functions.invoke("match-boq-rates", {
+          body: {
+            upload_id: uploadRecord.id,
+            file_content: fileContent,
+          },
+        });
+      } catch (invokeError) {
+        // Edge function may return but still process in background
+        console.log("Edge function invoke returned:", invokeError);
+      }
+
       return uploadRecord;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["boq-uploads"] });
-      toast.success("BOQ uploaded. Click 'Process' to extract rates with AI.");
+      toast.success("BOQ uploaded & processing started. This may take a few minutes.");
       // Reset form
       setSourceDescription("");
       setContractorName("");
@@ -1187,27 +1209,39 @@ export const BOQUploadTab = () => {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex items-center justify-end gap-1">
-                          {upload.status === "pending" ? (
-                            <Button
-                              variant="default"
-                              size="sm"
-                              onClick={() => {
-                                setWizardUpload(upload);
-                                setWizardOpen(true);
-                              }}
-                            >
-                              <Wand2 className="h-4 w-4 mr-1" />
-                              Process
+                          {upload.status === "processing" ? (
+                            <Button variant="ghost" size="sm" disabled>
+                              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                              Processing
                             </Button>
-                          ) : (
+                          ) : upload.status === "completed" || upload.status === "reviewed" ? (
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => setSelectedUpload(upload)}
-                              disabled={upload.status === "processing"}
                             >
                               <Eye className="h-4 w-4 mr-1" />
                               Review
+                            </Button>
+                          ) : upload.status === "pending" ? (
+                            <Button
+                              variant="default"
+                              size="sm"
+                              onClick={() => reprocessMutation.mutate(upload)}
+                              disabled={reprocessMutation.isPending}
+                            >
+                              <Sparkles className="h-4 w-4 mr-1" />
+                              Process Now
+                            </Button>
+                          ) : (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => reprocessMutation.mutate(upload)}
+                              disabled={reprocessMutation.isPending}
+                            >
+                              <RefreshCw className="h-4 w-4 mr-1" />
+                              Retry
                             </Button>
                           )}
                           
