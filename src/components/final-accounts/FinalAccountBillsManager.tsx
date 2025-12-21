@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { AddBillDialog } from "./AddBillDialog";
 import { FinalAccountSectionsManager } from "./FinalAccountSectionsManager";
-import { ImportBOQDialog } from "./ImportBOQDialog";
+import { BOQReconciliationDialog } from "./BOQReconciliationDialog";
 import { formatCurrency } from "@/utils/formatters";
 
 interface FinalAccountBillsManagerProps {
@@ -212,7 +212,7 @@ export function FinalAccountBillsManager({ accountId, projectId }: FinalAccountB
         }}
       />
 
-      <ImportBOQDialog
+      <BOQReconciliationDialog
         open={importDialogOpen}
         onOpenChange={setImportDialogOpen}
         accountId={accountId}
