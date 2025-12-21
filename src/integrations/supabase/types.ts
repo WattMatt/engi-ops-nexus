@@ -2788,6 +2788,65 @@ export type Database = {
           },
         ]
       }
+      final_account_prime_costs: {
+        Row: {
+          account_id: string
+          actual_cost: number | null
+          boq_item_id: string | null
+          created_at: string
+          description: string
+          display_order: number | null
+          id: string
+          item_code: string | null
+          notes: string | null
+          pc_allowance: number
+          profit_attendance_percent: number | null
+          quantity: number | null
+          unit: string | null
+          updated_at: string
+        }
+        Insert: {
+          account_id: string
+          actual_cost?: number | null
+          boq_item_id?: string | null
+          created_at?: string
+          description: string
+          display_order?: number | null
+          id?: string
+          item_code?: string | null
+          notes?: string | null
+          pc_allowance?: number
+          profit_attendance_percent?: number | null
+          quantity?: number | null
+          unit?: string | null
+          updated_at?: string
+        }
+        Update: {
+          account_id?: string
+          actual_cost?: number | null
+          boq_item_id?: string | null
+          created_at?: string
+          description?: string
+          display_order?: number | null
+          id?: string
+          item_code?: string | null
+          notes?: string | null
+          pc_allowance?: number
+          profit_attendance_percent?: number | null
+          quantity?: number | null
+          unit?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "final_account_prime_costs_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "final_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       final_account_section_comments: {
         Row: {
           author_id: string | null
