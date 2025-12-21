@@ -323,19 +323,53 @@ function parseSheet(worksheet: XLSX.WorkSheet, sheetName: string): BOQSectionSum
   // Store P&A rows to process after all items are parsed
   const paRows: { rowIdx: number; referencedCode: string | null; percentage: number }[] = [];
   
-  // Skip patterns for totals - BUT capture the total amount first
+  // Patterns to identify total rows - capture their amounts
   const totalPatterns = [
     /^(sub)?total/i, /^section\s+total/i, /^bill\s+total/i,
     /total\s+for\s+section/i, /total\s+to\s+collection/i,
     /^total\s+carried/i, /carried\s+to\s+summary/i,
+    /^total$/i, /^totaal$/i, // Simple "Total"
+    /total\s+r\s*$/i, // "Total R" at end
+    /total\s+amount/i,
   ];
   const skipPatterns = [
-    /^carried\s+forward/i, /^brought\s+forward/i, /^to\s+(collection|summary)/i,
+    /^carried\s+forward/i, /^brought\s+forward/i, 
     /^page\s+(total|sub)/i, /^grand\s+total/i, /c\/fwd/i, /b\/fwd/i,
   ];
   
-  // Track the BOQ stated total (from total row)
+  // Track the BOQ stated total (from total row) - scan from bottom to find last total
   let boqStatedTotal: number | null = null;
+  
+  // Pre-scan from bottom to find the stated total row
+  for (let i = allRows.length - 1; i >= headerRowIdx + 1; i--) {
+    const row = allRows[i];
+    const description = colMap.description !== undefined ? String(row[colMap.description] || "").trim() : "";
+    const itemCode = colMap.itemCode !== undefined ? String(row[colMap.itemCode] || "").trim() : "";
+    const parsedAmount = colMap.amount !== undefined ? parseNumber(row[colMap.amount]) : 0;
+    
+    if (!description && !itemCode) continue;
+    
+    const textToCheck = `${itemCode} ${description}`.toLowerCase();
+    
+    // Check if this looks like a total row
+    if (totalPatterns.some(pattern => pattern.test(description) || pattern.test(textToCheck) || pattern.test(itemCode))) {
+      if (parsedAmount > 0) {
+        boqStatedTotal = parsedAmount;
+        console.log(`[Parse] Found BOQ stated total: ${parsedAmount} from row ${i}: "${description || itemCode}"`);
+        break;
+      }
+      // Also check other cells in the row for large amounts
+      for (let c = row.length - 1; c >= 0; c--) {
+        const val = parseNumber(row[c]);
+        if (val > 1000) {
+          boqStatedTotal = val;
+          console.log(`[Parse] Found BOQ stated total from cell: ${val} from row ${i}`);
+          break;
+        }
+      }
+      if (boqStatedTotal !== null) break;
+    }
+  }
   
   // First pass: Parse all rows and identify P&A rows
   for (let i = headerRowIdx + 1; i < allRows.length; i++) {
@@ -356,17 +390,13 @@ function parseSheet(worksheet: XLSX.WorkSheet, sheetName: string): BOQSectionSum
       itemCode = "";
     }
     
-    // Skip completely empty rows (but don't reset tracking)
+    // Skip completely empty rows
     if (!itemCode && !description) continue;
     
     const textToCheck = `${itemCode} ${description}`.toLowerCase();
     
-    // Check for total rows - capture the stated total but don't add as item
-    if (totalPatterns.some(pattern => pattern.test(description) || pattern.test(textToCheck))) {
-      if (parsedAmount > 0 && boqStatedTotal === null) {
-        boqStatedTotal = parsedAmount;
-        console.log(`[Parse] Found BOQ stated total: ${parsedAmount} from "${description}"`);
-      }
+    // Skip total rows (already captured stated total above)
+    if (totalPatterns.some(pattern => pattern.test(description) || pattern.test(textToCheck) || pattern.test(itemCode))) {
       continue;
     }
     
