@@ -213,10 +213,15 @@ function parseNumber(value: any): number {
 }
 
 // Check if row is header/subtotal (should be excluded from totals)
+// Headers are: single letter "A", "B" or letter with period "A.", "B."
+// NOT headers: "A1", "B1", "A1.1" - these are actual line items
 function isHeaderOrSubtotalRow(itemCode: string, description: string): boolean {
   if (!itemCode) return false;
+  // Single letter only (A, B, C) - these are section headers
   if (/^[A-Z]$/i.test(itemCode)) return true;
-  if (/^[A-Z]\d$/i.test(itemCode)) return true;
+  // Letter followed by period (A., B.) - these are section headers
+  if (/^[A-Z]\.$/i.test(itemCode)) return true;
+  // Check description for subtotal patterns
   if (/\b(sub)?total\b/i.test(description)) return true;
   if (/\b(carried|brought)\s*(forward|f\/w|fwd)\b/i.test(description)) return true;
   return false;
