@@ -231,21 +231,31 @@ function parseSheetForBOQ(worksheet: XLSX.WorkSheet, sheetName: string): {
     
     // Extract values
     const itemCode = colMap.itemCode !== undefined ? row[colMap.itemCode] : "";
-    const unit = colMap.unit !== undefined ? row[colMap.unit] : "Nr";
+    const unitRaw = colMap.unit !== undefined ? row[colMap.unit] : "";
     const quantity = colMap.quantity !== undefined ? parseNumber(row[colMap.quantity]) : 0;
     const supplyRate = colMap.supplyRate !== undefined ? parseNumber(row[colMap.supplyRate]) : 0;
     const installRate = colMap.installRate !== undefined ? parseNumber(row[colMap.installRate]) : 0;
     const totalRate = colMap.rate !== undefined ? parseNumber(row[colMap.rate]) : supplyRate + installRate;
     const amount = colMap.amount !== undefined ? parseNumber(row[colMap.amount]) : quantity * (totalRate || supplyRate + installRate);
     
-    // Skip rows with no quantity (these are likely subtotals or headers)
-    if (quantity === 0) continue;
+    // Skip subtotal rows: have amount but no unit AND no quantity
+    // Valid items typically have a unit (Nr, m, m², etc.) or quantity
+    const hasValidUnit = unitRaw && /^(nr|no|ea|m|m2|m²|m³|km|kg|l|sum|item|lot|prov|allow|pc|set|pair)/i.test(unitRaw);
+    
+    // If no quantity AND no valid unit AND has large amount, likely a subtotal
+    if (quantity === 0 && !hasValidUnit && amount > 0) {
+      console.log(`[BOQ Parse] Skipping likely subtotal: "${description}" amount=${amount}`);
+      continue;
+    }
+    
+    // Skip if absolutely no data
+    if (quantity === 0 && amount === 0) continue;
     
     items.push({
       rowIndex: i,
       itemCode: itemCode || "",
       description,
-      unit: unit || "Nr",
+      unit: unitRaw || "Nr",
       quantity,
       supplyRate,
       installRate,
