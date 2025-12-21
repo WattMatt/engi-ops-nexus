@@ -18,6 +18,7 @@ import {
   ChevronRight,
   CheckCircle2,
   Circle,
+  AlertTriangle,
   AlertCircle,
   RefreshCw
 } from "lucide-react";
@@ -1066,16 +1067,13 @@ export function BOQReconciliationDialog({
             </div>
           ) : (
             <>
-              {/* Simple summary */}
+              {/* Summary with breakdown */}
               <div className="bg-muted/50 rounded-lg p-4 mb-4">
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between mb-3">
                   <div>
-                    <p className="text-sm font-medium">Ready to Import</p>
+                    <p className="text-sm font-medium">Import Status</p>
                     <p className="text-2xl font-bold">
-                      {parsedSections.filter(s => s.items.length > 0).length} sections
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      {parsedSections.reduce((sum, s) => sum + s.itemCount, 0)} total items
+                      {parsedSections.filter(s => reconciliationStatus[s.sectionCode]?.imported).length} / {parsedSections.length} sections
                     </p>
                   </div>
                   <div className="text-right">
@@ -1085,9 +1083,24 @@ export function BOQReconciliationDialog({
                     <p className="text-xs text-muted-foreground mt-1">BOQ total</p>
                   </div>
                 </div>
+                {/* Status breakdown */}
+                <div className="flex gap-4 text-xs">
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-green-500" />
+                    {parsedSections.filter(s => reconciliationStatus[s.sectionCode]?.imported).length} imported
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-blue-500" />
+                    {parsedSections.filter(s => s.items.length > 0 && !reconciliationStatus[s.sectionCode]?.imported).length} ready
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-amber-500" />
+                    {parsedSections.filter(s => s.items.length === 0).length} empty/failed
+                  </span>
+                </div>
               </div>
 
-              {/* Compact section list - just names and status */}
+              {/* ALL sections list - including empty ones */}
               <ScrollArea className="flex-1 h-[300px]">
                 {parsedSections.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
@@ -1095,26 +1108,33 @@ export function BOQReconciliationDialog({
                   </div>
                 ) : (
                   <div className="space-y-1">
-                    {parsedSections.filter(s => s.items.length > 0).map((section) => {
+                    {parsedSections.map((section) => {
                       const status = reconciliationStatus[section.sectionCode];
+                      const isEmpty = section.items.length === 0;
                       
                       return (
                         <div
                           key={`${section.billNumber}-${section.sectionCode}`}
-                          className="flex items-center justify-between py-2 px-3 rounded hover:bg-muted/50"
+                          className={`flex items-center justify-between py-2 px-3 rounded hover:bg-muted/50 ${isEmpty ? 'opacity-60' : ''}`}
                         >
                           <div className="flex items-center gap-2">
                             {status?.imported ? (
                               <CheckCircle2 className="h-4 w-4 text-green-500" />
+                            ) : isEmpty ? (
+                              <AlertTriangle className="h-4 w-4 text-amber-500" />
                             ) : (
-                              <Circle className="h-4 w-4 text-muted-foreground" />
+                              <Circle className="h-4 w-4 text-blue-500" />
                             )}
                             <span className="text-sm">
                               {section.sectionCode} - {section.sectionName}
                             </span>
                           </div>
                           <span className="text-xs text-muted-foreground">
-                            {section.itemCount} items • {formatCurrency(section.boqTotal)}
+                            {isEmpty ? (
+                              <span className="text-amber-600">No items parsed</span>
+                            ) : (
+                              <>{section.itemCount} items • {formatCurrency(section.boqTotal)}</>
+                            )}
                           </span>
                         </div>
                       );
