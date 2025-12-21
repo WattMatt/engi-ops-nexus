@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { formatCurrency } from "@/utils/formatters";
+import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
 
 interface BOQReconciliationDialogProps {
@@ -57,6 +58,9 @@ interface BOQSectionSummary {
   itemCount: number;
   boqTotal: number;
   items: ParsedBOQItem[];
+  extractionConfidence: 'high' | 'medium' | 'low' | 'failed';
+  parseAttempts: number;
+  lastParseStrategy?: string;
 }
 
 interface ReconciliationStatus {
@@ -290,6 +294,100 @@ function parseSheetForBOQ(worksheet: XLSX.WorkSheet, sheetName: string): {
   return { items, sectionCode, sectionName, billNumber };
 }
 
+// Alternative parsing strategy - uses positional column detection for common BOQ layouts
+function parseSheetAlternative(worksheet: XLSX.WorkSheet, sheetName: string): {
+  items: ParsedBOQItem[];
+  sectionCode: string;
+  sectionName: string;
+  billNumber: number;
+} {
+  const items: ParsedBOQItem[] = [];
+  const { sectionCode, sectionName, billNumber } = parseSectionFromSheetName(sheetName);
+  
+  // Get all data from the sheet
+  const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
+  const allRows: string[][] = [];
+  
+  for (let r = range.s.r; r <= range.e.r; r++) {
+    const row: string[] = [];
+    for (let c = range.s.c; c <= range.e.c; c++) {
+      const cell = worksheet[XLSX.utils.encode_cell({ r, c })];
+      row.push(cell ? String(cell.v ?? "").trim() : "");
+    }
+    allRows.push(row);
+  }
+  
+  if (allRows.length < 3) return { items, sectionCode, sectionName, billNumber };
+  
+  console.log(`[BOQ Parse Alt] Trying alternative parsing for sheet "${sheetName}"`);
+  
+  // Strategy 2: Common BOQ layout - assume fixed positions
+  // Col 0: Item Code, Col 1: Description, Col 2: Unit, Col 3: Qty, Col 4+: Rates/Amounts
+  // Find first row with data that looks like a BOQ item
+  let dataStartRow = 0;
+  for (let i = 0; i < Math.min(20, allRows.length); i++) {
+    const row = allRows[i];
+    // Look for row with item code pattern and description
+    if (row[0] && /^[A-Z]\d*\.?/i.test(row[0]) && row[1] && row[1].length > 5) {
+      dataStartRow = i;
+      console.log(`[BOQ Parse Alt] Found data start at row ${i}`);
+      break;
+    }
+  }
+  
+  // Process rows with positional assumption
+  for (let i = dataStartRow; i < allRows.length; i++) {
+    const row = allRows[i];
+    
+    let itemCode = (row[0] || "").trim();
+    const description = (row[1] || "").trim();
+    const unit = (row[2] || "").trim();
+    const quantity = parseNumber(row[3]);
+    
+    // Try to find amount in last columns (often column 5, 6, or 7)
+    let amount = 0;
+    for (let c = row.length - 1; c >= 4; c--) {
+      const val = parseNumber(row[c]);
+      if (val > 0) {
+        amount = val;
+        break;
+      }
+    }
+    
+    // Skip if no item code and no description
+    if (!itemCode && !description) continue;
+    
+    // Validate item code
+    if (itemCode && !/^[A-Z]/i.test(itemCode)) {
+      itemCode = "";
+    }
+    
+    // Skip totals
+    const textToCheck = `${itemCode} ${description}`.toLowerCase();
+    if (/total|carried|brought|summary/i.test(textToCheck)) continue;
+    
+    items.push({
+      rowIndex: i,
+      itemCode: itemCode || "",
+      description: description || "",
+      unit: unit || "",
+      quantity,
+      supplyRate: 0,
+      installRate: 0,
+      totalRate: quantity > 0 && amount > 0 ? amount / quantity : 0,
+      amount,
+      sectionCode,
+      sectionName,
+      billNumber,
+      billName: sheetName,
+      rowType: 'item',
+    });
+  }
+  
+  console.log(`[BOQ Parse Alt] Alternative parse found ${items.length} items`);
+  return { items, sectionCode, sectionName, billNumber };
+}
+
 export function BOQReconciliationDialog({ 
   open, 
   onOpenChange, 
@@ -383,13 +481,25 @@ export function BOQReconciliationDialog({
         const worksheet = workbook.Sheets[sheetName];
         const { items, sectionCode, sectionName, billNumber } = parseSheetForBOQ(worksheet, sheetName);
         
-        if (items.length === 0) {
-          console.log(`[BOQ Parse] Sheet "${sheetName}" has no items, skipping`);
-          continue;
-        }
-        
         const boqTotal = items.reduce((sum, item) => sum + item.amount, 0);
         
+        // Calculate extraction confidence based on items found and totals
+        let extractionConfidence: 'high' | 'medium' | 'low' | 'failed' = 'failed';
+        if (items.length > 0) {
+          // High confidence: has items with valid amounts
+          const itemsWithAmounts = items.filter(i => i.amount > 0).length;
+          const amountRatio = itemsWithAmounts / items.length;
+          
+          if (amountRatio > 0.5 && boqTotal > 0) {
+            extractionConfidence = 'high';
+          } else if (amountRatio > 0.2 || items.length > 3) {
+            extractionConfidence = 'medium';
+          } else {
+            extractionConfidence = 'low';
+          }
+        }
+        
+        // Include ALL sections, even those with 0 items (for retry)
         sections.push({
           sectionCode,
           sectionName,
@@ -398,9 +508,16 @@ export function BOQReconciliationDialog({
           itemCount: items.length,
           boqTotal,
           items,
+          extractionConfidence,
+          parseAttempts: 1,
+          lastParseStrategy: 'standard',
         });
         
         totalItems += items.length;
+        
+        if (items.length === 0) {
+          console.log(`[BOQ Parse] Sheet "${sheetName}" has no items - marked for retry`);
+        }
       }
       
       // Sort sections: by bill number, then by section code (proper numerical sort)
@@ -748,6 +865,109 @@ export function BOQReconciliationDialog({
     }
   };
 
+  // Retry parsing a failed section with alternative strategy
+  const handleRetrySection = async (sectionCode: string) => {
+    if (!selectedBoqId) return;
+    
+    setProcessing(true);
+    setSelectedSection(sectionCode);
+    
+    try {
+      const selectedBoq = boqUploads.find(b => b.id === selectedBoqId);
+      if (!selectedBoq) throw new Error("BOQ not found");
+      
+      // Download file again
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from("boq-uploads")
+        .download(selectedBoq.file_path);
+      
+      if (downloadError) throw downloadError;
+      
+      const arrayBuffer = await fileData.arrayBuffer();
+      const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
+      
+      // Find the section to retry
+      const sectionToRetry = parsedSections.find(s => s.sectionCode === sectionCode);
+      if (!sectionToRetry) throw new Error("Section not found");
+      
+      const worksheet = workbook.Sheets[sectionToRetry.billName];
+      if (!worksheet) throw new Error("Worksheet not found");
+      
+      // Try alternative parsing strategy
+      console.log(`[Retry] Attempting alternative parse for section ${sectionCode}`);
+      const altResult = parseSheetAlternative(worksheet, sectionToRetry.billName);
+      
+      if (altResult.items.length === 0) {
+        toast.warning(`Alternative parsing also found no items for ${sectionCode}`);
+        return;
+      }
+      
+      if (altResult.items.length > sectionToRetry.items.length) {
+        // Alternative found more items - update the section
+        const boqTotal = altResult.items.reduce((sum, item) => sum + item.amount, 0);
+        
+        const updatedSections = parsedSections.map(s => {
+          if (s.sectionCode === sectionCode) {
+            return {
+              ...s,
+              items: altResult.items,
+              itemCount: altResult.items.length,
+              boqTotal,
+              extractionConfidence: 'medium' as const,
+              parseAttempts: s.parseAttempts + 1,
+              lastParseStrategy: 'alternative',
+            };
+          }
+          return s;
+        });
+        
+        setParsedSections(updatedSections);
+        toast.success(`Retry found ${altResult.items.length} items (was ${sectionToRetry.items.length})`);
+        
+        // Auto-import the retried section
+        await importSectionMutation.mutateAsync(sectionCode);
+      } else {
+        toast.info(`Alternative parsing found ${altResult.items.length} items (same or fewer than current ${sectionToRetry.items.length})`);
+      }
+    } catch (error) {
+      console.error("Retry failed:", error);
+      toast.error("Failed to retry section parsing");
+    } finally {
+      setProcessing(false);
+      setSelectedSection(null);
+    }
+  };
+
+  // Retry all failed sections
+  const handleRetryAllFailed = async () => {
+    const failedSections = parsedSections.filter(s => s.extractionConfidence === 'failed' || s.items.length === 0);
+    
+    if (failedSections.length === 0) {
+      toast.info("No failed sections to retry");
+      return;
+    }
+    
+    setProcessing(true);
+    let improved = 0;
+    
+    for (const section of failedSections) {
+      setSelectedSection(section.sectionCode);
+      try {
+        await handleRetrySection(section.sectionCode);
+        const updated = parsedSections.find(s => s.sectionCode === section.sectionCode);
+        if (updated && updated.items.length > section.items.length) {
+          improved++;
+        }
+      } catch (error) {
+        console.error(`Retry failed for ${section.sectionCode}:`, error);
+      }
+    }
+    
+    setProcessing(false);
+    setSelectedSection(null);
+    toast.success(`Retry complete. ${improved} sections improved.`);
+  };
+
   const handleClose = () => {
     setSelectedBoqId(null);
     setSelectedSection(null);
@@ -830,7 +1050,7 @@ export function BOQReconciliationDialog({
             </div>
           ) : (
             <>
-              {/* Progress Summary - simplified, no BOQ totals */}
+              {/* Progress Summary with extraction quality */}
               <div className="bg-muted/50 rounded-lg p-4 mb-4">
                 <div className="flex items-center justify-between">
                   <div>
@@ -842,9 +1062,23 @@ export function BOQReconciliationDialog({
                       sections imported
                     </p>
                   </div>
-                  <div className="text-right text-sm text-muted-foreground">
-                    <p>Totals will be calculated from</p>
-                    <p>imported items after completion</p>
+                  <div className="text-right text-sm">
+                    {/* Extraction quality summary */}
+                    <div className="flex gap-3 text-xs">
+                      <span className="text-green-600">
+                        ● {parsedSections.filter(s => s.extractionConfidence === 'high').length} high
+                      </span>
+                      <span className="text-blue-600">
+                        ● {parsedSections.filter(s => s.extractionConfidence === 'medium').length} medium
+                      </span>
+                      <span className="text-yellow-600">
+                        ● {parsedSections.filter(s => s.extractionConfidence === 'low').length} low
+                      </span>
+                      <span className="text-red-600">
+                        ● {parsedSections.filter(s => s.extractionConfidence === 'failed').length} failed
+                      </span>
+                    </div>
+                    <p className="text-muted-foreground mt-1">extraction confidence</p>
                   </div>
                 </div>
                 <Progress 
@@ -865,21 +1099,43 @@ export function BOQReconciliationDialog({
                     {parsedSections.map((section) => {
                       const status = reconciliationStatus[section.sectionCode];
                       const isProcessing = processing && selectedSection === section.sectionCode;
+                      const hasFailed = section.extractionConfidence === 'failed' || section.items.length === 0;
+                      const isLowConfidence = section.extractionConfidence === 'low';
                       
                       return (
                         <div
                           key={`${section.billNumber}-${section.sectionCode}`}
-                          className="p-4 border rounded-lg"
+                          className={cn(
+                            "p-4 border rounded-lg",
+                            hasFailed && "border-red-200 bg-red-50/50",
+                            isLowConfidence && !hasFailed && "border-yellow-200 bg-yellow-50/50"
+                          )}
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
                               {getStatusIcon(status)}
                               <div>
-                                <p className="font-medium">
-                                  Section {section.sectionCode} - {section.sectionName}
-                                </p>
+                                <div className="flex items-center gap-2">
+                                  <p className="font-medium">
+                                    Section {section.sectionCode} - {section.sectionName}
+                                  </p>
+                                  {/* Confidence badge */}
+                                  {section.extractionConfidence === 'high' && (
+                                    <span className="text-xs px-1.5 py-0.5 rounded bg-green-100 text-green-700">High</span>
+                                  )}
+                                  {section.extractionConfidence === 'medium' && (
+                                    <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">Medium</span>
+                                  )}
+                                  {section.extractionConfidence === 'low' && (
+                                    <span className="text-xs px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-700">Low</span>
+                                  )}
+                                  {section.extractionConfidence === 'failed' && (
+                                    <span className="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700">No Data</span>
+                                  )}
+                                </div>
                                 <p className="text-sm text-muted-foreground">
                                   Bill {section.billNumber} • {section.itemCount} items
+                                  {section.parseAttempts > 1 && ` • ${section.parseAttempts} attempts`}
                                 </p>
                               </div>
                             </div>
@@ -901,7 +1157,28 @@ export function BOQReconciliationDialog({
                                 </div>
                               )}
                               
-                              {!status?.imported ? (
+                              {/* Show Retry button for failed sections */}
+                              {hasFailed ? (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  onClick={() => handleRetrySection(section.sectionCode)}
+                                  disabled={processing}
+                                  className="border-red-300 text-red-700 hover:bg-red-50"
+                                >
+                                  {isProcessing ? (
+                                    <>
+                                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                                      Retrying...
+                                    </>
+                                  ) : (
+                                    <>
+                                      <RefreshCw className="h-4 w-4 mr-2" />
+                                      Retry Parse
+                                    </>
+                                  )}
+                                </Button>
+                              ) : !status?.imported ? (
                                 <Button
                                   size="sm"
                                   onClick={() => handleImportSection(section.sectionCode)}
@@ -956,6 +1233,18 @@ export function BOQReconciliationDialog({
               >
                 Change BOQ
               </Button>
+              {/* Show Retry Failed button if there are failed sections */}
+              {parsedSections.some(s => s.extractionConfidence === 'failed' || s.items.length === 0) && (
+                <Button
+                  variant="outline"
+                  onClick={handleRetryAllFailed}
+                  disabled={processing}
+                  className="border-yellow-300 text-yellow-700 hover:bg-yellow-50"
+                >
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Retry Failed ({parsedSections.filter(s => s.extractionConfidence === 'failed' || s.items.length === 0).length})
+                </Button>
+              )}
               <Button
                 variant="secondary"
                 onClick={handleRepriseAll}
