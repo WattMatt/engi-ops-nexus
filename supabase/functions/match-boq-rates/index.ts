@@ -352,6 +352,205 @@ function suggestCategory(desc: string, categories: MaterialCategory[]): { id: st
   return { id: null, name: null };
 }
 
+/**
+ * PHASE 4: Outlier & Anomaly Detection
+ * 
+ * OUTLIER RULES:
+ * 1. Rate differs >50% from matched master rate → OUTLIER
+ * 2. Rate < R10 for materials (suspiciously low) → FLAG
+ * 3. Rate > R10,000 for standard items → FLAG
+ * 4. Quantity = 0 but rate > 0 → "Rate Only" item
+ * 5. Math error: Qty × Rate ≠ Amount (>5%) → FLAG
+ */
+
+// Market Benchmarks for South Africa (ZAR)
+const MARKET_BENCHMARKS: Record<string, { min: number; max: number }> = {
+  'containment': { min: 50, max: 500 },      // R50-500/m
+  'cable': { min: 20, max: 2000 },           // R20-2000/m depending on size
+  'db': { min: 3000, max: 50000 },           // R3,000-50,000/unit
+  'light': { min: 200, max: 5000 },          // R200-5,000/unit
+  'general': { min: 50, max: 10000 },        // R50-10,000/item
+};
+
+interface OutlierResult {
+  isOutlier: boolean;
+  outlierReason: string | null;
+  isRateOnly: boolean;
+  mathValidated: boolean;
+}
+
+function detectOutliers(
+  item: {
+    description: string;
+    quantity: number | null;
+    totalRate: number | null;
+    supplyRate: number | null;
+    installRate: number | null;
+    amount: number | null;
+  },
+  matchedMaterial: { supply_cost: number | null; install_cost: number | null } | null,
+  matchConfidence: number
+): OutlierResult {
+  const reasons: string[] = [];
+  let isOutlier = false;
+  let isRateOnly = false;
+  let mathValidated = true;
+  
+  const { description, quantity, totalRate, supplyRate, installRate, amount } = item;
+  const descLower = description.toLowerCase();
+  
+  // 1. RATE ONLY DETECTION: Quantity = 0 but rate > 0
+  if ((quantity === null || quantity === 0) && (totalRate || 0) > 0) {
+    isRateOnly = true;
+    // Not necessarily an outlier, just flagged
+  }
+  
+  // Skip outlier checks for rate-only items or items with no rate
+  if (!totalRate || totalRate <= 0) {
+    return { isOutlier: false, outlierReason: null, isRateOnly, mathValidated };
+  }
+  
+  // 2. MASTER RATE COMPARISON (if matched with confidence >= 0.7)
+  if (matchedMaterial && matchConfidence >= 0.7) {
+    const masterTotal = (matchedMaterial.supply_cost || 0) + (matchedMaterial.install_cost || 0);
+    if (masterTotal > 0) {
+      const variance = Math.abs(totalRate - masterTotal) / masterTotal;
+      if (variance > 0.5) {
+        isOutlier = true;
+        const percentDiff = Math.round(variance * 100);
+        if (totalRate > masterTotal) {
+          reasons.push(`Rate ${percentDiff}% higher than master (R${masterTotal})`);
+        } else {
+          reasons.push(`Rate ${percentDiff}% lower than master (R${masterTotal})`);
+        }
+      }
+    }
+  }
+  
+  // 3. SUSPICIOUSLY LOW RATE (< R10 for materials)
+  // Exclude labor-only items
+  const isLaborOnly = descLower.includes('labour') || descLower.includes('labor') || 
+                      descLower.includes('installation only');
+  if (!isLaborOnly && totalRate < 10 && !isRateOnly) {
+    isOutlier = true;
+    reasons.push('Suspiciously low rate (< R10)');
+  }
+  
+  // 4. SUSPICIOUSLY HIGH RATE (> R10,000 for standard items)
+  // Allow high rates for special equipment
+  const isSpecialEquipment = descLower.includes('transformer') || descLower.includes('generator') ||
+                             descLower.includes('switchgear') || descLower.includes('mdb') ||
+                             descLower.includes('substation') || descLower.includes('ups');
+  if (!isSpecialEquipment && totalRate > 10000) {
+    // Check against market benchmarks
+    const category = detectItemCategory(descLower);
+    const benchmark = MARKET_BENCHMARKS[category];
+    if (benchmark && totalRate > benchmark.max * 2) {
+      isOutlier = true;
+      reasons.push(`Rate R${totalRate} exceeds benchmark (R${benchmark.max}) for ${category}`);
+    }
+  }
+  
+  // 5. MATH VALIDATION: Qty × Rate ≈ Amount (within 5% tolerance)
+  if (quantity && quantity > 0 && amount && amount > 0) {
+    const calculatedAmount = quantity * totalRate;
+    const mathVariance = Math.abs(calculatedAmount - amount) / amount;
+    if (mathVariance > 0.05) {
+      mathValidated = false;
+      isOutlier = true;
+      reasons.push(`Math validation failed: ${quantity} × R${totalRate} = R${calculatedAmount.toFixed(2)}, expected R${amount}`);
+    }
+  }
+  
+  // 6. MARKET BENCHMARK CHECK (only if not already flagged for master variance)
+  if (!isOutlier && reasons.length === 0) {
+    const category = detectItemCategory(descLower);
+    const benchmark = MARKET_BENCHMARKS[category];
+    if (benchmark) {
+      if (totalRate < benchmark.min * 0.5) {
+        isOutlier = true;
+        reasons.push(`Rate R${totalRate} below market minimum (R${benchmark.min}) for ${category}`);
+      }
+    }
+  }
+  
+  return {
+    isOutlier,
+    outlierReason: reasons.length > 0 ? reasons.join('; ') : null,
+    isRateOnly,
+    mathValidated
+  };
+}
+
+function detectItemCategory(desc: string): string {
+  if (desc.includes('trunking') || desc.includes('tray') || desc.includes('ladder') || desc.includes('conduit')) {
+    return 'containment';
+  }
+  if (desc.includes('cable') || desc.includes('xlpe') || desc.includes('pvc') || desc.includes('conductor')) {
+    return 'cable';
+  }
+  if (desc.includes('db') || desc.includes('distribution') || desc.includes('board') || desc.includes('panel')) {
+    return 'db';
+  }
+  if (desc.includes('light') || desc.includes('led') || desc.includes('luminaire') || desc.includes('fitting')) {
+    return 'light';
+  }
+  return 'general';
+}
+
+/**
+ * Rate averaging for duplicate items in same upload
+ */
+interface RateTracker {
+  items: Array<{ rate: number; quantity: number }>;
+  averageRate: number;
+  minRate: number;
+  maxRate: number;
+  count: number;
+}
+
+function trackRates(
+  matchResults: MatchResult[],
+  materialReference: { id: string; supply_cost: number | null; install_cost: number | null }[]
+): Map<string, RateTracker> {
+  const rateTrackers = new Map<string, RateTracker>();
+  
+  for (const item of matchResults) {
+    if (!item.matched_material_id || !item.total_rate || item.total_rate <= 0) continue;
+    
+    const existing = rateTrackers.get(item.matched_material_id);
+    if (existing) {
+      existing.items.push({ rate: item.total_rate, quantity: item.quantity || 1 });
+      existing.count++;
+      existing.minRate = Math.min(existing.minRate, item.total_rate);
+      existing.maxRate = Math.max(existing.maxRate, item.total_rate);
+      // Weighted average by quantity
+      const totalQty = existing.items.reduce((sum, i) => sum + i.quantity, 0);
+      existing.averageRate = existing.items.reduce((sum, i) => sum + i.rate * i.quantity, 0) / totalQty;
+    } else {
+      rateTrackers.set(item.matched_material_id, {
+        items: [{ rate: item.total_rate, quantity: item.quantity || 1 }],
+        averageRate: item.total_rate,
+        minRate: item.total_rate,
+        maxRate: item.total_rate,
+        count: 1
+      });
+    }
+  }
+  
+  // Log rate variations
+  for (const [materialId, tracker] of rateTrackers) {
+    if (tracker.count > 1) {
+      const material = materialReference.find(m => m.id === materialId);
+      const variance = ((tracker.maxRate - tracker.minRate) / tracker.averageRate * 100).toFixed(1);
+      console.log(`[BOQ Match] Rate variation for material: ${tracker.count} entries, ` +
+                  `Avg: R${tracker.averageRate.toFixed(2)}, Range: R${tracker.minRate}-${tracker.maxRate} (${variance}% variance)`);
+    }
+  }
+  
+  return rateTrackers;
+}
+
 async function getGoogleAccessToken(): Promise<string> {
   const serviceEmail = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_EMAIL');
   const privateKey = Deno.env.get('GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY');
@@ -646,6 +845,51 @@ async function processMatching(
       });
     }
 
+    // PHASE 4: Run outlier detection on all items
+    console.log('[BOQ Match] Running outlier detection...');
+    let outlierCount = 0;
+    let rateOnlyCount = 0;
+    let mathFailCount = 0;
+    
+    for (const result of matchResults) {
+      // Find matched material for rate comparison
+      const matchedMaterial = result.matched_material_id 
+        ? materialReference.find((m: any) => m.id === result.matched_material_id)
+        : null;
+      
+      const outlierResult = detectOutliers(
+        {
+          description: result.item_description,
+          quantity: result.quantity,
+          totalRate: result.total_rate,
+          supplyRate: result.supply_rate,
+          installRate: result.install_rate,
+          amount: result.calculated_total
+        },
+        matchedMaterial ? { 
+          supply_cost: matchedMaterial.supply_cost || null, 
+          install_cost: matchedMaterial.install_cost || null 
+        } : null,
+        result.match_confidence
+      );
+      
+      // Update result with outlier info
+      result.is_outlier = outlierResult.isOutlier;
+      result.outlier_reason = outlierResult.outlierReason;
+      result.math_validated = outlierResult.mathValidated;
+      
+      // Track counts
+      if (outlierResult.isOutlier) outlierCount++;
+      if (outlierResult.isRateOnly) rateOnlyCount++;
+      if (!outlierResult.mathValidated) mathFailCount++;
+    }
+    
+    console.log(`[BOQ Match] Outlier detection complete: ${outlierCount} outliers, ${rateOnlyCount} rate-only, ${mathFailCount} math failures`);
+    
+    // Track rate variations for duplicate items
+    const rateTrackers = trackRates(matchResults, materialReference as any);
+    console.log(`[BOQ Match] Tracked rates for ${rateTrackers.size} unique materials`);
+
     // Delete existing items for this upload
     const { error: deleteError } = await supabase
       .from('boq_extracted_items')
@@ -665,6 +909,15 @@ async function processMatching(
     for (const result of matchResults) {
       const standardizedUnit = standardizeUnit(result.unit);
       
+      // Check if this is a rate-only item
+      const isRateOnly = (result.quantity === null || result.quantity === 0) && (result.total_rate || 0) > 0;
+      
+      // Build extraction notes
+      const notes: string[] = [];
+      if (result.is_outlier && result.outlier_reason) notes.push(`OUTLIER: ${result.outlier_reason}`);
+      if (!result.math_validated) notes.push('Math validation failed');
+      if (isRateOnly) notes.push('Rate only - no quantity');
+      
       // Prepare item for batch insert
       itemsToInsert.push({
         upload_id,
@@ -680,13 +933,13 @@ async function processMatching(
         match_confidence: result.match_confidence,
         suggested_category_id: result.suggested_category_id,
         suggested_category_name: result.suggested_category_name,
-        review_status: 'pending',
+        review_status: result.is_outlier ? 'flagged' : 'pending',
         bill_number: result.bill_number,
         bill_name: result.bill_name,
         section_code: result.section_code,
         section_name: result.section_name,
-        extraction_notes: result.is_outlier ? `OUTLIER: ${result.outlier_reason}` : 
-                         (!result.math_validated ? 'Math validation failed' : null),
+        is_rate_only: isRateOnly,
+        extraction_notes: notes.length > 0 ? notes.join('; ') : null,
       });
 
       // MATCHING THRESHOLDS per Phase 3 spec:
@@ -772,6 +1025,9 @@ async function processMatching(
     console.log(`  Matched to master: ${matchedCount}`);
     console.log(`  New items (unmatched): ${newItemCount}`);
     console.log(`  Master rates updated: ${ratesUpdatedCount}`);
+    console.log(`  Outliers detected: ${outlierCount}`);
+    console.log(`  Rate-only items: ${rateOnlyCount}`);
+    console.log(`  Math validation failures: ${mathFailCount}`);
     console.log(`[BOQ Match] =======================================`);
 
     // Update upload status with summary
