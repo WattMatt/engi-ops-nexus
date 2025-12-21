@@ -266,7 +266,12 @@ function parseSheet(worksheet: XLSX.WorkSheet, sheetName: string): BOQSectionSum
   }
   
   const items: ParsedBOQItem[] = [];
-  const primeCostTracker: { index: number; item: ParsedBOQItem }[] = [];
+  // Map to track all items by item code for P&A reference matching
+  const itemsByCode: Map<string, ParsedBOQItem> = new Map();
+  // Track prime cost items in order they appear
+  const primeCostItems: ParsedBOQItem[] = [];
+  // Store P&A rows to process after all items are parsed
+  const paRows: { rowIdx: number; referencedCode: string | null; percentage: number }[] = [];
   
   // Skip patterns for totals
   const skipPatterns = [
@@ -276,7 +281,7 @@ function parseSheet(worksheet: XLSX.WorkSheet, sheetName: string): BOQSectionSum
     /total\s+for\s+section/i, /carried\s+to\s+summary/i,
   ];
   
-  // Parse rows
+  // First pass: Parse all rows and identify P&A rows
   for (let i = headerRowIdx + 1; i < allRows.length; i++) {
     const row = allRows[i];
     const description = colMap.description !== undefined ? String(row[colMap.description] || "").trim() : "";
@@ -295,7 +300,7 @@ function parseSheet(worksheet: XLSX.WorkSheet, sheetName: string): BOQSectionSum
       itemCode = "";
     }
     
-    // Skip empty rows
+    // Skip completely empty rows (but don't reset tracking)
     if (!itemCode && !description) continue;
     
     // Skip totals
@@ -304,32 +309,19 @@ function parseSheet(worksheet: XLSX.WorkSheet, sheetName: string): BOQSectionSum
       continue;
     }
     
+    // Check if this is a P&A row BEFORE adding to items
+    const paInfo = detectPARow(description, itemCode, quantity, unitRaw, row);
+    if (paInfo && paInfo.percentage > 0) {
+      paRows.push({
+        rowIdx: i,
+        referencedCode: paInfo.referencedItemCode,
+        percentage: paInfo.percentage,
+      });
+      // Still add the P&A row as an item (it has an amount)
+    }
+    
     // Check if this is a Prime Cost item
     const isPrimeC = isPrimeCostItem(description, itemCode);
-    
-    // Check if this is a P&A row (follows a PC item)
-    const paInfo = detectPARow(description, itemCode, quantity, unitRaw, row);
-    
-    if (paInfo && paInfo.percentage > 0) {
-      // Try to match by referenced item code first
-      if (paInfo.referencedItemCode) {
-        const matchedPC = primeCostTracker.find(pc => pc.item.itemCode.toUpperCase() === paInfo.referencedItemCode);
-        if (matchedPC) {
-          matchedPC.item.pcProfitAttendancePercent = paInfo.percentage;
-          console.log(`[P&A] Applied ${paInfo.percentage}% to ${matchedPC.item.itemCode} (matched by reference)`);
-        } else if (primeCostTracker.length > 0) {
-          // Fallback: apply to most recent PC item
-          const lastPC = primeCostTracker[primeCostTracker.length - 1];
-          lastPC.item.pcProfitAttendancePercent = paInfo.percentage;
-          console.log(`[P&A] Applied ${paInfo.percentage}% to ${lastPC.item.itemCode} (fallback to last PC)`);
-        }
-      } else if (primeCostTracker.length > 0) {
-        // No reference, apply to most recent PC item
-        const lastPC = primeCostTracker[primeCostTracker.length - 1];
-        lastPC.item.pcProfitAttendancePercent = paInfo.percentage;
-        console.log(`[P&A] Applied ${paInfo.percentage}% to ${lastPC.item.itemCode} (position-based)`);
-      }
-    }
     
     const item: ParsedBOQItem = {
       rowIndex: i,
@@ -351,9 +343,46 @@ function parseSheet(worksheet: XLSX.WorkSheet, sheetName: string): BOQSectionSum
     
     items.push(item);
     
-    // Track PC items for P&A matching
+    // Track by item code for reference matching
+    if (itemCode) {
+      itemsByCode.set(itemCode.toUpperCase(), item);
+    }
+    
+    // Track PC items in order
     if (isPrimeC) {
-      primeCostTracker.push({ index: i, item });
+      primeCostItems.push(item);
+    }
+  }
+  
+  // Second pass: Apply P&A percentages to their parent PC items
+  for (const pa of paRows) {
+    let matched = false;
+    
+    // First try: Match by explicit item code reference
+    if (pa.referencedCode) {
+      const parentItem = itemsByCode.get(pa.referencedCode);
+      if (parentItem && parentItem.isPrimeCost) {
+        parentItem.pcProfitAttendancePercent = pa.percentage;
+        console.log(`[P&A] Applied ${pa.percentage}% to ${parentItem.itemCode} (code reference match)`);
+        matched = true;
+      }
+    }
+    
+    // Second try: Find the closest preceding PC item by row index
+    if (!matched && primeCostItems.length > 0) {
+      // Find PC items that appear before this P&A row
+      const precedingPCs = primeCostItems.filter(pc => pc.rowIndex < pa.rowIdx);
+      if (precedingPCs.length > 0) {
+        // Get the most recent (closest) PC item
+        const nearestPC = precedingPCs[precedingPCs.length - 1];
+        nearestPC.pcProfitAttendancePercent = pa.percentage;
+        console.log(`[P&A] Applied ${pa.percentage}% to ${nearestPC.itemCode} (nearest preceding PC at row ${nearestPC.rowIndex})`);
+        matched = true;
+      }
+    }
+    
+    if (!matched) {
+      console.log(`[P&A] Warning: Could not match P&A row ${pa.rowIdx} with ${pa.percentage}% to any PC item`);
     }
   }
   
@@ -362,16 +391,13 @@ function parseSheet(worksheet: XLSX.WorkSheet, sheetName: string): BOQSectionSum
     .filter(item => !isHeaderOrSubtotalRow(item.itemCode, item.description))
     .reduce((sum, item) => sum + item.amount, 0);
   
-  // Get prime cost items
-  const primeCostItems = items.filter(i => i.isPrimeCost);
-  
   return {
     sectionCode,
     sectionName,
     billNumber,
     billName: sheetName,
     itemCount: items.length,
-    boqTotal: calculatedTotal, // For now, same as calculated
+    boqTotal: calculatedTotal,
     calculatedTotal,
     items,
     primeCostItems,
