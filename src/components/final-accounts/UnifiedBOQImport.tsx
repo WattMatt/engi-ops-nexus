@@ -82,32 +82,64 @@ function isPrimeCostItem(description: string, itemCode: string): boolean {
 }
 
 // Detect P&A rows - these reference a parent item and contain a percentage
-function detectPARow(description: string, quantity: number): { percentage: number } | null {
-  // Common P&A patterns
-  const patterns = [
-    /allow\s*(?:for\s*)?profit/i,
-    /(?:add|allow)\s*(?:for\s*)?(?:P\.?&\.?A\.?|profit)/i,
-    /profit\s*(?:and\s*attendance)?/i,
-    /(?:P\.?&\.?A\.?)/i,
-  ];
+// Returns the referenced item code and percentage
+function detectPARow(
+  description: string, 
+  itemCode: string,
+  quantity: number, 
+  unit: string,
+  rawRowData: string[]
+): { referencedItemCode: string | null; percentage: number } | null {
+  // Must contain "profit" or "P&A" to be a P&A row
+  const isPARow = /allow\s*(?:for\s*)?profit|profit\s*(?:and|&)?\s*attendance|P\.?&\.?A\.?/i.test(description);
+  if (!isPARow) return null;
   
-  if (!patterns.some(p => p.test(description))) return null;
-  
-  // Extract percentage from description or use quantity
-  let percentage = 0;
-  
-  // Try description first: "10,00%" or "10.00%" or "10%"
-  const pctMatch = description.match(/(\d+(?:[.,]\d+)?)\s*%/);
-  if (pctMatch) {
-    percentage = parseFloat(pctMatch[1].replace(',', '.')) || 0;
+  // Extract referenced item code: "Allow profit to item B1.1"
+  let referencedItemCode: string | null = null;
+  const refMatch = description.match(/(?:to|on|for)\s*(?:item\s*)?([A-Z]\d+(?:\.\d+)*)/i);
+  if (refMatch) {
+    referencedItemCode = refMatch[1].toUpperCase();
   }
   
-  // Fallback: quantity field often contains the percentage value
+  // Extract percentage - check multiple sources
+  let percentage = 0;
+  
+  // 1. From description: "10,00%" or "10.00%" or "10%"
+  const descPctMatch = description.match(/(\d+(?:[.,]\d+)?)\s*%/);
+  if (descPctMatch) {
+    percentage = parseFloat(descPctMatch[1].replace(',', '.')) || 0;
+  }
+  
+  // 2. From unit column if it contains percentage: "10,00%" 
+  if (!percentage && unit) {
+    const unitPctMatch = unit.match(/(\d+(?:[.,]\d+)?)\s*%?/);
+    if (unitPctMatch) {
+      const val = parseFloat(unitPctMatch[1].replace(',', '.'));
+      if (val > 0 && val <= 100) percentage = val;
+    }
+  }
+  
+  // 3. From quantity if it looks like a percentage (0-100 range)
   if (!percentage && quantity > 0 && quantity <= 100) {
     percentage = quantity;
   }
   
-  return percentage > 0 ? { percentage } : null;
+  // 4. Scan raw row data for percentage pattern
+  if (!percentage && rawRowData) {
+    for (const cell of rawRowData) {
+      const cellStr = String(cell || '').trim();
+      const cellPctMatch = cellStr.match(/^(\d+(?:[.,]\d+)?)\s*%?$/);
+      if (cellPctMatch) {
+        const val = parseFloat(cellPctMatch[1].replace(',', '.'));
+        if (val > 0 && val <= 100) {
+          percentage = val;
+          break;
+        }
+      }
+    }
+  }
+  
+  return { referencedItemCode, percentage };
 }
 
 // Parse number from various formats
@@ -276,13 +308,27 @@ function parseSheet(worksheet: XLSX.WorkSheet, sheetName: string): BOQSectionSum
     const isPrimeC = isPrimeCostItem(description, itemCode);
     
     // Check if this is a P&A row (follows a PC item)
-    const paInfo = detectPARow(description, quantity);
+    const paInfo = detectPARow(description, itemCode, quantity, unitRaw, row);
     
-    if (paInfo && primeCostTracker.length > 0) {
-      // Apply P&A percentage to the most recent PC item
-      const lastPC = primeCostTracker[primeCostTracker.length - 1];
-      lastPC.item.pcProfitAttendancePercent = paInfo.percentage;
-      console.log(`[P&A] Applied ${paInfo.percentage}% to PC item at row ${lastPC.index}: ${lastPC.item.description.substring(0, 40)}`);
+    if (paInfo && paInfo.percentage > 0) {
+      // Try to match by referenced item code first
+      if (paInfo.referencedItemCode) {
+        const matchedPC = primeCostTracker.find(pc => pc.item.itemCode.toUpperCase() === paInfo.referencedItemCode);
+        if (matchedPC) {
+          matchedPC.item.pcProfitAttendancePercent = paInfo.percentage;
+          console.log(`[P&A] Applied ${paInfo.percentage}% to ${matchedPC.item.itemCode} (matched by reference)`);
+        } else if (primeCostTracker.length > 0) {
+          // Fallback: apply to most recent PC item
+          const lastPC = primeCostTracker[primeCostTracker.length - 1];
+          lastPC.item.pcProfitAttendancePercent = paInfo.percentage;
+          console.log(`[P&A] Applied ${paInfo.percentage}% to ${lastPC.item.itemCode} (fallback to last PC)`);
+        }
+      } else if (primeCostTracker.length > 0) {
+        // No reference, apply to most recent PC item
+        const lastPC = primeCostTracker[primeCostTracker.length - 1];
+        lastPC.item.pcProfitAttendancePercent = paInfo.percentage;
+        console.log(`[P&A] Applied ${paInfo.percentage}% to ${lastPC.item.itemCode} (position-based)`);
+      }
     }
     
     const item: ParsedBOQItem = {
