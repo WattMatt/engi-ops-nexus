@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FinalAccountOverview } from "@/components/final-accounts/FinalAccountOverview";
 import { FinalAccountBillsManager } from "@/components/final-accounts/FinalAccountBillsManager";
+import { PrimeCostManager } from "@/components/final-accounts/PrimeCostManager";
 
 const FinalAccountDetail = () => {
   const { accountId } = useParams();
@@ -43,12 +44,16 @@ const FinalAccountDetail = () => {
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="bills">Bills & Sections</TabsTrigger>
+          <TabsTrigger value="prime-costs">Prime Costs</TabsTrigger>
         </TabsList>
         <TabsContent value="overview" className="space-y-4">
           {account && <FinalAccountOverview account={account} />}
         </TabsContent>
         <TabsContent value="bills" className="space-y-4">
           {accountId && account && <FinalAccountBillsManager accountId={accountId} projectId={account.project_id} />}
+        </TabsContent>
+        <TabsContent value="prime-costs" className="space-y-4">
+          {accountId && account && <PrimeCostManager accountId={accountId} projectId={account.project_id} />}
         </TabsContent>
       </Tabs>
     </div>
