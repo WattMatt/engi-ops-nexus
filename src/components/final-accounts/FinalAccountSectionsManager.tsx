@@ -32,10 +32,21 @@ export function FinalAccountSectionsManager({ billId, accountId }: FinalAccountS
       const { data, error } = await supabase
         .from("final_account_sections")
         .select("*")
-        .eq("bill_id", billId)
-        .order("display_order", { ascending: true });
+        .eq("bill_id", billId);
       if (error) throw error;
-      return data || [];
+      
+      // Sort sections numerically (e.g., 1.2, 1.3, 1.10, 1.11 not 1.10, 1.11, 1.2)
+      return (data || []).sort((a, b) => {
+        const aParts = a.section_code.split('.').map((p: string) => parseFloat(p) || 0);
+        const bParts = b.section_code.split('.').map((p: string) => parseFloat(p) || 0);
+        
+        for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
+          const aVal = aParts[i] || 0;
+          const bVal = bParts[i] || 0;
+          if (aVal !== bVal) return aVal - bVal;
+        }
+        return a.section_code.localeCompare(b.section_code);
+      });
     },
   });
 
