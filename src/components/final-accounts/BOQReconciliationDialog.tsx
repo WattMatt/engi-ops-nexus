@@ -90,6 +90,26 @@ function extractProfitAttendancePercent(description: string): number {
   return 0;
 }
 
+// Detect if an item is a header or subtotal row that should be excluded from totals
+// These contain aggregated amounts that would cause double-counting
+function isHeaderOrSubtotalRow(itemCode: string, description: string): boolean {
+  if (!itemCode) return false;
+  
+  // Single letter codes (A, B, C) - main section headers with section totals
+  if (/^[A-Z]$/i.test(itemCode)) return true;
+  
+  // Two-character codes like A1, B2, C3 - subsection headers with subtotals
+  if (/^[A-Z]\d$/i.test(itemCode)) return true;
+  
+  // Check for "total" or "subtotal" in description
+  if (/\b(sub)?total\b/i.test(description)) return true;
+  
+  // Check for "carried forward" or "brought forward" 
+  if (/\b(carried|brought)\s*(forward|f\/w|fwd)\b/i.test(description)) return true;
+  
+  return false;
+}
+
 interface BOQSectionSummary {
   sectionCode: string;
   sectionName: string;
@@ -557,7 +577,11 @@ export function BOQReconciliationDialog({
         const worksheet = workbook.Sheets[sheetName];
         const { items, sectionCode, sectionName, billNumber } = parseSheetForBOQ(worksheet, sheetName);
         
-        const boqTotal = items.reduce((sum, item) => sum + item.amount, 0);
+        // Calculate BOQ total EXCLUDING header/subtotal rows (same filtering used during import)
+        // This ensures boqTotal matches what will be stored as contract_total
+        const boqTotal = items
+          .filter(item => !isHeaderOrSubtotalRow(item.itemCode, item.description))
+          .reduce((sum, item) => sum + item.amount, 0);
         
         // Calculate extraction confidence based on items found and totals
         let extractionConfidence: 'high' | 'medium' | 'low' | 'failed' = 'failed';
@@ -764,21 +788,21 @@ export function BOQReconciliationDialog({
         sectionId = newSection.id;
       }
 
-      // Insert items - exclude amounts from header rows to prevent double-counting
+      // Insert items - exclude amounts from header/subtotal rows to prevent double-counting
       const itemsToInsert = items.map((item, index) => {
-        // Header rows (single letter codes like A, B, C) contain subtotals - zero them out
-        const isHeaderRow = /^[A-Z]$/i.test(item.itemCode);
-        const amount = isHeaderRow ? 0 : item.amount;
+        // Header/subtotal rows contain aggregated amounts - zero them out
+        const isHeader = isHeaderOrSubtotalRow(item.itemCode, item.description);
+        const amount = isHeader ? 0 : item.amount;
         
         return {
           section_id: sectionId,
           item_code: item.itemCode || "",
           description: item.description,
           unit: item.unit || "",
-          contract_quantity: isHeaderRow ? 0 : item.quantity,
+          contract_quantity: isHeader ? 0 : item.quantity,
           final_quantity: 0,
-          supply_rate: isHeaderRow ? 0 : item.supplyRate,
-          install_rate: isHeaderRow ? 0 : item.installRate,
+          supply_rate: isHeader ? 0 : item.supplyRate,
+          install_rate: isHeader ? 0 : item.installRate,
           contract_amount: amount,
           final_amount: 0,
           display_order: index + 1,
@@ -792,9 +816,9 @@ export function BOQReconciliationDialog({
       // Track prime cost items for auto-import to Prime Cost manager
       const primeCostItems = items.filter(item => item.isPrimeCost);
       
-      // Calculate actual total from non-header items only
+      // Calculate actual total from non-header items only (using same filter function)
       const actualTotal = items
-        .filter(item => !/^[A-Z]$/i.test(item.itemCode))
+        .filter(item => !isHeaderOrSubtotalRow(item.itemCode, item.description))
         .reduce((sum, item) => sum + item.amount, 0);
 
       const { error: itemsError } = await supabase
