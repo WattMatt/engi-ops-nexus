@@ -101,21 +101,38 @@ function detectPARow(
     referencedItemCode = refMatch[1].toUpperCase();
   }
   
-  // Helper to parse percentage from string - handles "10,00%" "10.00%" "10%" "10,00" "10.00" "10"
-  const parsePercentage = (str: string): number => {
+  // Helper to parse percentage - handles Excel decimals (0.1 = 10%) and strings ("10,00%")
+  const parsePercentage = (val: any): number => {
+    if (val === null || val === undefined) return 0;
+    
+    // If it's already a number (from Excel), check if it's a decimal percentage
+    if (typeof val === 'number') {
+      // Excel stores 10% as 0.1, so values between 0 and 1 are likely percentages
+      if (val > 0 && val < 1) {
+        return val * 100; // Convert 0.1 to 10
+      }
+      return val > 0 && val <= 100 ? val : 0;
+    }
+    
+    const str = String(val);
     if (!str) return 0;
+    
     // Remove % sign and trim
     let cleaned = str.replace('%', '').trim();
     // Handle South African format: "10,00" means 10.00
-    // If there's a comma followed by exactly 2 digits at the end, it's a decimal separator
     if (/,\d{2}$/.test(cleaned)) {
       cleaned = cleaned.replace(',', '.');
     } else {
-      // Otherwise remove commas (thousand separators)
       cleaned = cleaned.replace(/,/g, '');
     }
-    const val = parseFloat(cleaned);
-    return !isNaN(val) && val > 0 && val <= 100 ? val : 0;
+    const num = parseFloat(cleaned);
+    if (isNaN(num) || num <= 0) return 0;
+    
+    // If parsed value is between 0 and 1, it's likely a decimal percentage
+    if (num > 0 && num < 1) {
+      return num * 100;
+    }
+    return num <= 100 ? num : 0;
   };
   
   // Extract percentage - check multiple sources
@@ -141,10 +158,15 @@ function detectPARow(
     }
   }
   
-  // 3. From quantity if it looks like a percentage (1-100 range, typically 5-15 for P&A)
-  if (!percentage && quantity >= 1 && quantity <= 100) {
-    percentage = quantity;
-    console.log(`[P&A Parse] Using quantity ${quantity} as percentage`);
+  // 3. From quantity - could be decimal (0.1 = 10%) or whole number (10 = 10%)
+  if (!percentage && quantity > 0) {
+    if (quantity > 0 && quantity < 1) {
+      percentage = quantity * 100; // Excel decimal: 0.1 -> 10%
+      console.log(`[P&A Parse] Converted quantity decimal ${quantity} to ${percentage}%`);
+    } else if (quantity >= 1 && quantity <= 100) {
+      percentage = quantity;
+      console.log(`[P&A Parse] Using quantity ${quantity} as percentage`);
+    }
   }
   
   // 4. Scan raw row data for percentage pattern
