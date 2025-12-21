@@ -5513,9 +5513,9 @@ export type Database = {
       material_price_audit: {
         Row: {
           change_percent: number | null
-          change_reason: string
+          change_reason: string | null
           changed_at: string | null
-          changed_by: string
+          changed_by: string | null
           id: string
           material_id: string
           new_install_cost: number | null
@@ -5525,9 +5525,9 @@ export type Database = {
         }
         Insert: {
           change_percent?: number | null
-          change_reason: string
+          change_reason?: string | null
           changed_at?: string | null
-          changed_by: string
+          changed_by?: string | null
           id?: string
           material_id: string
           new_install_cost?: number | null
@@ -5537,9 +5537,9 @@ export type Database = {
         }
         Update: {
           change_percent?: number | null
-          change_reason?: string
+          change_reason?: string | null
           changed_at?: string | null
-          changed_by?: string
+          changed_by?: string | null
           id?: string
           material_id?: string
           new_install_cost?: number | null
