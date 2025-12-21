@@ -109,15 +109,32 @@ export const MaterialsLibraryTab = () => {
     enabled: !!categories,
   });
 
-  // Natural sort by code prefix first, then by trailing number
+  // Natural sort by code prefix first, then by embedded number
   const sortByMaterialCode = (a: Material, b: Material) => {
-    const prefixA = a.material_code.replace(/\d+$/, '');
-    const prefixB = b.material_code.replace(/\d+$/, '');
+    // Extract the numeric part from anywhere in the code (handles patterns like ISO-3P-20A, COND-GP-1.5)
+    const extractNumeric = (code: string): number => {
+      // Match numbers including decimals, prioritizing the last significant number group
+      const matches = code.match(/(\d+\.?\d*)/g);
+      if (!matches) return 0;
+      // For codes like ISO-3P-20A, get the last number (20)
+      // For codes like COND-GP-1.5, get the last number (1.5)
+      return parseFloat(matches[matches.length - 1]) || 0;
+    };
+    
+    // Extract prefix by removing the last numeric segment and any trailing letters
+    const extractPrefix = (code: string): string => {
+      return code.replace(/[\d.]+[A-Za-z]*$/, '');
+    };
+    
+    const prefixA = extractPrefix(a.material_code);
+    const prefixB = extractPrefix(b.material_code);
+    
     // First sort by prefix to keep groups together
     if (prefixA !== prefixB) return prefixA.localeCompare(prefixB);
+    
     // Then sort numerically within the same prefix
-    const numA = parseInt(a.material_code.match(/\d+$/)?.[0] || '0', 10);
-    const numB = parseInt(b.material_code.match(/\d+$/)?.[0] || '0', 10);
+    const numA = extractNumeric(a.material_code);
+    const numB = extractNumeric(b.material_code);
     return numA - numB;
   };
 
