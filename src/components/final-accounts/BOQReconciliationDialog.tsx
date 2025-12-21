@@ -253,6 +253,11 @@ function parseSheetForBOQ(worksheet: XLSX.WorkSheet, sheetName: string): {
     // Skip if absolutely no data
     if (quantity === 0 && amount === 0) continue;
     
+    // Log first 5 items per sheet for debugging
+    if (items.length < 5) {
+      console.log(`[BOQ Parse] Item ${itemCode}: "${description.substring(0, 50)}..." qty=${quantity} supply=${supplyRate} install=${installRate} amount=${amount}`);
+    }
+    
     items.push({
       rowIndex: i,
       itemCode: itemCode || "",
@@ -270,7 +275,9 @@ function parseSheetForBOQ(worksheet: XLSX.WorkSheet, sheetName: string): {
     });
   }
   
-  console.log(`[BOQ Parse] Sheet "${sheetName}" -> Section "${sectionCode}: ${sectionName}" with ${items.length} items`);
+  // Log section total for verification
+  const sectionTotal = items.reduce((sum, item) => sum + item.amount, 0);
+  console.log(`[BOQ Parse] Sheet "${sheetName}" -> Section "${sectionCode}: ${sectionName}" with ${items.length} items, Total: R ${sectionTotal.toLocaleString('en-ZA', { minimumFractionDigits: 2 })}`);
   return { items, sectionCode, sectionName, billNumber };
 }
 
