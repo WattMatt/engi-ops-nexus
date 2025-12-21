@@ -1539,7 +1539,7 @@ export function BOQReconciliationDialog({
                     {/* Section-by-Section Validation Table */}
                     <div className="border rounded-lg overflow-hidden">
                       <div className="bg-muted/50 px-3 py-2 border-b flex items-center justify-between">
-                        <p className="text-sm font-medium">Section Validation Summary</p>
+                        <p className="text-sm font-medium">Section Validation Summary <span className="text-muted-foreground font-normal">(click to inspect)</span></p>
                         <span className="text-xs text-muted-foreground">
                           {selectedSections.length} sections • {selectedSections.reduce((sum, s) => sum + s.itemCount, 0)} items
                         </span>
@@ -1558,45 +1558,104 @@ export function BOQReconciliationDialog({
                           </thead>
                           <tbody>
                             {sectionValidation.map((section) => (
-                              <tr 
-                                key={section.sectionCode}
-                                className={cn(
-                                  "border-b last:border-0",
-                                  section.hasIssue ? "bg-red-50/50 dark:bg-red-950/20" : ""
-                                )}
-                              >
-                                <td className="py-2 px-3">
-                                  <span className="font-medium">{section.sectionCode}</span>
-                                  <span className="text-muted-foreground ml-1 text-xs truncate max-w-[150px] inline-block align-bottom">
-                                    {section.sectionName.substring(0, 20)}
-                                  </span>
-                                </td>
-                                <td className="text-right py-2 px-3 text-muted-foreground">
-                                  {section.itemCount}
-                                </td>
-                                <td className="text-right py-2 px-3">
-                                  {formatCurrency(section.boqTotal)}
-                                </td>
-                                <td className="text-right py-2 px-3">
-                                  {formatCurrency(section.calculatedTotal)}
-                                </td>
-                                <td className={cn(
-                                  "text-right py-2 px-3 font-medium",
-                                  section.hasIssue ? "text-red-600" : "text-green-600"
-                                )}>
-                                  {section.variance >= 0 ? '+' : ''}{formatCurrency(section.variance)}
-                                  <span className="text-xs ml-1">
-                                    ({section.variancePercent >= 0 ? '+' : ''}{section.variancePercent.toFixed(1)}%)
-                                  </span>
-                                </td>
-                                <td className="text-center py-2 px-3">
-                                  {section.hasIssue ? (
-                                    <AlertCircle className="h-4 w-4 text-red-500 mx-auto" />
-                                  ) : (
-                                    <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" />
+                              <>
+                                <tr 
+                                  key={section.sectionCode}
+                                  className={cn(
+                                    "border-b cursor-pointer hover:bg-muted/50 transition-colors",
+                                    section.hasIssue ? "bg-red-50/50 dark:bg-red-950/20" : "",
+                                    previewSection === section.sectionCode ? "bg-primary/10" : ""
                                   )}
-                                </td>
-                              </tr>
+                                  onClick={() => setPreviewSection(previewSection === section.sectionCode ? null : section.sectionCode)}
+                                >
+                                  <td className="py-2 px-3">
+                                    <div className="flex items-center gap-1">
+                                      <ChevronRight className={cn(
+                                        "h-3 w-3 transition-transform",
+                                        previewSection === section.sectionCode ? "rotate-90" : ""
+                                      )} />
+                                      <span className="font-medium">{section.sectionCode}</span>
+                                      <span className="text-muted-foreground ml-1 text-xs truncate max-w-[120px] inline-block align-bottom">
+                                        {section.sectionName.substring(0, 15)}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td className="text-right py-2 px-3 text-muted-foreground">
+                                    {section.itemCount}
+                                  </td>
+                                  <td className="text-right py-2 px-3">
+                                    {formatCurrency(section.boqTotal)}
+                                  </td>
+                                  <td className="text-right py-2 px-3">
+                                    {formatCurrency(section.calculatedTotal)}
+                                  </td>
+                                  <td className={cn(
+                                    "text-right py-2 px-3 font-medium",
+                                    section.hasIssue ? "text-red-600" : "text-green-600"
+                                  )}>
+                                    {section.variance >= 0 ? '+' : ''}{formatCurrency(section.variance)}
+                                    <span className="text-xs ml-1">
+                                      ({section.variancePercent >= 0 ? '+' : ''}{section.variancePercent.toFixed(1)}%)
+                                    </span>
+                                  </td>
+                                  <td className="text-center py-2 px-3">
+                                    {section.hasIssue ? (
+                                      <AlertCircle className="h-4 w-4 text-red-500 mx-auto" />
+                                    ) : (
+                                      <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" />
+                                    )}
+                                  </td>
+                                </tr>
+                                {/* Expanded item preview */}
+                                {previewSection === section.sectionCode && (
+                                  <tr key={`${section.sectionCode}-preview`}>
+                                    <td colSpan={6} className="p-0">
+                                      <div className="bg-muted/30 p-3 border-b">
+                                        <p className="text-xs font-medium mb-2">Items in {section.sectionCode} - {section.sectionName}:</p>
+                                        <div className="max-h-[150px] overflow-auto space-y-1 text-xs">
+                                          {section.items.slice(0, 20).map((item, idx) => {
+                                            const isHeader = isHeaderOrSubtotalRow(item.itemCode, item.description);
+                                            return (
+                                              <div 
+                                                key={idx} 
+                                                className={cn(
+                                                  "flex justify-between gap-2 py-1 px-2 rounded",
+                                                  isHeader ? "bg-muted text-muted-foreground italic" : "bg-background",
+                                                  item.isPrimeCost ? "border-l-2 border-blue-500" : ""
+                                                )}
+                                              >
+                                                <span className="flex-1 truncate">
+                                                  <span className="font-mono text-muted-foreground mr-2">{item.itemCode || '-'}</span>
+                                                  {item.description.substring(0, 60)}
+                                                  {isHeader && <span className="ml-1">(excluded from total)</span>}
+                                                </span>
+                                                <div className="flex gap-3 shrink-0">
+                                                  <span className="text-muted-foreground w-16 text-right">
+                                                    {item.quantity > 0 ? `${item.quantity} ${item.unit}` : '-'}
+                                                  </span>
+                                                  <span className={cn(
+                                                    "w-24 text-right font-medium",
+                                                    isHeader ? "line-through" : ""
+                                                  )}>
+                                                    {formatCurrency(item.amount)}
+                                                  </span>
+                                                </div>
+                                              </div>
+                                            );
+                                          })}
+                                          {section.items.length > 20 && (
+                                            <p className="text-muted-foreground py-1">...and {section.items.length - 20} more items</p>
+                                          )}
+                                        </div>
+                                        <div className="mt-2 pt-2 border-t flex justify-between text-xs font-medium">
+                                          <span>Total (excluding headers):</span>
+                                          <span>{formatCurrency(section.calculatedTotal)}</span>
+                                        </div>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </>
                             ))}
                           </tbody>
                         </table>
