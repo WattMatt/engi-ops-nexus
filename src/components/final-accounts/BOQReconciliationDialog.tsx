@@ -215,7 +215,7 @@ function parseSheetForBOQ(worksheet: XLSX.WorkSheet, sheetName: string): {
     // Skip completely empty rows (no item code and no description)
     if (!itemCode && !description) continue;
     
-    // Skip ONLY totals/subtotals/carried forward lines
+    // Skip ONLY totals/subtotals/carried forward lines - check BOTH itemCode and description
     const skipPatterns = [
       /^(sub)?total/i,
       /^carried/i,
@@ -231,8 +231,10 @@ function parseSheetForBOQ(worksheet: XLSX.WorkSheet, sheetName: string): {
       /carried\s+to\s+summary/i,
     ];
     
-    if (description && skipPatterns.some(pattern => pattern.test(description))) {
-      console.log(`[BOQ Parse] Skipping total/carried row: "${description}"`);
+    // Check both itemCode AND description for total patterns
+    const textToCheck = `${itemCode} ${description}`.toLowerCase();
+    if (skipPatterns.some(pattern => pattern.test(itemCode) || pattern.test(description) || pattern.test(textToCheck))) {
+      console.log(`[BOQ Parse] Skipping total/carried row: "${itemCode}" "${description}"`);
       continue;
     }
     
