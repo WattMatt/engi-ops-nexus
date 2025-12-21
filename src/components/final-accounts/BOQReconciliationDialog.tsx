@@ -735,10 +735,12 @@ export function BOQReconciliationDialog({
       if (itemsError) throw itemsError;
 
       // Update section totals with actual calculated total (excluding headers)
+      // Also store the BOQ stated total for discrepancy tracking
       await supabase
         .from("final_account_sections")
         .update({
           contract_total: actualTotal,
+          boq_stated_total: section.boqTotal,
           final_total: 0,
         })
         .eq("id", sectionId);

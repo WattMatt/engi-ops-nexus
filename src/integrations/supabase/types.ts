@@ -2964,6 +2964,7 @@ export type Database = {
       final_account_sections: {
         Row: {
           bill_id: string
+          boq_stated_total: number | null
           contract_total: number | null
           created_at: string
           description: string | null
@@ -2980,6 +2981,7 @@ export type Database = {
         }
         Insert: {
           bill_id: string
+          boq_stated_total?: number | null
           contract_total?: number | null
           created_at?: string
           description?: string | null
@@ -2996,6 +2998,7 @@ export type Database = {
         }
         Update: {
           bill_id?: string
+          boq_stated_total?: number | null
           contract_total?: number | null
           created_at?: string
           description?: string | null

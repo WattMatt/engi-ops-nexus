@@ -125,6 +125,17 @@ export function FinalAccountSectionsManager({ billId, accountId }: FinalAccountS
                 </CollapsibleTrigger>
                 <div className="flex items-center gap-4">
                   <SectionReviewStatusBadge status={section.review_status} />
+                  {/* Show BOQ discrepancy warning if stated total differs from calculated */}
+                  {section.boq_stated_total && Math.abs(Number(section.boq_stated_total) - Number(section.contract_total)) > 0.01 && (
+                    <div className="flex items-center gap-1 px-2 py-0.5 bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 rounded text-xs" title="BOQ calculation error detected">
+                      <span className="font-medium">BOQ Error:</span>
+                      <span>Stated {formatCurrency(section.boq_stated_total)}</span>
+                      <span>vs Calculated {formatCurrency(section.contract_total)}</span>
+                      <span className="text-amber-600 dark:text-amber-500">
+                        ({formatCurrency(Number(section.boq_stated_total) - Number(section.contract_total))})
+                      </span>
+                    </div>
+                  )}
                   <div className="flex gap-4 text-xs">
                     <span>
                       <span className="text-muted-foreground mr-1">Contract:</span>
