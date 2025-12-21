@@ -24,29 +24,43 @@ export function BOQDiscrepanciesSummary({ accountId }: BOQDiscrepanciesSummaryPr
   const { data: discrepancies = [], isLoading } = useQuery({
     queryKey: ["boq-discrepancies", accountId],
     queryFn: async (): Promise<SectionWithDiscrepancy[]> => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const client = supabase as any;
+      // Get bills for this final account
+      const { data: bills, error: billsError } = await supabase
+        .from("final_account_bills")
+        .select("id, bill_name")
+        .eq("final_account_id", accountId);
       
-      const billsResult = await client.from("final_account_bills").select("*").eq("account_id", accountId);
-      const bills = billsResult.data || [];
+      if (billsError) {
+        console.error("Error fetching bills:", billsError);
+        return [];
+      }
       
-      if (!bills.length) return [];
+      if (!bills || bills.length === 0) return [];
       
-      const billMap = new Map<string, string>(bills.map((b: any) => [b.id, b.bill_name]));
-      const billIds = bills.map((b: any) => b.id);
+      const billMap = new Map<string, string>(bills.map((b) => [b.id, b.bill_name]));
+      const billIds = bills.map((b) => b.id);
       
-      const sectionsResult = await client.from("final_account_sections").select("*");
-      const sections = sectionsResult.data || [];
+      // Get sections for these bills
+      const { data: sections, error: sectionsError } = await supabase
+        .from("final_account_sections")
+        .select("id, section_code, section_name, contract_total, boq_stated_total, bill_id")
+        .in("bill_id", billIds);
+      
+      if (sectionsError) {
+        console.error("Error fetching sections:", sectionsError);
+        return [];
+      }
+      
+      if (!sections) return [];
       
       const result: SectionWithDiscrepancy[] = [];
       
       for (const section of sections) {
-        if (!billIds.includes(section.bill_id)) continue;
-        
         const statedTotal = Number(section.boq_stated_total) || 0;
         const calculatedTotal = Number(section.contract_total) || 0;
         const difference = statedTotal - calculatedTotal;
         
+        // Only include if there's a stated total and a meaningful difference
         if (statedTotal > 0 && Math.abs(difference) > 0.01) {
           result.push({
             id: section.id,
