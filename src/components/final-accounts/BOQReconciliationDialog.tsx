@@ -49,6 +49,45 @@ interface ParsedBOQItem {
   billNumber: number;
   billName: string;
   rowType?: 'header' | 'subheader' | 'description' | 'item';
+  isPrimeCost?: boolean;
+  pcProfitAttendancePercent?: number;
+}
+
+// Prime Cost detection patterns
+const PRIME_COST_PATTERNS = [
+  /prime\s*cost/i,
+  /\bP\.?C\.?\b/,
+  /provisional\s*sum/i,
+  /\bP\.?S\.?\b/,
+  /^PC\s+/i,
+  /^PS\s+/i,
+  /allow(?:ance)?\s+for/i,
+  /contingency/i,
+  /provisional\s+amount/i,
+];
+
+// Detect if an item is a Prime Cost item
+function isPrimeCostItem(description: string, itemCode: string): boolean {
+  const textToCheck = `${itemCode} ${description}`;
+  return PRIME_COST_PATTERNS.some(pattern => pattern.test(textToCheck));
+}
+
+// Extract P&A percentage from description if present
+function extractProfitAttendancePercent(description: string): number {
+  // Match patterns like "P&A 10%", "profit and attendance 15%", "10% P&A"
+  const patterns = [
+    /(\d+(?:\.\d+)?)\s*%\s*(?:P\.?&\.?A\.?|profit\s*(?:and|&)\s*attendance)/i,
+    /(?:P\.?&\.?A\.?|profit\s*(?:and|&)\s*attendance)\s*(?:of|at|@)?\s*(\d+(?:\.\d+)?)\s*%/i,
+    /plus\s+(\d+(?:\.\d+)?)\s*%/i,
+  ];
+  
+  for (const pattern of patterns) {
+    const match = description.match(pattern);
+    if (match) {
+      return parseFloat(match[1]) || 0;
+    }
+  }
+  return 0;
 }
 
 interface BOQSectionSummary {
@@ -270,9 +309,13 @@ function parseSheetForBOQ(worksheet: XLSX.WorkSheet, sheetName: string): {
       rowType = 'subheader';
     }
     
+    // Detect Prime Cost items
+    const isPrimeC = isPrimeCostItem(description, itemCode);
+    const pcPaPercent = isPrimeC ? extractProfitAttendancePercent(description) : 0;
+    
     // Log items for debugging
     if (items.length < 10) {
-      console.log(`[BOQ Parse] Row ${i} [${rowType}] ${itemCode}: "${description.substring(0, 60)}..." unit=${unitRaw} qty=${quantity} amount=${amount}`);
+      console.log(`[BOQ Parse] Row ${i} [${rowType}]${isPrimeC ? ' [PC]' : ''} ${itemCode}: "${description.substring(0, 60)}..." unit=${unitRaw} qty=${quantity} amount=${amount}`);
     }
     
     items.push({
@@ -290,6 +333,8 @@ function parseSheetForBOQ(worksheet: XLSX.WorkSheet, sheetName: string): {
       billNumber,
       billName: sheetName,
       rowType, // Add row type for styling
+      isPrimeCost: isPrimeC,
+      pcProfitAttendancePercent: pcPaPercent,
     });
   }
   
@@ -371,6 +416,10 @@ function parseSheetAlternative(worksheet: XLSX.WorkSheet, sheetName: string): {
     const textToCheck = `${itemCode} ${description}`.toLowerCase();
     if (/total|carried|brought|summary/i.test(textToCheck)) continue;
     
+    // Detect Prime Cost items
+    const isPrimeC = isPrimeCostItem(description, itemCode);
+    const pcPaPercent = isPrimeC ? extractProfitAttendancePercent(description) : 0;
+    
     items.push({
       rowIndex: i,
       itemCode: itemCode || "",
@@ -386,6 +435,8 @@ function parseSheetAlternative(worksheet: XLSX.WorkSheet, sheetName: string): {
       billNumber,
       billName: sheetName,
       rowType: 'item',
+      isPrimeCost: isPrimeC,
+      pcProfitAttendancePercent: pcPaPercent,
     });
   }
   
@@ -721,8 +772,15 @@ export function BOQReconciliationDialog({
           contract_amount: amount,
           final_amount: 0,
           display_order: index + 1,
+          is_prime_cost: item.isPrimeCost || false,
+          pc_allowance: item.isPrimeCost ? amount : 0,
+          pc_actual_cost: 0,
+          pc_profit_attendance_percent: item.pcProfitAttendancePercent || 0,
         };
       });
+      
+      // Track prime cost items for auto-import to Prime Cost manager
+      const primeCostItems = items.filter(item => item.isPrimeCost);
       
       // Calculate actual total from non-header items only
       const actualTotal = items

@@ -2711,9 +2711,13 @@ export type Database = {
           final_quantity: number | null
           id: string
           install_rate: number | null
+          is_prime_cost: boolean | null
           is_rate_only: boolean | null
           item_code: string
           notes: string | null
+          pc_actual_cost: number | null
+          pc_allowance: number | null
+          pc_profit_attendance_percent: number | null
           section_id: string
           shop_subsection_id: string | null
           source_boq_item_id: string | null
@@ -2732,9 +2736,13 @@ export type Database = {
           final_quantity?: number | null
           id?: string
           install_rate?: number | null
+          is_prime_cost?: boolean | null
           is_rate_only?: boolean | null
           item_code: string
           notes?: string | null
+          pc_actual_cost?: number | null
+          pc_allowance?: number | null
+          pc_profit_attendance_percent?: number | null
           section_id: string
           shop_subsection_id?: string | null
           source_boq_item_id?: string | null
@@ -2753,9 +2761,13 @@ export type Database = {
           final_quantity?: number | null
           id?: string
           install_rate?: number | null
+          is_prime_cost?: boolean | null
           is_rate_only?: boolean | null
           item_code?: string
           notes?: string | null
+          pc_actual_cost?: number | null
+          pc_allowance?: number | null
+          pc_profit_attendance_percent?: number | null
           section_id?: string
           shop_subsection_id?: string | null
           source_boq_item_id?: string | null
