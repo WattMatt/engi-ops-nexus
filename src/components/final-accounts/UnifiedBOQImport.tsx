@@ -101,44 +101,68 @@ function detectPARow(
     referencedItemCode = refMatch[1].toUpperCase();
   }
   
+  // Helper to parse percentage from string - handles "10,00%" "10.00%" "10%" "10,00" "10.00" "10"
+  const parsePercentage = (str: string): number => {
+    if (!str) return 0;
+    // Remove % sign and trim
+    let cleaned = str.replace('%', '').trim();
+    // Handle South African format: "10,00" means 10.00
+    // If there's a comma followed by exactly 2 digits at the end, it's a decimal separator
+    if (/,\d{2}$/.test(cleaned)) {
+      cleaned = cleaned.replace(',', '.');
+    } else {
+      // Otherwise remove commas (thousand separators)
+      cleaned = cleaned.replace(/,/g, '');
+    }
+    const val = parseFloat(cleaned);
+    return !isNaN(val) && val > 0 && val <= 100 ? val : 0;
+  };
+  
   // Extract percentage - check multiple sources
   let percentage = 0;
   
-  // 1. From description: "10,00%" or "10.00%" or "10%"
-  const descPctMatch = description.match(/(\d+(?:[.,]\d+)?)\s*%/);
-  if (descPctMatch) {
-    percentage = parseFloat(descPctMatch[1].replace(',', '.')) || 0;
-  }
-  
-  // 2. From unit column if it contains percentage: "10,00%" 
-  if (!percentage && unit) {
-    const unitPctMatch = unit.match(/(\d+(?:[.,]\d+)?)\s*%?/);
-    if (unitPctMatch) {
-      const val = parseFloat(unitPctMatch[1].replace(',', '.'));
-      if (val > 0 && val <= 100) percentage = val;
+  // 1. From description: Look for patterns like "% 10,00%" or just "10,00%"
+  const descPctMatches = description.match(/(\d+(?:[.,]\d+)?)\s*%/g);
+  if (descPctMatches) {
+    // Take the last percentage match (usually the actual value)
+    for (const match of descPctMatches) {
+      const val = parsePercentage(match);
+      if (val > 0) percentage = val;
     }
   }
   
-  // 3. From quantity if it looks like a percentage (0-100 range)
-  if (!percentage && quantity > 0 && quantity <= 100) {
+  console.log(`[P&A Parse] desc="${description}", unit="${unit}", qty=${quantity}, found pct=${percentage}`);
+  
+  // 2. From unit column if it contains percentage: "10,00%" 
+  if (!percentage && unit) {
+    percentage = parsePercentage(unit);
+    if (percentage > 0) {
+      console.log(`[P&A Parse] Found percentage ${percentage} from unit column`);
+    }
+  }
+  
+  // 3. From quantity if it looks like a percentage (1-100 range, typically 5-15 for P&A)
+  if (!percentage && quantity >= 1 && quantity <= 100) {
     percentage = quantity;
+    console.log(`[P&A Parse] Using quantity ${quantity} as percentage`);
   }
   
   // 4. Scan raw row data for percentage pattern
   if (!percentage && rawRowData) {
     for (const cell of rawRowData) {
       const cellStr = String(cell || '').trim();
-      const cellPctMatch = cellStr.match(/^(\d+(?:[.,]\d+)?)\s*%?$/);
-      if (cellPctMatch) {
-        const val = parseFloat(cellPctMatch[1].replace(',', '.'));
-        if (val > 0 && val <= 100) {
-          percentage = val;
-          break;
-        }
+      // Skip empty, very long, or currency values
+      if (!cellStr || cellStr.length > 20 || /^R\s*[\d,.\s]+$/.test(cellStr)) continue;
+      const val = parsePercentage(cellStr);
+      if (val > 0) {
+        percentage = val;
+        console.log(`[P&A Parse] Found percentage ${percentage} from raw cell: "${cellStr}"`);
+        break;
       }
     }
   }
   
+  console.log(`[P&A Parse] Final percentage for "${description}": ${percentage}%`);
   return { referencedItemCode, percentage };
 }
 
