@@ -127,12 +127,18 @@ function detectProfitAttendanceRow(description: string, itemCode: string, quanti
 // Apply P&A percentages from separate rows to their parent PC items
 function applyProfitAttendanceToItems(items: ParsedBOQItem[]): ParsedBOQItem[] {
   const itemsByCode = new Map<string, ParsedBOQItem>();
+  const primeCostItems: { index: number; item: ParsedBOQItem }[] = [];
   const paRows: { index: number; referencedCode: string; percentage: number }[] = [];
   
-  // First pass: identify all items and P&A rows
+  // First pass: identify all items, PC items, and P&A rows
   items.forEach((item, index) => {
     if (item.itemCode) {
       itemsByCode.set(item.itemCode.toUpperCase(), item);
+    }
+    
+    // Track prime cost items for position-based fallback matching
+    if (item.isPrimeCost) {
+      primeCostItems.push({ index, item });
     }
     
     // Check if this is a P&A row
@@ -148,7 +154,22 @@ function applyProfitAttendanceToItems(items: ParsedBOQItem[]): ParsedBOQItem[] {
   
   // Second pass: apply P&A percentages to parent items
   for (const paRow of paRows) {
-    const parentItem = itemsByCode.get(paRow.referencedCode);
+    // First try: match by item code reference
+    let parentItem = itemsByCode.get(paRow.referencedCode);
+    
+    // Fallback: if no match by code, find the nearest preceding prime cost item
+    // This handles cases where item codes aren't properly extracted
+    if (!parentItem || !parentItem.isPrimeCost) {
+      // Find the closest prime cost item before this P&A row
+      const precedingPCs = primeCostItems.filter(pc => pc.index < paRow.index);
+      if (precedingPCs.length > 0) {
+        // Get the most recent PC item (closest one before this P&A row)
+        const nearestPC = precedingPCs[precedingPCs.length - 1];
+        parentItem = nearestPC.item;
+        console.log(`[P&A Fallback] Applied ${paRow.percentage}% from row ${paRow.index} to preceding PC at row ${nearestPC.index}`);
+      }
+    }
+    
     if (parentItem && parentItem.isPrimeCost) {
       parentItem.pcProfitAttendancePercent = paRow.percentage;
     }
@@ -1456,21 +1477,76 @@ export function BOQReconciliationDialog({
                 </div>
               </div>
 
-              <ScrollArea className="flex-1 h-[250px] border rounded-lg">
+              {/* Prime Cost Summary */}
+              {(() => {
+                const selectedSections = parsedSections.filter(s => selectedForImport.has(s.sectionCode));
+                const primeCostItems = selectedSections.flatMap(s => 
+                  s.items.filter(i => i.isPrimeCost).map(i => ({
+                    ...i,
+                    sectionCode: s.sectionCode,
+                    sectionName: s.sectionName
+                  }))
+                );
+                
+                if (primeCostItems.length === 0) return null;
+                
+                return (
+                  <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                    <p className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
+                      Prime Cost Items Summary ({primeCostItems.length} items)
+                    </p>
+                    <div className="space-y-1 max-h-[120px] overflow-auto">
+                      {primeCostItems.map((item, idx) => (
+                        <div key={idx} className="text-xs flex justify-between gap-2 py-1 border-b border-blue-100 dark:border-blue-900 last:border-0">
+                          <span className="truncate flex-1 text-blue-700 dark:text-blue-300">
+                            [{item.sectionCode}] {item.description.substring(0, 60)}...
+                          </span>
+                          <div className="flex gap-3 text-right shrink-0">
+                            <span className="text-blue-600 dark:text-blue-400 font-medium">
+                              {formatCurrency(item.amount)}
+                            </span>
+                            <span className={item.pcProfitAttendancePercent > 0 ? 'text-green-600 dark:text-green-400' : 'text-amber-600 dark:text-amber-400'}>
+                              P&A: {item.pcProfitAttendancePercent || 0}%
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    {primeCostItems.some(i => !i.pcProfitAttendancePercent) && (
+                      <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+                        ⚠ Some PC items have 0% P&A - verify this is correct or edit after import
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
+
+              <ScrollArea className="flex-1 h-[200px] border rounded-lg">
                 <div className="p-3 space-y-2">
                   <p className="text-sm font-medium mb-2">Sections to be imported:</p>
                   {parsedSections
                     .filter(s => selectedForImport.has(s.sectionCode))
-                    .map((section) => (
-                      <div key={section.sectionCode} className="flex items-center justify-between py-1.5 px-2 bg-muted/30 rounded text-sm">
-                        <span>{section.sectionCode} - {section.sectionName}</span>
-                        <span className="text-muted-foreground">{section.itemCount} items • {formatCurrency(section.boqTotal)}</span>
-                      </div>
-                    ))
+                    .map((section) => {
+                      const pcCount = section.items.filter(i => i.isPrimeCost).length;
+                      return (
+                        <div key={section.sectionCode} className="flex items-center justify-between py-1.5 px-2 bg-muted/30 rounded text-sm">
+                          <div className="flex items-center gap-2">
+                            <span>{section.sectionCode} - {section.sectionName}</span>
+                            {pcCount > 0 && (
+                              <span className="text-xs px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded">
+                                {pcCount} PC
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-muted-foreground">{section.itemCount} items • {formatCurrency(section.boqTotal)}</span>
+                        </div>
+                      );
+                    })
                   }
                 </div>
               </ScrollArea>
             </div>
+
 
           /* Phase: Importing */
           ) : importPhase === 'importing' && importProgress ? (
