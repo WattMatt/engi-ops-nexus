@@ -1458,24 +1458,153 @@ export function BOQReconciliationDialog({
           /* Phase: Confirm */
           ) : importPhase === 'confirm' ? (
             <div className="flex flex-col gap-4">
-              <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
-                <div className="flex items-start gap-3">
-                  <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5" />
-                  <div>
-                    <p className="font-medium text-amber-800 dark:text-amber-200">Confirm Import</p>
-                    <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
-                      You are about to import <strong>{selectedForImport.size} sections</strong> with a total value of{' '}
-                      <strong>{formatCurrency(parsedSections
-                        .filter(s => selectedForImport.has(s.sectionCode))
-                        .reduce((sum, s) => sum + s.boqTotal, 0)
-                      )}</strong>.
-                    </p>
-                    <p className="text-sm text-amber-700 dark:text-amber-300 mt-2">
-                      This action will create new sections and items in your Final Account. Existing sections with the same codes will be replaced.
-                    </p>
-                  </div>
-                </div>
-              </div>
+              {/* Validation Summary */}
+              {(() => {
+                const selectedSections = parsedSections.filter(s => selectedForImport.has(s.sectionCode));
+                const totalBoqAmount = selectedSections.reduce((sum, s) => sum + s.boqTotal, 0);
+                
+                // Calculate per-section validation
+                const sectionValidation = selectedSections.map(section => {
+                  // Calculate from individual line items (excluding headers/subtotals)
+                  const calculatedTotal = section.items
+                    .filter(item => !isHeaderOrSubtotalRow(item.itemCode, item.description))
+                    .reduce((sum, item) => sum + item.amount, 0);
+                  
+                  const variance = section.boqTotal - calculatedTotal;
+                  const variancePercent = calculatedTotal > 0 ? (variance / calculatedTotal) * 100 : 0;
+                  
+                  return {
+                    ...section,
+                    calculatedTotal,
+                    variance,
+                    variancePercent,
+                    hasIssue: Math.abs(variancePercent) > 1, // More than 1% variance is flagged
+                  };
+                });
+                
+                const sectionsWithIssues = sectionValidation.filter(s => s.hasIssue);
+                const totalCalculated = sectionValidation.reduce((sum, s) => sum + s.calculatedTotal, 0);
+                const overallVariance = totalBoqAmount - totalCalculated;
+
+                return (
+                  <>
+                    {/* Overall Summary */}
+                    <div className={cn(
+                      "rounded-lg p-4 border",
+                      sectionsWithIssues.length > 0 
+                        ? "bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800"
+                        : "bg-green-50 dark:bg-green-950/30 border-green-200 dark:border-green-800"
+                    )}>
+                      <div className="flex items-start gap-3">
+                        {sectionsWithIssues.length > 0 ? (
+                          <AlertCircle className="h-5 w-5 text-red-600 mt-0.5" />
+                        ) : (
+                          <CheckCircle2 className="h-5 w-5 text-green-600 mt-0.5" />
+                        )}
+                        <div className="flex-1">
+                          <p className={cn(
+                            "font-medium",
+                            sectionsWithIssues.length > 0 
+                              ? "text-red-800 dark:text-red-200"
+                              : "text-green-800 dark:text-green-200"
+                          )}>
+                            {sectionsWithIssues.length > 0 
+                              ? `Validation Issues Found (${sectionsWithIssues.length} sections)`
+                              : "All Sections Validated Successfully"
+                            }
+                          </p>
+                          <div className="mt-2 grid grid-cols-3 gap-4 text-sm">
+                            <div>
+                              <p className="text-muted-foreground">BOQ Stated Total</p>
+                              <p className="font-bold text-lg">{formatCurrency(totalBoqAmount)}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">Calculated Total</p>
+                              <p className="font-bold text-lg">{formatCurrency(totalCalculated)}</p>
+                            </div>
+                            <div>
+                              <p className="text-muted-foreground">Variance</p>
+                              <p className={cn(
+                                "font-bold text-lg",
+                                Math.abs(overallVariance) > 100 ? "text-red-600" : "text-green-600"
+                              )}>
+                                {overallVariance >= 0 ? '+' : ''}{formatCurrency(overallVariance)}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Section-by-Section Validation Table */}
+                    <div className="border rounded-lg overflow-hidden">
+                      <div className="bg-muted/50 px-3 py-2 border-b flex items-center justify-between">
+                        <p className="text-sm font-medium">Section Validation Summary</p>
+                        <span className="text-xs text-muted-foreground">
+                          {selectedSections.length} sections • {selectedSections.reduce((sum, s) => sum + s.itemCount, 0)} items
+                        </span>
+                      </div>
+                      <ScrollArea className="h-[180px]">
+                        <table className="w-full text-sm">
+                          <thead className="bg-muted/30 sticky top-0">
+                            <tr>
+                              <th className="text-left py-2 px-3 font-medium">Section</th>
+                              <th className="text-right py-2 px-3 font-medium">Items</th>
+                              <th className="text-right py-2 px-3 font-medium">BOQ Total</th>
+                              <th className="text-right py-2 px-3 font-medium">Calculated</th>
+                              <th className="text-right py-2 px-3 font-medium">Variance</th>
+                              <th className="text-center py-2 px-3 font-medium">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {sectionValidation.map((section) => (
+                              <tr 
+                                key={section.sectionCode}
+                                className={cn(
+                                  "border-b last:border-0",
+                                  section.hasIssue ? "bg-red-50/50 dark:bg-red-950/20" : ""
+                                )}
+                              >
+                                <td className="py-2 px-3">
+                                  <span className="font-medium">{section.sectionCode}</span>
+                                  <span className="text-muted-foreground ml-1 text-xs truncate max-w-[150px] inline-block align-bottom">
+                                    {section.sectionName.substring(0, 20)}
+                                  </span>
+                                </td>
+                                <td className="text-right py-2 px-3 text-muted-foreground">
+                                  {section.itemCount}
+                                </td>
+                                <td className="text-right py-2 px-3">
+                                  {formatCurrency(section.boqTotal)}
+                                </td>
+                                <td className="text-right py-2 px-3">
+                                  {formatCurrency(section.calculatedTotal)}
+                                </td>
+                                <td className={cn(
+                                  "text-right py-2 px-3 font-medium",
+                                  section.hasIssue ? "text-red-600" : "text-green-600"
+                                )}>
+                                  {section.variance >= 0 ? '+' : ''}{formatCurrency(section.variance)}
+                                  <span className="text-xs ml-1">
+                                    ({section.variancePercent >= 0 ? '+' : ''}{section.variancePercent.toFixed(1)}%)
+                                  </span>
+                                </td>
+                                <td className="text-center py-2 px-3">
+                                  {section.hasIssue ? (
+                                    <AlertCircle className="h-4 w-4 text-red-500 mx-auto" />
+                                  ) : (
+                                    <CheckCircle2 className="h-4 w-4 text-green-500 mx-auto" />
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </ScrollArea>
+                    </div>
+                  </>
+                );
+              })()}
 
               {/* Prime Cost Summary */}
               {(() => {
@@ -1493,13 +1622,13 @@ export function BOQReconciliationDialog({
                 return (
                   <div className="bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                     <p className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-2">
-                      Prime Cost Items Summary ({primeCostItems.length} items)
+                      Prime Cost Items ({primeCostItems.length})
                     </p>
-                    <div className="space-y-1 max-h-[120px] overflow-auto">
+                    <div className="space-y-1 max-h-[100px] overflow-auto">
                       {primeCostItems.map((item, idx) => (
                         <div key={idx} className="text-xs flex justify-between gap-2 py-1 border-b border-blue-100 dark:border-blue-900 last:border-0">
                           <span className="truncate flex-1 text-blue-700 dark:text-blue-300">
-                            [{item.sectionCode}] {item.description.substring(0, 60)}...
+                            [{item.sectionCode}] {item.description.substring(0, 50)}...
                           </span>
                           <div className="flex gap-3 text-right shrink-0">
                             <span className="text-blue-600 dark:text-blue-400 font-medium">
@@ -1514,37 +1643,22 @@ export function BOQReconciliationDialog({
                     </div>
                     {primeCostItems.some(i => !i.pcProfitAttendancePercent) && (
                       <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
-                        ⚠ Some PC items have 0% P&A - verify this is correct or edit after import
+                        ⚠ Some PC items have 0% P&A - verify this is correct
                       </p>
                     )}
                   </div>
                 );
               })()}
 
-              <ScrollArea className="flex-1 h-[200px] border rounded-lg">
-                <div className="p-3 space-y-2">
-                  <p className="text-sm font-medium mb-2">Sections to be imported:</p>
-                  {parsedSections
-                    .filter(s => selectedForImport.has(s.sectionCode))
-                    .map((section) => {
-                      const pcCount = section.items.filter(i => i.isPrimeCost).length;
-                      return (
-                        <div key={section.sectionCode} className="flex items-center justify-between py-1.5 px-2 bg-muted/30 rounded text-sm">
-                          <div className="flex items-center gap-2">
-                            <span>{section.sectionCode} - {section.sectionName}</span>
-                            {pcCount > 0 && (
-                              <span className="text-xs px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded">
-                                {pcCount} PC
-                              </span>
-                            )}
-                          </div>
-                          <span className="text-muted-foreground">{section.itemCount} items • {formatCurrency(section.boqTotal)}</span>
-                        </div>
-                      );
-                    })
-                  }
+              {/* Warning banner */}
+              <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3">
+                <div className="flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-amber-600" />
+                  <p className="text-sm text-amber-700 dark:text-amber-300">
+                    Importing will replace existing sections with the same codes. Review the validation above before confirming.
+                  </p>
                 </div>
-              </ScrollArea>
+              </div>
             </div>
 
 
