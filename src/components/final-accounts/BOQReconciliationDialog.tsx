@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -16,7 +16,6 @@ import { toast } from "sonner";
 import { 
   Loader2, 
   FileSpreadsheet, 
-  Check, 
   ChevronRight,
   CheckCircle2,
   Circle,
@@ -25,6 +24,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { formatCurrency } from "@/utils/formatters";
+import { parseExcelFile, detectBOQColumns } from "@/utils/excelParser";
 
 interface BOQReconciliationDialogProps {
   open: boolean;
@@ -33,21 +33,37 @@ interface BOQReconciliationDialogProps {
   projectId: string;
 }
 
+interface ParsedBOQItem {
+  rowIndex: number;
+  itemCode: string;
+  description: string;
+  unit: string;
+  quantity: number;
+  supplyRate: number;
+  installRate: number;
+  totalRate: number;
+  amount: number;
+  sectionCode: string;
+  sectionName: string;
+  billNumber: number;
+  billName: string;
+}
+
 interface BOQSectionSummary {
-  section_code: string;
-  section_name: string;
-  bill_number: number | null;
-  bill_name: string | null;
-  item_count: number;
-  boq_total: number;
-  items: any[];
+  sectionCode: string;
+  sectionName: string;
+  billNumber: number;
+  billName: string;
+  itemCount: number;
+  boqTotal: number;
+  items: ParsedBOQItem[];
 }
 
 interface ReconciliationStatus {
   imported: boolean;
-  rebuilt_total: number;
-  match_percentage: number;
-  item_count: number;
+  rebuiltTotal: number;
+  matchPercentage: number;
+  itemCount: number;
 }
 
 export function BOQReconciliationDialog({ 
@@ -59,17 +75,18 @@ export function BOQReconciliationDialog({
   const [selectedBoqId, setSelectedBoqId] = useState<string | null>(null);
   const [selectedSection, setSelectedSection] = useState<string | null>(null);
   const [processing, setProcessing] = useState(false);
+  const [parsedSections, setParsedSections] = useState<BOQSectionSummary[]>([]);
+  const [parsingFile, setParsingFile] = useState(false);
   const queryClient = useQueryClient();
 
   // Fetch BOQ uploads for this project
   const { data: boqUploads = [], isLoading: loadingUploads } = useQuery({
-    queryKey: ["boq-uploads", projectId],
+    queryKey: ["boq-uploads-for-reconciliation", projectId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("boq_uploads")
         .select("*")
         .eq("project_id", projectId)
-        .in("status", ["completed", "reviewed"])
         .order("created_at", { ascending: false });
       if (error) throw error;
       return data || [];
@@ -77,30 +94,10 @@ export function BOQReconciliationDialog({
     enabled: open,
   });
 
-  // Fetch extracted items for selected BOQ
-  const { data: boqItems = [], isLoading: loadingItems } = useQuery({
-    queryKey: ["boq-extracted-items", selectedBoqId],
-    queryFn: async () => {
-      if (!selectedBoqId) return [];
-      const { data, error } = await supabase
-        .from("boq_extracted_items")
-        .select("*")
-        .eq("upload_id", selectedBoqId)
-        .order("section_code", { ascending: true })
-        .order("row_number", { ascending: true });
-      if (error) throw error;
-      return data || [];
-    },
-    enabled: !!selectedBoqId,
-  });
-
-  // Fetch already imported items (via source_boq_item_id)
+  // Fetch already imported items for this account
   const { data: importedItems = [], refetch: refetchImported } = useQuery({
-    queryKey: ["imported-boq-items", accountId, selectedBoqId],
+    queryKey: ["final-account-all-items", accountId],
     queryFn: async () => {
-      if (!selectedBoqId) return [];
-      
-      // Get all final account items that reference BOQ items from this upload
       const { data: sections, error: sectionsError } = await supabase
         .from("final_account_sections")
         .select(`
@@ -118,90 +115,198 @@ export function BOQReconciliationDialog({
       
       const { data: items, error: itemsError } = await supabase
         .from("final_account_items")
-        .select("*")
-        .in("section_id", sectionIds)
-        .not("source_boq_item_id", "is", null);
+        .select("*, section_id")
+        .in("section_id", sectionIds);
       
       if (itemsError) throw itemsError;
-      return items || [];
+      
+      // Return items with section info
+      return items?.map(item => ({
+        ...item,
+        sectionCode: sections?.find(s => s.id === item.section_id)?.section_code
+      })) || [];
     },
-    enabled: !!selectedBoqId && !!accountId,
+    enabled: !!accountId && parsedSections.length > 0,
   });
 
-  // Group BOQ items by section with totals
-  const sectionSummaries = useMemo((): BOQSectionSummary[] => {
-    const sections: Record<string, BOQSectionSummary> = {};
-    
-    boqItems.forEach((item) => {
-      const key = item.section_code || "UNASSIGNED";
-      if (!sections[key]) {
-        sections[key] = {
-          section_code: item.section_code || "UNASSIGNED",
-          section_name: item.section_name || "Unassigned Items",
-          bill_number: item.bill_number,
-          bill_name: item.bill_name,
-          item_count: 0,
-          boq_total: 0,
-          items: [],
-        };
+  // Parse BOQ file from storage
+  const parseBoqFile = useCallback(async (boq: any) => {
+    setParsingFile(true);
+    try {
+      // Download file from storage
+      const { data: fileData, error: downloadError } = await supabase.storage
+        .from("boq-uploads")
+        .download(boq.file_path);
+      
+      if (downloadError) throw downloadError;
+      
+      // Create File object and parse
+      const file = new File([fileData], boq.file_name, { type: fileData.type });
+      const parsed = await parseExcelFile(file);
+      
+      // Extract sections and items from parsed sheets
+      const sections: Record<string, BOQSectionSummary> = {};
+      let currentBillNumber = 1;
+      let currentBillName = "Bill 1";
+      let currentSectionCode = "A";
+      let currentSectionName = "General";
+      
+      for (const sheet of parsed.sheets) {
+        // Skip summary/cover sheets
+        if (/summary|cover|note|qualification/i.test(sheet.name)) continue;
+        
+        // Detect columns for this sheet
+        const colMap = detectBOQColumns(sheet.headers);
+        if (colMap.description === undefined) continue;
+        
+        // Check if sheet name indicates a bill
+        const billMatch = sheet.name.match(/bill\s*(\d+)/i);
+        if (billMatch) {
+          currentBillNumber = parseInt(billMatch[1]);
+          currentBillName = sheet.name;
+        }
+        
+        // Process each row
+        for (let rowIdx = 0; rowIdx < sheet.rows.length; rowIdx++) {
+          const row = sheet.rows[rowIdx];
+          const descCol = sheet.headers[colMap.description!];
+          const description = String(row[descCol] || "").trim();
+          
+          if (!description) continue;
+          
+          // Check if this is a section header
+          const sectionMatch = description.match(/^([A-Z])\.\s*(.+)/i) || 
+                              description.match(/^SECTION\s+([A-Z])\s*[:-]?\s*(.+)/i);
+          if (sectionMatch) {
+            currentSectionCode = sectionMatch[1].toUpperCase();
+            currentSectionName = sectionMatch[2].trim();
+            continue;
+          }
+          
+          // Skip totals and subtotals
+          if (/^(sub)?total|^carried|^brought/i.test(description)) continue;
+          
+          // Extract item data
+          const itemCode = colMap.itemCode !== undefined 
+            ? String(row[sheet.headers[colMap.itemCode]] || "").trim() 
+            : "";
+          const unit = colMap.unit !== undefined 
+            ? String(row[sheet.headers[colMap.unit]] || "Nr").trim() 
+            : "Nr";
+          const quantity = colMap.quantity !== undefined 
+            ? parseFloat(String(row[sheet.headers[colMap.quantity]] || 0)) || 0 
+            : 0;
+          const supplyRate = colMap.supplyRate !== undefined 
+            ? parseFloat(String(row[sheet.headers[colMap.supplyRate]] || 0)) || 0 
+            : 0;
+          const installRate = colMap.installRate !== undefined 
+            ? parseFloat(String(row[sheet.headers[colMap.installRate]] || 0)) || 0 
+            : 0;
+          const totalRate = colMap.totalRate !== undefined 
+            ? parseFloat(String(row[sheet.headers[colMap.totalRate]] || 0)) || 0 
+            : supplyRate + installRate;
+          const amount = colMap.amount !== undefined 
+            ? parseFloat(String(row[sheet.headers[colMap.amount]] || 0)) || 0 
+            : quantity * totalRate;
+          
+          // Skip rate-only items (no quantity)
+          if (quantity === 0 && amount === 0) continue;
+          
+          // Create section key
+          const sectionKey = `${currentBillNumber}-${currentSectionCode}`;
+          
+          if (!sections[sectionKey]) {
+            sections[sectionKey] = {
+              sectionCode: currentSectionCode,
+              sectionName: currentSectionName,
+              billNumber: currentBillNumber,
+              billName: currentBillName,
+              itemCount: 0,
+              boqTotal: 0,
+              items: [],
+            };
+          }
+          
+          const item: ParsedBOQItem = {
+            rowIndex: rowIdx,
+            itemCode,
+            description,
+            unit,
+            quantity,
+            supplyRate,
+            installRate,
+            totalRate: totalRate || supplyRate + installRate,
+            amount: amount || quantity * (totalRate || supplyRate + installRate),
+            sectionCode: currentSectionCode,
+            sectionName: currentSectionName,
+            billNumber: currentBillNumber,
+            billName: currentBillName,
+          };
+          
+          sections[sectionKey].items.push(item);
+          sections[sectionKey].itemCount++;
+          sections[sectionKey].boqTotal += item.amount;
+        }
       }
       
-      const itemTotal = (item.quantity || 0) * ((item.supply_rate || 0) + (item.install_rate || 0));
-      sections[key].item_count++;
-      sections[key].boq_total += itemTotal;
-      sections[key].items.push(item);
-    });
-    
-    return Object.values(sections).sort((a, b) => 
-      a.section_code.localeCompare(b.section_code)
-    );
-  }, [boqItems]);
+      const sortedSections = Object.values(sections).sort((a, b) => {
+        if (a.billNumber !== b.billNumber) return a.billNumber - b.billNumber;
+        return a.sectionCode.localeCompare(b.sectionCode);
+      });
+      
+      setParsedSections(sortedSections);
+      toast.success(`Parsed ${sortedSections.length} sections from BOQ`);
+    } catch (error) {
+      console.error("Failed to parse BOQ:", error);
+      toast.error("Failed to parse BOQ file");
+    } finally {
+      setParsingFile(false);
+    }
+  }, []);
+
+  // Handle BOQ selection
+  const handleSelectBoq = useCallback(async (boq: any) => {
+    setSelectedBoqId(boq.id);
+    await parseBoqFile(boq);
+  }, [parseBoqFile]);
 
   // Calculate reconciliation status per section
   const reconciliationStatus = useMemo((): Record<string, ReconciliationStatus> => {
     const status: Record<string, ReconciliationStatus> = {};
     
-    // Map imported items by source BOQ item ID
-    const importedBySourceId = new Map<string, any>();
+    // Group imported items by section code
+    const importedBySection: Record<string, number> = {};
+    const itemCountBySection: Record<string, number> = {};
+    
     importedItems.forEach(item => {
-      if (item.source_boq_item_id) {
-        importedBySourceId.set(item.source_boq_item_id, item);
-      }
+      const code = item.sectionCode || "UNKNOWN";
+      importedBySection[code] = (importedBySection[code] || 0) + Number(item.contract_amount || 0);
+      itemCountBySection[code] = (itemCountBySection[code] || 0) + 1;
     });
     
-    sectionSummaries.forEach(section => {
-      let rebuilt_total = 0;
-      let imported_count = 0;
+    parsedSections.forEach(section => {
+      const rebuiltTotal = importedBySection[section.sectionCode] || 0;
+      const itemCount = itemCountBySection[section.sectionCode] || 0;
+      const matchPercentage = section.boqTotal > 0 
+        ? Math.min(100, (rebuiltTotal / section.boqTotal) * 100)
+        : (itemCount > 0 ? 100 : 0);
       
-      section.items.forEach(boqItem => {
-        const importedItem = importedBySourceId.get(boqItem.id);
-        if (importedItem) {
-          imported_count++;
-          rebuilt_total += Number(importedItem.contract_amount || 0);
-        }
-      });
-      
-      const boq_total = section.boq_total;
-      const match_percentage = boq_total > 0 
-        ? Math.min(100, (rebuilt_total / boq_total) * 100)
-        : (imported_count > 0 ? 100 : 0);
-      
-      status[section.section_code] = {
-        imported: imported_count > 0,
-        rebuilt_total,
-        match_percentage,
-        item_count: imported_count,
+      status[section.sectionCode] = {
+        imported: itemCount > 0,
+        rebuiltTotal,
+        matchPercentage,
+        itemCount,
       };
     });
     
     return status;
-  }, [sectionSummaries, importedItems]);
+  }, [parsedSections, importedItems]);
 
   // Calculate overall progress
   const overallProgress = useMemo(() => {
-    const totalBoqAmount = sectionSummaries.reduce((sum, s) => sum + s.boq_total, 0);
+    const totalBoqAmount = parsedSections.reduce((sum, s) => sum + s.boqTotal, 0);
     const totalRebuiltAmount = Object.values(reconciliationStatus).reduce(
-      (sum, s) => sum + s.rebuilt_total, 0
+      (sum, s) => sum + s.rebuiltTotal, 0
     );
     
     const percentageMatched = totalBoqAmount > 0 
@@ -215,27 +320,26 @@ export function BOQReconciliationDialog({
       totalRebuiltAmount,
       percentageMatched,
       sectionsImported,
-      totalSections: sectionSummaries.length,
+      totalSections: parsedSections.length,
       variance: totalRebuiltAmount - totalBoqAmount,
     };
-  }, [sectionSummaries, reconciliationStatus]);
+  }, [parsedSections, reconciliationStatus]);
 
   // Import single section mutation
   const importSectionMutation = useMutation({
     mutationFn: async (sectionCode: string) => {
-      const section = sectionSummaries.find(s => s.section_code === sectionCode);
+      const section = parsedSections.find(s => s.sectionCode === sectionCode);
       if (!section) throw new Error("Section not found");
       
-      const items = section.items.filter(item => !item.is_rate_only);
+      const items = section.items;
       if (items.length === 0) throw new Error("No items to import in this section");
       
       // Create or get bill
-      const billNumber = section.bill_number || 1;
       const { data: existingBill } = await supabase
         .from("final_account_bills")
         .select("id")
         .eq("final_account_id", accountId)
-        .eq("bill_number", billNumber)
+        .eq("bill_number", section.billNumber)
         .maybeSingle();
 
       let billId: string;
@@ -246,8 +350,8 @@ export function BOQReconciliationDialog({
           .from("final_account_bills")
           .insert({
             final_account_id: accountId,
-            bill_number: billNumber,
-            bill_name: section.bill_name || `Bill ${billNumber}`,
+            bill_number: section.billNumber,
+            bill_name: section.billName,
           })
           .select()
           .single();
@@ -265,14 +369,25 @@ export function BOQReconciliationDialog({
 
       let sectionId: string;
       if (existingSection) {
+        // Delete existing items to re-import
+        await supabase
+          .from("final_account_items")
+          .delete()
+          .eq("section_id", existingSection.id);
         sectionId = existingSection.id;
+        
+        // Update section name
+        await supabase
+          .from("final_account_sections")
+          .update({ section_name: section.sectionName })
+          .eq("id", sectionId);
       } else {
         const { data: newSection, error: sectionError } = await supabase
           .from("final_account_sections")
           .insert({
             bill_id: billId,
             section_code: sectionCode,
-            section_name: section.section_name,
+            section_name: section.sectionName,
             display_order: sectionCode.charCodeAt(0) - 64,
           })
           .select()
@@ -281,42 +396,19 @@ export function BOQReconciliationDialog({
         sectionId = newSection.id;
       }
 
-      // Get max display order
-      const { data: maxOrderData } = await supabase
-        .from("final_account_items")
-        .select("display_order")
-        .eq("section_id", sectionId)
-        .order("display_order", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      
-      let displayOrder = (maxOrderData?.display_order || 0) + 1;
-
-      // Check which items are already imported
-      const existingSourceIds = importedItems
-        .filter(i => i.source_boq_item_id)
-        .map(i => i.source_boq_item_id);
-      
-      const newItems = items.filter(item => !existingSourceIds.includes(item.id));
-      
-      if (newItems.length === 0) {
-        return { imported: 0, skipped: items.length };
-      }
-
       // Insert items
-      const itemsToInsert = newItems.map((item) => ({
+      const itemsToInsert = items.map((item, index) => ({
         section_id: sectionId,
-        item_code: item.item_code || "",
-        description: item.item_description,
+        item_code: item.itemCode || `${sectionCode}${index + 1}`,
+        description: item.description,
         unit: item.unit || "Nr",
-        contract_quantity: item.quantity || 0,
+        contract_quantity: item.quantity,
         final_quantity: 0,
-        supply_rate: item.supply_rate || 0,
-        install_rate: item.install_rate || 0,
-        contract_amount: (item.quantity || 0) * ((item.supply_rate || 0) + (item.install_rate || 0)),
+        supply_rate: item.supplyRate,
+        install_rate: item.installRate,
+        contract_amount: item.amount,
         final_amount: 0,
-        display_order: displayOrder++,
-        source_boq_item_id: item.id,
+        display_order: index + 1,
       }));
 
       const { error: itemsError } = await supabase
@@ -324,19 +416,23 @@ export function BOQReconciliationDialog({
         .insert(itemsToInsert);
       if (itemsError) throw itemsError;
 
-      return { imported: newItems.length, skipped: items.length - newItems.length };
+      // Update section totals
+      await supabase
+        .from("final_account_sections")
+        .update({
+          contract_total: section.boqTotal,
+          final_total: 0,
+        })
+        .eq("id", sectionId);
+
+      return { imported: items.length, sectionCode };
     },
-    onSuccess: (result, sectionCode) => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["final-account-bills"] });
       queryClient.invalidateQueries({ queryKey: ["final-account-sections"] });
       queryClient.invalidateQueries({ queryKey: ["final-account-items"] });
       refetchImported();
-      
-      if (result.skipped > 0) {
-        toast.success(`Imported ${result.imported} items (${result.skipped} already existed)`);
-      } else {
-        toast.success(`Imported ${result.imported} items from Section ${sectionCode}`);
-      }
+      toast.success(`Imported ${result.imported} items from Section ${result.sectionCode}`);
     },
     onError: (error: Error) => {
       toast.error(error.message || "Failed to import section");
@@ -356,16 +452,13 @@ export function BOQReconciliationDialog({
 
   const handleImportAll = async () => {
     setProcessing(true);
-    const pendingSections = sectionSummaries.filter(
-      s => !reconciliationStatus[s.section_code]?.imported
-    );
     
-    for (const section of pendingSections) {
-      setSelectedSection(section.section_code);
+    for (const section of parsedSections) {
+      setSelectedSection(section.sectionCode);
       try {
-        await importSectionMutation.mutateAsync(section.section_code);
+        await importSectionMutation.mutateAsync(section.sectionCode);
       } catch (error) {
-        console.error(`Failed to import section ${section.section_code}:`, error);
+        console.error(`Failed to import section ${section.sectionCode}:`, error);
       }
     }
     
@@ -377,6 +470,7 @@ export function BOQReconciliationDialog({
   const handleClose = () => {
     setSelectedBoqId(null);
     setSelectedSection(null);
+    setParsedSections([]);
     onOpenChange(false);
   };
 
@@ -385,7 +479,7 @@ export function BOQReconciliationDialog({
       return <Circle className="h-5 w-5 text-muted-foreground" />;
     }
     
-    const diff = Math.abs(status.match_percentage - 100);
+    const diff = Math.abs(status.matchPercentage - 100);
     if (diff < 0.01) {
       return <CheckCircle2 className="h-5 w-5 text-green-500" />;
     } else if (diff < 5) {
@@ -427,14 +521,14 @@ export function BOQReconciliationDialog({
                   {boqUploads.map((boq) => (
                     <div
                       key={boq.id}
-                      onClick={() => setSelectedBoqId(boq.id)}
+                      onClick={() => handleSelectBoq(boq)}
                       className="p-4 border rounded-lg cursor-pointer transition-colors hover:border-primary/50"
                     >
                       <div className="flex items-center justify-between">
                         <div>
                           <p className="font-medium">{boq.file_name}</p>
                           <p className="text-sm text-muted-foreground">
-                            {boq.total_items_extracted || 0} items • {format(new Date(boq.created_at), "MMM d, yyyy")}
+                            {format(new Date(boq.created_at), "MMM d, yyyy")}
                           </p>
                           {boq.contractor_name && (
                             <p className="text-sm text-muted-foreground">
@@ -449,6 +543,11 @@ export function BOQReconciliationDialog({
                 </div>
               )}
             </ScrollArea>
+          ) : parsingFile ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-4">
+              <Loader2 className="h-10 w-10 animate-spin text-primary" />
+              <p className="text-muted-foreground">Parsing BOQ file...</p>
+            </div>
           ) : (
             // Section Reconciliation View
             <>
@@ -481,30 +580,31 @@ export function BOQReconciliationDialog({
 
               {/* Section List */}
               <ScrollArea className="flex-1">
-                {loadingItems ? (
-                  <div className="flex items-center justify-center py-8">
-                    <Loader2 className="h-6 w-6 animate-spin" />
+                {parsedSections.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>No sections found in BOQ.</p>
+                    <p className="text-sm mt-2">The file may not have recognizable section structure.</p>
                   </div>
                 ) : (
                   <div className="space-y-2">
-                    {sectionSummaries.map((section) => {
-                      const status = reconciliationStatus[section.section_code];
-                      const isProcessing = processing && selectedSection === section.section_code;
+                    {parsedSections.map((section) => {
+                      const status = reconciliationStatus[section.sectionCode];
+                      const isProcessing = processing && selectedSection === section.sectionCode;
                       
                       return (
                         <div
-                          key={section.section_code}
+                          key={`${section.billNumber}-${section.sectionCode}`}
                           className="p-4 border rounded-lg"
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
-                              {getStatusIcon(status, section.boq_total)}
+                              {getStatusIcon(status, section.boqTotal)}
                               <div>
                                 <p className="font-medium">
-                                  Section {section.section_code} - {section.section_name}
+                                  Section {section.sectionCode} - {section.sectionName}
                                 </p>
                                 <p className="text-sm text-muted-foreground">
-                                  {section.item_count} items • BOQ Total: {formatCurrency(section.boq_total)}
+                                  Bill {section.billNumber} • {section.itemCount} items • BOQ Total: {formatCurrency(section.boqTotal)}
                                 </p>
                               </div>
                             </div>
@@ -514,13 +614,13 @@ export function BOQReconciliationDialog({
                                 <div className="text-right text-sm">
                                   <p className="text-muted-foreground">Rebuilt</p>
                                   <p className={`font-medium ${
-                                    Math.abs(status.match_percentage - 100) < 0.01 
+                                    Math.abs(status.matchPercentage - 100) < 0.01 
                                       ? 'text-green-600' 
                                       : 'text-yellow-600'
                                   }`}>
-                                    {formatCurrency(status.rebuilt_total)}
+                                    {formatCurrency(status.rebuiltTotal)}
                                     <span className="ml-1 text-xs">
-                                      ({status.match_percentage.toFixed(1)}%)
+                                      ({status.matchPercentage.toFixed(1)}%)
                                     </span>
                                   </p>
                                 </div>
@@ -529,7 +629,7 @@ export function BOQReconciliationDialog({
                               {!status?.imported ? (
                                 <Button
                                   size="sm"
-                                  onClick={() => handleImportSection(section.section_code)}
+                                  onClick={() => handleImportSection(section.sectionCode)}
                                   disabled={processing}
                                 >
                                   {isProcessing ? (
@@ -545,11 +645,11 @@ export function BOQReconciliationDialog({
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  onClick={() => handleImportSection(section.section_code)}
+                                  onClick={() => handleImportSection(section.sectionCode)}
                                   disabled={processing}
                                 >
                                   <RefreshCw className="h-4 w-4 mr-2" />
-                                  Refresh
+                                  Re-import
                                 </Button>
                               )}
                             </div>
@@ -570,22 +670,25 @@ export function BOQReconciliationDialog({
             Close
           </Button>
           
-          {selectedBoqId && (
+          {selectedBoqId && !parsingFile && parsedSections.length > 0 && (
             <div className="flex gap-2">
               <Button 
                 variant="outline" 
-                onClick={() => setSelectedBoqId(null)}
+                onClick={() => {
+                  setSelectedBoqId(null);
+                  setParsedSections([]);
+                }}
               >
                 Change BOQ
               </Button>
               <Button
                 onClick={handleImportAll}
-                disabled={processing || overallProgress.sectionsImported === overallProgress.totalSections}
+                disabled={processing}
               >
                 {processing ? (
                   <>
                     <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Processing...
+                    Importing {selectedSection}...
                   </>
                 ) : (
                   "Import All Remaining"
