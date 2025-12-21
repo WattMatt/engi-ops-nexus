@@ -701,26 +701,27 @@ export function BOQReconciliationDialog({
             </div>
           ) : (
             <>
-              {/* Progress Summary */}
-              <div className="bg-muted/50 rounded-lg p-4 mb-4 space-y-3">
+              {/* Progress Summary - simplified, no BOQ totals */}
+              <div className="bg-muted/50 rounded-lg p-4 mb-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium">Reconciliation Progress</p>
+                    <p className="text-sm font-medium">Import Progress</p>
                     <p className="text-2xl font-bold">
-                      {overallProgress.percentageMatched.toFixed(1)}%
+                      {overallProgress.sectionsImported} / {overallProgress.totalSections}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      sections imported
                     </p>
                   </div>
-                  <div className="text-right">
-                    <p className="text-sm text-muted-foreground">
-                      {overallProgress.sectionsImported} / {overallProgress.totalSections} sections
-                    </p>
-                    <div className="flex gap-4 mt-1 text-sm">
-                      <span>BOQ: {formatCurrency(overallProgress.totalBoqAmount)}</span>
-                      <span>Rebuilt: {formatCurrency(overallProgress.totalRebuiltAmount)}</span>
-                    </div>
+                  <div className="text-right text-sm text-muted-foreground">
+                    <p>Totals will be calculated from</p>
+                    <p>imported items after completion</p>
                   </div>
                 </div>
-                <Progress value={overallProgress.percentageMatched} className="h-2" />
+                <Progress 
+                  value={(overallProgress.sectionsImported / Math.max(1, overallProgress.totalSections)) * 100} 
+                  className="h-2 mt-3" 
+                />
               </div>
 
               {/* Section List */}
@@ -749,7 +750,7 @@ export function BOQReconciliationDialog({
                                   Section {section.sectionCode} - {section.sectionName}
                                 </p>
                                 <p className="text-sm text-muted-foreground">
-                                  Bill {section.billNumber} • {section.itemCount} items • BOQ Total: {formatCurrency(section.boqTotal)}
+                                  Bill {section.billNumber} • {section.itemCount} items
                                 </p>
                               </div>
                             </div>
