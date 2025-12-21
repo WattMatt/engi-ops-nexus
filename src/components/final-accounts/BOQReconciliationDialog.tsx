@@ -238,12 +238,14 @@ function parseSheetForBOQ(worksheet: XLSX.WorkSheet, sheetName: string): {
     const totalRate = colMap.rate !== undefined ? parseNumber(row[colMap.rate]) : supplyRate + installRate;
     const amount = colMap.amount !== undefined ? parseNumber(row[colMap.amount]) : quantity * (totalRate || supplyRate + installRate);
     
-    // Skip subtotal rows: have amount but no unit AND no quantity
-    // Valid items typically have a unit (Nr, m, m², etc.) or quantity
+    // Check if this looks like a legitimate item vs a subtotal
+    // Legitimate items: have unit, or have quantity, or have descriptive keywords
     const hasValidUnit = unitRaw && /^(nr|no|ea|m|m2|m²|m³|km|kg|l|sum|item|lot|prov|allow|pc|set|pair)/i.test(unitRaw);
+    const isLegitimateItem = /allow|profit|prime\s*cost|provisional|rental|safety|documentation|appoint/i.test(description);
     
-    // If no quantity AND no valid unit AND has large amount, likely a subtotal
-    if (quantity === 0 && !hasValidUnit && amount > 0) {
+    // Skip rows that look like subtotals: no quantity, no unit, no legitimate keywords
+    // But include items with valid units OR legitimate descriptive keywords
+    if (quantity === 0 && !hasValidUnit && !isLegitimateItem && amount > 0) {
       console.log(`[BOQ Parse] Skipping likely subtotal: "${description}" amount=${amount}`);
       continue;
     }
