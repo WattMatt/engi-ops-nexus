@@ -204,10 +204,21 @@ function parseSheetForBOQ(worksheet: XLSX.WorkSheet, sheetName: string): {
     
     if (!description) continue;
     
-    // Skip section header-like rows (they're just subsection markers within the sheet)
-    if (/^[A-Z][\.\s]+[A-Z]/i.test(description) && !/\d/.test(description.slice(0, 5))) {
-      continue;
-    }
+    // Extract values first - we need them for decision making
+    const itemCode = colMap.itemCode !== undefined ? row[colMap.itemCode] : "";
+    const unitRaw = colMap.unit !== undefined ? row[colMap.unit] : "";
+    const quantity = colMap.quantity !== undefined ? parseNumber(row[colMap.quantity]) : 0;
+    const supplyRate = colMap.supplyRate !== undefined ? parseNumber(row[colMap.supplyRate]) : 0;
+    const installRate = colMap.installRate !== undefined ? parseNumber(row[colMap.installRate]) : 0;
+    const totalRate = colMap.rate !== undefined ? parseNumber(row[colMap.rate]) : supplyRate + installRate;
+    const amount = colMap.amount !== undefined ? parseNumber(row[colMap.amount]) : quantity * (totalRate || supplyRate + installRate);
+    
+    // Check if this is a SUBSECTION HEADER (e.g., "B1 MEDIUM VOLTAGE EQUIPMENT")
+    // These have: item code like B1/B2/B3, ALL CAPS description, no unit/qty/amount
+    const isSubsectionHeader = itemCode && 
+      /^[A-Z]\d*$/i.test(itemCode.trim()) && 
+      description === description.toUpperCase() &&
+      !unitRaw && quantity === 0 && amount === 0;
     
     // Skip totals, subtotals, collection, and carried forward lines (expanded patterns)
     const skipPatterns = [
@@ -229,29 +240,20 @@ function parseSheetForBOQ(worksheet: XLSX.WorkSheet, sheetName: string): {
       continue;
     }
     
-    // Extract values
-    const itemCode = colMap.itemCode !== undefined ? row[colMap.itemCode] : "";
-    const unitRaw = colMap.unit !== undefined ? row[colMap.unit] : "";
-    const quantity = colMap.quantity !== undefined ? parseNumber(row[colMap.quantity]) : 0;
-    const supplyRate = colMap.supplyRate !== undefined ? parseNumber(row[colMap.supplyRate]) : 0;
-    const installRate = colMap.installRate !== undefined ? parseNumber(row[colMap.installRate]) : 0;
-    const totalRate = colMap.rate !== undefined ? parseNumber(row[colMap.rate]) : supplyRate + installRate;
-    const amount = colMap.amount !== undefined ? parseNumber(row[colMap.amount]) : quantity * (totalRate || supplyRate + installRate);
-    
     // Check if this looks like a legitimate item vs a subtotal
     // Legitimate items: have unit, or have quantity, or have descriptive keywords
     const hasValidUnit = unitRaw && /^(nr|no|ea|m|m2|m²|m³|km|kg|l|sum|item|lot|prov|allow|pc|set|pair)/i.test(unitRaw);
     const isLegitimateItem = /allow|profit|prime\s*cost|provisional|rental|safety|documentation|appoint/i.test(description);
     
-    // Skip rows that look like subtotals: no quantity, no unit, no legitimate keywords
+    // Skip rows that look like subtotals: no quantity, no unit, no legitimate keywords, BUT has amount
     // But include items with valid units OR legitimate descriptive keywords
-    if (quantity === 0 && !hasValidUnit && !isLegitimateItem && amount > 0) {
+    if (quantity === 0 && !hasValidUnit && !isLegitimateItem && !isSubsectionHeader && amount > 0) {
       console.log(`[BOQ Parse] Skipping likely subtotal: "${description}" amount=${amount}`);
       continue;
     }
     
-    // Skip if absolutely no data
-    if (quantity === 0 && amount === 0) continue;
+    // Skip if absolutely no data AND not a subsection header
+    if (quantity === 0 && amount === 0 && !isSubsectionHeader) continue;
     
     // Log first 5 items per sheet for debugging
     if (items.length < 5) {
