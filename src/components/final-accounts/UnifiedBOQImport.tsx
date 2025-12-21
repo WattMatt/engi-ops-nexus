@@ -95,7 +95,8 @@ function detectPARow(
   rawRowData: string[]
 ): { referencedItemCode: string | null; percentage: number } | null {
   // Must contain "profit" or "P&A" to be a P&A row
-  const isPARow = /allow\s*(?:for\s*)?profit|profit\s*(?:and|&)?\s*attendance|P\.?&\.?A\.?/i.test(description);
+  // Patterns: "Allow profit...", "Add profit...", "Profit and attendance", "P&A"
+  const isPARow = /(?:allow|add)\s*(?:for\s*)?profit|profit\s*(?:and|&)?\s*attendance|P\.?&\.?A\.?|profit\s+(?:to|on)\s+item/i.test(description);
   if (!isPARow) return null;
   
   // Extract referenced item code: "Allow profit to item B1.1"
