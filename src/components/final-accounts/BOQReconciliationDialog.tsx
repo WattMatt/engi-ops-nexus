@@ -214,7 +214,11 @@ function parseSheetForBOQ(worksheet: XLSX.WorkSheet, sheetName: string): {
     const supplyRate = colMap.supplyRate !== undefined ? parseNumber(row[colMap.supplyRate]) : 0;
     const installRate = colMap.installRate !== undefined ? parseNumber(row[colMap.installRate]) : 0;
     const totalRate = colMap.rate !== undefined ? parseNumber(row[colMap.rate]) : supplyRate + installRate;
-    const amount = colMap.amount !== undefined ? parseNumber(row[colMap.amount]) : quantity * (totalRate || supplyRate + installRate);
+    // CRITICAL: Use parsed amount from spreadsheet if available, don't recalculate
+    // Only calculate if no amount column exists
+    const parsedAmount = colMap.amount !== undefined ? parseNumber(row[colMap.amount]) : 0;
+    const calculatedAmount = quantity * (totalRate || supplyRate + installRate);
+    const amount = parsedAmount > 0 ? parsedAmount : calculatedAmount;
     
     // VALIDATION: Item codes must follow BOQ patterns (e.g., "B1", "B1.2", "C3.4.1")
     // Reject pure numbers like "1.217" which are likely from wrong columns
@@ -279,7 +283,7 @@ function parseSheetForBOQ(worksheet: XLSX.WorkSheet, sheetName: string): {
       supplyRate,
       installRate,
       totalRate: totalRate || supplyRate + installRate,
-      amount: amount || quantity * (totalRate || supplyRate + installRate),
+      amount, // Use the amount as parsed/calculated above - don't recalculate
       sectionCode,
       sectionName,
       billNumber,
