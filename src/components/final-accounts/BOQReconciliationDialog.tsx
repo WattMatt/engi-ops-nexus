@@ -399,6 +399,7 @@ export function BOQReconciliationDialog({
   const [processing, setProcessing] = useState(false);
   const [parsedSections, setParsedSections] = useState<BOQSectionSummary[]>([]);
   const [parsingFile, setParsingFile] = useState(false);
+  const [importProgress, setImportProgress] = useState<{ current: number; total: number; phase: string } | null>(null);
   const queryClient = useQueryClient();
 
   // Fetch BOQ uploads for this project
@@ -740,54 +741,40 @@ export function BOQReconciliationDialog({
   const handleImportAll = async () => {
     setProcessing(true);
     
-    let successCount = 0;
-    const failedSections: string[] = [];
-    const skippedSections: string[] = [];
+    const sectionsToImport = parsedSections.filter(
+      s => !reconciliationStatus[s.sectionCode]?.imported && s.items.length > 0
+    );
     
-    for (const section of parsedSections) {
-      // Skip already imported sections
-      if (reconciliationStatus[section.sectionCode]?.imported) {
-        continue;
-      }
-      
-      setSelectedSection(section.sectionCode);
-      
-      // Skip sections with no items
-      if (section.items.length === 0) {
-        skippedSections.push(`${section.sectionCode} (no items)`);
-        continue;
-      }
+    if (sectionsToImport.length === 0) {
+      toast.info("No sections to import");
+      setProcessing(false);
+      return;
+    }
+    
+    setImportProgress({ current: 0, total: sectionsToImport.length, phase: "Importing" });
+    
+    let successCount = 0;
+    let processed = 0;
+    
+    for (const section of sectionsToImport) {
+      processed++;
+      setImportProgress({ current: processed, total: sectionsToImport.length, phase: "Importing" });
       
       try {
         await importSectionMutation.mutateAsync(section.sectionCode);
         successCount++;
       } catch (error: any) {
         console.error(`Failed to import section ${section.sectionCode}:`, error);
-        failedSections.push(`${section.sectionCode}: ${error.message || 'Unknown error'}`);
       }
     }
     
+    setImportProgress(null);
     setProcessing(false);
-    setSelectedSection(null);
     
-    // Show summary
-    if (failedSections.length > 0 || skippedSections.length > 0) {
-      const messages: string[] = [];
-      if (successCount > 0) messages.push(`${successCount} imported`);
-      if (skippedSections.length > 0) messages.push(`${skippedSections.length} skipped (no items)`);
-      if (failedSections.length > 0) messages.push(`${failedSections.length} failed`);
-      toast.warning(`Import complete: ${messages.join(', ')}`);
-      
-      if (skippedSections.length > 0) {
-        console.log("[Import All] Skipped sections:", skippedSections);
-      }
-      if (failedSections.length > 0) {
-        console.log("[Import All] Failed sections:", failedSections);
-      }
-    } else if (successCount > 0) {
-      toast.success(`${successCount} sections imported`);
+    if (successCount === sectionsToImport.length) {
+      toast.success(`All ${successCount} sections imported successfully`);
     } else {
-      toast.info("No remaining sections to import");
+      toast.warning(`${successCount}/${sectionsToImport.length} sections imported`);
     }
   };
 
@@ -796,69 +783,56 @@ export function BOQReconciliationDialog({
     if (!selectedBoqId) return;
     
     setProcessing(true);
-    setSelectedSection("Reparsing...");
+    setImportProgress({ current: 0, total: 100, phase: "Parsing BOQ" });
     
     try {
-      // Get the selected BOQ
       const selectedBoq = boqUploads.find(b => b.id === selectedBoqId);
       if (!selectedBoq) throw new Error("BOQ not found");
       
-      // Re-parse the BOQ file and get fresh sections directly
       const freshSections = await parseBoqFile(selectedBoq);
       
       if (freshSections.length === 0) {
         toast.error("No sections found in BOQ");
+        setImportProgress(null);
+        setProcessing(false);
         return;
       }
       
-      toast.info(`BOQ re-parsed. Now updating ${freshSections.length} sections...`);
+      const sectionsWithItems = freshSections.filter(s => s.items.length > 0);
       
-      // Track success/failure
+      if (sectionsWithItems.length === 0) {
+        toast.error("No sections with items found");
+        setImportProgress(null);
+        setProcessing(false);
+        return;
+      }
+      
       let successCount = 0;
-      const failedSections: string[] = [];
-      const skippedSections: string[] = [];
+      let processed = 0;
       
-      // Import all sections using the freshly parsed data
-      for (const section of freshSections) {
-        setSelectedSection(section.sectionCode);
-        
-        // Skip sections with no items
-        if (section.items.length === 0) {
-          console.log(`[Reprise] Skipping section ${section.sectionCode} - no items`);
-          skippedSections.push(`${section.sectionCode} (no items)`);
-          continue;
-        }
+      for (const section of sectionsWithItems) {
+        processed++;
+        setImportProgress({ current: processed, total: sectionsWithItems.length, phase: "Importing" });
         
         try {
           await importSectionMutation.mutateAsync(section.sectionCode);
           successCount++;
         } catch (error: any) {
           console.error(`Failed to update section ${section.sectionCode}:`, error);
-          failedSections.push(`${section.sectionCode}: ${error.message || 'Unknown error'}`);
         }
       }
       
-      // Show summary
-      if (failedSections.length > 0 || skippedSections.length > 0) {
-        const messages: string[] = [];
-        if (successCount > 0) messages.push(`${successCount} imported`);
-        if (skippedSections.length > 0) messages.push(`${skippedSections.length} skipped (no items found)`);
-        if (failedSections.length > 0) messages.push(`${failedSections.length} failed`);
-        toast.warning(`Import complete: ${messages.join(', ')}`);
-        
-        // Log details for debugging
-        if (skippedSections.length > 0) {
-          console.log("[Reprise] Skipped sections:", skippedSections);
-        }
-        if (failedSections.length > 0) {
-          console.log("[Reprise] Failed sections:", failedSections);
-        }
+      setImportProgress(null);
+      
+      if (successCount === sectionsWithItems.length) {
+        toast.success(`All ${successCount} sections imported successfully`);
       } else {
-        toast.success(`All ${successCount} sections reprised with updated items`);
+        toast.warning(`${successCount}/${sectionsWithItems.length} sections imported`);
       }
     } catch (error) {
       console.error("Reprise failed:", error);
       toast.error("Failed to reprise sections");
+      setImportProgress(null);
     } finally {
       setProcessing(false);
       setSelectedSection(null);
@@ -1048,164 +1022,96 @@ export function BOQReconciliationDialog({
               <Loader2 className="h-10 w-10 animate-spin text-primary" />
               <p className="text-muted-foreground">Parsing BOQ file...</p>
             </div>
+          ) : importProgress ? (
+            /* Simple progress view during import */
+            <div className="flex flex-col items-center justify-center py-16 gap-6">
+              <div className="relative">
+                <svg className="w-32 h-32 transform -rotate-90">
+                  <circle
+                    className="text-muted stroke-current"
+                    strokeWidth="8"
+                    fill="transparent"
+                    r="56"
+                    cx="64"
+                    cy="64"
+                  />
+                  <circle
+                    className="text-primary stroke-current transition-all duration-300"
+                    strokeWidth="8"
+                    strokeLinecap="round"
+                    fill="transparent"
+                    r="56"
+                    cx="64"
+                    cy="64"
+                    strokeDasharray={`${2 * Math.PI * 56}`}
+                    strokeDashoffset={`${2 * Math.PI * 56 * (1 - importProgress.current / importProgress.total)}`}
+                  />
+                </svg>
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <span className="text-3xl font-bold">
+                    {Math.round((importProgress.current / importProgress.total) * 100)}%
+                  </span>
+                </div>
+              </div>
+              <div className="text-center">
+                <p className="text-lg font-medium">{importProgress.phase}</p>
+                <p className="text-sm text-muted-foreground">
+                  {importProgress.current} of {importProgress.total} sections
+                </p>
+              </div>
+            </div>
           ) : (
             <>
-              {/* Progress Summary with extraction quality */}
+              {/* Simple summary */}
               <div className="bg-muted/50 rounded-lg p-4 mb-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm font-medium">Import Progress</p>
+                    <p className="text-sm font-medium">Ready to Import</p>
                     <p className="text-2xl font-bold">
-                      {overallProgress.sectionsImported} / {overallProgress.totalSections}
+                      {parsedSections.filter(s => s.items.length > 0).length} sections
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      sections imported
+                      {parsedSections.reduce((sum, s) => sum + s.itemCount, 0)} total items
                     </p>
                   </div>
-                  <div className="text-right text-sm">
-                    {/* Extraction quality summary */}
-                    <div className="flex gap-3 text-xs">
-                      <span className="text-green-600">
-                        ● {parsedSections.filter(s => s.extractionConfidence === 'high').length} high
-                      </span>
-                      <span className="text-blue-600">
-                        ● {parsedSections.filter(s => s.extractionConfidence === 'medium').length} medium
-                      </span>
-                      <span className="text-yellow-600">
-                        ● {parsedSections.filter(s => s.extractionConfidence === 'low').length} low
-                      </span>
-                      <span className="text-red-600">
-                        ● {parsedSections.filter(s => s.extractionConfidence === 'failed').length} failed
-                      </span>
-                    </div>
-                    <p className="text-muted-foreground mt-1">extraction confidence</p>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold">
+                      {formatCurrency(parsedSections.reduce((sum, s) => sum + s.boqTotal, 0))}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">BOQ total</p>
                   </div>
                 </div>
-                <Progress 
-                  value={(overallProgress.sectionsImported / Math.max(1, overallProgress.totalSections)) * 100} 
-                  className="h-2 mt-3" 
-                />
               </div>
 
-              {/* Section List */}
-              <ScrollArea className="flex-1 h-[350px]">
+              {/* Compact section list - just names and status */}
+              <ScrollArea className="flex-1 h-[300px]">
                 {parsedSections.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
                     <p>No sections found in BOQ.</p>
-                    <p className="text-sm mt-2">The file may not have recognizable section structure.</p>
                   </div>
                 ) : (
-                  <div className="space-y-2">
-                    {parsedSections.map((section) => {
+                  <div className="space-y-1">
+                    {parsedSections.filter(s => s.items.length > 0).map((section) => {
                       const status = reconciliationStatus[section.sectionCode];
-                      const isProcessing = processing && selectedSection === section.sectionCode;
-                      const hasFailed = section.extractionConfidence === 'failed' || section.items.length === 0;
-                      const isLowConfidence = section.extractionConfidence === 'low';
                       
                       return (
                         <div
                           key={`${section.billNumber}-${section.sectionCode}`}
-                          className={cn(
-                            "p-4 border rounded-lg",
-                            hasFailed && "border-red-200 bg-red-50/50",
-                            isLowConfidence && !hasFailed && "border-yellow-200 bg-yellow-50/50"
-                          )}
+                          className="flex items-center justify-between py-2 px-3 rounded hover:bg-muted/50"
                         >
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                              {getStatusIcon(status)}
-                              <div>
-                                <div className="flex items-center gap-2">
-                                  <p className="font-medium">
-                                    Section {section.sectionCode} - {section.sectionName}
-                                  </p>
-                                  {/* Confidence badge */}
-                                  {section.extractionConfidence === 'high' && (
-                                    <span className="text-xs px-1.5 py-0.5 rounded bg-green-100 text-green-700">High</span>
-                                  )}
-                                  {section.extractionConfidence === 'medium' && (
-                                    <span className="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-700">Medium</span>
-                                  )}
-                                  {section.extractionConfidence === 'low' && (
-                                    <span className="text-xs px-1.5 py-0.5 rounded bg-yellow-100 text-yellow-700">Low</span>
-                                  )}
-                                  {section.extractionConfidence === 'failed' && (
-                                    <span className="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-700">No Data</span>
-                                  )}
-                                </div>
-                                <p className="text-sm text-muted-foreground">
-                                  Bill {section.billNumber} • {section.itemCount} items
-                                  {section.parseAttempts > 1 && ` • ${section.parseAttempts} attempts`}
-                                </p>
-                              </div>
-                            </div>
-                            
-                            <div className="flex items-center gap-4">
-                              {status?.imported && (
-                                <div className="text-right text-sm">
-                                  <p className="text-muted-foreground">Rebuilt</p>
-                                  <p className={`font-medium ${
-                                    Math.abs(status.matchPercentage - 100) < 0.01 
-                                      ? 'text-green-600' 
-                                      : 'text-yellow-600'
-                                  }`}>
-                                    {formatCurrency(status.rebuiltTotal)}
-                                    <span className="ml-1 text-xs">
-                                      ({status.matchPercentage.toFixed(1)}%)
-                                    </span>
-                                  </p>
-                                </div>
-                              )}
-                              
-                              {/* Show Retry button for failed sections */}
-                              {hasFailed ? (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleRetrySection(section.sectionCode)}
-                                  disabled={processing}
-                                  className="border-red-300 text-red-700 hover:bg-red-50"
-                                >
-                                  {isProcessing ? (
-                                    <>
-                                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                      Retrying...
-                                    </>
-                                  ) : (
-                                    <>
-                                      <RefreshCw className="h-4 w-4 mr-2" />
-                                      Retry Parse
-                                    </>
-                                  )}
-                                </Button>
-                              ) : !status?.imported ? (
-                                <Button
-                                  size="sm"
-                                  onClick={() => handleImportSection(section.sectionCode)}
-                                  disabled={processing}
-                                >
-                                  {isProcessing ? (
-                                    <>
-                                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                                      Importing...
-                                    </>
-                                  ) : (
-                                    "Import Section"
-                                  )}
-                                </Button>
-                              ) : (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => handleImportSection(section.sectionCode)}
-                                  disabled={processing}
-                                >
-                                  <RefreshCw className="h-4 w-4 mr-2" />
-                                  Re-import
-                                </Button>
-                              )}
-                            </div>
+                          <div className="flex items-center gap-2">
+                            {status?.imported ? (
+                              <CheckCircle2 className="h-4 w-4 text-green-500" />
+                            ) : (
+                              <Circle className="h-4 w-4 text-muted-foreground" />
+                            )}
+                            <span className="text-sm">
+                              {section.sectionCode} - {section.sectionName}
+                            </span>
                           </div>
+                          <span className="text-xs text-muted-foreground">
+                            {section.itemCount} items • {formatCurrency(section.boqTotal)}
+                          </span>
                         </div>
                       );
                     })}
@@ -1216,13 +1122,13 @@ export function BOQReconciliationDialog({
           )}
         </div>
 
-        {/* Footer */}
+        {/* Footer - simplified */}
         <div className="flex justify-between pt-4 border-t">
           <Button variant="outline" onClick={handleClose}>
             Close
           </Button>
           
-          {selectedBoqId && !parsingFile && parsedSections.length > 0 && (
+          {selectedBoqId && !parsingFile && !importProgress && parsedSections.length > 0 && (
             <div className="flex gap-2">
               <Button 
                 variant="outline" 
@@ -1230,41 +1136,15 @@ export function BOQReconciliationDialog({
                   setSelectedBoqId(null);
                   setParsedSections([]);
                 }}
-              >
-                Change BOQ
-              </Button>
-              {/* Show Retry Failed button if there are failed sections */}
-              {parsedSections.some(s => s.extractionConfidence === 'failed' || s.items.length === 0) && (
-                <Button
-                  variant="outline"
-                  onClick={handleRetryAllFailed}
-                  disabled={processing}
-                  className="border-yellow-300 text-yellow-700 hover:bg-yellow-50"
-                >
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Retry Failed ({parsedSections.filter(s => s.extractionConfidence === 'failed' || s.items.length === 0).length})
-                </Button>
-              )}
-              <Button
-                variant="secondary"
-                onClick={handleRepriseAll}
                 disabled={processing}
               >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Reprise All
+                Change BOQ
               </Button>
               <Button
                 onClick={handleImportAll}
                 disabled={processing}
               >
-                {processing ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    {selectedSection}...
-                  </>
-                ) : (
-                  "Import All Remaining"
-                )}
+                Import All
               </Button>
             </div>
           )}
