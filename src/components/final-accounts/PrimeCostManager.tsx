@@ -60,11 +60,46 @@ export function PrimeCostManager({ accountId, projectId }: PrimeCostManagerProps
     },
   });
 
-  // Fetch BOQ items with prime costs for import
+  // Fetch prime cost items from final_account_items (imported from BOQ)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const client = supabase as any;
+  
+  const { data: importedPrimeCosts = [] } = useQuery({
+    queryKey: ["final-account-items-prime-costs", accountId],
+    queryFn: async () => {
+      // Get all bills for this account
+      const billsResult = await client.from("final_account_bills").select("id").eq("account_id", accountId);
+      const bills = billsResult.data || [];
+      
+      if (!bills.length) return [];
+      
+      const billIds = bills.map((b: any) => b.id);
+      
+      // Get all sections for these bills
+      const sectionsResult = await client.from("final_account_sections").select("id, section_code, section_name, bill_id");
+      const sections = sectionsResult.data || [];
+      
+      const sectionIds = sections.filter((s: any) => billIds.includes(s.bill_id)).map((s: any) => s.id);
+      const sectionMap = new Map(sections.map((s: any) => [s.id, s]));
+      
+      if (sectionIds.length === 0) return [];
+      
+      // Get prime cost items from final_account_items
+      const itemsResult = await client.from("final_account_items").select("*").in("section_id", sectionIds).eq("is_prime_cost", true);
+      const items = itemsResult.data || [];
+      
+      return items.map((item: any) => ({
+        ...item,
+        section: sectionMap.get(item.section_id),
+      }));
+    },
+  });
+
+  // Fetch BOQ items with prime costs for import (legacy)
   const { data: boqPrimeCosts } = useQuery({
     queryKey: ["boq-prime-costs", projectId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data, error } = await client
         .from("boq_extracted_items")
         .select(`
           id,
@@ -199,8 +234,8 @@ export function PrimeCostManager({ accountId, projectId }: PrimeCostManagerProps
     updateMutation.mutate({ id, values: editValues });
   };
 
-  // Calculate totals
-  const totals = primeCosts?.reduce(
+  // Calculate totals from manual prime cost items
+  const manualTotals = primeCosts?.reduce(
     (acc, item) => {
       const allowance = Number(item.pc_allowance) || 0;
       const actual = Number(item.actual_cost) || 0;
@@ -218,6 +253,35 @@ export function PrimeCostManager({ accountId, projectId }: PrimeCostManagerProps
     },
     { allowanceTotal: 0, actualTotal: 0, paAllowanceTotal: 0, paActualTotal: 0, adjustmentTotal: 0 }
   ) || { allowanceTotal: 0, actualTotal: 0, paAllowanceTotal: 0, paActualTotal: 0, adjustmentTotal: 0 };
+
+  // Calculate totals from imported prime cost items (from BOQ sections)
+  const importedTotals = importedPrimeCosts.reduce(
+    (acc: any, item: any) => {
+      const allowance = Number(item.pc_allowance) || 0;
+      const actual = Number(item.pc_actual_cost) || 0;
+      const paPercent = Number(item.pc_profit_attendance_percent) || 0;
+      const paOnAllowance = allowance * (paPercent / 100);
+      const paOnActual = actual * (paPercent / 100);
+      
+      return {
+        allowanceTotal: acc.allowanceTotal + allowance,
+        actualTotal: acc.actualTotal + actual,
+        paAllowanceTotal: acc.paAllowanceTotal + paOnAllowance,
+        paActualTotal: acc.paActualTotal + paOnActual,
+        adjustmentTotal: acc.adjustmentTotal + (actual - allowance) + (paOnActual - paOnAllowance),
+      };
+    },
+    { allowanceTotal: 0, actualTotal: 0, paAllowanceTotal: 0, paActualTotal: 0, adjustmentTotal: 0 }
+  );
+
+  // Combined totals
+  const totals = {
+    allowanceTotal: manualTotals.allowanceTotal + importedTotals.allowanceTotal,
+    actualTotal: manualTotals.actualTotal + importedTotals.actualTotal,
+    paAllowanceTotal: manualTotals.paAllowanceTotal + importedTotals.paAllowanceTotal,
+    paActualTotal: manualTotals.paActualTotal + importedTotals.paActualTotal,
+    adjustmentTotal: manualTotals.adjustmentTotal + importedTotals.adjustmentTotal,
+  };
 
   if (isLoading) {
     return <div className="text-center py-8 text-muted-foreground">Loading prime costs...</div>;
@@ -242,7 +306,7 @@ export function PrimeCostManager({ accountId, projectId }: PrimeCostManagerProps
           </div>
         </CardHeader>
         <CardContent>
-          {!primeCosts || primeCosts.length === 0 ? (
+          {(!primeCosts || primeCosts.length === 0) && importedPrimeCosts.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               No Prime Cost items yet. Add items manually or import from BOQ.
             </div>
@@ -252,17 +316,43 @@ export function PrimeCostManager({ accountId, projectId }: PrimeCostManagerProps
                 <TableRow>
                   <TableHead className="w-[100px]">Code</TableHead>
                   <TableHead>Description</TableHead>
+                  <TableHead>Section</TableHead>
                   <TableHead className="text-right">PC Allowance</TableHead>
                   <TableHead className="text-right">Actual Cost</TableHead>
                   <TableHead className="text-right">P&A %</TableHead>
-                  <TableHead className="text-right">P&A on Allowance</TableHead>
-                  <TableHead className="text-right">P&A on Actual</TableHead>
                   <TableHead className="text-right">Adjustment</TableHead>
-                  <TableHead className="w-[100px]"></TableHead>
+                  <TableHead className="w-[80px]"></TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {primeCosts.map((item) => {
+                {/* Imported Prime Cost items from BOQ sections */}
+                {importedPrimeCosts.map((item: any) => {
+                  const allowance = Number(item.pc_allowance) || Number(item.contract_amount) || 0;
+                  const actual = Number(item.pc_actual_cost) || 0;
+                  const paPercent = Number(item.pc_profit_attendance_percent) || 0;
+                  const adjustment = (actual - allowance) * (1 + paPercent / 100);
+
+                  return (
+                    <TableRow key={item.id} className="bg-blue-50/50 dark:bg-blue-950/20">
+                      <TableCell className="font-mono text-sm">{item.item_code || "-"}</TableCell>
+                      <TableCell className="max-w-xs truncate" title={item.description}>{item.description}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">
+                        {item.section?.section_code} - {item.section?.section_name}
+                      </TableCell>
+                      <TableCell className="text-right">{formatCurrency(allowance)}</TableCell>
+                      <TableCell className="text-right">{formatCurrency(actual)}</TableCell>
+                      <TableCell className="text-right">{paPercent.toFixed(1)}%</TableCell>
+                      <TableCell className={`text-right font-medium ${adjustment >= 0 ? "text-destructive" : "text-green-600"}`}>
+                        {adjustment !== 0 ? (adjustment >= 0 ? "+" : "") + formatCurrency(adjustment) : "-"}
+                      </TableCell>
+                      <TableCell>
+                        <span className="text-xs text-muted-foreground">BOQ</span>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
+                {/* Manually added Prime Cost items */}
+                {primeCosts?.map((item) => {
                   const allowance = Number(item.pc_allowance) || 0;
                   const actual = editingId === item.id ? Number(editValues.actual_cost) || 0 : Number(item.actual_cost) || 0;
                   const paPercent = Number(item.profit_attendance_percent) || 0;
@@ -274,6 +364,7 @@ export function PrimeCostManager({ accountId, projectId }: PrimeCostManagerProps
                     <TableRow key={item.id}>
                       <TableCell className="font-mono text-sm">{item.item_code || "-"}</TableCell>
                       <TableCell>{item.description}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground">Manual</TableCell>
                       <TableCell className="text-right">{formatCurrency(allowance)}</TableCell>
                       <TableCell className="text-right">
                         {editingId === item.id ? (
@@ -293,9 +384,7 @@ export function PrimeCostManager({ accountId, projectId }: PrimeCostManagerProps
                           </span>
                         )}
                       </TableCell>
-                      <TableCell className="text-right">{paPercent.toFixed(2)}%</TableCell>
-                      <TableCell className="text-right">{formatCurrency(paOnAllowance)}</TableCell>
-                      <TableCell className="text-right">{formatCurrency(paOnActual)}</TableCell>
+                      <TableCell className="text-right">{paPercent.toFixed(1)}%</TableCell>
                       <TableCell className={`text-right font-medium ${adjustment >= 0 ? "text-destructive" : "text-green-600"}`}>
                         {adjustment >= 0 ? "+" : ""}{formatCurrency(adjustment)}
                       </TableCell>
@@ -320,12 +409,10 @@ export function PrimeCostManager({ accountId, projectId }: PrimeCostManagerProps
                 })}
                 {/* Totals row */}
                 <TableRow className="bg-muted/50 font-semibold">
-                  <TableCell colSpan={2}>TOTALS</TableCell>
+                  <TableCell colSpan={3}>TOTALS ({importedPrimeCosts.length + (primeCosts?.length || 0)} items)</TableCell>
                   <TableCell className="text-right">{formatCurrency(totals.allowanceTotal)}</TableCell>
                   <TableCell className="text-right">{formatCurrency(totals.actualTotal)}</TableCell>
                   <TableCell></TableCell>
-                  <TableCell className="text-right">{formatCurrency(totals.paAllowanceTotal)}</TableCell>
-                  <TableCell className="text-right">{formatCurrency(totals.paActualTotal)}</TableCell>
                   <TableCell className={`text-right ${totals.adjustmentTotal >= 0 ? "text-destructive" : "text-green-600"}`}>
                     {totals.adjustmentTotal >= 0 ? "+" : ""}{formatCurrency(totals.adjustmentTotal)}
                   </TableCell>
