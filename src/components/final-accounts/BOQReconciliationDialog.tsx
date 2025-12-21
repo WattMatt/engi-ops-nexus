@@ -444,6 +444,8 @@ function parseSheetAlternative(worksheet: XLSX.WorkSheet, sheetName: string): {
   return { items, sectionCode, sectionName, billNumber };
 }
 
+type ImportPhase = 'select' | 'review' | 'confirm' | 'importing' | 'complete';
+
 export function BOQReconciliationDialog({ 
   open, 
   onOpenChange, 
@@ -456,6 +458,10 @@ export function BOQReconciliationDialog({
   const [parsedSections, setParsedSections] = useState<BOQSectionSummary[]>([]);
   const [parsingFile, setParsingFile] = useState(false);
   const [importProgress, setImportProgress] = useState<{ current: number; total: number; phase: string } | null>(null);
+  const [importPhase, setImportPhase] = useState<ImportPhase>('select');
+  const [selectedForImport, setSelectedForImport] = useState<Set<string>>(new Set());
+  const [previewSection, setPreviewSection] = useState<string | null>(null);
+  const [importResults, setImportResults] = useState<{ success: number; failed: number; total: number } | null>(null);
   const queryClient = useQueryClient();
 
   // Fetch BOQ uploads for this project
@@ -625,7 +631,11 @@ export function BOQReconciliationDialog({
   // Handle BOQ selection
   const handleSelectBoq = useCallback(async (boq: any) => {
     setSelectedBoqId(boq.id);
-    await parseBoqFile(boq);
+    const sections = await parseBoqFile(boq);
+    // Auto-select all sections with items for import
+    const sectionsWithItems = sections.filter(s => s.items.length > 0);
+    setSelectedForImport(new Set(sectionsWithItems.map(s => s.sectionCode)));
+    setImportPhase('review');
   }, [parseBoqFile]);
 
   // Calculate reconciliation status per section - use importedSections directly
@@ -828,16 +838,54 @@ export function BOQReconciliationDialog({
     }
   };
 
+  // Proceed to confirmation step
+  const handleProceedToConfirm = () => {
+    if (selectedForImport.size === 0) {
+      toast.warning("Please select at least one section to import");
+      return;
+    }
+    setImportPhase('confirm');
+  };
+
+  // Go back to review
+  const handleBackToReview = () => {
+    setImportPhase('review');
+    setImportResults(null);
+  };
+
+  // Toggle section selection
+  const toggleSectionSelection = (sectionCode: string) => {
+    const newSet = new Set(selectedForImport);
+    if (newSet.has(sectionCode)) {
+      newSet.delete(sectionCode);
+    } else {
+      newSet.add(sectionCode);
+    }
+    setSelectedForImport(newSet);
+  };
+
+  // Select/Deselect all
+  const handleSelectAll = () => {
+    const sectionsWithItems = parsedSections.filter(s => s.items.length > 0);
+    setSelectedForImport(new Set(sectionsWithItems.map(s => s.sectionCode)));
+  };
+
+  const handleDeselectAll = () => {
+    setSelectedForImport(new Set());
+  };
+
   const handleImportAll = async () => {
     setProcessing(true);
+    setImportPhase('importing');
     
     const sectionsToImport = parsedSections.filter(
-      s => !reconciliationStatus[s.sectionCode]?.imported && s.items.length > 0
+      s => selectedForImport.has(s.sectionCode) && s.items.length > 0
     );
     
     if (sectionsToImport.length === 0) {
       toast.info("No sections to import");
       setProcessing(false);
+      setImportPhase('review');
       return;
     }
     
@@ -860,12 +908,8 @@ export function BOQReconciliationDialog({
     
     setImportProgress(null);
     setProcessing(false);
-    
-    if (successCount === sectionsToImport.length) {
-      toast.success(`All ${successCount} sections imported successfully`);
-    } else {
-      toast.warning(`${successCount}/${sectionsToImport.length} sections imported`);
-    }
+    setImportResults({ success: successCount, failed: sectionsToImport.length - successCount, total: sectionsToImport.length });
+    setImportPhase('complete');
   };
 
   // Reprise All - Re-parse BOQ and update ALL sections with fresh data
@@ -1036,7 +1080,29 @@ export function BOQReconciliationDialog({
     setSelectedBoqId(null);
     setSelectedSection(null);
     setParsedSections([]);
+    setImportPhase('select');
+    setSelectedForImport(new Set());
+    setPreviewSection(null);
+    setImportResults(null);
     onOpenChange(false);
+  };
+
+  // Get the description based on current phase
+  const getPhaseDescription = () => {
+    switch (importPhase) {
+      case 'select':
+        return "Select a BOQ to begin section-by-section reconciliation";
+      case 'review':
+        return "Step 1 of 3: Review and select sections to import";
+      case 'confirm':
+        return "Step 2 of 3: Confirm your selections before importing";
+      case 'importing':
+        return "Step 3 of 3: Importing selected sections...";
+      case 'complete':
+        return "Import complete - review results below";
+      default:
+        return "Import sections one at a time and verify costs match the original BOQ";
+    }
   };
 
   const getStatusIcon = (status: ReconciliationStatus | undefined) => {
@@ -1060,15 +1126,47 @@ export function BOQReconciliationDialog({
         <DialogHeader>
           <DialogTitle>BOQ Section Reconciliation</DialogTitle>
           <DialogDescription>
-            {!selectedBoqId 
-              ? "Select a BOQ to begin section-by-section reconciliation"
-              : "Import sections one at a time and verify costs match the original BOQ"
-            }
+            {getPhaseDescription()}
           </DialogDescription>
         </DialogHeader>
 
+        {/* Step indicator */}
+        {selectedBoqId && !parsingFile && (
+          <div className="flex items-center justify-center gap-2 pb-2">
+            {['Review', 'Confirm', 'Import'].map((step, idx) => {
+              const stepPhases: ImportPhase[] = ['review', 'confirm', 'importing'];
+              const phaseOrder = { 'select': 0, 'review': 1, 'confirm': 2, 'importing': 3, 'complete': 4 };
+              const currentOrder = phaseOrder[importPhase] || 0;
+              const stepOrder = idx + 1;
+              const isActive = currentOrder === stepOrder;
+              const isComplete = currentOrder > stepOrder || importPhase === 'complete';
+              
+              return (
+                <div key={step} className="flex items-center gap-2">
+                  <div className={cn(
+                    "w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium",
+                    isComplete ? "bg-green-500 text-white" :
+                    isActive ? "bg-primary text-primary-foreground" :
+                    "bg-muted text-muted-foreground"
+                  )}>
+                    {isComplete ? <CheckCircle2 className="h-4 w-4" /> : idx + 1}
+                  </div>
+                  <span className={cn(
+                    "text-sm",
+                    isActive || isComplete ? "font-medium" : "text-muted-foreground"
+                  )}>
+                    {step}
+                  </span>
+                  {idx < 2 && <ChevronRight className="h-4 w-4 text-muted-foreground" />}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
         <div className="flex-1 overflow-hidden flex flex-col">
-          {!selectedBoqId ? (
+          {/* Phase: Select BOQ */}
+          {importPhase === 'select' && !selectedBoqId ? (
             <ScrollArea className="flex-1">
               {loadingUploads ? (
                 <div className="flex items-center justify-center py-8">
@@ -1112,8 +1210,172 @@ export function BOQReconciliationDialog({
               <Loader2 className="h-10 w-10 animate-spin text-primary" />
               <p className="text-muted-foreground">Parsing BOQ file...</p>
             </div>
-          ) : importProgress ? (
-            /* Simple progress view during import */
+
+          /* Phase: Review - Select sections */
+          ) : importPhase === 'review' ? (
+            <>
+              {/* Summary with selection controls */}
+              <div className="bg-muted/50 rounded-lg p-4 mb-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="text-sm font-medium">Select Sections to Import</p>
+                    <p className="text-2xl font-bold">
+                      {selectedForImport.size} / {parsedSections.filter(s => s.items.length > 0).length} selected
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold">
+                      {formatCurrency(parsedSections
+                        .filter(s => selectedForImport.has(s.sectionCode))
+                        .reduce((sum, s) => sum + s.boqTotal, 0)
+                      )}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">Selected total</p>
+                  </div>
+                </div>
+                {/* Selection controls */}
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={handleSelectAll}>
+                    Select All
+                  </Button>
+                  <Button variant="outline" size="sm" onClick={handleDeselectAll}>
+                    Deselect All
+                  </Button>
+                </div>
+              </div>
+
+              {/* Sections list with checkboxes */}
+              <ScrollArea className="flex-1 h-[300px]">
+                {parsedSections.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground">
+                    <p>No sections found in BOQ.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-1">
+                    {parsedSections.map((section) => {
+                      const isEmpty = section.items.length === 0;
+                      const isSelected = selectedForImport.has(section.sectionCode);
+                      const status = reconciliationStatus[section.sectionCode];
+                      
+                      return (
+                        <div
+                          key={`${section.billNumber}-${section.sectionCode}`}
+                          className={cn(
+                            "flex items-center justify-between py-2 px-3 rounded cursor-pointer transition-colors",
+                            isEmpty ? 'opacity-40 cursor-not-allowed' : 'hover:bg-muted/50',
+                            isSelected && !isEmpty ? 'bg-primary/10 border border-primary/30' : ''
+                          )}
+                          onClick={() => !isEmpty && toggleSectionSelection(section.sectionCode)}
+                        >
+                          <div className="flex items-center gap-3">
+                            <div className={cn(
+                              "w-5 h-5 rounded border-2 flex items-center justify-center",
+                              isEmpty ? 'border-muted' : 
+                              isSelected ? 'bg-primary border-primary' : 'border-muted-foreground'
+                            )}>
+                              {isSelected && !isEmpty && <CheckCircle2 className="h-3 w-3 text-primary-foreground" />}
+                            </div>
+                            <div>
+                              <span className="text-sm font-medium">
+                                {section.sectionCode} - {section.sectionName}
+                              </span>
+                              {status?.imported && (
+                                <span className="ml-2 text-xs text-amber-600">(will replace existing)</span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs text-muted-foreground">
+                              {isEmpty ? (
+                                <span className="text-amber-600">No items parsed</span>
+                              ) : (
+                                <>{section.itemCount} items • {formatCurrency(section.boqTotal)}</>
+                              )}
+                            </span>
+                            {!isEmpty && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-6 px-2"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setPreviewSection(previewSection === section.sectionCode ? null : section.sectionCode);
+                                }}
+                              >
+                                {previewSection === section.sectionCode ? 'Hide' : 'Preview'}
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </ScrollArea>
+
+              {/* Preview panel */}
+              {previewSection && (
+                <div className="mt-4 border rounded-lg p-3 bg-muted/30 max-h-[150px] overflow-auto">
+                  <p className="text-xs font-medium mb-2">Preview: {previewSection}</p>
+                  <div className="space-y-1">
+                    {parsedSections
+                      .find(s => s.sectionCode === previewSection)
+                      ?.items.slice(0, 10)
+                      .map((item, idx) => (
+                        <div key={idx} className="text-xs flex justify-between">
+                          <span className="truncate flex-1">{item.itemCode} {item.description.substring(0, 50)}...</span>
+                          <span className="ml-2 text-muted-foreground">{formatCurrency(item.amount)}</span>
+                        </div>
+                      ))
+                    }
+                    {(parsedSections.find(s => s.sectionCode === previewSection)?.items.length || 0) > 10 && (
+                      <p className="text-xs text-muted-foreground">...and more items</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </>
+
+          /* Phase: Confirm */
+          ) : importPhase === 'confirm' ? (
+            <div className="flex flex-col gap-4">
+              <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-4">
+                <div className="flex items-start gap-3">
+                  <AlertTriangle className="h-5 w-5 text-amber-600 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-amber-800 dark:text-amber-200">Confirm Import</p>
+                    <p className="text-sm text-amber-700 dark:text-amber-300 mt-1">
+                      You are about to import <strong>{selectedForImport.size} sections</strong> with a total value of{' '}
+                      <strong>{formatCurrency(parsedSections
+                        .filter(s => selectedForImport.has(s.sectionCode))
+                        .reduce((sum, s) => sum + s.boqTotal, 0)
+                      )}</strong>.
+                    </p>
+                    <p className="text-sm text-amber-700 dark:text-amber-300 mt-2">
+                      This action will create new sections and items in your Final Account. Existing sections with the same codes will be replaced.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <ScrollArea className="flex-1 h-[250px] border rounded-lg">
+                <div className="p-3 space-y-2">
+                  <p className="text-sm font-medium mb-2">Sections to be imported:</p>
+                  {parsedSections
+                    .filter(s => selectedForImport.has(s.sectionCode))
+                    .map((section) => (
+                      <div key={section.sectionCode} className="flex items-center justify-between py-1.5 px-2 bg-muted/30 rounded text-sm">
+                        <span>{section.sectionCode} - {section.sectionName}</span>
+                        <span className="text-muted-foreground">{section.itemCount} items • {formatCurrency(section.boqTotal)}</span>
+                      </div>
+                    ))
+                  }
+                </div>
+              </ScrollArea>
+            </div>
+
+          /* Phase: Importing */
+          ) : importPhase === 'importing' && importProgress ? (
             <div className="flex flex-col items-center justify-center py-16 gap-6">
               <div className="relative">
                 <svg className="w-32 h-32 transform -rotate-90">
@@ -1150,112 +1412,85 @@ export function BOQReconciliationDialog({
                 </p>
               </div>
             </div>
-          ) : (
-            <>
-              {/* Summary with breakdown */}
-              <div className="bg-muted/50 rounded-lg p-4 mb-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <p className="text-sm font-medium">Import Status</p>
-                    <p className="text-2xl font-bold">
-                      {parsedSections.filter(s => reconciliationStatus[s.sectionCode]?.imported).length} / {parsedSections.length} sections
-                    </p>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold">
-                      {formatCurrency(parsedSections.reduce((sum, s) => sum + s.boqTotal, 0))}
-                    </p>
-                    <p className="text-xs text-muted-foreground mt-1">BOQ total</p>
-                  </div>
-                </div>
-                {/* Status breakdown */}
-                <div className="flex gap-4 text-xs">
-                  <span className="flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-green-500" />
-                    {parsedSections.filter(s => reconciliationStatus[s.sectionCode]?.imported).length} imported
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-blue-500" />
-                    {parsedSections.filter(s => s.items.length > 0 && !reconciliationStatus[s.sectionCode]?.imported).length} ready
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full bg-amber-500" />
-                    {parsedSections.filter(s => s.items.length === 0).length} empty/failed
-                  </span>
-                </div>
-              </div>
 
-              {/* ALL sections list - including empty ones */}
-              <ScrollArea className="flex-1 h-[300px]">
-                {parsedSections.length === 0 ? (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <p>No sections found in BOQ.</p>
-                  </div>
+          /* Phase: Complete */
+          ) : importPhase === 'complete' && importResults ? (
+            <div className="flex flex-col items-center justify-center py-12 gap-6">
+              <div className={cn(
+                "w-20 h-20 rounded-full flex items-center justify-center",
+                importResults.failed === 0 ? "bg-green-100 dark:bg-green-900/30" : "bg-amber-100 dark:bg-amber-900/30"
+              )}>
+                {importResults.failed === 0 ? (
+                  <CheckCircle2 className="h-10 w-10 text-green-600" />
                 ) : (
-                  <div className="space-y-1">
-                    {parsedSections.map((section) => {
-                      const status = reconciliationStatus[section.sectionCode];
-                      const isEmpty = section.items.length === 0;
-                      
-                      return (
-                        <div
-                          key={`${section.billNumber}-${section.sectionCode}`}
-                          className={`flex items-center justify-between py-2 px-3 rounded hover:bg-muted/50 ${isEmpty ? 'opacity-60' : ''}`}
-                        >
-                          <div className="flex items-center gap-2">
-                            {status?.imported ? (
-                              <CheckCircle2 className="h-4 w-4 text-green-500" />
-                            ) : isEmpty ? (
-                              <AlertTriangle className="h-4 w-4 text-amber-500" />
-                            ) : (
-                              <Circle className="h-4 w-4 text-blue-500" />
-                            )}
-                            <span className="text-sm">
-                              {section.sectionCode} - {section.sectionName}
-                            </span>
-                          </div>
-                          <span className="text-xs text-muted-foreground">
-                            {isEmpty ? (
-                              <span className="text-amber-600">No items parsed</span>
-                            ) : (
-                              <>{section.itemCount} items • {formatCurrency(section.boqTotal)}</>
-                            )}
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
+                  <AlertTriangle className="h-10 w-10 text-amber-600" />
                 )}
-              </ScrollArea>
-            </>
-          )}
+              </div>
+              <div className="text-center">
+                <p className="text-xl font-bold">
+                  {importResults.failed === 0 ? 'Import Successful!' : 'Import Completed with Issues'}
+                </p>
+                <p className="text-muted-foreground mt-2">
+                  Successfully imported <strong>{importResults.success}</strong> of{' '}
+                  <strong>{importResults.total}</strong> sections
+                </p>
+                {importResults.failed > 0 && (
+                  <p className="text-amber-600 text-sm mt-1">
+                    {importResults.failed} section(s) failed to import
+                  </p>
+                )}
+              </div>
+              <div className="bg-muted/50 rounded-lg p-4 w-full max-w-md">
+                <p className="text-sm text-center">
+                  You can now close this dialog and review the imported sections in the Bills & Sections tab.
+                </p>
+              </div>
+            </div>
+          ) : null}
         </div>
 
-        {/* Footer - simplified */}
+        {/* Footer - phase-based */}
         <div className="flex justify-between pt-4 border-t">
           <Button variant="outline" onClick={handleClose}>
-            Close
+            {importPhase === 'complete' ? 'Done' : 'Cancel'}
           </Button>
           
-          {selectedBoqId && !parsingFile && !importProgress && parsedSections.length > 0 && (
+          {importPhase === 'review' && parsedSections.length > 0 && (
             <div className="flex gap-2">
               <Button 
                 variant="outline" 
                 onClick={() => {
                   setSelectedBoqId(null);
                   setParsedSections([]);
+                  setImportPhase('select');
                 }}
-                disabled={processing}
               >
                 Change BOQ
               </Button>
               <Button
-                onClick={handleImportAll}
-                disabled={processing}
+                onClick={handleProceedToConfirm}
+                disabled={selectedForImport.size === 0}
               >
-                Import All
+                Continue to Confirm ({selectedForImport.size})
               </Button>
             </div>
+          )}
+
+          {importPhase === 'confirm' && (
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={handleBackToReview}>
+                Back to Review
+              </Button>
+              <Button onClick={handleImportAll}>
+                Confirm & Import
+              </Button>
+            </div>
+          )}
+
+          {importPhase === 'complete' && (
+            <Button onClick={handleClose}>
+              Close & View Results
+            </Button>
           )}
         </div>
       </DialogContent>
