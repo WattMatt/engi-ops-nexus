@@ -854,11 +854,32 @@ export const TenantList = ({
                         </td>
                       </tr>
                     );
-                  })
+                })
                 )}
               </React.Fragment>
             ))}
           </tbody>
+          <tfoot className="bg-muted/50 border-t-2 sticky bottom-0">
+            <tr className="font-semibold">
+              <td className="px-4 py-3" colSpan={12}>
+                <span className="text-base">Totals</span>
+              </td>
+              <td className="text-right px-4 py-3 text-base">
+                R {localTenants
+                  .filter(t => !t.db_by_tenant && t.db_cost)
+                  .reduce((sum, t) => sum + (t.db_cost || 0), 0)
+                  .toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </td>
+              <td className="px-4 py-3" colSpan={2}></td>
+              <td className="text-right px-4 py-3 text-base">
+                R {localTenants
+                  .filter(t => !t.lighting_by_tenant && t.lighting_cost)
+                  .reduce((sum, t) => sum + (t.lighting_cost || 0), 0)
+                  .toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </td>
+              <td className="px-4 py-3" colSpan={3}></td>
+            </tr>
+          </tfoot>
           </table>
         </div>
       </div>
