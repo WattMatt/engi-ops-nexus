@@ -5,13 +5,16 @@ import { toast } from "sonner";
 import { formatCurrency } from "@/utils/formatters";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { FileText } from "lucide-react";
+import { FileText, Layers } from "lucide-react";
 import { PrimeCostDocuments } from "./PrimeCostDocuments";
+import { PrimeCostBreakdown } from "./PrimeCostBreakdown";
+import { Badge } from "@/components/ui/badge";
 
 interface PCSpreadsheetTableProps {
   items: any[];
   sectionId: string;
   accountId: string;
+  projectId: string;
 }
 
 type EditableField = 'item_code' | 'description' | 'pc_allowance' | 'pc_actual_cost' | 'pc_profit_attendance_percent';
@@ -34,13 +37,24 @@ const COLUMNS: {
   { key: 'documents', label: 'Docs', width: 'w-[60px]', editable: false, type: 'action', align: 'center' },
 ];
 
-export function PCSpreadsheetTable({ items, sectionId, accountId }: PCSpreadsheetTableProps) {
+export function PCSpreadsheetTable({ items, sectionId, accountId, projectId }: PCSpreadsheetTableProps) {
   const [activeCell, setActiveCell] = useState<{ rowId: string; field: string } | null>(null);
   const [editValue, setEditValue] = useState<string>("");
   const [documentsDialog, setDocumentsDialog] = useState<{ open: boolean; itemId: string; description: string }>({
     open: false,
     itemId: "",
     description: "",
+  });
+  const [breakdownDialog, setBreakdownDialog] = useState<{ 
+    open: boolean; 
+    itemId: string; 
+    description: string;
+    currentActualCost: number;
+  }>({
+    open: false,
+    itemId: "",
+    description: "",
+    currentActualCost: 0,
   });
   const inputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
@@ -61,6 +75,27 @@ export function PCSpreadsheetTable({ items, sectionId, accountId }: PCSpreadshee
       const counts: Record<string, number> = {};
       (data || []).forEach(doc => {
         counts[doc.prime_cost_item_id] = (counts[doc.prime_cost_item_id] || 0) + 1;
+      });
+      return counts;
+    },
+  });
+
+  // Fetch component counts for all items in this section
+  const { data: componentCounts } = useQuery({
+    queryKey: ["prime-cost-component-counts", sectionId],
+    queryFn: async () => {
+      const itemIds = items.map(i => i.id);
+      const { data, error } = await supabase
+        .from("prime_cost_components")
+        .select("prime_cost_item_id")
+        .in("prime_cost_item_id", itemIds);
+      
+      if (error) throw error;
+      
+      // Count components per item
+      const counts: Record<string, number> = {};
+      (data || []).forEach(comp => {
+        counts[comp.prime_cost_item_id] = (counts[comp.prime_cost_item_id] || 0) + 1;
       });
       return counts;
     },
@@ -235,6 +270,48 @@ export function PCSpreadsheetTable({ items, sectionId, accountId }: PCSpreadshee
         </div>
       );
     }
+
+    // Special handling for pc_actual_cost - show breakdown indicator
+    if (column.key === 'pc_actual_cost') {
+      const compCount = componentCounts?.[item.id] || 0;
+      const value = Number(item.pc_actual_cost) || 0;
+      
+      if (isActive) {
+        return (
+          <input
+            ref={inputRef}
+            type="number"
+            value={editValue}
+            onChange={(e) => setEditValue(e.target.value)}
+            onBlur={commitEdit}
+            onKeyDown={handleKeyDown}
+            className="w-full h-full bg-primary/10 border-2 border-primary outline-none px-1.5 py-0.5 text-xs text-right"
+            step="0.01"
+          />
+        );
+      }
+      
+      return (
+        <div
+          className="flex items-center justify-end gap-1 px-1.5 py-1 cursor-pointer hover:bg-muted/50 group"
+          onClick={() => setBreakdownDialog({ 
+            open: true, 
+            itemId: item.id, 
+            description: item.description,
+            currentActualCost: value,
+          })}
+          title="Click to view/edit breakdown"
+        >
+          {compCount > 0 && (
+            <Badge variant="secondary" className="h-4 px-1 text-[10px] font-normal gap-0.5">
+              <Layers className="h-3 w-3" />
+              {compCount}
+            </Badge>
+          )}
+          <span className="text-xs">{formatCurrency(value)}</span>
+        </div>
+      );
+    }
     
     const value = item[column.key as keyof typeof item];
     
@@ -374,6 +451,24 @@ export function PCSpreadsheetTable({ items, sectionId, accountId }: PCSpreadshee
         onOpenChange={(open) => setDocumentsDialog({ ...documentsDialog, open })}
         itemId={documentsDialog.itemId}
         itemDescription={documentsDialog.description}
+      />
+
+      {/* Breakdown Dialog */}
+      <PrimeCostBreakdown
+        open={breakdownDialog.open}
+        onOpenChange={(open) => setBreakdownDialog({ ...breakdownDialog, open })}
+        itemId={breakdownDialog.itemId}
+        itemDescription={breakdownDialog.description}
+        projectId={projectId}
+        currentActualCost={breakdownDialog.currentActualCost}
+        onActualCostChange={(newTotal) => {
+          updateMutation.mutate({ 
+            id: breakdownDialog.itemId, 
+            field: 'pc_actual_cost', 
+            value: newTotal 
+          });
+          queryClient.invalidateQueries({ queryKey: ["prime-cost-component-counts", sectionId] });
+        }}
       />
     </div>
   );

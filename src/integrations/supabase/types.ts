@@ -6475,6 +6475,60 @@ export type Database = {
           },
         ]
       }
+      prime_cost_components: {
+        Row: {
+          amount: number
+          component_type: string
+          created_at: string
+          description: string
+          id: string
+          is_auto_calculated: boolean
+          order_reference: string | null
+          prime_cost_item_id: string
+          project_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          amount?: number
+          component_type: string
+          created_at?: string
+          description: string
+          id?: string
+          is_auto_calculated?: boolean
+          order_reference?: string | null
+          prime_cost_item_id: string
+          project_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          amount?: number
+          component_type?: string
+          created_at?: string
+          description?: string
+          id?: string
+          is_auto_calculated?: boolean
+          order_reference?: string | null
+          prime_cost_item_id?: string
+          project_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prime_cost_components_prime_cost_item_id_fkey"
+            columns: ["prime_cost_item_id"]
+            isOneToOne: false
+            referencedRelation: "final_account_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "prime_cost_components_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prime_cost_documents: {
         Row: {
           created_at: string

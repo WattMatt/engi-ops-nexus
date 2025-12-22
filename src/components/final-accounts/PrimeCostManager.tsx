@@ -503,6 +503,7 @@ export function PrimeCostManager({ accountId, projectId }: PrimeCostManagerProps
                               items={section.items} 
                               sectionId={section.id}
                               accountId={accountId}
+                              projectId={projectId}
                             />
                           </CollapsibleContent>
                         </div>
