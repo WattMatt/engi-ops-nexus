@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,57 @@ export function FinalAccountSectionsManager({ billId, accountId }: FinalAccountS
   const [reviewDialogSection, setReviewDialogSection] = useState<any>(null);
   const queryClient = useQueryClient();
 
+  // Recalculate section totals including PC and P&A items
+  const recalculateSectionTotals = useCallback(async (sectionId: string) => {
+    const { data: allItems } = await supabase
+      .from("final_account_items")
+      .select("id, contract_amount, final_amount, variation_amount, is_prime_cost, pc_actual_cost, pc_allowance, is_pa_item, pa_parent_item_id, pa_percentage")
+      .eq("section_id", sectionId);
+
+    if (allItems && allItems.length > 0) {
+      const itemMap = new Map(allItems.map(item => [item.id, item]));
+      
+      const totals = allItems.reduce(
+        (acc, item) => {
+          let finalAmt = Number(item.final_amount || 0);
+          let contractAmt = Number(item.contract_amount || 0);
+          
+          if (item.is_prime_cost) {
+            finalAmt = Number(item.pc_actual_cost) || 0;
+            contractAmt = Number(item.pc_allowance) || Number(item.contract_amount) || 0;
+          }
+          
+          if (item.is_pa_item && item.pa_parent_item_id) {
+            const parentItem = itemMap.get(item.pa_parent_item_id);
+            if (parentItem) {
+              const parentActual = Number(parentItem.pc_actual_cost) || 0;
+              const parentAllowance = Number(parentItem.pc_allowance) || Number(parentItem.contract_amount) || 0;
+              const paPercent = Number(item.pa_percentage) || 0;
+              finalAmt = parentActual * (paPercent / 100);
+              contractAmt = parentAllowance * (paPercent / 100);
+            }
+          }
+          
+          return {
+            contract: acc.contract + contractAmt,
+            final: acc.final + finalAmt,
+            variation: acc.variation + (finalAmt - contractAmt),
+          };
+        },
+        { contract: 0, final: 0, variation: 0 }
+      );
+
+      await supabase
+        .from("final_account_sections")
+        .update({
+          contract_total: totals.contract,
+          final_total: totals.final,
+          variation_total: totals.variation,
+        })
+        .eq("id", sectionId);
+    }
+  }, []);
+
   const { data: sections = [], isLoading } = useQuery({
     queryKey: ["final-account-sections", billId],
     queryFn: async () => {
@@ -49,6 +100,21 @@ export function FinalAccountSectionsManager({ billId, accountId }: FinalAccountS
       });
     },
   });
+
+  // Recalculate all section totals when sections are loaded
+  useEffect(() => {
+    if (sections.length > 0) {
+      const recalculateAll = async () => {
+        for (const section of sections) {
+          await recalculateSectionTotals(section.id);
+        }
+        // Refresh data after recalculation
+        queryClient.invalidateQueries({ queryKey: ["final-account-sections", billId] });
+        queryClient.invalidateQueries({ queryKey: ["final-account-bills", accountId] });
+      };
+      recalculateAll();
+    }
+  }, [sections.length, billId, accountId]); // Only run when section count changes
 
   const deleteMutation = useMutation({
     mutationFn: async (sectionId: string) => {
