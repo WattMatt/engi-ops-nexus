@@ -9380,6 +9380,7 @@ export type Database = {
           db_ordered: boolean | null
           db_size_allowance: string | null
           db_size_scope_of_work: string | null
+          exclude_from_totals: boolean | null
           generator_loading_sector_1: number | null
           generator_loading_sector_2: number | null
           generator_zone_id: string | null
@@ -9417,6 +9418,7 @@ export type Database = {
           db_ordered?: boolean | null
           db_size_allowance?: string | null
           db_size_scope_of_work?: string | null
+          exclude_from_totals?: boolean | null
           generator_loading_sector_1?: number | null
           generator_loading_sector_2?: number | null
           generator_zone_id?: string | null
@@ -9454,6 +9456,7 @@ export type Database = {
           db_ordered?: boolean | null
           db_size_allowance?: string | null
           db_size_scope_of_work?: string | null
+          exclude_from_totals?: boolean | null
           generator_loading_sector_1?: number | null
           generator_loading_sector_2?: number | null
           generator_zone_id?: string | null
