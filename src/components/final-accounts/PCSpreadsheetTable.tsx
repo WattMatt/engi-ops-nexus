@@ -105,6 +105,16 @@ export function PCSpreadsheetTable({ items, sectionId, accountId, projectId }: P
     mutationFn: async ({ id, field, value }: { id: string; field: string; value: any }) => {
       const updates: any = { [field]: value };
 
+      // If updating pc_actual_cost, also update final_amount and variation_amount
+      if (field === 'pc_actual_cost') {
+        const item = items.find(i => i.id === id);
+        if (item) {
+          const contractAmount = Number(item.contract_amount) || Number(item.pc_allowance) || 0;
+          updates.final_amount = Number(value) || 0;
+          updates.variation_amount = updates.final_amount - contractAmount;
+        }
+      }
+
       const { error } = await supabase
         .from("final_account_items")
         .update(updates)
@@ -113,6 +123,10 @@ export function PCSpreadsheetTable({ items, sectionId, accountId, projectId }: P
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["final-account-items-prime-costs-grouped", accountId] });
+      // Also invalidate bills & sections queries so they reflect the updated values
+      queryClient.invalidateQueries({ queryKey: ["final-account-items"] });
+      queryClient.invalidateQueries({ queryKey: ["final-account-sections"] });
+      queryClient.invalidateQueries({ queryKey: ["final-account-bills"] });
     },
     onError: () => {
       toast.error("Failed to update item");

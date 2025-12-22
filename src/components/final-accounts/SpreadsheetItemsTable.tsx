@@ -371,6 +371,10 @@ export function SpreadsheetItemsTable({ sectionId, billId, accountId, shopSubsec
       } else {
         displayValue = '-';
       }
+    } else if (isPrimeCost && column.key === 'final_amount') {
+      // For Prime Cost items, show pc_actual_cost as the Final Amount
+      const pcActual = Number(item.pc_actual_cost) || 0;
+      displayValue = formatCurrency(pcActual);
     } else if (column.type === 'currency') {
       displayValue = formatCurrency(value as number);
     } else if (column.type === 'number') {
