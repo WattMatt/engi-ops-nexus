@@ -217,7 +217,7 @@ export function PCSpreadsheetTable({ items, sectionId, accountId }: PCSpreadshee
       return (
         <div
           className={cn(
-            "px-1.5 py-1 text-xs text-right font-medium",
+            "px-1.5 py-1 text-xs text-right font-medium whitespace-nowrap",
             adjustment >= 0 ? "text-destructive" : "text-green-600"
           )}
         >
