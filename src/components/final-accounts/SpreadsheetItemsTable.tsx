@@ -399,14 +399,24 @@ export function SpreadsheetItemsTable({ sectionId, billId, accountId, shopSubsec
       );
     }
     
-    // For header/description rows OR rows without a unit, hide all numeric values
+    // For header/description rows OR rows without a unit, hide numeric values but keep editable
     const hasNoUnit = !item.unit || item.unit.trim() === '';
     const isNumericColumn = column.type === 'number' || column.type === 'currency';
     const shouldHideValue = (isHeader || isSubheader || isDescription || hasNoUnit) && 
       isNumericColumn && column.key !== 'description' && column.key !== 'item_code' && column.key !== 'unit';
     
     if (shouldHideValue) {
-      return <div className="px-1.5 py-1 text-xs">&nbsp;</div>;
+      return (
+        <div 
+          onClick={() => column.editable && startEditing(item.id, column.key)}
+          className={cn(
+            "px-1.5 py-1 text-xs h-full",
+            column.editable && "cursor-cell hover:bg-muted/50"
+          )}
+        >
+          &nbsp;
+        </div>
+      );
     }
     
     // For P&A items, show percentage in rate columns instead of currency
