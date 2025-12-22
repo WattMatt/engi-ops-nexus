@@ -2700,6 +2700,47 @@ export type Database = {
           },
         ]
       }
+      final_account_item_history: {
+        Row: {
+          action_type: string
+          change_summary: string | null
+          changed_at: string
+          changed_by: string | null
+          id: string
+          item_id: string
+          new_values: Json | null
+          old_values: Json | null
+        }
+        Insert: {
+          action_type: string
+          change_summary?: string | null
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          item_id: string
+          new_values?: Json | null
+          old_values?: Json | null
+        }
+        Update: {
+          action_type?: string
+          change_summary?: string | null
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          item_id?: string
+          new_values?: Json | null
+          old_values?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "final_account_item_history_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "final_account_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       final_account_items: {
         Row: {
           contract_amount: number | null
