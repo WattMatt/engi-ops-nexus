@@ -117,22 +117,24 @@ export function SpreadsheetItemsTable({ sectionId, billId, accountId, shopSubsec
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, field, value }: { id: string; field: string; value: any }) => {
-      // Calculate amounts if quantity or rate changed
       const item = items.find(i => i.id === id);
       if (!item) throw new Error("Item not found");
 
       const updates: any = { [field]: value };
       
-      // Recalculate amounts
-      const contractQty = field === 'contract_quantity' ? (value || 0) : (item.contract_quantity || 0);
-      const finalQty = field === 'final_quantity' ? (value || 0) : (item.final_quantity || 0);
-      const supplyRate = field === 'supply_rate' ? (value || 0) : (item.supply_rate || 0);
-      const installRate = field === 'install_rate' ? (value || 0) : (item.install_rate || 0);
-      
-      const totalRate = supplyRate + installRate;
-      updates.contract_amount = contractQty * totalRate;
-      updates.final_amount = finalQty * totalRate;
-      updates.variation_amount = updates.final_amount - updates.contract_amount;
+      // Only recalculate amounts when quantity or rate fields change
+      const amountFields = ['contract_quantity', 'final_quantity', 'supply_rate', 'install_rate'];
+      if (amountFields.includes(field)) {
+        const contractQty = field === 'contract_quantity' ? (value || 0) : (item.contract_quantity || 0);
+        const finalQty = field === 'final_quantity' ? (value || 0) : (item.final_quantity || 0);
+        const supplyRate = field === 'supply_rate' ? (value || 0) : (item.supply_rate || 0);
+        const installRate = field === 'install_rate' ? (value || 0) : (item.install_rate || 0);
+        
+        const totalRate = supplyRate + installRate;
+        updates.contract_amount = contractQty * totalRate;
+        updates.final_amount = finalQty * totalRate;
+        updates.variation_amount = updates.final_amount - updates.contract_amount;
+      }
 
       const { error } = await supabase
         .from("final_account_items")
