@@ -163,9 +163,9 @@ export function PCSpreadsheetTable({ items, sectionId, accountId }: PCSpreadshee
   }, [activeCell]);
 
   const calculatePAValue = (item: any) => {
-    const allowance = Number(item.pc_allowance) || Number(item.contract_amount) || 0;
+    const actual = Number(item.pc_actual_cost) || 0;
     const paPercent = Number(item.pc_profit_attendance_percent) || 0;
-    return allowance * (paPercent / 100);
+    return actual * (paPercent / 100);
   };
 
   const calculateAdjustment = (item: any) => {
