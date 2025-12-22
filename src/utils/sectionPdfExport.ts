@@ -172,6 +172,9 @@ export async function generateSectionPDF(sectionId: string): Promise<Blob> {
       let finalAmt = Number(item.final_amount || 0);
       let variationAmt = Number(item.variation_amount || 0);
 
+      // Check if this is a header/description row (no unit)
+      const hasNoUnit = !item.unit || item.unit.trim() === '' || item.unit === '-';
+
       // Calculate PC item values
       if (item.is_prime_cost) {
         contractAmt = Number(item.pc_allowance) || Number(item.contract_amount) || 0;
@@ -192,14 +195,38 @@ export async function generateSectionPDF(sectionId: string): Promise<Blob> {
         }
       }
 
+      // For header/description rows without units, hide all numeric values
+      if (hasNoUnit) {
+        return [
+          item.item_code || "",
+          item.description || "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+        ];
+      }
+
+      // Format quantities - show empty if null/undefined
+      const formatQty = (val: number | null | undefined) => 
+        val === null || val === undefined ? "" : Number(val).toFixed(2);
+      
+      // Format currency - show empty if null/undefined  
+      const formatRate = (val: number | null | undefined) =>
+        val === null || val === undefined ? "" : `R ${Number(val).toFixed(2)}`;
+
       return [
-        item.item_code || "-",
-        item.description || "-",
-        item.unit || "-",
-        Number(item.contract_quantity || 0).toFixed(2),
-        Number(item.final_quantity || 0).toFixed(2),
-        `R ${Number(item.supply_rate || 0).toFixed(2)}`,
-        `R ${Number(item.install_rate || 0).toFixed(2)}`,
+        item.item_code || "",
+        item.description || "",
+        item.unit || "",
+        formatQty(item.contract_quantity),
+        formatQty(item.final_quantity),
+        formatRate(item.supply_rate),
+        formatRate(item.install_rate),
         `R ${contractAmt.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`,
         `R ${finalAmt.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`,
         `R ${variationAmt.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`,
