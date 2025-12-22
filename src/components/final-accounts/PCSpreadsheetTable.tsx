@@ -403,7 +403,8 @@ export function PCSpreadsheetTable({ items, sectionId, accountId, projectId }: P
                 key={col.key}
                 className={cn(
                   "border-r last:border-r-0 min-h-[32px] flex items-center",
-                  col.width
+                  col.width,
+                  col.align === 'right' && "justify-end"
                 )}
               >
                 {renderCell(item, col)}
@@ -415,10 +416,10 @@ export function PCSpreadsheetTable({ items, sectionId, accountId, projectId }: P
       
       {/* Totals row */}
       <div className="flex bg-muted/50 border-t font-semibold">
-        <div className={cn("px-1.5 py-2 text-xs border-r", COLUMNS[0].width)}>
+        <div className={cn("px-1.5 py-2 text-xs border-r text-right", COLUMNS[0].width)}>
           Subtotal
         </div>
-        <div className={cn("px-1.5 py-2 text-xs border-r", COLUMNS[1].width)}>
+        <div className={cn("px-1.5 py-2 text-xs border-r text-right", COLUMNS[1].width)}>
           {items.length} items
         </div>
         <div className={cn("px-1.5 py-2 text-xs text-right border-r", COLUMNS[2].width)}>
@@ -440,7 +441,7 @@ export function PCSpreadsheetTable({ items, sectionId, accountId, projectId }: P
         )}>
           {totals.adjustment >= 0 ? "+" : ""}{formatCurrency(totals.adjustment)}
         </div>
-        <div className={cn("px-1.5 py-2 text-xs text-center", COLUMNS[7].width)}>
+        <div className={cn("px-1.5 py-2 text-xs text-right", COLUMNS[7].width)}>
           -
         </div>
       </div>
