@@ -232,15 +232,10 @@ export function PrimeCostDocuments({ open, onOpenChange, itemId, itemDescription
               </Button>
               <span className="font-medium">{previewDoc.name}</span>
             </div>
-            <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm" onClick={() => window.open(previewDoc.url, "_blank")}>
-                <ExternalLink className="h-4 w-4 mr-2" />
-                Open in New Tab
-              </Button>
-              <Button variant="ghost" size="icon" onClick={closePreview}>
-                <X className="h-4 w-4" />
-              </Button>
-            </div>
+            <Button variant="outline" size="sm" onClick={() => window.open(previewDoc.url, "_blank")}>
+              <ExternalLink className="h-4 w-4 mr-2" />
+              Open in New Tab
+            </Button>
           </div>
           
           {/* Preview Content */}
