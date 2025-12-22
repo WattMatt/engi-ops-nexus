@@ -37,6 +37,12 @@ interface ItemData {
   contract_amount: number;
   final_amount: number;
   variation_amount: number;
+  is_prime_cost?: boolean;
+  pc_allowance?: number;
+  pc_actual_cost?: number;
+  is_pa_item?: boolean;
+  pa_parent_item_id?: string;
+  pa_percentage?: number;
 }
 
 interface BillData {
@@ -158,18 +164,47 @@ export async function generateSectionPDF(sectionId: string): Promise<Blob> {
     y = checkPageBreak(doc, y, 40);
     y = addSectionHeader(doc, "Line Items", y);
 
-    const tableData = items.map((item: ItemData) => [
-      item.item_code || "-",
-      item.description || "-",
-      item.unit || "-",
-      Number(item.contract_quantity || 0).toFixed(2),
-      Number(item.final_quantity || 0).toFixed(2),
-      `R ${Number(item.supply_rate || 0).toFixed(2)}`,
-      `R ${Number(item.install_rate || 0).toFixed(2)}`,
-      `R ${Number(item.contract_amount || 0).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`,
-      `R ${Number(item.final_amount || 0).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`,
-      `R ${Number(item.variation_amount || 0).toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`,
-    ]);
+    // Create item map for P&A parent lookups
+    const itemMap = new Map(items.map((item: ItemData) => [item.id, item]));
+
+    const tableData = items.map((item: ItemData) => {
+      let contractAmt = Number(item.contract_amount || 0);
+      let finalAmt = Number(item.final_amount || 0);
+      let variationAmt = Number(item.variation_amount || 0);
+
+      // Calculate PC item values
+      if (item.is_prime_cost) {
+        contractAmt = Number(item.pc_allowance) || Number(item.contract_amount) || 0;
+        finalAmt = Number(item.pc_actual_cost) || 0;
+        variationAmt = finalAmt - contractAmt;
+      }
+
+      // Calculate P&A item values
+      if (item.is_pa_item && item.pa_parent_item_id) {
+        const parentItem = itemMap.get(item.pa_parent_item_id);
+        if (parentItem) {
+          const parentAllowance = Number(parentItem.pc_allowance) || Number(parentItem.contract_amount) || 0;
+          const parentActual = Number(parentItem.pc_actual_cost) || 0;
+          const paPercent = Number(item.pa_percentage) || 0;
+          contractAmt = parentAllowance * (paPercent / 100);
+          finalAmt = parentActual * (paPercent / 100);
+          variationAmt = finalAmt - contractAmt;
+        }
+      }
+
+      return [
+        item.item_code || "-",
+        item.description || "-",
+        item.unit || "-",
+        Number(item.contract_quantity || 0).toFixed(2),
+        Number(item.final_quantity || 0).toFixed(2),
+        `R ${Number(item.supply_rate || 0).toFixed(2)}`,
+        `R ${Number(item.install_rate || 0).toFixed(2)}`,
+        `R ${contractAmt.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`,
+        `R ${finalAmt.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`,
+        `R ${variationAmt.toLocaleString("en-ZA", { minimumFractionDigits: 2 })}`,
+      ];
+    });
 
     autoTable(doc, {
       startY: y,
