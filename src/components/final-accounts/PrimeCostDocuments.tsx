@@ -7,9 +7,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { FileText, Upload, Download, Trash2, Eye, Loader2, X, ArrowLeft } from "lucide-react";
+import { FileText, Upload, Download, Trash2, Eye, Loader2, X, ArrowLeft, ChevronLeft, ChevronRight, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { Document, Page, pdfjs } from "react-pdf";
+import "react-pdf/dist/Page/AnnotationLayer.css";
+import "react-pdf/dist/Page/TextLayer.css";
+
+// Configure PDF.js worker
+pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.mjs`;
 
 interface PrimeCostDocumentsProps {
   open: boolean;
@@ -48,7 +54,10 @@ export function PrimeCostDocuments({ open, onOpenChange, itemId, itemDescription
   const [uploading, setUploading] = useState(false);
   const [documentType, setDocumentType] = useState("order");
   const [description, setDescription] = useState("");
-  const [previewDoc, setPreviewDoc] = useState<{ url: string; name: string; type: string | null } | null>(null);
+  const [previewDoc, setPreviewDoc] = useState<{ url: string; name: string; type: string | null; filePath: string } | null>(null);
+  const [pdfLoading, setPdfLoading] = useState(false);
+  const [numPages, setNumPages] = useState(0);
+  const [pageNumber, setPageNumber] = useState(1);
 
   // Fetch documents for this item
   const { data: documents, isLoading } = useQuery({
@@ -131,22 +140,50 @@ export function PrimeCostDocuments({ open, onOpenChange, itemId, itemDescription
     }
   };
 
-  const handlePreview = (doc: PrimeCostDocument) => {
-    const { data } = supabase.storage
-      .from("prime-cost-documents")
-      .getPublicUrl(doc.file_path);
+  const handlePreview = async (doc: PrimeCostDocument) => {
+    setPdfLoading(true);
+    setPageNumber(1);
+    setNumPages(0);
+    
+    try {
+      // Use signed URL for proper access (like InvoicePDFPreviewDialog)
+      const { data, error } = await supabase.storage
+        .from("prime-cost-documents")
+        .createSignedUrl(doc.file_path, 3600);
 
-    if (data?.publicUrl) {
-      setPreviewDoc({
-        url: data.publicUrl,
-        name: doc.file_name,
-        type: doc.file_type,
-      });
+      if (error) throw error;
+
+      if (data?.signedUrl) {
+        setPreviewDoc({
+          url: data.signedUrl,
+          name: doc.file_name,
+          type: doc.file_type,
+          filePath: doc.file_path,
+        });
+      }
+    } catch (err) {
+      console.error("Preview error:", err);
+      toast.error("Failed to load preview");
+    } finally {
+      setPdfLoading(false);
     }
   };
 
   const closePreview = () => {
     setPreviewDoc(null);
+    setNumPages(0);
+    setPageNumber(1);
+  };
+
+  const onDocumentLoadSuccess = ({ numPages }: { numPages: number }) => {
+    setNumPages(numPages);
+    setPdfLoading(false);
+  };
+
+  const onDocumentLoadError = (err: Error) => {
+    console.error("PDF render error:", err);
+    toast.error("Failed to render PDF");
+    setPdfLoading(false);
   };
 
   const deleteMutation = useMutation({
@@ -186,59 +223,100 @@ export function PrimeCostDocuments({ open, onOpenChange, itemId, itemDescription
   if (previewDoc) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-5xl max-h-[90vh] p-0 overflow-hidden">
-          <div className="flex flex-col h-full">
-            {/* Preview Header */}
-            <div className="flex items-center justify-between p-4 border-b bg-muted/30">
-              <div className="flex items-center gap-3">
-                <Button variant="ghost" size="icon" onClick={closePreview}>
-                  <ArrowLeft className="h-4 w-4" />
-                </Button>
-                <span className="font-medium">{previewDoc.name}</span>
-              </div>
+        <DialogContent className="max-w-5xl max-h-[90vh] p-0 overflow-hidden flex flex-col">
+          {/* Preview Header */}
+          <div className="flex items-center justify-between p-4 border-b bg-muted/30">
+            <div className="flex items-center gap-3">
+              <Button variant="ghost" size="icon" onClick={closePreview}>
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              <span className="font-medium">{previewDoc.name}</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => window.open(previewDoc.url, "_blank")}>
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Open in New Tab
+              </Button>
               <Button variant="ghost" size="icon" onClick={closePreview}>
                 <X className="h-4 w-4" />
               </Button>
             </div>
-            
-            {/* Preview Content */}
-            <div className="flex-1 overflow-auto bg-muted/10 min-h-[70vh]">
-              {previewDoc.type?.startsWith("image/") ? (
-                <div className="flex items-center justify-center p-4 h-full">
-                  <img
-                    src={previewDoc.url}
-                    alt={previewDoc.name}
-                    className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-lg"
-                  />
+          </div>
+          
+          {/* Preview Content */}
+          <div className="flex-1 overflow-auto bg-muted/10 flex flex-col items-center">
+            {pdfLoading && (
+              <div className="flex-1 flex items-center justify-center min-h-[60vh]">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            )}
+
+            {previewDoc.type?.startsWith("image/") ? (
+              <div className="flex items-center justify-center p-4 min-h-[60vh]">
+                <img
+                  src={previewDoc.url}
+                  alt={previewDoc.name}
+                  className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-lg"
+                />
+              </div>
+            ) : previewDoc.type === "application/pdf" ? (
+              <>
+                <div className="flex-1 overflow-auto border rounded-lg bg-muted/30 m-4 flex justify-center">
+                  <Document
+                    file={previewDoc.url}
+                    onLoadSuccess={onDocumentLoadSuccess}
+                    onLoadError={onDocumentLoadError}
+                    loading={
+                      <div className="flex items-center justify-center p-8 min-h-[60vh]">
+                        <Loader2 className="h-8 w-8 animate-spin" />
+                      </div>
+                    }
+                  >
+                    <Page
+                      pageNumber={pageNumber}
+                      renderTextLayer={true}
+                      renderAnnotationLayer={true}
+                      className="shadow-lg"
+                      width={700}
+                    />
+                  </Document>
                 </div>
-              ) : previewDoc.type === "application/pdf" ? (
-                <object
-                  data={previewDoc.url}
-                  type="application/pdf"
-                  className="w-full h-[70vh]"
-                >
-                  <div className="flex flex-col items-center justify-center h-[70vh] text-muted-foreground">
-                    <FileText className="h-16 w-16 mb-4" />
-                    <p className="text-lg font-medium mb-2">PDF Preview not supported</p>
-                    <p className="text-sm mb-4">Your browser doesn't support embedded PDFs.</p>
-                    <Button onClick={() => window.open(previewDoc.url, "_blank")}>
-                      <Eye className="h-4 w-4 mr-2" />
-                      Open in New Tab
+
+                {numPages > 1 && (
+                  <div className="flex items-center gap-4 py-4">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPageNumber(p => Math.max(1, p - 1))}
+                      disabled={pageNumber <= 1}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <span className="text-sm text-muted-foreground">
+                      Page {pageNumber} of {numPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setPageNumber(p => Math.min(numPages, p + 1))}
+                      disabled={pageNumber >= numPages}
+                    >
+                      <ChevronRight className="h-4 w-4" />
                     </Button>
                   </div>
-                </object>
-              ) : (
-                <div className="flex flex-col items-center justify-center h-[70vh] text-muted-foreground">
-                  <FileText className="h-16 w-16 mb-4" />
-                  <p className="text-lg font-medium mb-2">Preview not available</p>
-                  <p className="text-sm mb-4">This file type cannot be previewed in the browser.</p>
-                  <Button onClick={() => window.open(previewDoc.url, "_blank")}>
-                    <Download className="h-4 w-4 mr-2" />
-                    Download to View
-                  </Button>
-                </div>
-              )}
-            </div>
+                )}
+              </>
+            ) : (
+              <div className="flex flex-col items-center justify-center min-h-[60vh] text-muted-foreground">
+                <FileText className="h-16 w-16 mb-4" />
+                <p className="text-lg font-medium mb-2">Preview not available</p>
+                <p className="text-sm mb-4">This file type cannot be previewed in the browser.</p>
+                <Button onClick={() => window.open(previewDoc.url, "_blank")}>
+                  <Download className="h-4 w-4 mr-2" />
+                  Download to View
+                </Button>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
