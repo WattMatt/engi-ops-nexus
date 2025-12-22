@@ -1,9 +1,12 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { formatCurrency } from "@/utils/formatters";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { FileText } from "lucide-react";
+import { PrimeCostDocuments } from "./PrimeCostDocuments";
 
 interface PCSpreadsheetTableProps {
   items: any[];
@@ -14,27 +17,54 @@ interface PCSpreadsheetTableProps {
 type EditableField = 'item_code' | 'description' | 'pc_allowance' | 'pc_actual_cost' | 'pc_profit_attendance_percent';
 
 const COLUMNS: { 
-  key: EditableField | 'pa_value' | 'adjustment'; 
+  key: EditableField | 'pa_value' | 'adjustment' | 'documents'; 
   label: string; 
   width: string; 
   editable: boolean; 
-  type: 'text' | 'number' | 'currency' | 'percent'; 
-  align: 'left' | 'right';
+  type: 'text' | 'number' | 'currency' | 'percent' | 'action'; 
+  align: 'left' | 'right' | 'center';
 }[] = [
   { key: 'item_code', label: 'Code', width: 'w-[80px]', editable: false, type: 'text', align: 'left' },
-  { key: 'description', label: 'Description', width: 'flex-1 min-w-[200px]', editable: false, type: 'text', align: 'left' },
+  { key: 'description', label: 'Description', width: 'flex-1 min-w-[180px]', editable: false, type: 'text', align: 'left' },
   { key: 'pc_allowance', label: 'PC Allowance', width: 'w-[110px]', editable: false, type: 'currency', align: 'right' },
   { key: 'pc_actual_cost', label: 'Actual Cost', width: 'w-[110px]', editable: true, type: 'currency', align: 'right' },
   { key: 'pc_profit_attendance_percent', label: 'P&A %', width: 'w-[70px]', editable: true, type: 'percent', align: 'right' },
   { key: 'pa_value', label: 'P&A Value', width: 'w-[100px]', editable: false, type: 'currency', align: 'right' },
-  { key: 'adjustment', label: 'Adjustment', width: 'w-[110px]', editable: false, type: 'currency', align: 'right' },
+  { key: 'adjustment', label: 'Adjustment', width: 'w-[100px]', editable: false, type: 'currency', align: 'right' },
+  { key: 'documents', label: 'Docs', width: 'w-[60px]', editable: false, type: 'action', align: 'center' },
 ];
 
 export function PCSpreadsheetTable({ items, sectionId, accountId }: PCSpreadsheetTableProps) {
   const [activeCell, setActiveCell] = useState<{ rowId: string; field: string } | null>(null);
   const [editValue, setEditValue] = useState<string>("");
+  const [documentsDialog, setDocumentsDialog] = useState<{ open: boolean; itemId: string; description: string }>({
+    open: false,
+    itemId: "",
+    description: "",
+  });
   const inputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
+
+  // Fetch document counts for all items in this section
+  const { data: documentCounts } = useQuery({
+    queryKey: ["prime-cost-document-counts", sectionId],
+    queryFn: async () => {
+      const itemIds = items.map(i => i.id);
+      const { data, error } = await supabase
+        .from("prime_cost_documents")
+        .select("prime_cost_item_id")
+        .in("prime_cost_item_id", itemIds);
+      
+      if (error) throw error;
+      
+      // Count documents per item
+      const counts: Record<string, number> = {};
+      (data || []).forEach(doc => {
+        counts[doc.prime_cost_item_id] = (counts[doc.prime_cost_item_id] || 0) + 1;
+      });
+      return counts;
+    },
+  });
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, field, value }: { id: string; field: string; value: any }) => {
@@ -147,6 +177,29 @@ export function PCSpreadsheetTable({ items, sectionId, accountId }: PCSpreadshee
 
   const renderCell = (item: any, column: typeof COLUMNS[0]) => {
     const isActive = activeCell?.rowId === item.id && activeCell?.field === column.key;
+    
+    // Special handling for documents button
+    if (column.key === 'documents') {
+      const docCount = documentCounts?.[item.id] || 0;
+      return (
+        <div className="flex items-center justify-center">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={() => setDocumentsDialog({ open: true, itemId: item.id, description: item.description })}
+            title={docCount > 0 ? `${docCount} document(s)` : "Add documents"}
+          >
+            <FileText className={cn("h-4 w-4", docCount > 0 ? "text-primary" : "text-muted-foreground")} />
+            {docCount > 0 && (
+              <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[10px] rounded-full h-4 w-4 flex items-center justify-center">
+                {docCount}
+              </span>
+            )}
+          </Button>
+        </div>
+      );
+    }
     
     // Special handling for P&A Value (calculated)
     if (column.key === 'pa_value') {
@@ -304,13 +357,24 @@ export function PCSpreadsheetTable({ items, sectionId, accountId }: PCSpreadshee
           {formatCurrency(totals.paValue)}
         </div>
         <div className={cn(
-          "px-1.5 py-2 text-xs text-right font-medium",
+          "px-1.5 py-2 text-xs text-right font-medium border-r",
           COLUMNS[6].width,
           totals.adjustment >= 0 ? "text-destructive" : "text-green-600"
         )}>
           {totals.adjustment >= 0 ? "+" : ""}{formatCurrency(totals.adjustment)}
         </div>
+        <div className={cn("px-1.5 py-2 text-xs text-center", COLUMNS[7].width)}>
+          -
+        </div>
       </div>
+
+      {/* Documents Dialog */}
+      <PrimeCostDocuments
+        open={documentsDialog.open}
+        onOpenChange={(open) => setDocumentsDialog({ ...documentsDialog, open })}
+        itemId={documentsDialog.itemId}
+        itemDescription={documentsDialog.description}
+      />
     </div>
   );
 }
