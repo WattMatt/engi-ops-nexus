@@ -221,15 +221,38 @@ export function SpreadsheetItemsTable({ sectionId, billId, accountId, shopSubsec
   const recalculateSectionTotals = async () => {
     const { data: allItems } = await supabase
       .from("final_account_items")
-      .select("id, contract_amount, final_amount, variation_amount, is_prime_cost, pc_actual_cost, pc_allowance, is_pa_item, pa_parent_item_id, pa_percentage")
+      .select("id, item_code, unit, contract_amount, final_amount, variation_amount, is_prime_cost, pc_actual_cost, pc_allowance, is_pa_item, pa_parent_item_id, pa_percentage, contract_quantity")
       .eq("section_id", sectionId);
 
     if (allItems) {
       // First pass: build a map of items for P&A parent lookups
       const itemMap = new Map(allItems.map(item => [item.id, item]));
       
+      // Helper to check if an item is a header row (should not count towards totals)
+      const isHeaderRow = (item: any): boolean => {
+        const code = item.item_code?.trim() || '';
+        const unit = item.unit?.trim() || '';
+        
+        // Items with units are always real items
+        if (unit) return false;
+        
+        // Header pattern: single letter followed by optional number and period (A., B., B1., etc.)
+        // or just a letter with number but no unit (like A1 without values being a header)
+        if (/^[A-Z]\.?$/i.test(code)) return true;
+        
+        // Sub-section headers ending with period like "B."
+        if (/^[A-Z]\d*\.$/i.test(code)) return true;
+        
+        return false;
+      };
+      
       const totals = allItems.reduce(
         (acc, item) => {
+          // Skip header rows - they shouldn't contribute to totals
+          if (isHeaderRow(item)) {
+            return acc;
+          }
+          
           let finalAmt = Number(item.final_amount || 0);
           let contractAmt = Number(item.contract_amount || 0);
           
