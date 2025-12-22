@@ -172,10 +172,10 @@ export function SpreadsheetItemsTable({ sectionId, billId, accountId, shopSubsec
           item_code: '',
           description: 'New item',
           unit: 'No.',
-          contract_quantity: 0,
-          final_quantity: 0,
-          supply_rate: 0,
-          install_rate: 0,
+          contract_quantity: null,
+          final_quantity: null,
+          supply_rate: null,
+          install_rate: null,
           contract_amount: 0,
           final_amount: 0,
           variation_amount: 0,
@@ -283,7 +283,12 @@ export function SpreadsheetItemsTable({ sectionId, billId, accountId, shopSubsec
     let newValue: any = editValue;
     
     if (column?.type === 'number' || column?.type === 'currency') {
-      newValue = parseFloat(editValue) || 0;
+      // Empty string means null (not entered), otherwise parse the number
+      newValue = editValue.trim() === '' ? null : parseFloat(editValue);
+      // If user explicitly typed 0, keep it as 0
+      if (editValue.trim() === '0') {
+        newValue = 0;
+      }
     }
     
     const currentValue = item[activeCell.field as keyof ItemRow];
@@ -438,11 +443,13 @@ export function SpreadsheetItemsTable({ sectionId, billId, accountId, shopSubsec
       calculatedVariation = pcActual - pcAllowance;
       displayValue = formatCurrency(calculatedVariation);
     } else if (column.type === 'currency') {
-      displayValue = formatCurrency(value as number);
+      // Show empty for null/undefined, show R 0.00 only if explicitly 0
+      displayValue = value === null || value === undefined ? '' : formatCurrency(value as number);
     } else if (column.type === 'number') {
-      displayValue = value ?? '-';
+      // Show empty for null/undefined, show 0 only if explicitly 0
+      displayValue = value === null || value === undefined ? '' : value;
     } else {
-      displayValue = value || '-';
+      displayValue = value || '';
     }
     
     // Use calculated variation for coloring if available, otherwise use stored value
