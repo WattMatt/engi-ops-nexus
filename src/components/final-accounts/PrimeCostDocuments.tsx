@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { FileText, Upload, Download, Trash2, Eye, Loader2 } from "lucide-react";
+import { FileText, Upload, Download, Trash2, Eye, Loader2, X, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
 
@@ -38,12 +38,17 @@ const DOCUMENT_TYPES = [
   { value: "other", label: "Other" },
 ];
 
+const isPreviewableType = (fileType: string | null): boolean => {
+  if (!fileType) return false;
+  return fileType.startsWith("image/") || fileType === "application/pdf";
+};
+
 export function PrimeCostDocuments({ open, onOpenChange, itemId, itemDescription }: PrimeCostDocumentsProps) {
   const queryClient = useQueryClient();
   const [uploading, setUploading] = useState(false);
   const [documentType, setDocumentType] = useState("order");
   const [description, setDescription] = useState("");
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewDoc, setPreviewDoc] = useState<{ url: string; name: string; type: string | null } | null>(null);
 
   // Fetch documents for this item
   const { data: documents, isLoading } = useQuery({
@@ -126,19 +131,22 @@ export function PrimeCostDocuments({ open, onOpenChange, itemId, itemDescription
     }
   };
 
-  const handlePreview = async (doc: PrimeCostDocument) => {
-    try {
-      const { data } = supabase.storage
-        .from("prime-cost-documents")
-        .getPublicUrl(doc.file_path);
+  const handlePreview = (doc: PrimeCostDocument) => {
+    const { data } = supabase.storage
+      .from("prime-cost-documents")
+      .getPublicUrl(doc.file_path);
 
-      if (data?.publicUrl) {
-        window.open(data.publicUrl, "_blank");
-      }
-    } catch (error) {
-      console.error("Preview error:", error);
-      toast.error("Failed to preview document");
+    if (data?.publicUrl) {
+      setPreviewDoc({
+        url: data.publicUrl,
+        name: doc.file_name,
+        type: doc.file_type,
+      });
     }
+  };
+
+  const closePreview = () => {
+    setPreviewDoc(null);
   };
 
   const deleteMutation = useMutation({
@@ -173,6 +181,59 @@ export function PrimeCostDocuments({ open, onOpenChange, itemId, itemDescription
   const getDocumentTypeLabel = (type: string | null) => {
     return DOCUMENT_TYPES.find((t) => t.value === type)?.label || type || "Unknown";
   };
+
+  // If previewing a document, show the preview view
+  if (previewDoc) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-5xl max-h-[90vh] p-0 overflow-hidden">
+          <div className="flex flex-col h-full">
+            {/* Preview Header */}
+            <div className="flex items-center justify-between p-4 border-b bg-muted/30">
+              <div className="flex items-center gap-3">
+                <Button variant="ghost" size="icon" onClick={closePreview}>
+                  <ArrowLeft className="h-4 w-4" />
+                </Button>
+                <span className="font-medium">{previewDoc.name}</span>
+              </div>
+              <Button variant="ghost" size="icon" onClick={closePreview}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            
+            {/* Preview Content */}
+            <div className="flex-1 overflow-auto bg-muted/10 min-h-[70vh]">
+              {previewDoc.type?.startsWith("image/") ? (
+                <div className="flex items-center justify-center p-4 h-full">
+                  <img
+                    src={previewDoc.url}
+                    alt={previewDoc.name}
+                    className="max-w-full max-h-[70vh] object-contain rounded-lg shadow-lg"
+                  />
+                </div>
+              ) : previewDoc.type === "application/pdf" ? (
+                <iframe
+                  src={previewDoc.url}
+                  className="w-full h-[70vh]"
+                  title={previewDoc.name}
+                />
+              ) : (
+                <div className="flex flex-col items-center justify-center h-[70vh] text-muted-foreground">
+                  <FileText className="h-16 w-16 mb-4" />
+                  <p className="text-lg font-medium mb-2">Preview not available</p>
+                  <p className="text-sm mb-4">This file type cannot be previewed in the browser.</p>
+                  <Button onClick={() => window.open(previewDoc.url, "_blank")}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Download to View
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -286,6 +347,7 @@ export function PrimeCostDocuments({ open, onOpenChange, itemId, itemDescription
                           size="icon"
                           onClick={() => handlePreview(doc)}
                           title="Preview"
+                          disabled={!isPreviewableType(doc.file_type)}
                         >
                           <Eye className="h-4 w-4" />
                         </Button>
