@@ -52,17 +52,21 @@ function getItemRowType(item: ItemRow): 'header' | 'subheader' | 'description' |
   const unit = item.unit?.trim() || '';
   const hasValues = (item.contract_quantity ?? 0) > 0 || (item.contract_amount ?? 0) > 0;
   
-  // If item has a unit, it's a real line item (not a header)
+  // If item has a unit, it's a real line item (not a header/description)
   const hasUnit = unit !== '';
   
-  // No item code = description row
-  if (!code) return 'description';
+  // No item code AND no unit = description row
+  // But if it has a unit, it's a regular item even without a code
+  if (!code && !hasUnit) return 'description';
   
-  // Main header: B1, B2, C1, etc. (letter + single number, no dots) - BUT only if no unit and no values
-  if (/^[A-Z]\d*$/i.test(code) && !hasValues && !hasUnit) return 'header';
+  // Has a unit = regular item (regardless of code pattern)
+  if (hasUnit) return 'item';
   
-  // Sub-header: B2.3, B2.4 without values (parent item for sub-items) - BUT only if no unit
-  if (/^[A-Z]\d+\.\d+$/i.test(code) && !hasValues && !hasUnit) return 'subheader';
+  // Main header: B1, B2, C1, etc. (letter + single number, no dots) - only if no unit and no values
+  if (/^[A-Z]\d*$/i.test(code) && !hasValues) return 'header';
+  
+  // Sub-header: B2.3, B2.4 without values (parent item for sub-items) - only if no unit
+  if (/^[A-Z]\d+\.\d+$/i.test(code) && !hasValues) return 'subheader';
   
   return 'item';
 }
