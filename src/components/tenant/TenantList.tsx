@@ -880,26 +880,31 @@ export const TenantList = ({
               </React.Fragment>
             ))}
           </tbody>
-          <tfoot className="bg-muted/50 border-t-2 sticky bottom-0">
+          <tfoot className="bg-muted/50 border-t-2 sticky bottom-0 z-10">
             <tr className="font-semibold">
-              <td className="px-4 py-3" colSpan={12}>
-                <span className="text-base">Totals</span>
-                <span className="text-xs text-muted-foreground ml-2">(excl. dedicated BOQ)</span>
+              <td className="px-4 py-4" colSpan={21}>
+                <div className="flex items-center justify-end gap-8">
+                  <span className="text-sm text-muted-foreground">(excl. dedicated BOQ)</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">DB Cost Total:</span>
+                    <span className="text-base font-bold whitespace-nowrap">
+                      R {localTenants
+                        .filter(t => !t.db_by_tenant && t.db_cost && !t.exclude_from_totals)
+                        .reduce((sum, t) => sum + (t.db_cost || 0), 0)
+                        .toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm text-muted-foreground">Lighting Total:</span>
+                    <span className="text-base font-bold whitespace-nowrap">
+                      R {localTenants
+                        .filter(t => !t.lighting_by_tenant && t.lighting_cost && !t.exclude_from_totals)
+                        .reduce((sum, t) => sum + (t.lighting_cost || 0), 0)
+                        .toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                </div>
               </td>
-              <td className="text-right px-4 py-3 text-base">
-                R {localTenants
-                  .filter(t => !t.db_by_tenant && t.db_cost && !t.exclude_from_totals)
-                  .reduce((sum, t) => sum + (t.db_cost || 0), 0)
-                  .toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </td>
-              <td className="px-4 py-3" colSpan={2}></td>
-              <td className="text-right px-4 py-3 text-base">
-                R {localTenants
-                  .filter(t => !t.lighting_by_tenant && t.lighting_cost && !t.exclude_from_totals)
-                  .reduce((sum, t) => sum + (t.lighting_cost || 0), 0)
-                  .toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </td>
-              <td className="px-4 py-3" colSpan={3}></td>
             </tr>
           </tfoot>
           </table>
