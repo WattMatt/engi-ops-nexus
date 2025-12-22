@@ -27,14 +27,14 @@ const COLUMNS: {
   type: 'text' | 'number' | 'currency' | 'percent' | 'action'; 
   align: 'left' | 'right' | 'center';
 }[] = [
-  { key: 'item_code', label: 'Code', width: 'w-[50px]', editable: false, type: 'text', align: 'left' },
-  { key: 'description', label: 'Description', width: 'flex-1 min-w-[150px]', editable: false, type: 'text', align: 'left' },
-  { key: 'pc_allowance', label: 'PC Allowance', width: 'w-[120px] min-w-[120px]', editable: false, type: 'currency', align: 'right' },
-  { key: 'pc_actual_cost', label: 'Actual Cost', width: 'w-[130px] min-w-[130px]', editable: true, type: 'currency', align: 'right' },
-  { key: 'pc_profit_attendance_percent', label: 'P&A %', width: 'w-[60px] min-w-[60px]', editable: true, type: 'percent', align: 'right' },
-  { key: 'pa_value', label: 'P&A Value', width: 'w-[110px] min-w-[110px]', editable: false, type: 'currency', align: 'right' },
-  { key: 'adjustment', label: 'Adjustment', width: 'w-[110px] min-w-[110px]', editable: false, type: 'currency', align: 'right' },
-  { key: 'documents', label: 'Docs', width: 'w-[45px] min-w-[45px]', editable: false, type: 'action', align: 'center' },
+  { key: 'item_code', label: 'Code', width: 'w-[45px] shrink-0', editable: false, type: 'text', align: 'left' },
+  { key: 'description', label: 'Description', width: 'flex-1 min-w-[120px]', editable: false, type: 'text', align: 'left' },
+  { key: 'pc_allowance', label: 'PC Allowance', width: 'w-[95px] shrink-0', editable: false, type: 'currency', align: 'right' },
+  { key: 'pc_actual_cost', label: 'Actual Cost', width: 'w-[115px] shrink-0', editable: true, type: 'currency', align: 'right' },
+  { key: 'pc_profit_attendance_percent', label: 'P&A %', width: 'w-[50px] shrink-0', editable: true, type: 'percent', align: 'right' },
+  { key: 'pa_value', label: 'P&A Value', width: 'w-[90px] shrink-0', editable: false, type: 'currency', align: 'right' },
+  { key: 'adjustment', label: 'Adjustment', width: 'w-[95px] shrink-0', editable: false, type: 'currency', align: 'right' },
+  { key: 'documents', label: 'Docs', width: 'w-[35px] shrink-0', editable: false, type: 'action', align: 'center' },
 ];
 
 export function PCSpreadsheetTable({ items, sectionId, accountId, projectId }: PCSpreadsheetTableProps) {
