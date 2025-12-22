@@ -49,16 +49,20 @@ function getItemRowType(item: ItemRow): 'header' | 'subheader' | 'description' |
   if (item.is_prime_cost) return 'prime_cost';
   
   const code = item.item_code?.trim() || '';
+  const unit = item.unit?.trim() || '';
   const hasValues = (item.contract_quantity ?? 0) > 0 || (item.contract_amount ?? 0) > 0;
+  
+  // If item has a unit, it's a real line item (not a header)
+  const hasUnit = unit !== '';
   
   // No item code = description row
   if (!code) return 'description';
   
-  // Main header: B1, B2, C1, etc. (letter + single number, no dots)
-  if (/^[A-Z]\d*$/i.test(code) && !hasValues) return 'header';
+  // Main header: B1, B2, C1, etc. (letter + single number, no dots) - BUT only if no unit and no values
+  if (/^[A-Z]\d*$/i.test(code) && !hasValues && !hasUnit) return 'header';
   
-  // Sub-header: B2.3, B2.4 without values (parent item for sub-items)
-  if (/^[A-Z]\d+\.\d+$/i.test(code) && !hasValues) return 'subheader';
+  // Sub-header: B2.3, B2.4 without values (parent item for sub-items) - BUT only if no unit
+  if (/^[A-Z]\d+\.\d+$/i.test(code) && !hasValues && !hasUnit) return 'subheader';
   
   return 'item';
 }
