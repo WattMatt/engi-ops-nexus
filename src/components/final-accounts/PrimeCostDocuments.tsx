@@ -212,11 +212,21 @@ export function PrimeCostDocuments({ open, onOpenChange, itemId, itemDescription
                   />
                 </div>
               ) : previewDoc.type === "application/pdf" ? (
-                <iframe
-                  src={previewDoc.url}
+                <object
+                  data={previewDoc.url}
+                  type="application/pdf"
                   className="w-full h-[70vh]"
-                  title={previewDoc.name}
-                />
+                >
+                  <div className="flex flex-col items-center justify-center h-[70vh] text-muted-foreground">
+                    <FileText className="h-16 w-16 mb-4" />
+                    <p className="text-lg font-medium mb-2">PDF Preview not supported</p>
+                    <p className="text-sm mb-4">Your browser doesn't support embedded PDFs.</p>
+                    <Button onClick={() => window.open(previewDoc.url, "_blank")}>
+                      <Eye className="h-4 w-4 mr-2" />
+                      Open in New Tab
+                    </Button>
+                  </div>
+                </object>
               ) : (
                 <div className="flex flex-col items-center justify-center h-[70vh] text-muted-foreground">
                   <FileText className="h-16 w-16 mb-4" />
