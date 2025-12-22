@@ -371,6 +371,13 @@ export function SpreadsheetItemsTable({ sectionId, billId, accountId, shopSubsec
       } else {
         displayValue = '-';
       }
+    } else if (isPAItem && column.key === 'final_amount') {
+      // For P&A items, calculate based on parent's pc_actual_cost
+      const parentItem = items.find(i => i.id === item.pa_parent_item_id);
+      const parentActual = Number(parentItem?.pc_actual_cost) || 0;
+      const paPercent = Number(item.pa_percentage) || 0;
+      const paValue = parentActual * (paPercent / 100);
+      displayValue = formatCurrency(paValue);
     } else if (isPrimeCost && column.key === 'final_amount') {
       // For Prime Cost items, show pc_actual_cost as the Final Amount
       const pcActual = Number(item.pc_actual_cost) || 0;
