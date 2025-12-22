@@ -566,9 +566,8 @@ export const TenantList = ({
             <thead className="sticky top-0 bg-muted/50 z-20 border-b border-border shadow-sm">
               <tr>
                 <th className="h-12 px-4 text-left text-sm font-medium text-muted-foreground bg-muted/50">Shop #</th>
-                <th className="h-12 px-4 text-left text-sm font-medium text-muted-foreground bg-muted/50">Shop Name</th>
+                <th className="h-12 px-4 text-left text-sm font-medium text-muted-foreground bg-muted/50 min-w-[180px]">Shop Name</th>
                 <th className="h-12 px-4 text-left text-sm font-medium text-muted-foreground bg-muted/50">Category</th>
-                <th className="h-12 px-4 text-left text-sm font-medium text-muted-foreground bg-muted/50">Opening</th>
                 <th className="h-12 px-4 text-left text-sm font-medium text-muted-foreground bg-muted/50">BO Period</th>
                 <th className="h-12 px-4 text-left text-sm font-medium text-muted-foreground bg-muted/50">Beneficial Occ</th>
                 <th className="h-12 px-4 text-left text-sm font-medium text-muted-foreground bg-muted/50">Days Until</th>
@@ -593,14 +592,14 @@ export const TenantList = ({
                 <React.Fragment key={group.key}>
                   {group.label && (
                     <tr className="hover:bg-transparent bg-muted/30">
-                      <td colSpan={21} className="font-semibold py-2 px-4 border-b text-sm">
+                      <td colSpan={20} className="font-semibold py-2 px-4 border-b text-sm">
                         {group.label} ({group.tenants.length})
                       </td>
                     </tr>
                   )}
                 {group.tenants.length === 0 ? (
                   <tr>
-                    <td colSpan={21} className="text-center py-8 px-4 text-muted-foreground text-sm">
+                    <td colSpan={20} className="text-center py-8 px-4 text-muted-foreground text-sm">
                       {searchQuery || categoryFilter || statusFilter !== "all" 
                         ? "No tenants match the current filters" 
                         : "No tenants found"}
@@ -654,7 +653,7 @@ export const TenantList = ({
                               prev.map(t => t.id === tenant.id ? { ...t, shop_name: e.target.value } : t)
                             )}
                             onBlur={(e) => handleFieldUpdate(tenant.id, 'shop_name', e.target.value)}
-                            className="h-8"
+                            className="h-8 min-w-[160px]"
                           />
                         </td>
                           <td className="px-4 py-2">
@@ -672,17 +671,6 @@ export const TenantList = ({
                                 <SelectItem value="national">National</SelectItem>
                               </SelectContent>
                             </Select>
-                          </td>
-                          <td className="px-4 py-2">
-                            <Input
-                              type="date"
-                              value={tenant.opening_date || ""}
-                              onChange={(e) => setLocalTenants(prev => 
-                                prev.map(t => t.id === tenant.id ? { ...t, opening_date: e.target.value } : t)
-                              )}
-                              onBlur={(e) => handleFieldUpdate(tenant.id, 'opening_date', e.target.value)}
-                              className="h-8 w-36"
-                            />
                           </td>
                           <td className="px-4 py-2">
                             <Select
@@ -861,7 +849,7 @@ export const TenantList = ({
           </tbody>
           <tfoot className="bg-muted/50 border-t-2 sticky bottom-0">
             <tr className="font-semibold">
-              <td className="px-4 py-3" colSpan={12}>
+              <td className="px-4 py-3" colSpan={11}>
                 <span className="text-base">Totals</span>
               </td>
               <td className="text-right px-4 py-3 text-base">
