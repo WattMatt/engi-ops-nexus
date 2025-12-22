@@ -461,6 +461,7 @@ export function SpreadsheetItemsTable({ sectionId, billId, accountId, shopSubsec
                     className={cn(
                       "border-r last:border-r-0 min-h-[32px] flex items-center",
                       col.width,
+                      col.align === 'right' && "justify-end",
                       // Indent descriptions and P&A items
                       col.key === 'description' && isDescription && "pl-6",
                       col.key === 'description' && isPAItem && "pl-8"
