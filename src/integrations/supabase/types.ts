@@ -2707,7 +2707,7 @@ export type Database = {
           changed_at: string
           changed_by: string | null
           id: string
-          item_id: string
+          item_id: string | null
           new_values: Json | null
           old_values: Json | null
         }
@@ -2717,7 +2717,7 @@ export type Database = {
           changed_at?: string
           changed_by?: string | null
           id?: string
-          item_id: string
+          item_id?: string | null
           new_values?: Json | null
           old_values?: Json | null
         }
@@ -2727,7 +2727,7 @@ export type Database = {
           changed_at?: string
           changed_by?: string | null
           id?: string
-          item_id?: string
+          item_id?: string | null
           new_values?: Json | null
           old_values?: Json | null
         }
