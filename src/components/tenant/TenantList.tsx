@@ -39,6 +39,7 @@ interface Tenant {
   cost_reported: boolean;
   opening_date: string | null;
   beneficial_occupation_days: number | null;
+  exclude_from_totals?: boolean;
 }
 interface TenantListProps {
   tenants: Tenant[];
@@ -566,6 +567,16 @@ export const TenantList = ({
             <thead className="sticky top-0 bg-muted/50 z-20 border-b border-border shadow-sm">
               <tr>
                 <th className="h-12 px-4 text-left text-sm font-medium text-muted-foreground bg-muted/50">Shop #</th>
+                <th className="h-12 px-2 text-center text-sm font-medium text-muted-foreground bg-muted/50">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="cursor-help">BOQ</span>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">Dedicated BOQ - Exclude from totals</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </th>
                 <th className="h-12 px-4 text-left text-sm font-medium text-muted-foreground bg-muted/50 min-w-[180px]">Shop Name</th>
                 <th className="h-12 px-4 text-left text-sm font-medium text-muted-foreground bg-muted/50">Category</th>
                 <th className="h-12 px-4 text-left text-sm font-medium text-muted-foreground bg-muted/50">BO Period</th>
@@ -592,14 +603,14 @@ export const TenantList = ({
                 <React.Fragment key={group.key}>
                   {group.label && (
                     <tr className="hover:bg-transparent bg-muted/30">
-                      <td colSpan={20} className="font-semibold py-2 px-4 border-b text-sm">
+                      <td colSpan={21} className="font-semibold py-2 px-4 border-b text-sm">
                         {group.label} ({group.tenants.length})
                       </td>
                     </tr>
                   )}
                 {group.tenants.length === 0 ? (
                   <tr>
-                    <td colSpan={20} className="text-center py-8 px-4 text-muted-foreground text-sm">
+                    <td colSpan={21} className="text-center py-8 px-4 text-muted-foreground text-sm">
                       {searchQuery || categoryFilter || statusFilter !== "all" 
                         ? "No tenants match the current filters" 
                         : "No tenants found"}
@@ -645,6 +656,28 @@ export const TenantList = ({
                               </TooltipProvider>
                             )}
                           </div>
+                        </td>
+                        <td className="text-center px-2 py-2">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <button
+                                  onClick={() => handleBooleanToggle(tenant.id, 'exclude_from_totals', tenant.exclude_from_totals || false)}
+                                  className="hover:opacity-70 transition-opacity cursor-pointer"
+                                  type="button"
+                                >
+                                  {tenant.exclude_from_totals ? (
+                                    <CheckCircle2 className="h-4 w-4 text-amber-600" />
+                                  ) : (
+                                    <Circle className="h-4 w-4 text-muted-foreground" />
+                                  )}
+                                </button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p className="text-xs">{tenant.exclude_from_totals ? 'Excluded from totals (Dedicated BOQ)' : 'Click to exclude from totals'}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         </td>
                         <td className="px-4 py-2">
                           <Input
@@ -849,19 +882,20 @@ export const TenantList = ({
           </tbody>
           <tfoot className="bg-muted/50 border-t-2 sticky bottom-0">
             <tr className="font-semibold">
-              <td className="px-4 py-3" colSpan={11}>
+              <td className="px-4 py-3" colSpan={12}>
                 <span className="text-base">Totals</span>
+                <span className="text-xs text-muted-foreground ml-2">(excl. dedicated BOQ)</span>
               </td>
               <td className="text-right px-4 py-3 text-base">
                 R {localTenants
-                  .filter(t => !t.db_by_tenant && t.db_cost)
+                  .filter(t => !t.db_by_tenant && t.db_cost && !t.exclude_from_totals)
                   .reduce((sum, t) => sum + (t.db_cost || 0), 0)
                   .toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </td>
               <td className="px-4 py-3" colSpan={2}></td>
               <td className="text-right px-4 py-3 text-base">
                 R {localTenants
-                  .filter(t => !t.lighting_by_tenant && t.lighting_cost)
+                  .filter(t => !t.lighting_by_tenant && t.lighting_cost && !t.exclude_from_totals)
                   .reduce((sum, t) => sum + (t.lighting_cost || 0), 0)
                   .toLocaleString('en-ZA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </td>
