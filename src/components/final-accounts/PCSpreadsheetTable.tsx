@@ -101,6 +101,68 @@ export function PCSpreadsheetTable({ items, sectionId, accountId, projectId }: P
     },
   });
 
+  // Function to recalculate section totals including PC and P&A items
+  const recalculateSectionTotals = async (itemSectionId: string) => {
+    const { data: allItems } = await supabase
+      .from("final_account_items")
+      .select("id, contract_amount, final_amount, variation_amount, is_prime_cost, pc_actual_cost, pc_allowance, is_pa_item, pa_parent_item_id, pa_percentage")
+      .eq("section_id", itemSectionId);
+
+    if (allItems) {
+      const itemMap = new Map(allItems.map(item => [item.id, item]));
+      
+      const totals = allItems.reduce(
+        (acc, item) => {
+          let finalAmt = Number(item.final_amount || 0);
+          let contractAmt = Number(item.contract_amount || 0);
+          
+          if (item.is_prime_cost) {
+            finalAmt = Number(item.pc_actual_cost) || 0;
+            contractAmt = Number(item.pc_allowance) || Number(item.contract_amount) || 0;
+          }
+          
+          if (item.is_pa_item && item.pa_parent_item_id) {
+            const parentItem = itemMap.get(item.pa_parent_item_id);
+            if (parentItem) {
+              const parentActual = Number(parentItem.pc_actual_cost) || 0;
+              const parentAllowance = Number(parentItem.pc_allowance) || Number(parentItem.contract_amount) || 0;
+              const paPercent = Number(item.pa_percentage) || 0;
+              finalAmt = parentActual * (paPercent / 100);
+              contractAmt = parentAllowance * (paPercent / 100);
+            }
+          }
+          
+          return {
+            contract: acc.contract + contractAmt,
+            final: acc.final + finalAmt,
+            variation: acc.variation + (finalAmt - contractAmt),
+          };
+        },
+        { contract: 0, final: 0, variation: 0 }
+      );
+
+      // Get the section to find its bill_id
+      const { data: section } = await supabase
+        .from("final_account_sections")
+        .select("bill_id")
+        .eq("id", itemSectionId)
+        .single();
+
+      await supabase
+        .from("final_account_sections")
+        .update({
+          contract_total: totals.contract,
+          final_total: totals.final,
+          variation_total: totals.variation,
+        })
+        .eq("id", itemSectionId);
+
+      // Trigger bill totals update via the database trigger
+      queryClient.invalidateQueries({ queryKey: ["final-account-sections"] });
+      queryClient.invalidateQueries({ queryKey: ["final-account-bills"] });
+    }
+  };
+
   const updateMutation = useMutation({
     mutationFn: async ({ id, field, value }: { id: string; field: string; value: any }) => {
       const updates: any = { [field]: value };
@@ -120,10 +182,24 @@ export function PCSpreadsheetTable({ items, sectionId, accountId, projectId }: P
         .update(updates)
         .eq("id", id);
       if (error) throw error;
+
+      // Find the section ID for this item and recalculate totals
+      const item = items.find(i => i.id === id);
+      if (item) {
+        // Get section_id from item
+        const { data: itemData } = await supabase
+          .from("final_account_items")
+          .select("section_id")
+          .eq("id", id)
+          .single();
+        
+        if (itemData?.section_id) {
+          await recalculateSectionTotals(itemData.section_id);
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["final-account-items-prime-costs-grouped", accountId] });
-      // Also invalidate bills & sections queries so they reflect the updated values
       queryClient.invalidateQueries({ queryKey: ["final-account-items"] });
       queryClient.invalidateQueries({ queryKey: ["final-account-sections"] });
       queryClient.invalidateQueries({ queryKey: ["final-account-bills"] });

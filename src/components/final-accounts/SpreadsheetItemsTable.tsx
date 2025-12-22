@@ -390,6 +390,8 @@ export function SpreadsheetItemsTable({ sectionId, billId, accountId, shopSubsec
     
     // For P&A items, show percentage in rate columns instead of currency
     let displayValue;
+    let calculatedVariation: number | null = null;
+    
     if (isPAItem && (column.key === 'supply_rate' || column.key === 'install_rate')) {
       // Show the pa_percentage as a percentage value
       if (column.key === 'supply_rate' && item.pa_percentage) {
@@ -404,10 +406,26 @@ export function SpreadsheetItemsTable({ sectionId, billId, accountId, shopSubsec
       const paPercent = Number(item.pa_percentage) || 0;
       const paValue = parentActual * (paPercent / 100);
       displayValue = formatCurrency(paValue);
+    } else if (isPAItem && column.key === 'variation_amount') {
+      // For P&A items, calculate variation based on parent's actual vs allowance
+      const parentItem = items.find(i => i.id === item.pa_parent_item_id);
+      const parentActual = Number(parentItem?.pc_actual_cost) || 0;
+      const parentAllowance = Number(parentItem?.pc_allowance) || Number(parentItem?.contract_amount) || 0;
+      const paPercent = Number(item.pa_percentage) || 0;
+      const paFinal = parentActual * (paPercent / 100);
+      const paContract = parentAllowance * (paPercent / 100);
+      calculatedVariation = paFinal - paContract;
+      displayValue = formatCurrency(calculatedVariation);
     } else if (isPrimeCost && column.key === 'final_amount') {
       // For Prime Cost items, show pc_actual_cost as the Final Amount
       const pcActual = Number(item.pc_actual_cost) || 0;
       displayValue = formatCurrency(pcActual);
+    } else if (isPrimeCost && column.key === 'variation_amount') {
+      // For Prime Cost items, variation = pc_actual_cost - pc_allowance
+      const pcActual = Number(item.pc_actual_cost) || 0;
+      const pcAllowance = Number(item.pc_allowance) || Number(item.contract_amount) || 0;
+      calculatedVariation = pcActual - pcAllowance;
+      displayValue = formatCurrency(calculatedVariation);
     } else if (column.type === 'currency') {
       displayValue = formatCurrency(value as number);
     } else if (column.type === 'number') {
@@ -416,8 +434,10 @@ export function SpreadsheetItemsTable({ sectionId, billId, accountId, shopSubsec
       displayValue = value || '-';
     }
     
+    // Use calculated variation for coloring if available, otherwise use stored value
+    const variationValue = calculatedVariation !== null ? calculatedVariation : Number(value);
     const variationClass = column.key === 'variation_amount' 
-      ? Number(value) >= 0 ? 'text-green-600 font-medium' : 'text-destructive font-medium'
+      ? variationValue >= 0 ? 'text-green-600 font-medium' : 'text-destructive font-medium'
       : '';
     
     return (
