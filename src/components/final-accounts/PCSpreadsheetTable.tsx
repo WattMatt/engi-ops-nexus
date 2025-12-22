@@ -293,7 +293,7 @@ export function PCSpreadsheetTable({ items, sectionId, accountId, projectId }: P
       
       return (
         <div
-          className="flex items-center justify-end gap-1 px-1.5 py-1 cursor-pointer hover:bg-muted/50 group"
+          className="flex items-center justify-end gap-1 px-1.5 py-1 cursor-pointer hover:bg-muted/50 group whitespace-nowrap flex-nowrap"
           onClick={() => setBreakdownDialog({ 
             open: true, 
             itemId: item.id, 
@@ -303,12 +303,12 @@ export function PCSpreadsheetTable({ items, sectionId, accountId, projectId }: P
           title="Click to view/edit breakdown"
         >
           {compCount > 0 && (
-            <Badge variant="secondary" className="h-4 px-1 text-[10px] font-normal gap-0.5">
+            <Badge variant="secondary" className="h-4 px-1 text-[10px] font-normal gap-0.5 shrink-0">
               <Layers className="h-3 w-3" />
               {compCount}
             </Badge>
           )}
-          <span className="text-xs">{formatCurrency(value)}</span>
+          <span className="text-xs shrink-0">{formatCurrency(value)}</span>
         </div>
       );
     }
