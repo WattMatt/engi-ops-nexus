@@ -258,6 +258,7 @@ export function PrimeCostDocuments({ open, onOpenChange, itemId, itemDescription
               <>
                 <div className="flex-1 overflow-auto border rounded-lg bg-muted/30 m-4 flex justify-center">
                   <Document
+                    key={previewDoc.filePath}
                     file={previewDoc.url}
                     onLoadSuccess={onDocumentLoadSuccess}
                     onLoadError={onDocumentLoadError}
