@@ -3,9 +3,10 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { formatCurrency } from "@/utils/formatters";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { ItemHistoryDialog } from "./ItemHistoryDialog";
 
 interface SpreadsheetItemsTableProps {
   sectionId: string;
@@ -81,6 +82,7 @@ const COLUMNS: { key: EditableField | 'contract_amount' | 'final_amount' | 'vari
 export function SpreadsheetItemsTable({ sectionId, billId, accountId, shopSubsectionId }: SpreadsheetItemsTableProps) {
   const [activeCell, setActiveCell] = useState<{ rowId: string; field: string } | null>(null);
   const [editValue, setEditValue] = useState<string>("");
+  const [historyItem, setHistoryItem] = useState<{ id: string; code: string } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
@@ -351,13 +353,22 @@ export function SpreadsheetItemsTable({ sectionId, billId, accountId, shopSubsec
     
     if (column.key === 'actions') {
       return (
-        <button
-          onClick={() => deleteMutation.mutate(item.id)}
-          className="p-1 text-muted-foreground hover:text-destructive transition-colors opacity-0 group-hover:opacity-100"
-          title="Delete row"
-        >
-          <Trash2 className="h-3.5 w-3.5" />
-        </button>
+        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100">
+          <button
+            onClick={() => setHistoryItem({ id: item.id, code: item.item_code || 'Item' })}
+            className="p-1 text-muted-foreground hover:text-primary transition-colors"
+            title="View edit history"
+          >
+            <History className="h-3.5 w-3.5" />
+          </button>
+          <button
+            onClick={() => deleteMutation.mutate(item.id)}
+            className="p-1 text-muted-foreground hover:text-destructive transition-colors"
+            title="Delete row"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
       );
     }
     
@@ -540,6 +551,16 @@ export function SpreadsheetItemsTable({ sectionId, billId, accountId, shopSubsec
           Add Row
         </button>
       </div>
+
+      {/* History Dialog */}
+      {historyItem && (
+        <ItemHistoryDialog
+          open={!!historyItem}
+          onOpenChange={(open) => !open && setHistoryItem(null)}
+          itemId={historyItem.id}
+          itemCode={historyItem.code}
+        />
+      )}
     </div>
   );
 }
