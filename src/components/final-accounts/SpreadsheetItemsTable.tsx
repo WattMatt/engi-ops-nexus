@@ -65,17 +65,17 @@ function getItemRowType(item: ItemRow): 'header' | 'subheader' | 'description' |
 type EditableField = 'item_code' | 'description' | 'unit' | 'contract_quantity' | 'final_quantity' | 'supply_rate' | 'install_rate' | 'notes';
 
 const COLUMNS: { key: EditableField | 'contract_amount' | 'final_amount' | 'variation_amount' | 'actions'; label: string; width: string; editable: boolean; type: 'text' | 'number' | 'currency'; align: 'left' | 'right' }[] = [
-  { key: 'item_code', label: 'Code', width: 'w-[80px]', editable: true, type: 'text', align: 'left' },
-  { key: 'description', label: 'Description', width: 'flex-1 min-w-[200px]', editable: true, type: 'text', align: 'left' },
-  { key: 'unit', label: 'Unit', width: 'w-[60px]', editable: true, type: 'text', align: 'left' },
-  { key: 'contract_quantity', label: 'Contract Qty', width: 'w-[90px]', editable: true, type: 'number', align: 'right' },
-  { key: 'final_quantity', label: 'Final Qty', width: 'w-[90px]', editable: true, type: 'number', align: 'right' },
-  { key: 'supply_rate', label: 'Supply Rate', width: 'w-[100px]', editable: true, type: 'currency', align: 'right' },
-  { key: 'install_rate', label: 'Install Rate', width: 'w-[100px]', editable: true, type: 'currency', align: 'right' },
-  { key: 'contract_amount', label: 'Contract Amt', width: 'w-[100px]', editable: false, type: 'currency', align: 'right' },
-  { key: 'final_amount', label: 'Final Amt', width: 'w-[100px]', editable: false, type: 'currency', align: 'right' },
-  { key: 'variation_amount', label: 'Variation', width: 'w-[100px]', editable: false, type: 'currency', align: 'right' },
-  { key: 'actions', label: '', width: 'w-[40px]', editable: false, type: 'text', align: 'left' },
+  { key: 'item_code', label: 'Code', width: 'w-[70px] shrink-0', editable: true, type: 'text', align: 'left' },
+  { key: 'description', label: 'Description', width: 'flex-1 min-w-[180px]', editable: true, type: 'text', align: 'left' },
+  { key: 'unit', label: 'Unit', width: 'w-[50px] shrink-0', editable: true, type: 'text', align: 'left' },
+  { key: 'contract_quantity', label: 'Contract Qty', width: 'w-[75px] shrink-0', editable: true, type: 'number', align: 'right' },
+  { key: 'final_quantity', label: 'Final Qty', width: 'w-[65px] shrink-0', editable: true, type: 'number', align: 'right' },
+  { key: 'supply_rate', label: 'Supply Rate', width: 'w-[85px] shrink-0', editable: true, type: 'currency', align: 'right' },
+  { key: 'install_rate', label: 'Install Rate', width: 'w-[85px] shrink-0', editable: true, type: 'currency', align: 'right' },
+  { key: 'contract_amount', label: 'Contract Amt', width: 'w-[90px] shrink-0', editable: false, type: 'currency', align: 'right' },
+  { key: 'final_amount', label: 'Final Amt', width: 'w-[85px] shrink-0', editable: false, type: 'currency', align: 'right' },
+  { key: 'variation_amount', label: 'Variation', width: 'w-[80px] shrink-0', editable: false, type: 'currency', align: 'right' },
+  { key: 'actions', label: '', width: 'w-[32px] shrink-0', editable: false, type: 'text', align: 'left' },
 ];
 
 export function SpreadsheetItemsTable({ sectionId, billId, accountId, shopSubsectionId }: SpreadsheetItemsTableProps) {
