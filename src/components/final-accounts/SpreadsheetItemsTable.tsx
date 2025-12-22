@@ -395,12 +395,13 @@ export function SpreadsheetItemsTable({ sectionId, billId, accountId, shopSubsec
       );
     }
     
-    // For header/description rows, show empty for numeric columns
-    const shouldHideValue = (isHeader || isSubheader || isDescription) && 
-      (column.type === 'number' || column.type === 'currency') &&
-      column.key !== 'contract_amount'; // Show contract_amount if it has a value
+    // For header/description rows OR rows without a unit, hide all numeric values
+    const hasNoUnit = !item.unit || item.unit.trim() === '';
+    const isNumericColumn = column.type === 'number' || column.type === 'currency';
+    const shouldHideValue = (isHeader || isSubheader || isDescription || hasNoUnit) && 
+      isNumericColumn && column.key !== 'description' && column.key !== 'item_code' && column.key !== 'unit';
     
-    if (shouldHideValue && (value === 0 || value === null)) {
+    if (shouldHideValue) {
       return <div className="px-1.5 py-1 text-xs">&nbsp;</div>;
     }
     
