@@ -71,16 +71,42 @@ export function FinalAccountItemsTable({ sectionId, billId, accountId, shopSubse
   const recalculateSectionTotals = async () => {
     const { data: allItems } = await supabase
       .from("final_account_items")
-      .select("contract_amount, final_amount, variation_amount")
+      .select("id, contract_amount, final_amount, variation_amount, is_prime_cost, pc_actual_cost, pc_allowance, is_pa_item, pa_parent_item_id, pa_percentage")
       .eq("section_id", sectionId);
 
     if (allItems) {
+      // First pass: build a map of items for P&A parent lookups
+      const itemMap = new Map(allItems.map(item => [item.id, item]));
+      
       const totals = allItems.reduce(
-        (acc, item) => ({
-          contract: acc.contract + Number(item.contract_amount || 0),
-          final: acc.final + Number(item.final_amount || 0),
-          variation: acc.variation + Number(item.variation_amount || 0),
-        }),
+        (acc, item) => {
+          let finalAmt = Number(item.final_amount || 0);
+          let contractAmt = Number(item.contract_amount || 0);
+          
+          // For Prime Cost items, use pc_actual_cost as final amount
+          if (item.is_prime_cost) {
+            finalAmt = Number(item.pc_actual_cost) || 0;
+            contractAmt = Number(item.pc_allowance) || Number(item.contract_amount) || 0;
+          }
+          
+          // For P&A items, calculate based on parent's pc_actual_cost
+          if (item.is_pa_item && item.pa_parent_item_id) {
+            const parentItem = itemMap.get(item.pa_parent_item_id);
+            if (parentItem) {
+              const parentActual = Number(parentItem.pc_actual_cost) || 0;
+              const parentAllowance = Number(parentItem.pc_allowance) || Number(parentItem.contract_amount) || 0;
+              const paPercent = Number(item.pa_percentage) || 0;
+              finalAmt = parentActual * (paPercent / 100);
+              contractAmt = parentAllowance * (paPercent / 100);
+            }
+          }
+          
+          return {
+            contract: acc.contract + contractAmt,
+            final: acc.final + finalAmt,
+            variation: acc.variation + (finalAmt - contractAmt),
+          };
+        },
         { contract: 0, final: 0, variation: 0 }
       );
 
