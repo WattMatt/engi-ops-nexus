@@ -172,8 +172,8 @@ export async function generateSectionPDF(sectionId: string): Promise<Blob> {
       let finalAmt = Number(item.final_amount || 0);
       let variationAmt = Number(item.variation_amount || 0);
 
-      // Check if this is a header/description row (no unit)
-      const hasNoUnit = !item.unit || item.unit.trim() === '' || item.unit === '-';
+      // Check if this is a header/description row (no unit) - but NOT P&A items with % unit
+      const hasNoUnit = !item.unit || item.unit.trim() === '';
 
       // Calculate PC item values
       if (item.is_prime_cost) {
