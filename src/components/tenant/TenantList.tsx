@@ -122,8 +122,8 @@ export const TenantList = ({
       );
     },
     onSuccess: (data) => {
-      // Trigger parent refresh to sync with database
-      onUpdate();
+      // Optimistic update already applied - no need to refresh
+      // The realtime subscription will sync any external changes
     },
     onError: (error: any, variables) => {
       // Rollback on error by reverting optimistic update
