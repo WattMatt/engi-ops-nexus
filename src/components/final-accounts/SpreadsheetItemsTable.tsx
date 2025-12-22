@@ -458,11 +458,23 @@ export function SpreadsheetItemsTable({ sectionId, billId, accountId, shopSubsec
       calculatedVariation = pcActual - pcAllowance;
       displayValue = formatCurrency(calculatedVariation);
     } else if (column.type === 'currency') {
-      // Show empty for null/undefined, show R 0.00 only if explicitly 0
-      displayValue = value === null || value === undefined ? '' : formatCurrency(value as number);
+      // For rows with a unit: show R 0,00 for null (ready for entry)
+      // For rows without a unit: show empty (description row)
+      const hasUnit = item.unit && item.unit.trim() !== '';
+      if (value === null || value === undefined) {
+        displayValue = hasUnit ? formatCurrency(0) : '';
+      } else {
+        displayValue = formatCurrency(value as number);
+      }
     } else if (column.type === 'number') {
-      // Show empty for null/undefined, show 0 only if explicitly 0
-      displayValue = value === null || value === undefined ? '' : value;
+      // For rows with a unit: show 0 for null (ready for entry)
+      // For rows without a unit: show empty (description row)
+      const hasUnit = item.unit && item.unit.trim() !== '';
+      if (value === null || value === undefined) {
+        displayValue = hasUnit ? '0' : '';
+      } else {
+        displayValue = value;
+      }
     } else {
       displayValue = value || '';
     }
