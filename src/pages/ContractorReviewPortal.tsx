@@ -187,7 +187,7 @@ export default function ContractorReviewPortal() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800">
       {/* Top Header Bar */}
       <div className="bg-primary text-primary-foreground py-4 shadow-lg">
-        <div className="container max-w-7xl mx-auto px-4">
+        <div className="w-full px-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <Building2 className="h-8 w-8" />
@@ -208,7 +208,7 @@ export default function ContractorReviewPortal() {
         </div>
       </div>
 
-      <div className="container max-w-7xl mx-auto px-4 py-8 space-y-6">
+      <div className="w-full px-6 py-8 space-y-6">
         {/* Section Info Card */}
         <Card className="shadow-lg border-t-4 border-t-primary">
           <CardContent className="pt-6">
