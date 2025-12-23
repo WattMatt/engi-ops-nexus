@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { CommentsPanel } from "@/components/final-accounts/CommentsPanel";
+import { ReviewerCredentialsForm } from "@/components/final-accounts/ReviewerCredentialsForm";
 import { ReviewWalkthrough, WalkthroughTrigger } from "@/components/final-accounts/ReviewWalkthrough";
 import { CelebrationOverlay } from "@/components/final-accounts/CelebrationOverlay";
 import { Badge } from "@/components/ui/badge";
@@ -142,14 +143,31 @@ export default function ContractorReviewPortal() {
   });
 
   const updateStatusMutation = useMutation({
-    mutationFn: async (newStatus: "approved" | "disputed") => {
+    mutationFn: async ({ 
+      newStatus, 
+      credentials 
+    }: { 
+      newStatus: "approved" | "disputed";
+      credentials: {
+        fullName: string;
+        position: string;
+        company: string;
+        idOrEmployeeNumber: string;
+        confirmed: boolean;
+      };
+    }) => {
       if (!reviewData?.review) throw new Error("No review data");
 
       const { error: reviewError } = await supabase
         .from("final_account_section_reviews")
         .update({ 
           status: newStatus,
-          reviewed_at: new Date().toISOString()
+          reviewed_at: new Date().toISOString(),
+          reviewer_name: credentials.fullName,
+          reviewer_position: credentials.position,
+          reviewer_company: credentials.company,
+          reviewer_id_number: credentials.idOrEmployeeNumber || null,
+          authorization_confirmed: credentials.confirmed,
         })
         .eq("id", reviewData.review.id);
 
@@ -167,13 +185,15 @@ export default function ContractorReviewPortal() {
         body: {
           reviewId: reviewData.review.id,
           status: newStatus,
-          reviewerName,
+          reviewerName: credentials.fullName,
+          reviewerPosition: credentials.position,
+          reviewerCompany: credentials.company,
           sectionName: reviewData.review.section?.section_name,
         },
       });
     },
-    onSuccess: (_, status) => {
-      if (status === "approved") {
+    onSuccess: (_, { newStatus }) => {
+      if (newStatus === "approved") {
         setShowCelebration(true);
       } else {
         toast.success("Dispute raised");
@@ -641,51 +661,15 @@ export default function ContractorReviewPortal() {
           </CardContent>
         </Card>
 
-        {/* Actions */}
+        {/* Reviewer Authorization & Actions */}
         {!isCompleted && (
-          <Card className="shadow-lg border-2">
-            <CardContent className="pt-6 pb-8">
-              <h3 className="text-lg font-semibold text-center mb-6">Review Decision</h3>
-              <div className="flex flex-col sm:flex-row gap-4 justify-center max-w-lg mx-auto">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      size="lg"
-                      className="bg-green-600 hover:bg-green-700 flex-1 h-14 text-lg"
-                      onClick={() => updateStatusMutation.mutate("approved")}
-                      disabled={updateStatusMutation.isPending}
-                    >
-                      <CheckCircle2 className="h-6 w-6 mr-2" />
-                      Approve Section
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Confirm that you agree with all items and values in this section</p>
-                  </TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      size="lg"
-                      variant="destructive"
-                      className="flex-1 h-14 text-lg"
-                      onClick={() => updateStatusMutation.mutate("disputed")}
-                      disabled={updateStatusMutation.isPending}
-                    >
-                      <AlertTriangle className="h-6 w-6 mr-2" />
-                      Raise Dispute
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Flag concerns that require discussion with the project team</p>
-                  </TooltipContent>
-                </Tooltip>
-              </div>
-              <p className="text-center text-sm text-muted-foreground mt-6">
-                Please add any comments above before approving or disputing this section.
-              </p>
-            </CardContent>
-          </Card>
+          <ReviewerCredentialsForm
+            defaultName={review.reviewer_name || ""}
+            defaultEmail={review.reviewer_email || ""}
+            onApprove={(credentials) => updateStatusMutation.mutate({ newStatus: "approved", credentials })}
+            onDispute={(credentials) => updateStatusMutation.mutate({ newStatus: "disputed", credentials })}
+            isPending={updateStatusMutation.isPending}
+          />
         )}
 
         {isCompleted && (
