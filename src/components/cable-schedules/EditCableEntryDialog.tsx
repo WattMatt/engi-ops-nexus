@@ -184,8 +184,9 @@ export const EditCableEntryDialog = ({
 
       if (error) throw error;
 
-      // Invalidate all cable-entries queries to ensure fresh data
+      // Invalidate all cable-related queries to ensure fresh data
       await queryClient.invalidateQueries({ queryKey: ["cable-entries"] });
+      await queryClient.invalidateQueries({ queryKey: ["cable-tags"] });
 
       toast({
         title: "Success",

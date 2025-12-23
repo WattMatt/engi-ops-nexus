@@ -148,8 +148,9 @@ export const ImportFloorPlanCablesDialog = ({
 
     if (updateError) throw updateError;
 
-    // Invalidate queries to force refetch
-    await queryClient.invalidateQueries({ queryKey: ["cable-entries", scheduleId] });
+    // Invalidate all cable-related queries to force refetch
+    await queryClient.invalidateQueries({ queryKey: ["cable-entries"] });
+    await queryClient.invalidateQueries({ queryKey: ["cable-tags"] });
 
     toast({
       title: "Success",
