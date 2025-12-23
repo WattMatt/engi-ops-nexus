@@ -31,36 +31,35 @@ interface VirtualizedCableTableProps {
   onSplit: (entry: CableEntry) => void;
 }
 
-interface ColumnWidths {
-  status: string;
-  cableNum: string;
-  cableTag: string;
-  from: string;
-  to: string;
-  qty: string;
-  voltage: string;
-  loadAmps: string;
-  cableType: string;
-  installMethod: string;
-  cableSize: string;
-  length: string;
-  actions: string;
-}
+// Column styles for full-width distribution
+const colStyles = {
+  status: 'w-[4%] min-w-[50px] text-center',
+  cableNum: 'w-[5%] min-w-[50px]',
+  cableTag: 'w-[14%] min-w-[120px]',
+  from: 'w-[12%] min-w-[100px]',
+  to: 'w-[12%] min-w-[100px]',
+  qty: 'w-[4%] min-w-[40px] text-center',
+  voltage: 'w-[6%] min-w-[60px]',
+  loadAmps: 'w-[6%] min-w-[60px]',
+  cableType: 'w-[8%] min-w-[80px]',
+  installMethod: 'w-[7%] min-w-[70px]',
+  cableSize: 'w-[6%] min-w-[60px]',
+  length: 'w-[7%] min-w-[70px]',
+  actions: 'w-[9%] min-w-[90px] text-right',
+};
 
 // Memoized row component for performance
-const CableRowWithWidths = memo(({ 
+const CableRow = memo(({ 
   entry, 
   onEdit, 
   onDelete, 
   onSplit,
-  columnWidths,
   style 
 }: { 
   entry: CableEntry; 
   onEdit: (entry: CableEntry) => void;
   onDelete: (entry: CableEntry) => void;
   onSplit: (entry: CableEntry) => void;
-  columnWidths: ColumnWidths;
   style: React.CSSProperties;
 }) => {
   const hasCompleteData = entry.voltage && entry.load_amps && entry.cable_size;
@@ -79,28 +78,28 @@ const CableRowWithWidths = memo(({
 
   return (
     <div 
-      className="flex items-center border-b hover:bg-muted/50 transition-colors text-sm min-w-max"
+      className="flex items-center border-b hover:bg-muted/50 transition-colors text-sm"
       style={style}
     >
-      <div className={`${columnWidths.status} px-2 py-3 flex justify-center`}>
+      <div className={`${colStyles.status} px-2 py-3 flex justify-center`}>
         {hasCompleteData ? (
           <span className="inline-flex h-2 w-2 rounded-full bg-green-500" title="Complete" />
         ) : (
           <span className="inline-flex h-2 w-2 rounded-full bg-yellow-500" title="Incomplete" />
         )}
       </div>
-      <div className={`${columnWidths.cableNum} px-2 py-3 font-medium`}>{displayCableNumber}</div>
-      <div className={`${columnWidths.cableTag} px-2 py-3 font-medium truncate`} title={displayCableTag}>{displayCableTag}</div>
-      <div className={`${columnWidths.from} px-2 py-3 truncate`} title={entry.from_location}>{entry.from_location}</div>
-      <div className={`${columnWidths.to} px-2 py-3 truncate`} title={entry.to_location}>{entry.to_location}</div>
-      <div className={`${columnWidths.qty} px-2 py-3 text-center`}>{entry.quantity || 1}</div>
-      <div className={`${columnWidths.voltage} px-2 py-3`}>{entry.voltage || '-'}</div>
-      <div className={`${columnWidths.loadAmps} px-2 py-3`}>{entry.load_amps || '-'}</div>
-      <div className={`${columnWidths.cableType} px-2 py-3 truncate`}>{entry.cable_type || '-'}</div>
-      <div className={`${columnWidths.installMethod} px-2 py-3 capitalize truncate`}>{entry.installation_method || 'air'}</div>
-      <div className={`${columnWidths.cableSize} px-2 py-3`}>{entry.cable_size || '-'}</div>
-      <div className={`${columnWidths.length} px-2 py-3`}>{totalLength.toFixed(2)}</div>
-      <div className={`${columnWidths.actions} px-2 py-3 flex justify-end gap-1`}>
+      <div className={`${colStyles.cableNum} px-2 py-3 font-medium`}>{displayCableNumber}</div>
+      <div className={`${colStyles.cableTag} px-2 py-3 font-medium truncate`} title={displayCableTag}>{displayCableTag}</div>
+      <div className={`${colStyles.from} px-2 py-3 truncate`} title={entry.from_location}>{entry.from_location}</div>
+      <div className={`${colStyles.to} px-2 py-3 truncate`} title={entry.to_location}>{entry.to_location}</div>
+      <div className={`${colStyles.qty} px-2 py-3`}>{entry.quantity || 1}</div>
+      <div className={`${colStyles.voltage} px-2 py-3`}>{entry.voltage || '-'}</div>
+      <div className={`${colStyles.loadAmps} px-2 py-3`}>{entry.load_amps || '-'}</div>
+      <div className={`${colStyles.cableType} px-2 py-3 truncate`}>{entry.cable_type || '-'}</div>
+      <div className={`${colStyles.installMethod} px-2 py-3 capitalize truncate`}>{entry.installation_method || 'air'}</div>
+      <div className={`${colStyles.cableSize} px-2 py-3`}>{entry.cable_size || '-'}</div>
+      <div className={`${colStyles.length} px-2 py-3`}>{totalLength.toFixed(2)}</div>
+      <div className={`${colStyles.actions} px-2 py-3 flex justify-end gap-1`}>
         <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onSplit(entry)} title="Split into parallel cables">
           <Split className="h-3.5 w-3.5" />
         </Button>
@@ -115,7 +114,7 @@ const CableRowWithWidths = memo(({
   );
 });
 
-CableRowWithWidths.displayName = 'CableRowWithWidths';
+CableRow.displayName = 'CableRow';
 
 /**
  * Virtualized cable entries table using @tanstack/react-virtual.
@@ -132,8 +131,8 @@ export function VirtualizedCableTable({
   const virtualizer = useVirtualizer({
     count: entries.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 56, // Row height in pixels
-    overscan: 10, // Render extra rows for smooth scrolling
+    estimateSize: () => 48,
+    overscan: 10,
   });
 
   const handleEdit = useCallback((entry: CableEntry) => onEdit(entry), [onEdit]);
@@ -148,39 +147,23 @@ export function VirtualizedCableTable({
     );
   }
 
-  const columnWidths = {
-    status: 'w-14 min-w-[56px]',
-    cableNum: 'w-16 min-w-[64px]',
-    cableTag: 'w-48 min-w-[192px]',
-    from: 'w-32 min-w-[128px]',
-    to: 'w-32 min-w-[128px]',
-    qty: 'w-12 min-w-[48px]',
-    voltage: 'w-20 min-w-[80px]',
-    loadAmps: 'w-20 min-w-[80px]',
-    cableType: 'w-24 min-w-[96px]',
-    installMethod: 'w-24 min-w-[96px]',
-    cableSize: 'w-24 min-w-[96px]',
-    length: 'w-24 min-w-[96px]',
-    actions: 'w-28 min-w-[112px]',
-  };
-
   return (
-    <div className="rounded-md border overflow-x-auto">
+    <div className="rounded-md border w-full">
       {/* Fixed header */}
-      <div className="flex items-center bg-muted/50 border-b sticky top-0 z-20 text-xs font-medium text-muted-foreground min-w-max">
-        <div className={`${columnWidths.status} px-2 py-2 text-center`}>Status</div>
-        <div className={`${columnWidths.cableNum} px-2 py-2`}>Cable #</div>
-        <div className={`${columnWidths.cableTag} px-2 py-2`}>Cable Tag</div>
-        <div className={`${columnWidths.from} px-2 py-2`}>From</div>
-        <div className={`${columnWidths.to} px-2 py-2`}>To</div>
-        <div className={`${columnWidths.qty} px-2 py-2 text-center`}>Qty</div>
-        <div className={`${columnWidths.voltage} px-2 py-2`}>Voltage</div>
-        <div className={`${columnWidths.loadAmps} px-2 py-2`}>Load (A)</div>
-        <div className={`${columnWidths.cableType} px-2 py-2`}>Cable Type</div>
-        <div className={`${columnWidths.installMethod} px-2 py-2`}>Install</div>
-        <div className={`${columnWidths.cableSize} px-2 py-2`}>Size</div>
-        <div className={`${columnWidths.length} px-2 py-2`}>Length (m)</div>
-        <div className={`${columnWidths.actions} px-2 py-2 text-right`}>Actions</div>
+      <div className="flex items-center bg-muted/50 border-b sticky top-0 z-20 text-xs font-medium text-muted-foreground">
+        <div className={`${colStyles.status} px-2 py-2`}>Status</div>
+        <div className={`${colStyles.cableNum} px-2 py-2`}>Cable #</div>
+        <div className={`${colStyles.cableTag} px-2 py-2`}>Cable Tag</div>
+        <div className={`${colStyles.from} px-2 py-2`}>From</div>
+        <div className={`${colStyles.to} px-2 py-2`}>To</div>
+        <div className={`${colStyles.qty} px-2 py-2`}>Qty</div>
+        <div className={`${colStyles.voltage} px-2 py-2`}>Voltage</div>
+        <div className={`${colStyles.loadAmps} px-2 py-2`}>Load (A)</div>
+        <div className={`${colStyles.cableType} px-2 py-2`}>Cable Type</div>
+        <div className={`${colStyles.installMethod} px-2 py-2`}>Install</div>
+        <div className={`${colStyles.cableSize} px-2 py-2`}>Size</div>
+        <div className={`${colStyles.length} px-2 py-2`}>Length (m)</div>
+        <div className={`${colStyles.actions} px-2 py-2`}>Actions</div>
       </div>
       
       {/* Virtualized rows */}
@@ -199,13 +182,12 @@ export function VirtualizedCableTable({
           {virtualizer.getVirtualItems().map((virtualRow) => {
             const entry = entries[virtualRow.index];
             return (
-              <CableRowWithWidths
+              <CableRow
                 key={entry.id}
                 entry={entry}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
                 onSplit={handleSplit}
-                columnWidths={columnWidths}
                 style={{
                   position: 'absolute',
                   top: 0,
