@@ -45,7 +45,7 @@ export function ItemCommentsPanel({
   const queryClient = useQueryClient();
   const [newComment, setNewComment] = useState("");
 
-  const { data: comments, isLoading } = useQuery({
+  const { data: comments, isLoading, refetch } = useQuery({
     queryKey: ["item-comments", itemId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -110,7 +110,7 @@ export function ItemCommentsPanel({
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["item-comments", itemId] });
+      refetch();
       queryClient.invalidateQueries({ queryKey: ["all-item-comments"] });
       toast.success("Comment deleted");
     },
