@@ -498,7 +498,31 @@ export default function ContractorReviewPortal() {
                   ) : (
                     allItems.map((item) => {
                       const isHeader = !item.unit || item.unit.trim() === "";
-                      const itemVariation = (item.final_amount || 0) - (item.contract_amount || 0);
+                      
+                      // Handle Prime Cost items
+                      const isPrimeCost = item.is_prime_cost === true;
+                      const isPAItem = item.is_pa_item === true;
+                      
+                      // Calculate proper final amount and variation for PC/P&A items
+                      let displayFinalAmount = item.final_amount || 0;
+                      let displayContractAmount = item.contract_amount || 0;
+                      
+                      if (isPrimeCost) {
+                        displayFinalAmount = item.pc_actual_cost || 0;
+                        displayContractAmount = item.pc_allowance || item.contract_amount || 0;
+                      } else if (isPAItem && item.pa_parent_item_id) {
+                        // Find parent item to calculate P&A
+                        const parentItem = allItems.find(i => i.id === item.pa_parent_item_id);
+                        if (parentItem) {
+                          const parentActual = parentItem.pc_actual_cost || 0;
+                          const parentAllowance = parentItem.pc_allowance || parentItem.contract_amount || 0;
+                          const paPercent = item.pa_percentage || 0;
+                          displayFinalAmount = parentActual * (paPercent / 100);
+                          displayContractAmount = parentAllowance * (paPercent / 100);
+                        }
+                      }
+                      
+                      const itemVariation = displayFinalAmount - displayContractAmount;
                       
                       if (isHeader) {
                         return (
@@ -547,8 +571,8 @@ export default function ContractorReviewPortal() {
                             <TableCell className="text-right font-mono">{formatNumber(item.final_quantity)}</TableCell>
                             <TableCell className="text-right font-mono">{formatCurrency(item.supply_rate)}</TableCell>
                             <TableCell className="text-right font-mono">{formatCurrency(item.install_rate)}</TableCell>
-                            <TableCell className="text-right font-mono">{formatCurrency(item.contract_amount)}</TableCell>
-                            <TableCell className="text-right font-mono">{formatCurrency(item.final_amount)}</TableCell>
+                            <TableCell className="text-right font-mono">{formatCurrency(displayContractAmount)}</TableCell>
+                            <TableCell className="text-right font-mono">{formatCurrency(displayFinalAmount)}</TableCell>
                             <TableCell className={`text-right font-mono ${
                               itemVariation > 0 ? 'text-green-600' : 
                               itemVariation < 0 ? 'text-destructive' : ''
