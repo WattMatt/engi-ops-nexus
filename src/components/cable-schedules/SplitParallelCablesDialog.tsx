@@ -104,6 +104,7 @@ export function SplitParallelCablesDialog({
       }
 
       await queryClient.invalidateQueries({ queryKey: ["cable-entries"] });
+      await queryClient.invalidateQueries({ queryKey: ["cable-tags"] });
 
       toast({
         title: "Success",
