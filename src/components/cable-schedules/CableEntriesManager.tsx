@@ -327,8 +327,8 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
         open={showAddDialog}
         onOpenChange={setShowAddDialog}
         scheduleId={scheduleId}
-        onSuccess={() => {
-          refetch();
+        onSuccess={async () => {
+          await refetch();
           setShowAddDialog(false);
         }}
       />

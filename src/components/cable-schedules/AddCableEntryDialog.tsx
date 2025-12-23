@@ -28,7 +28,7 @@ interface AddCableEntryDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   scheduleId: string;
-  onSuccess: () => void;
+  onSuccess: () => void | Promise<void>;
 }
 
 interface Tenant {
@@ -217,14 +217,16 @@ export const AddCableEntryDialog = ({
       if (error) throw error;
 
       // Invalidate all cable-related queries to ensure fresh data
-      await queryClient.invalidateQueries({ queryKey: ["cable-entries"] });
-      await queryClient.invalidateQueries({ queryKey: ["cable-tags"] });
+      queryClient.invalidateQueries({ queryKey: ["cable-entries"] });
+      queryClient.invalidateQueries({ queryKey: ["cable-tags"] });
 
       toast({
         title: "Success",
         description: "Cable entry added successfully",
       });
-      onSuccess();
+      
+      // Call onSuccess and wait for refetch, then close dialog
+      await onSuccess();
       onOpenChange(false);
       
       // Reset form
