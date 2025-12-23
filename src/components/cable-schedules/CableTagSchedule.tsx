@@ -36,7 +36,7 @@ export const CableTagSchedule = ({ scheduleId }: CableTagScheduleProps) => {
       // Get cable entries linked to this schedule OR to floor plans in this project
       let query = supabase
         .from("cable_entries")
-        .select("id, cable_tag, base_cable_tag, cable_number, parallel_group_id, parallel_total_count");
+        .select("id, cable_tag, base_cable_tag, cable_number, parallel_group_id, parallel_total_count, cable_size, cable_type");
 
       if (floorPlanIds.length > 0) {
         query = query.or(`schedule_id.eq.${scheduleId},floor_plan_id.in.(${floorPlanIds.join(',')})`);
@@ -91,6 +91,8 @@ export const CableTagSchedule = ({ scheduleId }: CableTagScheduleProps) => {
                 <TableRow>
                   <TableHead className="w-32 text-center">Cable Number</TableHead>
                   <TableHead>Cable Tag</TableHead>
+                  <TableHead className="w-40">Cable Size</TableHead>
+                  <TableHead className="w-32">Type</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -115,6 +117,12 @@ export const CableTagSchedule = ({ scheduleId }: CableTagScheduleProps) => {
                       </TableCell>
                       <TableCell className="font-medium text-lg">
                         {displayTag}
+                      </TableCell>
+                      <TableCell className="font-medium">
+                        {entry.cable_size || '-'}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {entry.cable_type || '-'}
                       </TableCell>
                     </TableRow>
                   );
