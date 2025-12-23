@@ -31,18 +31,36 @@ interface VirtualizedCableTableProps {
   onSplit: (entry: CableEntry) => void;
 }
 
+interface ColumnWidths {
+  status: string;
+  cableNum: string;
+  cableTag: string;
+  from: string;
+  to: string;
+  qty: string;
+  voltage: string;
+  loadAmps: string;
+  cableType: string;
+  installMethod: string;
+  cableSize: string;
+  length: string;
+  actions: string;
+}
+
 // Memoized row component for performance
-const CableRow = memo(({ 
+const CableRowWithWidths = memo(({ 
   entry, 
   onEdit, 
   onDelete, 
   onSplit,
+  columnWidths,
   style 
 }: { 
   entry: CableEntry; 
   onEdit: (entry: CableEntry) => void;
   onDelete: (entry: CableEntry) => void;
   onSplit: (entry: CableEntry) => void;
+  columnWidths: ColumnWidths;
   style: React.CSSProperties;
 }) => {
   const hasCompleteData = entry.voltage && entry.load_amps && entry.cable_size;
@@ -61,43 +79,43 @@ const CableRow = memo(({
 
   return (
     <div 
-      className="flex items-center border-b hover:bg-muted/50 transition-colors"
+      className="flex items-center border-b hover:bg-muted/50 transition-colors text-sm min-w-max"
       style={style}
     >
-      <div className="w-16 px-4 py-4 flex justify-center">
+      <div className={`${columnWidths.status} px-2 py-3 flex justify-center`}>
         {hasCompleteData ? (
           <span className="inline-flex h-2 w-2 rounded-full bg-green-500" title="Complete" />
         ) : (
           <span className="inline-flex h-2 w-2 rounded-full bg-yellow-500" title="Incomplete" />
         )}
       </div>
-      <div className="w-20 px-4 py-4 font-medium">{displayCableNumber}</div>
-      <div className="w-44 px-4 py-4 font-medium truncate" title={displayCableTag}>{displayCableTag}</div>
-      <div className="w-40 px-4 py-4 truncate" title={entry.from_location}>{entry.from_location}</div>
-      <div className="w-40 px-4 py-4 truncate" title={entry.to_location}>{entry.to_location}</div>
-      <div className="w-16 px-4 py-4 text-center font-medium">{entry.quantity || 1}</div>
-      <div className="w-24 px-4 py-4">{entry.voltage || '-'}</div>
-      <div className="w-24 px-4 py-4">{entry.load_amps || '-'}</div>
-      <div className="w-28 px-4 py-4">{entry.cable_type || '-'}</div>
-      <div className="w-32 px-4 py-4 capitalize">{entry.installation_method || 'air'}</div>
-      <div className="w-28 px-4 py-4">{entry.cable_size || '-'}</div>
-      <div className="w-28 px-4 py-4">{totalLength.toFixed(2)}</div>
-      <div className="w-32 px-4 py-4 flex justify-end gap-1">
-        <Button variant="ghost" size="sm" onClick={() => onSplit(entry)} title="Split into parallel cables">
-          <Split className="h-4 w-4" />
+      <div className={`${columnWidths.cableNum} px-2 py-3 font-medium`}>{displayCableNumber}</div>
+      <div className={`${columnWidths.cableTag} px-2 py-3 font-medium truncate`} title={displayCableTag}>{displayCableTag}</div>
+      <div className={`${columnWidths.from} px-2 py-3 truncate`} title={entry.from_location}>{entry.from_location}</div>
+      <div className={`${columnWidths.to} px-2 py-3 truncate`} title={entry.to_location}>{entry.to_location}</div>
+      <div className={`${columnWidths.qty} px-2 py-3 text-center`}>{entry.quantity || 1}</div>
+      <div className={`${columnWidths.voltage} px-2 py-3`}>{entry.voltage || '-'}</div>
+      <div className={`${columnWidths.loadAmps} px-2 py-3`}>{entry.load_amps || '-'}</div>
+      <div className={`${columnWidths.cableType} px-2 py-3 truncate`}>{entry.cable_type || '-'}</div>
+      <div className={`${columnWidths.installMethod} px-2 py-3 capitalize truncate`}>{entry.installation_method || 'air'}</div>
+      <div className={`${columnWidths.cableSize} px-2 py-3`}>{entry.cable_size || '-'}</div>
+      <div className={`${columnWidths.length} px-2 py-3`}>{totalLength.toFixed(2)}</div>
+      <div className={`${columnWidths.actions} px-2 py-3 flex justify-end gap-1`}>
+        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onSplit(entry)} title="Split into parallel cables">
+          <Split className="h-3.5 w-3.5" />
         </Button>
-        <Button variant="ghost" size="sm" onClick={() => onEdit(entry)}>
-          <Pencil className="h-4 w-4" />
+        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onEdit(entry)}>
+          <Pencil className="h-3.5 w-3.5" />
         </Button>
-        <Button variant="ghost" size="sm" onClick={() => onDelete(entry)}>
-          <Trash2 className="h-4 w-4" />
+        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => onDelete(entry)}>
+          <Trash2 className="h-3.5 w-3.5" />
         </Button>
       </div>
     </div>
   );
 });
 
-CableRow.displayName = 'CableRow';
+CableRowWithWidths.displayName = 'CableRowWithWidths';
 
 /**
  * Virtualized cable entries table using @tanstack/react-virtual.
@@ -130,23 +148,39 @@ export function VirtualizedCableTable({
     );
   }
 
+  const columnWidths = {
+    status: 'w-14 min-w-[56px]',
+    cableNum: 'w-16 min-w-[64px]',
+    cableTag: 'w-48 min-w-[192px]',
+    from: 'w-32 min-w-[128px]',
+    to: 'w-32 min-w-[128px]',
+    qty: 'w-12 min-w-[48px]',
+    voltage: 'w-20 min-w-[80px]',
+    loadAmps: 'w-20 min-w-[80px]',
+    cableType: 'w-24 min-w-[96px]',
+    installMethod: 'w-24 min-w-[96px]',
+    cableSize: 'w-24 min-w-[96px]',
+    length: 'w-24 min-w-[96px]',
+    actions: 'w-28 min-w-[112px]',
+  };
+
   return (
-    <div className="rounded-md border">
+    <div className="rounded-md border overflow-x-auto">
       {/* Fixed header */}
-      <div className="flex items-center bg-background border-b sticky top-0 z-20 text-sm font-medium text-muted-foreground">
-        <div className="w-16 px-4 py-3 text-center">Status</div>
-        <div className="w-20 px-4 py-3">Cable #</div>
-        <div className="w-44 px-4 py-3">Cable Tag</div>
-        <div className="w-40 px-4 py-3">From</div>
-        <div className="w-40 px-4 py-3">To</div>
-        <div className="w-16 px-4 py-3 text-center">Qty</div>
-        <div className="w-24 px-4 py-3">Voltage</div>
-        <div className="w-24 px-4 py-3">Load (A)</div>
-        <div className="w-28 px-4 py-3">Cable Type</div>
-        <div className="w-32 px-4 py-3">Install Method</div>
-        <div className="w-28 px-4 py-3">Cable Size</div>
-        <div className="w-28 px-4 py-3">Length (m)</div>
-        <div className="w-32 px-4 py-3 text-right">Actions</div>
+      <div className="flex items-center bg-muted/50 border-b sticky top-0 z-20 text-xs font-medium text-muted-foreground min-w-max">
+        <div className={`${columnWidths.status} px-2 py-2 text-center`}>Status</div>
+        <div className={`${columnWidths.cableNum} px-2 py-2`}>Cable #</div>
+        <div className={`${columnWidths.cableTag} px-2 py-2`}>Cable Tag</div>
+        <div className={`${columnWidths.from} px-2 py-2`}>From</div>
+        <div className={`${columnWidths.to} px-2 py-2`}>To</div>
+        <div className={`${columnWidths.qty} px-2 py-2 text-center`}>Qty</div>
+        <div className={`${columnWidths.voltage} px-2 py-2`}>Voltage</div>
+        <div className={`${columnWidths.loadAmps} px-2 py-2`}>Load (A)</div>
+        <div className={`${columnWidths.cableType} px-2 py-2`}>Cable Type</div>
+        <div className={`${columnWidths.installMethod} px-2 py-2`}>Install</div>
+        <div className={`${columnWidths.cableSize} px-2 py-2`}>Size</div>
+        <div className={`${columnWidths.length} px-2 py-2`}>Length (m)</div>
+        <div className={`${columnWidths.actions} px-2 py-2 text-right`}>Actions</div>
       </div>
       
       {/* Virtualized rows */}
@@ -165,12 +199,13 @@ export function VirtualizedCableTable({
           {virtualizer.getVirtualItems().map((virtualRow) => {
             const entry = entries[virtualRow.index];
             return (
-              <CableRow
+              <CableRowWithWidths
                 key={entry.id}
                 entry={entry}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
                 onSplit={handleSplit}
+                columnWidths={columnWidths}
                 style={{
                   position: 'absolute',
                   top: 0,
