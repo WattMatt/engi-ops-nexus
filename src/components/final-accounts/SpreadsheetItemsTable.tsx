@@ -487,20 +487,16 @@ export function SpreadsheetItemsTable({ sectionId, billId, accountId, shopSubsec
       calculatedVariation = pcActual - pcAllowance;
       displayValue = formatCurrency(calculatedVariation);
     } else if (column.type === 'currency') {
-      // For rows with a unit: show R 0,00 for null (ready for entry)
-      // For rows without a unit: show empty (description row)
-      const hasUnit = item.unit && item.unit.trim() !== '';
-      if (value === null || value === undefined) {
-        displayValue = hasUnit ? formatCurrency(0) : '';
+      // Show empty for null/undefined or zero values - only show actual amounts
+      if (value === null || value === undefined || value === 0) {
+        displayValue = '';
       } else {
         displayValue = formatCurrency(value as number);
       }
     } else if (column.type === 'number') {
-      // For rows with a unit: show 0 for null (ready for entry)
-      // For rows without a unit: show empty (description row)
-      const hasUnit = item.unit && item.unit.trim() !== '';
+      // Show empty for null/undefined values - user must explicitly enter values
       if (value === null || value === undefined) {
-        displayValue = hasUnit ? '0' : '';
+        displayValue = '';
       } else {
         displayValue = value;
       }
