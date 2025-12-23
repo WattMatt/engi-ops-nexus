@@ -260,10 +260,14 @@ export const AddCableEntryDialog = ({
   const handleTenantSelect = (tenantId: string) => {
     const tenant = tenants.find((t) => t.id === tenantId);
     if (tenant) {
+      // Generate cable tag following the pattern: {from_location}-{shop_number}
+      const fromLocation = formData.from_location || "Main Board";
+      const cableTag = `${fromLocation}-${tenant.shop_number}`;
+      
       setFormData({
         ...formData,
         to_location: `${tenant.shop_number} - ${tenant.shop_name}`,
-        cable_tag: tenant.shop_number,
+        cable_tag: cableTag,
       });
     }
   };
