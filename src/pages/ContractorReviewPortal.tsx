@@ -475,17 +475,17 @@ export default function ContractorReviewPortal() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50">
-                    <TableHead className="w-[50px] font-semibold"></TableHead>
-                    <TableHead className="w-[80px] font-semibold">Item</TableHead>
-                    <TableHead className="min-w-[300px] font-semibold">Description</TableHead>
-                    <TableHead className="w-[80px] font-semibold">Unit</TableHead>
-                    <TableHead className="w-[100px] text-right font-semibold">Contract Qty</TableHead>
-                    <TableHead className="w-[100px] text-right font-semibold">Final Qty</TableHead>
-                    <TableHead className="w-[120px] text-right font-semibold">Supply Rate</TableHead>
-                    <TableHead className="w-[120px] text-right font-semibold">Install Rate</TableHead>
-                    <TableHead className="w-[130px] text-right font-semibold">Contract Amount</TableHead>
-                    <TableHead className="w-[130px] text-right font-semibold">Final Amount</TableHead>
-                    <TableHead className="w-[130px] text-right font-semibold">Variation</TableHead>
+                    <TableHead className="w-10 font-semibold"></TableHead>
+                    <TableHead className="w-16 font-semibold">Item</TableHead>
+                    <TableHead className="font-semibold">Description</TableHead>
+                    <TableHead className="w-12 font-semibold">Unit</TableHead>
+                    <TableHead className="w-16 text-right font-semibold whitespace-nowrap">Cont Qty</TableHead>
+                    <TableHead className="w-16 text-right font-semibold whitespace-nowrap">Final Qty</TableHead>
+                    <TableHead className="w-24 text-right font-semibold whitespace-nowrap">Supply</TableHead>
+                    <TableHead className="w-24 text-right font-semibold whitespace-nowrap">Install</TableHead>
+                    <TableHead className="w-28 text-right font-semibold whitespace-nowrap">Contract Amt</TableHead>
+                    <TableHead className="w-28 text-right font-semibold whitespace-nowrap">Final Amt</TableHead>
+                    <TableHead className="w-28 text-right font-semibold whitespace-nowrap">Variation</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -562,18 +562,18 @@ export default function ContractorReviewPortal() {
                                 </TooltipContent>
                               </Tooltip>
                             </TableCell>
-                            <TableCell className="font-medium">{item.item_code || ''}</TableCell>
-                            <TableCell className="max-w-[400px]">
-                              <span className="line-clamp-2">{item.description}</span>
+                            <TableCell className="font-medium text-xs">{item.item_code || ''}</TableCell>
+                            <TableCell>
+                              <span className="text-sm line-clamp-2">{item.description}</span>
                             </TableCell>
-                            <TableCell className="text-muted-foreground">{item.unit}</TableCell>
-                            <TableCell className="text-right font-mono">{formatNumber(item.contract_quantity)}</TableCell>
-                            <TableCell className="text-right font-mono">{formatNumber(item.final_quantity)}</TableCell>
-                            <TableCell className="text-right font-mono">{formatCurrency(item.supply_rate)}</TableCell>
-                            <TableCell className="text-right font-mono">{formatCurrency(item.install_rate)}</TableCell>
-                            <TableCell className="text-right font-mono">{formatCurrency(displayContractAmount)}</TableCell>
-                            <TableCell className="text-right font-mono">{formatCurrency(displayFinalAmount)}</TableCell>
-                            <TableCell className={`text-right font-mono ${
+                            <TableCell className="text-muted-foreground text-xs">{item.unit}</TableCell>
+                            <TableCell className="text-right font-mono text-xs whitespace-nowrap">{formatNumber(item.contract_quantity)}</TableCell>
+                            <TableCell className="text-right font-mono text-xs whitespace-nowrap">{formatNumber(item.final_quantity)}</TableCell>
+                            <TableCell className="text-right font-mono text-xs whitespace-nowrap">{formatCurrency(item.supply_rate)}</TableCell>
+                            <TableCell className="text-right font-mono text-xs whitespace-nowrap">{formatCurrency(item.install_rate)}</TableCell>
+                            <TableCell className="text-right font-mono text-xs whitespace-nowrap">{formatCurrency(displayContractAmount)}</TableCell>
+                            <TableCell className="text-right font-mono text-xs whitespace-nowrap">{formatCurrency(displayFinalAmount)}</TableCell>
+                            <TableCell className={`text-right font-mono text-xs whitespace-nowrap ${
                               itemVariation > 0 ? 'text-green-600' : 
                               itemVariation < 0 ? 'text-destructive' : ''
                             }`}>
@@ -609,10 +609,10 @@ export default function ContractorReviewPortal() {
                 {/* Footer Totals */}
                 <tfoot className="bg-muted/50 border-t-2">
                   <TableRow className="font-bold">
-                    <TableCell colSpan={8} className="text-right py-4">Section Totals:</TableCell>
-                    <TableCell className="text-right font-mono py-4">{formatCurrency(totalContractValue)}</TableCell>
-                    <TableCell className="text-right font-mono py-4">{formatCurrency(totalFinalValue)}</TableCell>
-                    <TableCell className={`text-right font-mono py-4 ${
+                    <TableCell colSpan={8} className="text-right py-4 text-sm">Section Totals:</TableCell>
+                    <TableCell className="text-right font-mono py-4 text-xs whitespace-nowrap">{formatCurrency(totalContractValue)}</TableCell>
+                    <TableCell className="text-right font-mono py-4 text-xs whitespace-nowrap">{formatCurrency(totalFinalValue)}</TableCell>
+                    <TableCell className={`text-right font-mono py-4 text-xs whitespace-nowrap ${
                       variance > 0 ? 'text-green-600' : variance < 0 ? 'text-destructive' : ''
                     }`}>
                       {variance !== 0 && (variance > 0 ? '+' : '')}{formatCurrency(variance)}
