@@ -5,8 +5,19 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
-import { Send, User, Building2 } from "lucide-react";
+import { Send, User, Building2, Trash2 } from "lucide-react";
 import { format } from "date-fns";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface ItemCommentsPanelProps {
   sectionId: string;
@@ -90,9 +101,38 @@ export function ItemCommentsPanel({
     },
   });
 
+  const deleteCommentMutation = useMutation({
+    mutationFn: async (commentId: string) => {
+      const { error } = await supabase
+        .from("final_account_section_comments")
+        .delete()
+        .eq("id", commentId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["item-comments", itemId] });
+      queryClient.invalidateQueries({ queryKey: ["all-item-comments"] });
+      toast.success("Comment deleted");
+    },
+    onError: (error) => {
+      toast.error("Failed to delete comment: " + error.message);
+    },
+  });
+
   const handleSubmit = () => {
     if (!newComment.trim()) return;
     addCommentMutation.mutate(newComment.trim());
+  };
+
+  // Check if user can delete a comment (contractors can delete contractor comments, internal can delete internal)
+  const canDeleteComment = (comment: Comment) => {
+    if (isContractor && comment.author_type === "contractor" && comment.author_name === contractorName) {
+      return true;
+    }
+    if (!isContractor && comment.author_type === "internal") {
+      return true;
+    }
+    return false;
   };
 
   if (isLoading) {
@@ -117,16 +157,48 @@ export function ItemCommentsPanel({
                     : "bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800"
                 }`}
               >
-                <div className="flex items-center gap-1.5 mb-1">
-                  {comment.author_type === "contractor" ? (
-                    <Building2 className="h-3 w-3 text-orange-600" />
-                  ) : (
-                    <User className="h-3 w-3 text-blue-600" />
+                <div className="flex items-center justify-between gap-1.5 mb-1">
+                  <div className="flex items-center gap-1.5">
+                    {comment.author_type === "contractor" ? (
+                      <Building2 className="h-3 w-3 text-orange-600" />
+                    ) : (
+                      <User className="h-3 w-3 text-blue-600" />
+                    )}
+                    <span className="font-medium text-xs">{comment.author_name}</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {format(new Date(comment.created_at), "MMM d, h:mm a")}
+                    </span>
+                  </div>
+                  {canDeleteComment(comment) && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5 text-muted-foreground hover:text-destructive"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Comment</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to delete this comment? This action cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => deleteCommentMutation.mutate(comment.id)}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Delete
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   )}
-                  <span className="font-medium text-xs">{comment.author_name}</span>
-                  <span className="text-[10px] text-muted-foreground">
-                    {format(new Date(comment.created_at), "MMM d, h:mm a")}
-                  </span>
                 </div>
                 <p className="text-xs whitespace-pre-wrap">{comment.comment_text}</p>
               </div>
