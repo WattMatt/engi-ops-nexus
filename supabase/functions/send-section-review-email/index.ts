@@ -1,23 +1,5 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
-
-const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
-
-async function sendEmail(to: string, subject: string, html: string) {
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${RESEND_API_KEY}`,
-    },
-    body: JSON.stringify({
-      from: "Final Accounts <onboarding@resend.dev>",
-      to: [to],
-      subject,
-      html,
-    }),
-  });
-  return res.json();
-}
+import { SMTPClient } from "https://deno.land/x/denomailer@1.6.0/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -31,6 +13,48 @@ interface ReviewEmailRequest {
   message?: string;
   reviewUrl: string;
   pdfUrl?: string;
+}
+
+async function sendEmailViaGmail(to: string, subject: string, html: string) {
+  const gmailUser = Deno.env.get("GMAIL_USER");
+  const gmailAppPassword = Deno.env.get("GMAIL_APP_PASSWORD");
+
+  if (!gmailUser || !gmailAppPassword) {
+    throw new Error("Gmail credentials not configured");
+  }
+
+  console.log("Connecting to Gmail SMTP...");
+  
+  const client = new SMTPClient({
+    connection: {
+      hostname: "smtp.gmail.com",
+      port: 465,
+      tls: true,
+      auth: {
+        username: gmailUser,
+        password: gmailAppPassword,
+      },
+    },
+  });
+
+  try {
+    await client.send({
+      from: gmailUser,
+      to: to,
+      subject: subject,
+      content: "Please view this email in an HTML-compatible client.",
+      html: html,
+    });
+
+    console.log("Email sent successfully via Gmail");
+    await client.close();
+    
+    return { success: true, message: "Email sent via Gmail" };
+  } catch (error) {
+    console.error("Gmail SMTP error:", error);
+    await client.close();
+    throw error;
+  }
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -102,7 +126,7 @@ const handler = async (req: Request): Promise<Response> => {
       </html>
     `;
 
-    const emailResponse = await sendEmail(
+    const emailResponse = await sendEmailViaGmail(
       to,
       `Section Review Request: ${sectionName}`,
       htmlContent
