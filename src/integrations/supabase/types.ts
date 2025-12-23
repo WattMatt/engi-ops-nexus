@@ -2977,14 +2977,18 @@ export type Database = {
       final_account_section_reviews: {
         Row: {
           access_token: string | null
+          authorization_confirmed: boolean | null
           created_at: string
           id: string
           message: string | null
           pdf_url: string | null
           reviewed_at: string | null
+          reviewer_company: string | null
           reviewer_contact_id: string | null
           reviewer_email: string | null
+          reviewer_id_number: string | null
           reviewer_name: string | null
+          reviewer_position: string | null
           section_id: string
           sent_at: string | null
           sent_by: string | null
@@ -2993,14 +2997,18 @@ export type Database = {
         }
         Insert: {
           access_token?: string | null
+          authorization_confirmed?: boolean | null
           created_at?: string
           id?: string
           message?: string | null
           pdf_url?: string | null
           reviewed_at?: string | null
+          reviewer_company?: string | null
           reviewer_contact_id?: string | null
           reviewer_email?: string | null
+          reviewer_id_number?: string | null
           reviewer_name?: string | null
+          reviewer_position?: string | null
           section_id: string
           sent_at?: string | null
           sent_by?: string | null
@@ -3009,14 +3017,18 @@ export type Database = {
         }
         Update: {
           access_token?: string | null
+          authorization_confirmed?: boolean | null
           created_at?: string
           id?: string
           message?: string | null
           pdf_url?: string | null
           reviewed_at?: string | null
+          reviewer_company?: string | null
           reviewer_contact_id?: string | null
           reviewer_email?: string | null
+          reviewer_id_number?: string | null
           reviewer_name?: string | null
+          reviewer_position?: string | null
           section_id?: string
           sent_at?: string | null
           sent_by?: string | null
