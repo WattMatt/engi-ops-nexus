@@ -2924,6 +2924,7 @@ export type Database = {
           comment_text: string
           created_at: string
           id: string
+          item_id: string | null
           review_id: string | null
           section_id: string
         }
@@ -2934,6 +2935,7 @@ export type Database = {
           comment_text: string
           created_at?: string
           id?: string
+          item_id?: string | null
           review_id?: string | null
           section_id: string
         }
@@ -2944,10 +2946,18 @@ export type Database = {
           comment_text?: string
           created_at?: string
           id?: string
+          item_id?: string | null
           review_id?: string | null
           section_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "final_account_section_comments_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "final_account_items"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "final_account_section_comments_review_id_fkey"
             columns: ["review_id"]

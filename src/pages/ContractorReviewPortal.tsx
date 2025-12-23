@@ -6,15 +6,30 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { SectionCommentsPanel } from "@/components/final-accounts/SectionCommentsPanel";
+import { ItemCommentsPanel } from "@/components/final-accounts/ItemCommentsPanel";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
-import { CheckCircle2, AlertTriangle, FileText, Building2, Download, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { CheckCircle2, AlertTriangle, FileText, Building2, Download, TrendingUp, TrendingDown, Minus, MessageSquare, ChevronDown, ChevronUp } from "lucide-react";
 
 export default function ContractorReviewPortal() {
   const { accessToken } = useParams<{ accessToken: string }>();
   const queryClient = useQueryClient();
   const [reviewerName, setReviewerName] = useState("");
+  const [expandedItemComments, setExpandedItemComments] = useState<Set<string>>(new Set());
+
+  const toggleItemComments = (itemId: string) => {
+    setExpandedItemComments(prev => {
+      const next = new Set(prev);
+      if (next.has(itemId)) {
+        next.delete(itemId);
+      } else {
+        next.add(itemId);
+      }
+      return next;
+    });
+  };
 
   // Validate token and fetch review data
   const { data: reviewData, isLoading, error } = useQuery({
@@ -71,6 +86,32 @@ export default function ContractorReviewPortal() {
       return { review, items: items || [] };
     },
     enabled: !!accessToken,
+  });
+
+  // Fetch comment counts per item
+  const { data: itemCommentCounts } = useQuery({
+    queryKey: ["all-item-comments", reviewData?.review?.section_id],
+    queryFn: async () => {
+      if (!reviewData?.review?.section_id) return {};
+      
+      const { data, error } = await supabase
+        .from("final_account_section_comments")
+        .select("item_id")
+        .eq("section_id", reviewData.review.section_id)
+        .not("item_id", "is", null);
+      
+      if (error) throw error;
+      
+      // Count comments per item
+      const counts: Record<string, number> = {};
+      data?.forEach(comment => {
+        if (comment.item_id) {
+          counts[comment.item_id] = (counts[comment.item_id] || 0) + 1;
+        }
+      });
+      return counts;
+    },
+    enabled: !!reviewData?.review?.section_id,
   });
 
   const updateStatusMutation = useMutation({
@@ -338,6 +379,7 @@ export default function ContractorReviewPortal() {
               <Table>
                 <TableHeader>
                   <TableRow className="bg-muted/50">
+                    <TableHead className="w-[50px] font-semibold"></TableHead>
                     <TableHead className="w-[80px] font-semibold">Item</TableHead>
                     <TableHead className="min-w-[300px] font-semibold">Description</TableHead>
                     <TableHead className="w-[80px] font-semibold">Unit</TableHead>
@@ -353,7 +395,7 @@ export default function ContractorReviewPortal() {
                 <TableBody>
                   {allItems.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={10} className="text-center text-muted-foreground py-12">
+                      <TableCell colSpan={11} className="text-center text-muted-foreground py-12">
                         No items in this section
                       </TableCell>
                     </TableRow>
@@ -365,32 +407,74 @@ export default function ContractorReviewPortal() {
                       if (isHeader) {
                         return (
                           <TableRow key={item.id} className="bg-muted/30 font-semibold">
+                            <TableCell className="py-3"></TableCell>
                             <TableCell className="py-3">{item.item_code || ''}</TableCell>
                             <TableCell colSpan={9} className="py-3">{item.description}</TableCell>
                           </TableRow>
                         );
                       }
+
+                      const commentCount = itemCommentCounts?.[item.id] || 0;
+                      const isExpanded = expandedItemComments.has(item.id);
                       
                       return (
-                        <TableRow key={item.id} className="hover:bg-muted/20">
-                          <TableCell className="font-medium">{item.item_code || ''}</TableCell>
-                          <TableCell className="max-w-[400px]">
-                            <span className="line-clamp-2">{item.description}</span>
-                          </TableCell>
-                          <TableCell className="text-muted-foreground">{item.unit}</TableCell>
-                          <TableCell className="text-right font-mono">{formatNumber(item.contract_quantity)}</TableCell>
-                          <TableCell className="text-right font-mono">{formatNumber(item.final_quantity)}</TableCell>
-                          <TableCell className="text-right font-mono">{formatCurrency(item.supply_rate)}</TableCell>
-                          <TableCell className="text-right font-mono">{formatCurrency(item.install_rate)}</TableCell>
-                          <TableCell className="text-right font-mono">{formatCurrency(item.contract_amount)}</TableCell>
-                          <TableCell className="text-right font-mono">{formatCurrency(item.final_amount)}</TableCell>
-                          <TableCell className={`text-right font-mono ${
-                            itemVariation > 0 ? 'text-green-600' : 
-                            itemVariation < 0 ? 'text-destructive' : ''
-                          }`}>
-                            {itemVariation !== 0 && (itemVariation > 0 ? '+' : '')}{formatCurrency(itemVariation)}
-                          </TableCell>
-                        </TableRow>
+                        <>
+                          <TableRow key={item.id} className={`hover:bg-muted/20 ${isExpanded ? 'bg-muted/10' : ''}`}>
+                            <TableCell className="py-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className={`h-8 w-8 p-0 relative ${commentCount > 0 ? 'text-primary' : 'text-muted-foreground'}`}
+                                onClick={() => toggleItemComments(item.id)}
+                              >
+                                <MessageSquare className="h-4 w-4" />
+                                {commentCount > 0 && (
+                                  <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-primary text-[10px] text-primary-foreground flex items-center justify-center">
+                                    {commentCount}
+                                  </span>
+                                )}
+                              </Button>
+                            </TableCell>
+                            <TableCell className="font-medium">{item.item_code || ''}</TableCell>
+                            <TableCell className="max-w-[400px]">
+                              <span className="line-clamp-2">{item.description}</span>
+                            </TableCell>
+                            <TableCell className="text-muted-foreground">{item.unit}</TableCell>
+                            <TableCell className="text-right font-mono">{formatNumber(item.contract_quantity)}</TableCell>
+                            <TableCell className="text-right font-mono">{formatNumber(item.final_quantity)}</TableCell>
+                            <TableCell className="text-right font-mono">{formatCurrency(item.supply_rate)}</TableCell>
+                            <TableCell className="text-right font-mono">{formatCurrency(item.install_rate)}</TableCell>
+                            <TableCell className="text-right font-mono">{formatCurrency(item.contract_amount)}</TableCell>
+                            <TableCell className="text-right font-mono">{formatCurrency(item.final_amount)}</TableCell>
+                            <TableCell className={`text-right font-mono ${
+                              itemVariation > 0 ? 'text-green-600' : 
+                              itemVariation < 0 ? 'text-destructive' : ''
+                            }`}>
+                              {itemVariation !== 0 && (itemVariation > 0 ? '+' : '')}{formatCurrency(itemVariation)}
+                            </TableCell>
+                          </TableRow>
+                          {isExpanded && (
+                            <TableRow>
+                              <TableCell colSpan={11} className="p-0">
+                                <div className="p-4 bg-muted/5 border-y">
+                                  <div className="max-w-2xl">
+                                    <div className="flex items-center gap-2 mb-2 text-sm font-medium text-muted-foreground">
+                                      <MessageSquare className="h-4 w-4" />
+                                      Comments for {item.item_code}
+                                    </div>
+                                    <ItemCommentsPanel
+                                      sectionId={review.section_id}
+                                      itemId={item.id}
+                                      reviewId={review.id}
+                                      isContractor={true}
+                                      contractorName={reviewerName}
+                                    />
+                                  </div>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                        </>
                       );
                     })
                   )}
@@ -398,7 +482,7 @@ export default function ContractorReviewPortal() {
                 {/* Footer Totals */}
                 <tfoot className="bg-muted/50 border-t-2">
                   <TableRow className="font-bold">
-                    <TableCell colSpan={7} className="text-right py-4">Section Totals:</TableCell>
+                    <TableCell colSpan={8} className="text-right py-4">Section Totals:</TableCell>
                     <TableCell className="text-right font-mono py-4">{formatCurrency(totalContractValue)}</TableCell>
                     <TableCell className="text-right font-mono py-4">{formatCurrency(totalFinalValue)}</TableCell>
                     <TableCell className={`text-right font-mono py-4 ${
