@@ -101,11 +101,12 @@ export const CableTagSchedule = ({ scheduleId }: CableTagScheduleProps) => {
                   const cableNumber = entry.cable_number || 1;
                   const isParallel = entry.parallel_group_id && entry.parallel_total_count && entry.parallel_total_count > 1;
                   
-                  // For parallel cables, show as "BaseTag (CableNum/Total)"
-                  // For single cables, show the tag as-is
-                  let displayTag = baseTag;
+                  // Build display tag with cable size
+                  // Format: "BaseTag - CableSize" or "BaseTag - CableSize (CableNum/Total)" for parallel
+                  const sizeInfo = entry.cable_size ? ` - ${entry.cable_size}` : '';
+                  let displayTag = `${baseTag}${sizeInfo}`;
                   if (isParallel) {
-                    displayTag = `${baseTag} (${cableNumber}/${entry.parallel_total_count})`;
+                    displayTag = `${baseTag}${sizeInfo} (${cableNumber}/${entry.parallel_total_count})`;
                   }
                   
                   return (
