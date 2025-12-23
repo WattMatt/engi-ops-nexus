@@ -5,8 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { SectionCommentsPanel } from "@/components/final-accounts/SectionCommentsPanel";
-import { ItemCommentsPanel } from "@/components/final-accounts/ItemCommentsPanel";
+import { CommentsPanel } from "@/components/final-accounts/CommentsPanel";
 import { ReviewWalkthrough, WalkthroughTrigger } from "@/components/final-accounts/ReviewWalkthrough";
 import { CelebrationOverlay } from "@/components/final-accounts/CelebrationOverlay";
 import { Badge } from "@/components/ui/badge";
@@ -589,12 +588,13 @@ export default function ContractorReviewPortal() {
                                       <MessageSquare className="h-4 w-4" />
                                       Comments for {item.item_code}
                                     </div>
-                                    <ItemCommentsPanel
+                                    <CommentsPanel
                                       sectionId={review.section_id}
                                       itemId={item.id}
                                       reviewId={review.id}
                                       isContractor={true}
                                       contractorName={reviewerName}
+                                      variant="compact"
                                     />
                                   </div>
                                 </div>
@@ -631,11 +631,12 @@ export default function ContractorReviewPortal() {
             <CardDescription>Add your comments, questions, or concerns about this section</CardDescription>
           </CardHeader>
           <CardContent className="pt-6">
-            <SectionCommentsPanel
+            <CommentsPanel
               sectionId={review.section_id}
               reviewId={review.id}
               isContractor={true}
               contractorName={reviewerName}
+              variant="full"
             />
           </CardContent>
         </Card>
