@@ -193,7 +193,12 @@ export function ReviewWalkthrough({ isOpen, onClose, onDontShowAgain }: ReviewWa
 
 export function WalkthroughTrigger({ onClick }: { onClick: () => void }) {
   return (
-    <Button variant="outline" size="sm" onClick={onClick} className="gap-2">
+    <Button 
+      variant="secondary" 
+      size="sm" 
+      onClick={onClick} 
+      className="gap-2 bg-white/20 hover:bg-white/30 text-white border-white/30"
+    >
       <HelpCircle className="h-4 w-4" />
       How to Review
     </Button>
