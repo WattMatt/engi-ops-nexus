@@ -559,6 +559,35 @@ export const TenantList = ({
           {isCalculating ? "Calculating..." : "Bulk Auto-Calculate DB Sizes"}
         </Button>
         </div>
+        
+        {/* DB SOW Summary */}
+        <div className="flex flex-wrap items-center gap-3 bg-muted/30 p-3 rounded-lg border">
+          <span className="text-sm font-medium text-muted-foreground">DB SOW Summary:</span>
+          {(() => {
+            const sowCounts: Record<string, number> = {};
+            localTenants
+              .filter(t => !t.exclude_from_totals && t.db_size_scope_of_work)
+              .forEach(t => {
+                const sow = t.db_size_scope_of_work!.trim();
+                sowCounts[sow] = (sowCounts[sow] || 0) + 1;
+              });
+            
+            // Sort by the numeric part (e.g., "36-way" -> 36)
+            const sortedSow = Object.entries(sowCounts).sort((a, b) => {
+              const numA = parseInt(a[0].match(/\d+/)?.[0] || '0');
+              const numB = parseInt(b[0].match(/\d+/)?.[0] || '0');
+              return numB - numA;
+            });
+            
+            return sortedSow.length > 0 ? sortedSow.map(([sow, count]) => (
+              <Badge key={sow} variant="secondary" className="text-xs font-medium">
+                {sow}: <span className="ml-1 font-bold">{count}</span>
+              </Badge>
+            )) : (
+              <span className="text-xs text-muted-foreground italic">No DB SOW data</span>
+            );
+          })()}
+        </div>
       </div>
       {/* Table Section - Scrollable with Fixed Header */}
       <div className="flex-1 min-h-0 rounded-lg border border-border bg-background overflow-hidden max-w-full">
@@ -881,39 +910,6 @@ export const TenantList = ({
             ))}
           </tbody>
           <tfoot className="bg-muted/50 border-t-2 sticky bottom-0 z-10">
-            {/* DB SOW Summary Row */}
-            <tr className="border-b border-border">
-              <td className="px-4 py-3" colSpan={21}>
-                <div className="flex flex-wrap items-center gap-4">
-                  <span className="text-sm font-medium text-muted-foreground">DB SOW Summary:</span>
-                  {(() => {
-                    const sowCounts: Record<string, number> = {};
-                    localTenants
-                      .filter(t => !t.exclude_from_totals && t.db_size_scope_of_work)
-                      .forEach(t => {
-                        const sow = t.db_size_scope_of_work!.trim();
-                        sowCounts[sow] = (sowCounts[sow] || 0) + 1;
-                      });
-                    
-                    // Sort by the numeric part (e.g., "36-way" -> 36)
-                    const sortedSow = Object.entries(sowCounts).sort((a, b) => {
-                      const numA = parseInt(a[0].match(/\d+/)?.[0] || '0');
-                      const numB = parseInt(b[0].match(/\d+/)?.[0] || '0');
-                      return numB - numA;
-                    });
-                    
-                    return sortedSow.length > 0 ? sortedSow.map(([sow, count]) => (
-                      <Badge key={sow} variant="secondary" className="text-xs font-medium">
-                        {sow}: <span className="ml-1 font-bold">{count}</span>
-                      </Badge>
-                    )) : (
-                      <span className="text-xs text-muted-foreground italic">No DB SOW data</span>
-                    );
-                  })()}
-                </div>
-              </td>
-            </tr>
-            {/* Totals Row */}
             <tr className="font-semibold">
               <td className="px-4 py-4" colSpan={21}>
                 <div className="flex items-center justify-end gap-8">
