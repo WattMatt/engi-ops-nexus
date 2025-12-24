@@ -2,7 +2,8 @@ import { useState, useEffect, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Plus, ChevronDown, ChevronRight, Trash2, Pencil, Zap, Send } from "lucide-react";
+import { Plus, ChevronDown, ChevronRight, Trash2, Pencil, Zap, Send, Store } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { AddSectionDialog } from "./AddSectionDialog";
@@ -133,6 +134,23 @@ export function FinalAccountSectionsManager({ billId, accountId }: FinalAccountS
     },
   });
 
+  const toggleSubsectionsMutation = useMutation({
+    mutationFn: async ({ sectionId, enabled }: { sectionId: string; enabled: boolean }) => {
+      const { error } = await supabase
+        .from("final_account_sections")
+        .update({ has_subsections: enabled })
+        .eq("id", sectionId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["final-account-sections", billId] });
+      toast.success("Section updated");
+    },
+    onError: () => {
+      toast.error("Failed to update section");
+    },
+  });
+
   const toggleSection = (sectionId: string) => {
     const newExpanded = new Set(expandedSections);
     if (newExpanded.has(sectionId)) {
@@ -147,8 +165,8 @@ export function FinalAccountSectionsManager({ billId, accountId }: FinalAccountS
     return <div className="text-center py-4 text-muted-foreground text-sm">Loading sections...</div>;
   }
 
-  // Check if a section is Line Shops (Section E)
-  const isLineShopsSection = (sectionCode: string) => sectionCode === "E";
+  // Check if a section should show subsections (has_subsections flag or Section E for backwards compat)
+  const shouldShowSubsections = (section: any) => section.has_subsections || section.section_code === "E";
 
   return (
     <div className="space-y-2 pl-4 border-l-2 border-muted">
@@ -254,12 +272,27 @@ export function FinalAccountSectionsManager({ billId, accountId }: FinalAccountS
                     >
                       <Trash2 className="h-3 w-3" />
                     </Button>
+                    {/* Toggle for shop subsections */}
+                    <div 
+                      className="flex items-center gap-1.5 ml-2 pl-2 border-l"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Store className="h-3 w-3 text-muted-foreground" />
+                      <Switch
+                        checked={shouldShowSubsections(section)}
+                        onCheckedChange={(checked) => 
+                          toggleSubsectionsMutation.mutate({ sectionId: section.id, enabled: checked })
+                        }
+                        className="scale-75"
+                      />
+                      <span className="text-xs text-muted-foreground">Shops</span>
+                    </div>
                   </div>
                 </div>
               </div>
               <CollapsibleContent>
                 <div className="p-3 border-t">
-                  {isLineShopsSection(section.section_code) ? (
+                  {shouldShowSubsections(section) ? (
                     <LineShopsManager sectionId={section.id} billId={billId} accountId={accountId} />
                   ) : (
                     <SpreadsheetItemsTable sectionId={section.id} billId={billId} accountId={accountId} />
