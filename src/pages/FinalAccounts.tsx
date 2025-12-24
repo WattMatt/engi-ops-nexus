@@ -6,6 +6,7 @@ import { FinalAccountOverview } from "@/components/final-accounts/FinalAccountOv
 import { FinalAccountBillsManager } from "@/components/final-accounts/FinalAccountBillsManager";
 import { BOQDiscrepanciesSummary } from "@/components/final-accounts/BOQDiscrepanciesSummary";
 import { PrimeCostManager } from "@/components/final-accounts/PrimeCostManager";
+import { ReferenceDrawingsManager } from "@/components/final-accounts/ReferenceDrawingsManager";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const FinalAccounts = () => {
@@ -106,6 +107,7 @@ const FinalAccounts = () => {
           <TabsTrigger value="bills">Bills & Sections</TabsTrigger>
           <TabsTrigger value="prime-costs">Prime Costs</TabsTrigger>
           <TabsTrigger value="discrepancies">BOQ Discrepancies</TabsTrigger>
+          <TabsTrigger value="drawings">Reference Drawings</TabsTrigger>
           <TabsTrigger value="overview">Account Details</TabsTrigger>
         </TabsList>
         <TabsContent value="bills" className="space-y-4">
@@ -116,6 +118,9 @@ const FinalAccounts = () => {
         </TabsContent>
         <TabsContent value="discrepancies" className="space-y-4">
           <BOQDiscrepanciesSummary accountId={account.id} />
+        </TabsContent>
+        <TabsContent value="drawings" className="space-y-4">
+          <ReferenceDrawingsManager accountId={account.id} projectId={projectId || ""} />
         </TabsContent>
         <TabsContent value="overview" className="space-y-4">
           <FinalAccountOverview account={account} />
