@@ -45,7 +45,7 @@ async function fetchBills(accountId: string): Promise<BillResult[]> {
   const { data, error } = await (supabase as any)
     .from('final_account_bills')
     .select('id, bill_number, bill_name, display_order')
-    .eq('account_id', accountId)
+    .eq('final_account_id', accountId)
     .order('display_order');
   if (error) throw error;
   return data || [];
