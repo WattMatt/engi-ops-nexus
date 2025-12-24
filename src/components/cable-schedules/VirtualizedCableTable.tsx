@@ -29,6 +29,7 @@ interface VirtualizedCableTableProps {
   onEdit: (entry: CableEntry) => void;
   onDelete: (entry: CableEntry) => void;
   onSplit: (entry: CableEntry) => void;
+  tenantLoadMap?: Map<string, number>;
 }
 
 // Column styles for full-width distribution
@@ -48,19 +49,27 @@ const colStyles = {
   actions: 'w-[9%] min-w-[90px] text-right',
 };
 
+// Extract shop number from to_location (e.g., "Shop 45 - Store Name" -> "45")
+const extractShopNumber = (toLocation: string): string | null => {
+  const match = toLocation.match(/Shop\s+(\d+[A-Za-z]*)/i);
+  return match ? match[1].toLowerCase() : null;
+};
+
 // Memoized row component for performance
 const CableRow = memo(({ 
   entry, 
   onEdit, 
   onDelete, 
   onSplit,
-  style 
+  style,
+  tenantLoadMap
 }: { 
   entry: CableEntry; 
   onEdit: (entry: CableEntry) => void;
   onDelete: (entry: CableEntry) => void;
   onSplit: (entry: CableEntry) => void;
   style: React.CSSProperties;
+  tenantLoadMap?: Map<string, number>;
 }) => {
   const hasCompleteData = entry.voltage && entry.load_amps && entry.cable_size;
   
@@ -75,6 +84,11 @@ const CableRow = memo(({
 
   const totalLength = entry.total_length || 
     round((entry.measured_length || 0) + (entry.extra_length || 0), 2);
+
+  // Get SOW load from tenant if available
+  const shopNum = extractShopNumber(entry.to_location);
+  const sowLoad = shopNum ? tenantLoadMap?.get(shopNum) : undefined;
+  const displayLoad = entry.load_amps || sowLoad || '-';
 
   return (
     <div 
@@ -94,7 +108,7 @@ const CableRow = memo(({
       <div className={`${colStyles.to} px-2 py-3 truncate`} title={entry.to_location}>{entry.to_location}</div>
       <div className={`${colStyles.qty} px-2 py-3`}>{entry.quantity || 1}</div>
       <div className={`${colStyles.voltage} px-2 py-3`}>{entry.voltage || '-'}</div>
-      <div className={`${colStyles.loadAmps} px-2 py-3`}>{entry.load_amps || '-'}</div>
+      <div className={`${colStyles.loadAmps} px-2 py-3`}>{displayLoad}</div>
       <div className={`${colStyles.cableType} px-2 py-3 truncate`}>{entry.cable_type || '-'}</div>
       <div className={`${colStyles.installMethod} px-2 py-3 capitalize truncate`}>{entry.installation_method || 'air'}</div>
       <div className={`${colStyles.cableSize} px-2 py-3`}>{entry.cable_size || '-'}</div>
@@ -125,6 +139,7 @@ export function VirtualizedCableTable({
   onEdit,
   onDelete,
   onSplit,
+  tenantLoadMap,
 }: VirtualizedCableTableProps) {
   const parentRef = useRef<HTMLDivElement>(null);
 
@@ -188,6 +203,7 @@ export function VirtualizedCableTable({
                 onEdit={handleEdit}
                 onDelete={handleDelete}
                 onSplit={handleSplit}
+                tenantLoadMap={tenantLoadMap}
                 style={{
                   position: 'absolute',
                   top: 0,
