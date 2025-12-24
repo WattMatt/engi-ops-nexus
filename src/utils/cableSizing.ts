@@ -142,7 +142,7 @@ export function calculateCableSize(
     maxAmpsPerCable = 400,
     preferredAmpsPerCable = 300,
     installationMethod = 'air',
-    safetyMargin = 1.15,
+    safetyMargin = 1.0,
     voltageDropLimit
   } = params;
 
