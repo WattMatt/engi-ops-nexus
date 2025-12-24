@@ -44,6 +44,35 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
   // Fetch calculation settings
   const { data: calcSettings } = useCalculationSettings(projectId);
 
+  // Fetch tenants for the project to get SOW load values
+  const { data: tenants } = useQuery({
+    queryKey: ["tenants-for-cables", projectId],
+    queryFn: async () => {
+      if (!projectId) return [];
+      const { data, error } = await supabase
+        .from("tenants")
+        .select("shop_number, db_size_scope_of_work")
+        .eq("project_id", projectId);
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!projectId,
+  });
+
+  // Create a lookup map: shop number -> SOW load (extracted number)
+  const tenantLoadMap = new Map<string, number>();
+  tenants?.forEach(t => {
+    if (t.shop_number && t.db_size_scope_of_work) {
+      // Extract number from "80A TP" -> 80
+      const match = t.db_size_scope_of_work.match(/(\d+)/);
+      if (match) {
+        // Normalize shop number for matching (e.g., "Shop 45" -> "45")
+        const shopNum = t.shop_number.replace(/^shop\s*/i, '').trim();
+        tenantLoadMap.set(shopNum.toLowerCase(), parseInt(match[1], 10));
+      }
+    }
+  });
+
   const { data: entries, refetch } = useQuery({
     queryKey: ["cable-entries", scheduleId],
     queryFn: async () => {
@@ -281,6 +310,7 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
               onEdit={handleEdit}
               onDelete={handleDeleteClick}
               onSplit={handleSplit}
+              tenantLoadMap={tenantLoadMap}
             />
             {entries && entries.length > 0 && (
               <div className="flex justify-end">
