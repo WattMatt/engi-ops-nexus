@@ -3061,6 +3061,7 @@ export type Database = {
           description: string | null
           display_order: number | null
           final_total: number | null
+          has_subsections: boolean | null
           id: string
           review_status:
             | Database["public"]["Enums"]["section_review_status"]
@@ -3078,6 +3079,7 @@ export type Database = {
           description?: string | null
           display_order?: number | null
           final_total?: number | null
+          has_subsections?: boolean | null
           id?: string
           review_status?:
             | Database["public"]["Enums"]["section_review_status"]
@@ -3095,6 +3097,7 @@ export type Database = {
           description?: string | null
           display_order?: number | null
           final_total?: number | null
+          has_subsections?: boolean | null
           id?: string
           review_status?:
             | Database["public"]["Enums"]["section_review_status"]
@@ -3120,6 +3123,7 @@ export type Database = {
           created_at: string
           display_order: number
           final_total: number
+          gross_area: number | null
           id: string
           section_id: string
           shop_name: string
@@ -3132,6 +3136,7 @@ export type Database = {
           created_at?: string
           display_order?: number
           final_total?: number
+          gross_area?: number | null
           id?: string
           section_id: string
           shop_name: string
@@ -3144,6 +3149,7 @@ export type Database = {
           created_at?: string
           display_order?: number
           final_total?: number
+          gross_area?: number | null
           id?: string
           section_id?: string
           shop_name?: string
