@@ -6538,6 +6538,56 @@ export type Database = {
           },
         ]
       }
+      prime_cost_component_documents: {
+        Row: {
+          component_id: string
+          created_at: string
+          description: string | null
+          document_type: string | null
+          file_name: string
+          file_path: string
+          file_size: number | null
+          file_type: string | null
+          id: string
+          updated_at: string
+          uploaded_by: string | null
+        }
+        Insert: {
+          component_id: string
+          created_at?: string
+          description?: string | null
+          document_type?: string | null
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Update: {
+          component_id?: string
+          created_at?: string
+          description?: string | null
+          document_type?: string | null
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          file_type?: string | null
+          id?: string
+          updated_at?: string
+          uploaded_by?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "prime_cost_component_documents_component_id_fkey"
+            columns: ["component_id"]
+            isOneToOne: false
+            referencedRelation: "prime_cost_components"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       prime_cost_components: {
         Row: {
           amount: number
