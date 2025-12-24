@@ -311,7 +311,7 @@ export function PCSpreadsheetTable({ items, sectionId, accountId, projectId }: P
           <Button
             variant="ghost"
             size="icon"
-            className="h-7 w-7"
+            className="h-7 w-7 relative"
             onClick={() => setDocumentsDialog({ open: true, itemId: item.id, description: item.description })}
             title={docCount > 0 ? `${docCount} document(s)` : "Add documents"}
           >
