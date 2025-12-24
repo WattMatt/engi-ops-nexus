@@ -64,15 +64,16 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
   const tenantNameMap = new Map<string, string>();
   tenants?.forEach(t => {
     if (t.shop_number) {
-      // Normalize shop number for matching (e.g., "Shop 45" -> "45")
-      const shopNum = t.shop_number.replace(/^shop\s*/i, '').trim().toLowerCase();
+      // Normalize shop number for matching (e.g., "Shop 45", "SHOP 11" -> "45", "11")
+      const shopNumMatch = t.shop_number.match(/shop\s*(\d+[A-Za-z\/]*)/i);
+      const shopNum = shopNumMatch ? shopNumMatch[1].toLowerCase() : t.shop_number.toLowerCase();
       
       // Add shop name mapping
       if (t.shop_name) {
         tenantNameMap.set(shopNum, t.shop_name);
       }
       
-      // Add load mapping
+      // Add load mapping from db_size_scope_of_work
       if (t.db_size_scope_of_work) {
         const match = t.db_size_scope_of_work.match(/(\d+)/);
         if (match) {
@@ -222,15 +223,19 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
         // Try to get load_amps from tenant data if not set on entry
         let loadAmps = entry.load_amps;
         if (!loadAmps && entry.to_location) {
-          const shopMatch = entry.to_location.match(/Shop\s+(\d+[A-Za-z]*)/i);
+          // Extract shop number and normalize (handle "Shop 11", "SHOP 11", "shop 11", etc.)
+          const shopMatch = entry.to_location.match(/Shop\s+(\d+[A-Za-z\/]*)/i);
           if (shopMatch) {
             const shopNum = shopMatch[1].toLowerCase();
             loadAmps = tenantLoadMap.get(shopNum) || null;
           }
         }
 
-        // Skip if still missing required data
-        if (!loadAmps || !entry.voltage) {
+        // Default voltage to 400 if not set
+        const voltage = entry.voltage || 400;
+
+        // Skip if still missing load amps
+        if (!loadAmps) {
           skippedCount++;
           continue;
         }
@@ -238,20 +243,21 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
         const material = entry.cable_type?.toLowerCase() === "copper" ? "copper" : "aluminium";
         const result = calculateCableSize({
           loadAmps: loadAmps,
-          voltage: entry.voltage,
+          voltage: voltage,
           totalLength: entry.total_length || entry.measured_length || 0,
           deratingFactor: 1.0,
           material: material as "copper" | "aluminium",
           installationMethod: entry.installation_method as 'air' | 'ducts' | 'ground' || 'air',
           safetyMargin: calcSettings.cable_safety_margin,
-          voltageDropLimit: entry.voltage >= 400 ? calcSettings.voltage_drop_limit_400v : calcSettings.voltage_drop_limit_230v,
+          voltageDropLimit: voltage >= 400 ? calcSettings.voltage_drop_limit_400v : calcSettings.voltage_drop_limit_230v,
         });
 
         if (result) {
           const { error } = await supabase
             .from("cable_entries")
             .update({
-              load_amps: loadAmps, // Also save the load if it was pulled from tenant
+              voltage: voltage,
+              load_amps: loadAmps,
               cable_size: result.recommendedSize,
               ohm_per_km: result.ohmPerKm,
               volt_drop: result.voltDrop,
