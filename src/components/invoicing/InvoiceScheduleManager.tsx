@@ -97,6 +97,24 @@ export function InvoiceScheduleManager() {
     },
   });
 
+  // Fetch document counts per project
+  const { data: projectDocCounts = {} } = useQuery({
+    queryKey: ["finance-document-counts"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("finance_documents")
+        .select("project_id");
+      
+      if (error) throw error;
+      
+      const counts: Record<string, number> = {};
+      (data || []).forEach(doc => {
+        counts[doc.project_id] = (counts[doc.project_id] || 0) + 1;
+      });
+      return counts;
+    },
+  });
+
   const { data: payments = [] } = useQuery({
     queryKey: ["monthly-payments-with-projects"],
     queryFn: async () => {
@@ -510,14 +528,20 @@ export function InvoiceScheduleManager() {
                     <Button 
                       variant="ghost" 
                       size="sm"
+                      className="relative"
                       onClick={(e) => {
                         e.stopPropagation();
                         setDocumentsProject(data.project);
                         setDocumentsOpen(true);
                       }}
                     >
-                      <FolderOpen className="h-4 w-4 mr-1" />
+                      <FolderOpen className={`h-4 w-4 mr-1 ${projectDocCounts[data.project.id] ? "text-primary" : ""}`} />
                       Docs
+                      {projectDocCounts[data.project.id] > 0 && (
+                        <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[10px] rounded-full h-4 w-4 flex items-center justify-center">
+                          {projectDocCounts[data.project.id]}
+                        </span>
+                      )}
                     </Button>
                   </div>
                 </div>

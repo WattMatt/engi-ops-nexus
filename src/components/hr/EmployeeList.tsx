@@ -54,7 +54,25 @@ export function EmployeeList() {
     },
   });
 
-  // Fetch payroll records for all employees
+  // Fetch document counts for all employees
+  const { data: employeeDocCounts = {} } = useQuery({
+    queryKey: ["employee-document-counts"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("employee_documents")
+        .select("employee_id");
+      
+      if (error) throw error;
+      
+      const counts: Record<string, number> = {};
+      (data || []).forEach(doc => {
+        counts[doc.employee_id] = (counts[doc.employee_id] || 0) + 1;
+      });
+      return counts;
+    },
+  });
+
+
   const { data: payrollRecords = [] } = useQuery({
     queryKey: ["payroll-records"],
     queryFn: async () => {
@@ -193,13 +211,19 @@ export function EmployeeList() {
                   <Button
                     variant="ghost"
                     size="sm"
+                    className="relative"
                     onClick={() => {
                       setDocumentsEmployee(employee);
                       setDocumentsDialogOpen(true);
                     }}
-                    title="View Documents"
+                    title={employeeDocCounts[employee.id] ? `${employeeDocCounts[employee.id]} document(s)` : "View Documents"}
                   >
-                    <FileText className="h-4 w-4" />
+                    <FileText className={`h-4 w-4 ${employeeDocCounts[employee.id] ? "text-primary" : ""}`} />
+                    {employeeDocCounts[employee.id] > 0 && (
+                      <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[10px] rounded-full h-4 w-4 flex items-center justify-center">
+                        {employeeDocCounts[employee.id]}
+                      </span>
+                    )}
                   </Button>
                   <Button
                     variant="ghost"
