@@ -219,17 +219,27 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
       let skippedCount = 0;
 
       for (const entry of entries) {
-        // Skip if missing required data
-        if (!entry.load_amps || !entry.voltage) {
+        // Try to get load_amps from tenant data if not set on entry
+        let loadAmps = entry.load_amps;
+        if (!loadAmps && entry.to_location) {
+          const shopMatch = entry.to_location.match(/Shop\s+(\d+[A-Za-z]*)/i);
+          if (shopMatch) {
+            const shopNum = shopMatch[1].toLowerCase();
+            loadAmps = tenantLoadMap.get(shopNum) || null;
+          }
+        }
+
+        // Skip if still missing required data
+        if (!loadAmps || !entry.voltage) {
           skippedCount++;
           continue;
         }
 
         const material = entry.cable_type?.toLowerCase() === "copper" ? "copper" : "aluminium";
         const result = calculateCableSize({
-          loadAmps: entry.load_amps,
+          loadAmps: loadAmps,
           voltage: entry.voltage,
-          totalLength: entry.total_length || 0,
+          totalLength: entry.total_length || entry.measured_length || 0,
           deratingFactor: 1.0,
           material: material as "copper" | "aluminium",
           installationMethod: entry.installation_method as 'air' | 'ducts' | 'ground' || 'air',
@@ -241,6 +251,7 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
           const { error } = await supabase
             .from("cable_entries")
             .update({
+              load_amps: loadAmps, // Also save the load if it was pulled from tenant
               cable_size: result.recommendedSize,
               ohm_per_km: result.ohmPerKm,
               volt_drop: result.voltDrop,
