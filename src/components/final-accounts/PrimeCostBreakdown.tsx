@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -21,9 +21,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Trash2, Link2, Unlink, Calculator, Loader2 } from "lucide-react";
+import { Plus, Trash2, Link2, Calculator, Loader2, FileText, Upload, Download, Eye } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 
 interface PrimeCostBreakdownProps {
   open: boolean;
@@ -61,6 +66,8 @@ export function PrimeCostBreakdown({
   onActualCostChange,
 }: PrimeCostBreakdownProps) {
   const queryClient = useQueryClient();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploadingComponentId, setUploadingComponentId] = useState<string | null>(null);
   const [newComponent, setNewComponent] = useState<ComponentForm>({
     type: 'order',
     description: '',
@@ -113,7 +120,48 @@ export function PrimeCostBreakdown({
     enabled: open && !!projectId,
   });
 
-  // Add component mutation
+  // Fetch document counts for all components
+  const { data: componentDocCounts } = useQuery({
+    queryKey: ["component-document-counts", itemId],
+    queryFn: async () => {
+      const componentIds = components.map(c => c.id);
+      if (componentIds.length === 0) return {};
+      
+      const { data, error } = await supabase
+        .from("prime_cost_component_documents")
+        .select("component_id")
+        .in("component_id", componentIds);
+      
+      if (error) throw error;
+      
+      const counts: Record<string, number> = {};
+      (data || []).forEach(doc => {
+        counts[doc.component_id] = (counts[doc.component_id] || 0) + 1;
+      });
+      return counts;
+    },
+    enabled: open && components.length > 0,
+  });
+
+  // Fetch documents for a specific component (for popover)
+  const [selectedComponentForDocs, setSelectedComponentForDocs] = useState<string | null>(null);
+  const { data: componentDocs } = useQuery({
+    queryKey: ["component-documents", selectedComponentForDocs],
+    queryFn: async () => {
+      if (!selectedComponentForDocs) return [];
+      const { data, error } = await supabase
+        .from("prime_cost_component_documents")
+        .select("*")
+        .eq("component_id", selectedComponentForDocs)
+        .order("created_at", { ascending: false });
+      
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!selectedComponentForDocs,
+  });
+
+
   const addComponentMutation = useMutation({
     mutationFn: async (component: {
       type: ComponentType;
@@ -179,6 +227,111 @@ export function PrimeCostBreakdown({
       queryClient.invalidateQueries({ queryKey: ["prime-cost-components", itemId] });
     },
   });
+
+  // Handle file upload for component
+  const handleFileUpload = async (componentId: string, file: File) => {
+    setUploadingComponentId(componentId);
+    try {
+      const fileExt = file.name.split(".").pop();
+      const fileName = `${componentId}/${Date.now()}.${fileExt}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from("prime-cost-documents")
+        .upload(fileName, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data: { user } } = await supabase.auth.getUser();
+
+      const { error: insertError } = await supabase
+        .from("prime_cost_component_documents")
+        .insert({
+          component_id: componentId,
+          file_name: file.name,
+          file_path: fileName,
+          file_size: file.size,
+          file_type: file.type,
+          document_type: 'quote',
+          uploaded_by: user?.id,
+        });
+
+      if (insertError) throw insertError;
+
+      queryClient.invalidateQueries({ queryKey: ["component-document-counts", itemId] });
+      queryClient.invalidateQueries({ queryKey: ["component-documents", componentId] });
+      toast.success("Document uploaded");
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast.error("Failed to upload document");
+    } finally {
+      setUploadingComponentId(null);
+    }
+  };
+
+  // Delete document mutation
+  const deleteDocMutation = useMutation({
+    mutationFn: async (doc: { id: string; file_path: string; component_id: string }) => {
+      const { error: storageError } = await supabase.storage
+        .from("prime-cost-documents")
+        .remove([doc.file_path]);
+
+      if (storageError) throw storageError;
+
+      const { error: dbError } = await supabase
+        .from("prime_cost_component_documents")
+        .delete()
+        .eq("id", doc.id);
+
+      if (dbError) throw dbError;
+      return doc.component_id;
+    },
+    onSuccess: (componentId) => {
+      queryClient.invalidateQueries({ queryKey: ["component-document-counts", itemId] });
+      queryClient.invalidateQueries({ queryKey: ["component-documents", componentId] });
+      toast.success("Document deleted");
+    },
+    onError: () => toast.error("Failed to delete document"),
+  });
+
+  // Handle download
+  const handleDownload = async (filePath: string, fileName: string) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from("prime-cost-documents")
+        .download(filePath);
+
+      if (error) throw error;
+
+      const url = URL.createObjectURL(data);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Download error:", error);
+      toast.error("Failed to download document");
+    }
+  };
+
+  // Handle preview
+  const handlePreview = async (filePath: string) => {
+    try {
+      const { data, error } = await supabase.storage
+        .from("prime-cost-documents")
+        .createSignedUrl(filePath, 3600);
+
+      if (error) throw error;
+      if (data?.signedUrl) {
+        window.open(data.signedUrl, "_blank");
+      }
+    } catch (error) {
+      console.error("Preview error:", error);
+      toast.error("Failed to open preview");
+    }
+  };
 
   const handleAddComponent = () => {
     if (!newComponent.description || !newComponent.amount) {
@@ -385,7 +538,9 @@ export function PrimeCostBreakdown({
               </div>
             ) : (
               <div className="space-y-2">
-                {components.map((component) => (
+                {components.map((component) => {
+                  const docCount = componentDocCounts?.[component.id] || 0;
+                  return (
                   <div
                     key={component.id}
                     className="flex items-center justify-between border rounded-lg p-3 bg-muted/30"
@@ -410,10 +565,103 @@ export function PrimeCostBreakdown({
                         {COMPONENT_TYPE_LABELS[component.component_type as ComponentType]}
                       </span>
                     </div>
-                    <div className="flex items-center gap-3">
-                      <span className="text-sm font-semibold">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold mr-2">
                         {formatCurrency(component.amount)}
                       </span>
+                      
+                      {/* Document upload popover */}
+                      <Popover onOpenChange={(open) => {
+                        if (open) setSelectedComponentForDocs(component.id);
+                      }}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 relative"
+                            title={docCount > 0 ? `${docCount} document(s)` : "Upload document"}
+                          >
+                            {uploadingComponentId === component.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <FileText className={cn("h-4 w-4", docCount > 0 ? "text-primary" : "text-muted-foreground")} />
+                            )}
+                            {docCount > 0 && (
+                              <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[10px] rounded-full h-4 w-4 flex items-center justify-center">
+                                {docCount}
+                              </span>
+                            )}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-80" align="end">
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between">
+                              <h4 className="text-sm font-medium">Documents</h4>
+                              <label>
+                                <input
+                                  type="file"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) handleFileUpload(component.id, file);
+                                    e.target.value = "";
+                                  }}
+                                />
+                                <Button size="sm" variant="outline" asChild className="cursor-pointer">
+                                  <span>
+                                    <Upload className="h-3 w-3 mr-1" />
+                                    Upload
+                                  </span>
+                                </Button>
+                              </label>
+                            </div>
+                            
+                            {componentDocs && componentDocs.length > 0 ? (
+                              <div className="space-y-2 max-h-48 overflow-y-auto">
+                                {componentDocs.map((doc: any) => (
+                                  <div key={doc.id} className="flex items-center justify-between border rounded p-2 text-xs">
+                                    <span className="truncate flex-1 mr-2">{doc.file_name}</span>
+                                    <div className="flex gap-1">
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="h-6 w-6"
+                                        onClick={() => handlePreview(doc.file_path)}
+                                        title="Preview"
+                                      >
+                                        <Eye className="h-3 w-3" />
+                                      </Button>
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="h-6 w-6"
+                                        onClick={() => handleDownload(doc.file_path, doc.file_name)}
+                                        title="Download"
+                                      >
+                                        <Download className="h-3 w-3" />
+                                      </Button>
+                                      <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="h-6 w-6 text-destructive"
+                                        onClick={() => deleteDocMutation.mutate({ id: doc.id, file_path: doc.file_path, component_id: component.id })}
+                                        title="Delete"
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-xs text-muted-foreground text-center py-4">
+                                No documents yet. Upload quotes, invoices, or orders.
+                              </p>
+                            )}
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+
                       {component.is_auto_calculated && (
                         <Button
                           size="icon"
@@ -436,7 +684,8 @@ export function PrimeCostBreakdown({
                       </Button>
                     </div>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
