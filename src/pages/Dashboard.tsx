@@ -22,6 +22,7 @@ import { BeneficialOccupationWidget } from "@/components/dashboard/BeneficialOcc
 import { BulkServicesWidget } from "@/components/dashboard/BulkServicesWidget";
 import { ProjectCompletionCard } from "@/components/dashboard/ProjectCompletionCard";
 import { IssuesIncompleteWidget } from "@/components/dashboard/IssuesIncompleteWidget";
+import { DevelopmentRoadmapWidget } from "@/components/dashboard/DevelopmentRoadmapWidget";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -225,7 +226,11 @@ const Dashboard = () => {
             </CardContent>
           </Card>
         </div>
+      </div>
 
+      {/* Development Roadmap - Full Width */}
+      <div className="mt-6">
+        <DevelopmentRoadmapWidget />
       </div>
     </div>
   );
