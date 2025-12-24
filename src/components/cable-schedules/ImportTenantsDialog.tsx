@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { sortTenantsByShopNumber } from "@/utils/tenantSorting";
+import { calculateCableSize } from "@/utils/cableSizing";
+import { useCalculationSettings } from "@/hooks/useCalculationSettings";
 import {
   Dialog,
   DialogContent,
@@ -58,7 +60,9 @@ export const ImportTenantsDialog = ({
   const [loading, setLoading] = useState(false);
   const [tenantRows, setTenantRows] = useState<TenantRow[]>([]);
   const [defaultFrom, setDefaultFrom] = useState("");
-
+  
+  // Get calculation settings for cable sizing
+  const { data: calcSettings } = useCalculationSettings(projectId);
   const { data: tenants } = useQuery({
     queryKey: ["tenants-for-import", projectId],
     queryFn: async () => {
@@ -206,11 +210,40 @@ export const ImportTenantsDialog = ({
     try {
       const entries = selectedTenants.map((row) => {
         // Extract amperage from DB allowance (e.g., "80A TP" -> 80)
-        let loadAmps = null;
+        let loadAmps: number | null = null;
         if (row.db_size_allowance) {
           const match = row.db_size_allowance.match(/(\d+)\s*A/);
           if (match) {
             loadAmps = parseFloat(match[1]);
+          }
+        }
+
+        // Auto-calculate cable size if we have load amps
+        let cableSize: string | null = null;
+        let ohmPerKm: number | null = null;
+        let voltDrop: number | null = null;
+        let supplyCost: number | null = null;
+        let installCost: number | null = null;
+        let totalCost: number | null = null;
+
+        if (loadAmps && loadAmps > 0) {
+          const result = calculateCableSize({
+            loadAmps: loadAmps,
+            voltage: 400,
+            totalLength: 0, // No length specified yet
+            material: "aluminium",
+            installationMethod: "air",
+            safetyMargin: calcSettings?.cable_safety_margin || 1.0,
+            voltageDropLimit: calcSettings?.voltage_drop_limit_400v || 5.0,
+          });
+
+          if (result) {
+            cableSize = result.recommendedSize;
+            ohmPerKm = result.ohmPerKm;
+            voltDrop = result.voltDrop;
+            supplyCost = result.supplyCost;
+            installCost = result.installCost;
+            totalCost = result.totalCost;
           }
         }
 
@@ -222,7 +255,13 @@ export const ImportTenantsDialog = ({
           notes: row.db_size_allowance ? `DB Allowance: ${row.db_size_allowance}` : null,
           voltage: 400,
           load_amps: loadAmps,
-          cable_type: "Aluminium", // Default to Aluminium
+          cable_type: "Aluminium",
+          cable_size: cableSize,
+          ohm_per_km: ohmPerKm,
+          volt_drop: voltDrop,
+          supply_cost: supplyCost,
+          install_cost: installCost,
+          total_cost: totalCost,
           quantity: 1,
         };
       });
