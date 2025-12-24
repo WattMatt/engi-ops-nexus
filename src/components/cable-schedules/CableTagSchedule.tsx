@@ -101,12 +101,19 @@ export const CableTagSchedule = ({ scheduleId }: CableTagScheduleProps) => {
                   const cableNumber = entry.cable_number || 1;
                   const isParallel = entry.parallel_group_id && entry.parallel_total_count && entry.parallel_total_count > 1;
                   
-                  // Build display tag with cable size
-                  // Format: "BaseTag - CableSize" or "BaseTag - CableSize (CableNum/Total)" for parallel
-                  const sizeInfo = entry.cable_size ? ` - ${entry.cable_size}` : '';
-                  let displayTag = `${baseTag}${sizeInfo}`;
+                  // Build display tag: BaseTag-Material-Size
+                  // e.g., "Main Board 1.2-Shop 1-Alu-185mm"
+                  const materialShort = entry.cable_type === 'Aluminium' ? 'Alu' : 
+                                        entry.cable_type === 'Copper' ? 'Cu' : 
+                                        entry.cable_type || '';
+                  const sizeShort = entry.cable_size?.replace('mm²', 'mm') || '';
+                  
+                  let displayTag = baseTag;
+                  if (materialShort) displayTag += `-${materialShort}`;
+                  if (sizeShort) displayTag += `-${sizeShort}`;
+                  
                   if (isParallel) {
-                    displayTag = `${baseTag}${sizeInfo} (${cableNumber}/${entry.parallel_total_count})`;
+                    displayTag += ` (${cableNumber}/${entry.parallel_total_count})`;
                   }
                   
                   return (
