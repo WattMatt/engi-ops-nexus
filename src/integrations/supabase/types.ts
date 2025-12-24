@@ -1428,6 +1428,226 @@ export type Database = {
         }
         Relationships: []
       }
+      circuit_material_template_items: {
+        Row: {
+          created_at: string
+          description: string
+          display_order: number | null
+          id: string
+          master_material_id: string | null
+          material_type: string
+          quantity_formula: string
+          template_id: string
+          unit: string | null
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          display_order?: number | null
+          id?: string
+          master_material_id?: string | null
+          material_type: string
+          quantity_formula: string
+          template_id: string
+          unit?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          display_order?: number | null
+          id?: string
+          master_material_id?: string | null
+          material_type?: string
+          quantity_formula?: string
+          template_id?: string
+          unit?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "circuit_material_template_items_master_material_id_fkey"
+            columns: ["master_material_id"]
+            isOneToOne: false
+            referencedRelation: "master_materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "circuit_material_template_items_master_material_id_fkey"
+            columns: ["master_material_id"]
+            isOneToOne: false
+            referencedRelation: "material_rate_analytics"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "circuit_material_template_items_master_material_id_fkey"
+            columns: ["master_material_id"]
+            isOneToOne: false
+            referencedRelation: "material_rate_by_contractor"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "circuit_material_template_items_master_material_id_fkey"
+            columns: ["master_material_id"]
+            isOneToOne: false
+            referencedRelation: "material_rate_by_province"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "circuit_material_template_items_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "circuit_material_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      circuit_material_templates: {
+        Row: {
+          circuit_type: string
+          created_at: string
+          created_by: string | null
+          id: string
+          is_default: boolean | null
+          name: string
+          project_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          circuit_type: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_default?: boolean | null
+          name: string
+          project_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          circuit_type?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_default?: boolean | null
+          name?: string
+          project_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "circuit_material_templates_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      circuit_materials: {
+        Row: {
+          boq_item_id: string | null
+          cable_entry_id: string
+          created_at: string
+          description: string
+          final_account_item_id: string | null
+          id: string
+          install_rate: number | null
+          is_auto_calculated: boolean | null
+          master_material_id: string | null
+          material_type: string
+          notes: string | null
+          quantity: number
+          supply_rate: number | null
+          total_cost: number | null
+          unit: string | null
+          updated_at: string
+        }
+        Insert: {
+          boq_item_id?: string | null
+          cable_entry_id: string
+          created_at?: string
+          description: string
+          final_account_item_id?: string | null
+          id?: string
+          install_rate?: number | null
+          is_auto_calculated?: boolean | null
+          master_material_id?: string | null
+          material_type: string
+          notes?: string | null
+          quantity?: number
+          supply_rate?: number | null
+          total_cost?: number | null
+          unit?: string | null
+          updated_at?: string
+        }
+        Update: {
+          boq_item_id?: string | null
+          cable_entry_id?: string
+          created_at?: string
+          description?: string
+          final_account_item_id?: string | null
+          id?: string
+          install_rate?: number | null
+          is_auto_calculated?: boolean | null
+          master_material_id?: string | null
+          material_type?: string
+          notes?: string | null
+          quantity?: number
+          supply_rate?: number | null
+          total_cost?: number | null
+          unit?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "circuit_materials_boq_item_id_fkey"
+            columns: ["boq_item_id"]
+            isOneToOne: false
+            referencedRelation: "boq_extracted_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "circuit_materials_cable_entry_id_fkey"
+            columns: ["cable_entry_id"]
+            isOneToOne: false
+            referencedRelation: "cable_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "circuit_materials_final_account_item_id_fkey"
+            columns: ["final_account_item_id"]
+            isOneToOne: false
+            referencedRelation: "final_account_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "circuit_materials_master_material_id_fkey"
+            columns: ["master_material_id"]
+            isOneToOne: false
+            referencedRelation: "master_materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "circuit_materials_master_material_id_fkey"
+            columns: ["master_material_id"]
+            isOneToOne: false
+            referencedRelation: "material_rate_analytics"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "circuit_materials_master_material_id_fkey"
+            columns: ["master_material_id"]
+            isOneToOne: false
+            referencedRelation: "material_rate_by_contractor"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "circuit_materials_master_material_id_fkey"
+            columns: ["master_material_id"]
+            isOneToOne: false
+            referencedRelation: "material_rate_by_province"
+            referencedColumns: ["material_id"]
+          },
+        ]
+      }
       client_approvals: {
         Row: {
           approval_status: string
@@ -3600,6 +3820,111 @@ export type Database = {
             columns: ["tenant_id"]
             isOneToOne: false
             referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      floor_plan_material_mappings: {
+        Row: {
+          boq_item_id: string | null
+          created_at: string
+          created_by: string | null
+          equipment_label: string | null
+          equipment_type: string
+          final_account_item_id: string | null
+          floor_plan_id: string | null
+          id: string
+          master_material_id: string | null
+          notes: string | null
+          project_id: string | null
+          quantity_per_unit: number | null
+          updated_at: string
+        }
+        Insert: {
+          boq_item_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          equipment_label?: string | null
+          equipment_type: string
+          final_account_item_id?: string | null
+          floor_plan_id?: string | null
+          id?: string
+          master_material_id?: string | null
+          notes?: string | null
+          project_id?: string | null
+          quantity_per_unit?: number | null
+          updated_at?: string
+        }
+        Update: {
+          boq_item_id?: string | null
+          created_at?: string
+          created_by?: string | null
+          equipment_label?: string | null
+          equipment_type?: string
+          final_account_item_id?: string | null
+          floor_plan_id?: string | null
+          id?: string
+          master_material_id?: string | null
+          notes?: string | null
+          project_id?: string | null
+          quantity_per_unit?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "floor_plan_material_mappings_boq_item_id_fkey"
+            columns: ["boq_item_id"]
+            isOneToOne: false
+            referencedRelation: "boq_extracted_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "floor_plan_material_mappings_final_account_item_id_fkey"
+            columns: ["final_account_item_id"]
+            isOneToOne: false
+            referencedRelation: "final_account_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "floor_plan_material_mappings_floor_plan_id_fkey"
+            columns: ["floor_plan_id"]
+            isOneToOne: false
+            referencedRelation: "floor_plan_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "floor_plan_material_mappings_master_material_id_fkey"
+            columns: ["master_material_id"]
+            isOneToOne: false
+            referencedRelation: "master_materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "floor_plan_material_mappings_master_material_id_fkey"
+            columns: ["master_material_id"]
+            isOneToOne: false
+            referencedRelation: "material_rate_analytics"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "floor_plan_material_mappings_master_material_id_fkey"
+            columns: ["master_material_id"]
+            isOneToOne: false
+            referencedRelation: "material_rate_by_contractor"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "floor_plan_material_mappings_master_material_id_fkey"
+            columns: ["master_material_id"]
+            isOneToOne: false
+            referencedRelation: "material_rate_by_province"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "floor_plan_material_mappings_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]

@@ -6,8 +6,9 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Loader2, Link2, Send, FileText } from 'lucide-react';
+import { Loader2, Link2, Send, FileText, ArrowRight } from 'lucide-react';
 import { toast } from 'sonner';
+import { MaterialMappingStep, MaterialMapping } from './MaterialMappingStep';
 
 interface LinkToFinalAccountDialogProps {
   isOpen: boolean;
@@ -29,6 +30,8 @@ type FinalAccountResult = { id: string; project_id: string; account_number: stri
 type BillResult = { id: string; bill_number: number; bill_name: string; display_order: number };
 type SectionResult = { id: string; section_code: string; section_name: string; display_order: number };
 type ShopResult = { id: string; shop_number: string; shop_name: string };
+
+type DialogStep = 'select-location' | 'map-materials' | 'confirm';
 
 // Helper functions with explicit any casts to avoid TS2589
 async function fetchFinalAccount(projectId: string): Promise<FinalAccountResult> {
@@ -80,10 +83,23 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
   takeoffCounts
 }) => {
   const queryClient = useQueryClient();
+  const [step, setStep] = useState<DialogStep>('select-location');
   const [selectedBillId, setSelectedBillId] = useState<string>('');
   const [selectedSectionId, setSelectedSectionId] = useState<string>('');
   const [selectedShopId, setSelectedShopId] = useState<string>('');
   const [transferTakeoffs, setTransferTakeoffs] = useState(false);
+  const [materialMappings, setMaterialMappings] = useState<MaterialMapping[]>([]);
+
+  // Reset state when dialog closes
+  const handleClose = () => {
+    setStep('select-location');
+    setSelectedBillId('');
+    setSelectedSectionId('');
+    setSelectedShopId('');
+    setTransferTakeoffs(false);
+    setMaterialMappings([]);
+    onClose();
+  };
 
   // Fetch final account for project
   const { data: finalAccount } = useQuery({
@@ -157,7 +173,8 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
           selectedShopId || null,
           floorPlanId,
           refDrawing.id,
-          takeoffCounts
+          takeoffCounts,
+          materialMappings
         );
       }
 
@@ -171,26 +188,42 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
       );
       queryClient.invalidateQueries({ queryKey: ['final-account-reference-drawings'] });
       queryClient.invalidateQueries({ queryKey: ['floor-plan-projects'] });
-      onClose();
+      handleClose();
     },
     onError: (error) => {
       toast.error(`Failed to link: ${error.message}`);
     },
   });
 
-  // Transfer take-offs to final account items
+  // Transfer take-offs to final account items with mappings
   const transferTakeoffsToFinalAccount = async (
     sectionId: string,
     shopSubsectionId: string | null,
     floorPlanId: string,
     refDrawingId: string,
-    counts: TakeoffCounts
+    counts: TakeoffCounts,
+    mappings: MaterialMapping[]
   ) => {
     const itemsToInsert: any[] = [];
+    const itemsToUpdate: Array<{ id: string; additionalQty: number }> = [];
 
-    // Map equipment counts to items
+    // Build a mapping lookup
+    const mappingLookup = new Map<string, MaterialMapping>();
+    for (const mapping of mappings) {
+      mappingLookup.set(`${mapping.category}_${mapping.equipmentLabel}`, mapping);
+    }
+
+    // Process equipment
     for (const [equipType, count] of Object.entries(counts.equipment)) {
-      if (count > 0) {
+      if (count <= 0) continue;
+      
+      const mapping = mappingLookup.get(`equipment_${equipType}`);
+      
+      if (mapping?.finalAccountItemId) {
+        // Update existing FA item
+        itemsToUpdate.push({ id: mapping.finalAccountItemId, additionalQty: count });
+      } else {
+        // Create new item
         itemsToInsert.push({
           section_id: sectionId,
           shop_subsection_id: shopSubsectionId,
@@ -205,13 +238,21 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
           final_amount: 0,
           source_floor_plan_id: floorPlanId,
           source_reference_drawing_id: refDrawingId,
+          master_material_id: mapping?.masterMaterialId || null,
         });
       }
     }
 
-    // Map containment lengths to items
+    // Process containment
     for (const [containType, length] of Object.entries(counts.containment)) {
-      if (length > 0) {
+      if (length <= 0) continue;
+      
+      const mapping = mappingLookup.get(`containment_${containType}`);
+      const qty = Math.round(length * 100) / 100;
+      
+      if (mapping?.finalAccountItemId) {
+        itemsToUpdate.push({ id: mapping.finalAccountItemId, additionalQty: qty });
+      } else {
         itemsToInsert.push({
           section_id: sectionId,
           shop_subsection_id: shopSubsectionId,
@@ -219,20 +260,28 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
           description: containType,
           unit: 'M',
           contract_quantity: 0,
-          final_quantity: Math.round(length * 100) / 100,
+          final_quantity: qty,
           supply_rate: 0,
           install_rate: 0,
           contract_amount: 0,
           final_amount: 0,
           source_floor_plan_id: floorPlanId,
           source_reference_drawing_id: refDrawingId,
+          master_material_id: mapping?.masterMaterialId || null,
         });
       }
     }
 
-    // Map cable counts and lengths
+    // Process cables
     for (const [cableType, data] of Object.entries(counts.cables)) {
-      if (data.count > 0) {
+      if (data.count <= 0) continue;
+      
+      const mapping = mappingLookup.get(`cable_${cableType}`);
+      const qty = Math.round(data.totalLength * 100) / 100;
+      
+      if (mapping?.finalAccountItemId) {
+        itemsToUpdate.push({ id: mapping.finalAccountItemId, additionalQty: qty });
+      } else {
         itemsToInsert.push({
           section_id: sectionId,
           shop_subsection_id: shopSubsectionId,
@@ -240,22 +289,50 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
           description: `Cable: ${cableType}`,
           unit: 'M',
           contract_quantity: 0,
-          final_quantity: Math.round(data.totalLength * 100) / 100,
+          final_quantity: qty,
           supply_rate: 0,
           install_rate: 0,
           contract_amount: 0,
           final_amount: 0,
           source_floor_plan_id: floorPlanId,
           source_reference_drawing_id: refDrawingId,
+          master_material_id: mapping?.masterMaterialId || null,
         });
       }
     }
 
+    // Insert new items
     if (itemsToInsert.length > 0) {
       const { error } = await supabase
         .from('final_account_items')
         .insert(itemsToInsert);
       if (error) throw error;
+    }
+
+    // Update existing items
+    for (const update of itemsToUpdate) {
+      const { error } = await (supabase as any)
+        .from('final_account_items')
+        .update({ 
+          final_quantity: (supabase as any).rpc('coalesce', { value: 'final_quantity', default_val: 0 }) 
+        })
+        .eq('id', update.id);
+      
+      // Fallback: fetch and update
+      if (error) {
+        const { data: existing } = await supabase
+          .from('final_account_items')
+          .select('final_quantity')
+          .eq('id', update.id)
+          .single();
+        
+        if (existing) {
+          await supabase
+            .from('final_account_items')
+            .update({ final_quantity: (existing.final_quantity || 0) + update.additionalQty })
+            .eq('id', update.id);
+        }
+      }
     }
   };
 
@@ -267,28 +344,40 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
     return equipmentTotal > 0 || containmentTotal > 0 || cableTotal > 0;
   }, [takeoffCounts]);
 
-  const handleSubmit = () => {
+  const handleNextStep = () => {
     if (!selectedSectionId) {
       toast.error('Please select a section');
       return;
     }
+    
+    if (transferTakeoffs && hasTakeoffs) {
+      setStep('map-materials');
+    } else {
+      linkMutation.mutate();
+    }
+  };
+
+  const handleMappingsComplete = (mappings: MaterialMapping[]) => {
+    setMaterialMappings(mappings);
     linkMutation.mutate();
   };
 
-  return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Link2 className="h-5 w-5" />
-            Link to Final Account
-          </DialogTitle>
-          <DialogDescription>
-            Link this floor plan as a reference drawing for the Final Account.
-            {floorPlanName && <span className="block mt-1 font-medium text-foreground">"{floorPlanName}"</span>}
-          </DialogDescription>
-        </DialogHeader>
+  const renderStep = () => {
+    if (step === 'map-materials' && floorPlanId && projectId && selectedSectionId && takeoffCounts) {
+      return (
+        <MaterialMappingStep
+          projectId={projectId}
+          floorPlanId={floorPlanId}
+          sectionId={selectedSectionId}
+          takeoffCounts={takeoffCounts}
+          onMappingsComplete={handleMappingsComplete}
+          onBack={() => setStep('select-location')}
+        />
+      );
+    }
 
+    return (
+      <>
         <div className="space-y-4 py-4">
           {!finalAccount ? (
             <div className="text-center py-4 text-muted-foreground">
@@ -395,6 +484,11 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
                       data.count > 0 && <li key={type}>• {type}: {data.count} runs ({data.totalLength.toFixed(1)}m)</li>
                     )}
                   </ul>
+                  {transferTakeoffs && (
+                    <p className="mt-2 text-xs text-primary">
+                      Next step: Map items to BOQ entries for accurate rates
+                    </p>
+                  )}
                 </div>
               )}
             </>
@@ -402,18 +496,46 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={onClose}>Cancel</Button>
+          <Button variant="outline" onClick={handleClose}>Cancel</Button>
           <Button 
-            onClick={handleSubmit} 
+            onClick={handleNextStep} 
             disabled={linkMutation.isPending || !finalAccount || !selectedSectionId}
           >
             {linkMutation.isPending ? (
               <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Linking...</>
+            ) : transferTakeoffs && hasTakeoffs ? (
+              <>Next: Map Materials <ArrowRight className="h-4 w-4 ml-2" /></>
             ) : (
               <><Link2 className="h-4 w-4 mr-2" /> Link Drawing</>
             )}
           </Button>
         </DialogFooter>
+      </>
+    );
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
+      <DialogContent className={step === 'map-materials' ? 'sm:max-w-2xl' : 'sm:max-w-md'}>
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <Link2 className="h-5 w-5" />
+            {step === 'map-materials' ? 'Map Materials to BOQ' : 'Link to Final Account'}
+          </DialogTitle>
+          <DialogDescription>
+            {step === 'map-materials' 
+              ? 'Match floor plan items to existing BOQ or Master Material entries for accurate costing.'
+              : (
+                <>
+                  Link this floor plan as a reference drawing for the Final Account.
+                  {floorPlanName && <span className="block mt-1 font-medium text-foreground">"{floorPlanName}"</span>}
+                </>
+              )
+            }
+          </DialogDescription>
+        </DialogHeader>
+
+        {renderStep()}
       </DialogContent>
     </Dialog>
   );
