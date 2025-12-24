@@ -5,13 +5,14 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Plus, Trash2, Save, Download, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, Trash2, Save, Download, ChevronDown, ChevronRight, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { formatCurrency } from "@/utils/formatters";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { PCSpreadsheetTable } from "./PCSpreadsheetTable";
+import { PrimeCostDocuments } from "./PrimeCostDocuments";
 
 interface PrimeCostManagerProps {
   accountId: string;
@@ -53,6 +54,11 @@ export function PrimeCostManager({ accountId, projectId }: PrimeCostManagerProps
   const [editValues, setEditValues] = useState<Partial<PrimeCostItem>>({});
   const [expandedBills, setExpandedBills] = useState<Set<string>>(new Set());
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+  const [documentsDialog, setDocumentsDialog] = useState<{ open: boolean; itemId: string; description: string }>({
+    open: false,
+    itemId: "",
+    description: "",
+  });
   const [newItem, setNewItem] = useState({
     item_code: "",
     description: "",
@@ -76,6 +82,28 @@ export function PrimeCostManager({ accountId, projectId }: PrimeCostManagerProps
       if (error) throw error;
       return data as PrimeCostItem[];
     },
+  });
+
+  // Fetch document counts for manual prime cost items
+  const { data: manualDocumentCounts } = useQuery({
+    queryKey: ["manual-prime-cost-document-counts", accountId],
+    queryFn: async () => {
+      if (!primeCosts || primeCosts.length === 0) return {};
+      const itemIds = primeCosts.map(i => i.id);
+      const { data, error } = await supabase
+        .from("prime_cost_documents")
+        .select("prime_cost_item_id")
+        .in("prime_cost_item_id", itemIds);
+      
+      if (error) throw error;
+      
+      const counts: Record<string, number> = {};
+      (data || []).forEach(doc => {
+        counts[doc.prime_cost_item_id] = (counts[doc.prime_cost_item_id] || 0) + 1;
+      });
+      return counts;
+    },
+    enabled: !!primeCosts && primeCosts.length > 0,
   });
 
   // Fetch prime cost items grouped by bill and section
@@ -531,6 +559,7 @@ export function PrimeCostManager({ accountId, projectId }: PrimeCostManagerProps
                       <TableHead className="text-right w-[120px]">Actual Cost</TableHead>
                       <TableHead className="text-right w-[80px]">P&A %</TableHead>
                       <TableHead className="text-right w-[120px]">Adjustment</TableHead>
+                      <TableHead className="w-[60px] text-center">Docs</TableHead>
                       <TableHead className="w-[80px]"></TableHead>
                     </TableRow>
                   </TableHeader>
@@ -542,6 +571,7 @@ export function PrimeCostManager({ accountId, projectId }: PrimeCostManagerProps
                       const paOnAllowance = allowance * (paPercent / 100);
                       const paOnActual = actual * (paPercent / 100);
                       const adjustment = (actual - allowance) + (paOnActual - paOnAllowance);
+                      const docCount = manualDocumentCounts?.[item.id] || 0;
 
                       return (
                         <TableRow key={item.id}>
@@ -569,6 +599,22 @@ export function PrimeCostManager({ accountId, projectId }: PrimeCostManagerProps
                           <TableCell className="text-right">{paPercent.toFixed(1)}%</TableCell>
                           <TableCell className={`text-right font-medium ${adjustment >= 0 ? "text-destructive" : "text-green-600"}`}>
                             {adjustment >= 0 ? "+" : ""}{formatCurrency(adjustment)}
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 relative"
+                              onClick={() => setDocumentsDialog({ open: true, itemId: item.id, description: item.description })}
+                              title={docCount > 0 ? `${docCount} document(s)` : "Add documents"}
+                            >
+                              <FileText className={`h-4 w-4 ${docCount > 0 ? "text-primary" : "text-muted-foreground"}`} />
+                              {docCount > 0 && (
+                                <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[10px] rounded-full h-4 w-4 flex items-center justify-center">
+                                  {docCount}
+                                </span>
+                              )}
+                            </Button>
                           </TableCell>
                           <TableCell>
                             <div className="flex gap-1">
@@ -713,6 +759,14 @@ export function PrimeCostManager({ accountId, projectId }: PrimeCostManagerProps
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Documents Dialog */}
+      <PrimeCostDocuments
+        open={documentsDialog.open}
+        onOpenChange={(open) => setDocumentsDialog(prev => ({ ...prev, open }))}
+        itemId={documentsDialog.itemId}
+        itemDescription={documentsDialog.description}
+      />
     </div>
   );
 }
