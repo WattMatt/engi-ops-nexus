@@ -570,7 +570,8 @@ export function PrimeCostBreakdown({
                         {formatCurrency(component.amount)}
                       </span>
                       
-                      {/* Document upload popover */}
+                      {/* Document upload popover - only for non-auto-calculated items */}
+                      {!component.is_auto_calculated && (
                       <Popover onOpenChange={(open) => {
                         if (open) setSelectedComponentForDocs(component.id);
                       }}>
@@ -661,6 +662,7 @@ export function PrimeCostBreakdown({
                           </div>
                         </PopoverContent>
                       </Popover>
+                      )}
 
                       {component.is_auto_calculated && (
                         <Button
