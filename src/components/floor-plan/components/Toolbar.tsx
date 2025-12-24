@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import type { LucideProps } from 'lucide-react';
 import { User } from '@supabase/supabase-js';
-import { MousePointer, Hand, Ruler, Route, Layers, Save, FolderOpen, Network, Shield, Server, RotateCw, Printer, Square, LayoutGrid, Sun, Magnet, Wrench, Edit, ShieldQuestion, Power, Plug, Undo2, Redo2, Maximize2, FileText } from 'lucide-react';
+import { MousePointer, Hand, Ruler, Route, Layers, Save, FolderOpen, Network, Shield, Server, RotateCw, Printer, Square, LayoutGrid, Sun, Magnet, Wrench, Edit, ShieldQuestion, Power, Plug, Undo2, Redo2, Maximize2, FileText, Link2 } from 'lucide-react';
 import { Tool, DesignPurpose, MarkupToolCategory, MARKUP_TOOL_CATEGORIES, ScaleInfo } from '../types';
 import { type PurposeConfig } from '../purpose.config';
 import { EquipmentIcon } from './EquipmentIcon';
@@ -66,6 +66,9 @@ interface ToolbarProps {
   onResetView: () => void;
   scaleInfo: ScaleInfo;
   onOpenSavedReports: () => void;
+  onLinkToFinalAccount?: () => void;
+  hasDesignId?: boolean;
+  hasProjectId?: boolean;
 }
 
 const toolIconMap: Partial<Record<Tool, React.ElementType<LucideProps>>> = {
@@ -93,7 +96,10 @@ const Toolbar: React.FC<ToolbarProps> = ({
   user,
   onUndo, onRedo, canUndo, canRedo, onResetView,
   scaleInfo,
-  onOpenSavedReports
+  onOpenSavedReports,
+  onLinkToFinalAccount,
+  hasDesignId,
+  hasProjectId
 }) => {
   const [activeMarkupTab, setActiveMarkupTab] = useState<MarkupToolCategory>('general');
   
@@ -178,6 +184,16 @@ const Toolbar: React.FC<ToolbarProps> = ({
         
         {/* Saved Reports Button */}
         <GlobalToolButton icon={FileText} label="Saved Reports" onClick={onOpenSavedReports} disabled={!user} />
+        
+        {/* Link to Final Account Button */}
+        {onLinkToFinalAccount && (
+          <GlobalToolButton 
+            icon={Link2} 
+            label="Link to Final Account" 
+            onClick={onLinkToFinalAccount} 
+            disabled={!hasDesignId || !hasProjectId || !isPdfLoaded} 
+          />
+        )}
       </div>
       
       {isPdfLoaded && purposeConfig && (

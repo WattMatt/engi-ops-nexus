@@ -33,6 +33,8 @@ import { Building, Loader } from 'lucide-react';
 import { SavedReportsList } from './components/SavedReportsList';
 import { SavedDesignsGallery } from './components/SavedDesignsGallery';
 import { supabase } from '@/integrations/supabase/client';
+import { LinkToFinalAccountDialog } from './components/LinkToFinalAccountDialog';
+import { useTakeoffCounts } from './hooks/useTakeoffCounts';
 
 
 // Set PDF.js worker source
@@ -86,6 +88,9 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
   const canRedo = historyIndex < history.length - 1;
   const currentDesign = history[historyIndex];
   const { equipment, lines, zones, containment, walkways, roofMasks, pvArrays, tasks } = currentDesign;
+
+  // Calculate take-off counts for linking to final account
+  const takeoffCounts = useTakeoffCounts(equipment, lines, containment);
 
   const setState = useCallback((updater: (prevState: DesignState) => DesignState, commit: boolean = true) => {
     const currentState = history[historyIndex];
@@ -165,6 +170,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
   const [designList, setDesignList] = useState<DesignListing[]>([]);
   const [isLoadingDesigns, setIsLoadingDesigns] = useState(false);
   const [isSavedReportsModalOpen, setIsSavedReportsModalOpen] = useState(false);
+  const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
 
   const [scaleLine, setScaleLine] = useState<{start: Point, end: Point} | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
@@ -737,6 +743,9 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
         canUndo={canUndo} canRedo={canRedo} onResetView={handleResetZoom}
         scaleInfo={scaleInfo}
         onOpenSavedReports={() => setIsSavedReportsModalOpen(true)}
+        onLinkToFinalAccount={() => setIsLinkDialogOpen(true)}
+        hasDesignId={!!currentDesignId}
+        hasProjectId={!!currentProjectId}
       />
       
       {/* Center - Canvas Area */}
@@ -827,6 +836,14 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
       />
       <TaskModal isOpen={isTaskModalOpen} onClose={() => { setIsTaskModalOpen(false); setEditingTask(null); }} onSubmit={handleTaskSubmit} task={editingTask} assigneeList={assigneeList} />
       <SavedReportsList open={isSavedReportsModalOpen} onOpenChange={setIsSavedReportsModalOpen} />
+      <LinkToFinalAccountDialog
+        isOpen={isLinkDialogOpen}
+        onClose={() => setIsLinkDialogOpen(false)}
+        floorPlanId={currentDesignId}
+        floorPlanName={currentDesignName}
+        projectId={currentProjectId}
+        takeoffCounts={takeoffCounts}
+      />
     </div>
   );
 };

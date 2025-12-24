@@ -24,6 +24,53 @@ export interface TakeoffCounts {
   cables: Record<string, { count: number; totalLength: number }>;
 }
 
+// Type definitions for query results
+type FinalAccountResult = { id: string; project_id: string; account_number: string; account_name: string } | null;
+type BillResult = { id: string; bill_number: number; bill_name: string; display_order: number };
+type SectionResult = { id: string; section_code: string; section_name: string; display_order: number };
+type ShopResult = { id: string; shop_number: string; shop_name: string };
+
+// Helper functions with explicit any casts to avoid TS2589
+async function fetchFinalAccount(projectId: string): Promise<FinalAccountResult> {
+  const { data, error } = await (supabase as any)
+    .from('final_accounts')
+    .select('id, project_id, account_number, account_name')
+    .eq('project_id', projectId)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+async function fetchBills(accountId: string): Promise<BillResult[]> {
+  const { data, error } = await (supabase as any)
+    .from('final_account_bills')
+    .select('id, bill_number, bill_name, display_order')
+    .eq('account_id', accountId)
+    .order('display_order');
+  if (error) throw error;
+  return data || [];
+}
+
+async function fetchSections(billId: string): Promise<SectionResult[]> {
+  const { data, error } = await (supabase as any)
+    .from('final_account_sections')
+    .select('id, section_code, section_name, display_order')
+    .eq('bill_id', billId)
+    .order('display_order');
+  if (error) throw error;
+  return data || [];
+}
+
+async function fetchShops(sectionId: string): Promise<ShopResult[]> {
+  const { data, error } = await (supabase as any)
+    .from('final_account_shop_subsections')
+    .select('id, shop_number, shop_name')
+    .eq('section_id', sectionId)
+    .order('shop_number');
+  if (error) throw error;
+  return data || [];
+}
+
 export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> = ({
   isOpen,
   onClose,
@@ -41,60 +88,28 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
   // Fetch final account for project
   const { data: finalAccount } = useQuery({
     queryKey: ['final-account-for-linking', projectId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('final_accounts')
-        .select('*')
-        .eq('project_id', projectId)
-        .maybeSingle();
-      if (error) throw error;
-      return data;
-    },
+    queryFn: () => fetchFinalAccount(projectId!),
     enabled: !!projectId && isOpen,
   });
 
   // Fetch bills
   const { data: bills } = useQuery({
     queryKey: ['final-account-bills', finalAccount?.id],
-    queryFn: async () => {
-      const result = await supabase
-        .from('final_account_bills')
-        .select('id, bill_number, bill_name, display_order')
-        .eq('account_id', finalAccount!.id)
-        .order('display_order');
-      if (result.error) throw result.error;
-      return result.data;
-    },
+    queryFn: () => fetchBills(finalAccount!.id),
     enabled: !!finalAccount?.id,
   });
 
   // Fetch sections for selected bill
   const { data: sections } = useQuery({
     queryKey: ['final-account-sections', selectedBillId],
-    queryFn: async () => {
-      const result = await supabase
-        .from('final_account_sections')
-        .select('id, section_code, section_name, display_order')
-        .eq('bill_id', selectedBillId)
-        .order('display_order');
-      if (result.error) throw result.error;
-      return result.data;
-    },
+    queryFn: () => fetchSections(selectedBillId),
     enabled: !!selectedBillId,
   });
 
   // Fetch shop subsections for selected section
   const { data: shops } = useQuery({
     queryKey: ['final-account-shops', selectedSectionId],
-    queryFn: async () => {
-      const result = await supabase
-        .from('final_account_shop_subsections')
-        .select('id, shop_number, shop_name')
-        .eq('section_id', selectedSectionId)
-        .order('shop_number');
-      if (result.error) throw result.error;
-      return result.data;
-    },
+    queryFn: () => fetchShops(selectedSectionId),
     enabled: !!selectedSectionId,
   });
 
