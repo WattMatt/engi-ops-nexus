@@ -82,9 +82,9 @@ export function DevelopmentRoadmapWidget() {
     }
   };
 
-  // Group phases: BOQ Processing (1-6) and Circuit Schedule (7-13)
-  const boqPhases = developmentPhases.filter(p => p.number <= 6);
-  const circuitPhases = developmentPhases.filter(p => p.number >= 7);
+  // Group phases: Foundation (1-5) and Import/Reporting (6-10)
+  const foundationPhases = developmentPhases.filter(p => p.number <= 5);
+  const importReportingPhases = developmentPhases.filter(p => p.number >= 6);
 
   const renderPhaseGroup = (phases: typeof developmentPhases, title: string, description: string) => (
     <div className="space-y-3">
@@ -336,14 +336,14 @@ export function DevelopmentRoadmapWidget() {
         <ScrollArea className="h-[500px] pr-4">
           <div className="space-y-6">
             {renderPhaseGroup(
-              boqPhases, 
-              "BOQ Processing Phases (1-6)", 
-              "Upload, extraction, matching, and import workflow"
+              foundationPhases, 
+              "Foundation Phases (1-5)", 
+              "Structure, bills, items, subsections, and prime costs"
             )}
             {renderPhaseGroup(
-              circuitPhases, 
-              "Circuit Schedule & BOQ Integration (7-13)", 
-              "Rate library, circuits, materials, and final account sync"
+              importReportingPhases, 
+              "Import & Reporting Phases (6-10)", 
+              "BOQ import, discrepancies, variations, and reporting"
             )}
           </div>
         </ScrollArea>
