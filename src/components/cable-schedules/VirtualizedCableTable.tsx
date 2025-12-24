@@ -30,6 +30,7 @@ interface VirtualizedCableTableProps {
   onDelete: (entry: CableEntry) => void;
   onSplit: (entry: CableEntry) => void;
   tenantLoadMap?: Map<string, number>;
+  tenantNameMap?: Map<string, string>;
 }
 
 // Column styles for full-width distribution
@@ -62,7 +63,8 @@ const CableRow = memo(({
   onDelete, 
   onSplit,
   style,
-  tenantLoadMap
+  tenantLoadMap,
+  tenantNameMap
 }: { 
   entry: CableEntry; 
   onEdit: (entry: CableEntry) => void;
@@ -70,6 +72,7 @@ const CableRow = memo(({
   onSplit: (entry: CableEntry) => void;
   style: React.CSSProperties;
   tenantLoadMap?: Map<string, number>;
+  tenantNameMap?: Map<string, string>;
 }) => {
   const hasCompleteData = entry.voltage && entry.load_amps && entry.cable_size;
   
@@ -85,10 +88,20 @@ const CableRow = memo(({
   const totalLength = entry.total_length || 
     round((entry.measured_length || 0) + (entry.extra_length || 0), 2);
 
-  // Get SOW load from tenant if available
+  // Get SOW load and tenant name from lookup maps
   const shopNum = extractShopNumber(entry.to_location);
   const sowLoad = shopNum ? tenantLoadMap?.get(shopNum) : undefined;
   const displayLoad = entry.load_amps || sowLoad || '-';
+  
+  // Build display location with tenant name if available
+  let displayToLocation = entry.to_location;
+  if (shopNum && tenantNameMap) {
+    const tenantName = tenantNameMap.get(shopNum);
+    // Only add tenant name if not already in to_location
+    if (tenantName && !entry.to_location.toLowerCase().includes(tenantName.toLowerCase())) {
+      displayToLocation = `Shop ${shopNum.toUpperCase()} - ${tenantName}`;
+    }
+  }
 
   return (
     <div 
@@ -105,7 +118,7 @@ const CableRow = memo(({
       <div className={`${colStyles.cableNum} px-2 py-3 font-medium`}>{displayCableNumber}</div>
       <div className={`${colStyles.cableTag} px-2 py-3 font-medium truncate`} title={displayCableTag}>{displayCableTag}</div>
       <div className={`${colStyles.from} px-2 py-3 truncate`} title={entry.from_location}>{entry.from_location}</div>
-      <div className={`${colStyles.to} px-2 py-3 truncate`} title={entry.to_location}>{entry.to_location}</div>
+      <div className={`${colStyles.to} px-2 py-3 truncate`} title={displayToLocation}>{displayToLocation}</div>
       <div className={`${colStyles.qty} px-2 py-3`}>{entry.quantity || 1}</div>
       <div className={`${colStyles.voltage} px-2 py-3`}>{entry.voltage || '-'}</div>
       <div className={`${colStyles.loadAmps} px-2 py-3`}>{displayLoad}</div>
@@ -140,6 +153,7 @@ export function VirtualizedCableTable({
   onDelete,
   onSplit,
   tenantLoadMap,
+  tenantNameMap,
 }: VirtualizedCableTableProps) {
   const parentRef = useRef<HTMLDivElement>(null);
 
@@ -204,6 +218,7 @@ export function VirtualizedCableTable({
                 onDelete={handleDelete}
                 onSplit={handleSplit}
                 tenantLoadMap={tenantLoadMap}
+                tenantNameMap={tenantNameMap}
                 style={{
                   position: 'absolute',
                   top: 0,

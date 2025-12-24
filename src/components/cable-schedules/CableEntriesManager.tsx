@@ -44,14 +44,14 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
   // Fetch calculation settings
   const { data: calcSettings } = useCalculationSettings(projectId);
 
-  // Fetch tenants for the project to get SOW load values
+  // Fetch tenants for the project to get SOW load values and shop names
   const { data: tenants } = useQuery({
     queryKey: ["tenants-for-cables", projectId],
     queryFn: async () => {
       if (!projectId) return [];
       const { data, error } = await supabase
         .from("tenants")
-        .select("shop_number, db_size_scope_of_work")
+        .select("shop_number, shop_name, db_size_scope_of_work")
         .eq("project_id", projectId);
       if (error) throw error;
       return data || [];
@@ -59,16 +59,25 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
     enabled: !!projectId,
   });
 
-  // Create a lookup map: shop number -> SOW load (extracted number)
+  // Create lookup maps: shop number -> SOW load and shop number -> shop name
   const tenantLoadMap = new Map<string, number>();
+  const tenantNameMap = new Map<string, string>();
   tenants?.forEach(t => {
-    if (t.shop_number && t.db_size_scope_of_work) {
-      // Extract number from "80A TP" -> 80
-      const match = t.db_size_scope_of_work.match(/(\d+)/);
-      if (match) {
-        // Normalize shop number for matching (e.g., "Shop 45" -> "45")
-        const shopNum = t.shop_number.replace(/^shop\s*/i, '').trim();
-        tenantLoadMap.set(shopNum.toLowerCase(), parseInt(match[1], 10));
+    if (t.shop_number) {
+      // Normalize shop number for matching (e.g., "Shop 45" -> "45")
+      const shopNum = t.shop_number.replace(/^shop\s*/i, '').trim().toLowerCase();
+      
+      // Add shop name mapping
+      if (t.shop_name) {
+        tenantNameMap.set(shopNum, t.shop_name);
+      }
+      
+      // Add load mapping
+      if (t.db_size_scope_of_work) {
+        const match = t.db_size_scope_of_work.match(/(\d+)/);
+        if (match) {
+          tenantLoadMap.set(shopNum, parseInt(match[1], 10));
+        }
       }
     }
   });
@@ -311,6 +320,7 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
               onDelete={handleDeleteClick}
               onSplit={handleSplit}
               tenantLoadMap={tenantLoadMap}
+              tenantNameMap={tenantNameMap}
             />
             {entries && entries.length > 0 && (
               <div className="flex justify-end">
