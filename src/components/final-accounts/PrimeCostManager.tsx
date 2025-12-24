@@ -12,7 +12,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Label } from "@/components/ui/label";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { PCSpreadsheetTable } from "./PCSpreadsheetTable";
+import { PSSpreadsheetTable } from "./PSSpreadsheetTable";
 import { PrimeCostDocuments } from "./PrimeCostDocuments";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface PrimeCostManagerProps {
   accountId: string;
@@ -32,7 +34,7 @@ interface PrimeCostItem {
   display_order: number;
 }
 
-interface GroupedPCData {
+interface GroupedData {
   bills: {
     id: string;
     bill_number: number;
@@ -109,7 +111,7 @@ export function PrimeCostManager({ accountId, projectId }: PrimeCostManagerProps
   // Fetch prime cost items grouped by bill and section
   const { data: groupedPCData } = useQuery({
     queryKey: ["final-account-items-prime-costs-grouped", accountId],
-    queryFn: async (): Promise<GroupedPCData> => {
+    queryFn: async (): Promise<GroupedData> => {
       // Get all bills for this account with ordering
       const { data: bills, error: billsError } = await supabase
         .from("final_account_bills")
@@ -189,7 +191,96 @@ export function PrimeCostManager({ accountId, projectId }: PrimeCostManagerProps
       });
       
       // Build final structure, only include bills with PC sections
-      const result: GroupedPCData = {
+      const result: GroupedData = {
+        bills: bills
+          .map((bill) => ({
+            ...bill,
+            sections: sectionsByBill.get(bill.id) || [],
+          }))
+          .filter((bill) => bill.sections.length > 0),
+      };
+      
+      return result;
+    },
+  });
+
+  // Fetch provisional sum items grouped by bill and section
+  const { data: groupedPSData } = useQuery({
+    queryKey: ["final-account-items-provisional-sums-grouped", accountId],
+    queryFn: async (): Promise<GroupedData> => {
+      const { data: bills, error: billsError } = await supabase
+        .from("final_account_bills")
+        .select("id, bill_number, bill_name")
+        .eq("final_account_id", accountId)
+        .order("bill_number", { ascending: true });
+      
+      if (billsError || !bills || bills.length === 0) {
+        return { bills: [] };
+      }
+      
+      const billIds = bills.map((b) => b.id);
+      
+      const { data: sections, error: sectionsError } = await supabase
+        .from("final_account_sections")
+        .select("id, section_code, section_name, bill_id, display_order")
+        .in("bill_id", billIds)
+        .order("display_order", { ascending: true });
+      
+      if (sectionsError || !sections || sections.length === 0) {
+        return { bills: bills.map(b => ({ ...b, sections: [] })) };
+      }
+      
+      const sectionIds = sections.map((s) => s.id);
+      
+      // Get provisional sum items
+      const { data: items, error: itemsError } = await supabase
+        .from("final_account_items")
+        .select("*")
+        .in("section_id", sectionIds)
+        .eq("is_provisional", true)
+        .order("display_order", { ascending: true });
+      
+      if (itemsError) {
+        console.error("Error fetching PS items:", itemsError);
+        return { bills: bills.map(b => ({ ...b, sections: [] })) };
+      }
+      
+      const itemsBySection = new Map<string, any[]>();
+      (items || []).forEach((item) => {
+        const existing = itemsBySection.get(item.section_id) || [];
+        existing.push(item);
+        itemsBySection.set(item.section_id, existing);
+      });
+      
+      const parseSectionCode = (code: string): number[] => {
+        return code.split('.').map(part => parseInt(part, 10) || 0);
+      };
+      
+      const sortedSections = [...sections].sort((a, b) => {
+        const aParts = parseSectionCode(a.section_code);
+        const bParts = parseSectionCode(b.section_code);
+        for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
+          const aVal = aParts[i] || 0;
+          const bVal = bParts[i] || 0;
+          if (aVal !== bVal) return aVal - bVal;
+        }
+        return 0;
+      });
+      
+      const sectionsByBill = new Map<string, any[]>();
+      sortedSections.forEach((section) => {
+        const sectionItems = itemsBySection.get(section.id) || [];
+        if (sectionItems.length > 0) {
+          const existing = sectionsByBill.get(section.bill_id) || [];
+          existing.push({
+            ...section,
+            items: sectionItems,
+          });
+          sectionsByBill.set(section.bill_id, existing);
+        }
+      });
+      
+      const result: GroupedData = {
         bills: bills
           .map((bill) => ({
             ...bill,
@@ -386,7 +477,7 @@ export function PrimeCostManager({ accountId, projectId }: PrimeCostManagerProps
     { allowanceTotal: 0, actualTotal: 0, paAllowanceTotal: 0, paActualTotal: 0, adjustmentTotal: 0, itemCount: 0 }
   );
 
-  // Combined totals
+  // Combined totals for PC
   const totals = {
     allowanceTotal: manualTotals.allowanceTotal + importedTotals.allowanceTotal,
     actualTotal: manualTotals.actualTotal + importedTotals.actualTotal,
@@ -394,6 +485,27 @@ export function PrimeCostManager({ accountId, projectId }: PrimeCostManagerProps
     paActualTotal: manualTotals.paActualTotal + importedTotals.paActualTotal,
     adjustmentTotal: manualTotals.adjustmentTotal + importedTotals.adjustmentTotal,
   };
+
+  // Calculate PS totals
+  const psTotals = (groupedPSData?.bills || []).reduce(
+    (acc, bill) => {
+      bill.sections.forEach((section) => {
+        section.items.forEach((item: any) => {
+          const original = Number(item.ps_original_sum) || Number(item.contract_amount) || 0;
+          const spent = Number(item.ps_spent_amount) || 0;
+          const adjustment = Number(item.adjustment_amount) || 0;
+          acc.originalTotal += original;
+          acc.spentTotal += spent;
+          acc.remainingTotal += original - spent;
+          acc.adjustmentTotal += adjustment;
+          acc.finalTotal += spent + adjustment;
+          acc.itemCount += 1;
+        });
+      });
+      return acc;
+    },
+    { originalTotal: 0, spentTotal: 0, remainingTotal: 0, adjustmentTotal: 0, finalTotal: 0, itemCount: 0 }
+  );
 
   const toggleBill = (billId: string) => {
     const newExpanded = new Set(expandedBills);
@@ -422,226 +534,347 @@ export function PrimeCostManager({ accountId, projectId }: PrimeCostManagerProps
   }
 
   const hasPCItems = (groupedPCData?.bills?.length || 0) > 0 || (primeCosts?.length || 0) > 0;
+  const hasPSItems = (groupedPSData?.bills?.length || 0) > 0;
 
   return (
     <div className="space-y-4">
-      {/* Summary Card */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between py-4">
-          <CardTitle className="text-lg">Prime Cost Summary</CardTitle>
-          <div className="flex gap-2">
-            {boqPrimeCosts && boqPrimeCosts.length > 0 && (
-              <Button variant="outline" size="sm" onClick={() => setImportDialogOpen(true)}>
-                <Download className="h-4 w-4 mr-2" />
-                Import from BOQ
-              </Button>
-            )}
-            <Button size="sm" onClick={() => setAddDialogOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add PC Item
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-5 gap-4 text-sm">
-            <div>
-              <p className="text-muted-foreground">Total Items</p>
-              <p className="text-xl font-semibold">{totalItemCount}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Total PC Allowance</p>
-              <p className="text-xl font-semibold">{formatCurrency(totals.allowanceTotal)}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Total P&A Value</p>
-              <p className="text-xl font-semibold">{formatCurrency(totals.paAllowanceTotal)}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Actual Cost</p>
-              <p className="text-xl font-semibold">{formatCurrency(totals.actualTotal)}</p>
-            </div>
-            <div>
-              <p className="text-muted-foreground">Total Adjustment</p>
-              <p className={`text-xl font-semibold ${totals.adjustmentTotal >= 0 ? 'text-destructive' : 'text-green-600'}`}>
-                {totals.adjustmentTotal >= 0 ? "+" : ""}{formatCurrency(totals.adjustmentTotal)}
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      <Tabs defaultValue="prime-costs" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="prime-costs">
+            Prime Costs ({totalItemCount})
+          </TabsTrigger>
+          <TabsTrigger value="provisional-sums">
+            Provisional Sums ({psTotals.itemCount})
+          </TabsTrigger>
+        </TabsList>
 
-      {!hasPCItems ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <p className="text-muted-foreground mb-4">No Prime Cost items yet. Import a BOQ to auto-detect PC items or add manually.</p>
-            <Button onClick={() => setAddDialogOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add PC Item
-            </Button>
-          </CardContent>
-        </Card>
-      ) : (
-        <>
-          {/* Grouped Bills with Sections */}
-          {groupedPCData?.bills.map((bill) => (
-            <Collapsible
-              key={bill.id}
-              open={expandedBills.has(bill.id)}
-              onOpenChange={() => toggleBill(bill.id)}
-            >
-              <Card>
-                <CardHeader className="py-3">
-                  <CollapsibleTrigger className="flex items-center gap-2 hover:text-primary transition-colors w-full">
-                    {expandedBills.has(bill.id) ? (
-                      <ChevronDown className="h-4 w-4" />
-                    ) : (
-                      <ChevronRight className="h-4 w-4" />
-                    )}
-                    <span className="font-semibold">Bill No. {bill.bill_number} - {bill.bill_name}</span>
-                    <span className="ml-auto text-sm text-muted-foreground">
-                      {bill.sections.reduce((sum, s) => sum + s.items.length, 0)} PC items
-                    </span>
-                  </CollapsibleTrigger>
-                </CardHeader>
-                <CollapsibleContent>
-                  <CardContent className="pt-0 space-y-4">
-                    {bill.sections.map((section) => (
-                      <Collapsible
-                        key={section.id}
-                        open={expandedSections.has(section.id)}
-                        onOpenChange={() => toggleSection(section.id)}
-                        defaultOpen
-                      >
-                        <div className="border rounded-lg overflow-hidden">
-                          <CollapsibleTrigger className="flex items-center gap-2 p-3 hover:bg-muted/50 transition-colors w-full bg-muted/30">
-                            {expandedSections.has(section.id) ? (
-                              <ChevronDown className="h-4 w-4" />
-                            ) : (
-                              <ChevronRight className="h-4 w-4" />
-                            )}
-                            <span className="font-medium text-sm">
-                              {section.section_code} - {section.section_name}
-                            </span>
-                            <span className="ml-auto text-xs text-muted-foreground">
-                              {section.items.length} items
-                            </span>
-                          </CollapsibleTrigger>
-                          <CollapsibleContent>
-                            <PCSpreadsheetTable 
-                              items={section.items} 
-                              sectionId={section.id}
-                              accountId={accountId}
-                              projectId={projectId}
-                            />
-                          </CollapsibleContent>
-                        </div>
-                      </Collapsible>
-                    ))}
-                  </CardContent>
-                </CollapsibleContent>
-              </Card>
-            </Collapsible>
-          ))}
+        {/* Prime Costs Tab */}
+        <TabsContent value="prime-costs" className="space-y-4">
+          {/* PC Summary Card */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between py-4">
+              <CardTitle className="text-lg">Prime Cost Summary</CardTitle>
+              <div className="flex gap-2">
+                {boqPrimeCosts && boqPrimeCosts.length > 0 && (
+                  <Button variant="outline" size="sm" onClick={() => setImportDialogOpen(true)}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Import from BOQ
+                  </Button>
+                )}
+                <Button size="sm" onClick={() => setAddDialogOpen(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add PC Item
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-5 gap-4 text-sm">
+                <div>
+                  <p className="text-muted-foreground">Total Items</p>
+                  <p className="text-xl font-semibold">{totalItemCount}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Total PC Allowance</p>
+                  <p className="text-xl font-semibold">{formatCurrency(totals.allowanceTotal)}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Total P&A Value</p>
+                  <p className="text-xl font-semibold">{formatCurrency(totals.paAllowanceTotal)}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Actual Cost</p>
+                  <p className="text-xl font-semibold">{formatCurrency(totals.actualTotal)}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Total Adjustment</p>
+                  <p className={`text-xl font-semibold ${totals.adjustmentTotal >= 0 ? 'text-destructive' : 'text-green-600'}`}>
+                    {totals.adjustmentTotal >= 0 ? "+" : ""}{formatCurrency(totals.adjustmentTotal)}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
-          {/* Manual Prime Cost Items */}
-          {primeCosts && primeCosts.length > 0 && (
+          {!hasPCItems ? (
             <Card>
-              <CardHeader className="py-3">
-                <CardTitle className="text-base">Manually Added PC Items</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="w-[80px]">Code</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead className="text-right w-[120px]">PC Allowance</TableHead>
-                      <TableHead className="text-right w-[120px]">Actual Cost</TableHead>
-                      <TableHead className="text-right w-[80px]">P&A %</TableHead>
-                      <TableHead className="text-right w-[120px]">Adjustment</TableHead>
-                      <TableHead className="w-[60px] text-center">Docs</TableHead>
-                      <TableHead className="w-[80px]"></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {primeCosts.map((item) => {
-                      const allowance = Number(item.pc_allowance) || 0;
-                      const actual = editingId === item.id ? Number(editValues.actual_cost) || 0 : Number(item.actual_cost) || 0;
-                      const paPercent = Number(item.profit_attendance_percent) || 0;
-                      const paOnAllowance = allowance * (paPercent / 100);
-                      const paOnActual = actual * (paPercent / 100);
-                      const adjustment = (actual - allowance) + (paOnActual - paOnAllowance);
-                      const docCount = manualDocumentCounts?.[item.id] || 0;
-
-                      return (
-                        <TableRow key={item.id}>
-                          <TableCell className="font-mono text-sm">{item.item_code || "-"}</TableCell>
-                          <TableCell>{item.description}</TableCell>
-                          <TableCell className="text-right">{formatCurrency(allowance)}</TableCell>
-                          <TableCell className="text-right">
-                            {editingId === item.id ? (
-                              <Input
-                                type="number"
-                                step="0.01"
-                                className="w-28 text-right"
-                                value={editValues.actual_cost || 0}
-                                onChange={(e) => setEditValues({ ...editValues, actual_cost: parseFloat(e.target.value) || 0 })}
-                              />
-                            ) : (
-                              <span 
-                                className="cursor-pointer hover:underline" 
-                                onClick={() => startEditing(item)}
-                              >
-                                {formatCurrency(actual)}
-                              </span>
-                            )}
-                          </TableCell>
-                          <TableCell className="text-right">{paPercent.toFixed(1)}%</TableCell>
-                          <TableCell className={`text-right font-medium ${adjustment >= 0 ? "text-destructive" : "text-green-600"}`}>
-                            {adjustment >= 0 ? "+" : ""}{formatCurrency(adjustment)}
-                          </TableCell>
-                          <TableCell className="text-center">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 relative"
-                              onClick={() => setDocumentsDialog({ open: true, itemId: item.id, description: item.description })}
-                              title={docCount > 0 ? `${docCount} document(s)` : "Add documents"}
-                            >
-                              <FileText className={`h-4 w-4 ${docCount > 0 ? "text-primary" : "text-muted-foreground"}`} />
-                              {docCount > 0 && (
-                                <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[10px] rounded-full h-4 w-4 flex items-center justify-center">
-                                  {docCount}
-                                </span>
-                              )}
-                            </Button>
-                          </TableCell>
-                          <TableCell>
-                            <div className="flex gap-1">
-                              {editingId === item.id ? (
-                                <Button variant="ghost" size="icon" onClick={() => saveEdit(item.id)}>
-                                  <Save className="h-4 w-4" />
-                                </Button>
-                              ) : null}
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                onClick={() => deleteMutation.mutate(item.id)}
-                              >
-                                <Trash2 className="h-4 w-4 text-destructive" />
-                              </Button>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <p className="text-muted-foreground mb-4">No Prime Cost items yet. Import a BOQ to auto-detect PC items or add manually.</p>
+                <Button onClick={() => setAddDialogOpen(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Add PC Item
+                </Button>
               </CardContent>
             </Card>
+          ) : (
+            <>
+              {/* Grouped Bills with Sections */}
+              {groupedPCData?.bills.map((bill) => (
+                <Collapsible
+                  key={bill.id}
+                  open={expandedBills.has(bill.id)}
+                  onOpenChange={() => toggleBill(bill.id)}
+                >
+                  <Card>
+                    <CardHeader className="py-3">
+                      <CollapsibleTrigger className="flex items-center gap-2 hover:text-primary transition-colors w-full">
+                        {expandedBills.has(bill.id) ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
+                        )}
+                        <span className="font-semibold">Bill No. {bill.bill_number} - {bill.bill_name}</span>
+                        <span className="ml-auto text-sm text-muted-foreground">
+                          {bill.sections.reduce((sum, s) => sum + s.items.length, 0)} PC items
+                        </span>
+                      </CollapsibleTrigger>
+                    </CardHeader>
+                    <CollapsibleContent>
+                      <CardContent className="pt-0 space-y-4">
+                        {bill.sections.map((section) => (
+                          <Collapsible
+                            key={section.id}
+                            open={expandedSections.has(section.id)}
+                            onOpenChange={() => toggleSection(section.id)}
+                            defaultOpen
+                          >
+                            <div className="border rounded-lg overflow-hidden">
+                              <CollapsibleTrigger className="flex items-center gap-2 p-3 hover:bg-muted/50 transition-colors w-full bg-muted/30">
+                                {expandedSections.has(section.id) ? (
+                                  <ChevronDown className="h-4 w-4" />
+                                ) : (
+                                  <ChevronRight className="h-4 w-4" />
+                                )}
+                                <span className="font-medium text-sm">
+                                  {section.section_code} - {section.section_name}
+                                </span>
+                                <span className="ml-auto text-xs text-muted-foreground">
+                                  {section.items.length} items
+                                </span>
+                              </CollapsibleTrigger>
+                              <CollapsibleContent>
+                                <PCSpreadsheetTable 
+                                  items={section.items} 
+                                  sectionId={section.id}
+                                  accountId={accountId}
+                                  projectId={projectId}
+                                />
+                              </CollapsibleContent>
+                            </div>
+                          </Collapsible>
+                        ))}
+                      </CardContent>
+                    </CollapsibleContent>
+                  </Card>
+                </Collapsible>
+              ))}
+
+              {/* Manual Prime Cost Items */}
+              {primeCosts && primeCosts.length > 0 && (
+                <Card>
+                  <CardHeader className="py-3">
+                    <CardTitle className="text-base">Manually Added PC Items</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-[80px]">Code</TableHead>
+                          <TableHead>Description</TableHead>
+                          <TableHead className="text-right w-[120px]">PC Allowance</TableHead>
+                          <TableHead className="text-right w-[120px]">Actual Cost</TableHead>
+                          <TableHead className="text-right w-[80px]">P&A %</TableHead>
+                          <TableHead className="text-right w-[120px]">Adjustment</TableHead>
+                          <TableHead className="w-[60px] text-center">Docs</TableHead>
+                          <TableHead className="w-[80px]"></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {primeCosts.map((item) => {
+                          const allowance = Number(item.pc_allowance) || 0;
+                          const actual = editingId === item.id ? Number(editValues.actual_cost) || 0 : Number(item.actual_cost) || 0;
+                          const paPercent = Number(item.profit_attendance_percent) || 0;
+                          const paOnAllowance = allowance * (paPercent / 100);
+                          const paOnActual = actual * (paPercent / 100);
+                          const adjustment = (actual - allowance) + (paOnActual - paOnAllowance);
+                          const docCount = manualDocumentCounts?.[item.id] || 0;
+
+                          return (
+                            <TableRow key={item.id}>
+                              <TableCell className="font-mono text-sm">{item.item_code || "-"}</TableCell>
+                              <TableCell>{item.description}</TableCell>
+                              <TableCell className="text-right">{formatCurrency(allowance)}</TableCell>
+                              <TableCell className="text-right">
+                                {editingId === item.id ? (
+                                  <Input
+                                    type="number"
+                                    step="0.01"
+                                    className="w-28 text-right"
+                                    value={editValues.actual_cost || 0}
+                                    onChange={(e) => setEditValues({ ...editValues, actual_cost: parseFloat(e.target.value) || 0 })}
+                                  />
+                                ) : (
+                                  <span 
+                                    className="cursor-pointer hover:underline" 
+                                    onClick={() => startEditing(item)}
+                                  >
+                                    {formatCurrency(actual)}
+                                  </span>
+                                )}
+                              </TableCell>
+                              <TableCell className="text-right">{paPercent.toFixed(1)}%</TableCell>
+                              <TableCell className={`text-right font-medium ${adjustment >= 0 ? "text-destructive" : "text-green-600"}`}>
+                                {adjustment >= 0 ? "+" : ""}{formatCurrency(adjustment)}
+                              </TableCell>
+                              <TableCell className="text-center">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 relative"
+                                  onClick={() => setDocumentsDialog({ open: true, itemId: item.id, description: item.description })}
+                                  title={docCount > 0 ? `${docCount} document(s)` : "Add documents"}
+                                >
+                                  <FileText className={`h-4 w-4 ${docCount > 0 ? "text-primary" : "text-muted-foreground"}`} />
+                                  {docCount > 0 && (
+                                    <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[10px] rounded-full h-4 w-4 flex items-center justify-center">
+                                      {docCount}
+                                    </span>
+                                  )}
+                                </Button>
+                              </TableCell>
+                              <TableCell>
+                                <div className="flex gap-1">
+                                  {editingId === item.id ? (
+                                    <Button variant="ghost" size="icon" onClick={() => saveEdit(item.id)}>
+                                      <Save className="h-4 w-4" />
+                                    </Button>
+                                  ) : null}
+                                  <Button 
+                                    variant="ghost" 
+                                    size="icon" 
+                                    onClick={() => deleteMutation.mutate(item.id)}
+                                  >
+                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                  </Button>
+                                </div>
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </CardContent>
+                </Card>
+              )}
+            </>
           )}
-        </>
-      )}
+        </TabsContent>
+
+        {/* Provisional Sums Tab */}
+        <TabsContent value="provisional-sums" className="space-y-4">
+          {/* PS Summary Card */}
+          <Card>
+            <CardHeader className="py-4">
+              <CardTitle className="text-lg">Provisional Sum Summary</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-5 gap-4 text-sm">
+                <div>
+                  <p className="text-muted-foreground">Total Items</p>
+                  <p className="text-xl font-semibold">{psTotals.itemCount}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Original Sum</p>
+                  <p className="text-xl font-semibold">{formatCurrency(psTotals.originalTotal)}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Spent</p>
+                  <p className="text-xl font-semibold">{formatCurrency(psTotals.spentTotal)}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Remaining</p>
+                  <p className={`text-xl font-semibold ${psTotals.remainingTotal >= 0 ? 'text-green-600' : 'text-destructive'}`}>
+                    {formatCurrency(psTotals.remainingTotal)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Final Value</p>
+                  <p className="text-xl font-semibold">{formatCurrency(psTotals.finalTotal)}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {!hasPSItems ? (
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <p className="text-muted-foreground">No Provisional Sum items yet. Mark items as Provisional Sum in the line items to see them here.</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <>
+              {groupedPSData?.bills.map((bill) => (
+                <Collapsible
+                  key={`ps-${bill.id}`}
+                  open={expandedBills.has(`ps-${bill.id}`)}
+                  onOpenChange={() => toggleBill(`ps-${bill.id}`)}
+                >
+                  <Card>
+                    <CardHeader className="py-3">
+                      <CollapsibleTrigger className="flex items-center gap-2 hover:text-primary transition-colors w-full">
+                        {expandedBills.has(`ps-${bill.id}`) ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
+                        )}
+                        <span className="font-semibold">Bill No. {bill.bill_number} - {bill.bill_name}</span>
+                        <span className="ml-auto text-sm text-muted-foreground">
+                          {bill.sections.reduce((sum, s) => sum + s.items.length, 0)} PS items
+                        </span>
+                      </CollapsibleTrigger>
+                    </CardHeader>
+                    <CollapsibleContent>
+                      <CardContent className="pt-0 space-y-4">
+                        {bill.sections.map((section) => (
+                          <Collapsible
+                            key={`ps-${section.id}`}
+                            open={expandedSections.has(`ps-${section.id}`)}
+                            onOpenChange={() => toggleSection(`ps-${section.id}`)}
+                            defaultOpen
+                          >
+                            <div className="border rounded-lg overflow-hidden">
+                              <CollapsibleTrigger className="flex items-center gap-2 p-3 hover:bg-muted/50 transition-colors w-full bg-muted/30">
+                                {expandedSections.has(`ps-${section.id}`) ? (
+                                  <ChevronDown className="h-4 w-4" />
+                                ) : (
+                                  <ChevronRight className="h-4 w-4" />
+                                )}
+                                <span className="font-medium text-sm">
+                                  {section.section_code} - {section.section_name}
+                                </span>
+                                <span className="ml-auto text-xs text-muted-foreground">
+                                  {section.items.length} items
+                                </span>
+                              </CollapsibleTrigger>
+                              <CollapsibleContent>
+                                <PSSpreadsheetTable 
+                                  items={section.items} 
+                                  sectionId={section.id}
+                                  accountId={accountId}
+                                  projectId={projectId}
+                                />
+                              </CollapsibleContent>
+                            </div>
+                          </Collapsible>
+                        ))}
+                      </CardContent>
+                    </CollapsibleContent>
+                  </Card>
+                </Collapsible>
+              ))}
+            </>
+          )}
+        </TabsContent>
+      </Tabs>
 
       {/* Add Dialog */}
       <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>

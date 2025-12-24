@@ -2743,6 +2743,8 @@ export type Database = {
       }
       final_account_items: {
         Row: {
+          adjustment_amount: number | null
+          adjustment_reason: string | null
           contract_amount: number | null
           contract_quantity: number | null
           created_at: string
@@ -2754,14 +2756,18 @@ export type Database = {
           install_rate: number | null
           is_pa_item: boolean | null
           is_prime_cost: boolean | null
+          is_provisional: boolean | null
           is_rate_only: boolean | null
           item_code: string
+          item_type: string | null
           notes: string | null
           pa_parent_item_id: string | null
           pa_percentage: number | null
           pc_actual_cost: number | null
           pc_allowance: number | null
           pc_profit_attendance_percent: number | null
+          ps_original_sum: number | null
+          ps_spent_amount: number | null
           section_id: string
           shop_subsection_id: string | null
           source_boq_item_id: string | null
@@ -2771,6 +2777,8 @@ export type Database = {
           variation_amount: number | null
         }
         Insert: {
+          adjustment_amount?: number | null
+          adjustment_reason?: string | null
           contract_amount?: number | null
           contract_quantity?: number | null
           created_at?: string
@@ -2782,14 +2790,18 @@ export type Database = {
           install_rate?: number | null
           is_pa_item?: boolean | null
           is_prime_cost?: boolean | null
+          is_provisional?: boolean | null
           is_rate_only?: boolean | null
           item_code: string
+          item_type?: string | null
           notes?: string | null
           pa_parent_item_id?: string | null
           pa_percentage?: number | null
           pc_actual_cost?: number | null
           pc_allowance?: number | null
           pc_profit_attendance_percent?: number | null
+          ps_original_sum?: number | null
+          ps_spent_amount?: number | null
           section_id: string
           shop_subsection_id?: string | null
           source_boq_item_id?: string | null
@@ -2799,6 +2811,8 @@ export type Database = {
           variation_amount?: number | null
         }
         Update: {
+          adjustment_amount?: number | null
+          adjustment_reason?: string | null
           contract_amount?: number | null
           contract_quantity?: number | null
           created_at?: string
@@ -2810,14 +2824,18 @@ export type Database = {
           install_rate?: number | null
           is_pa_item?: boolean | null
           is_prime_cost?: boolean | null
+          is_provisional?: boolean | null
           is_rate_only?: boolean | null
           item_code?: string
+          item_type?: string | null
           notes?: string | null
           pa_parent_item_id?: string | null
           pa_percentage?: number | null
           pc_actual_cost?: number | null
           pc_allowance?: number | null
           pc_profit_attendance_percent?: number | null
+          ps_original_sum?: number | null
+          ps_spent_amount?: number | null
           section_id?: string
           shop_subsection_id?: string | null
           source_boq_item_id?: string | null
