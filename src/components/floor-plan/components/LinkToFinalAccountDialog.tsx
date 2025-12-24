@@ -46,7 +46,7 @@ async function fetchBills(accountId: string): Promise<BillResult[]> {
     .from('final_account_bills')
     .select('id, bill_number, bill_name, display_order')
     .eq('final_account_id', accountId)
-    .order('display_order');
+    .order('bill_number');
   if (error) throw error;
   return data || [];
 }
