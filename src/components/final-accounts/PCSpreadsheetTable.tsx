@@ -307,19 +307,19 @@ export function PCSpreadsheetTable({ items, sectionId, accountId, projectId }: P
     if (column.key === 'documents') {
       const docCount = documentCounts?.[item.id] || 0;
       return (
-        <div className="flex items-center justify-center">
+        <div className="flex items-center justify-center py-0.5">
           <Button
             variant="ghost"
-            size="icon"
-            className="h-7 w-7 relative"
+            size="sm"
+            className="h-6 px-2 gap-1"
             onClick={() => setDocumentsDialog({ open: true, itemId: item.id, description: item.description })}
             title={docCount > 0 ? `${docCount} document(s)` : "Add documents"}
           >
-            <FileText className={cn("h-4 w-4", docCount > 0 ? "text-primary" : "text-muted-foreground")} />
+            <FileText className={cn("h-3.5 w-3.5", docCount > 0 ? "text-primary" : "text-muted-foreground")} />
             {docCount > 0 && (
-              <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[10px] rounded-full h-4 w-4 flex items-center justify-center">
+              <Badge variant="secondary" className="h-4 px-1 text-[10px] font-medium">
                 {docCount}
-              </span>
+              </Badge>
             )}
           </Button>
         </div>
