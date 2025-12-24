@@ -89,6 +89,7 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
   const [selectedShopId, setSelectedShopId] = useState<string>('');
   const [transferTakeoffs, setTransferTakeoffs] = useState(false);
   const [materialMappings, setMaterialMappings] = useState<MaterialMapping[]>([]);
+  const [isAlreadyLinked, setIsAlreadyLinked] = useState(false);
 
   // Reset state when dialog closes
   const handleClose = () => {
@@ -98,6 +99,7 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
     setSelectedShopId('');
     setTransferTakeoffs(false);
     setMaterialMappings([]);
+    setIsAlreadyLinked(false);
     onClose();
   };
 
@@ -106,6 +108,22 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
     queryKey: ['final-account-for-linking', projectId],
     queryFn: () => fetchFinalAccount(projectId!),
     enabled: !!projectId && isOpen,
+  });
+
+  // Fetch existing link for this floor plan
+  const { data: existingLink } = useQuery({
+    queryKey: ['floor-plan-existing-link', floorPlanId],
+    queryFn: async () => {
+      if (!floorPlanId) return null;
+      const { data, error } = await supabase
+        .from('floor_plan_projects')
+        .select('linked_final_account_id, linked_section_id, linked_shop_subsection_id')
+        .eq('id', floorPlanId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!floorPlanId && isOpen,
   });
 
   // Fetch bills
@@ -128,6 +146,37 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
     queryFn: () => fetchShops(selectedSectionId),
     enabled: !!selectedSectionId,
   });
+
+  // Pre-populate from existing link
+  React.useEffect(() => {
+    if (existingLink?.linked_section_id && bills && bills.length > 0) {
+      setIsAlreadyLinked(true);
+      
+      // Find which bill contains the linked section
+      const findBillForSection = async () => {
+        const { data: sectionData } = await (supabase as any)
+          .from('final_account_sections')
+          .select('bill_id')
+          .eq('id', existingLink.linked_section_id)
+          .single();
+        
+        if (sectionData?.bill_id) {
+          setSelectedBillId(sectionData.bill_id);
+          // Wait for sections to load, then set section
+          setTimeout(() => {
+            setSelectedSectionId(existingLink.linked_section_id);
+            if (existingLink.linked_shop_subsection_id) {
+              setTimeout(() => {
+                setSelectedShopId(existingLink.linked_shop_subsection_id);
+              }, 100);
+            }
+          }, 100);
+        }
+      };
+      
+      findBillForSection();
+    }
+  }, [existingLink, bills]);
 
   // Create reference drawing mutation
   const linkMutation = useMutation({
@@ -379,6 +428,19 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
     return (
       <>
         <div className="space-y-4 py-4">
+          {/* Show already linked status */}
+          {isAlreadyLinked && (
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm">
+              <div className="flex items-center gap-2 text-primary font-medium">
+                <Link2 className="h-4 w-4" />
+                Already Linked
+              </div>
+              <p className="text-muted-foreground mt-1">
+                This floor plan is already linked to a Final Account section. You can update the link or transfer additional take-offs.
+              </p>
+            </div>
+          )}
+
           {!finalAccount ? (
             <div className="text-center py-4 text-muted-foreground">
               <FileText className="h-8 w-8 mx-auto mb-2 opacity-50" />
@@ -451,7 +513,7 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
               )}
 
               {/* Transfer Take-offs Toggle */}
-              {selectedSectionId && hasTakeoffs && (
+              {selectedSectionId && (
                 <div className="flex items-center justify-between rounded-lg border p-4">
                   <div className="space-y-0.5">
                     <Label className="flex items-center gap-2">
@@ -459,12 +521,16 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
                       Transfer Take-offs
                     </Label>
                     <p className="text-sm text-muted-foreground">
-                      Auto-populate Final Account items with quantities from this drawing
+                      {hasTakeoffs 
+                        ? 'Auto-populate Final Account items with quantities from this drawing'
+                        : 'No equipment/containment/cables marked on this drawing yet'
+                      }
                     </p>
                   </div>
                   <Switch
                     checked={transferTakeoffs}
                     onCheckedChange={setTransferTakeoffs}
+                    disabled={!hasTakeoffs}
                   />
                 </div>
               )}
