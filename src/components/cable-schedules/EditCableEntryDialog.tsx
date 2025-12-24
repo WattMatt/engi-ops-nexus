@@ -28,13 +28,21 @@ interface EditCableEntryDialogProps {
   onOpenChange: (open: boolean) => void;
   entry: any;
   onSuccess: () => void;
+  tenantLoadMap?: Map<string, number>;
 }
+
+// Extract shop number from to_location (e.g., "Shop 45 - Store Name" -> "45")
+const extractShopNumber = (toLocation: string): string | null => {
+  const match = toLocation.match(/Shop\s+(\d+[A-Za-z]*)/i);
+  return match ? match[1].toLowerCase() : null;
+};
 
 export const EditCableEntryDialog = ({
   open,
   onOpenChange,
   entry,
   onSuccess,
+  tenantLoadMap,
 }: EditCableEntryDialogProps) => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -60,12 +68,24 @@ export const EditCableEntryDialog = ({
 
   useEffect(() => {
     if (entry && open) {
+      // Get SOW load from tenant if load_amps is not set
+      let loadAmps = entry.load_amps?.toString() || "";
+      if (!loadAmps && tenantLoadMap && entry.to_location) {
+        const shopNum = extractShopNumber(entry.to_location);
+        if (shopNum) {
+          const sowLoad = tenantLoadMap.get(shopNum);
+          if (sowLoad) {
+            loadAmps = sowLoad.toString();
+          }
+        }
+      }
+      
       setFormData({
         cable_tag: entry.cable_tag || "",
         from_location: entry.from_location || "",
         to_location: entry.to_location || "",
         voltage: entry.voltage?.toString() || "400",
-        load_amps: entry.load_amps?.toString() || "",
+        load_amps: loadAmps,
         cable_type: entry.cable_type || "Aluminium",
         installation_method: entry.installation_method || "air",
         cable_size: entry.cable_size || "",
@@ -74,9 +94,7 @@ export const EditCableEntryDialog = ({
         circuit_type: entry.circuit_type || "power",
       });
     }
-  }, [entry, open]);
-
-  // Auto-suggest cable size when load changes - now accounts for circuit types
+  }, [entry, open, tenantLoadMap]);
   useEffect(() => {
     if (formData.load_amps && formData.measured_length) {
       const loadAmps = parseFloat(formData.load_amps);

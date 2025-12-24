@@ -377,6 +377,7 @@ export const CableEntriesManager = ({ scheduleId }: CableEntriesManagerProps) =>
           open={showEditDialog}
           onOpenChange={setShowEditDialog}
           entry={selectedEntry}
+          tenantLoadMap={tenantLoadMap}
           onSuccess={() => {
             refetch();
             setShowEditDialog(false);
