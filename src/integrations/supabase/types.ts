@@ -2771,6 +2771,8 @@ export type Database = {
           section_id: string
           shop_subsection_id: string | null
           source_boq_item_id: string | null
+          source_floor_plan_id: string | null
+          source_reference_drawing_id: string | null
           supply_rate: number | null
           unit: string | null
           updated_at: string
@@ -2805,6 +2807,8 @@ export type Database = {
           section_id: string
           shop_subsection_id?: string | null
           source_boq_item_id?: string | null
+          source_floor_plan_id?: string | null
+          source_reference_drawing_id?: string | null
           supply_rate?: number | null
           unit?: string | null
           updated_at?: string
@@ -2839,6 +2843,8 @@ export type Database = {
           section_id?: string
           shop_subsection_id?: string | null
           source_boq_item_id?: string | null
+          source_floor_plan_id?: string | null
+          source_reference_drawing_id?: string | null
           supply_rate?: number | null
           unit?: string | null
           updated_at?: string
@@ -2871,6 +2877,20 @@ export type Database = {
             columns: ["source_boq_item_id"]
             isOneToOne: false
             referencedRelation: "boq_extracted_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "final_account_items_source_floor_plan_id_fkey"
+            columns: ["source_floor_plan_id"]
+            isOneToOne: false
+            referencedRelation: "floor_plan_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "final_account_items_source_reference_drawing_id_fkey"
+            columns: ["source_reference_drawing_id"]
+            isOneToOne: false
+            referencedRelation: "final_account_reference_drawings"
             referencedColumns: ["id"]
           },
         ]
@@ -2930,6 +2950,83 @@ export type Database = {
             columns: ["account_id"]
             isOneToOne: false
             referencedRelation: "final_accounts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      final_account_reference_drawings: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          description: string | null
+          drawing_name: string
+          final_account_id: string
+          floor_plan_id: string
+          id: string
+          is_primary: boolean | null
+          section_id: string | null
+          shop_subsection_id: string | null
+          takeoffs_transferred: boolean | null
+          transferred_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          drawing_name: string
+          final_account_id: string
+          floor_plan_id: string
+          id?: string
+          is_primary?: boolean | null
+          section_id?: string | null
+          shop_subsection_id?: string | null
+          takeoffs_transferred?: boolean | null
+          transferred_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          drawing_name?: string
+          final_account_id?: string
+          floor_plan_id?: string
+          id?: string
+          is_primary?: boolean | null
+          section_id?: string | null
+          shop_subsection_id?: string | null
+          takeoffs_transferred?: boolean | null
+          transferred_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "final_account_reference_drawings_final_account_id_fkey"
+            columns: ["final_account_id"]
+            isOneToOne: false
+            referencedRelation: "final_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "final_account_reference_drawings_floor_plan_id_fkey"
+            columns: ["floor_plan_id"]
+            isOneToOne: false
+            referencedRelation: "floor_plan_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "final_account_reference_drawings_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "final_account_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "final_account_reference_drawings_shop_subsection_id_fkey"
+            columns: ["shop_subsection_id"]
+            isOneToOne: false
+            referencedRelation: "final_account_shop_subsections"
             referencedColumns: ["id"]
           },
         ]
@@ -3512,6 +3609,9 @@ export type Database = {
           created_at: string
           design_purpose: string
           id: string
+          linked_final_account_id: string | null
+          linked_section_id: string | null
+          linked_shop_subsection_id: string | null
           name: string
           pdf_url: string | null
           project_id: string | null
@@ -3524,6 +3624,9 @@ export type Database = {
           created_at?: string
           design_purpose: string
           id?: string
+          linked_final_account_id?: string | null
+          linked_section_id?: string | null
+          linked_shop_subsection_id?: string | null
           name: string
           pdf_url?: string | null
           project_id?: string | null
@@ -3536,6 +3639,9 @@ export type Database = {
           created_at?: string
           design_purpose?: string
           id?: string
+          linked_final_account_id?: string | null
+          linked_section_id?: string | null
+          linked_shop_subsection_id?: string | null
           name?: string
           pdf_url?: string | null
           project_id?: string | null
@@ -3545,6 +3651,27 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "floor_plan_projects_linked_final_account_id_fkey"
+            columns: ["linked_final_account_id"]
+            isOneToOne: false
+            referencedRelation: "final_accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "floor_plan_projects_linked_section_id_fkey"
+            columns: ["linked_section_id"]
+            isOneToOne: false
+            referencedRelation: "final_account_sections"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "floor_plan_projects_linked_shop_subsection_id_fkey"
+            columns: ["linked_shop_subsection_id"]
+            isOneToOne: false
+            referencedRelation: "final_account_shop_subsections"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "floor_plan_projects_project_id_fkey"
             columns: ["project_id"]
