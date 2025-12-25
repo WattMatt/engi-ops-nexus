@@ -291,7 +291,7 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
       }
     }
 
-    // Process containment
+    // Process containment - use section from mapping if available
     for (const [containType, length] of Object.entries(counts.containment)) {
       if (length <= 0) continue;
       
@@ -299,10 +299,13 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
       const qty = Math.round(length * 100) / 100;
       
       if (mapping?.finalAccountItemId) {
+        // Update existing FA item quantity (in its own section)
         itemsToUpdate.push({ id: mapping.finalAccountItemId, additionalQty: qty });
       } else {
+        // Create new item - use mapped section if available, otherwise default section
+        const targetSectionId = mapping?.finalAccountSectionId || sectionId;
         itemsToInsert.push({
-          section_id: sectionId,
+          section_id: targetSectionId,
           shop_subsection_id: shopSubsectionId,
           item_code: containType.toUpperCase().replace(/\s+/g, '_').substring(0, 10),
           description: containType,
@@ -400,12 +403,13 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
   };
 
   const renderStep = () => {
-    if (step === 'map-materials' && floorPlanId && projectId && selectedSectionId && takeoffCounts) {
+    if (step === 'map-materials' && floorPlanId && projectId && selectedSectionId && takeoffCounts && finalAccount?.id) {
       return (
         <MaterialMappingStep
           projectId={projectId}
           floorPlanId={floorPlanId}
           sectionId={selectedSectionId}
+          finalAccountId={finalAccount.id}
           takeoffCounts={takeoffCounts}
           onMappingsComplete={handleMappingsComplete}
           onBack={() => setStep('select-location')}

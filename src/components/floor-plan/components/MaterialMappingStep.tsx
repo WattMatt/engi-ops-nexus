@@ -16,6 +16,7 @@ interface MaterialMappingStepProps {
   projectId: string;
   floorPlanId: string;
   sectionId: string;
+  finalAccountId: string;
   takeoffCounts: TakeoffCounts;
   onMappingsComplete: (mappings: MaterialMapping[]) => void;
   onBack: () => void;
@@ -28,6 +29,7 @@ export interface MaterialMapping {
   quantity: number;
   unit: string;
   finalAccountItemId?: string;
+  finalAccountSectionId?: string;
   masterMaterialId?: string;
   boqItemId?: string;
 }
@@ -39,6 +41,8 @@ interface FinalAccountItem {
   unit: string;
   supply_rate: number;
   install_rate: number;
+  section_id: string;
+  section_name?: string;
 }
 
 interface MasterMaterial {
@@ -65,12 +69,14 @@ interface CombinedOption {
   source: 'final_account' | 'master';
   rate: number;
   unit: string;
+  sectionName?: string;
 }
 
 export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
   projectId,
   floorPlanId,
   sectionId,
+  finalAccountId,
   takeoffCounts,
   onMappingsComplete,
   onBack,
@@ -95,19 +101,63 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
     enabled: !!projectId,
   });
 
-  // Fetch final account items for the section - ordered by display_order to match Final Account view
-  const { data: finalAccountItems, isLoading: loadingFAItems } = useQuery({
-    queryKey: ['final-account-items-for-mapping', sectionId],
+  // Fetch all sections for the final account
+  const { data: allSections } = useQuery({
+    queryKey: ['final-account-all-sections', finalAccountId],
     queryFn: async () => {
       const { data, error } = await (supabase as any)
-        .from('final_account_items')
-        .select('id, item_code, description, unit, supply_rate, install_rate, display_order')
-        .eq('section_id', sectionId)
-        .order('display_order', { ascending: true });
+        .from('final_account_sections')
+        .select('id, section_code, section_name, bill_id')
+        .eq('bill_id', (await (supabase as any)
+          .from('final_account_bills')
+          .select('id')
+          .eq('final_account_id', finalAccountId)
+          .then((r: any) => r.data?.map((b: any) => b.id) || [])));
       if (error) throw error;
-      return (data || []) as FinalAccountItem[];
+      return data || [];
     },
-    enabled: !!sectionId,
+    enabled: !!finalAccountId,
+  });
+
+  // Fetch final account items from ALL sections in the final account - so containment can map to correct section
+  const { data: finalAccountItems, isLoading: loadingFAItems } = useQuery({
+    queryKey: ['final-account-items-for-mapping-all', finalAccountId],
+    queryFn: async () => {
+      // First get all sections for this final account
+      const { data: bills } = await (supabase as any)
+        .from('final_account_bills')
+        .select('id')
+        .eq('final_account_id', finalAccountId);
+      
+      if (!bills || bills.length === 0) return [];
+      
+      const billIds = bills.map((b: any) => b.id);
+      
+      const { data: sections } = await (supabase as any)
+        .from('final_account_sections')
+        .select('id, section_name')
+        .in('bill_id', billIds);
+      
+      if (!sections || sections.length === 0) return [];
+      
+      const sectionMap = new Map(sections.map((s: any) => [s.id, s.section_name]));
+      const sectionIds = sections.map((s: any) => s.id);
+      
+      const { data, error } = await (supabase as any)
+        .from('final_account_items')
+        .select('id, item_code, description, unit, supply_rate, install_rate, display_order, section_id')
+        .in('section_id', sectionIds)
+        .order('display_order', { ascending: true });
+      
+      if (error) throw error;
+      
+      // Add section_name to each item
+      return ((data || []) as any[]).map(item => ({
+        ...item,
+        section_name: sectionMap.get(item.section_id) || 'Unknown'
+      })) as FinalAccountItem[];
+    },
+    enabled: !!finalAccountId,
   });
 
   // Fetch master materials
@@ -206,6 +256,7 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
           source: 'final_account',
           rate: (item.supply_rate || 0) + (item.install_rate || 0),
           unit: item.unit || '',
+          sectionName: item.section_name,
         });
       }
     }
@@ -301,6 +352,11 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
       
       const finalMappings: MaterialMapping[] = equipmentList.map(item => {
         const mapping = mappings[item.key];
+        // Get the section_id from the mapped FA item
+        const faItem = mapping?.source === 'final_account' 
+          ? finalAccountItems?.find(fa => fa.id === mapping.itemId)
+          : undefined;
+        
         return {
           equipmentType: item.category,
           equipmentLabel: item.label,
@@ -308,6 +364,7 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
           quantity: item.quantity,
           unit: item.unit,
           finalAccountItemId: mapping?.source === 'final_account' ? mapping.itemId : undefined,
+          finalAccountSectionId: faItem?.section_id,
           masterMaterialId: mapping?.source === 'master' ? mapping.itemId : undefined,
         };
       });
@@ -389,8 +446,11 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
                   </Badge>
                   <span className="truncate text-sm">{mapped.label}</span>
                 </div>
-                <div className="text-xs text-muted-foreground mt-0.5">
-                  R{mapped.rate.toFixed(2)}/{mapped.unit}
+                <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2">
+                  {mapped.sectionName && (
+                    <span className="text-primary/70">{mapped.sectionName}</span>
+                  )}
+                  <span>R{mapped.rate.toFixed(2)}/{mapped.unit}</span>
                 </div>
               </div>
             ) : (
@@ -404,33 +464,45 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
             <CommandInput placeholder="Search items..." className="h-9" />
             <CommandList>
               <CommandEmpty>No items found.</CommandEmpty>
-              {finalAccountItems && finalAccountItems.length > 0 && (
-                <CommandGroup heading="Final Account Items">
-                  {finalAccountItems.map((fa) => (
-                    <CommandItem
-                      key={fa.id}
-                      value={`${fa.item_code} ${fa.description}`}
-                      onSelect={() => {
-                        onSelect(fa.id, 'final_account');
-                        setOpen(false);
-                      }}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-xs text-muted-foreground">{fa.item_code}</span>
-                          <span className="truncate">{fa.description}</span>
+              {finalAccountItems && finalAccountItems.length > 0 && (() => {
+                // Group items by section
+                const itemsBySection = new Map<string, FinalAccountItem[]>();
+                for (const fa of finalAccountItems) {
+                  const sectionName = fa.section_name || 'Unknown Section';
+                  if (!itemsBySection.has(sectionName)) {
+                    itemsBySection.set(sectionName, []);
+                  }
+                  itemsBySection.get(sectionName)!.push(fa);
+                }
+                
+                return Array.from(itemsBySection.entries()).map(([sectionName, items]) => (
+                  <CommandGroup key={sectionName} heading={sectionName}>
+                    {items.map((fa) => (
+                      <CommandItem
+                        key={fa.id}
+                        value={`${sectionName} ${fa.item_code} ${fa.description}`}
+                        onSelect={() => {
+                          onSelect(fa.id, 'final_account');
+                          setOpen(false);
+                        }}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-xs text-muted-foreground">{fa.item_code}</span>
+                            <span className="truncate">{fa.description}</span>
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            R{((fa.supply_rate || 0) + (fa.install_rate || 0)).toFixed(2)}/{fa.unit}
+                          </div>
                         </div>
-                        <div className="text-xs text-muted-foreground">
-                          R{((fa.supply_rate || 0) + (fa.install_rate || 0)).toFixed(2)}/{fa.unit}
-                        </div>
-                      </div>
-                      {mappings[item.key]?.itemId === fa.id && (
-                        <Check className="h-4 w-4 text-primary" />
-                      )}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              )}
+                        {mappings[item.key]?.itemId === fa.id && (
+                          <Check className="h-4 w-4 text-primary" />
+                        )}
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                ));
+              })()}
               {masterMaterials && masterMaterials.length > 0 && (
                 <CommandGroup heading="Master Materials">
                   {masterMaterials.slice(0, 50).map((mm) => (
