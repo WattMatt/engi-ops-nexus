@@ -180,7 +180,7 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
 
   // Create reference drawing mutation
   const linkMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (passedMappings?: MaterialMapping[]) => {
       if (!floorPlanId || !finalAccount?.id) throw new Error('Missing required data');
 
       const { data: user } = await supabase.auth.getUser();
@@ -215,7 +215,8 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
 
       if (updateError) throw updateError;
 
-      // Transfer take-offs if requested
+      // Transfer take-offs if requested - use passed mappings (from MaterialMappingStep) or state mappings
+      const mappingsToUse = passedMappings || materialMappings;
       if (transferTakeoffs && takeoffCounts && selectedSectionId) {
         await transferTakeoffsToFinalAccount(
           selectedSectionId,
@@ -223,7 +224,7 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
           floorPlanId,
           refDrawing.id,
           takeoffCounts,
-          materialMappings
+          mappingsToUse
         );
       }
 
@@ -510,13 +511,13 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
     if (transferTakeoffs && hasTakeoffs) {
       setStep('map-materials');
     } else {
-      linkMutation.mutate();
+      linkMutation.mutate(undefined);
     }
   };
 
   const handleMappingsComplete = (mappings: MaterialMapping[]) => {
     setMaterialMappings(mappings);
-    linkMutation.mutate();
+    linkMutation.mutate(mappings); // Pass mappings directly to avoid stale state
   };
 
   const renderStep = () => {
