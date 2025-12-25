@@ -269,10 +269,10 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
       const mapping = mappingLookup.get(`equipment_${equipType}`);
       
       if (mapping?.finalAccountItemId) {
-        // Update existing FA item
+        // Update existing FA item quantity
         itemsToUpdate.push({ id: mapping.finalAccountItemId, additionalQty: count });
       } else {
-        // Create new item
+        // Create new item (no master_material_id column in final_account_items)
         itemsToInsert.push({
           section_id: sectionId,
           shop_subsection_id: shopSubsectionId,
@@ -287,7 +287,6 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
           final_amount: 0,
           source_floor_plan_id: floorPlanId,
           source_reference_drawing_id: refDrawingId,
-          master_material_id: mapping?.masterMaterialId || null,
         });
       }
     }
@@ -316,7 +315,6 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
           final_amount: 0,
           source_floor_plan_id: floorPlanId,
           source_reference_drawing_id: refDrawingId,
-          master_material_id: mapping?.masterMaterialId || null,
         });
       }
     }
@@ -345,7 +343,6 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
           final_amount: 0,
           source_floor_plan_id: floorPlanId,
           source_reference_drawing_id: refDrawingId,
-          master_material_id: mapping?.masterMaterialId || null,
         });
       }
     }
@@ -358,29 +355,20 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
       if (error) throw error;
     }
 
-    // Update existing items
+    // Update existing items - add to their final_quantity
     for (const update of itemsToUpdate) {
-      const { error } = await (supabase as any)
+      const { data: existing } = await supabase
         .from('final_account_items')
-        .update({ 
-          final_quantity: (supabase as any).rpc('coalesce', { value: 'final_quantity', default_val: 0 }) 
-        })
-        .eq('id', update.id);
+        .select('final_quantity')
+        .eq('id', update.id)
+        .single();
       
-      // Fallback: fetch and update
-      if (error) {
-        const { data: existing } = await supabase
+      if (existing) {
+        const { error } = await supabase
           .from('final_account_items')
-          .select('final_quantity')
-          .eq('id', update.id)
-          .single();
-        
-        if (existing) {
-          await supabase
-            .from('final_account_items')
-            .update({ final_quantity: (existing.final_quantity || 0) + update.additionalQty })
-            .eq('id', update.id);
-        }
+          .update({ final_quantity: (existing.final_quantity || 0) + update.additionalQty })
+          .eq('id', update.id);
+        if (error) throw error;
       }
     }
   };
