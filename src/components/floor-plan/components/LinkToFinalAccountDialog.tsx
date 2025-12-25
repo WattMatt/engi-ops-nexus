@@ -358,20 +358,135 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
       if (error) throw error;
     }
 
-    // Update existing items - add to their final_quantity
+    // Update existing items - add to their final_quantity and recalculate amounts
     for (const update of itemsToUpdate) {
       const { data: existing } = await supabase
         .from('final_account_items')
-        .select('final_quantity')
+        .select('final_quantity, supply_rate, install_rate, contract_quantity')
         .eq('id', update.id)
         .single();
       
       if (existing) {
+        const newFinalQty = (existing.final_quantity || 0) + update.additionalQty;
+        const supplyRate = existing.supply_rate || 0;
+        const installRate = existing.install_rate || 0;
+        const contractQty = existing.contract_quantity || 0;
+        
+        // Recalculate amounts
+        const finalAmount = newFinalQty * (supplyRate + installRate);
+        const contractAmount = contractQty * (supplyRate + installRate);
+        const variationAmount = finalAmount - contractAmount;
+        
         const { error } = await supabase
           .from('final_account_items')
-          .update({ final_quantity: (existing.final_quantity || 0) + update.additionalQty })
+          .update({ 
+            final_quantity: newFinalQty,
+            final_amount: finalAmount,
+            contract_amount: contractAmount,
+            variation_amount: variationAmount
+          })
           .eq('id', update.id);
         if (error) throw error;
+      }
+    }
+
+    // Recalculate section totals for all affected sections
+    const affectedSectionIds = new Set<string>();
+    affectedSectionIds.add(sectionId);
+    
+    for (const mapping of mappings) {
+      if (mapping.finalAccountSectionId) {
+        affectedSectionIds.add(mapping.finalAccountSectionId);
+      }
+    }
+
+    for (const secId of affectedSectionIds) {
+      await recalculateSectionTotals(secId);
+    }
+  };
+
+  // Helper to recalculate section totals
+  const recalculateSectionTotals = async (secId: string) => {
+    const { data: allItems } = await supabase
+      .from('final_account_items')
+      .select('id, contract_amount, final_amount, variation_amount, is_prime_cost, pc_actual_cost, pc_allowance, is_pa_item, pa_parent_item_id, pa_percentage')
+      .eq('section_id', secId);
+
+    if (allItems) {
+      const itemMap = new Map(allItems.map(item => [item.id, item]));
+      
+      const totals = allItems.reduce(
+        (acc, item) => {
+          let finalAmt = Number(item.final_amount || 0);
+          let contractAmt = Number(item.contract_amount || 0);
+          
+          if (item.is_prime_cost) {
+            finalAmt = Number(item.pc_actual_cost) || 0;
+            contractAmt = Number(item.pc_allowance) || Number(item.contract_amount) || 0;
+          }
+          
+          if (item.is_pa_item && item.pa_parent_item_id) {
+            const parentItem = itemMap.get(item.pa_parent_item_id);
+            if (parentItem) {
+              const parentActual = Number(parentItem.pc_actual_cost) || 0;
+              const parentAllowance = Number(parentItem.pc_allowance) || Number(parentItem.contract_amount) || 0;
+              const paPercent = Number(item.pa_percentage) || 0;
+              finalAmt = parentActual * (paPercent / 100);
+              contractAmt = parentAllowance * (paPercent / 100);
+            }
+          }
+          
+          return {
+            contract: acc.contract + contractAmt,
+            final: acc.final + finalAmt,
+            variation: acc.variation + (finalAmt - contractAmt),
+          };
+        },
+        { contract: 0, final: 0, variation: 0 }
+      );
+
+      // Get bill_id for the section
+      const { data: section } = await supabase
+        .from('final_account_sections')
+        .select('bill_id')
+        .eq('id', secId)
+        .single();
+
+      await supabase
+        .from('final_account_sections')
+        .update({
+          contract_total: totals.contract,
+          final_total: totals.final,
+          variation_total: totals.variation,
+        })
+        .eq('id', secId);
+
+      // Recalculate bill totals
+      if (section?.bill_id) {
+        const { data: billSections } = await supabase
+          .from('final_account_sections')
+          .select('contract_total, final_total, variation_total')
+          .eq('bill_id', section.bill_id);
+
+        if (billSections) {
+          const billTotals = billSections.reduce(
+            (acc, s) => ({
+              contract: acc.contract + (s.contract_total || 0),
+              final: acc.final + (s.final_total || 0),
+              variation: acc.variation + (s.variation_total || 0),
+            }),
+            { contract: 0, final: 0, variation: 0 }
+          );
+
+          await supabase
+            .from('final_account_bills')
+            .update({
+              contract_total: billTotals.contract,
+              final_total: billTotals.final,
+              variation_total: billTotals.variation,
+            })
+            .eq('id', section.bill_id);
+        }
       }
     }
   };
