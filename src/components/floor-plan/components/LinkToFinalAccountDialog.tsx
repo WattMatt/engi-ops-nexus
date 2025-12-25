@@ -126,6 +126,24 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
     enabled: !!floorPlanId && isOpen,
   });
 
+  // Fetch existing material mappings for this floor plan
+  const { data: existingSavedMappings } = useQuery({
+    queryKey: ['floor-plan-saved-mappings', floorPlanId],
+    queryFn: async () => {
+      if (!floorPlanId) return null;
+      const { data, error } = await supabase
+        .from('floor_plan_material_mappings')
+        .select('equipment_type, equipment_label, final_account_item_id, master_material_id')
+        .eq('floor_plan_id', floorPlanId);
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!floorPlanId && isOpen,
+  });
+
+  // Check if we have saved mappings for this floor plan
+  const hasSavedMappings = existingSavedMappings && existingSavedMappings.length > 0;
+
   // Fetch bills
   const { data: bills } = useQuery({
     queryKey: ['final-account-bills', finalAccount?.id],
@@ -566,12 +584,58 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
     return equipmentTotal > 0 || containmentTotal > 0 || cableTotal > 0;
   }, [takeoffCounts]);
 
+  // Build MaterialMapping[] from saved database mappings
+  const buildMappingsFromSaved = (): MaterialMapping[] => {
+    if (!existingSavedMappings || !takeoffCounts) return [];
+    
+    const mappings: MaterialMapping[] = [];
+    
+    for (const saved of existingSavedMappings) {
+      let quantity = 0;
+      let unit = 'Nr';
+      
+      if (saved.equipment_type === 'equipment') {
+        quantity = takeoffCounts.equipment[saved.equipment_label] || 0;
+        unit = 'Nr';
+      } else if (saved.equipment_type === 'containment') {
+        quantity = takeoffCounts.containment[saved.equipment_label] || 0;
+        unit = 'm';
+      } else if (saved.equipment_type === 'cable') {
+        quantity = takeoffCounts.cables[saved.equipment_label]?.totalLength || 0;
+        unit = 'm';
+      }
+      
+      if (quantity > 0) {
+        mappings.push({
+          equipmentType: saved.equipment_type,
+          equipmentLabel: saved.equipment_label,
+          category: saved.equipment_type as 'equipment' | 'containment' | 'cable',
+          quantity,
+          unit,
+          finalAccountItemId: saved.final_account_item_id || undefined,
+          masterMaterialId: saved.master_material_id || undefined,
+        });
+      }
+    }
+    
+    return mappings;
+  };
+
   const handleNextStep = () => {
     if (!selectedSectionId) {
       toast.error('Please select a section');
       return;
     }
     
+    // If already linked with saved mappings, auto-use them (no need to ask again)
+    if (isAlreadyLinked && hasSavedMappings && hasTakeoffs) {
+      const savedMappings = buildMappingsFromSaved();
+      toast.info('Using existing material mappings to update quantities');
+      linkMutation.mutate(savedMappings);
+      return;
+    }
+    
+    // Only show mapping step if we need new mappings
     if (transferTakeoffs && hasTakeoffs) {
       setStep('map-materials');
     } else {
@@ -689,8 +753,34 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
                 </div>
               )}
 
-              {/* Transfer Take-offs Toggle */}
-              {selectedSectionId && (
+              {/* Auto-sync info for already linked with mappings */}
+              {selectedSectionId && isAlreadyLinked && hasSavedMappings && hasTakeoffs && (
+                <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
+                  <div className="flex items-center gap-2 text-primary font-medium">
+                    <Send className="h-4 w-4" />
+                    Auto-Sync Enabled
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Material mappings are already configured. Quantities will be automatically updated in the Final Account using your saved mappings.
+                  </p>
+                  {takeoffCounts && (
+                    <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+                      {Object.entries(takeoffCounts.equipment).map(([type, count]) => 
+                        count > 0 && <li key={type}>• {type}: {count} no.</li>
+                      )}
+                      {Object.entries(takeoffCounts.containment).map(([type, length]) => 
+                        length > 0 && <li key={type}>• {type}: {length.toFixed(1)}m</li>
+                      )}
+                      {Object.entries(takeoffCounts.cables).map(([type, data]) => 
+                        data.count > 0 && <li key={type}>• {type}: {data.count} runs ({data.totalLength.toFixed(1)}m)</li>
+                      )}
+                    </ul>
+                  )}
+                </div>
+              )}
+
+              {/* Transfer Take-offs Toggle - only show if NOT already linked with mappings */}
+              {selectedSectionId && !(isAlreadyLinked && hasSavedMappings && hasTakeoffs) && (
                 <div className="flex items-center justify-between rounded-lg border p-4">
                   <div className="space-y-0.5">
                     <Label className="flex items-center gap-2">
@@ -712,8 +802,8 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
                 </div>
               )}
 
-              {/* Take-off Preview */}
-              {transferTakeoffs && takeoffCounts && (
+              {/* Take-off Preview for new mappings */}
+              {transferTakeoffs && takeoffCounts && !(isAlreadyLinked && hasSavedMappings) && (
                 <div className="rounded-lg border bg-muted/50 p-3 text-sm">
                   <div className="font-medium mb-2">Items to transfer:</div>
                   <ul className="space-y-1 text-muted-foreground">
