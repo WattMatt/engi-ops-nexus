@@ -84,6 +84,16 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
   const [history, setHistory] = useState<DesignState[]>([initialDesignState]);
   const [historyIndex, setHistoryIndex] = useState(0);
 
+  // Use refs to avoid stale closures in setState callback
+  const historyRef = useRef(history);
+  const historyIndexRef = useRef(historyIndex);
+  
+  // Keep refs in sync with state
+  useEffect(() => {
+    historyRef.current = history;
+    historyIndexRef.current = historyIndex;
+  }, [history, historyIndex]);
+
   const canUndo = historyIndex > 0;
   const canRedo = historyIndex < history.length - 1;
   const currentDesign = history[historyIndex];
@@ -93,7 +103,10 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
   const takeoffCounts = useTakeoffCounts(equipment, lines, containment);
 
   const setState = useCallback((updater: (prevState: DesignState) => DesignState, commit: boolean = true) => {
-    const currentState = history[historyIndex];
+    // Use refs to get the latest values, avoiding stale closure issues
+    const currentHistory = historyRef.current;
+    const currentIndex = historyIndexRef.current;
+    const currentState = currentHistory[currentIndex];
     const newState = updater(currentState);
 
     if (JSON.stringify(newState) === JSON.stringify(currentState)) {
@@ -101,16 +114,16 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
     }
 
     if (commit) {
-        const newHistory = history.slice(0, historyIndex + 1);
+        const newHistory = currentHistory.slice(0, currentIndex + 1);
         newHistory.push(newState);
         setHistory(newHistory);
         setHistoryIndex(newHistory.length - 1);
     } else {
-        const newHistory = [...history];
-        newHistory[historyIndex] = newState;
+        const newHistory = [...currentHistory];
+        newHistory[currentIndex] = newState;
         setHistory(newHistory);
     }
-  }, [history, historyIndex]);
+  }, []);
 
   const setEquipment = (updater: (prev: EquipmentItem[]) => EquipmentItem[], commit: boolean = true) => setState(s => ({ ...s, equipment: updater(s.equipment) }), commit);
   const setLines = (updater: (prev: SupplyLine[]) => SupplyLine[], commit: boolean = true) => setState(s => ({ ...s, lines: updater(s.lines) }), commit);
