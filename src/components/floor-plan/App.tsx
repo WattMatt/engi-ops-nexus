@@ -562,7 +562,20 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
   }, []);
   
   const handleContainmentDrawComplete = useCallback((line: { points: Point[]; length: number; type: ContainmentType; }) => {
-      const typesWithoutSizeModal = [ContainmentType.SLEEVES, ContainmentType.POWERSKIRTING, ContainmentType.P2000_TRUNKING, ContainmentType.P8000_TRUNKING, ContainmentType.P9000_TRUNKING];
+      // Types that have predefined sizes (no modal needed)
+      const typesWithoutSizeModal = [
+        ContainmentType.SLEEVES, 
+        ContainmentType.POWERSKIRTING, 
+        ContainmentType.P2000_TRUNKING, 
+        ContainmentType.P8000_TRUNKING, 
+        ContainmentType.P9000_TRUNKING,
+        // Conduits have size in their type name, no modal needed
+        ContainmentType.CONDUIT_20MM,
+        ContainmentType.CONDUIT_25MM,
+        ContainmentType.CONDUIT_32MM,
+        ContainmentType.CONDUIT_40MM,
+        ContainmentType.CONDUIT_50MM,
+      ];
       if (typesWithoutSizeModal.includes(line.type)) {
         setContainment(prev => [...prev, { id: `containment-${Date.now()}`, type: line.type, size: line.type, points: line.points, length: line.length, }]);
       } else {
