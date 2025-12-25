@@ -822,6 +822,15 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
             return;
         }
         
+        // Check if clicked on containment (conduits, cable trays, etc.)
+        const clickedContainment = containment.slice().reverse().find(item => 
+            isPointNearPolyline(worldPos, item.points, CLICK_THRESHOLD)
+        );
+        if (clickedContainment) {
+            setSelectedItemId(clickedContainment.id);
+            return;
+        }
+        
         setSelectedItemId(null);
         return;
     }
