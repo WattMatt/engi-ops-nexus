@@ -262,6 +262,26 @@ export function renderMarkupsToContext(ctx: CanvasRenderingContext2D, params: Re
         ctx.stroke();
         ctx.setLineDash([]);
         
+        // Draw editable node handles when selected
+        if (isSelected) {
+            item.points.forEach(point => {
+                // Outer ring
+                ctx.beginPath();
+                ctx.arc(point.x, point.y, 7 / zoom, 0, 2 * Math.PI);
+                ctx.fillStyle = '#ffffff';
+                ctx.fill();
+                ctx.strokeStyle = '#34D399';
+                ctx.lineWidth = 2 / zoom;
+                ctx.stroke();
+                
+                // Inner dot
+                ctx.beginPath();
+                ctx.arc(point.x, point.y, 3 / zoom, 0, 2 * Math.PI);
+                ctx.fillStyle = '#34D399';
+                ctx.fill();
+            });
+        }
+        
         // Draw length annotation at midpoint of containment
         if (scaleInfo.ratio && item.points.length >= 2) {
             // Find midpoint of the path
