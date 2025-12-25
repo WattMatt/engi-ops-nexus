@@ -1,14 +1,18 @@
-import React, { useEffect, useState, useMemo } from 'react';
-import { FolderOpen, Building as BuildingIcon, Calendar, Loader, MoreVertical, Pencil, Trash2, Archive, ChevronRight, ChevronDown, Folder } from 'lucide-react';
+import React, { useEffect, useState, useMemo, useRef } from 'react';
+import { FolderOpen, Calendar, Loader, MoreVertical, Pencil, Trash2, Archive, ChevronRight, ChevronDown, Folder, FolderPlus, Settings, Move } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Building } from 'lucide-react';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { deleteDesign, updateDesignName } from '../utils/supabase';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { useFolders } from '../hooks/useFolders';
+import { FolderManagementPanel, type FolderNode } from './FolderManagementPanel';
+import { MoveToFolderDialog } from './MoveToFolderDialog';
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger, ContextMenuSeparator, ContextMenuSub, ContextMenuSubContent, ContextMenuSubTrigger } from '@/components/ui/context-menu';
 
 interface SavedDesign {
   id: string;
@@ -18,6 +22,7 @@ interface SavedDesign {
   project_name: string | null;
   project_number: string | null;
   design_purpose: string | null;
+  folder_id: string | null;
 }
 
 interface SavedDesignsGalleryProps {
@@ -25,6 +30,11 @@ interface SavedDesignsGalleryProps {
   onNewDesign: () => void;
   currentProjectId?: string | null;
 }
+
+// Natural sort function for strings with numbers (e.g., "Shop 1" before "Shop 10")
+const naturalSort = (a: string, b: string) => {
+  return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+};
 
 export const SavedDesignsGallery: React.FC<SavedDesignsGalleryProps> = ({ 
   onLoadDesign,
@@ -36,7 +46,15 @@ export const SavedDesignsGallery: React.FC<SavedDesignsGalleryProps> = ({
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [selectedDesign, setSelectedDesign] = useState<SavedDesign | null>(null);
   const [newName, setNewName] = useState('');
-  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set(['Uncategorized']));
+  const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
+  const [folderManagementOpen, setFolderManagementOpen] = useState(false);
+  const [moveDialogOpen, setMoveDialogOpen] = useState(false);
+  const [createFolderDialogOpen, setCreateFolderDialogOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState('');
+  const [parentFolderForCreate, setParentFolderForCreate] = useState<string | null>(null);
+  const [draggedDesign, setDraggedDesign] = useState<SavedDesign | null>(null);
+
+  const { folders, flatFolders, refetch: refetchFolders, getFolderPath } = useFolders(currentProjectId);
 
   useEffect(() => {
     fetchDesigns();
@@ -52,6 +70,7 @@ export const SavedDesignsGallery: React.FC<SavedDesignsGalleryProps> = ({
           created_at,
           project_id,
           design_purpose,
+          folder_id,
           projects (
             name,
             project_number
@@ -74,13 +93,15 @@ export const SavedDesignsGallery: React.FC<SavedDesignsGalleryProps> = ({
         project_name: item.projects?.name || null,
         project_number: item.projects?.project_number || null,
         design_purpose: item.design_purpose,
+        folder_id: item.folder_id,
       }));
 
       setDesigns(formattedDesigns);
       
       // Auto-expand all folders on initial load
-      const purposes = new Set(formattedDesigns.map(d => d.design_purpose || 'Uncategorized'));
-      setExpandedFolders(purposes);
+      const folderIds = new Set(flatFolders.map(f => f.id));
+      folderIds.add('uncategorized');
+      setExpandedFolders(folderIds);
     } catch (error) {
       console.error('Error fetching designs:', error);
     } finally {
@@ -88,45 +109,38 @@ export const SavedDesignsGallery: React.FC<SavedDesignsGalleryProps> = ({
     }
   };
 
-  // Natural sort function for strings with numbers (e.g., "Shop 1" before "Shop 10")
-  const naturalSort = (a: string, b: string) => {
-    return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
-  };
-
-  // Group designs by design_purpose
+  // Group designs by folder hierarchy
   const groupedDesigns = useMemo(() => {
-    const groups: Record<string, SavedDesign[]> = {};
-    
+    const folderDesigns: Record<string, SavedDesign[]> = {};
+    const uncategorized: SavedDesign[] = [];
+
     for (const design of designs) {
-      const purpose = design.design_purpose || 'Uncategorized';
-      if (!groups[purpose]) {
-        groups[purpose] = [];
+      if (design.folder_id) {
+        if (!folderDesigns[design.folder_id]) {
+          folderDesigns[design.folder_id] = [];
+        }
+        folderDesigns[design.folder_id].push(design);
+      } else {
+        uncategorized.push(design);
       }
-      groups[purpose].push(design);
     }
-    
-    // Sort designs within each group numerically by name
-    for (const key of Object.keys(groups)) {
-      groups[key].sort((a, b) => naturalSort(a.name, b.name));
+
+    // Sort designs within each folder by name (natural sort)
+    for (const key of Object.keys(folderDesigns)) {
+      folderDesigns[key].sort((a, b) => naturalSort(a.name, b.name));
     }
-    
-    // Sort groups alphabetically, but keep "Uncategorized" at the end
-    const sortedKeys = Object.keys(groups).sort((a, b) => {
-      if (a === 'Uncategorized') return 1;
-      if (b === 'Uncategorized') return -1;
-      return naturalSort(a, b);
-    });
-    
-    return sortedKeys.map(key => ({ purpose: key, designs: groups[key] }));
+    uncategorized.sort((a, b) => naturalSort(a.name, b.name));
+
+    return { folderDesigns, uncategorized };
   }, [designs]);
 
-  const toggleFolder = (purpose: string) => {
+  const toggleFolder = (folderId: string) => {
     setExpandedFolders(prev => {
       const next = new Set(prev);
-      if (next.has(purpose)) {
-        next.delete(purpose);
+      if (next.has(folderId)) {
+        next.delete(folderId);
       } else {
-        next.add(purpose);
+        next.add(folderId);
       }
       return next;
     });
@@ -171,6 +185,249 @@ export const SavedDesignsGallery: React.FC<SavedDesignsGalleryProps> = ({
     toast.info('Archive functionality coming soon');
   };
 
+  const handleMoveDesign = (design: SavedDesign) => {
+    setSelectedDesign(design);
+    setMoveDialogOpen(true);
+  };
+
+  const handleCreateSubfolder = (parentId: string | null) => {
+    setParentFolderForCreate(parentId);
+    setNewFolderName('');
+    setCreateFolderDialogOpen(true);
+  };
+
+  const handleCreateFolderSubmit = async () => {
+    if (!newFolderName.trim()) return;
+
+    try {
+      const { error } = await supabase.from('floor_plan_folders').insert({
+        name: newFolderName.trim(),
+        parent_id: parentFolderForCreate,
+        project_id: currentProjectId || null,
+      });
+
+      if (error) throw error;
+
+      toast.success('Folder created successfully');
+      setCreateFolderDialogOpen(false);
+      setNewFolderName('');
+      refetchFolders();
+    } catch (error) {
+      console.error('Error creating folder:', error);
+      toast.error('Failed to create folder');
+    }
+  };
+
+  // Drag and drop handlers
+  const handleDragStart = (e: React.DragEvent, design: SavedDesign) => {
+    setDraggedDesign(design);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+  };
+
+  const handleDropOnFolder = async (e: React.DragEvent, folderId: string | null) => {
+    e.preventDefault();
+    if (!draggedDesign) return;
+
+    try {
+      const { error } = await supabase
+        .from('floor_plan_projects')
+        .update({ folder_id: folderId })
+        .eq('id', draggedDesign.id);
+
+      if (error) throw error;
+
+      toast.success(`Moved "${draggedDesign.name}" successfully`);
+      fetchDesigns();
+    } catch (error) {
+      console.error('Error moving design:', error);
+      toast.error('Failed to move design');
+    } finally {
+      setDraggedDesign(null);
+    }
+  };
+
+  const renderFolderWithDesigns = (folder: FolderNode, depth: number = 0): React.ReactNode => {
+    const folderDesigns = groupedDesigns.folderDesigns[folder.id] || [];
+    const hasContent = folderDesigns.length > 0 || folder.children.length > 0;
+    const isExpanded = expandedFolders.has(folder.id);
+    const designCount = folderDesigns.length;
+
+    return (
+      <div key={folder.id} style={{ marginLeft: depth * 24 }}>
+        <ContextMenu>
+          <ContextMenuTrigger>
+            <div
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDropOnFolder(e, folder.id)}
+              className={`transition-colors ${draggedDesign ? 'ring-2 ring-primary/50 ring-dashed rounded-lg' : ''}`}
+            >
+              <Collapsible open={isExpanded} onOpenChange={() => toggleFolder(folder.id)}>
+                <CollapsibleTrigger className="flex items-center gap-3 w-full p-3 rounded-lg bg-card border border-border hover:bg-accent transition-colors group">
+                  <div className="p-2 bg-primary/10 rounded group-hover:bg-primary/20 transition-colors">
+                    <Folder className="h-5 w-5 text-primary" />
+                  </div>
+                  <div className="flex-1 text-left">
+                    <span className="font-semibold text-foreground">{folder.name}</span>
+                    <span className="ml-2 text-sm text-muted-foreground">
+                      ({designCount} {designCount === 1 ? 'design' : 'designs'})
+                    </span>
+                  </div>
+                  {isExpanded ? (
+                    <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                  )}
+                </CollapsibleTrigger>
+                
+                <CollapsibleContent>
+                  <div className="mt-2 ml-6 pl-6 border-l-2 border-border">
+                    {/* Subfolders */}
+                    {folder.children.length > 0 && (
+                      <div className="space-y-2 py-2">
+                        {folder.children.map(child => renderFolderWithDesigns(child, 0))}
+                      </div>
+                    )}
+                    
+                    {/* Designs in this folder */}
+                    {folderDesigns.length > 0 && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 py-2">
+                        {folderDesigns.map((design) => renderDesignCard(design))}
+                      </div>
+                    )}
+
+                    {!hasContent && (
+                      <div className="py-4 text-center text-muted-foreground text-sm">
+                        Empty folder - drag items here or create a subfolder
+                      </div>
+                    )}
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            </div>
+          </ContextMenuTrigger>
+          <ContextMenuContent>
+            <ContextMenuItem onClick={() => handleCreateSubfolder(folder.id)}>
+              <FolderPlus className="h-4 w-4 mr-2" />
+              Create Subfolder
+            </ContextMenuItem>
+          </ContextMenuContent>
+        </ContextMenu>
+      </div>
+    );
+  };
+
+  const renderDesignCard = (design: SavedDesign) => (
+    <ContextMenu key={design.id}>
+      <ContextMenuTrigger>
+        <div
+          draggable
+          onDragStart={(e) => handleDragStart(e, design)}
+          className="group relative flex flex-col p-4 rounded-lg bg-card hover:bg-accent transition-all duration-200 border border-border hover:border-primary hover:shadow-md cursor-grab active:cursor-grabbing"
+        >
+          <div className="absolute top-2 right-2 z-10">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button 
+                  className="p-1 rounded hover:bg-background/80 transition-colors"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <MoreVertical className="h-4 w-4 text-muted-foreground" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => handleRename(design)}>
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Rename
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => handleMoveDesign(design)}>
+                  <Move className="h-4 w-4 mr-2" />
+                  Move to Folder
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => handleArchive(design)}>
+                  <Archive className="h-4 w-4 mr-2" />
+                  Archive
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={() => handleDelete(design)}
+                  className="text-destructive focus:text-destructive"
+                >
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          
+          <button
+            onClick={() => onLoadDesign(design.id)}
+            className="flex-1 flex flex-col text-left"
+          >
+            <div className="flex items-start gap-3 mb-3">
+              <div className="p-2 bg-primary/10 rounded group-hover:bg-primary/20 transition-colors">
+                <FolderOpen className="h-5 w-5 text-primary" />
+              </div>
+              <div className="flex-1 min-w-0 pr-6">
+                <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors truncate">
+                  {design.name}
+                </h3>
+              </div>
+            </div>
+            <div className="flex items-center gap-1 text-xs text-muted-foreground mt-auto">
+              <Calendar className="h-3 w-3" />
+              {new Date(design.created_at).toLocaleDateString()}
+            </div>
+          </button>
+        </div>
+      </ContextMenuTrigger>
+      <ContextMenuContent>
+        <ContextMenuItem onClick={() => onLoadDesign(design.id)}>
+          <FolderOpen className="h-4 w-4 mr-2" />
+          Open
+        </ContextMenuItem>
+        <ContextMenuItem onClick={() => handleRename(design)}>
+          <Pencil className="h-4 w-4 mr-2" />
+          Rename
+        </ContextMenuItem>
+        <ContextMenuSeparator />
+        <ContextMenuSub>
+          <ContextMenuSubTrigger>
+            <Move className="h-4 w-4 mr-2" />
+            Move to Folder
+          </ContextMenuSubTrigger>
+          <ContextMenuSubContent>
+            <ContextMenuItem onClick={() => handleDropOnFolder({ preventDefault: () => {} } as any, null)}>
+              <Folder className="h-4 w-4 mr-2" />
+              Uncategorized (Root)
+            </ContextMenuItem>
+            {flatFolders.map(folder => (
+              <ContextMenuItem 
+                key={folder.id}
+                onClick={() => handleDropOnFolder({ preventDefault: () => {} } as any, folder.id)}
+              >
+                <Folder className="h-4 w-4 mr-2" />
+                {getFolderPath(folder.id)}
+              </ContextMenuItem>
+            ))}
+          </ContextMenuSubContent>
+        </ContextMenuSub>
+        <ContextMenuSeparator />
+        <ContextMenuItem 
+          onClick={() => handleDelete(design)}
+          className="text-destructive"
+        >
+          <Trash2 className="h-4 w-4 mr-2" />
+          Delete
+        </ContextMenuItem>
+      </ContextMenuContent>
+    </ContextMenu>
+  );
+
   if (loading) {
     return (
       <div className="flex-1 flex justify-center items-center bg-muted/30">
@@ -182,7 +439,7 @@ export const SavedDesignsGallery: React.FC<SavedDesignsGalleryProps> = ({
     );
   }
 
-  if (designs.length === 0) {
+  if (designs.length === 0 && folders.length === 0) {
     return (
       <div className="flex-1 flex justify-center items-center bg-muted/30">
         <div className="text-center p-8 border-2 border-dashed border-border rounded-lg max-w-md">
@@ -216,104 +473,72 @@ export const SavedDesignsGallery: React.FC<SavedDesignsGalleryProps> = ({
             </h1>
             <p className="text-muted-foreground mt-1">Select a design to continue working or start a new one</p>
           </div>
-          <button 
-            onClick={onNewDesign}
-            className="px-6 py-3 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 transition-colors font-medium"
-          >
-            + New Design
-          </button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setFolderManagementOpen(true)}
+            >
+              <Settings className="h-4 w-4 mr-2" />
+              Manage Folders
+            </Button>
+            <Button
+              variant="outline"
+              onClick={() => handleCreateSubfolder(null)}
+            >
+              <FolderPlus className="h-4 w-4 mr-2" />
+              New Folder
+            </Button>
+            <Button onClick={onNewDesign}>
+              + New Design
+            </Button>
+          </div>
         </div>
 
         <div className="space-y-4">
-          {groupedDesigns.map(({ purpose, designs: groupDesigns }) => (
-            <Collapsible
-              key={purpose}
-              open={expandedFolders.has(purpose)}
-              onOpenChange={() => toggleFolder(purpose)}
+          {/* Folders with their designs */}
+          {folders.map(folder => renderFolderWithDesigns(folder))}
+
+          {/* Uncategorized designs */}
+          {groupedDesigns.uncategorized.length > 0 && (
+            <div
+              onDragOver={handleDragOver}
+              onDrop={(e) => handleDropOnFolder(e, null)}
+              className={`transition-colors ${draggedDesign ? 'ring-2 ring-primary/50 ring-dashed rounded-lg' : ''}`}
             >
-              <CollapsibleTrigger className="flex items-center gap-3 w-full p-3 rounded-lg bg-card border border-border hover:bg-accent transition-colors group">
-                <div className="p-2 bg-primary/10 rounded group-hover:bg-primary/20 transition-colors">
-                  <Folder className="h-5 w-5 text-primary" />
-                </div>
-                <div className="flex-1 text-left">
-                  <span className="font-semibold text-foreground">{purpose}</span>
-                  <span className="ml-2 text-sm text-muted-foreground">
-                    ({groupDesigns.length} {groupDesigns.length === 1 ? 'design' : 'designs'})
-                  </span>
-                </div>
-                {expandedFolders.has(purpose) ? (
-                  <ChevronDown className="h-5 w-5 text-muted-foreground" />
-                ) : (
-                  <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                )}
-              </CollapsibleTrigger>
-              
-              <CollapsibleContent>
-                <div className="mt-2 ml-6 pl-6 border-l-2 border-border">
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 py-2">
-                    {groupDesigns.map((design) => (
-                      <div
-                        key={design.id}
-                        className="group relative flex flex-col p-4 rounded-lg bg-card hover:bg-accent transition-all duration-200 border border-border hover:border-primary hover:shadow-md"
-                      >
-                        <div className="absolute top-2 right-2 z-10">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <button 
-                                className="p-1 rounded hover:bg-background/80 transition-colors"
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                <MoreVertical className="h-4 w-4 text-muted-foreground" />
-                              </button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                              <DropdownMenuItem onClick={() => handleRename(design)}>
-                                <Pencil className="h-4 w-4 mr-2" />
-                                Rename
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleArchive(design)}>
-                                <Archive className="h-4 w-4 mr-2" />
-                                Archive
-                              </DropdownMenuItem>
-                              <DropdownMenuItem 
-                                onClick={() => handleDelete(design)}
-                                className="text-destructive focus:text-destructive"
-                              >
-                                <Trash2 className="h-4 w-4 mr-2" />
-                                Delete
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                        
-                        <button
-                          onClick={() => onLoadDesign(design.id)}
-                          className="flex-1 flex flex-col text-left"
-                        >
-                          <div className="flex items-start gap-3 mb-3">
-                            <div className="p-2 bg-primary/10 rounded group-hover:bg-primary/20 transition-colors">
-                              <FolderOpen className="h-5 w-5 text-primary" />
-                            </div>
-                            <div className="flex-1 min-w-0 pr-6">
-                              <h3 className="font-semibold text-foreground group-hover:text-primary transition-colors truncate">
-                                {design.name}
-                              </h3>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1 text-xs text-muted-foreground mt-auto">
-                            <Calendar className="h-3 w-3" />
-                            {new Date(design.created_at).toLocaleDateString()}
-                          </div>
-                        </button>
-                      </div>
-                    ))}
+              <Collapsible
+                open={expandedFolders.has('uncategorized')}
+                onOpenChange={() => toggleFolder('uncategorized')}
+              >
+                <CollapsibleTrigger className="flex items-center gap-3 w-full p-3 rounded-lg bg-card border border-border hover:bg-accent transition-colors group">
+                  <div className="p-2 bg-muted rounded group-hover:bg-muted/80 transition-colors">
+                    <Folder className="h-5 w-5 text-muted-foreground" />
                   </div>
-                </div>
-              </CollapsibleContent>
-            </Collapsible>
-          ))}
+                  <div className="flex-1 text-left">
+                    <span className="font-semibold text-foreground">Uncategorized</span>
+                    <span className="ml-2 text-sm text-muted-foreground">
+                      ({groupedDesigns.uncategorized.length} {groupedDesigns.uncategorized.length === 1 ? 'design' : 'designs'})
+                    </span>
+                  </div>
+                  {expandedFolders.has('uncategorized') ? (
+                    <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                  ) : (
+                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                  )}
+                </CollapsibleTrigger>
+                
+                <CollapsibleContent>
+                  <div className="mt-2 ml-6 pl-6 border-l-2 border-border">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 py-2">
+                      {groupedDesigns.uncategorized.map((design) => renderDesignCard(design))}
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            </div>
+          )}
         </div>
 
+        {/* Rename Dialog */}
         <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
           <DialogContent>
             <DialogHeader>
@@ -337,6 +562,60 @@ export const SavedDesignsGallery: React.FC<SavedDesignsGalleryProps> = ({
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Create Folder Dialog */}
+        <Dialog open={createFolderDialogOpen} onOpenChange={setCreateFolderDialogOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>
+                {parentFolderForCreate ? 'Create Subfolder' : 'Create New Folder'}
+              </DialogTitle>
+            </DialogHeader>
+            <Input
+              value={newFolderName}
+              onChange={(e) => setNewFolderName(e.target.value)}
+              placeholder="Folder name"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') handleCreateFolderSubmit();
+              }}
+              autoFocus
+            />
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setCreateFolderDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button onClick={handleCreateFolderSubmit}>Create</Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Move to Folder Dialog */}
+        {selectedDesign && (
+          <MoveToFolderDialog
+            isOpen={moveDialogOpen}
+            onClose={() => {
+              setMoveDialogOpen(false);
+              setSelectedDesign(null);
+            }}
+            itemId={selectedDesign.id}
+            itemName={selectedDesign.name}
+            folders={folders}
+            currentFolderId={selectedDesign.folder_id}
+            onMove={() => {
+              fetchDesigns();
+              refetchFolders();
+            }}
+          />
+        )}
+
+        {/* Folder Management Panel */}
+        <FolderManagementPanel
+          folders={folders}
+          onFoldersChange={refetchFolders}
+          currentProjectId={currentProjectId}
+          isOpen={folderManagementOpen}
+          onClose={() => setFolderManagementOpen(false)}
+        />
       </div>
     </div>
   );

@@ -3760,6 +3760,51 @@ export type Database = {
           },
         ]
       }
+      floor_plan_folders: {
+        Row: {
+          created_at: string
+          display_order: number | null
+          id: string
+          name: string
+          parent_id: string | null
+          project_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_order?: number | null
+          id?: string
+          name: string
+          parent_id?: string | null
+          project_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_order?: number | null
+          id?: string
+          name?: string
+          parent_id?: string | null
+          project_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "floor_plan_folders_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "floor_plan_folders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "floor_plan_folders_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       floor_plan_lighting: {
         Row: {
           created_at: string
@@ -3933,6 +3978,7 @@ export type Database = {
         Row: {
           created_at: string
           design_purpose: string
+          folder_id: string | null
           id: string
           linked_final_account_id: string | null
           linked_section_id: string | null
@@ -3948,6 +3994,7 @@ export type Database = {
         Insert: {
           created_at?: string
           design_purpose: string
+          folder_id?: string | null
           id?: string
           linked_final_account_id?: string | null
           linked_section_id?: string | null
@@ -3963,6 +4010,7 @@ export type Database = {
         Update: {
           created_at?: string
           design_purpose?: string
+          folder_id?: string | null
           id?: string
           linked_final_account_id?: string | null
           linked_section_id?: string | null
@@ -3976,6 +4024,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "floor_plan_projects_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "floor_plan_folders"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "floor_plan_projects_linked_final_account_id_fkey"
             columns: ["linked_final_account_id"]
