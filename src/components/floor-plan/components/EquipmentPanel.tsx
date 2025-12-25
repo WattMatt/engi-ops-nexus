@@ -245,6 +245,42 @@ const CableDetails: React.FC<{
     );
 };
 
+const ContainmentDetails: React.FC<{
+    item: Containment;
+    onDelete: () => void;
+}> = ({ item, onDelete }) => {
+    const style = getContainmentStyle(item.type, item.size);
+    
+    return (
+        <div className="mb-6 p-3 bg-muted rounded-lg border border-border">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-3">Containment Details</h3>
+            <div className='flex items-center gap-3 mb-3'>
+                <div className="w-4 h-4 rounded-full flex-shrink-0" style={{backgroundColor: style.color}}></div>
+                <span className="text-foreground font-bold">{item.type}</span>
+            </div>
+            <div className="space-y-2 text-sm text-foreground">
+                <div className="flex justify-between">
+                    <span>Type:</span> 
+                    <span className='font-mono'>{item.type}</span>
+                </div>
+                <div className="flex justify-between">
+                    <span>Size:</span> 
+                    <span className='font-mono'>{item.size}</span>
+                </div>
+                <div className="flex justify-between">
+                    <span>Length:</span> 
+                    <span className='font-mono font-semibold text-primary'>{item.length.toFixed(2)}m</span>
+                </div>
+            </div>
+            <div className="mt-4">
+                <button onClick={onDelete} className="w-full text-center px-4 py-2 bg-destructive/20 text-destructive hover:bg-destructive/40 rounded-md text-sm font-semibold transition-colors">
+                    Delete Containment
+                </button>
+            </div>
+        </div>
+    );
+};
+
 const DetailedCableSchedule: React.FC<{ lines: SupplyLine[] }> = ({ lines }) => {
     const lvLines = useMemo(() => lines.filter(l => l.type === 'lv'), [lines]);
 
@@ -729,7 +765,11 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
       if (!selectedItemId) return null;
       return lines.find(l => l.id === selectedItemId) || null;
   }, [selectedItemId, lines]);
-
+  
+  const selectedContainment = useMemo(() => {
+      if (!selectedItemId) return null;
+      return containment.find(c => c.id === selectedItemId) || null;
+  }, [selectedItemId, containment]);
   const hasCables = useMemo(() => cableEntries.length > 0 || lines.some(l => l.type === 'lv' && l.cableType), [cableEntries, lines]);
 
   const renderSummaryTab = () => {
@@ -787,6 +827,7 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
             {selectedZone && <ZoneDetails item={selectedZone} onUpdate={onZoneUpdate} onDelete={onDeleteItem} tasks={tasks} onOpenTaskModal={onOpenTaskModal} />}
             {selectedPvArray && <PvArrayDetails item={selectedPvArray} pvPanelConfig={pvPanelConfig} onDelete={onDeleteItem} />}
             {selectedLine && <CableDetails item={selectedLine} onDelete={onDeleteItem} tasks={tasks} onOpenTaskModal={onOpenTaskModal} />}
+            {selectedContainment && <ContainmentDetails item={selectedContainment} onDelete={onDeleteItem} />}
         </div>
         
         <div className="border-b border-border px-2 flex-shrink-0">

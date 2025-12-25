@@ -720,6 +720,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
                 zones: prev.zones.filter(z => z.id !== selectedItemId),
                 pvArrays: prev.pvArrays.filter(p => p.id !== selectedItemId),
                 lines: prev.lines.filter(l => l.id !== selectedItemId),
+                containment: prev.containment.filter(c => c.id !== selectedItemId),
                 tasks: prev.tasks.filter(t => t.linkedItemId !== selectedItemId),
             };
         });

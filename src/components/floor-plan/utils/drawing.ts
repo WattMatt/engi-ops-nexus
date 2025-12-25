@@ -237,11 +237,27 @@ export function renderMarkupsToContext(ctx: CanvasRenderingContext2D, params: Re
     
     // Draw containment with length annotations
     containment.forEach(item => {
+        const isSelected = item.id === selectedItemId;
+        
+        // Draw selection highlight first (behind the main line)
+        if (isSelected) {
+            ctx.beginPath();
+            item.points.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+            ctx.strokeStyle = '#34D399'; // Selection green
+            ctx.lineWidth = 8 / zoom;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.setLineDash([]);
+            ctx.stroke();
+        }
+        
         ctx.beginPath();
         item.points.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
         const style = getContainmentStyle(item.type, item.size);
         ctx.strokeStyle = style.color;
         ctx.lineWidth = 3 / zoom;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
         ctx.setLineDash(style.dash.map(d => d / zoom));
         ctx.stroke();
         ctx.setLineDash([]);
