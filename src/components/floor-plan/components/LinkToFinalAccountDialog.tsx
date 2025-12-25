@@ -367,7 +367,9 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
         .single();
       
       if (existing) {
-        const newFinalQty = (existing.final_quantity || 0) + update.additionalQty;
+        // Use final_quantity if set, otherwise use contract_quantity as baseline
+        const currentFinalQty = existing.final_quantity ?? existing.contract_quantity ?? 0;
+        const newFinalQty = currentFinalQty + update.additionalQty;
         const supplyRate = existing.supply_rate || 0;
         const installRate = existing.install_rate || 0;
         const contractQty = existing.contract_quantity || 0;
