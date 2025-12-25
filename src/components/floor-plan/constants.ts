@@ -20,6 +20,12 @@ export const CONTAINMENT_COLORS: Record<ContainmentType, string> = {
     [ContainmentType.P2000_TRUNKING]: '#3B82F6', // Blue 500
     [ContainmentType.P8000_TRUNKING]: '#DC2626', // Red 600
     [ContainmentType.P9000_TRUNKING]: '#EC4899', // Pink 500
+    // Conduits - Orange/Brown shades to represent PVC conduit
+    [ContainmentType.CONDUIT_20MM]: '#F97316', // Orange 500
+    [ContainmentType.CONDUIT_25MM]: '#EA580C', // Orange 600
+    [ContainmentType.CONDUIT_32MM]: '#C2410C', // Orange 700
+    [ContainmentType.CONDUIT_40MM]: '#9A3412', // Orange 800
+    [ContainmentType.CONDUIT_50MM]: '#7C2D12', // Orange 900
 };
 
 export const CONTAINMENT_DASH_STYLES: Record<string, number[]> = {
@@ -36,6 +42,12 @@ export const CONTAINMENT_DASH_STYLES: Record<string, number[]> = {
     'P2000 Trunking': [],
     'P8000 Trunking': [],
     'P9000 Trunking': [],
+    // Conduit types - solid lines with varying thickness represented by color
+    '20mm Conduit': [],
+    '25mm Conduit': [],
+    '32mm Conduit': [],
+    '40mm Conduit': [],
+    '50mm Conduit': [],
 };
 
 // Defines the approximate real-world size (diameter/width) of equipment in meters.

@@ -235,7 +235,7 @@ export function renderMarkupsToContext(ctx: CanvasRenderingContext2D, params: Re
         pvArrays.forEach(array => drawPvArray(ctx, array, false, pvPanelConfig, scaleInfo, roofMasks, zoom));
     }
     
-    // Draw containment
+    // Draw containment with length annotations
     containment.forEach(item => {
         ctx.beginPath();
         item.points.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
@@ -245,6 +245,72 @@ export function renderMarkupsToContext(ctx: CanvasRenderingContext2D, params: Re
         ctx.setLineDash(style.dash.map(d => d / zoom));
         ctx.stroke();
         ctx.setLineDash([]);
+        
+        // Draw length annotation at midpoint of containment
+        if (scaleInfo.ratio && item.points.length >= 2) {
+            // Find midpoint of the path
+            let totalLength = 0;
+            for (let i = 1; i < item.points.length; i++) {
+                const dx = item.points[i].x - item.points[i - 1].x;
+                const dy = item.points[i].y - item.points[i - 1].y;
+                totalLength += Math.sqrt(dx * dx + dy * dy);
+            }
+            
+            // Find the midpoint along the path
+            let midDistance = totalLength / 2;
+            let midPoint: Point = item.points[0];
+            let segmentAngle = 0;
+            let accumulatedLength = 0;
+            
+            for (let i = 1; i < item.points.length; i++) {
+                const dx = item.points[i].x - item.points[i - 1].x;
+                const dy = item.points[i].y - item.points[i - 1].y;
+                const segmentLength = Math.sqrt(dx * dx + dy * dy);
+                
+                if (accumulatedLength + segmentLength >= midDistance) {
+                    const t = (midDistance - accumulatedLength) / segmentLength;
+                    midPoint = {
+                        x: item.points[i - 1].x + dx * t,
+                        y: item.points[i - 1].y + dy * t
+                    };
+                    segmentAngle = Math.atan2(dy, dx);
+                    break;
+                }
+                accumulatedLength += segmentLength;
+            }
+            
+            // Draw length label
+            const lengthInMeters = item.length;
+            const fontSize = 10 / zoom;
+            const labelText = `${lengthInMeters.toFixed(2)}m`;
+            
+            ctx.save();
+            ctx.translate(midPoint.x, midPoint.y);
+            
+            // Rotate text to follow line direction, but keep it readable
+            let rotation = segmentAngle;
+            if (rotation > Math.PI / 2) rotation -= Math.PI;
+            if (rotation < -Math.PI / 2) rotation += Math.PI;
+            ctx.rotate(rotation);
+            
+            ctx.font = `bold ${fontSize}px sans-serif`;
+            const textMetrics = ctx.measureText(labelText);
+            const padding = 2 / zoom;
+            const labelWidth = textMetrics.width + padding * 2;
+            const labelHeight = fontSize + padding * 2;
+            
+            // Draw background
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.fillRect(-labelWidth / 2, -labelHeight - 2 / zoom, labelWidth, labelHeight);
+            
+            // Draw text
+            ctx.fillStyle = style.color;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText(labelText, 0, -2 / zoom);
+            
+            ctx.restore();
+        }
     });
 
     // Draw walkways (550mm wide paths with deviation/ladder pattern)

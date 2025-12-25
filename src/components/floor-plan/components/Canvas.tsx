@@ -316,7 +316,7 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
             });
         }
         
-        // Draw dashed preview part
+        // Draw dashed preview part with dynamic length indicator
         if (previewPoint) {
             ctx.setLineDash([5 / viewState.zoom, 5 / viewState.zoom]);
             ctx.beginPath();
@@ -330,6 +330,56 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
                 ctx.stroke();
             }
             ctx.setLineDash([]);
+
+            // Draw dynamic length indicator for line-based tools (containment, cables)
+            if (!isPolygon && scaleInfo.ratio) {
+                // Calculate total length including preview segment
+                let totalLength = 0;
+                for (let i = 1; i < currentDrawing.length; i++) {
+                    const dx = currentDrawing[i].x - currentDrawing[i - 1].x;
+                    const dy = currentDrawing[i].y - currentDrawing[i - 1].y;
+                    totalLength += Math.sqrt(dx * dx + dy * dy);
+                }
+                // Add preview segment length
+                const lastPoint = currentDrawing[currentDrawing.length - 1];
+                const previewDx = previewPoint.x - lastPoint.x;
+                const previewDy = previewPoint.y - lastPoint.y;
+                const previewSegmentLength = Math.sqrt(previewDx * previewDx + previewDy * previewDy);
+                totalLength += previewSegmentLength;
+                
+                // Convert to meters
+                const lengthInMeters = totalLength * scaleInfo.ratio;
+                
+                // Draw length label near the preview point
+                const fontSize = 12 / viewState.zoom;
+                const labelText = `${lengthInMeters.toFixed(2)}m`;
+                
+                ctx.font = `bold ${fontSize}px sans-serif`;
+                const textMetrics = ctx.measureText(labelText);
+                const padding = 4 / viewState.zoom;
+                const labelWidth = textMetrics.width + padding * 2;
+                const labelHeight = fontSize + padding * 2;
+                
+                // Position label above the preview point
+                const labelX = previewPoint.x - labelWidth / 2;
+                const labelY = previewPoint.y - labelHeight - 8 / viewState.zoom;
+                
+                // Draw background
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+                ctx.fillRect(labelX, labelY, labelWidth, labelHeight);
+                
+                // Draw border matching the line color
+                ctx.strokeStyle = strokeStyle;
+                ctx.lineWidth = 1 / viewState.zoom;
+                ctx.setLineDash([]);
+                ctx.strokeRect(labelX, labelY, labelWidth, labelHeight);
+                
+                // Draw text
+                ctx.fillStyle = '#ffffff';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(labelText, previewPoint.x, labelY + labelHeight / 2);
+            }
         }
     }
 
