@@ -2451,6 +2451,147 @@ export type Database = {
           },
         ]
       }
+      db_circuit_materials: {
+        Row: {
+          boq_item_code: string | null
+          circuit_id: string
+          created_at: string
+          description: string
+          final_account_item_id: string | null
+          id: string
+          install_rate: number | null
+          master_material_id: string | null
+          notes: string | null
+          quantity: number | null
+          supply_rate: number | null
+          total_cost: number | null
+          unit: string | null
+          updated_at: string
+        }
+        Insert: {
+          boq_item_code?: string | null
+          circuit_id: string
+          created_at?: string
+          description: string
+          final_account_item_id?: string | null
+          id?: string
+          install_rate?: number | null
+          master_material_id?: string | null
+          notes?: string | null
+          quantity?: number | null
+          supply_rate?: number | null
+          total_cost?: number | null
+          unit?: string | null
+          updated_at?: string
+        }
+        Update: {
+          boq_item_code?: string | null
+          circuit_id?: string
+          created_at?: string
+          description?: string
+          final_account_item_id?: string | null
+          id?: string
+          install_rate?: number | null
+          master_material_id?: string | null
+          notes?: string | null
+          quantity?: number | null
+          supply_rate?: number | null
+          total_cost?: number | null
+          unit?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "db_circuit_materials_circuit_id_fkey"
+            columns: ["circuit_id"]
+            isOneToOne: false
+            referencedRelation: "db_circuits"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "db_circuit_materials_final_account_item_id_fkey"
+            columns: ["final_account_item_id"]
+            isOneToOne: false
+            referencedRelation: "final_account_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "db_circuit_materials_master_material_id_fkey"
+            columns: ["master_material_id"]
+            isOneToOne: false
+            referencedRelation: "master_materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "db_circuit_materials_master_material_id_fkey"
+            columns: ["master_material_id"]
+            isOneToOne: false
+            referencedRelation: "material_rate_analytics"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "db_circuit_materials_master_material_id_fkey"
+            columns: ["master_material_id"]
+            isOneToOne: false
+            referencedRelation: "material_rate_by_contractor"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "db_circuit_materials_master_material_id_fkey"
+            columns: ["master_material_id"]
+            isOneToOne: false
+            referencedRelation: "material_rate_by_province"
+            referencedColumns: ["material_id"]
+          },
+        ]
+      }
+      db_circuits: {
+        Row: {
+          breaker_size: string | null
+          cable_size: string | null
+          circuit_ref: string
+          circuit_type: string | null
+          created_at: string
+          description: string | null
+          display_order: number | null
+          distribution_board_id: string
+          id: string
+          updated_at: string
+        }
+        Insert: {
+          breaker_size?: string | null
+          cable_size?: string | null
+          circuit_ref: string
+          circuit_type?: string | null
+          created_at?: string
+          description?: string | null
+          display_order?: number | null
+          distribution_board_id: string
+          id?: string
+          updated_at?: string
+        }
+        Update: {
+          breaker_size?: string | null
+          cable_size?: string | null
+          circuit_ref?: string
+          circuit_type?: string | null
+          created_at?: string
+          description?: string | null
+          display_order?: number | null
+          distribution_board_id?: string
+          id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "db_circuits_distribution_board_id_fkey"
+            columns: ["distribution_board_id"]
+            isOneToOne: false
+            referencedRelation: "distribution_boards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       db_sizing_rules: {
         Row: {
           category: string
@@ -2518,6 +2659,57 @@ export type Database = {
             columns: ["manager_id"]
             isOneToOne: false
             referencedRelation: "employees"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      distribution_boards: {
+        Row: {
+          created_at: string
+          description: string | null
+          display_order: number | null
+          floor_plan_id: string | null
+          id: string
+          location: string | null
+          name: string
+          project_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          display_order?: number | null
+          floor_plan_id?: string | null
+          id?: string
+          location?: string | null
+          name: string
+          project_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          display_order?: number | null
+          floor_plan_id?: string | null
+          id?: string
+          location?: string | null
+          name?: string
+          project_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "distribution_boards_floor_plan_id_fkey"
+            columns: ["floor_plan_id"]
+            isOneToOne: false
+            referencedRelation: "floor_plan_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "distribution_boards_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
