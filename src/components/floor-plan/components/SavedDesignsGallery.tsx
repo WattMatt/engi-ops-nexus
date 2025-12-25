@@ -88,6 +88,11 @@ export const SavedDesignsGallery: React.FC<SavedDesignsGalleryProps> = ({
     }
   };
 
+  // Natural sort function for strings with numbers (e.g., "Shop 1" before "Shop 10")
+  const naturalSort = (a: string, b: string) => {
+    return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+  };
+
   // Group designs by design_purpose
   const groupedDesigns = useMemo(() => {
     const groups: Record<string, SavedDesign[]> = {};
@@ -100,11 +105,16 @@ export const SavedDesignsGallery: React.FC<SavedDesignsGalleryProps> = ({
       groups[purpose].push(design);
     }
     
+    // Sort designs within each group numerically by name
+    for (const key of Object.keys(groups)) {
+      groups[key].sort((a, b) => naturalSort(a.name, b.name));
+    }
+    
     // Sort groups alphabetically, but keep "Uncategorized" at the end
     const sortedKeys = Object.keys(groups).sort((a, b) => {
       if (a === 'Uncategorized') return 1;
       if (b === 'Uncategorized') return -1;
-      return a.localeCompare(b);
+      return naturalSort(a, b);
     });
     
     return sortedKeys.map(key => ({ purpose: key, designs: groups[key] }));
