@@ -255,12 +255,26 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
     mappings: MaterialMapping[]
   ) => {
     const itemsToInsert: any[] = [];
-    const itemsToUpdate: Array<{ id: string; additionalQty: number }> = [];
+    const itemsToUpdate: Array<{ id: string; newQty: number; isReplace: boolean }> = [];
 
     // Build a mapping lookup
     const mappingLookup = new Map<string, MaterialMapping>();
     for (const mapping of mappings) {
       mappingLookup.set(`${mapping.category}_${mapping.equipmentLabel}`, mapping);
+    }
+
+    // Fetch existing items from this floor plan to prevent duplicates
+    const { data: existingFloorPlanItems } = await supabase
+      .from('final_account_items')
+      .select('id, description, item_code, section_id')
+      .eq('source_floor_plan_id', floorPlanId);
+
+    // Build lookup for existing floor plan items by description
+    const existingItemsByDesc = new Map<string, { id: string; section_id: string }>();
+    if (existingFloorPlanItems) {
+      for (const item of existingFloorPlanItems) {
+        existingItemsByDesc.set(item.description, { id: item.id, section_id: item.section_id });
+      }
     }
 
     // Process equipment
@@ -270,25 +284,32 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
       const mapping = mappingLookup.get(`equipment_${equipType}`);
       
       if (mapping?.finalAccountItemId) {
-        // Update existing FA item quantity
-        itemsToUpdate.push({ id: mapping.finalAccountItemId, additionalQty: count });
+        // Update existing mapped FA item - ADD to its quantity
+        itemsToUpdate.push({ id: mapping.finalAccountItemId, newQty: count, isReplace: false });
       } else {
-        // Create new item (no master_material_id column in final_account_items)
-        itemsToInsert.push({
-          section_id: sectionId,
-          shop_subsection_id: shopSubsectionId,
-          item_code: equipType.toUpperCase().replace(/\s+/g, '_').substring(0, 10),
-          description: equipType,
-          unit: 'NO',
-          contract_quantity: 0,
-          final_quantity: count,
-          supply_rate: 0,
-          install_rate: 0,
-          contract_amount: 0,
-          final_amount: 0,
-          source_floor_plan_id: floorPlanId,
-          source_reference_drawing_id: refDrawingId,
-        });
+        // Check if we already have an item from this floor plan with this description
+        const existingItem = existingItemsByDesc.get(equipType);
+        if (existingItem) {
+          // Update existing floor plan item - REPLACE its quantity
+          itemsToUpdate.push({ id: existingItem.id, newQty: count, isReplace: true });
+        } else {
+          // Create new item only if not mapped and not already existing
+          itemsToInsert.push({
+            section_id: sectionId,
+            shop_subsection_id: shopSubsectionId,
+            item_code: equipType.toUpperCase().replace(/\s+/g, '_').substring(0, 10),
+            description: equipType,
+            unit: 'NO',
+            contract_quantity: 0,
+            final_quantity: count,
+            supply_rate: 0,
+            install_rate: 0,
+            contract_amount: 0,
+            final_amount: 0,
+            source_floor_plan_id: floorPlanId,
+            source_reference_drawing_id: refDrawingId,
+          });
+        }
       }
     }
 
@@ -300,26 +321,33 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
       const qty = Math.round(length * 100) / 100;
       
       if (mapping?.finalAccountItemId) {
-        // Update existing FA item quantity (in its own section)
-        itemsToUpdate.push({ id: mapping.finalAccountItemId, additionalQty: qty });
+        // Update existing mapped FA item - ADD to its quantity
+        itemsToUpdate.push({ id: mapping.finalAccountItemId, newQty: qty, isReplace: false });
       } else {
-        // Create new item - use mapped section if available, otherwise default section
-        const targetSectionId = mapping?.finalAccountSectionId || sectionId;
-        itemsToInsert.push({
-          section_id: targetSectionId,
-          shop_subsection_id: shopSubsectionId,
-          item_code: containType.toUpperCase().replace(/\s+/g, '_').substring(0, 10),
-          description: containType,
-          unit: 'M',
-          contract_quantity: 0,
-          final_quantity: qty,
-          supply_rate: 0,
-          install_rate: 0,
-          contract_amount: 0,
-          final_amount: 0,
-          source_floor_plan_id: floorPlanId,
-          source_reference_drawing_id: refDrawingId,
-        });
+        // Check if we already have an item from this floor plan with this description
+        const existingItem = existingItemsByDesc.get(containType);
+        if (existingItem) {
+          // Update existing floor plan item - REPLACE its quantity
+          itemsToUpdate.push({ id: existingItem.id, newQty: qty, isReplace: true });
+        } else {
+          // Create new item - use mapped section if available, otherwise default section
+          const targetSectionId = mapping?.finalAccountSectionId || sectionId;
+          itemsToInsert.push({
+            section_id: targetSectionId,
+            shop_subsection_id: shopSubsectionId,
+            item_code: containType.toUpperCase().replace(/\s+/g, '_').substring(0, 10),
+            description: containType,
+            unit: 'M',
+            contract_quantity: 0,
+            final_quantity: qty,
+            supply_rate: 0,
+            install_rate: 0,
+            contract_amount: 0,
+            final_amount: 0,
+            source_floor_plan_id: floorPlanId,
+            source_reference_drawing_id: refDrawingId,
+          });
+        }
       }
     }
 
@@ -331,23 +359,32 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
       const qty = Math.round(data.totalLength * 100) / 100;
       
       if (mapping?.finalAccountItemId) {
-        itemsToUpdate.push({ id: mapping.finalAccountItemId, additionalQty: qty });
+        // Update existing mapped FA item - ADD to its quantity
+        itemsToUpdate.push({ id: mapping.finalAccountItemId, newQty: qty, isReplace: false });
       } else {
-        itemsToInsert.push({
-          section_id: sectionId,
-          shop_subsection_id: shopSubsectionId,
-          item_code: cableType.toUpperCase().replace(/\s+/g, '_').substring(0, 10),
-          description: `Cable: ${cableType}`,
-          unit: 'M',
-          contract_quantity: 0,
-          final_quantity: qty,
-          supply_rate: 0,
-          install_rate: 0,
-          contract_amount: 0,
-          final_amount: 0,
-          source_floor_plan_id: floorPlanId,
-          source_reference_drawing_id: refDrawingId,
-        });
+        // Check if we already have a cable item from this floor plan
+        const cableDesc = `Cable: ${cableType}`;
+        const existingItem = existingItemsByDesc.get(cableDesc);
+        if (existingItem) {
+          // Update existing floor plan item - REPLACE its quantity
+          itemsToUpdate.push({ id: existingItem.id, newQty: qty, isReplace: true });
+        } else {
+          itemsToInsert.push({
+            section_id: sectionId,
+            shop_subsection_id: shopSubsectionId,
+            item_code: cableType.toUpperCase().replace(/\s+/g, '_').substring(0, 10),
+            description: cableDesc,
+            unit: 'M',
+            contract_quantity: 0,
+            final_quantity: qty,
+            supply_rate: 0,
+            install_rate: 0,
+            contract_amount: 0,
+            final_amount: 0,
+            source_floor_plan_id: floorPlanId,
+            source_reference_drawing_id: refDrawingId,
+          });
+        }
       }
     }
 
@@ -359,7 +396,7 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
       if (error) throw error;
     }
 
-    // Update existing items - add to their final_quantity and recalculate amounts
+    // Update existing items - either ADD to quantity (mapped items) or REPLACE quantity (floor plan items)
     for (const update of itemsToUpdate) {
       const { data: existing } = await supabase
         .from('final_account_items')
@@ -368,9 +405,17 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
         .single();
       
       if (existing) {
-        // Add to existing final_quantity (or start from 0 if null - floor plan quantities are additive to final)
-        const currentFinalQty = existing.final_quantity ?? 0;
-        const newFinalQty = currentFinalQty + update.additionalQty;
+        let newFinalQty: number;
+        
+        if (update.isReplace) {
+          // For floor plan items being re-synced, REPLACE the quantity
+          newFinalQty = update.newQty;
+        } else {
+          // For mapped BOQ items, ADD to existing quantity
+          const currentFinalQty = existing.final_quantity ?? 0;
+          newFinalQty = currentFinalQty + update.newQty;
+        }
+        
         const supplyRate = existing.supply_rate || 0;
         const installRate = existing.install_rate || 0;
         const contractQty = existing.contract_quantity || 0;
