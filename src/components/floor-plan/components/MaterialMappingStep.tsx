@@ -95,15 +95,15 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
     enabled: !!projectId,
   });
 
-  // Fetch final account items for the section
+  // Fetch final account items for the section - ordered by display_order to match Final Account view
   const { data: finalAccountItems, isLoading: loadingFAItems } = useQuery({
     queryKey: ['final-account-items-for-mapping', sectionId],
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from('final_account_items')
-        .select('id, item_code, description, unit, supply_rate, install_rate')
+        .select('id, item_code, description, unit, supply_rate, install_rate, display_order')
         .eq('section_id', sectionId)
-        .order('item_code');
+        .order('display_order', { ascending: true });
       if (error) throw error;
       return (data || []) as FinalAccountItem[];
     },
