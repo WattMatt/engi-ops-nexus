@@ -77,7 +77,7 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
 
   const [isPanning, setIsPanning] = useState(false);
   const [isDraggingItem, setIsDraggingItem] = useState(false);
-  const [draggedHandle, setDraggedHandle] = useState<{zoneId?: string, lineId?: string, pointIndex: number} | null>(null);
+  const [draggedHandle, setDraggedHandle] = useState<{zoneId?: string, lineId?: string, containmentId?: string, pointIndex: number} | null>(null);
   const [isDrawingShape, setIsDrawingShape] = useState(false);
   const [currentDrawing, setCurrentDrawing] = useState<Point[]>([]);
   const [previewPoint, setPreviewPoint] = useState<Point | null>(null);
@@ -775,6 +775,20 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
                     }
                 }
             }
+            
+            // Check if clicked on a containment point handle
+            const selectedContainment = containment.find(c => c.id === selectedItemId);
+            if (selectedContainment) {
+                for (let i = 0; i < selectedContainment.points.length; i++) {
+                    const point = selectedContainment.points[i];
+                    const handleRadius = 7 / viewState.zoom;
+                    if (Math.hypot(worldPos.x - point.x, worldPos.y - point.y) < handleRadius) {
+                        setIsDraggingItem(true);
+                        setDraggedHandle({ containmentId: selectedContainment.id, pointIndex: i });
+                        return;
+                    }
+                }
+            }
         }
 
         const clickedEquipmentOrArray = [...equipment, ...pvArrays].reverse().find(item => {
@@ -1024,6 +1038,21 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
             }
         }
         
+        // Check if over a containment point handle
+        if (!overHandle) {
+            const selectedContainment = containment.find(c => c.id === selectedItemId);
+            if (selectedContainment) {
+                for (let i = 0; i < selectedContainment.points.length; i++) {
+                    const point = selectedContainment.points[i];
+                    const handleRadius = 7 / viewState.zoom;
+                    if (Math.hypot(worldPos.x - point.x, worldPos.y - point.y) < handleRadius) {
+                        overHandle = true;
+                        break;
+                    }
+                }
+            }
+        }
+        
         setIsOverHandle(overHandle);
     } else if (isOverHandle) {
         setIsOverHandle(false);
@@ -1126,6 +1155,31 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
                         return line;
                     }), false);
                 }, 16);
+            }
+            // Dragging a containment handle
+            else if (draggedHandle.containmentId) {
+                setContainment(prevContainment => prevContainment.map(item => {
+                    if (item.id === draggedHandle.containmentId) {
+                        const newPoints = [...item.points];
+                        newPoints[draggedHandle.pointIndex] = worldPos;
+                        
+                        // Recalculate length
+                        let totalLength = 0;
+                        for (let i = 0; i < newPoints.length - 1; i++) {
+                            const p1 = newPoints[i];
+                            const p2 = newPoints[i + 1];
+                            totalLength += Math.hypot(p2.x - p1.x, p2.y - p1.y);
+                        }
+                        const lengthInMeters = scaleInfo.ratio ? totalLength * scaleInfo.ratio : totalLength;
+                        
+                        return { 
+                            ...item, 
+                            points: newPoints, 
+                            length: lengthInMeters
+                        };
+                    }
+                    return item;
+                }), false);
             }
         } else {
             const lastWorldPos = toWorld(lastMousePos);
