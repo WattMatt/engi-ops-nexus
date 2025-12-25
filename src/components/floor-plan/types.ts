@@ -65,6 +65,12 @@ export enum ContainmentType {
   P2000_TRUNKING = 'P2000 Trunking',
   P8000_TRUNKING = 'P8000 Trunking',
   P9000_TRUNKING = 'P9000 Trunking',
+  // Conduits
+  CONDUIT_20MM = '20mm Conduit',
+  CONDUIT_25MM = '25mm Conduit',
+  CONDUIT_32MM = '32mm Conduit',
+  CONDUIT_40MM = '40mm Conduit',
+  CONDUIT_50MM = '50mm Conduit',
 }
 
 export enum Tool {
@@ -102,6 +108,12 @@ export enum Tool {
   TOOL_P2000_TRUNKING = 'tool_p2000_trunking',
   TOOL_P8000_TRUNKING = 'tool_p8000_trunking',
   TOOL_P9000_TRUNKING = 'tool_p9000_trunking',
+  // Conduits
+  TOOL_CONDUIT_20MM = 'tool_conduit_20mm',
+  TOOL_CONDUIT_25MM = 'tool_conduit_25mm',
+  TOOL_CONDUIT_32MM = 'tool_conduit_32mm',
+  TOOL_CONDUIT_40MM = 'tool_conduit_40mm',
+  TOOL_CONDUIT_50MM = 'tool_conduit_50mm',
 
   // Line Shop Equipment
   PLACE_GENERAL_LIGHT_SWITCH = 'place_general_light_switch',

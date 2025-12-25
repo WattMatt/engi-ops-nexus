@@ -77,6 +77,8 @@ const toolIconMap: Partial<Record<Tool, React.ElementType<LucideProps>>> = {
     [Tool.TOOL_TELKOM_BASKET]: Network, [Tool.TOOL_SECURITY_BASKET]: Shield, [Tool.TOOL_CABLE_TRAY]: Server,
     [Tool.TOOL_SLEEVES]: Route, [Tool.TOOL_POWERSKIRTING]: Route,
     [Tool.TOOL_P2000_TRUNKING]: Route, [Tool.TOOL_P8000_TRUNKING]: Route, [Tool.TOOL_P9000_TRUNKING]: Route,
+    [Tool.TOOL_CONDUIT_20MM]: Route, [Tool.TOOL_CONDUIT_25MM]: Route, [Tool.TOOL_CONDUIT_32MM]: Route,
+    [Tool.TOOL_CONDUIT_40MM]: Route, [Tool.TOOL_CONDUIT_50MM]: Route,
     [Tool.TOOL_ROOF_MASK]: Square, [Tool.TOOL_PV_ARRAY]: LayoutGrid,
     [Tool.TOOL_WALKWAY]: Route,
 };
