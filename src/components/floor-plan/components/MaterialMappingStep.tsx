@@ -333,15 +333,14 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
         };
       }).filter(m => m.final_account_item_id || m.master_material_id);
 
-      await supabase
-        .from('floor_plan_material_mappings')
-        .delete()
-        .eq('floor_plan_id', floorPlanId);
-
       if (mappingsToSave.length > 0) {
+        // Use upsert to handle existing mappings - constraint is on project_id, equipment_type, equipment_label
         const { error } = await supabase
           .from('floor_plan_material_mappings')
-          .insert(mappingsToSave);
+          .upsert(mappingsToSave, { 
+            onConflict: 'project_id,equipment_type,equipment_label',
+            ignoreDuplicates: false 
+          });
         if (error) throw error;
       }
 
