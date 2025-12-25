@@ -2,14 +2,15 @@ import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, Package, Check, X, ChevronDown, ChevronUp, Search } from 'lucide-react';
+import { Loader2, Package, Check, Search, Zap, ChevronRight, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { TakeoffCounts } from './LinkToFinalAccountDialog';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 
 interface MaterialMappingStepProps {
   projectId: string;
@@ -49,6 +50,23 @@ interface MasterMaterial {
   standard_install_cost: number;
 }
 
+interface EquipmentItem {
+  key: string;
+  label: string;
+  category: 'equipment' | 'containment' | 'cable';
+  quantity: number;
+  unit: string;
+}
+
+interface CombinedOption {
+  id: string;
+  label: string;
+  code: string;
+  source: 'final_account' | 'master';
+  rate: number;
+  unit: string;
+}
+
 export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
   projectId,
   floorPlanId,
@@ -59,8 +77,9 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
 }) => {
   const queryClient = useQueryClient();
   const [mappings, setMappings] = useState<Record<string, { itemId: string; source: 'final_account' | 'master' }>>({});
-  const [searchQuery, setSearchQuery] = useState('');
-  const [expandedCategory, setExpandedCategory] = useState<string | null>('equipment');
+  const [activeCategory, setActiveCategory] = useState<'equipment' | 'containment' | 'cable'>('equipment');
+  const [bulkMappingOpen, setBulkMappingOpen] = useState(false);
+  const [selectedForBulk, setSelectedForBulk] = useState<string[]>([]);
 
   // Fetch existing mappings for this project
   const { data: existingMappings } = useQuery({
@@ -107,19 +126,16 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
 
   // Build equipment list from takeoff counts
   const equipmentList = useMemo(() => {
-    const items: Array<{ key: string; label: string; category: 'equipment' | 'containment' | 'cable'; quantity: number; unit: string }> = [];
+    const items: EquipmentItem[] = [];
 
-    // Equipment
     if (takeoffCounts?.equipment) {
       for (const [type, count] of Object.entries(takeoffCounts.equipment)) {
         if (count > 0) {
-          // Use category_label format for consistent key matching
           items.push({ key: `equipment_${type}`, label: type, category: 'equipment', quantity: count, unit: 'Nr' });
         }
       }
     }
 
-    // Containment
     if (takeoffCounts?.containment) {
       for (const [type, length] of Object.entries(takeoffCounts.containment)) {
         if (length > 0) {
@@ -128,7 +144,6 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
       }
     }
 
-    // Cables
     if (takeoffCounts?.cables) {
       for (const [type, data] of Object.entries(takeoffCounts.cables)) {
         if (data.count > 0) {
@@ -146,7 +161,6 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
       const initialMappings: Record<string, { itemId: string; source: 'final_account' | 'master' }> = {};
       
       for (const mapping of existingMappings) {
-        // Match using the same key format as equipmentList
         const key = `${mapping.equipment_type}_${mapping.equipment_label}`;
         if (mapping.final_account_item_id) {
           initialMappings[key] = { itemId: mapping.final_account_item_id, source: 'final_account' };
@@ -159,33 +173,39 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
     }
   }, [existingMappings, equipmentList]);
 
-  // Filter items based on search
-  const filteredItems = useMemo(() => {
-    if (!searchQuery) return equipmentList;
-    const query = searchQuery.toLowerCase();
-    return equipmentList.filter(item => item.label.toLowerCase().includes(query));
-  }, [equipmentList, searchQuery]);
+  // Set initial active category based on available items
+  React.useEffect(() => {
+    if (equipmentList.length > 0) {
+      const hasEquipment = equipmentList.some(i => i.category === 'equipment');
+      const hasContainment = equipmentList.some(i => i.category === 'containment');
+      const hasCables = equipmentList.some(i => i.category === 'cable');
+      
+      if (hasEquipment) setActiveCategory('equipment');
+      else if (hasContainment) setActiveCategory('containment');
+      else if (hasCables) setActiveCategory('cable');
+    }
+  }, [equipmentList]);
 
   // Group items by category
-  const groupedItems = useMemo(() => {
-    return {
-      equipment: filteredItems.filter(i => i.category === 'equipment'),
-      containment: filteredItems.filter(i => i.category === 'containment'),
-      cable: filteredItems.filter(i => i.category === 'cable'),
-    };
-  }, [filteredItems]);
+  const groupedItems = useMemo(() => ({
+    equipment: equipmentList.filter(i => i.category === 'equipment'),
+    containment: equipmentList.filter(i => i.category === 'containment'),
+    cable: equipmentList.filter(i => i.category === 'cable'),
+  }), [equipmentList]);
 
-  // Combined item list for dropdown
-  const combinedItemOptions = useMemo(() => {
-    const options: Array<{ id: string; label: string; source: 'final_account' | 'master'; rate: number }> = [];
+  // Combined item list for dropdown with search
+  const combinedItemOptions = useMemo((): CombinedOption[] => {
+    const options: CombinedOption[] = [];
     
     if (finalAccountItems) {
       for (const item of finalAccountItems) {
         options.push({
           id: item.id,
-          label: `[FA] ${item.item_code || ''} - ${item.description}`,
+          label: item.description,
+          code: item.item_code || '',
           source: 'final_account',
           rate: (item.supply_rate || 0) + (item.install_rate || 0),
+          unit: item.unit || '',
         });
       }
     }
@@ -194,9 +214,11 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
       for (const mat of masterMaterials) {
         options.push({
           id: mat.id,
-          label: `[MM] ${mat.material_code || ''} - ${mat.material_name}`,
+          label: mat.material_name,
+          code: mat.material_code || '',
           source: 'master',
           rate: (mat.standard_supply_cost || 0) + (mat.standard_install_cost || 0),
+          unit: mat.unit || '',
         });
       }
     }
@@ -204,23 +226,42 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
     return options;
   }, [finalAccountItems, masterMaterials]);
 
-  const handleMappingChange = (equipmentKey: string, value: string) => {
-    if (!value) {
-      setMappings(prev => {
-        const next = { ...prev };
-        delete next[equipmentKey];
-        return next;
-      });
-      return;
-    }
+  const handleMappingChange = (equipmentKey: string, optionId: string, source: 'final_account' | 'master') => {
+    setMappings(prev => ({
+      ...prev,
+      [equipmentKey]: { itemId: optionId, source },
+    }));
+  };
 
-    const option = combinedItemOptions.find(o => o.id === value);
-    if (option) {
-      setMappings(prev => ({
-        ...prev,
-        [equipmentKey]: { itemId: value, source: option.source },
-      }));
+  const handleClearMapping = (equipmentKey: string) => {
+    setMappings(prev => {
+      const next = { ...prev };
+      delete next[equipmentKey];
+      return next;
+    });
+  };
+
+  const handleBulkMap = (optionId: string, source: 'final_account' | 'master') => {
+    const newMappings = { ...mappings };
+    for (const key of selectedForBulk) {
+      newMappings[key] = { itemId: optionId, source };
     }
+    setMappings(newMappings);
+    setSelectedForBulk([]);
+    setBulkMappingOpen(false);
+    toast.success(`Mapped ${selectedForBulk.length} items`);
+  };
+
+  const toggleBulkSelect = (key: string) => {
+    setSelectedForBulk(prev => 
+      prev.includes(key) ? prev.filter(k => k !== key) : [...prev, key]
+    );
+  };
+
+  const selectAllInCategory = () => {
+    const categoryItems = groupedItems[activeCategory].map(i => i.key);
+    const unmappedItems = categoryItems.filter(k => !mappings[k]);
+    setSelectedForBulk(unmappedItems);
   };
 
   // Save mappings mutation
@@ -241,13 +282,11 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
         };
       }).filter(m => m.final_account_item_id || m.master_material_id);
 
-      // Delete existing mappings for this floor plan
       await supabase
         .from('floor_plan_material_mappings')
         .delete()
         .eq('floor_plan_id', floorPlanId);
 
-      // Insert new mappings
       if (mappingsToSave.length > 0) {
         const { error } = await supabase
           .from('floor_plan_material_mappings')
@@ -260,7 +299,6 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['floor-plan-material-mappings'] });
       
-      // Build the final mappings array
       const finalMappings: MaterialMapping[] = equipmentList.map(item => {
         const mapping = mappings[item.key];
         return {
@@ -281,99 +319,35 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
     },
   });
 
+  const getMappedOption = (key: string): CombinedOption | undefined => {
+    const mapping = mappings[key];
+    if (!mapping) return undefined;
+    return combinedItemOptions.find(o => o.id === mapping.itemId);
+  };
+
   const mappedCount = Object.keys(mappings).length;
   const totalCount = equipmentList.length;
 
-  const renderCategorySection = (category: 'equipment' | 'containment' | 'cable', title: string, items: typeof equipmentList) => {
-    if (items.length === 0) return null;
-    const isExpanded = expandedCategory === category;
-
-    return (
-      <div className="border rounded-lg overflow-hidden">
-        <button
-          onClick={() => setExpandedCategory(isExpanded ? null : category)}
-          className="w-full flex items-center justify-between p-3 bg-muted/50 hover:bg-muted transition-colors"
-        >
-          <div className="flex items-center gap-2">
-            <Package className="h-4 w-4" />
-            <span className="font-medium">{title}</span>
-            <Badge variant="secondary">{items.length}</Badge>
-          </div>
-          {isExpanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-        </button>
-        
-        {isExpanded && (
-          <div className="p-3 space-y-3">
-            {items.map(item => (
-              <div key={item.key} className="flex items-center gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium truncate">{item.label}</span>
-                    <Badge variant="outline" className="text-xs shrink-0">
-                      {item.quantity} {item.unit}
-                    </Badge>
-                  </div>
-                </div>
-                <div className="w-[280px] shrink-0">
-                  <Select
-                    value={mappings[item.key]?.itemId || 'none'}
-                    onValueChange={(v) => handleMappingChange(item.key, v === 'none' ? '' : v)}
-                  >
-                    <SelectTrigger className="text-xs">
-                      <SelectValue placeholder="Select BOQ/Material item..." />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-[200px]">
-                      <SelectItem value="none">No mapping</SelectItem>
-                      {combinedItemOptions.filter(o => o.source === 'final_account').length > 0 && (
-                        <>
-                          <div className="px-2 py-1 text-xs font-semibold text-muted-foreground bg-muted">
-                            Final Account Items
-                          </div>
-                          {combinedItemOptions
-                            .filter(o => o.source === 'final_account')
-                            .map(option => (
-                              <SelectItem key={option.id} value={option.id} className="text-xs">
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                        </>
-                      )}
-                      {combinedItemOptions.filter(o => o.source === 'master').length > 0 && (
-                        <>
-                          <div className="px-2 py-1 text-xs font-semibold text-muted-foreground bg-muted">
-                            Master Materials
-                          </div>
-                          {combinedItemOptions
-                            .filter(o => o.source === 'master')
-                            .slice(0, 50)
-                            .map(option => (
-                              <SelectItem key={option.id} value={option.id} className="text-xs">
-                                {option.label}
-                              </SelectItem>
-                            ))}
-                        </>
-                      )}
-                    </SelectContent>
-                  </Select>
-                </div>
-                {mappings[item.key] ? (
-                  <Check className="h-4 w-4 text-green-500 shrink-0" />
-                ) : (
-                  <X className="h-4 w-4 text-muted-foreground shrink-0" />
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    );
-  };
+  const categoryStats = useMemo(() => ({
+    equipment: {
+      total: groupedItems.equipment.length,
+      mapped: groupedItems.equipment.filter(i => mappings[i.key]).length,
+    },
+    containment: {
+      total: groupedItems.containment.length,
+      mapped: groupedItems.containment.filter(i => mappings[i.key]).length,
+    },
+    cable: {
+      total: groupedItems.cable.length,
+      mapped: groupedItems.cable.filter(i => mappings[i.key]).length,
+    },
+  }), [groupedItems, mappings]);
 
   if (loadingFAItems || loadingMaterials) {
     return (
-      <div className="flex items-center justify-center py-8">
-        <Loader2 className="h-6 w-6 animate-spin" />
-        <span className="ml-2 text-sm text-muted-foreground">Loading items...</span>
+      <div className="flex items-center justify-center py-12">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+        <span className="ml-2 text-sm text-muted-foreground">Loading BOQ items...</span>
       </div>
     );
   }
@@ -381,61 +355,296 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
   if (equipmentList.length === 0) {
     return (
       <div className="space-y-4 py-4">
-        <div className="text-center py-8 text-muted-foreground">
-          <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
-          <p>No equipment, containment, or cables found on this floor plan.</p>
-          <p className="text-sm">Mark up the drawing first to see items to map.</p>
+        <div className="text-center py-12 text-muted-foreground">
+          <Package className="h-10 w-10 mx-auto mb-3 opacity-40" />
+          <p className="font-medium">No items to map</p>
+          <p className="text-sm mt-1">Mark up equipment, containment, or cables on the floor plan first.</p>
         </div>
         <div className="flex justify-between pt-4 border-t">
           <Button variant="outline" onClick={onBack}>Back</Button>
-          <Button onClick={() => onMappingsComplete([])}>Continue Without Mapping</Button>
+          <Button onClick={() => onMappingsComplete([])}>Continue</Button>
         </div>
       </div>
     );
   }
 
+  const SearchableItemSelect = ({ item, onSelect }: { item: EquipmentItem; onSelect: (id: string, source: 'final_account' | 'master') => void }) => {
+    const [open, setOpen] = useState(false);
+    const mapped = getMappedOption(item.key);
+
+    return (
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className={`w-full justify-between text-left font-normal h-auto min-h-[40px] py-2 ${mapped ? 'border-primary/50 bg-primary/5' : ''}`}
+          >
+            {mapped ? (
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <Badge variant="secondary" className="text-[10px] shrink-0">
+                    {mapped.source === 'final_account' ? 'FA' : 'MM'}
+                  </Badge>
+                  <span className="truncate text-sm">{mapped.label}</span>
+                </div>
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  R{mapped.rate.toFixed(2)}/{mapped.unit}
+                </div>
+              </div>
+            ) : (
+              <span className="text-muted-foreground">Select BOQ item...</span>
+            )}
+            <ChevronRight className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-[400px] p-0 bg-popover" align="start">
+          <Command>
+            <CommandInput placeholder="Search items..." className="h-9" />
+            <CommandList>
+              <CommandEmpty>No items found.</CommandEmpty>
+              {finalAccountItems && finalAccountItems.length > 0 && (
+                <CommandGroup heading="Final Account Items">
+                  {finalAccountItems.map((fa) => (
+                    <CommandItem
+                      key={fa.id}
+                      value={`${fa.item_code} ${fa.description}`}
+                      onSelect={() => {
+                        onSelect(fa.id, 'final_account');
+                        setOpen(false);
+                      }}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs text-muted-foreground">{fa.item_code}</span>
+                          <span className="truncate">{fa.description}</span>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          R{((fa.supply_rate || 0) + (fa.install_rate || 0)).toFixed(2)}/{fa.unit}
+                        </div>
+                      </div>
+                      {mappings[item.key]?.itemId === fa.id && (
+                        <Check className="h-4 w-4 text-primary" />
+                      )}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
+              {masterMaterials && masterMaterials.length > 0 && (
+                <CommandGroup heading="Master Materials">
+                  {masterMaterials.slice(0, 50).map((mm) => (
+                    <CommandItem
+                      key={mm.id}
+                      value={`${mm.material_code} ${mm.material_name}`}
+                      onSelect={() => {
+                        onSelect(mm.id, 'master');
+                        setOpen(false);
+                      }}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs text-muted-foreground">{mm.material_code}</span>
+                          <span className="truncate">{mm.material_name}</span>
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          R{((mm.standard_supply_cost || 0) + (mm.standard_install_cost || 0)).toFixed(2)}/{mm.unit}
+                        </div>
+                      </div>
+                      {mappings[item.key]?.itemId === mm.id && (
+                        <Check className="h-4 w-4 text-primary" />
+                      )}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              )}
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    );
+  };
+
   return (
     <div className="space-y-4">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <Label className="text-base">Map Equipment to BOQ Items</Label>
+          <Label className="text-base font-semibold">Map to BOQ Items</Label>
           <p className="text-sm text-muted-foreground">
-            Link floor plan items to Final Account or Master Material items for accurate costing.
+            Link floor plan items to BOQ for costing
           </p>
         </div>
-        <Badge variant={mappedCount === totalCount ? 'default' : 'secondary'}>
-          {mappedCount}/{totalCount} mapped
+        <Badge variant={mappedCount === totalCount ? 'default' : 'secondary'} className="text-sm">
+          {mappedCount}/{totalCount}
         </Badge>
       </div>
 
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search items..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-          className="pl-9"
-        />
+      {/* Category Tabs */}
+      <div className="flex gap-2 border-b pb-2">
+        {(['equipment', 'containment', 'cable'] as const).map((cat) => {
+          const stats = categoryStats[cat];
+          if (stats.total === 0) return null;
+          
+          const labels = { equipment: 'Equipment', containment: 'Containment', cable: 'Cables' };
+          const isComplete = stats.mapped === stats.total;
+          
+          return (
+            <button
+              key={cat}
+              onClick={() => setActiveCategory(cat)}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors ${
+                activeCategory === cat 
+                  ? 'bg-primary text-primary-foreground' 
+                  : 'hover:bg-muted'
+              }`}
+            >
+              {labels[cat]}
+              <span className={`text-xs ${activeCategory === cat ? 'opacity-80' : 'text-muted-foreground'}`}>
+                {stats.mapped}/{stats.total}
+              </span>
+              {isComplete && <Check className="h-3 w-3" />}
+            </button>
+          );
+        })}
       </div>
 
-      <ScrollArea className="h-[300px] pr-4">
-        <div className="space-y-3">
-          {renderCategorySection('equipment', 'Equipment', groupedItems.equipment)}
-          {renderCategorySection('containment', 'Containment', groupedItems.containment)}
-          {renderCategorySection('cable', 'Cables', groupedItems.cable)}
+      {/* Bulk Action Bar */}
+      {groupedItems[activeCategory].length > 1 && (
+        <div className="flex items-center justify-between bg-muted/50 rounded-lg p-2">
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              checked={selectedForBulk.length === groupedItems[activeCategory].filter(i => !mappings[i.key]).length && selectedForBulk.length > 0}
+              onChange={(e) => {
+                if (e.target.checked) {
+                  selectAllInCategory();
+                } else {
+                  setSelectedForBulk([]);
+                }
+              }}
+              className="rounded border-muted-foreground/50"
+            />
+            <span className="text-sm text-muted-foreground">
+              {selectedForBulk.length > 0 ? `${selectedForBulk.length} selected` : 'Select unmapped items'}
+            </span>
+          </div>
+          {selectedForBulk.length > 0 && (
+            <Popover open={bulkMappingOpen} onOpenChange={setBulkMappingOpen}>
+              <PopoverTrigger asChild>
+                <Button size="sm" variant="secondary" className="gap-1">
+                  <Zap className="h-3 w-3" />
+                  Bulk Map
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[400px] p-0 bg-popover" align="end">
+                <Command>
+                  <CommandInput placeholder="Search items to bulk apply..." className="h-9" />
+                  <CommandList>
+                    <CommandEmpty>No items found.</CommandEmpty>
+                    {finalAccountItems && finalAccountItems.length > 0 && (
+                      <CommandGroup heading="Final Account Items">
+                        {finalAccountItems.map((fa) => (
+                          <CommandItem
+                            key={fa.id}
+                            value={`${fa.item_code} ${fa.description}`}
+                            onSelect={() => handleBulkMap(fa.id, 'final_account')}
+                          >
+                            <div className="flex-1">
+                              <span className="font-mono text-xs text-muted-foreground mr-2">{fa.item_code}</span>
+                              {fa.description}
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    )}
+                    {masterMaterials && masterMaterials.length > 0 && (
+                      <CommandGroup heading="Master Materials">
+                        {masterMaterials.slice(0, 30).map((mm) => (
+                          <CommandItem
+                            key={mm.id}
+                            value={`${mm.material_code} ${mm.material_name}`}
+                            onSelect={() => handleBulkMap(mm.id, 'master')}
+                          >
+                            <div className="flex-1">
+                              <span className="font-mono text-xs text-muted-foreground mr-2">{mm.material_code}</span>
+                              {mm.material_name}
+                            </div>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    )}
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
+          )}
+        </div>
+      )}
+
+      {/* Items List */}
+      <ScrollArea className="h-[280px]">
+        <div className="space-y-2 pr-4">
+          {groupedItems[activeCategory].map(item => (
+            <div 
+              key={item.key} 
+              className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${
+                mappings[item.key] ? 'border-primary/30 bg-primary/5' : 'border-border hover:border-muted-foreground/30'
+              }`}
+            >
+              {/* Checkbox for bulk selection */}
+              {!mappings[item.key] && (
+                <input
+                  type="checkbox"
+                  checked={selectedForBulk.includes(item.key)}
+                  onChange={() => toggleBulkSelect(item.key)}
+                  className="mt-2 rounded border-muted-foreground/50"
+                />
+              )}
+              {mappings[item.key] && (
+                <div className="mt-1.5">
+                  <Check className="h-4 w-4 text-primary" />
+                </div>
+              )}
+              
+              {/* Item Info */}
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="font-medium">{item.label}</span>
+                  <Badge variant="outline" className="text-xs">
+                    {item.quantity} {item.unit}
+                  </Badge>
+                </div>
+                <SearchableItemSelect 
+                  item={item} 
+                  onSelect={(id, source) => handleMappingChange(item.key, id, source)}
+                />
+              </div>
+
+              {/* Clear button */}
+              {mappings[item.key] && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0"
+                  onClick={() => handleClearMapping(item.key)}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+          ))}
         </div>
       </ScrollArea>
 
+      {/* Footer */}
       <div className="flex justify-between pt-4 border-t">
         <Button variant="outline" onClick={onBack}>
           Back
         </Button>
         <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            onClick={() => onMappingsComplete([])}
-          >
-            Skip Mapping
+          <Button variant="ghost" onClick={() => onMappingsComplete([])}>
+            Skip
           </Button>
           <Button 
             onClick={() => saveMappingsMutation.mutate()}
@@ -444,7 +653,7 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
             {saveMappingsMutation.isPending ? (
               <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Saving...</>
             ) : (
-              <>Continue with {mappedCount} mappings</>
+              <>Continue ({mappedCount} mapped)</>
             )}
           </Button>
         </div>
