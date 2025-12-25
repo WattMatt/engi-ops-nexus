@@ -496,12 +496,15 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
               {selectedSectionId && shops && shops.length > 0 && (
                 <div className="space-y-2">
                   <Label>Shop (Optional)</Label>
-                  <Select value={selectedShopId} onValueChange={setSelectedShopId}>
+                  <Select 
+                    value={selectedShopId || 'all'} 
+                    onValueChange={(v) => setSelectedShopId(v === 'all' ? '' : v)}
+                  >
                     <SelectTrigger>
                       <SelectValue placeholder="All shops in section..." />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="">All shops</SelectItem>
+                      <SelectItem value="all">All shops</SelectItem>
                       {shops.map((shop) => (
                         <SelectItem key={shop.id} value={shop.id}>
                           {shop.shop_number}: {shop.shop_name}
