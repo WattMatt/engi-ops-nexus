@@ -110,23 +110,30 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
     const items: Array<{ key: string; label: string; category: 'equipment' | 'containment' | 'cable'; quantity: number; unit: string }> = [];
 
     // Equipment
-    for (const [type, count] of Object.entries(takeoffCounts.equipment)) {
-      if (count > 0) {
-        items.push({ key: `equipment_${type}`, label: type, category: 'equipment', quantity: count, unit: 'Nr' });
+    if (takeoffCounts?.equipment) {
+      for (const [type, count] of Object.entries(takeoffCounts.equipment)) {
+        if (count > 0) {
+          // Use category_label format for consistent key matching
+          items.push({ key: `equipment_${type}`, label: type, category: 'equipment', quantity: count, unit: 'Nr' });
+        }
       }
     }
 
     // Containment
-    for (const [type, length] of Object.entries(takeoffCounts.containment)) {
-      if (length > 0) {
-        items.push({ key: `containment_${type}`, label: type, category: 'containment', quantity: Math.round(length * 100) / 100, unit: 'm' });
+    if (takeoffCounts?.containment) {
+      for (const [type, length] of Object.entries(takeoffCounts.containment)) {
+        if (length > 0) {
+          items.push({ key: `containment_${type}`, label: type, category: 'containment', quantity: Math.round(length * 100) / 100, unit: 'm' });
+        }
       }
     }
 
     // Cables
-    for (const [type, data] of Object.entries(takeoffCounts.cables)) {
-      if (data.count > 0) {
-        items.push({ key: `cable_${type}`, label: type, category: 'cable', quantity: Math.round(data.totalLength * 100) / 100, unit: 'm' });
+    if (takeoffCounts?.cables) {
+      for (const [type, data] of Object.entries(takeoffCounts.cables)) {
+        if (data.count > 0) {
+          items.push({ key: `cable_${type}`, label: type, category: 'cable', quantity: Math.round(data.totalLength * 100) / 100, unit: 'm' });
+        }
       }
     }
 
@@ -135,10 +142,11 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
 
   // Initialize mappings from existing data
   React.useEffect(() => {
-    if (existingMappings && existingMappings.length > 0) {
+    if (existingMappings && existingMappings.length > 0 && equipmentList.length > 0) {
       const initialMappings: Record<string, { itemId: string; source: 'final_account' | 'master' }> = {};
       
       for (const mapping of existingMappings) {
+        // Match using the same key format as equipmentList
         const key = `${mapping.equipment_type}_${mapping.equipment_label}`;
         if (mapping.final_account_item_id) {
           initialMappings[key] = { itemId: mapping.final_account_item_id, source: 'final_account' };
@@ -147,9 +155,9 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
         }
       }
       
-      setMappings(prev => ({ ...prev, ...initialMappings }));
+      setMappings(initialMappings);
     }
-  }, [existingMappings]);
+  }, [existingMappings, equipmentList]);
 
   // Filter items based on search
   const filteredItems = useMemo(() => {
@@ -308,15 +316,15 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
                 </div>
                 <div className="w-[280px] shrink-0">
                   <Select
-                    value={mappings[item.key]?.itemId || ''}
-                    onValueChange={(v) => handleMappingChange(item.key, v)}
+                    value={mappings[item.key]?.itemId || 'none'}
+                    onValueChange={(v) => handleMappingChange(item.key, v === 'none' ? '' : v)}
                   >
                     <SelectTrigger className="text-xs">
                       <SelectValue placeholder="Select BOQ/Material item..." />
                     </SelectTrigger>
                     <SelectContent className="max-h-[200px]">
-                      <SelectItem value="">No mapping</SelectItem>
-                      {combinedItemOptions.length > 0 && (
+                      <SelectItem value="none">No mapping</SelectItem>
+                      {combinedItemOptions.filter(o => o.source === 'final_account').length > 0 && (
                         <>
                           <div className="px-2 py-1 text-xs font-semibold text-muted-foreground bg-muted">
                             Final Account Items
@@ -328,12 +336,16 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
                                 {option.label}
                               </SelectItem>
                             ))}
+                        </>
+                      )}
+                      {combinedItemOptions.filter(o => o.source === 'master').length > 0 && (
+                        <>
                           <div className="px-2 py-1 text-xs font-semibold text-muted-foreground bg-muted">
                             Master Materials
                           </div>
                           {combinedItemOptions
                             .filter(o => o.source === 'master')
-                            .slice(0, 50) // Limit for performance
+                            .slice(0, 50)
                             .map(option => (
                               <SelectItem key={option.id} value={option.id} className="text-xs">
                                 {option.label}
@@ -361,6 +373,23 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
     return (
       <div className="flex items-center justify-center py-8">
         <Loader2 className="h-6 w-6 animate-spin" />
+        <span className="ml-2 text-sm text-muted-foreground">Loading items...</span>
+      </div>
+    );
+  }
+
+  if (equipmentList.length === 0) {
+    return (
+      <div className="space-y-4 py-4">
+        <div className="text-center py-8 text-muted-foreground">
+          <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
+          <p>No equipment, containment, or cables found on this floor plan.</p>
+          <p className="text-sm">Mark up the drawing first to see items to map.</p>
+        </div>
+        <div className="flex justify-between pt-4 border-t">
+          <Button variant="outline" onClick={onBack}>Back</Button>
+          <Button onClick={() => onMappingsComplete([])}>Continue Without Mapping</Button>
+        </div>
       </div>
     );
   }
