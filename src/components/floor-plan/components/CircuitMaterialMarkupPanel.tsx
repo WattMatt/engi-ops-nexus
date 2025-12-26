@@ -21,7 +21,8 @@ import {
   Package,
   Trash2,
   X,
-  Loader2
+  Loader2,
+  MousePointerClick
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
@@ -30,7 +31,8 @@ import { toast } from 'sonner';
 interface CircuitMaterialMarkupPanelProps {
   projectId: string;
   onClose: () => void;
-  onMaterialAdded?: (circuitId: string, description: string) => void;
+  selectedCircuit: DbCircuit | null;
+  onSelectCircuit: (circuit: DbCircuit | null) => void;
 }
 
 // Sub-component to show circuits for a board
@@ -231,10 +233,9 @@ function CircuitMaterialsList({
   );
 }
 
-export function CircuitMaterialMarkupPanel({ projectId, onClose, onMaterialAdded }: CircuitMaterialMarkupPanelProps) {
+export function CircuitMaterialMarkupPanel({ projectId, onClose, selectedCircuit, onSelectCircuit }: CircuitMaterialMarkupPanelProps) {
   const { data: boards = [], isLoading } = useDistributionBoards(projectId);
   const [expandedBoards, setExpandedBoards] = useState<Set<string>>(new Set());
-  const [selectedCircuit, setSelectedCircuit] = useState<DbCircuit | null>(null);
 
   const toggleBoard = (id: string) => {
     const newExpanded = new Set(expandedBoards);
@@ -310,7 +311,7 @@ export function CircuitMaterialMarkupPanel({ projectId, onClose, onMaterialAdded
                         boardId={board.id} 
                         projectId={projectId}
                         selectedCircuitId={selectedCircuit?.id || null}
-                        onSelectCircuit={setSelectedCircuit}
+                        onSelectCircuit={onSelectCircuit}
                       />
                     </CollapsibleContent>
                   </Collapsible>
@@ -329,10 +330,19 @@ export function CircuitMaterialMarkupPanel({ projectId, onClose, onMaterialAdded
           </div>
           <ScrollArea className="flex-1 p-3">
             {selectedCircuit ? (
-              <CircuitMaterialsList 
-                circuitId={selectedCircuit.id} 
-                projectId={projectId}
-              />
+              <>
+                {/* Hint about clicking items */}
+                <div className="mb-3 p-2 rounded-lg bg-primary/10 border border-primary/20">
+                  <div className="flex items-center gap-2 text-xs text-primary">
+                    <MousePointerClick className="h-4 w-4" />
+                    <span>Click items on canvas to assign to <strong>{selectedCircuit.circuit_ref}</strong></span>
+                  </div>
+                </div>
+                <CircuitMaterialsList 
+                  circuitId={selectedCircuit.id} 
+                  projectId={projectId}
+                />
+              </>
             ) : (
               <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
                 <Package className="h-8 w-8 mb-2 opacity-50" />
