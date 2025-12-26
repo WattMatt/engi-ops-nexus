@@ -865,11 +865,16 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
     }
     try {
       const pdfCanvas = canvases.pdf;
+      const containerRect = mainContainerRef.current?.getBoundingClientRect();
       
-      // Convert screen coordinates to PDF canvas coordinates
-      // The viewState contains the current zoom and pan offset
-      // Screen point = (PDF point * zoom) + offset
-      // So: PDF point = (Screen point - offset) / zoom
+      if (!containerRect) {
+        console.error('No container rect available');
+        return null;
+      }
+      
+      // The region coordinates are relative to the container (which is what overlayRef is inside)
+      // The PDF canvas is transformed with: translate(offset.x, offset.y) scale(zoom)
+      // So a screen point (sx, sy) maps to PDF canvas point: ((sx - offset.x) / zoom, (sy - offset.y) / zoom)
       
       const pdfRegion = {
         x: (region.x - viewState.offset.x) / viewState.zoom,
@@ -878,37 +883,47 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
         height: region.height / viewState.zoom,
       };
       
-      console.log('Capturing region:', {
-        screen: region,
-        viewState,
+      console.log('Region capture debug:', {
+        screenRegion: region,
+        viewState: { zoom: viewState.zoom, offset: viewState.offset },
         pdfRegion,
-        pdfCanvasSize: { width: pdfCanvas.width, height: pdfCanvas.height }
+        pdfCanvasSize: { width: pdfCanvas.width, height: pdfCanvas.height },
+        containerSize: { width: containerRect.width, height: containerRect.height }
       });
       
       // Clamp to canvas bounds
       const clampedRegion = {
-        x: Math.max(0, pdfRegion.x),
-        y: Math.max(0, pdfRegion.y),
-        width: Math.min(pdfRegion.width, pdfCanvas.width - Math.max(0, pdfRegion.x)),
-        height: Math.min(pdfRegion.height, pdfCanvas.height - Math.max(0, pdfRegion.y)),
+        x: Math.max(0, Math.min(pdfRegion.x, pdfCanvas.width)),
+        y: Math.max(0, Math.min(pdfRegion.y, pdfCanvas.height)),
+        width: 0,
+        height: 0
       };
+      clampedRegion.width = Math.min(pdfRegion.width, pdfCanvas.width - clampedRegion.x);
+      clampedRegion.height = Math.min(pdfRegion.height, pdfCanvas.height - clampedRegion.y);
       
-      if (clampedRegion.width <= 0 || clampedRegion.height <= 0) {
-        console.error('Invalid region after clamping:', clampedRegion);
+      console.log('Clamped region:', clampedRegion);
+      
+      if (clampedRegion.width <= 10 || clampedRegion.height <= 10) {
+        console.error('Region too small after clamping:', clampedRegion);
+        toast.error('Selected region is too small or outside the PDF area');
         return null;
       }
       
       // Create output canvas at a good resolution for AI analysis
-      // Use at least 1024px on the longest side for better text recognition
+      // Scale up to at least 2048px on longest side for better OCR
       const maxDimension = 2048;
-      const scale = Math.min(maxDimension / Math.max(clampedRegion.width, clampedRegion.height), 2);
+      const scaleFactor = Math.max(1, maxDimension / Math.max(clampedRegion.width, clampedRegion.height));
       
       const regionCanvas = document.createElement('canvas');
-      regionCanvas.width = Math.round(clampedRegion.width * scale);
-      regionCanvas.height = Math.round(clampedRegion.height * scale);
+      regionCanvas.width = Math.round(clampedRegion.width * scaleFactor);
+      regionCanvas.height = Math.round(clampedRegion.height * scaleFactor);
       const ctx = regionCanvas.getContext('2d');
       
       if (!ctx) return null;
+      
+      // Fill with white background first (in case of transparency)
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, regionCanvas.width, regionCanvas.height);
       
       // Enable high quality image scaling
       ctx.imageSmoothingEnabled = true;
@@ -921,7 +936,8 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
         0, 0, regionCanvas.width, regionCanvas.height
       );
       
-      console.log('Captured region canvas size:', regionCanvas.width, 'x', regionCanvas.height);
+      console.log('Output canvas size:', regionCanvas.width, 'x', regionCanvas.height, 
+        'from source region:', Math.round(clampedRegion.width), 'x', Math.round(clampedRegion.height));
       
       const dataUrl = regionCanvas.toDataURL('image/png');
       return dataUrl.replace(/^data:image\/\w+;base64,/, '');
@@ -929,7 +945,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
       console.error('Failed to capture region:', err);
       return null;
     }
-  }, [viewState]);
+  }, [viewState, toast]);
 
   const handleStartRegionSelect = useCallback(() => {
     setIsSelectingRegion(true);
