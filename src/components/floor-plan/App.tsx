@@ -858,6 +858,10 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
 
   // Capture a specific region of the layout
   const handleCaptureRegion = useCallback(async (region: { x: number; y: number; width: number; height: number }): Promise<string | null> => {
+    console.log('=== handleCaptureRegion START ===');
+    console.log('Input region:', JSON.stringify(region));
+    console.log('Current viewState:', JSON.stringify(viewState));
+    
     const canvases = canvasApiRef.current?.getCanvases();
     if (!canvases?.pdf) {
       console.error('No PDF canvas available');
@@ -866,6 +870,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
     }
     try {
       const pdfCanvas = canvases.pdf;
+      console.log('PDF canvas size:', pdfCanvas.width, 'x', pdfCanvas.height);
       
       // The PDF canvas has CSS transform: translate(offset.x, offset.y) scale(zoom)
       // with transformOrigin: 'top left'
@@ -890,12 +895,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
         height: region.height / zoom
       };
       
-      console.log('Region capture debug:', {
-        screenRegion: region,
-        viewState: { zoom, offset },
-        pdfRegion,
-        pdfCanvasSize: { width: pdfCanvas.width, height: pdfCanvas.height }
-      });
+      console.log('Calculated pdfRegion:', JSON.stringify(pdfRegion));
       
       // Clamp to canvas bounds
       const clampedRegion = {
@@ -907,7 +907,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
       clampedRegion.width = Math.min(pdfRegion.width, pdfCanvas.width - clampedRegion.x);
       clampedRegion.height = Math.min(pdfRegion.height, pdfCanvas.height - clampedRegion.y);
       
-      console.log('Clamped region:', clampedRegion);
+      console.log('Clamped region:', JSON.stringify(clampedRegion));
       
       // Check if selection is actually over the PDF content
       if (clampedRegion.x >= pdfCanvas.width || clampedRegion.y >= pdfCanvas.height ||
@@ -948,6 +948,25 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
         'from source region:', Math.round(clampedRegion.width), 'x', Math.round(clampedRegion.height));
       
       const dataUrl = regionCanvas.toDataURL('image/png');
+      
+      // DEBUG: Open captured image in new tab so user can verify what's being captured
+      console.log('Opening captured image preview...');
+      const debugWindow = window.open('', '_blank');
+      if (debugWindow) {
+        debugWindow.document.write(`
+          <html>
+            <head><title>Captured Region Preview</title></head>
+            <body style="margin:0; background:#333; display:flex; justify-content:center; align-items:center; min-height:100vh;">
+              <div style="text-align:center; color:white;">
+                <h2>This is the image being sent to AI for analysis:</h2>
+                <img src="${dataUrl}" style="max-width:90vw; max-height:80vh; border:2px solid #fff;" />
+                <p style="margin-top:20px;">If this doesn't match what you selected, the coordinate mapping is wrong.</p>
+              </div>
+            </body>
+          </html>
+        `);
+      }
+      
       return dataUrl.replace(/^data:image\/\w+;base64,/, '');
     } catch (err) {
       console.error('Failed to capture region:', err);
