@@ -106,7 +106,7 @@ export function CircuitSchedulePanel({
                       AI Circuit Detection
                     </h4>
                     <p className="text-xs text-muted-foreground mt-1">
-                      Automatically detect DBs and circuits from your floor plan
+                      Scans layout drawings to detect circuit references (L1, P1, AC3, etc.) where materials will be installed
                     </p>
                   </div>
                   <Button 
