@@ -35,6 +35,7 @@ import { SavedDesignsGallery } from './components/SavedDesignsGallery';
 import { supabase } from '@/integrations/supabase/client';
 import { LinkToFinalAccountDialog } from './components/LinkToFinalAccountDialog';
 import { useTakeoffCounts } from './hooks/useTakeoffCounts';
+import { CircuitSchedulePanel } from './components/CircuitSchedulePanel';
 
 
 // Set PDF.js worker source
@@ -184,6 +185,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
   const [isLoadingDesigns, setIsLoadingDesigns] = useState(false);
   const [isSavedReportsModalOpen, setIsSavedReportsModalOpen] = useState(false);
   const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
+  const [isCircuitScheduleOpen, setIsCircuitScheduleOpen] = useState(false);
 
   const [scaleLine, setScaleLine] = useState<{start: Point, end: Point} | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
@@ -771,6 +773,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
         scaleInfo={scaleInfo}
         onOpenSavedReports={() => setIsSavedReportsModalOpen(true)}
         onLinkToFinalAccount={() => setIsLinkDialogOpen(true)}
+        onOpenCircuitSchedule={() => setIsCircuitScheduleOpen(true)}
         hasDesignId={!!currentDesignId}
         hasProjectId={!!currentProjectId}
       />
@@ -870,6 +873,13 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
         floorPlanName={currentDesignName}
         projectId={currentProjectId}
         takeoffCounts={takeoffCounts}
+      />
+      <CircuitSchedulePanel
+        open={isCircuitScheduleOpen}
+        onOpenChange={setIsCircuitScheduleOpen}
+        projectId={currentProjectId}
+        floorPlanId={currentDesignId}
+        floorPlanName={currentDesignName}
       />
     </div>
   );
