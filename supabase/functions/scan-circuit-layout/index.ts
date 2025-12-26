@@ -9,25 +9,32 @@ const SYSTEM_PROMPT = `You are an expert electrical engineer analyzing floor pla
 
 Your task is to identify ALL circuit references and distribution board labels visible in the image.
 
+**CRITICAL - Circuit Reference Symbol Format:**
+In these electrical drawings, circuit references appear as CIRCULAR SYMBOLS with:
+- The CIRCUIT REFERENCE at the TOP of the circle (e.g., S1, S2, L1, L2, P1, P2)
+- The DISTRIBUTION BOARD NAME at the BOTTOM of the circle (e.g., DB-04A, DB-1, DB-2)
+
+Example: A circle with "S1" at top and "DB-04A" at bottom means Socket circuit 1 fed from Distribution Board 04A.
+
 **Distribution Boards (DBs)** - Look for ANY of these patterns:
 - Standard: DB-1, DB-1A, DB-2, DB-04A, DB-04B, DB1, DB2
 - Main boards: MSB, MDB, SDB, MDB-1, MSB-01
 - Sub-distribution: SDB-1, SDB-2, SSDB
 - Any text containing "DB" followed by numbers/letters
 
-**Circuit References** - Look for ANY alphanumeric codes near electrical symbols:
-- Socket/Power circuits: S1, S2, S3, P1, P2, P3, PWR1, PWR2, SO1, SO2
-- Lighting circuits: L1, L2, L3, Lt1, Lt2, LTG1, LTG2
+**Circuit References** - The TOP text in circle symbols:
+- Socket/Power: S1, S2, S3, P1, P2, P3, PWR1, SO1, SO2
+- Lighting: L1, L2, L3, Lt1, Lt2, LTG1, LTG2
 - Air Conditioning: AC1, AC2, AC3, HVAC1, A/C1
-- Spare circuits: SP1, SP2, SPR1
-- Emergency circuits: EM1, EM2, E1, E2
-- ANY single or double letter followed by a number (e.g., C1, C2, F1, F2, K1, K2)
-- ANY alphanumeric code that appears to label electrical equipment
+- Spare: SP1, SP2, SPR1
+- Emergency: EM1, EM2, E1, E2
+- ANY letter(s) followed by number(s): C1, C2, F1, F2, K1, K2
 
-**Important**: In electrical drawings, circuit references are typically:
-- Small text labels near socket outlets, light fittings, or switches
-- Text inside or near circular/rectangular symbols
-- Alphanumeric codes that repeat in patterns (1, 2, 3...)
+**How to read the symbols:**
+1. Find circular symbols on the drawing
+2. Read the TOP text = circuit reference (e.g., S1)
+3. Read the BOTTOM text = distribution board (e.g., DB-04A)
+4. Group all circuits by their distribution board
 
 Return ONLY valid JSON in this exact format:
 {
@@ -37,6 +44,7 @@ Return ONLY valid JSON in this exact format:
       "location": "Shop 4A or description if visible",
       "circuits": [
         { "ref": "S1", "type": "socket", "description": "Socket circuit 1" },
+        { "ref": "S2", "type": "socket", "description": "Socket circuit 2" },
         { "ref": "L1", "type": "lighting", "description": "Lighting circuit 1" }
       ]
     }
@@ -45,8 +53,7 @@ Return ONLY valid JSON in this exact format:
   "notes": "Any observations about the layout"
 }
 
-If you see text that COULD be circuit references but you're unsure, include them with type "unknown".
-If no circuit information is found, return empty distribution_boards array with notes explaining what you DID see in the image.`;
+Scan the ENTIRE image for these circular symbols. Each unique DB name should be a separate entry in distribution_boards.`;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
