@@ -861,40 +861,74 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
     const canvases = canvasApiRef.current?.getCanvases();
     if (!canvases?.pdf) {
       console.error('No PDF canvas available');
+      toast.error('No PDF canvas available');
       return null;
     }
     try {
       const pdfCanvas = canvases.pdf;
       const containerRect = mainContainerRef.current?.getBoundingClientRect();
+      const pdfCanvasRect = pdfCanvas.getBoundingClientRect();
       
-      if (!containerRect) {
-        console.error('No container rect available');
+      if (!containerRect || !pdfCanvasRect) {
+        console.error('Missing rects:', { containerRect, pdfCanvasRect });
+        toast.error('Cannot determine canvas position');
         return null;
       }
       
-      // The region coordinates are relative to the container (which is what overlayRef is inside)
-      // The PDF canvas is transformed with: translate(offset.x, offset.y) scale(zoom)
-      // So a screen point (sx, sy) maps to PDF canvas point: ((sx - offset.x) / zoom, (sy - offset.y) / zoom)
+      // The region coordinates are relative to the container's top-left
+      // The PDF canvas is visually positioned at pdfCanvasRect relative to viewport
+      // But region coords are relative to container, so we need to find where the PDF canvas
+      // is within the container
       
+      // PDF canvas visual position relative to container
+      const pdfVisualOffset = {
+        x: pdfCanvasRect.left - containerRect.left,
+        y: pdfCanvasRect.top - containerRect.top
+      };
+      
+      // The visual size of the PDF canvas on screen
+      const pdfVisualSize = {
+        width: pdfCanvasRect.width,
+        height: pdfCanvasRect.height
+      };
+      
+      // Scale between visual size and actual canvas pixels
+      const scaleX = pdfCanvas.width / pdfVisualSize.width;
+      const scaleY = pdfCanvas.height / pdfVisualSize.height;
+      
+      // Convert region (relative to container) to PDF canvas pixel coordinates
+      // First, get the region position relative to the PDF canvas visual position
+      const relativeToCanvas = {
+        x: region.x - pdfVisualOffset.x,
+        y: region.y - pdfVisualOffset.y,
+        width: region.width,
+        height: region.height
+      };
+      
+      // Then scale to actual canvas pixels
       const pdfRegion = {
-        x: (region.x - viewState.offset.x) / viewState.zoom,
-        y: (region.y - viewState.offset.y) / viewState.zoom,
-        width: region.width / viewState.zoom,
-        height: region.height / viewState.zoom,
+        x: relativeToCanvas.x * scaleX,
+        y: relativeToCanvas.y * scaleY,
+        width: relativeToCanvas.width * scaleX,
+        height: relativeToCanvas.height * scaleY,
       };
       
       console.log('Region capture debug:', {
         screenRegion: region,
-        viewState: { zoom: viewState.zoom, offset: viewState.offset },
+        containerRect: { left: containerRect.left, top: containerRect.top, width: containerRect.width, height: containerRect.height },
+        pdfCanvasRect: { left: pdfCanvasRect.left, top: pdfCanvasRect.top, width: pdfCanvasRect.width, height: pdfCanvasRect.height },
+        pdfVisualOffset,
+        pdfVisualSize,
+        scale: { scaleX, scaleY },
+        relativeToCanvas,
         pdfRegion,
-        pdfCanvasSize: { width: pdfCanvas.width, height: pdfCanvas.height },
-        containerSize: { width: containerRect.width, height: containerRect.height }
+        pdfCanvasSize: { width: pdfCanvas.width, height: pdfCanvas.height }
       });
       
       // Clamp to canvas bounds
       const clampedRegion = {
-        x: Math.max(0, Math.min(pdfRegion.x, pdfCanvas.width)),
-        y: Math.max(0, Math.min(pdfRegion.y, pdfCanvas.height)),
+        x: Math.max(0, Math.min(pdfRegion.x, pdfCanvas.width - 1)),
+        y: Math.max(0, Math.min(pdfRegion.y, pdfCanvas.height - 1)),
         width: 0,
         height: 0
       };
