@@ -36,6 +36,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { LinkToFinalAccountDialog } from './components/LinkToFinalAccountDialog';
 import { useTakeoffCounts } from './hooks/useTakeoffCounts';
 import { CircuitSchedulePanel } from './components/CircuitSchedulePanel';
+import { CircuitMaterialMarkupPanel } from './components/CircuitMaterialMarkupPanel';
 import { RegionSelectionOverlay } from '@/components/circuit-schedule/RegionSelectionOverlay';
 
 
@@ -187,6 +188,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
   const [isSavedReportsModalOpen, setIsSavedReportsModalOpen] = useState(false);
   const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
   const [isCircuitScheduleOpen, setIsCircuitScheduleOpen] = useState(false);
+  const [isMaterialMarkupOpen, setIsMaterialMarkupOpen] = useState(false);
   const [isSelectingRegion, setIsSelectingRegion] = useState(false);
   const [selectedRegion, setSelectedRegion] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
 
@@ -886,6 +888,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
         onOpenSavedReports={() => setIsSavedReportsModalOpen(true)}
         onLinkToFinalAccount={() => setIsLinkDialogOpen(true)}
         onOpenCircuitSchedule={() => setIsCircuitScheduleOpen(true)}
+        onOpenMaterialMarkup={() => setIsMaterialMarkupOpen(true)}
         hasDesignId={!!currentDesignId}
         hasProjectId={!!currentProjectId}
       />
@@ -948,16 +951,25 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
           )}
       </main>
       
-      {/* Right Sidebar - Equipment Panel */}
-      <EquipmentPanel 
-        equipment={equipment} lines={lines} zones={zones} containment={containment} selectedItemId={selectedItemId}
-        setSelectedItemId={setSelectedItemId} onEquipmentUpdate={handleEquipmentUpdate} onZoneUpdate={handleZoneUpdate}
-        scaleInfo={scaleInfo}
-        purposeConfig={purposeConfig} designPurpose={designPurpose} pvPanelConfig={pvPanelConfig}
-        pvArrays={pvArrays} onDeleteItem={handleDeleteSelectedItem} tasks={tasks} onOpenTaskModal={handleOpenTaskModal}
-        onJumpToZone={handleJumpToZone} modulesPerString={modulesPerString} onModulesPerStringChange={setModulesPerString}
-        projectId={currentProjectId || undefined}
-      />
+      {/* Right Sidebar - Equipment Panel OR Material Markup Panel */}
+      {isMaterialMarkupOpen && currentProjectId ? (
+        <aside className="w-80 bg-card border-l border-border overflow-hidden flex flex-col">
+          <CircuitMaterialMarkupPanel
+            projectId={currentProjectId}
+            onClose={() => setIsMaterialMarkupOpen(false)}
+          />
+        </aside>
+      ) : (
+        <EquipmentPanel 
+          equipment={equipment} lines={lines} zones={zones} containment={containment} selectedItemId={selectedItemId}
+          setSelectedItemId={setSelectedItemId} onEquipmentUpdate={handleEquipmentUpdate} onZoneUpdate={handleZoneUpdate}
+          scaleInfo={scaleInfo}
+          purposeConfig={purposeConfig} designPurpose={designPurpose} pvPanelConfig={pvPanelConfig}
+          pvArrays={pvArrays} onDeleteItem={handleDeleteSelectedItem} tasks={tasks} onOpenTaskModal={handleOpenTaskModal}
+          onJumpToZone={handleJumpToZone} modulesPerString={modulesPerString} onModulesPerStringChange={setModulesPerString}
+          projectId={currentProjectId || undefined}
+        />
+      )}
       
       {/* Modals */}
       <ScaleModal isOpen={isScaleModalOpen} onClose={() => { setIsScaleModalOpen(false); if (!scaleInfo.ratio) { setScaleLine(null); setActiveTool(Tool.PAN); } }} onSubmit={handleScaleSubmit} />
