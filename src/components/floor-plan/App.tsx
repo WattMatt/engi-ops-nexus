@@ -749,6 +749,41 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
   const handlePvArrayConfigSubmit = (config: PVArrayConfig) => { setPendingPvArrayConfig(config); setIsPvArrayModalOpen(false); };
   const handlePlacePvArray = (array: Omit<PVArrayItem, 'id'>) => setPvArrays(prev => [...prev, { id: `pvarray-${Date.now()}`, ...array }]);
 
+  // Capture layout as image for AI scanning
+  const handleCaptureLayout = useCallback(async (): Promise<string | null> => {
+    const canvases = canvasApiRef.current?.getCanvases();
+    if (!canvases?.pdf) {
+      return null;
+    }
+    try {
+      // Create a combined canvas with PDF and drawings
+      const pdfCanvas = canvases.pdf;
+      const drawingCanvas = canvases.drawing;
+      
+      const combinedCanvas = document.createElement('canvas');
+      combinedCanvas.width = pdfCanvas.width;
+      combinedCanvas.height = pdfCanvas.height;
+      const ctx = combinedCanvas.getContext('2d');
+      
+      if (!ctx) return null;
+      
+      // Draw PDF first
+      ctx.drawImage(pdfCanvas, 0, 0);
+      
+      // Draw overlay if exists
+      if (drawingCanvas) {
+        ctx.drawImage(drawingCanvas, 0, 0);
+      }
+      
+      // Convert to base64
+      const dataUrl = combinedCanvas.toDataURL('image/png');
+      return dataUrl.replace(/^data:image\/\w+;base64,/, '');
+    } catch (err) {
+      console.error('Failed to capture layout:', err);
+      return null;
+    }
+  }, []);
+
   const pvDesignReady = useMemo(() => designPurpose !== DesignPurpose.PV_DESIGN || (!!scaleInfo.ratio && !!pvPanelConfig), [designPurpose, scaleInfo.ratio, pvPanelConfig]);
 
   return (
@@ -880,6 +915,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
         projectId={currentProjectId}
         floorPlanId={currentDesignId}
         floorPlanName={currentDesignName}
+        onCaptureLayout={pdfDoc ? handleCaptureLayout : undefined}
       />
     </div>
   );

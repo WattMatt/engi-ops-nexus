@@ -113,3 +113,6 @@ verify_jwt = false
 
 [functions.send-review-status-notification]
 verify_jwt = false
+
+[functions.scan-circuit-layout]
+verify_jwt = false
