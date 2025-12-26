@@ -38,6 +38,7 @@ import { useTakeoffCounts } from './hooks/useTakeoffCounts';
 import { CircuitSchedulePanel } from './components/CircuitSchedulePanel';
 import { CircuitMaterialMarkupPanel } from './components/CircuitMaterialMarkupPanel';
 import { RegionSelectionOverlay } from '@/components/circuit-schedule/RegionSelectionOverlay';
+import { DbCircuit, useCreateCircuitMaterial } from '@/components/circuit-schedule/hooks/useDistributionBoards';
 
 
 // Set PDF.js worker source
@@ -104,6 +105,9 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
 
   // Calculate take-off counts for linking to final account
   const takeoffCounts = useTakeoffCounts(equipment, lines, containment);
+  
+  // Material assignment mutation
+  const createCircuitMaterial = useCreateCircuitMaterial();
 
   const setState = useCallback((updater: (prevState: DesignState) => DesignState, commit: boolean = true) => {
     // Use refs to get the latest values, avoiding stale closure issues
@@ -189,6 +193,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
   const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
   const [isCircuitScheduleOpen, setIsCircuitScheduleOpen] = useState(false);
   const [isMaterialMarkupOpen, setIsMaterialMarkupOpen] = useState(false);
+  const [selectedMarkupCircuit, setSelectedMarkupCircuit] = useState<DbCircuit | null>(null);
   const [isSelectingRegion, setIsSelectingRegion] = useState(false);
   const [selectedRegion, setSelectedRegion] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
 
@@ -734,6 +739,56 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
     }
   };
 
+  // Handle assigning canvas items to the selected circuit
+  const handleAssignItemToCircuit = useCallback(async (itemId: string) => {
+    if (!selectedMarkupCircuit || !isMaterialMarkupOpen) return;
+    
+    // Find the item details
+    const eq = equipment.find(e => e.id === itemId);
+    const line = lines.find(l => l.id === itemId);
+    const cont = containment.find(c => c.id === itemId);
+    
+    let description = '';
+    let quantity = 1;
+    let unit = 'No';
+    
+    if (eq) {
+      description = eq.type;
+      quantity = 1;
+      unit = 'No';
+    } else if (line) {
+      description = `${line.cableType || 'Cable'} - ${line.type}`;
+      quantity = line.length || 1;
+      unit = 'm';
+    } else if (cont) {
+      description = `${cont.type} - ${cont.size}`;
+      quantity = cont.length || 1;
+      unit = 'm';
+    }
+    
+    if (!description) return;
+    
+    try {
+      await createCircuitMaterial.mutateAsync({
+        circuit_id: selectedMarkupCircuit.id,
+        description,
+        quantity,
+        unit,
+      });
+      toast.success(`Added "${description}" to ${selectedMarkupCircuit.circuit_ref}`);
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to assign material');
+    }
+  }, [selectedMarkupCircuit, isMaterialMarkupOpen, equipment, lines, containment, createCircuitMaterial]);
+
+  // Wrapper for setSelectedItemId that also handles material assignment
+  const handleSetSelectedItemId = useCallback((id: string | null) => {
+    setSelectedItemId(id);
+    if (id && isMaterialMarkupOpen && selectedMarkupCircuit) {
+      handleAssignItemToCircuit(id);
+    }
+  }, [isMaterialMarkupOpen, selectedMarkupCircuit, handleAssignItemToCircuit]);
+
   const handleOpenTaskModal = (task: Partial<Task> | null) => { setEditingTask(task); setIsTaskModalOpen(true); };
   
   const handleTaskSubmit = (taskData: Omit<Task, 'id'> & { id?: string }) => {
@@ -922,7 +977,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
                   walkways={walkways} setWalkways={setWalkways}
                   scaleInfo={scaleInfo} onScaleLabelPositionChange={handleScaleLabelPositionChange} onScalingComplete={completeScaling} onLvLineComplete={handleLvLineComplete}
                   onContainmentDrawComplete={handleContainmentDrawComplete} onWalkwayDrawComplete={handleWalkwayDrawComplete} scaleLine={scaleLine} onInitialViewCalculated={handleInitialViewCalculated}
-                  selectedItemId={selectedItemId} setSelectedItemId={setSelectedItemId} placementRotation={placementRotation}
+                  selectedItemId={selectedItemId} setSelectedItemId={handleSetSelectedItemId} placementRotation={placementRotation}
                   purposeConfig={purposeConfig} pvPanelConfig={pvPanelConfig} roofMasks={roofMasks} onRoofMaskDrawComplete={handleRoofMaskDrawComplete}
                   pendingPvArrayConfig={pendingPvArrayConfig} onPlacePvArray={handlePlacePvArray} isSnappingEnabled={isSnappingEnabled}
                   pendingRoofMask={pendingRoofMask} onRoofDirectionSet={handleRoofDirectionSet} onCancelRoofCreation={cancelRoofCreation}
@@ -956,7 +1011,12 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
         <aside className="w-80 bg-card border-l border-border overflow-hidden flex flex-col">
           <CircuitMaterialMarkupPanel
             projectId={currentProjectId}
-            onClose={() => setIsMaterialMarkupOpen(false)}
+            onClose={() => {
+              setIsMaterialMarkupOpen(false);
+              setSelectedMarkupCircuit(null);
+            }}
+            selectedCircuit={selectedMarkupCircuit}
+            onSelectCircuit={setSelectedMarkupCircuit}
           />
         </aside>
       ) : (
