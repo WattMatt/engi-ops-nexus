@@ -39,6 +39,7 @@ import { CircuitSchedulePanel } from './components/CircuitSchedulePanel';
 import { CircuitScheduleRightPanel } from './components/CircuitScheduleRightPanel';
 import { RegionSelectionOverlay } from '@/components/circuit-schedule/RegionSelectionOverlay';
 import { DbCircuit, useCreateCircuitMaterial } from '@/components/circuit-schedule/hooks/useDistributionBoards';
+import { useAICircuitScan } from '@/components/circuit-schedule/hooks/useAICircuitScan';
 
 
 // Set PDF.js worker source
@@ -108,6 +109,9 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
   
   // Material assignment mutation
   const createCircuitMaterial = useCreateCircuitMaterial();
+  
+  // AI Circuit scanning
+  const { isScanning, scanLayout, scanResult } = useAICircuitScan();
 
   const setState = useCallback((updater: (prevState: DesignState) => DesignState, commit: boolean = true) => {
     // Use refs to get the latest values, avoiding stale closure issues
@@ -916,10 +920,35 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
     setSelectedRegion(null);
   }, []);
 
-  const handleRegionSelected = useCallback((region: { x: number; y: number; width: number; height: number }) => {
-    setSelectedRegion(region);
+  const handleRegionSelected = useCallback(async (region: { x: number; y: number; width: number; height: number }) => {
+    console.log('handleRegionSelected called with region:', region);
+    
+    // Capture the region image
+    const imageBase64 = await handleCaptureRegion(region);
+    if (!imageBase64) {
+      toast.error('Failed to capture region');
+      return;
+    }
+    
+    console.log('Region captured, starting scan...');
+    setGlobalLoadingMessage('Scanning region for circuit references...');
+    
+    try {
+      // Trigger the scan
+      const result = await scanLayout(imageBase64, 'image/png');
+      console.log('Scan result:', result);
+      
+      if (result && result.distribution_boards?.length > 0) {
+        // Open the circuit schedule panel to show results
+        setIsCircuitScheduleOpen(true);
+      }
+    } finally {
+      setGlobalLoadingMessage(null);
+    }
+    
+    setSelectedRegion(null);
     setIsSelectingRegion(false);
-  }, []);
+  }, [handleCaptureRegion, scanLayout, toast]);
 
   const handleCancelRegionSelect = useCallback(() => {
     setIsSelectingRegion(false);
@@ -1089,6 +1118,10 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
         onStartRegionSelect={pdfDoc ? handleStartRegionSelect : undefined}
         isSelectingRegion={isSelectingRegion}
         selectedRegion={selectedRegion}
+        initialScanResult={scanResult}
+        onClearInitialScanResult={() => {
+          // The hook's scanResult will be cleared when next scan starts
+        }}
       />
     </div>
   );

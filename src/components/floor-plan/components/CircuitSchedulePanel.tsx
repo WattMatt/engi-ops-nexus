@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { DistributionBoardManager } from '@/components/circuit-schedule/DistributionBoardManager';
@@ -12,6 +12,16 @@ import { Badge } from '@/components/ui/badge';
 import { useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
+interface ScanResult {
+  distribution_boards: Array<{
+    name: string;
+    location?: string;
+    circuits: Array<{ ref: string; type: string; description?: string }>;
+  }>;
+  confidence: 'high' | 'medium' | 'low';
+  notes?: string;
+}
+
 interface CircuitSchedulePanelProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -23,6 +33,8 @@ interface CircuitSchedulePanelProps {
   onStartRegionSelect?: () => void;
   isSelectingRegion?: boolean;
   selectedRegion?: { x: number; y: number; width: number; height: number } | null;
+  initialScanResult?: ScanResult | null;
+  onClearInitialScanResult?: () => void;
 }
 
 export function CircuitSchedulePanel({
@@ -36,6 +48,8 @@ export function CircuitSchedulePanel({
   onStartRegionSelect,
   isSelectingRegion,
   selectedRegion,
+  initialScanResult,
+  onClearInitialScanResult,
 }: CircuitSchedulePanelProps) {
   const [showMapDialog, setShowMapDialog] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
@@ -51,7 +65,15 @@ export function CircuitSchedulePanel({
   const createBoard = useCreateDistributionBoard();
   const createCircuitMutation = useCreateCircuit();
 
-  // Full layout scan
+  // Handle initial scan result from region selection
+  useEffect(() => {
+    if (initialScanResult && initialScanResult.distribution_boards?.length > 0) {
+      addScanResults(initialScanResult);
+      toast.success(`Added ${initialScanResult.distribution_boards.length} DB(s) from region scan`);
+      onClearInitialScanResult?.();
+    }
+  }, [initialScanResult, addScanResults, onClearInitialScanResult]);
+
   const handleFullScan = async () => {
     if (!onCaptureLayout) {
       toast.error('No layout loaded to scan');
