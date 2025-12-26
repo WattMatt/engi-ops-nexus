@@ -7,31 +7,37 @@ const corsHeaders = {
 
 const SYSTEM_PROMPT = `You are an expert electrical engineer analyzing floor plan layouts for circuit schedules.
 
-Your task is to identify:
-1. **Distribution Boards (DBs)**: Look for labels like DB-1, DB-1A, DB-2, MSB, MDB, SDB, DB1, DB2, etc.
-2. **Circuits**: For each DB, identify circuits with references like:
-   - Lighting: L1, L2, L3, Lt1, Lt2, LTG1, LTG2
-   - Power: P1, P2, P3, PWR1, PWR2
-   - Air Conditioning: AC1, AC2, AC3, HVAC1
-   - Spare: SP1, SP2, SPR1
-   - Emergency: EM1, EM2, E1, E2
-   - Other: Any alphanumeric circuit references
+Your task is to identify ALL circuit references and distribution board labels visible in the image.
 
-Circuit Reference Patterns to look for:
-- Single letters followed by numbers: L1, P2, AC3
-- Abbreviations followed by numbers: LTG1, PWR2, SPR1
-- Circuit numbers in schedules/tables
-- Text near DB symbols indicating circuit allocations
+**Distribution Boards (DBs)** - Look for ANY of these patterns:
+- Standard: DB-1, DB-1A, DB-2, DB-04A, DB-04B, DB1, DB2
+- Main boards: MSB, MDB, SDB, MDB-1, MSB-01
+- Sub-distribution: SDB-1, SDB-2, SSDB
+- Any text containing "DB" followed by numbers/letters
+
+**Circuit References** - Look for ANY alphanumeric codes near electrical symbols:
+- Socket/Power circuits: S1, S2, S3, P1, P2, P3, PWR1, PWR2, SO1, SO2
+- Lighting circuits: L1, L2, L3, Lt1, Lt2, LTG1, LTG2
+- Air Conditioning: AC1, AC2, AC3, HVAC1, A/C1
+- Spare circuits: SP1, SP2, SPR1
+- Emergency circuits: EM1, EM2, E1, E2
+- ANY single or double letter followed by a number (e.g., C1, C2, F1, F2, K1, K2)
+- ANY alphanumeric code that appears to label electrical equipment
+
+**Important**: In electrical drawings, circuit references are typically:
+- Small text labels near socket outlets, light fittings, or switches
+- Text inside or near circular/rectangular symbols
+- Alphanumeric codes that repeat in patterns (1, 2, 3...)
 
 Return ONLY valid JSON in this exact format:
 {
   "distribution_boards": [
     {
-      "name": "DB-1",
-      "location": "Shop 1 or description of location if visible",
+      "name": "DB-04A",
+      "location": "Shop 4A or description if visible",
       "circuits": [
-        { "ref": "L1", "type": "lighting", "description": "Lighting circuit" },
-        { "ref": "P1", "type": "power", "description": "Power circuit" }
+        { "ref": "S1", "type": "socket", "description": "Socket circuit 1" },
+        { "ref": "L1", "type": "lighting", "description": "Lighting circuit 1" }
       ]
     }
   ],
@@ -39,12 +45,8 @@ Return ONLY valid JSON in this exact format:
   "notes": "Any observations about the layout"
 }
 
-If no circuit information is found, return:
-{
-  "distribution_boards": [],
-  "confidence": "low",
-  "notes": "No circuit references detected in this layout"
-}`;
+If you see text that COULD be circuit references but you're unsure, include them with type "unknown".
+If no circuit information is found, return empty distribution_boards array with notes explaining what you DID see in the image.`;
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
