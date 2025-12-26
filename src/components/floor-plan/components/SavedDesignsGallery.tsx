@@ -134,6 +134,13 @@ export const SavedDesignsGallery: React.FC<SavedDesignsGalleryProps> = ({
     return { folderDesigns, uncategorized };
   }, [designs]);
 
+  // Calculate total design count for a folder including all subfolders recursively
+  const getTotalDesignCount = (folder: FolderNode): number => {
+    const directCount = groupedDesigns.folderDesigns[folder.id]?.length || 0;
+    const childrenCount = folder.children.reduce((sum, child) => sum + getTotalDesignCount(child), 0);
+    return directCount + childrenCount;
+  };
+
   const toggleFolder = (folderId: string) => {
     setExpandedFolders(prev => {
       const next = new Set(prev);
@@ -255,7 +262,7 @@ export const SavedDesignsGallery: React.FC<SavedDesignsGalleryProps> = ({
     const folderDesigns = groupedDesigns.folderDesigns[folder.id] || [];
     const hasContent = folderDesigns.length > 0 || folder.children.length > 0;
     const isExpanded = expandedFolders.has(folder.id);
-    const designCount = folderDesigns.length;
+    const totalDesignCount = getTotalDesignCount(folder);
 
     return (
       <div key={folder.id} style={{ marginLeft: depth * 24 }}>
@@ -274,7 +281,7 @@ export const SavedDesignsGallery: React.FC<SavedDesignsGalleryProps> = ({
                   <div className="flex-1 text-left">
                     <span className="font-semibold text-foreground">{folder.name}</span>
                     <span className="ml-2 text-sm text-muted-foreground">
-                      ({designCount} {designCount === 1 ? 'design' : 'designs'})
+                      ({totalDesignCount} {totalDesignCount === 1 ? 'design' : 'designs'})
                     </span>
                   </div>
                   {isExpanded ? (
