@@ -18,8 +18,10 @@ export const drawEquipmentIcon = (
     ctx.rotate(item.rotation * Math.PI / 180);
     
     let realSizeInMeters: number | { w: number, h: number } | undefined;
-    if (item.type === EquipmentType.LED_STRIP_LIGHT || item.type === EquipmentType.RECESSED_LIGHT_1200 || item.type === EquipmentType.FLUORESCENT_2_TUBE) {
+    if (item.type === EquipmentType.LED_STRIP_LIGHT || item.type === EquipmentType.FLUORESCENT_2_TUBE) {
         realSizeInMeters = { w: 1.2, h: 0.15 };
+    } else if (item.type === EquipmentType.RECESSED_LIGHT_1200) {
+        realSizeInMeters = { w: 1.2, h: 0.6 };
     } else if (item.type === EquipmentType.RECESSED_LIGHT_600) {
         realSizeInMeters = { w: 0.6, h: 0.6 };
     } else {
