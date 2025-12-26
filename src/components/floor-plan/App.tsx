@@ -860,60 +860,76 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
   const handleCaptureRegion = useCallback(async (region: { x: number; y: number; width: number; height: number }): Promise<string | null> => {
     const canvases = canvasApiRef.current?.getCanvases();
     if (!canvases?.pdf) {
+      console.error('No PDF canvas available');
       return null;
     }
     try {
       const pdfCanvas = canvases.pdf;
-      const drawingCanvas = canvases.drawing;
       
-      // Create a canvas for the selected region
+      // Convert screen coordinates to PDF canvas coordinates
+      // The viewState contains the current zoom and pan offset
+      // Screen point = (PDF point * zoom) + offset
+      // So: PDF point = (Screen point - offset) / zoom
+      
+      const pdfRegion = {
+        x: (region.x - viewState.offset.x) / viewState.zoom,
+        y: (region.y - viewState.offset.y) / viewState.zoom,
+        width: region.width / viewState.zoom,
+        height: region.height / viewState.zoom,
+      };
+      
+      console.log('Capturing region:', {
+        screen: region,
+        viewState,
+        pdfRegion,
+        pdfCanvasSize: { width: pdfCanvas.width, height: pdfCanvas.height }
+      });
+      
+      // Clamp to canvas bounds
+      const clampedRegion = {
+        x: Math.max(0, pdfRegion.x),
+        y: Math.max(0, pdfRegion.y),
+        width: Math.min(pdfRegion.width, pdfCanvas.width - Math.max(0, pdfRegion.x)),
+        height: Math.min(pdfRegion.height, pdfCanvas.height - Math.max(0, pdfRegion.y)),
+      };
+      
+      if (clampedRegion.width <= 0 || clampedRegion.height <= 0) {
+        console.error('Invalid region after clamping:', clampedRegion);
+        return null;
+      }
+      
+      // Create output canvas at a good resolution for AI analysis
+      // Use at least 1024px on the longest side for better text recognition
+      const maxDimension = 2048;
+      const scale = Math.min(maxDimension / Math.max(clampedRegion.width, clampedRegion.height), 2);
+      
       const regionCanvas = document.createElement('canvas');
-      regionCanvas.width = region.width;
-      regionCanvas.height = region.height;
+      regionCanvas.width = Math.round(clampedRegion.width * scale);
+      regionCanvas.height = Math.round(clampedRegion.height * scale);
       const ctx = regionCanvas.getContext('2d');
       
       if (!ctx) return null;
       
-      // Calculate the scale factor between the overlay and the actual canvas
-      const containerRect = mainContainerRef.current?.getBoundingClientRect();
-      if (!containerRect) return null;
+      // Enable high quality image scaling
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
       
-      const scaleX = pdfCanvas.width / containerRect.width;
-      const scaleY = pdfCanvas.height / containerRect.height;
-      
-      // Apply scaling to region coordinates
-      const scaledRegion = {
-        x: region.x * scaleX,
-        y: region.y * scaleY,
-        width: region.width * scaleX,
-        height: region.height * scaleY,
-      };
-      
-      // Draw the PDF region
+      // Draw the PDF region at higher resolution
       ctx.drawImage(
         pdfCanvas,
-        scaledRegion.x, scaledRegion.y, scaledRegion.width, scaledRegion.height,
-        0, 0, region.width, region.height
+        clampedRegion.x, clampedRegion.y, clampedRegion.width, clampedRegion.height,
+        0, 0, regionCanvas.width, regionCanvas.height
       );
       
-      // Overlay drawings if exist
-      if (drawingCanvas) {
-        ctx.drawImage(
-          drawingCanvas,
-          scaledRegion.x, scaledRegion.y, scaledRegion.width, scaledRegion.height,
-          0, 0, region.width, region.height
-        );
-      }
+      console.log('Captured region canvas size:', regionCanvas.width, 'x', regionCanvas.height);
       
       const dataUrl = regionCanvas.toDataURL('image/png');
-      setSelectedRegion(null);
-      setIsSelectingRegion(false);
       return dataUrl.replace(/^data:image\/\w+;base64,/, '');
     } catch (err) {
       console.error('Failed to capture region:', err);
       return null;
     }
-  }, []);
+  }, [viewState]);
 
   const handleStartRegionSelect = useCallback(() => {
     setIsSelectingRegion(true);
