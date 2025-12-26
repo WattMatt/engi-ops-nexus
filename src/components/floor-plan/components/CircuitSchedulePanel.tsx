@@ -3,8 +3,12 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '
 import { Button } from '@/components/ui/button';
 import { DistributionBoardManager } from '@/components/circuit-schedule/DistributionBoardManager';
 import { MapAllToFinalAccountDialog } from '@/components/circuit-schedule/MapAllToFinalAccountDialog';
-import { CircuitBoard, ArrowRight, Info, Link2 } from 'lucide-react';
+import { AIScanResultsDialog } from '@/components/circuit-schedule/AIScanResultsDialog';
+import { useAICircuitScan } from '@/components/circuit-schedule/hooks/useAICircuitScan';
+import { CircuitBoard, ArrowRight, Info, Link2, Sparkles, Loader2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
 
 interface CircuitSchedulePanelProps {
   open: boolean;
@@ -12,6 +16,7 @@ interface CircuitSchedulePanelProps {
   projectId: string | null;
   floorPlanId: string | null;
   floorPlanName: string | null;
+  onCaptureLayout?: () => Promise<string | null>;
 }
 
 export function CircuitSchedulePanel({
@@ -20,8 +25,34 @@ export function CircuitSchedulePanel({
   projectId,
   floorPlanId,
   floorPlanName,
+  onCaptureLayout,
 }: CircuitSchedulePanelProps) {
   const [showMapDialog, setShowMapDialog] = useState(false);
+  const [showScanResults, setShowScanResults] = useState(false);
+  const { isScanning, scanResult, scanLayout } = useAICircuitScan();
+  const queryClient = useQueryClient();
+
+  const handleAIScan = async () => {
+    if (!onCaptureLayout) {
+      toast.error('No layout loaded to scan');
+      return;
+    }
+
+    const imageBase64 = await onCaptureLayout();
+    if (!imageBase64) {
+      toast.error('Failed to capture layout image');
+      return;
+    }
+
+    const result = await scanLayout(imageBase64, 'image/png');
+    if (result && result.distribution_boards?.length > 0) {
+      setShowScanResults(true);
+    }
+  };
+
+  const handleScanComplete = () => {
+    queryClient.invalidateQueries({ queryKey: ['distribution-boards', projectId] });
+  };
 
   if (!projectId) {
     return (
@@ -65,6 +96,40 @@ export function CircuitSchedulePanel({
           </SheetHeader>
           
           <div className="mt-6 space-y-6">
+            {/* AI Scan Feature */}
+            {onCaptureLayout && (
+              <div className="p-4 rounded-lg bg-gradient-to-r from-primary/10 to-primary/5 border border-primary/20">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
+                      <Sparkles className="h-4 w-4 text-primary" />
+                      AI Circuit Detection
+                    </h4>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Automatically detect DBs and circuits from your floor plan
+                    </p>
+                  </div>
+                  <Button 
+                    onClick={handleAIScan} 
+                    disabled={isScanning}
+                    size="sm"
+                  >
+                    {isScanning ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Scanning...
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        Scan Layout
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {/* Workflow Guide */}
             <div className="p-4 rounded-lg bg-muted/50 border border-border">
               <h4 className="text-sm font-semibold text-foreground mb-3">Workflow</h4>
@@ -117,6 +182,16 @@ export function CircuitSchedulePanel({
         open={showMapDialog}
         onOpenChange={setShowMapDialog}
         projectId={projectId}
+      />
+
+      {/* AI Scan Results Dialog */}
+      <AIScanResultsDialog
+        open={showScanResults}
+        onOpenChange={setShowScanResults}
+        scanResult={scanResult}
+        projectId={projectId}
+        floorPlanId={floorPlanId || undefined}
+        onComplete={handleScanComplete}
       />
     </>
   );
