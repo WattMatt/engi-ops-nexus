@@ -116,11 +116,17 @@ export function RegionSelectionOverlay({
       )}
 
       {/* Action Buttons */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2">
+      <div 
+        className="absolute bottom-4 left-1/2 -translate-x-1/2 flex items-center gap-2"
+        onMouseDown={(e) => e.stopPropagation()}
+      >
         <Button
           variant="outline"
           size="sm"
-          onClick={onCancel}
+          onClick={(e) => {
+            e.stopPropagation();
+            onCancel();
+          }}
           className="bg-card"
         >
           <X className="h-4 w-4 mr-1" />
@@ -129,7 +135,11 @@ export function RegionSelectionOverlay({
         {hasValidSelection && (
           <Button
             size="sm"
-            onClick={handleConfirm}
+            onClick={(e) => {
+              e.stopPropagation();
+              console.log('Scan button clicked, calling onConfirm with:', selectionBox);
+              handleConfirm();
+            }}
           >
             <Check className="h-4 w-4 mr-1" />
             Scan This Region
