@@ -60,6 +60,10 @@ interface CanvasProps {
   onRoofDirectionSet: (direction: number) => void;
   onCancelRoofCreation: () => void;
   tasks: Task[];
+  // Circuit assignment props
+  onEquipmentPlaced?: (equipmentType: string) => void;
+  selectedCircuit?: { id: string; circuit_ref: string } | null;
+  circuitAssignments?: Map<string, { circuitRef: string; color: string }>;
 }
 
 const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
@@ -68,7 +72,8 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
   scaleInfo, onScaleLabelPositionChange, onScalingComplete, onLvLineComplete, onContainmentDrawComplete, onWalkwayDrawComplete, scaleLine, onInitialViewCalculated,
   selectedItemId, setSelectedItemId, placementRotation, purposeConfig,
   pvPanelConfig, roofMasks, pvArrays, setPvArrays, onRoofMaskDrawComplete, pendingPvArrayConfig, onPlacePvArray, isSnappingEnabled,
-  pendingRoofMask, onRoofDirectionSet, onCancelRoofCreation, tasks
+  pendingRoofMask, onRoofDirectionSet, onCancelRoofCreation, tasks,
+  onEquipmentPlaced, selectedCircuit, circuitAssignments
 }, ref) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const pdfCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -905,6 +910,10 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
             return;
         }
         setEquipment(prev => [...prev, { id: `eq-${Date.now()}`, type: equipmentType, position: worldPos, rotation: placementRotation }]);
+        // Call the equipment placement callback for auto-assignment
+        if (onEquipmentPlaced) {
+            onEquipmentPlaced(equipmentType);
+        }
     }
   };
   

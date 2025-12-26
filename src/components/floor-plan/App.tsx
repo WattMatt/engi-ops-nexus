@@ -597,6 +597,13 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
     }
   }, [selectedCircuit, createCircuitMaterial]);
 
+  // Handle equipment placement - auto-assign to selected circuit
+  const handleEquipmentPlaced = useCallback((equipmentType: string) => {
+    if (selectedCircuit) {
+      handleAutoAssignToCircuit(equipmentType, 1, 'No');
+    }
+  }, [selectedCircuit, handleAutoAssignToCircuit]);
+
   const handleLvLineComplete = useCallback((line: { points: Point[]; length: number; }) => {
       setPendingLine(line);
       setIsCableModalOpen(true);
@@ -964,6 +971,8 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
                   pendingPvArrayConfig={pendingPvArrayConfig} onPlacePvArray={handlePlacePvArray} isSnappingEnabled={isSnappingEnabled}
                   pendingRoofMask={pendingRoofMask} onRoofDirectionSet={handleRoofDirectionSet} onCancelRoofCreation={cancelRoofCreation}
                   pvArrays={pvArrays} setPvArrays={setPvArrays} tasks={tasks}
+                  onEquipmentPlaced={handleEquipmentPlaced}
+                  selectedCircuit={selectedCircuit}
               />
               {(designPurpose === DesignPurpose.PV_DESIGN && !pvDesignReady) && (
                  <div className="absolute top-4 left-1/2 -translate-x-1/2 z-20">

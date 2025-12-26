@@ -1,14 +1,18 @@
-import React, { useState } from 'react';
-import { ChevronDown, ChevronRight, CircuitBoard, Zap, Package, X, Radio } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { ChevronDown, ChevronRight, CircuitBoard, Zap, Package, X, Radio, ArrowRight, Trash2, CheckSquare, Square } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { supabase } from '@/integrations/supabase/client';
 import { 
   useDistributionBoards, 
   useDbCircuits, 
   useCircuitMaterials,
-  DbCircuit 
+  useDeleteCircuitMaterial,
+  useReassignCircuitMaterial,
+  DbCircuit,
 } from '@/components/circuit-schedule/hooks/useDistributionBoards';
 import { cn } from '@/lib/utils';
 
@@ -18,6 +22,15 @@ interface CircuitScheduleRightPanelProps {
   onSelectCircuit: (circuit: DbCircuit | null) => void;
   onClose: () => void;
 }
+
+// Collect all circuits for reassignment dropdown
+const useAllCircuits = (projectId: string) => {
+  const { data: boards } = useDistributionBoards(projectId);
+  const [allCircuits, setAllCircuits] = useState<DbCircuit[]>([]);
+  
+  // We'll use a simpler approach - return boards and let component fetch circuits
+  return { boards: boards || [] };
+};
 
 // Sub-component to display circuits for a distribution board
 const BoardCircuits: React.FC<{
@@ -74,9 +87,92 @@ const BoardCircuits: React.FC<{
   );
 };
 
-// Sub-component to show materials for selected circuit
-const CircuitMaterialsList: React.FC<{ circuitId: string }> = ({ circuitId }) => {
+// Sub-component to show materials for selected circuit with reassignment
+const CircuitMaterialsList: React.FC<{ 
+  circuitId: string; 
+  projectId: string;
+  allBoards: Array<{ id: string; name: string }>;
+}> = ({ circuitId, projectId, allBoards }) => {
   const { data: materials, isLoading } = useCircuitMaterials(circuitId);
+  const deleteMaterial = useDeleteCircuitMaterial();
+  const reassignMaterial = useReassignCircuitMaterial();
+  const [selectedMaterials, setSelectedMaterials] = useState<Set<string>>(new Set());
+  const [reassignTarget, setReassignTarget] = useState<string>('');
+  
+  // Fetch all circuits from all boards for the reassignment dropdown
+  const [allCircuits, setAllCircuits] = useState<DbCircuit[]>([]);
+  
+  // Collect circuits from each board using direct fetch
+  useEffect(() => {
+    const fetchCircuits = async () => {
+      const circuits: DbCircuit[] = [];
+      for (const board of allBoards) {
+        try {
+          const { data } = await (supabase as any)
+            .from('db_circuits')
+            .select('*')
+            .eq('board_id', board.id)
+            .order('circuit_ref');
+          if (data) {
+            circuits.push(...data);
+          }
+        } catch (e) {
+          console.error('Error fetching circuits:', e);
+        }
+      }
+      setAllCircuits(circuits);
+    };
+    if (allBoards.length > 0) {
+      fetchCircuits();
+    }
+  }, [allBoards]);
+
+  const toggleMaterial = (id: string) => {
+    setSelectedMaterials(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) {
+        next.delete(id);
+      } else {
+        next.add(id);
+      }
+      return next;
+    });
+  };
+
+  const toggleAll = () => {
+    if (!materials) return;
+    if (selectedMaterials.size === materials.length) {
+      setSelectedMaterials(new Set());
+    } else {
+      setSelectedMaterials(new Set(materials.map(m => m.id)));
+    }
+  };
+
+  const handleBulkReassign = async () => {
+    if (!reassignTarget || selectedMaterials.size === 0) return;
+    
+    for (const materialId of selectedMaterials) {
+      await reassignMaterial.mutateAsync({
+        materialId,
+        fromCircuitId: circuitId,
+        toCircuitId: reassignTarget,
+      });
+    }
+    setSelectedMaterials(new Set());
+    setReassignTarget('');
+  };
+
+  const handleDelete = async (materialId: string) => {
+    await deleteMaterial.mutateAsync({ id: materialId, circuitId });
+  };
+
+  const handleReassignSingle = async (materialId: string, targetCircuitId: string) => {
+    await reassignMaterial.mutateAsync({
+      materialId,
+      fromCircuitId: circuitId,
+      toCircuitId: targetCircuitId,
+    });
+  };
 
   if (isLoading) {
     return <div className="text-xs text-muted-foreground p-2">Loading materials...</div>;
@@ -90,17 +186,101 @@ const CircuitMaterialsList: React.FC<{ circuitId: string }> = ({ circuitId }) =>
     );
   }
 
+  const otherCircuits = allCircuits.filter(c => c.id !== circuitId);
+
   return (
-    <div className="space-y-1">
+    <div className="space-y-2">
+      {/* Bulk actions bar */}
+      {materials.length > 0 && (
+        <div className="flex items-center gap-2 pb-2 border-b border-border">
+          <button
+            onClick={toggleAll}
+            className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            {selectedMaterials.size === materials.length ? (
+              <CheckSquare className="h-4 w-4" />
+            ) : (
+              <Square className="h-4 w-4" />
+            )}
+            <span>{selectedMaterials.size > 0 ? `${selectedMaterials.size} selected` : 'Select all'}</span>
+          </button>
+          
+          {selectedMaterials.size > 0 && otherCircuits.length > 0 && (
+            <div className="flex items-center gap-1 ml-auto">
+              <Select value={reassignTarget} onValueChange={setReassignTarget}>
+                <SelectTrigger className="h-7 text-xs w-24">
+                  <SelectValue placeholder="Move to..." />
+                </SelectTrigger>
+                <SelectContent>
+                  {otherCircuits.map((circuit) => (
+                    <SelectItem key={circuit.id} value={circuit.id} className="text-xs">
+                      {circuit.circuit_ref}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 text-xs px-2"
+                onClick={handleBulkReassign}
+                disabled={!reassignTarget}
+              >
+                <ArrowRight className="h-3 w-3" />
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Materials list */}
       {materials.map((material) => (
         <div
           key={material.id}
-          className="flex items-center justify-between px-3 py-2 bg-muted/50 rounded-md text-sm"
+          className={cn(
+            "flex items-center gap-2 px-2 py-2 rounded-md text-sm transition-colors",
+            selectedMaterials.has(material.id) ? "bg-primary/10" : "bg-muted/50 hover:bg-muted"
+          )}
         >
-          <span className="truncate flex-grow">{material.description}</span>
-          <span className="text-xs font-mono text-muted-foreground ml-2 flex-shrink-0">
+          <button
+            onClick={() => toggleMaterial(material.id)}
+            className="flex-shrink-0"
+          >
+            {selectedMaterials.has(material.id) ? (
+              <CheckSquare className="h-4 w-4 text-primary" />
+            ) : (
+              <Square className="h-4 w-4 text-muted-foreground" />
+            )}
+          </button>
+          
+          <span className="truncate flex-grow text-xs">{material.description}</span>
+          
+          <span className="text-xs font-mono text-muted-foreground flex-shrink-0">
             {material.quantity} {material.unit}
           </span>
+          
+          {/* Single item reassign dropdown */}
+          {otherCircuits.length > 0 && (
+            <Select onValueChange={(value) => handleReassignSingle(material.id, value)}>
+              <SelectTrigger className="h-6 w-6 p-0 border-none bg-transparent">
+                <ArrowRight className="h-3 w-3 text-muted-foreground" />
+              </SelectTrigger>
+              <SelectContent>
+                {otherCircuits.map((circuit) => (
+                  <SelectItem key={circuit.id} value={circuit.id} className="text-xs">
+                    {circuit.circuit_ref}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
+          
+          <button
+            onClick={() => handleDelete(material.id)}
+            className="flex-shrink-0 text-muted-foreground hover:text-destructive transition-colors"
+          >
+            <Trash2 className="h-3 w-3" />
+          </button>
         </div>
       ))}
     </div>
@@ -128,6 +308,11 @@ export const CircuitScheduleRightPanel: React.FC<CircuitScheduleRightPanelProps>
     });
   };
 
+  const boardsList = useMemo(() => 
+    boards?.map(b => ({ id: b.id, name: b.name })) || [], 
+    [boards]
+  );
+
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
@@ -150,7 +335,7 @@ export const CircuitScheduleRightPanel: React.FC<CircuitScheduleRightPanelProps>
               {selectedCircuit.circuit_ref}
             </Badge>
             <span className="text-xs text-muted-foreground">
-              Trace items to assign to this circuit
+              Trace items to assign
             </span>
           </div>
         ) : (
@@ -226,15 +411,19 @@ export const CircuitScheduleRightPanel: React.FC<CircuitScheduleRightPanelProps>
 
       {/* Materials Section (shown when circuit is selected) */}
       {selectedCircuit && (
-        <div className="border-t border-border">
+        <div className="border-t border-border flex-shrink-0">
           <div className="px-4 py-2 bg-muted/50">
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               Assigned Materials
             </h3>
           </div>
-          <ScrollArea className="h-48">
+          <ScrollArea className="h-56">
             <div className="p-3">
-              <CircuitMaterialsList circuitId={selectedCircuit.id} />
+              <CircuitMaterialsList 
+                circuitId={selectedCircuit.id} 
+                projectId={projectId}
+                allBoards={boardsList}
+              />
             </div>
           </ScrollArea>
         </div>
