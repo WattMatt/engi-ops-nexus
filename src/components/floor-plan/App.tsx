@@ -866,80 +866,100 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
     }
     try {
       const pdfCanvas = canvases.pdf;
-      const containerRect = mainContainerRef.current?.getBoundingClientRect();
+      
+      // The overlay is positioned with "absolute inset-0" on the main container
+      // The PDF canvas is also a child of that container, transformed with CSS
+      // The region coordinates are relative to the overlay (same as container)
+      
+      // Get the PDF canvas's visual bounding rect (accounts for CSS transforms)
       const pdfCanvasRect = pdfCanvas.getBoundingClientRect();
       
-      if (!containerRect || !pdfCanvasRect) {
-        console.error('Missing rects:', { containerRect, pdfCanvasRect });
-        toast.error('Cannot determine canvas position');
+      // Get the overlay/container's bounding rect
+      const overlayRect = mainContainerRef.current?.getBoundingClientRect();
+      
+      if (!overlayRect) {
+        console.error('No overlay/container rect available');
+        toast.error('Cannot determine container position');
         return null;
       }
       
-      // The region coordinates are relative to the container's top-left
-      // The PDF canvas is visually positioned at pdfCanvasRect relative to viewport
-      // But region coords are relative to container, so we need to find where the PDF canvas
-      // is within the container
-      
-      // PDF canvas visual position relative to container
-      const pdfVisualOffset = {
-        x: pdfCanvasRect.left - containerRect.left,
-        y: pdfCanvasRect.top - containerRect.top
+      // The region is relative to the overlay/container top-left
+      // Convert to viewport coordinates first
+      const regionViewport = {
+        left: overlayRect.left + region.x,
+        top: overlayRect.top + region.y,
+        right: overlayRect.left + region.x + region.width,
+        bottom: overlayRect.top + region.y + region.height
       };
       
-      // The visual size of the PDF canvas on screen
-      const pdfVisualSize = {
+      // Now find where this viewport region intersects with the PDF canvas
+      // The PDF canvas visual position on screen
+      const pdfVisualBounds = {
+        left: pdfCanvasRect.left,
+        top: pdfCanvasRect.top,
+        right: pdfCanvasRect.right,
+        bottom: pdfCanvasRect.bottom,
         width: pdfCanvasRect.width,
         height: pdfCanvasRect.height
       };
       
-      // Scale between visual size and actual canvas pixels
-      const scaleX = pdfCanvas.width / pdfVisualSize.width;
-      const scaleY = pdfCanvas.height / pdfVisualSize.height;
-      
-      // Convert region (relative to container) to PDF canvas pixel coordinates
-      // First, get the region position relative to the PDF canvas visual position
-      const relativeToCanvas = {
-        x: region.x - pdfVisualOffset.x,
-        y: region.y - pdfVisualOffset.y,
-        width: region.width,
-        height: region.height
+      // Find the intersection of the selection with the PDF canvas
+      const intersect = {
+        left: Math.max(regionViewport.left, pdfVisualBounds.left),
+        top: Math.max(regionViewport.top, pdfVisualBounds.top),
+        right: Math.min(regionViewport.right, pdfVisualBounds.right),
+        bottom: Math.min(regionViewport.bottom, pdfVisualBounds.bottom)
       };
       
-      // Then scale to actual canvas pixels
+      const intersectWidth = intersect.right - intersect.left;
+      const intersectHeight = intersect.bottom - intersect.top;
+      
+      if (intersectWidth <= 0 || intersectHeight <= 0) {
+        console.error('Selection does not intersect with PDF canvas');
+        toast.error('Please select an area that overlaps with the PDF');
+        return null;
+      }
+      
+      // Convert the intersection to PDF canvas pixel coordinates
+      // Position relative to PDF canvas visual bounds
+      const relativeX = intersect.left - pdfVisualBounds.left;
+      const relativeY = intersect.top - pdfVisualBounds.top;
+      
+      // Scale from visual size to actual canvas pixels
+      const scaleX = pdfCanvas.width / pdfVisualBounds.width;
+      const scaleY = pdfCanvas.height / pdfVisualBounds.height;
+      
       const pdfRegion = {
-        x: relativeToCanvas.x * scaleX,
-        y: relativeToCanvas.y * scaleY,
-        width: relativeToCanvas.width * scaleX,
-        height: relativeToCanvas.height * scaleY,
+        x: relativeX * scaleX,
+        y: relativeY * scaleY,
+        width: intersectWidth * scaleX,
+        height: intersectHeight * scaleY
       };
       
       console.log('Region capture debug:', {
         screenRegion: region,
-        containerRect: { left: containerRect.left, top: containerRect.top, width: containerRect.width, height: containerRect.height },
-        pdfCanvasRect: { left: pdfCanvasRect.left, top: pdfCanvasRect.top, width: pdfCanvasRect.width, height: pdfCanvasRect.height },
-        pdfVisualOffset,
-        pdfVisualSize,
+        overlayRect: { left: overlayRect.left, top: overlayRect.top },
+        regionViewport,
+        pdfVisualBounds,
+        intersect,
         scale: { scaleX, scaleY },
-        relativeToCanvas,
         pdfRegion,
         pdfCanvasSize: { width: pdfCanvas.width, height: pdfCanvas.height }
       });
       
-      // Clamp to canvas bounds
+      // Clamp to canvas bounds (should already be within bounds but just in case)
       const clampedRegion = {
         x: Math.max(0, Math.min(pdfRegion.x, pdfCanvas.width - 1)),
         y: Math.max(0, Math.min(pdfRegion.y, pdfCanvas.height - 1)),
-        width: 0,
-        height: 0
+        width: Math.min(pdfRegion.width, pdfCanvas.width - Math.max(0, pdfRegion.x)),
+        height: Math.min(pdfRegion.height, pdfCanvas.height - Math.max(0, pdfRegion.y))
       };
-      clampedRegion.width = Math.min(pdfRegion.width, pdfCanvas.width - clampedRegion.x);
-      clampedRegion.height = Math.min(pdfRegion.height, pdfCanvas.height - clampedRegion.y);
       
       console.log('Clamped region:', clampedRegion);
       
       if (clampedRegion.width <= 10 || clampedRegion.height <= 10) {
         console.error('Region too small after clamping:', clampedRegion);
-        toast.error('Selected region is too small or outside the PDF area');
+        toast.error('Selected region is too small');
         return null;
       }
       
