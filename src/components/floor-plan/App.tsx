@@ -201,6 +201,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
   const selectedCircuitRef = useRef<DbCircuit | null>(null);
   const [isSelectingRegion, setIsSelectingRegion] = useState(false);
   const [selectedRegion, setSelectedRegion] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [debugCapturedImage, setDebugCapturedImage] = useState<string | null>(null); // For debugging region capture
 
   // Keep ref in sync with state
   useEffect(() => {
@@ -981,6 +982,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
 
   const handleRegionSelected = useCallback(async (region: { x: number; y: number; width: number; height: number }) => {
     console.log('handleRegionSelected called with region:', region);
+    console.log('Current viewState:', JSON.stringify(viewState));
     
     // Capture the region image
     const imageBase64 = await handleCaptureRegion(region);
@@ -988,6 +990,9 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
       toast.error('Failed to capture region');
       return;
     }
+    
+    // Store the image for debug preview
+    setDebugCapturedImage(`data:image/png;base64,${imageBase64}`);
     
     console.log('Region captured, starting scan...');
     setGlobalLoadingMessage('Scanning region for circuit references...');
@@ -1007,7 +1012,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
     
     setSelectedRegion(null);
     setIsSelectingRegion(false);
-  }, [handleCaptureRegion, scanLayout, toast]);
+  }, [handleCaptureRegion, scanLayout, toast, viewState]);
 
   const handleCancelRegionSelect = useCallback(() => {
     setIsSelectingRegion(false);
@@ -1182,6 +1187,30 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
           // The hook's scanResult will be cleared when next scan starts
         }}
       />
+      
+      {/* Debug Preview of Captured Image */}
+      {debugCapturedImage && (
+        <div className="fixed bottom-4 right-4 z-[200] bg-card border border-border rounded-lg shadow-xl p-4 max-w-md">
+          <div className="flex justify-between items-center mb-2">
+            <h4 className="text-sm font-medium text-foreground">Captured Image (Debug)</h4>
+            <button 
+              onClick={() => setDebugCapturedImage(null)}
+              className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+            >
+              ×
+            </button>
+          </div>
+          <p className="text-xs text-muted-foreground mb-2">This is what was sent to AI:</p>
+          <img 
+            src={debugCapturedImage} 
+            alt="Captured region" 
+            className="max-w-full max-h-64 border border-border rounded"
+          />
+          <p className="text-xs text-muted-foreground mt-2">
+            If this doesn't match your selection, the coordinate mapping is wrong.
+          </p>
+        </div>
+      )}
     </div>
   );
 };
