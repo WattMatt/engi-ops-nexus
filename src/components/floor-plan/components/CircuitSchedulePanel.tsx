@@ -1,11 +1,11 @@
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import { DistributionBoardManager } from '@/components/circuit-schedule/DistributionBoardManager';
 import { MapAllToFinalAccountDialog } from '@/components/circuit-schedule/MapAllToFinalAccountDialog';
-import { AIScanResultsDialog } from '@/components/circuit-schedule/AIScanResultsDialog';
 import { useAICircuitScan } from '@/components/circuit-schedule/hooks/useAICircuitScan';
 import { useMultiScanAccumulator } from '@/components/circuit-schedule/hooks/useMultiScanAccumulator';
+import { useCreateDistributionBoard, useCreateCircuit } from '@/components/circuit-schedule/hooks/useDistributionBoards';
 import { CircuitBoard, ArrowRight, Info, Link2, Sparkles, Loader2, Target, Layers, Check, X, Trash2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
@@ -38,18 +38,18 @@ export function CircuitSchedulePanel({
   selectedRegion,
 }: CircuitSchedulePanelProps) {
   const [showMapDialog, setShowMapDialog] = useState(false);
-  const [showScanResults, setShowScanResults] = useState(false);
-  const { isScanning, scanResult, scanLayout } = useAICircuitScan();
+  const [isCreating, setIsCreating] = useState(false);
+  const { isScanning, scanLayout } = useAICircuitScan();
   const { 
     accumulatedResults, 
     addScanResults, 
-    confirmDB, 
-    confirmCircuit,
     removeDB,
     removeCircuit,
     clearResults,
   } = useMultiScanAccumulator();
   const queryClient = useQueryClient();
+  const createBoard = useCreateDistributionBoard();
+  const createCircuitMutation = useCreateCircuit();
 
   // Full layout scan
   const handleFullScan = async () => {
@@ -91,17 +91,49 @@ export function CircuitSchedulePanel({
     }
   };
 
-  const handleScanComplete = () => {
-    queryClient.invalidateQueries({ queryKey: ['distribution-boards', projectId] });
-  };
-
-  // Convert accumulated results to scan result format for dialog
-  const handleCreateFromAccumulated = () => {
-    if (accumulatedResults.distribution_boards.length === 0) {
-      toast.error('No accumulated results to create');
+  // Directly create all accumulated DBs and circuits
+  const handleCreateAll = async () => {
+    if (!projectId || accumulatedResults.distribution_boards.length === 0) {
+      toast.error('No results to create');
       return;
     }
-    setShowScanResults(true);
+
+    setIsCreating(true);
+    let createdDBs = 0;
+    let createdCircuits = 0;
+
+    try {
+      for (const db of accumulatedResults.distribution_boards) {
+        // Create the distribution board
+        const newBoard = await createBoard.mutateAsync({
+          project_id: projectId,
+          name: db.name,
+          location: db.location,
+          floor_plan_id: floorPlanId || undefined,
+        });
+
+        createdDBs++;
+
+        // Create circuits for this board
+        for (const circuit of db.circuits || []) {
+          await createCircuitMutation.mutateAsync({
+            distribution_board_id: newBoard.id,
+            circuit_ref: circuit.ref,
+            circuit_type: circuit.type,
+            description: circuit.description,
+          });
+          createdCircuits++;
+        }
+      }
+
+      toast.success(`Created ${createdDBs} DB(s) with ${createdCircuits} circuit(s)`);
+      clearResults();
+      queryClient.invalidateQueries({ queryKey: ['distribution-boards', projectId] });
+    } catch (error: any) {
+      toast.error(error.message || 'Failed to create some items');
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   const totalCircuits = accumulatedResults.distribution_boards.reduce(
@@ -169,7 +201,7 @@ export function CircuitSchedulePanel({
                   <div className="flex flex-wrap gap-2">
                     <Button 
                       onClick={handleFullScan} 
-                      disabled={isScanning}
+                      disabled={isScanning || isCreating}
                       size="sm"
                       variant="outline"
                     >
@@ -189,7 +221,7 @@ export function CircuitSchedulePanel({
                     {onStartRegionSelect && (
                       <Button 
                         onClick={onStartRegionSelect}
-                        disabled={isScanning || isSelectingRegion}
+                        disabled={isScanning || isSelectingRegion || isCreating}
                         size="sm"
                         variant={isSelectingRegion ? "default" : "outline"}
                       >
@@ -201,7 +233,7 @@ export function CircuitSchedulePanel({
                     {selectedRegion && onCaptureRegion && (
                       <Button 
                         onClick={handleRegionScan}
-                        disabled={isScanning}
+                        disabled={isScanning || isCreating}
                         size="sm"
                       >
                         <Sparkles className="h-4 w-4 mr-2" />
@@ -225,6 +257,7 @@ export function CircuitSchedulePanel({
                             variant="ghost" 
                             size="sm"
                             onClick={clearResults}
+                            disabled={isCreating}
                             className="h-7 text-xs text-muted-foreground"
                           >
                             <Trash2 className="h-3 w-3 mr-1" />
@@ -232,70 +265,65 @@ export function CircuitSchedulePanel({
                           </Button>
                           <Button 
                             size="sm"
-                            onClick={handleCreateFromAccumulated}
+                            onClick={handleCreateAll}
+                            disabled={isCreating}
                             className="h-7 text-xs"
                           >
-                            <Check className="h-3 w-3 mr-1" />
-                            Create All
+                            {isCreating ? (
+                              <>
+                                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
+                                Creating...
+                              </>
+                            ) : (
+                              <>
+                                <Check className="h-3 w-3 mr-1" />
+                                Create All
+                              </>
+                            )}
                           </Button>
                         </div>
                       </div>
                       
                       <p className="text-xs text-muted-foreground mb-2">
-                        {accumulatedResults.distribution_boards.length} DB(s) with {totalCircuits} circuit(s) detected
+                        {accumulatedResults.distribution_boards.length} DB(s) with {totalCircuits} circuit(s) detected. 
+                        Click <X className="h-3 w-3 inline" /> to remove unwanted items before creating.
                       </p>
                       
-                      {/* Compact list of detected items */}
+                      {/* Compact list of detected items - remove only, no confirm */}
                       <div className="space-y-2 max-h-48 overflow-y-auto">
                         {accumulatedResults.distribution_boards.map((db) => (
                           <div key={db.name} className="flex items-start justify-between gap-2 p-2 rounded bg-muted/50">
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-2">
                                 <span className="text-sm font-medium truncate">{db.name}</span>
-                                {db.confirmed && (
-                                  <Check className="h-3 w-3 text-green-500 flex-shrink-0" />
+                                {db.location && (
+                                  <span className="text-xs text-muted-foreground">— {db.location}</span>
                                 )}
                               </div>
                               <div className="flex flex-wrap gap-1 mt-1">
                                 {db.circuits.map((circuit) => (
                                   <Badge 
                                     key={circuit.ref}
-                                    variant={circuit.confirmed ? "default" : "outline"}
-                                    className="text-xs cursor-pointer"
-                                    onClick={() => confirmCircuit(db.name, circuit.ref)}
+                                    variant="outline"
+                                    className="text-xs group"
                                   >
                                     {circuit.ref}
-                                    {!circuit.confirmed && (
-                                      <X 
-                                        className="h-2 w-2 ml-1 hover:text-destructive"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          removeCircuit(db.name, circuit.ref);
-                                        }}
-                                      />
-                                    )}
+                                    <X 
+                                      className="h-2 w-2 ml-1 opacity-50 group-hover:opacity-100 cursor-pointer hover:text-destructive"
+                                      onClick={() => removeCircuit(db.name, circuit.ref)}
+                                    />
                                   </Badge>
                                 ))}
                               </div>
                             </div>
-                            <div className="flex gap-1 flex-shrink-0">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0"
-                                onClick={() => confirmDB(db.name)}
-                              >
-                                <Check className="h-3 w-3" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive"
-                                onClick={() => removeDB(db.name)}
-                              >
-                                <X className="h-3 w-3" />
-                              </Button>
-                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 w-6 p-0 text-muted-foreground hover:text-destructive flex-shrink-0"
+                              onClick={() => removeDB(db.name)}
+                            >
+                              <X className="h-3 w-3" />
+                            </Button>
                           </div>
                         ))}
                       </div>
@@ -357,23 +385,6 @@ export function CircuitSchedulePanel({
         open={showMapDialog}
         onOpenChange={setShowMapDialog}
         projectId={projectId}
-      />
-
-      {/* AI Scan Results Dialog */}
-      <AIScanResultsDialog
-        open={showScanResults}
-        onOpenChange={setShowScanResults}
-        scanResult={{
-          distribution_boards: accumulatedResults.distribution_boards,
-          confidence: accumulatedResults.lastScanConfidence,
-          notes: `Accumulated from ${accumulatedResults.scanCount} scan(s)`,
-        }}
-        projectId={projectId}
-        floorPlanId={floorPlanId || undefined}
-        onComplete={() => {
-          handleScanComplete();
-          clearResults();
-        }}
       />
     </>
   );
