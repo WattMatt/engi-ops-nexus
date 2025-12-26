@@ -345,3 +345,27 @@ export function useBulkCreateCircuitMaterials() {
     },
   });
 }
+
+export function useReassignCircuitMaterial() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({ materialId, fromCircuitId, toCircuitId }: { materialId: string; fromCircuitId: string; toCircuitId: string }) => {
+      const { error } = await supabase
+        .from("db_circuit_materials")
+        .update({ circuit_id: toCircuitId })
+        .eq("id", materialId);
+      
+      if (error) throw error;
+      return { fromCircuitId, toCircuitId };
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["circuit-materials", result.fromCircuitId] });
+      queryClient.invalidateQueries({ queryKey: ["circuit-materials", result.toCircuitId] });
+      toast.success("Material reassigned");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to reassign material");
+    },
+  });
+}
