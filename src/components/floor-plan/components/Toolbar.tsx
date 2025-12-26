@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import type { LucideProps } from 'lucide-react';
 import { User } from '@supabase/supabase-js';
-import { MousePointer, Hand, Ruler, Route, Layers, Save, FolderOpen, Network, Shield, Server, RotateCw, Printer, Square, LayoutGrid, Sun, Magnet, Wrench, Edit, ShieldQuestion, Power, Plug, Undo2, Redo2, Maximize2, FileText, Link2 } from 'lucide-react';
+import { MousePointer, Hand, Ruler, Route, Layers, Save, FolderOpen, Network, Shield, Server, RotateCw, Printer, Square, LayoutGrid, Sun, Magnet, Wrench, Edit, ShieldQuestion, Power, Plug, Undo2, Redo2, Maximize2, FileText, Link2, CircuitBoard } from 'lucide-react';
 import { Tool, DesignPurpose, MarkupToolCategory, MARKUP_TOOL_CATEGORIES, ScaleInfo } from '../types';
 import { type PurposeConfig } from '../purpose.config';
 import { EquipmentIcon } from './EquipmentIcon';
@@ -67,6 +67,7 @@ interface ToolbarProps {
   scaleInfo: ScaleInfo;
   onOpenSavedReports: () => void;
   onLinkToFinalAccount?: () => void;
+  onOpenCircuitSchedule?: () => void;
   hasDesignId?: boolean;
   hasProjectId?: boolean;
 }
@@ -100,6 +101,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
   scaleInfo,
   onOpenSavedReports,
   onLinkToFinalAccount,
+  onOpenCircuitSchedule,
   hasDesignId,
   hasProjectId
 }) => {
@@ -194,6 +196,16 @@ const Toolbar: React.FC<ToolbarProps> = ({
             label="Link to Final Account" 
             onClick={onLinkToFinalAccount} 
             disabled={!hasDesignId || !hasProjectId || !isPdfLoaded} 
+          />
+        )}
+        
+        {/* Circuit Schedule Button */}
+        {onOpenCircuitSchedule && (
+          <GlobalToolButton 
+            icon={CircuitBoard} 
+            label="Circuit Schedule" 
+            onClick={onOpenCircuitSchedule} 
+            disabled={!hasProjectId} 
           />
         )}
       </div>
