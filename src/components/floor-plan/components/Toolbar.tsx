@@ -68,7 +68,7 @@ interface ToolbarProps {
   onOpenSavedReports: () => void;
   onLinkToFinalAccount?: () => void;
   onOpenCircuitSchedule?: () => void;
-  onOpenMaterialMarkup?: () => void;
+  onOpenCircuitPanel?: () => void;
   hasDesignId?: boolean;
   hasProjectId?: boolean;
 }
@@ -103,7 +103,7 @@ const Toolbar: React.FC<ToolbarProps> = ({
   onOpenSavedReports,
   onLinkToFinalAccount,
   onOpenCircuitSchedule,
-  onOpenMaterialMarkup,
+  onOpenCircuitPanel,
   hasDesignId,
   hasProjectId
 }) => {
@@ -211,12 +211,12 @@ const Toolbar: React.FC<ToolbarProps> = ({
           />
         )}
         
-        {/* Material Markup Button */}
-        {onOpenMaterialMarkup && (
+        {/* Circuit Panel Toggle */}
+        {onOpenCircuitPanel && (
           <GlobalToolButton 
             icon={Package} 
-            label="Material Markup" 
-            onClick={onOpenMaterialMarkup} 
+            label="Circuit Markup Panel" 
+            onClick={onOpenCircuitPanel} 
             disabled={!hasProjectId || !isPdfLoaded} 
           />
         )}

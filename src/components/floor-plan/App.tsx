@@ -36,7 +36,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { LinkToFinalAccountDialog } from './components/LinkToFinalAccountDialog';
 import { useTakeoffCounts } from './hooks/useTakeoffCounts';
 import { CircuitSchedulePanel } from './components/CircuitSchedulePanel';
-import { CircuitMaterialMarkupPanel } from './components/CircuitMaterialMarkupPanel';
+import { CircuitScheduleRightPanel } from './components/CircuitScheduleRightPanel';
 import { RegionSelectionOverlay } from '@/components/circuit-schedule/RegionSelectionOverlay';
 import { DbCircuit, useCreateCircuitMaterial } from '@/components/circuit-schedule/hooks/useDistributionBoards';
 
@@ -192,8 +192,8 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
   const [isSavedReportsModalOpen, setIsSavedReportsModalOpen] = useState(false);
   const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
   const [isCircuitScheduleOpen, setIsCircuitScheduleOpen] = useState(false);
-  const [isMaterialMarkupOpen, setIsMaterialMarkupOpen] = useState(false);
-  const [selectedMarkupCircuit, setSelectedMarkupCircuit] = useState<DbCircuit | null>(null);
+  const [isCircuitPanelOpen, setIsCircuitPanelOpen] = useState(false);
+  const [selectedCircuit, setSelectedCircuit] = useState<DbCircuit | null>(null);
   const [isSelectingRegion, setIsSelectingRegion] = useState(false);
   const [selectedRegion, setSelectedRegion] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
 
@@ -581,6 +581,22 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [activeTool, purposeConfig, handleResetZoom, pendingPvArrayConfig, handleUndo, handleRedo]);
 
+  // Handle auto-assigning canvas items to the selected circuit when created
+  const handleAutoAssignToCircuit = useCallback(async (description: string, quantity: number, unit: string) => {
+    if (!selectedCircuit) return;
+    
+    try {
+      await createCircuitMaterial.mutateAsync({
+        circuit_id: selectedCircuit.id,
+        description,
+        quantity,
+        unit,
+      });
+    } catch (error: any) {
+      console.error('Failed to auto-assign material:', error);
+    }
+  }, [selectedCircuit, createCircuitMaterial]);
+
   const handleLvLineComplete = useCallback((line: { points: Point[]; length: number; }) => {
       setPendingLine(line);
       setIsCableModalOpen(true);
@@ -603,11 +619,15 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
       ];
       if (typesWithoutSizeModal.includes(line.type)) {
         setContainment(prev => [...prev, { id: `containment-${Date.now()}`, type: line.type, size: line.type, points: line.points, length: line.length, }]);
+        // Auto-assign to selected circuit
+        if (selectedCircuit) {
+          handleAutoAssignToCircuit(`${line.type}`, line.length, 'm');
+        }
       } else {
         setPendingContainment(line);
         setIsContainmentModalOpen(true);
       }
-  }, []);
+  }, [selectedCircuit, handleAutoAssignToCircuit]);
 
   const handleWalkwayDrawComplete = useCallback((line: { points: Point[]; length: number; }) => {
       setWalkways(prev => [...prev, { 
@@ -701,6 +721,12 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
           cableEntryId: cableEntryId
       };
       setLines(prev => [...prev, newLine]);
+      
+      // Auto-assign to selected circuit
+      if (selectedCircuit) {
+        handleAutoAssignToCircuit(`${details.cableType} - ${details.from} to ${details.to}`, totalLength, 'm');
+      }
+      
       setIsCableModalOpen(false);
       setPendingLine(null);
   };
@@ -708,6 +734,12 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
   const handleContainmentDetailsSubmit = (details: { size: string }) => {
       if (!pendingContainment) return;
       setContainment(prev => [...prev, { id: `containment-${Date.now()}`, type: pendingContainment.type, size: details.size, points: pendingContainment.points, length: pendingContainment.length, }]);
+      
+      // Auto-assign to selected circuit
+      if (selectedCircuit) {
+        handleAutoAssignToCircuit(`${pendingContainment.type} - ${details.size}`, pendingContainment.length, 'm');
+      }
+      
       setIsContainmentModalOpen(false);
       setPendingContainment(null);
   };
@@ -738,56 +770,6 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
         });
     }
   };
-
-  // Handle assigning canvas items to the selected circuit
-  const handleAssignItemToCircuit = useCallback(async (itemId: string) => {
-    if (!selectedMarkupCircuit || !isMaterialMarkupOpen) return;
-    
-    // Find the item details
-    const eq = equipment.find(e => e.id === itemId);
-    const line = lines.find(l => l.id === itemId);
-    const cont = containment.find(c => c.id === itemId);
-    
-    let description = '';
-    let quantity = 1;
-    let unit = 'No';
-    
-    if (eq) {
-      description = eq.type;
-      quantity = 1;
-      unit = 'No';
-    } else if (line) {
-      description = `${line.cableType || 'Cable'} - ${line.type}`;
-      quantity = line.length || 1;
-      unit = 'm';
-    } else if (cont) {
-      description = `${cont.type} - ${cont.size}`;
-      quantity = cont.length || 1;
-      unit = 'm';
-    }
-    
-    if (!description) return;
-    
-    try {
-      await createCircuitMaterial.mutateAsync({
-        circuit_id: selectedMarkupCircuit.id,
-        description,
-        quantity,
-        unit,
-      });
-      toast.success(`Added "${description}" to ${selectedMarkupCircuit.circuit_ref}`);
-    } catch (error: any) {
-      toast.error(error.message || 'Failed to assign material');
-    }
-  }, [selectedMarkupCircuit, isMaterialMarkupOpen, equipment, lines, containment, createCircuitMaterial]);
-
-  // Wrapper for setSelectedItemId that also handles material assignment
-  const handleSetSelectedItemId = useCallback((id: string | null) => {
-    setSelectedItemId(id);
-    if (id && isMaterialMarkupOpen && selectedMarkupCircuit) {
-      handleAssignItemToCircuit(id);
-    }
-  }, [isMaterialMarkupOpen, selectedMarkupCircuit, handleAssignItemToCircuit]);
 
   const handleOpenTaskModal = (task: Partial<Task> | null) => { setEditingTask(task); setIsTaskModalOpen(true); };
   
@@ -943,7 +925,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
         onOpenSavedReports={() => setIsSavedReportsModalOpen(true)}
         onLinkToFinalAccount={() => setIsLinkDialogOpen(true)}
         onOpenCircuitSchedule={() => setIsCircuitScheduleOpen(true)}
-        onOpenMaterialMarkup={() => setIsMaterialMarkupOpen(true)}
+        onOpenCircuitPanel={() => setIsCircuitPanelOpen(true)}
         hasDesignId={!!currentDesignId}
         hasProjectId={!!currentProjectId}
       />
@@ -977,7 +959,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
                   walkways={walkways} setWalkways={setWalkways}
                   scaleInfo={scaleInfo} onScaleLabelPositionChange={handleScaleLabelPositionChange} onScalingComplete={completeScaling} onLvLineComplete={handleLvLineComplete}
                   onContainmentDrawComplete={handleContainmentDrawComplete} onWalkwayDrawComplete={handleWalkwayDrawComplete} scaleLine={scaleLine} onInitialViewCalculated={handleInitialViewCalculated}
-                  selectedItemId={selectedItemId} setSelectedItemId={handleSetSelectedItemId} placementRotation={placementRotation}
+                  selectedItemId={selectedItemId} setSelectedItemId={setSelectedItemId} placementRotation={placementRotation}
                   purposeConfig={purposeConfig} pvPanelConfig={pvPanelConfig} roofMasks={roofMasks} onRoofMaskDrawComplete={handleRoofMaskDrawComplete}
                   pendingPvArrayConfig={pendingPvArrayConfig} onPlacePvArray={handlePlacePvArray} isSnappingEnabled={isSnappingEnabled}
                   pendingRoofMask={pendingRoofMask} onRoofDirectionSet={handleRoofDirectionSet} onCancelRoofCreation={cancelRoofCreation}
@@ -1006,17 +988,17 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
           )}
       </main>
       
-      {/* Right Sidebar - Equipment Panel OR Material Markup Panel */}
-      {isMaterialMarkupOpen && currentProjectId ? (
+      {/* Right Sidebar - Circuit Schedule Panel OR Equipment Panel */}
+      {isCircuitPanelOpen && currentProjectId ? (
         <aside className="w-80 bg-card border-l border-border overflow-hidden flex flex-col">
-          <CircuitMaterialMarkupPanel
+          <CircuitScheduleRightPanel
             projectId={currentProjectId}
+            selectedCircuit={selectedCircuit}
+            onSelectCircuit={setSelectedCircuit}
             onClose={() => {
-              setIsMaterialMarkupOpen(false);
-              setSelectedMarkupCircuit(null);
+              setIsCircuitPanelOpen(false);
+              setSelectedCircuit(null);
             }}
-            selectedCircuit={selectedMarkupCircuit}
-            onSelectCircuit={setSelectedMarkupCircuit}
           />
         </aside>
       ) : (
