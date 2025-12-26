@@ -194,8 +194,14 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
   const [isCircuitScheduleOpen, setIsCircuitScheduleOpen] = useState(false);
   const [isCircuitPanelOpen, setIsCircuitPanelOpen] = useState(false);
   const [selectedCircuit, setSelectedCircuit] = useState<DbCircuit | null>(null);
+  const selectedCircuitRef = useRef<DbCircuit | null>(null);
   const [isSelectingRegion, setIsSelectingRegion] = useState(false);
   const [selectedRegion, setSelectedRegion] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+
+  // Keep ref in sync with state
+  useEffect(() => {
+    selectedCircuitRef.current = selectedCircuit;
+  }, [selectedCircuit]);
 
   const [scaleLine, setScaleLine] = useState<{start: Point, end: Point} | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
@@ -583,23 +589,33 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
 
   // Handle auto-assigning canvas items to the selected circuit when created
   const handleAutoAssignToCircuit = useCallback(async (description: string, quantity: number, unit: string) => {
-    if (!selectedCircuit) return;
+    const circuit = selectedCircuitRef.current;
+    console.log('handleAutoAssignToCircuit called:', { description, quantity, unit, circuit });
+    
+    if (!circuit) {
+      console.log('No circuit selected, skipping auto-assign');
+      return;
+    }
     
     try {
+      console.log('Creating circuit material for circuit:', circuit.id);
       await createCircuitMaterial.mutateAsync({
-        circuit_id: selectedCircuit.id,
+        circuit_id: circuit.id,
         description,
         quantity,
         unit,
       });
+      console.log('Circuit material created successfully');
     } catch (error: any) {
       console.error('Failed to auto-assign material:', error);
     }
-  }, [selectedCircuit, createCircuitMaterial]);
+  }, [createCircuitMaterial]);
 
   // Handle equipment placement - auto-assign to selected circuit
   const handleEquipmentPlaced = useCallback((equipmentType: string) => {
-    if (selectedCircuit) {
+    const circuit = selectedCircuitRef.current;
+    console.log('handleEquipmentPlaced called:', { equipmentType, circuit });
+    if (circuit) {
       handleAutoAssignToCircuit(equipmentType, 1, 'No');
     }
   }, [selectedCircuit, handleAutoAssignToCircuit]);
@@ -626,15 +642,16 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
       ];
       if (typesWithoutSizeModal.includes(line.type)) {
         setContainment(prev => [...prev, { id: `containment-${Date.now()}`, type: line.type, size: line.type, points: line.points, length: line.length, }]);
-        // Auto-assign to selected circuit
-        if (selectedCircuit) {
+        // Auto-assign to selected circuit using ref
+        const circuit = selectedCircuitRef.current;
+        if (circuit) {
           handleAutoAssignToCircuit(`${line.type}`, line.length, 'm');
         }
       } else {
         setPendingContainment(line);
         setIsContainmentModalOpen(true);
       }
-  }, [selectedCircuit, handleAutoAssignToCircuit]);
+  }, [handleAutoAssignToCircuit]);
 
   const handleWalkwayDrawComplete = useCallback((line: { points: Point[]; length: number; }) => {
       setWalkways(prev => [...prev, { 
@@ -729,8 +746,9 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
       };
       setLines(prev => [...prev, newLine]);
       
-      // Auto-assign to selected circuit
-      if (selectedCircuit) {
+      // Auto-assign to selected circuit using ref
+      const circuit = selectedCircuitRef.current;
+      if (circuit) {
         handleAutoAssignToCircuit(`${details.cableType} - ${details.from} to ${details.to}`, totalLength, 'm');
       }
       
@@ -742,8 +760,9 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
       if (!pendingContainment) return;
       setContainment(prev => [...prev, { id: `containment-${Date.now()}`, type: pendingContainment.type, size: details.size, points: pendingContainment.points, length: pendingContainment.length, }]);
       
-      // Auto-assign to selected circuit
-      if (selectedCircuit) {
+      // Auto-assign to selected circuit using ref
+      const circuit = selectedCircuitRef.current;
+      if (circuit) {
         handleAutoAssignToCircuit(`${pendingContainment.type} - ${details.size}`, pendingContainment.length, 'm');
       }
       
