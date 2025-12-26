@@ -36,6 +36,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { LinkToFinalAccountDialog } from './components/LinkToFinalAccountDialog';
 import { useTakeoffCounts } from './hooks/useTakeoffCounts';
 import { CircuitSchedulePanel } from './components/CircuitSchedulePanel';
+import { RegionSelectionOverlay } from '@/components/circuit-schedule/RegionSelectionOverlay';
 
 
 // Set PDF.js worker source
@@ -186,6 +187,8 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
   const [isSavedReportsModalOpen, setIsSavedReportsModalOpen] = useState(false);
   const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
   const [isCircuitScheduleOpen, setIsCircuitScheduleOpen] = useState(false);
+  const [isSelectingRegion, setIsSelectingRegion] = useState(false);
+  const [selectedRegion, setSelectedRegion] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
 
   const [scaleLine, setScaleLine] = useState<{start: Point, end: Point} | null>(null);
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
@@ -784,6 +787,80 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
     }
   }, []);
 
+  // Capture a specific region of the layout
+  const handleCaptureRegion = useCallback(async (region: { x: number; y: number; width: number; height: number }): Promise<string | null> => {
+    const canvases = canvasApiRef.current?.getCanvases();
+    if (!canvases?.pdf) {
+      return null;
+    }
+    try {
+      const pdfCanvas = canvases.pdf;
+      const drawingCanvas = canvases.drawing;
+      
+      // Create a canvas for the selected region
+      const regionCanvas = document.createElement('canvas');
+      regionCanvas.width = region.width;
+      regionCanvas.height = region.height;
+      const ctx = regionCanvas.getContext('2d');
+      
+      if (!ctx) return null;
+      
+      // Calculate the scale factor between the overlay and the actual canvas
+      const containerRect = mainContainerRef.current?.getBoundingClientRect();
+      if (!containerRect) return null;
+      
+      const scaleX = pdfCanvas.width / containerRect.width;
+      const scaleY = pdfCanvas.height / containerRect.height;
+      
+      // Apply scaling to region coordinates
+      const scaledRegion = {
+        x: region.x * scaleX,
+        y: region.y * scaleY,
+        width: region.width * scaleX,
+        height: region.height * scaleY,
+      };
+      
+      // Draw the PDF region
+      ctx.drawImage(
+        pdfCanvas,
+        scaledRegion.x, scaledRegion.y, scaledRegion.width, scaledRegion.height,
+        0, 0, region.width, region.height
+      );
+      
+      // Overlay drawings if exist
+      if (drawingCanvas) {
+        ctx.drawImage(
+          drawingCanvas,
+          scaledRegion.x, scaledRegion.y, scaledRegion.width, scaledRegion.height,
+          0, 0, region.width, region.height
+        );
+      }
+      
+      const dataUrl = regionCanvas.toDataURL('image/png');
+      setSelectedRegion(null);
+      setIsSelectingRegion(false);
+      return dataUrl.replace(/^data:image\/\w+;base64,/, '');
+    } catch (err) {
+      console.error('Failed to capture region:', err);
+      return null;
+    }
+  }, []);
+
+  const handleStartRegionSelect = useCallback(() => {
+    setIsSelectingRegion(true);
+    setSelectedRegion(null);
+  }, []);
+
+  const handleRegionSelected = useCallback((region: { x: number; y: number; width: number; height: number }) => {
+    setSelectedRegion(region);
+    setIsSelectingRegion(false);
+  }, []);
+
+  const handleCancelRegionSelect = useCallback(() => {
+    setIsSelectingRegion(false);
+    setSelectedRegion(null);
+  }, []);
+
   const pvDesignReady = useMemo(() => designPurpose !== DesignPurpose.PV_DESIGN || (!!scaleInfo.ratio && !!pvPanelConfig), [designPurpose, scaleInfo.ratio, pvPanelConfig]);
 
   return (
@@ -859,6 +936,16 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
               )}
             </>
           )}
+          
+          {/* Region Selection Overlay for AI Circuit Scanning */}
+          {isSelectingRegion && pdfDoc && (
+            <RegionSelectionOverlay
+              isActive={isSelectingRegion}
+              onCancel={handleCancelRegionSelect}
+              onConfirm={handleRegionSelected}
+              containerRef={mainContainerRef}
+            />
+          )}
       </main>
       
       {/* Right Sidebar - Equipment Panel */}
@@ -916,6 +1003,10 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
         floorPlanId={currentDesignId}
         floorPlanName={currentDesignName}
         onCaptureLayout={pdfDoc ? handleCaptureLayout : undefined}
+        onCaptureRegion={pdfDoc ? handleCaptureRegion : undefined}
+        onStartRegionSelect={pdfDoc ? handleStartRegionSelect : undefined}
+        isSelectingRegion={isSelectingRegion}
+        selectedRegion={selectedRegion}
       />
     </div>
   );
