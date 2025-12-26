@@ -58,6 +58,7 @@ export function RegionSelectionOverlay({
 
   const handleConfirm = () => {
     if (hasValidSelection && selectionBox) {
+      console.log('RegionSelectionOverlay - Confirming selection:', selectionBox);
       onConfirm(selectionBox);
     }
   };
