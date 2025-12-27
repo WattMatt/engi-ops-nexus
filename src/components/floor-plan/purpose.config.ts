@@ -302,16 +302,19 @@ const finalAccountMarkupConfig: PurposeConfig = {
         ...budgetMarkupConfig.availableDrawingTools,
         ...pvDesignConfig.availableDrawingTools,
         ...lineShopMarkupConfig.availableDrawingTools,
+        ...cableScheduleMarkupConfig.availableDrawingTools,
     ])],
     toolCategories: {
         ...budgetMarkupConfig.toolCategories,
         ...pvDesignConfig.toolCategories,
         ...lineShopMarkupConfig.toolCategories,
+        ...cableScheduleMarkupConfig.toolCategories,
     },
     toolLabels: {
         ...budgetMarkupConfig.toolLabels,
         ...pvDesignConfig.toolLabels,
         ...lineShopMarkupConfig.toolLabels,
+        ...cableScheduleMarkupConfig.toolLabels,
     },
     equipmentToToolMap: {
         ...budgetMarkupConfig.equipmentToToolMap,
