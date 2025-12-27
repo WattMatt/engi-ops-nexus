@@ -6,8 +6,11 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Cable, Route, Link2, ArrowUpDown, CircuitBoard, ChevronRight } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Cable, Route, Link2, ArrowUpDown, CircuitBoard, ChevronRight, Package, FileText, Search} from 'lucide-react';
 import { useDistributionBoards, useDbCircuits, DbCircuit } from '@/components/circuit-schedule/hooks/useDistributionBoards';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 
 interface CircuitCableDetailsDialogProps {
   isOpen: boolean;
@@ -32,6 +35,9 @@ export interface CircuitCableFormData {
   boqItemCode?: string;
   notes?: string;
   dbCircuitId?: string;
+  masterMaterialId?: string;
+  supplyRate?: number;
+  installRate?: number;
 }
 
 const CIRCUIT_TYPES = [
@@ -88,15 +94,80 @@ const CircuitCableDetailsDialog: React.FC<CircuitCableDetailsDialogProps> = ({
   const [activeTab, setActiveTab] = useState('circuit');
   const [selectedDbCircuitId, setSelectedDbCircuitId] = useState<string>('');
   const [selectedBoardId, setSelectedBoardId] = useState<string>('');
+  const [materialSearch, setMaterialSearch] = useState('');
+  const [selectedMaterialId, setSelectedMaterialId] = useState<string>('');
+  const [selectedMaterial, setSelectedMaterial] = useState<{ id: string; description: string; supply_rate: number; install_rate: number; unit: string } | null>(null);
+  const [faSearch, setFaSearch] = useState('');
+  const [selectedFaItemId, setSelectedFaItemId] = useState<string>('');
+  const [selectedFaItem, setSelectedFaItem] = useState<{ id: string; item_code: string; description: string } | null>(null);
 
   // Fetch distribution boards and circuits if projectId is available
   const { data: boards } = useDistributionBoards(projectId || '');
   const { data: circuits } = useDbCircuits(selectedBoardId || '');
 
+  // Fetch master materials for cable types
+  const { data: masterMaterials = [] } = useQuery({
+    queryKey: ['master-materials-cables', isOpen],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('master_materials')
+        .select('id, item_code, description, unit, supply_rate, install_rate')
+        .or('description.ilike.%cable%,description.ilike.%wire%,description.ilike.%conductor%')
+        .eq('is_active', true)
+        .order('item_code');
+      return data || [];
+    },
+    enabled: isOpen,
+  });
+
+  // Fetch final account items for the project
+  const { data: finalAccountItems = [] } = useQuery({
+    queryKey: ['final-account-items-for-linking', projectId, isOpen],
+    queryFn: async () => {
+      if (!projectId) return [];
+      // Get sections for this project first
+      const { data: sections } = await (supabase as any)
+        .from('final_account_sections')
+        .select('id')
+        .eq('project_id', projectId);
+      
+      if (!sections || sections.length === 0) return [];
+      
+      const sectionIds = sections.map((s: any) => s.id);
+      const { data } = await (supabase as any)
+        .from('final_account_items')
+        .select('id, item_code, description, unit, supply_rate, install_rate')
+        .in('section_id', sectionIds)
+        .order('item_code');
+      return data || [];
+    },
+    enabled: isOpen && !!projectId,
+  });
+
   const allCableTypes = useMemo(() => {
     const combined = new Set([...configCableTypes, ...existingCableTypes]);
     return Array.from(combined).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   }, [configCableTypes, existingCableTypes]);
+
+  // Filter materials by search
+  const filteredMaterials = useMemo(() => {
+    if (!materialSearch.trim()) return masterMaterials.slice(0, 20);
+    const search = materialSearch.toLowerCase();
+    return masterMaterials.filter((m: any) => 
+      m.description?.toLowerCase().includes(search) || 
+      m.item_code?.toLowerCase().includes(search)
+    ).slice(0, 20);
+  }, [masterMaterials, materialSearch]);
+
+  // Filter FA items by search
+  const filteredFaItems = useMemo(() => {
+    if (!faSearch.trim()) return finalAccountItems.slice(0, 20);
+    const search = faSearch.toLowerCase();
+    return finalAccountItems.filter((item: any) => 
+      item.description?.toLowerCase().includes(search) || 
+      item.item_code?.toLowerCase().includes(search)
+    ).slice(0, 20);
+  }, [finalAccountItems, faSearch]);
 
   // Reset form when dialog opens
   useEffect(() => {
@@ -115,6 +186,12 @@ const CircuitCableDetailsDialog: React.FC<CircuitCableDetailsDialogProps> = ({
       setActiveTab('circuit');
       setSelectedDbCircuitId('');
       setSelectedBoardId('');
+      setMaterialSearch('');
+      setSelectedMaterialId('');
+      setSelectedMaterial(null);
+      setFaSearch('');
+      setSelectedFaItemId('');
+      setSelectedFaItem(null);
     }
   }, [isOpen]);
 
@@ -155,11 +232,37 @@ const CircuitCableDetailsDialog: React.FC<CircuitCableDetailsDialogProps> = ({
       containmentType,
       startHeight,
       endHeight,
-      boqItemCode: boqItemCode.trim() || undefined,
+      boqItemCode: boqItemCode.trim() || selectedFaItem?.item_code || undefined,
       notes: notes.trim() || undefined,
       dbCircuitId: selectedDbCircuitId || undefined,
+      masterMaterialId: selectedMaterialId || undefined,
+      finalAccountItemId: selectedFaItemId || undefined,
+      supplyRate: selectedMaterial?.supply_rate || undefined,
+      installRate: selectedMaterial?.install_rate || undefined,
     });
     onClose();
+  };
+
+  const handleMaterialSelect = (material: any) => {
+    setSelectedMaterialId(material.id);
+    setSelectedMaterial({
+      id: material.id,
+      description: material.description,
+      supply_rate: material.supply_rate || 0,
+      install_rate: material.install_rate || 0,
+      unit: material.unit || 'm',
+    });
+    setBoqItemCode(material.item_code || '');
+  };
+
+  const handleFaItemSelect = (item: any) => {
+    setSelectedFaItemId(item.id);
+    setSelectedFaItem({
+      id: item.id,
+      item_code: item.item_code,
+      description: item.description,
+    });
+    setBoqItemCode(item.item_code || '');
   };
 
   const hasExistingCircuits = projectId && boards && boards.length > 0;
@@ -403,6 +506,140 @@ const CircuitCableDetailsDialog: React.FC<CircuitCableDetailsDialogProps> = ({
 
           {/* BOQ Link Tab */}
           <TabsContent value="boq" className="space-y-4 mt-4">
+            {/* Master Material Selector */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <Package className="h-4 w-4" />
+                Link to Master Material
+              </Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search cable materials..."
+                  value={materialSearch}
+                  onChange={(e) => setMaterialSearch(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <ScrollArea className="h-32 border rounded-md">
+                <div className="p-2 space-y-1">
+                  {filteredMaterials.map((material: any) => (
+                    <button
+                      key={material.id}
+                      type="button"
+                      onClick={() => handleMaterialSelect(material)}
+                      className={`w-full text-left p-2 rounded text-sm transition-colors ${
+                        selectedMaterialId === material.id
+                          ? 'bg-primary text-primary-foreground'
+                          : 'hover:bg-muted'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-xs">{material.item_code}</span>
+                        <span className="truncate flex-1">{material.description}</span>
+                      </div>
+                      <div className="flex gap-4 text-xs mt-1 opacity-80">
+                        <span>Supply: R{material.supply_rate?.toFixed(2) || '0.00'}/m</span>
+                        <span>Install: R{material.install_rate?.toFixed(2) || '0.00'}/m</span>
+                      </div>
+                    </button>
+                  ))}
+                  {filteredMaterials.length === 0 && (
+                    <p className="text-center text-xs text-muted-foreground py-4">
+                      No cable materials found
+                    </p>
+                  )}
+                </div>
+              </ScrollArea>
+              {selectedMaterial && (
+                <div className="p-2 bg-primary/10 rounded-md text-sm">
+                  <div className="font-medium">{selectedMaterial.description}</div>
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Est. cost: R{((selectedMaterial.supply_rate + selectedMaterial.install_rate) * totalLength).toFixed(2)} 
+                    ({totalLength.toFixed(2)}m × R{(selectedMaterial.supply_rate + selectedMaterial.install_rate).toFixed(2)}/m)
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">or</span>
+              </div>
+            </div>
+
+            {/* Final Account Item Selector */}
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2">
+                <FileText className="h-4 w-4" />
+                Link to Final Account Item
+              </Label>
+              {projectId && finalAccountItems.length > 0 ? (
+                <>
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search final account items..."
+                      value={faSearch}
+                      onChange={(e) => setFaSearch(e.target.value)}
+                      className="pl-9"
+                    />
+                  </div>
+                  <ScrollArea className="h-32 border rounded-md">
+                    <div className="p-2 space-y-1">
+                      {filteredFaItems.map((item: any) => (
+                        <button
+                          key={item.id}
+                          type="button"
+                          onClick={() => handleFaItemSelect(item)}
+                          className={`w-full text-left p-2 rounded text-sm transition-colors ${
+                            selectedFaItemId === item.id
+                              ? 'bg-primary text-primary-foreground'
+                              : 'hover:bg-muted'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-xs">{item.item_code}</span>
+                            <span className="truncate flex-1">{item.description}</span>
+                          </div>
+                        </button>
+                      ))}
+                      {filteredFaItems.length === 0 && (
+                        <p className="text-center text-xs text-muted-foreground py-4">
+                          No matching items
+                        </p>
+                      )}
+                    </div>
+                  </ScrollArea>
+                </>
+              ) : (
+                <div className="p-3 bg-muted/30 rounded-lg text-sm text-muted-foreground">
+                  {!projectId 
+                    ? 'Link design to a project to access Final Account items.'
+                    : 'No Final Account items found for this project.'}
+                </div>
+              )}
+              {selectedFaItem && (
+                <div className="p-2 bg-primary/10 rounded-md text-sm">
+                  <span className="font-mono mr-2">{selectedFaItem.item_code}</span>
+                  {selectedFaItem.description}
+                </div>
+              )}
+            </div>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">or enter manually</span>
+              </div>
+            </div>
+
+            {/* Manual BOQ Code Entry */}
             <div className="space-y-2">
               <Label htmlFor="boqItemCode">BOQ Item Code</Label>
               <Input
@@ -412,16 +649,9 @@ const CircuitCableDetailsDialog: React.FC<CircuitCableDetailsDialogProps> = ({
                 onChange={(e) => setBoqItemCode(e.target.value)}
               />
               <p className="text-xs text-muted-foreground">
-                Enter the BOQ item code to link this cable to final account materials
+                Manually enter a code to match against BOQ items later
               </p>
             </div>
-
-            {/* Future: Add Final Account Item selector when project is linked */}
-            {projectId && (
-              <div className="p-3 bg-muted/30 rounded-lg text-sm text-muted-foreground">
-                <p>Final Account linking will be available after saving the design.</p>
-              </div>
-            )}
           </TabsContent>
         </Tabs>
 
