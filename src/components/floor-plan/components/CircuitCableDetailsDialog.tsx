@@ -6,7 +6,8 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Cable, Route, Link2, ArrowUpDown } from 'lucide-react';
+import { Cable, Route, Link2, ArrowUpDown, CircuitBoard, ChevronRight } from 'lucide-react';
+import { useDistributionBoards, useDbCircuits, DbCircuit } from '@/components/circuit-schedule/hooks/useDistributionBoards';
 
 interface CircuitCableDetailsDialogProps {
   isOpen: boolean;
@@ -30,13 +31,14 @@ export interface CircuitCableFormData {
   finalAccountItemId?: string;
   boqItemCode?: string;
   notes?: string;
+  dbCircuitId?: string;
 }
 
 const CIRCUIT_TYPES = [
   { value: 'lighting', label: 'Lighting' },
   { value: 'power', label: 'Power' },
-  { value: 'hvac', label: 'HVAC' },
   { value: 'data', label: 'Data/Comms' },
+  { value: 'hvac', label: 'HVAC' },
   { value: 'fire', label: 'Fire/Safety' },
   { value: 'other', label: 'Other' },
 ];
@@ -51,6 +53,17 @@ const CONTAINMENT_TYPES = [
   'In Slab',
   'In Wall',
 ];
+
+// Helper to infer circuit type from description or ref
+const inferCircuitType = (circuitRef: string, description?: string): CircuitCableFormData['circuitType'] => {
+  const text = `${circuitRef} ${description || ''}`.toLowerCase();
+  if (text.includes('light') || circuitRef.startsWith('L')) return 'lighting';
+  if (text.includes('power') || text.includes('socket') || circuitRef.startsWith('P') || circuitRef.startsWith('S')) return 'power';
+  if (text.includes('hvac') || text.includes('ac') || text.includes('air')) return 'hvac';
+  if (text.includes('data') || text.includes('comm')) return 'data';
+  if (text.includes('fire') || text.includes('alarm')) return 'fire';
+  return 'other';
+};
 
 const CircuitCableDetailsDialog: React.FC<CircuitCableDetailsDialogProps> = ({
   isOpen,
@@ -73,6 +86,12 @@ const CircuitCableDetailsDialog: React.FC<CircuitCableDetailsDialogProps> = ({
   const [boqItemCode, setBoqItemCode] = useState('');
   const [notes, setNotes] = useState('');
   const [activeTab, setActiveTab] = useState('circuit');
+  const [selectedDbCircuitId, setSelectedDbCircuitId] = useState<string>('');
+  const [selectedBoardId, setSelectedBoardId] = useState<string>('');
+
+  // Fetch distribution boards and circuits if projectId is available
+  const { data: boards } = useDistributionBoards(projectId || '');
+  const { data: circuits } = useDbCircuits(selectedBoardId || '');
 
   const allCableTypes = useMemo(() => {
     const combined = new Set([...configCableTypes, ...existingCableTypes]);
@@ -94,8 +113,29 @@ const CircuitCableDetailsDialog: React.FC<CircuitCableDetailsDialogProps> = ({
       setBoqItemCode('');
       setNotes('');
       setActiveTab('circuit');
+      setSelectedDbCircuitId('');
+      setSelectedBoardId('');
     }
   }, [isOpen]);
+
+  // When a circuit is selected, populate form fields
+  const handleCircuitSelect = (circuit: DbCircuit) => {
+    setSelectedDbCircuitId(circuit.id);
+    setCircuitRef(circuit.circuit_ref);
+    setCircuitType(inferCircuitType(circuit.circuit_ref, circuit.description || undefined));
+    if (circuit.cable_size) {
+      setCableType(circuit.cable_size);
+    }
+    // Set from as the board name
+    const board = boards?.find(b => b.id === selectedBoardId);
+    if (board) {
+      setFrom(board.name);
+    }
+    // Description can populate 'to' field if it suggests a destination
+    if (circuit.description) {
+      setTo(circuit.description);
+    }
+  };
 
   const totalLength = measuredLength + startHeight + endHeight;
 
@@ -117,9 +157,12 @@ const CircuitCableDetailsDialog: React.FC<CircuitCableDetailsDialogProps> = ({
       endHeight,
       boqItemCode: boqItemCode.trim() || undefined,
       notes: notes.trim() || undefined,
+      dbCircuitId: selectedDbCircuitId || undefined,
     });
     onClose();
   };
+
+  const hasExistingCircuits = projectId && boards && boards.length > 0;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -167,6 +210,62 @@ const CircuitCableDetailsDialog: React.FC<CircuitCableDetailsDialogProps> = ({
 
           {/* Circuit Tab */}
           <TabsContent value="circuit" className="space-y-4 mt-4">
+            {/* Existing Circuit Selector */}
+            {hasExistingCircuits && (
+              <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg space-y-3">
+                <div className="flex items-center gap-2 text-sm font-medium text-primary">
+                  <CircuitBoard className="h-4 w-4" />
+                  Select from Circuit Schedule
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <Select value={selectedBoardId} onValueChange={setSelectedBoardId}>
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Select board..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {boards?.map((board) => (
+                        <SelectItem key={board.id} value={board.id}>
+                          {board.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <Select 
+                    value={selectedDbCircuitId} 
+                    onValueChange={(id) => {
+                      const circuit = circuits?.find(c => c.id === id);
+                      if (circuit) handleCircuitSelect(circuit);
+                    }}
+                    disabled={!selectedBoardId || !circuits?.length}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder="Select circuit..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {circuits?.map((circuit) => (
+                        <SelectItem key={circuit.id} value={circuit.id}>
+                          <span className="flex items-center gap-2">
+                            <span className="font-medium">{circuit.circuit_ref}</span>
+                            {circuit.description && (
+                              <>
+                                <ChevronRight className="h-3 w-3 text-muted-foreground" />
+                                <span className="text-muted-foreground text-xs">{circuit.description}</span>
+                              </>
+                            )}
+                          </span>
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {selectedDbCircuitId && (
+                  <p className="text-xs text-muted-foreground">
+                    Circuit details auto-populated. You can still edit below.
+                  </p>
+                )}
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="circuitRef">Circuit Reference *</Label>
