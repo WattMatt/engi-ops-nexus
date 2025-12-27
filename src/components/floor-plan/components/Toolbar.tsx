@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import type { LucideProps } from 'lucide-react';
 import { User } from '@supabase/supabase-js';
-import { MousePointer, Hand, Ruler, Route, Layers, Save, FolderOpen, Network, Shield, Server, RotateCw, Printer, Square, LayoutGrid, Sun, Magnet, Wrench, Edit, ShieldQuestion, Power, Plug, Undo2, Redo2, Maximize2, FileText, Link2, CircuitBoard, Package } from 'lucide-react';
+import { MousePointer, Hand, Ruler, Route, Layers, Save, FolderOpen, Network, Shield, Server, RotateCw, Printer, Square, LayoutGrid, Sun, Magnet, Wrench, Edit, ShieldQuestion, Power, Plug, Undo2, Redo2, Maximize2, FileText, Link2, CircuitBoard, Package, Cable } from 'lucide-react';
 import { Tool, DesignPurpose, MarkupToolCategory, MARKUP_TOOL_CATEGORIES, ScaleInfo } from '../types';
 import { type PurposeConfig } from '../purpose.config';
 import { EquipmentIcon } from './EquipmentIcon';
@@ -76,6 +76,7 @@ interface ToolbarProps {
 const toolIconMap: Partial<Record<Tool, React.ElementType<LucideProps>>> = {
     [Tool.SELECT]: MousePointer, [Tool.PAN]: Hand, [Tool.SCALE]: Ruler, 
     [Tool.LINE_MV]: Route, [Tool.LINE_LV]: Route, [Tool.LINE_DC]: Route, [Tool.ZONE]: Layers,
+    [Tool.CIRCUIT_CABLE]: Cable,
     [Tool.TOOL_TELKOM_BASKET]: Network, [Tool.TOOL_SECURITY_BASKET]: Shield, [Tool.TOOL_CABLE_TRAY]: Server,
     [Tool.TOOL_SLEEVES]: Route, [Tool.TOOL_POWERSKIRTING]: Route,
     [Tool.TOOL_P2000_TRUNKING]: Route, [Tool.TOOL_P8000_TRUNKING]: Route, [Tool.TOOL_P9000_TRUNKING]: Route,

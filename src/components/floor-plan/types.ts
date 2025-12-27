@@ -115,6 +115,9 @@ export enum Tool {
   TOOL_CONDUIT_40MM = 'tool_conduit_40mm',
   TOOL_CONDUIT_50MM = 'tool_conduit_50mm',
 
+  // Circuit Cable Tool
+  CIRCUIT_CABLE = 'circuit_cable',
+
   // Line Shop Equipment
   PLACE_GENERAL_LIGHT_SWITCH = 'place_general_light_switch',
   PLACE_DIMMER_SWITCH = 'place_dimmer_switch',
@@ -281,6 +284,34 @@ export interface Task {
   linkedItemId: string; // ID of EquipmentItem or SupplyZone
 }
 
+// Circuit Cable for dedicated circuit wiring tool
+export interface CircuitCable {
+  id: string;
+  points: Point[];
+  measuredLength: number; // Auto-calculated from points using scale
+  totalLength: number; // Measured + start/end heights
+  // Circuit Details
+  circuitRef?: string; // e.g., "L1", "P3"
+  circuitType?: 'lighting' | 'power' | 'hvac' | 'data' | 'fire' | 'other';
+  cableType?: string; // e.g., "4Core x 16mm Alu"
+  from?: string; // Origin location
+  to?: string; // Destination location
+  // Routing Details
+  containmentType?: string; // e.g., "Cable Tray", "Conduit"
+  startHeight?: number; // Drop height at start (meters)
+  endHeight?: number; // Drop height at end (meters)
+  // BOQ Linking
+  finalAccountItemId?: string; // Link to final_account_items
+  boqItemCode?: string; // BOQ item reference
+  // Costing
+  supplyRate?: number;
+  installRate?: number;
+  totalCost?: number;
+  // Meta
+  notes?: string;
+  color?: string; // Display color
+}
+
 export interface GeneratePdfParams {
   canvases: {
     pdf: HTMLCanvasElement | null;
@@ -299,4 +330,6 @@ export interface GeneratePdfParams {
   // PV Specific
   pvPanelConfig?: PVPanelConfig | null;
   pvArrays?: PVArrayItem[];
+  // Circuit Cables
+  circuitCables?: CircuitCable[];
 }
