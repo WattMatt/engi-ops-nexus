@@ -39,6 +39,7 @@ interface CanvasProps {
   onScaleLabelPositionChange: (position: Point | null) => void;
   onScalingComplete: (line: {start: Point, end: Point}) => void;
   onLvLineComplete: (line: { points: Point[], length: number }) => void;
+  onCircuitCableComplete: (line: { points: Point[], length: number }) => void;
   onContainmentDrawComplete: (line: { points: Point[], length: number; type: ContainmentType; }) => void;
   onWalkwayDrawComplete: (line: { points: Point[], length: number; }) => void;
   scaleLine: {start: Point, end: Point} | null;
@@ -69,7 +70,7 @@ interface CanvasProps {
 const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
   pdfDoc, activeTool, viewState, setViewState,
   equipment, setEquipment, lines, setLines, zones, setZones, containment, setContainment, walkways, setWalkways,
-  scaleInfo, onScaleLabelPositionChange, onScalingComplete, onLvLineComplete, onContainmentDrawComplete, onWalkwayDrawComplete, scaleLine, onInitialViewCalculated,
+  scaleInfo, onScaleLabelPositionChange, onScalingComplete, onLvLineComplete, onCircuitCableComplete, onContainmentDrawComplete, onWalkwayDrawComplete, scaleLine, onInitialViewCalculated,
   selectedItemId, setSelectedItemId, placementRotation, purposeConfig,
   pvPanelConfig, roofMasks, pvArrays, setPvArrays, onRoofMaskDrawComplete, pendingPvArrayConfig, onPlacePvArray, isSnappingEnabled,
   pendingRoofMask, onRoofDirectionSet, onCancelRoofCreation, tasks,
@@ -632,6 +633,7 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
                     }, 0) * (scaleInfo.ratio || 1);
                     
                     if (activeTool === Tool.LINE_LV) onLvLineComplete({ points: currentDrawing, length: lineLength });
+                    else if (activeTool === Tool.CIRCUIT_CABLE) onCircuitCableComplete({ points: currentDrawing, length: lineLength });
                     else if ([Tool.LINE_MV, Tool.LINE_DC].includes(activeTool)) {
                         const type = activeTool === Tool.LINE_MV ? 'mv' : 'dc';
                         setLines(prev => [...prev, { id: `line-${Date.now()}`, type, points: currentDrawing, length: lineLength, name: `${type.toUpperCase()} line` }]);
@@ -646,7 +648,7 @@ const Canvas = forwardRef<CanvasHandles, CanvasProps>(({
         };
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
-    }, [isDrawingShape, activeTool, currentDrawing, onRoofMaskDrawComplete, completeZoneDrawing, onLvLineComplete, onWalkwayDrawComplete, onContainmentDrawComplete, purposeConfig, scaleInfo.ratio, setLines, resetDrawingState, onCancelRoofCreation]);
+    }, [isDrawingShape, activeTool, currentDrawing, onRoofMaskDrawComplete, completeZoneDrawing, onLvLineComplete, onCircuitCableComplete, onWalkwayDrawComplete, onContainmentDrawComplete, purposeConfig, scaleInfo.ratio, setLines, resetDrawingState, onCancelRoofCreation]);
 
 
   const handleMouseDown = (e: React.MouseEvent) => {

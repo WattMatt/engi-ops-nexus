@@ -2,13 +2,14 @@ import React, { useState, useEffect, useCallback, useRef, useMemo, createContext
 import type { PDFDocumentProxy } from 'pdfjs-dist';
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist/build/pdf.mjs';
 import { User } from '@supabase/supabase-js';
-import { Tool, type EquipmentItem, type SupplyLine, type SupplyZone, type ScaleInfo, type ViewState, type Point, type Containment, ContainmentType, type Walkway, DesignPurpose, PVPanelConfig, RoofMask, PVArrayItem, Task, TaskStatus } from './types';
+import { Tool, type EquipmentItem, type SupplyLine, type SupplyZone, type ScaleInfo, type ViewState, type Point, type Containment, ContainmentType, type Walkway, DesignPurpose, PVPanelConfig, RoofMask, PVArrayItem, Task, TaskStatus, type CircuitCable } from './types';
 import { purposeConfigs, type PurposeConfig } from './purpose.config';
 import Toolbar from './components/Toolbar';
 import Canvas, { type CanvasHandles } from './components/Canvas';
 import EquipmentPanel from './components/EquipmentPanel';
 import ScaleModal from './components/ScaleModal';
 import CableDetailsModal from './components/CableDetailsModal';
+import CircuitCableDetailsDialog, { CircuitCableFormData } from './components/CircuitCableDetailsDialog';
 import ContainmentDetailsModal from './components/ContainmentDetailsModal';
 import DesignPurposeSelector from './components/DesignPurposeSelector';
 import { generatePdf } from './utils/pdfGenerator';
@@ -166,6 +167,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
   const [scaleInfo, setScaleInfo] = useState<ScaleInfo>({ pixelDistance: null, realDistance: null, ratio: null });
   const [isScaleModalOpen, setIsScaleModalOpen] = useState(false);
   const [isCableModalOpen, setIsCableModalOpen] = useState(false);
+  const [isCircuitCableModalOpen, setIsCircuitCableModalOpen] = useState(false);
   const [isContainmentModalOpen, setIsContainmentModalOpen] = useState(false);
   const [isExportModalOpen, setIsExportModalOpen] = useState(false);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
@@ -183,6 +185,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
   const [isSnappingEnabled, setIsSnappingEnabled] = useState(true);
 
   const [pendingLine, setPendingLine] = useState<{ points: Point[]; length: number; } | null>(null);
+  const [pendingCircuitCable, setPendingCircuitCable] = useState<{ points: Point[]; length: number; } | null>(null);
   const [pendingContainment, setPendingContainment] = useState<{ points: Point[]; length: number; type: ContainmentType; } | null>(null);
 
   // Cloud State
@@ -629,6 +632,37 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
       setPendingLine(line);
       setIsCableModalOpen(true);
   }, []);
+
+  const handleCircuitCableComplete = useCallback((line: { points: Point[]; length: number; }) => {
+      setPendingCircuitCable(line);
+      setIsCircuitCableModalOpen(true);
+  }, []);
+
+  const handleCircuitCableSubmit = (details: CircuitCableFormData) => {
+    if (!pendingCircuitCable) return;
+    const totalLength = pendingCircuitCable.length + details.startHeight + details.endHeight;
+    
+    // Create as a SupplyLine with circuit cable data for now (can be extended to CircuitCable later)
+    const newLine: SupplyLine = {
+      id: `circuit-${Date.now()}`,
+      name: details.circuitRef,
+      label: `${details.circuitRef}: ${details.from} → ${details.to}`,
+      type: 'lv',
+      points: pendingCircuitCable.points,
+      length: totalLength,
+      pathLength: pendingCircuitCable.length,
+      from: details.from,
+      to: details.to,
+      cableType: details.cableType,
+      startHeight: details.startHeight,
+      endHeight: details.endHeight,
+    };
+    setLines(prev => [...prev, newLine]);
+    
+    setIsCircuitCableModalOpen(false);
+    setPendingCircuitCable(null);
+    toast.success(`Circuit cable ${details.circuitRef} added`);
+  };
   
   const handleContainmentDrawComplete = useCallback((line: { points: Point[]; length: number; type: ContainmentType; }) => {
       // Types that have predefined sizes (no modal needed)
@@ -1077,6 +1111,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
                   zones={zones} setZones={setZones} containment={containment} setContainment={setContainment}
                   walkways={walkways} setWalkways={setWalkways}
                   scaleInfo={scaleInfo} onScaleLabelPositionChange={handleScaleLabelPositionChange} onScalingComplete={completeScaling} onLvLineComplete={handleLvLineComplete}
+                  onCircuitCableComplete={handleCircuitCableComplete}
                   onContainmentDrawComplete={handleContainmentDrawComplete} onWalkwayDrawComplete={handleWalkwayDrawComplete} scaleLine={scaleLine} onInitialViewCalculated={handleInitialViewCalculated}
                   selectedItemId={selectedItemId} setSelectedItemId={setSelectedItemId} placementRotation={placementRotation}
                   purposeConfig={purposeConfig} pvPanelConfig={pvPanelConfig} roofMasks={roofMasks} onRoofMaskDrawComplete={handleRoofMaskDrawComplete}
@@ -1146,6 +1181,15 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
         projectId={currentProjectId || undefined}
       />
       <ContainmentDetailsModal isOpen={isContainmentModalOpen} onClose={() => { setIsContainmentModalOpen(false); setPendingContainment(null); }} onSubmit={handleContainmentDetailsSubmit} purposeConfig={purposeConfig} />
+      <CircuitCableDetailsDialog 
+        isOpen={isCircuitCableModalOpen}
+        onClose={() => { setIsCircuitCableModalOpen(false); setPendingCircuitCable(null); }}
+        onSubmit={handleCircuitCableSubmit}
+        measuredLength={pendingCircuitCable?.length || 0}
+        existingCableTypes={uniqueCableTypes}
+        configCableTypes={purposeConfig?.cableTypes || []}
+        projectId={currentProjectId || undefined}
+      />
       <ExportPreviewModal isOpen={isExportModalOpen} onClose={() => setIsExportModalOpen(false)} onConfirm={handleConfirmExport} equipment={equipment} lines={lines} zones={zones} containment={containment} pvPanelConfig={pvPanelConfig} pvArrays={pvArrays} />
       <PVConfigModal isOpen={isPvConfigModalOpen} onClose={() => setIsPvConfigModalOpen(false)} onSubmit={handlePvConfigSubmit} />
       <RoofMaskModal isOpen={isRoofMaskModalOpen} onClose={() => { setIsRoofMaskModalOpen(false); setPendingRoofMask(null); }} onSubmit={handleRoofMaskSubmit} />

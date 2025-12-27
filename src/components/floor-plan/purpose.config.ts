@@ -263,16 +263,18 @@ const cableScheduleMarkupConfig: PurposeConfig = {
         Tool.SCALE,
         Tool.LINE_MV,
         Tool.LINE_LV,
+        Tool.CIRCUIT_CABLE,
         Tool.ZONE,
     ],
     toolCategories: {
         [Tool.SELECT]: 'general', [Tool.PAN]: 'general', [Tool.SCALE]: 'general',
-        [Tool.LINE_MV]: 'drawing', [Tool.LINE_LV]: 'drawing', [Tool.ZONE]: 'drawing',
+        [Tool.LINE_MV]: 'drawing', [Tool.LINE_LV]: 'drawing', [Tool.CIRCUIT_CABLE]: 'drawing', [Tool.ZONE]: 'drawing',
         [Tool.PLACE_MAIN_BOARD]: 'equipment', [Tool.PLACE_SUB_BOARD]: 'equipment',
     },
     toolLabels: {
         [Tool.LINE_MV]: 'Line (MV)',
         [Tool.LINE_LV]: 'Line (LV Feeder)',
+        [Tool.CIRCUIT_CABLE]: 'Circuit Cable',
         [Tool.ZONE]: 'Zone / Area',
     },
     equipmentToToolMap: {
