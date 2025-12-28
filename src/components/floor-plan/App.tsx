@@ -682,6 +682,8 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
           supply_rate: details.supplyRate,
           install_rate: details.installRate,
           boq_item_code: details.boqItemCode,
+          master_material_id: details.masterMaterialId,
+          final_account_item_id: details.finalAccountItemId,
         });
         toast.success(`Circuit cable ${details.circuitRef} added and assigned to circuit`);
       } catch (error: any) {
