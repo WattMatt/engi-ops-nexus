@@ -1029,25 +1029,35 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
 
     return (
       <div className="space-y-2">
-        {materials.map((material) => (
-          <div
-            key={material.id}
-            className="flex items-center justify-between p-2 rounded-md bg-muted/50 text-xs"
-          >
-            <div className="flex-1 min-w-0">
-              <div className="font-medium text-foreground truncate">{material.description}</div>
-              <div className="text-muted-foreground">
-                {material.quantity} {material.unit || 'No'}
-              </div>
-            </div>
-            <button
-              onClick={() => deleteMutation.mutate({ id: material.id, circuitId })}
-              className="flex-shrink-0 text-muted-foreground hover:text-destructive transition-colors"
+        {materials.map((material) => {
+          // Check if this is a GP wire - show breakdown for 3 conductors
+          const isGpWire = material.description?.includes('GP') && material.unit === 'm';
+          const baseLength = isGpWire ? material.quantity / 3 : null;
+          
+          return (
+            <div
+              key={material.id}
+              className="flex items-center justify-between p-2 rounded-md bg-muted/50 text-xs"
             >
-              <Trash2 className="h-3 w-3" />
-            </button>
-          </div>
-        ))}
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-foreground truncate">{material.description}</div>
+                <div className="text-muted-foreground">
+                  {isGpWire && baseLength ? (
+                    <span>{baseLength.toFixed(2)}m × 3 (L+E+N) = {material.quantity.toFixed(2)} {material.unit}</span>
+                  ) : (
+                    <span>{material.quantity} {material.unit || 'No'}</span>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={() => deleteMutation.mutate({ id: material.id, circuitId })}
+                className="flex-shrink-0 text-muted-foreground hover:text-destructive transition-colors"
+              >
+                <Trash2 className="h-3 w-3" />
+              </button>
+            </div>
+          );
+        })}
       </div>
     );
   };
