@@ -212,15 +212,6 @@ const Toolbar: React.FC<ToolbarProps> = ({
           />
         )}
         
-        {/* Circuit Panel Toggle */}
-        {onOpenCircuitPanel && (
-          <GlobalToolButton 
-            icon={Package} 
-            label="Circuit Markup Panel" 
-            onClick={onOpenCircuitPanel} 
-            disabled={!hasProjectId || !isPdfLoaded} 
-          />
-        )}
       </div>
       
       {isPdfLoaded && purposeConfig && (
