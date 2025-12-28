@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Cable, ArrowUpDown, CircuitBoard, ChevronRight } from 'lucide-react';
+import { Cable } from 'lucide-react';
 import { useDistributionBoards, useDbCircuits, DbCircuit } from '@/components/circuit-schedule/hooks/useDistributionBoards';
 
 interface CircuitCableDetailsDialogProps {
@@ -17,6 +17,19 @@ interface CircuitCableDetailsDialogProps {
   projectId?: string;
   selectedCircuit?: DbCircuit | null;
   selectedBoardName?: string;
+  // Edit mode
+  editingCable?: {
+    circuitRef?: string;
+    circuitType?: CircuitCableFormData['circuitType'];
+    cableType?: string;
+    from?: string;
+    to?: string;
+    label?: string;
+    startHeight?: number;
+    endHeight?: number;
+    terminationCount?: number;
+    dbCircuitId?: string;
+  } | null;
 }
 
 export interface CircuitCableFormData {
@@ -28,6 +41,8 @@ export interface CircuitCableFormData {
   containmentType: string;
   startHeight: number;
   endHeight: number;
+  terminationCount: number;
+  label: string;
   finalAccountItemId?: string;
   boqItemCode?: string;
   notes?: string;
@@ -67,6 +82,7 @@ const CircuitCableDetailsDialog: React.FC<CircuitCableDetailsDialogProps> = ({
   projectId,
   selectedCircuit,
   selectedBoardName,
+  editingCable,
 }) => {
   const [circuitRef, setCircuitRef] = useState('');
   const [circuitType, setCircuitType] = useState<CircuitCableFormData['circuitType']>('lighting');
@@ -74,84 +90,76 @@ const CircuitCableDetailsDialog: React.FC<CircuitCableDetailsDialogProps> = ({
   const [customCableType, setCustomCableType] = useState('');
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
-  const [startHeight, setStartHeight] = useState(0);
-  const [endHeight, setEndHeight] = useState(0);
+  const [label, setLabel] = useState('');
+  const [startHeight, setStartHeight] = useState('2');
+  const [endHeight, setEndHeight] = useState('0');
+  const [terminationCount, setTerminationCount] = useState('2');
   const [selectedDbCircuitId, setSelectedDbCircuitId] = useState<string>('');
-  const [selectedBoardId, setSelectedBoardId] = useState<string>('');
 
   // Fetch distribution boards and circuits if projectId is available
   const { data: boards } = useDistributionBoards(projectId || '');
-  const { data: circuits } = useDbCircuits(selectedBoardId || '');
+  const { data: circuits } = useDbCircuits(selectedDbCircuitId ? '' : '');
 
   const allCableTypes = useMemo(() => {
     const combined = new Set([...configCableTypes, ...existingCableTypes]);
     return Array.from(combined).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
   }, [configCableTypes, existingCableTypes]);
 
-  // Reset form when dialog opens, pre-populate if circuit is already selected
+  // Reset form when dialog opens
   useEffect(() => {
     if (isOpen) {
-      // Reset to defaults first
-      setCircuitType('lighting');
-      setCableType('');
-      setCustomCableType('');
-      setStartHeight(0);
-      setEndHeight(0);
-      
-      // Pre-populate from selected circuit if available
-      if (selectedCircuit) {
+      if (editingCable) {
+        // Edit mode: populate from existing cable
+        setCircuitRef(editingCable.circuitRef || '');
+        setCircuitType(editingCable.circuitType || 'lighting');
+        setCableType(editingCable.cableType || '');
+        setCustomCableType('');
+        setFrom(editingCable.from || '');
+        setTo(editingCable.to || '');
+        setLabel(editingCable.label || '');
+        setStartHeight(String(editingCable.startHeight ?? 2));
+        setEndHeight(String(editingCable.endHeight ?? 0));
+        setTerminationCount(String(editingCable.terminationCount ?? 2));
+        setSelectedDbCircuitId(editingCable.dbCircuitId || '');
+      } else if (selectedCircuit) {
+        // Create mode with pre-selected circuit
         setSelectedDbCircuitId(selectedCircuit.id);
         setCircuitRef(selectedCircuit.circuit_ref);
         setCircuitType(inferCircuitType(selectedCircuit.circuit_ref, selectedCircuit.description || undefined));
-        if (selectedCircuit.cable_size) {
-          setCableType(selectedCircuit.cable_size);
-        }
-        if (selectedBoardName) {
-          setFrom(selectedBoardName);
-        }
-        if (selectedCircuit.description) {
-          setTo(selectedCircuit.description);
-        }
-        // Find the board ID for the circuit
-        const board = boards?.find(b => b.id === selectedCircuit.distribution_board_id);
-        if (board) {
-          setSelectedBoardId(board.id);
-        }
+        setCableType(selectedCircuit.cable_size || '');
+        setCustomCableType('');
+        setFrom(selectedBoardName || '');
+        setTo(selectedCircuit.description || '');
+        setLabel(`${selectedCircuit.circuit_ref}: ${selectedBoardName || 'DB'} → ${selectedCircuit.description || ''}`);
+        setStartHeight('2');
+        setEndHeight('0');
+        setTerminationCount('2');
       } else {
-        setSelectedDbCircuitId('');
-        setSelectedBoardId('');
+        // Create mode: reset to defaults
         setCircuitRef('');
+        setCircuitType('lighting');
+        setCableType('');
+        setCustomCableType('');
         setFrom('');
         setTo('');
+        setLabel('');
+        setStartHeight('2');
+        setEndHeight('0');
+        setTerminationCount('2');
+        setSelectedDbCircuitId('');
       }
     }
-  }, [isOpen, selectedCircuit, selectedBoardName, boards]);
+  }, [isOpen, editingCable, selectedCircuit, selectedBoardName]);
 
-  // When a circuit is selected, populate form fields
-  const handleCircuitSelect = (circuit: DbCircuit) => {
-    setSelectedDbCircuitId(circuit.id);
-    setCircuitRef(circuit.circuit_ref);
-    setCircuitType(inferCircuitType(circuit.circuit_ref, circuit.description || undefined));
-    if (circuit.cable_size) {
-      setCableType(circuit.cable_size);
-    }
-    // Set from as the board name
-    const board = boards?.find(b => b.id === selectedBoardId);
-    if (board) {
-      setFrom(board.name);
-    }
-    // Description can populate 'to' field if it suggests a destination
-    if (circuit.description) {
-      setTo(circuit.description);
-    }
-  };
-
-  const totalLength = measuredLength + startHeight + endHeight;
+  const startH = parseFloat(startHeight) || 0;
+  const endH = parseFloat(endHeight) || 0;
+  const totalLength = measuredLength + startH + endH;
 
   const handleSubmit = () => {
-    const finalCableType = cableType === '__other__' ? customCableType : cableType;
+    const finalCableType = cableType === '__other__' ? customCableType.trim() : cableType;
+    const count = parseInt(terminationCount, 10);
     
-    if (!circuitRef.trim()) {
+    if (!from.trim() || !to.trim()) {
       return; // Basic validation
     }
 
@@ -162,14 +170,16 @@ const CircuitCableDetailsDialog: React.FC<CircuitCableDetailsDialogProps> = ({
       from: from.trim(),
       to: to.trim(),
       containmentType: '',
-      startHeight,
-      endHeight,
+      startHeight: startH,
+      endHeight: endH,
+      terminationCount: isNaN(count) ? 2 : count,
+      label: label.trim(),
       dbCircuitId: selectedDbCircuitId || undefined,
     });
     onClose();
   };
 
-  const hasExistingCircuits = projectId && boards && boards.length > 0;
+  const isEditMode = !!editingCable;
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -177,146 +187,82 @@ const CircuitCableDetailsDialog: React.FC<CircuitCableDetailsDialogProps> = ({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Cable className="h-5 w-5" />
-            Circuit Cable Details
+            {isEditMode ? 'Edit Cable Details' : 'Circuit Cable Details'}
           </DialogTitle>
         </DialogHeader>
 
-        {/* Length Summary with inline height inputs */}
-        <div className="bg-muted/50 rounded-lg p-3 mb-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="text-sm">
-              <span className="text-muted-foreground">Measured:</span>
-              <span className="ml-2 font-medium">{measuredLength.toFixed(2)}m</span>
-            </div>
-            <div className="text-sm">
-              <span className="text-muted-foreground">Total:</span>
-              <span className="ml-2 font-bold text-primary text-base">{totalLength.toFixed(2)}m</span>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="flex items-center gap-2">
-              <Label htmlFor="startHeightInline" className="text-xs text-muted-foreground whitespace-nowrap flex items-center gap-1">
-                <ArrowUpDown className="h-3 w-3" />
-                Start Drop:
-              </Label>
-              <div className="relative flex-1">
-                <Input
-                  id="startHeightInline"
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  value={startHeight}
-                  onChange={(e) => setStartHeight(parseFloat(e.target.value) || 0)}
-                  className="h-8 pr-6 text-sm"
-                />
-                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">m</span>
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              <Label htmlFor="endHeightInline" className="text-xs text-muted-foreground whitespace-nowrap flex items-center gap-1">
-                <ArrowUpDown className="h-3 w-3" />
-                End Drop:
-              </Label>
-              <div className="relative flex-1">
-                <Input
-                  id="endHeightInline"
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  value={endHeight}
-                  onChange={(e) => setEndHeight(parseFloat(e.target.value) || 0)}
-                  className="h-8 pr-6 text-sm"
-                />
-                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">m</span>
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* Length Summary */}
+        <p className="text-muted-foreground text-sm">
+          Calculated Length: <span className="text-primary font-semibold">{totalLength.toFixed(2)}m</span>
+        </p>
 
         <div className="space-y-4">
-          {/* Existing Circuit Selector */}
-          {hasExistingCircuits && (
-            <div className="p-3 bg-primary/5 border border-primary/20 rounded-lg space-y-3">
-              <div className="flex items-center gap-2 text-sm font-medium text-primary">
-                <CircuitBoard className="h-4 w-4" />
-                Select from Circuit Schedule
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <Select value={selectedBoardId} onValueChange={setSelectedBoardId}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Select board..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {boards?.map((board) => (
-                      <SelectItem key={board.id} value={board.id}>
-                        {board.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select 
-                  value={selectedDbCircuitId} 
-                  onValueChange={(id) => {
-                    const circuit = circuits?.find(c => c.id === id);
-                    if (circuit) handleCircuitSelect(circuit);
-                  }}
-                  disabled={!selectedBoardId || !circuits?.length}
-                >
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Select circuit..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {circuits?.map((circuit) => (
-                      <SelectItem key={circuit.id} value={circuit.id}>
-                        <span className="flex items-center gap-2">
-                          <span className="font-medium">{circuit.circuit_ref}</span>
-                          {circuit.description && (
-                            <>
-                              <ChevronRight className="h-3 w-3 text-muted-foreground" />
-                              <span className="text-muted-foreground text-xs">{circuit.description}</span>
-                            </>
-                          )}
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              {selectedDbCircuitId && (
-                <p className="text-xs text-muted-foreground">
-                  Circuit details auto-populated. You can still edit below.
-                </p>
-              )}
-            </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="circuitRef">Circuit Reference *</Label>
-              <Input
-                id="circuitRef"
-                placeholder="e.g., L1, P3, DB-01"
-                value={circuitRef}
-                onChange={(e) => setCircuitRef(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="circuitType">Circuit Type</Label>
-              <Select value={circuitType} onValueChange={(v) => setCircuitType(v as CircuitCableFormData['circuitType'])}>
-                <SelectTrigger id="circuitType">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {CIRCUIT_TYPES.map((ct) => (
-                    <SelectItem key={ct.value} value={ct.value}>
-                      {ct.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+          {/* Supply From */}
+          <div className="space-y-2">
+            <Label htmlFor="from">Supply From</Label>
+            <Input
+              id="from"
+              placeholder="e.g., DB-04A"
+              value={from}
+              onChange={(e) => setFrom(e.target.value)}
+            />
           </div>
 
+          {/* Supply To */}
+          <div className="space-y-2">
+            <Label htmlFor="to">Supply To</Label>
+            <Input
+              id="to"
+              placeholder="e.g., Lighting circuit 1"
+              value={to}
+              onChange={(e) => setTo(e.target.value)}
+            />
+          </div>
+
+          {/* Line Label */}
+          <div className="space-y-2">
+            <Label htmlFor="label">Line Label (Optional)</Label>
+            <Input
+              id="label"
+              placeholder="e.g., L1: DB-04A → Lighting circuit 1"
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+            />
+          </div>
+
+          {/* Start Height / Rise */}
+          <div className="space-y-2">
+            <Label htmlFor="startHeight">Start Height / Rise (m)</Label>
+            <Select value={startHeight} onValueChange={setStartHeight}>
+              <SelectTrigger id="startHeight">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6].map((v) => (
+                  <SelectItem key={v} value={String(v)}>{v}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">Vertical rise at the start point</p>
+          </div>
+
+          {/* End Height / Drop */}
+          <div className="space-y-2">
+            <Label htmlFor="endHeight">End Height / Drop (m)</Label>
+            <Select value={endHeight} onValueChange={setEndHeight}>
+              <SelectTrigger id="endHeight">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 5, 6].map((v) => (
+                  <SelectItem key={v} value={String(v)}>{v}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">Vertical drop at the end point</p>
+          </div>
+
+          {/* Cable Type */}
           <div className="space-y-2">
             <Label htmlFor="cableType">Cable Type</Label>
             <Select value={cableType} onValueChange={setCableType}>
@@ -342,25 +288,20 @@ const CircuitCableDetailsDialog: React.FC<CircuitCableDetailsDialogProps> = ({
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="from">From</Label>
-              <Input
-                id="from"
-                placeholder="e.g., Main DB"
-                value={from}
-                onChange={(e) => setFrom(e.target.value)}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="to">To</Label>
-              <Input
-                id="to"
-                placeholder="e.g., Sub DB 1"
-                value={to}
-                onChange={(e) => setTo(e.target.value)}
-              />
-            </div>
+          {/* Number of Terminations */}
+          <div className="space-y-2">
+            <Label htmlFor="terminationCount">Number of Terminations</Label>
+            <Select value={terminationCount} onValueChange={setTerminationCount}>
+              <SelectTrigger id="terminationCount">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {[0, 1, 2, 3, 4, 5, 6].map((v) => (
+                  <SelectItem key={v} value={String(v)}>{v}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">Total terminations (both ends combined)</p>
           </div>
         </div>
 
@@ -368,8 +309,8 @@ const CircuitCableDetailsDialog: React.FC<CircuitCableDetailsDialogProps> = ({
           <Button variant="outline" onClick={onClose}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={!circuitRef.trim()}>
-            Add Circuit Cable
+          <Button onClick={handleSubmit} disabled={!from.trim() || !to.trim()}>
+            {isEditMode ? 'Save Changes' : 'Add Cable'}
           </Button>
         </DialogFooter>
       </DialogContent>
