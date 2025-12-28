@@ -278,7 +278,7 @@ const cableScheduleMarkupConfig: PurposeConfig = {
     toolLabels: {
         [Tool.LINE_MV]: 'Line (MV)',
         [Tool.LINE_LV]: 'Line (LV Feeder)',
-        [Tool.CIRCUIT_CABLE]: 'Circuit Cable',
+        [Tool.CIRCUIT_CABLE]: 'Circuit Wiring',
         [Tool.ZONE]: 'Zone / Area',
     },
     equipmentToToolMap: {
