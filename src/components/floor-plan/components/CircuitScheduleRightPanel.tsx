@@ -235,9 +235,10 @@ const CircuitMaterialsList: React.FC<{
 
       {/* Materials list */}
       {materials.map((material) => {
-        // Check if this is a GP wire - show breakdown for 3 conductors (L+E+N)
+        // Check if this is a GP wire - multiply by 3 for L+E+N conductors
         const isGpWire = material.description?.toUpperCase().includes('GP') && material.unit === 'm';
-        const baseLength = isGpWire ? material.quantity / 3 : null;
+        const totalLength = isGpWire ? material.quantity * 3 : material.quantity;
+        
         return (
           <div
             key={material.id}
@@ -259,15 +260,15 @@ const CircuitMaterialsList: React.FC<{
             
             <div className="flex-grow min-w-0">
               <span className="truncate block text-xs">{material.description}</span>
-              {isGpWire && baseLength && (
+              {isGpWire && (
                 <span className="text-[10px] text-muted-foreground">
-                  {baseLength.toFixed(2)}m × 3 (L+E+N)
+                  {material.quantity.toFixed(2)}m × 3 (L+E+N)
                 </span>
               )}
             </div>
             
             <span className="text-xs font-mono text-muted-foreground flex-shrink-0">
-              {material.quantity.toFixed(2)} {material.unit}
+              {totalLength.toFixed(2)} {material.unit}
             </span>
             
             {/* Single item reassign dropdown */}

@@ -1043,10 +1043,9 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
     return (
       <div className="space-y-2">
         {materials.map((material) => {
-          // Check if this is a GP wire - show breakdown for 3 conductors (L+E+N)
-          // GP wires are identified by "GP" in the description and unit is meters
+          // Check if this is a GP wire - multiply by 3 for L+E+N conductors
           const isGpWire = material.description?.toUpperCase().includes('GP') && material.unit === 'm';
-          const baseLength = isGpWire ? material.quantity / 3 : null;
+          const totalLength = isGpWire ? material.quantity * 3 : material.quantity;
           
           return (
             <div
@@ -1056,8 +1055,8 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
               <div className="flex-1 min-w-0">
                 <div className="font-medium text-foreground truncate">{material.description}</div>
                 <div className="text-muted-foreground">
-                  {isGpWire && baseLength ? (
-                    <span>{baseLength.toFixed(2)}m × 3 (L+E+N) = {material.quantity.toFixed(2)} {material.unit}</span>
+                  {isGpWire ? (
+                    <span>{material.quantity.toFixed(2)}m × 3 (L+E+N) = {totalLength.toFixed(2)} {material.unit}</span>
                   ) : (
                     <span>{material.quantity} {material.unit || 'No'}</span>
                   )}
