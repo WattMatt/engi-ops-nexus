@@ -1030,8 +1030,9 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
     return (
       <div className="space-y-2">
         {materials.map((material) => {
-          // Check if this is a GP wire - show breakdown for 3 conductors
-          const isGpWire = material.description?.includes('GP') && material.unit === 'm';
+          // Check if this is a GP wire - show breakdown for 3 conductors (L+E+N)
+          // GP wires are identified by "GP" in the description and unit is meters
+          const isGpWire = material.description?.toUpperCase().includes('GP') && material.unit === 'm';
           const baseLength = isGpWire ? material.quantity / 3 : null;
           
           return (
