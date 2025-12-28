@@ -2454,51 +2454,75 @@ export type Database = {
       db_circuit_materials: {
         Row: {
           boq_item_code: string | null
+          boq_section: string | null
           circuit_id: string
           created_at: string
           description: string
           final_account_item_id: string | null
+          gross_quantity: number | null
           id: string
           install_rate: number | null
+          installation_status: string | null
+          is_auto_generated: boolean | null
           master_material_id: string | null
+          material_category: string | null
           notes: string | null
+          parent_material_id: string | null
           quantity: number | null
           supply_rate: number | null
           total_cost: number | null
           unit: string | null
           updated_at: string
+          wastage_factor: number | null
+          wastage_quantity: number | null
         }
         Insert: {
           boq_item_code?: string | null
+          boq_section?: string | null
           circuit_id: string
           created_at?: string
           description: string
           final_account_item_id?: string | null
+          gross_quantity?: number | null
           id?: string
           install_rate?: number | null
+          installation_status?: string | null
+          is_auto_generated?: boolean | null
           master_material_id?: string | null
+          material_category?: string | null
           notes?: string | null
+          parent_material_id?: string | null
           quantity?: number | null
           supply_rate?: number | null
           total_cost?: number | null
           unit?: string | null
           updated_at?: string
+          wastage_factor?: number | null
+          wastage_quantity?: number | null
         }
         Update: {
           boq_item_code?: string | null
+          boq_section?: string | null
           circuit_id?: string
           created_at?: string
           description?: string
           final_account_item_id?: string | null
+          gross_quantity?: number | null
           id?: string
           install_rate?: number | null
+          installation_status?: string | null
+          is_auto_generated?: boolean | null
           master_material_id?: string | null
+          material_category?: string | null
           notes?: string | null
+          parent_material_id?: string | null
           quantity?: number | null
           supply_rate?: number | null
           total_cost?: number | null
           unit?: string | null
           updated_at?: string
+          wastage_factor?: number | null
+          wastage_quantity?: number | null
         }
         Relationships: [
           {
@@ -2542,6 +2566,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "material_rate_by_province"
             referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "db_circuit_materials_parent_material_id_fkey"
+            columns: ["parent_material_id"]
+            isOneToOne: false
+            referencedRelation: "db_circuit_materials"
+            referencedColumns: ["id"]
           },
         ]
       }

@@ -1,6 +1,14 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { 
+  categorizeMaterial, 
+  calculateGrossQuantity, 
+  generateCableSupportingMaterials,
+  type MaterialCategory,
+  type BOQSection,
+  type InstallationStatus
+} from "../utils/electricalMaterialUtils";
 
 export interface DistributionBoard {
   id: string;
@@ -40,6 +48,15 @@ export interface DbCircuitMaterial {
   total_cost: number;
   final_account_item_id: string | null;
   notes: string | null;
+  // New fields for electrical tracking
+  material_category: MaterialCategory | null;
+  boq_section: BOQSection | null;
+  installation_status: InstallationStatus | null;
+  wastage_factor: number | null;
+  wastage_quantity: number | null;
+  gross_quantity: number | null;
+  is_auto_generated: boolean | null;
+  parent_material_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -295,28 +312,109 @@ export function useDeleteCircuit() {
   });
 }
 
+export interface CreateCircuitMaterialInput {
+  circuit_id: string;
+  description: string;
+  unit?: string;
+  quantity?: number;
+  supply_rate?: number;
+  install_rate?: number;
+  boq_item_code?: string;
+  master_material_id?: string;
+  final_account_item_id?: string;
+  // Optional overrides for auto-categorization
+  material_category?: MaterialCategory;
+  boq_section?: BOQSection;
+  skip_supporting_materials?: boolean;
+}
+
 export function useCreateCircuitMaterial() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (data: { circuit_id: string; description: string; unit?: string; quantity?: number; supply_rate?: number; install_rate?: number; boq_item_code?: string; master_material_id?: string; final_account_item_id?: string }) => {
+    mutationFn: async (data: CreateCircuitMaterialInput) => {
+      // Auto-categorize the material
+      const categoryInfo = categorizeMaterial(data.description);
+      const category = data.material_category || categoryInfo.category;
+      const boqSection = data.boq_section || categoryInfo.boqSection;
+      
+      // Calculate wastage
+      const netQuantity = data.quantity || 0;
+      const { wastageQuantity, grossQuantity } = calculateGrossQuantity(netQuantity, categoryInfo.wastagePercent);
+      
+      // Prepare the main material insert
+      const materialData = {
+        circuit_id: data.circuit_id,
+        description: data.description,
+        unit: data.unit,
+        quantity: netQuantity,
+        supply_rate: data.supply_rate,
+        install_rate: data.install_rate,
+        boq_item_code: data.boq_item_code,
+        master_material_id: data.master_material_id,
+        final_account_item_id: data.final_account_item_id,
+        material_category: category,
+        boq_section: boqSection,
+        installation_status: 'planned' as InstallationStatus,
+        wastage_factor: categoryInfo.wastagePercent,
+        wastage_quantity: wastageQuantity,
+        gross_quantity: grossQuantity,
+        is_auto_generated: false,
+      };
+      
       const { data: result, error } = await supabase
         .from("db_circuit_materials")
-        .insert(data)
+        .insert(materialData)
         .select()
         .single();
       
       if (error) throw error;
+      
+      // Auto-generate supporting materials for cables (unless skipped)
+      if (category === 'cable' && !data.skip_supporting_materials && netQuantity > 0) {
+        const cableSize = extractCableSize(data.description);
+        const supportingMaterials = generateCableSupportingMaterials(
+          data.description,
+          cableSize,
+          netQuantity
+        );
+        
+        // Insert supporting materials with reference to parent
+        for (const support of supportingMaterials) {
+          await supabase.from("db_circuit_materials").insert({
+            circuit_id: data.circuit_id,
+            description: support.description,
+            unit: support.unit,
+            quantity: support.quantity,
+            material_category: support.category,
+            boq_section: support.boqSection,
+            installation_status: 'planned',
+            is_auto_generated: true,
+            parent_material_id: result.id,
+            wastage_factor: 0,
+            wastage_quantity: 0,
+            gross_quantity: support.quantity,
+          });
+        }
+      }
+      
       return result;
     },
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ["circuit-materials", variables.circuit_id] });
-      toast.success("Material added");
+      queryClient.invalidateQueries({ queryKey: ["floor-plan-circuit-materials"] });
+      toast.success("Material added with auto-categorization");
     },
     onError: (error: any) => {
       toast.error(error.message || "Failed to add material");
     },
   });
+}
+
+// Helper to extract cable size from description
+function extractCableSize(description: string): string {
+  const match = description.match(/(\d+(?:\.\d+)?)\s*mm/i);
+  return match ? `${match[1]}mm` : '4mm';
 }
 
 export function useUpdateCircuitMaterial() {
