@@ -2455,6 +2455,7 @@ export type Database = {
         Row: {
           boq_item_code: string | null
           boq_section: string | null
+          canvas_line_id: string | null
           circuit_id: string
           created_at: string
           description: string
@@ -2479,6 +2480,7 @@ export type Database = {
         Insert: {
           boq_item_code?: string | null
           boq_section?: string | null
+          canvas_line_id?: string | null
           circuit_id: string
           created_at?: string
           description: string
@@ -2503,6 +2505,7 @@ export type Database = {
         Update: {
           boq_item_code?: string | null
           boq_section?: string | null
+          canvas_line_id?: string | null
           circuit_id?: string
           created_at?: string
           description?: string

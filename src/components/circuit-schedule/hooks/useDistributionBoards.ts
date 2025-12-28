@@ -322,6 +322,7 @@ export interface CreateCircuitMaterialInput {
   boq_item_code?: string;
   master_material_id?: string;
   final_account_item_id?: string;
+  canvas_line_id?: string; // Link to canvas line for sync deletion
   // Optional overrides for auto-categorization
   material_category?: MaterialCategory;
   boq_section?: BOQSection;
@@ -353,6 +354,7 @@ export function useCreateCircuitMaterial() {
         boq_item_code: data.boq_item_code,
         master_material_id: data.master_material_id,
         final_account_item_id: data.final_account_item_id,
+        canvas_line_id: data.canvas_line_id, // Link for sync deletion
         material_category: category,
         boq_section: boqSection,
         installation_status: 'planned' as InstallationStatus,
@@ -415,6 +417,45 @@ export function useCreateCircuitMaterial() {
 function extractCableSize(description: string): string {
   const match = description.match(/(\d+(?:\.\d+)?)\s*mm/i);
   return match ? `${match[1]}mm` : '4mm';
+}
+
+// Delete circuit materials by canvas line ID (for sync when canvas line is deleted)
+export function useDeleteCircuitMaterialByCanvasLine() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async (canvasLineId: string) => {
+      // First get the material to find its circuit_id for cache invalidation
+      const { data: material } = await supabase
+        .from("db_circuit_materials")
+        .select("id, circuit_id, parent_material_id")
+        .eq("canvas_line_id", canvasLineId)
+        .maybeSingle();
+      
+      if (!material) return null;
+      
+      // Delete any child materials (auto-generated supporting materials)
+      await supabase
+        .from("db_circuit_materials")
+        .delete()
+        .eq("parent_material_id", material.id);
+      
+      // Delete the main material
+      const { error } = await supabase
+        .from("db_circuit_materials")
+        .delete()
+        .eq("canvas_line_id", canvasLineId);
+      
+      if (error) throw error;
+      return material;
+    },
+    onSuccess: (material) => {
+      if (material?.circuit_id) {
+        queryClient.invalidateQueries({ queryKey: ["circuit-materials", material.circuit_id] });
+      }
+      queryClient.invalidateQueries({ queryKey: ["floor-plan-circuit-materials"] });
+    },
+  });
 }
 
 export function useUpdateCircuitMaterial() {

@@ -39,7 +39,7 @@ import { useTakeoffCounts } from './hooks/useTakeoffCounts';
 import { CircuitSchedulePanel } from './components/CircuitSchedulePanel';
 import { CircuitScheduleRightPanel } from './components/CircuitScheduleRightPanel';
 import { RegionSelectionOverlay } from '@/components/circuit-schedule/RegionSelectionOverlay';
-import { DbCircuit, useCreateCircuitMaterial, useDistributionBoards, useFloorPlanCircuitMaterials } from '@/components/circuit-schedule/hooks/useDistributionBoards';
+import { DbCircuit, useCreateCircuitMaterial, useDistributionBoards, useFloorPlanCircuitMaterials, useDeleteCircuitMaterialByCanvasLine } from '@/components/circuit-schedule/hooks/useDistributionBoards';
 import { useAICircuitScan } from '@/components/circuit-schedule/hooks/useAICircuitScan';
 
 
@@ -109,6 +109,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
   
   // Material assignment mutation
   const createCircuitMaterial = useCreateCircuitMaterial();
+  const deleteCircuitMaterialByCanvasLine = useDeleteCircuitMaterialByCanvasLine();
   
   // AI Circuit scanning
   const { isScanning, scanLayout, scanResult } = useAICircuitScan();
@@ -689,6 +690,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
           boq_item_code: details.boqItemCode,
           master_material_id: details.masterMaterialId,
           final_account_item_id: details.finalAccountItemId,
+          canvas_line_id: newLine.id, // Link for sync deletion when line is removed
         });
         toast.success(`Circuit cable ${details.circuitRef} added and assigned to circuit`);
       } catch (error: any) {
@@ -931,9 +933,19 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
     }
   }, []);
 
-  const handleDeleteSelectedItem = () => {
+  const handleDeleteSelectedItem = async () => {
     if (!selectedItemId) return;
-    if (window.confirm(`Are you sure you want to delete this item? This will also delete any linked tasks.`)) {
+    if (window.confirm(`Are you sure you want to delete this item? This will also delete any linked tasks and circuit materials.`)) {
+        // Check if this is a line (circuit wiring) and delete associated materials
+        const isLine = lines.some(l => l.id === selectedItemId);
+        if (isLine) {
+          try {
+            await deleteCircuitMaterialByCanvasLine.mutateAsync(selectedItemId);
+          } catch (error) {
+            console.log('No linked circuit material found or already deleted');
+          }
+        }
+        
         setState(prev => {
             setSelectedItemId(null);
             return { 
