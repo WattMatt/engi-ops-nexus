@@ -23,6 +23,7 @@ export interface TakeoffCounts {
   equipment: Record<string, number>;
   containment: Record<string, number>;
   cables: Record<string, { count: number; totalLength: number }>;
+  circuitWiring?: Record<string, { count: number; totalLength: number }>;
 }
 
 // Type definitions for query results
@@ -581,7 +582,10 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
     const equipmentTotal = Object.values(takeoffCounts.equipment).reduce((a, b) => a + b, 0);
     const containmentTotal = Object.values(takeoffCounts.containment).reduce((a, b) => a + b, 0);
     const cableTotal = Object.values(takeoffCounts.cables).reduce((a, b) => a + b.count, 0);
-    return equipmentTotal > 0 || containmentTotal > 0 || cableTotal > 0;
+    const circuitWiringTotal = takeoffCounts.circuitWiring 
+      ? Object.values(takeoffCounts.circuitWiring).reduce((a, b) => a + b.count, 0) 
+      : 0;
+    return equipmentTotal > 0 || containmentTotal > 0 || cableTotal > 0 || circuitWiringTotal > 0;
   }, [takeoffCounts]);
 
   // Build MaterialMapping[] from saved database mappings
@@ -602,6 +606,9 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
         unit = 'm';
       } else if (saved.equipment_type === 'cable') {
         quantity = takeoffCounts.cables[saved.equipment_label]?.totalLength || 0;
+        unit = 'm';
+      } else if (saved.equipment_type === 'circuitWiring') {
+        quantity = takeoffCounts.circuitWiring?.[saved.equipment_label]?.totalLength || 0;
         unit = 'm';
       }
       
@@ -774,6 +781,9 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
                       {Object.entries(takeoffCounts.cables).map(([type, data]) => 
                         data.count > 0 && <li key={type}>• {type}: {data.count} runs ({data.totalLength.toFixed(1)}m)</li>
                       )}
+                      {takeoffCounts.circuitWiring && Object.entries(takeoffCounts.circuitWiring).map(([type, data]) => 
+                        data.count > 0 && <li key={`wiring-${type}`}>• Circuit Wiring ({type}): {data.count} runs ({data.totalLength.toFixed(1)}m)</li>
+                      )}
                     </ul>
                   )}
                 </div>
@@ -815,6 +825,9 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
                     )}
                     {Object.entries(takeoffCounts.cables).map(([type, data]) => 
                       data.count > 0 && <li key={type}>• {type}: {data.count} runs ({data.totalLength.toFixed(1)}m)</li>
+                    )}
+                    {takeoffCounts.circuitWiring && Object.entries(takeoffCounts.circuitWiring).map(([type, data]) => 
+                      data.count > 0 && <li key={`wiring-${type}`}>• Circuit Wiring ({type}): {data.count} runs ({data.totalLength.toFixed(1)}m)</li>
                     )}
                   </ul>
                   {transferTakeoffs && (

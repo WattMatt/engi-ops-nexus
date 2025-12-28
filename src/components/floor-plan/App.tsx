@@ -39,7 +39,7 @@ import { useTakeoffCounts } from './hooks/useTakeoffCounts';
 import { CircuitSchedulePanel } from './components/CircuitSchedulePanel';
 import { CircuitScheduleRightPanel } from './components/CircuitScheduleRightPanel';
 import { RegionSelectionOverlay } from '@/components/circuit-schedule/RegionSelectionOverlay';
-import { DbCircuit, useCreateCircuitMaterial, useDistributionBoards } from '@/components/circuit-schedule/hooks/useDistributionBoards';
+import { DbCircuit, useCreateCircuitMaterial, useDistributionBoards, useFloorPlanCircuitMaterials } from '@/components/circuit-schedule/hooks/useDistributionBoards';
 import { useAICircuitScan } from '@/components/circuit-schedule/hooks/useAICircuitScan';
 
 
@@ -105,8 +105,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
   const currentDesign = history[historyIndex];
   const { equipment, lines, zones, containment, walkways, roofMasks, pvArrays, tasks } = currentDesign;
 
-  // Calculate take-off counts for linking to final account
-  const takeoffCounts = useTakeoffCounts(equipment, lines, containment);
+  // Calculate take-off counts for linking to final account - moved below after currentDesignId/currentProjectId are declared
   
   // Material assignment mutation
   const createCircuitMaterial = useCreateCircuitMaterial();
@@ -209,6 +208,12 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
 
   // Fetch boards to get the selected board name
   const { data: distributionBoards } = useDistributionBoards(currentProjectId);
+  
+  // Fetch circuit materials for this floor plan (for takeoff counts)
+  const { data: circuitMaterials } = useFloorPlanCircuitMaterials(currentDesignId, currentProjectId);
+  
+  // Calculate take-off counts for linking to final account (including circuit materials)
+  const takeoffCounts = useTakeoffCounts(equipment, lines, containment, circuitMaterials);
   const selectedBoardName = useMemo(() => {
     if (!selectedCircuit || !distributionBoards) return undefined;
     const board = distributionBoards.find(b => b.id === selectedCircuit.distribution_board_id);
