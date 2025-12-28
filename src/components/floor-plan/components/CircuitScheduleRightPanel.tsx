@@ -235,10 +235,9 @@ const CircuitMaterialsList: React.FC<{
 
       {/* Materials list */}
       {materials.map((material) => {
-        // Check if this is a GP wire - show breakdown for 3 conductors
-        const isGpWire = material.description?.includes('GP') && material.unit === 'm';
+        // Check if this is a GP wire - show breakdown for 3 conductors (L+E+N)
+        const isGpWire = material.description?.toUpperCase().includes('GP') && material.unit === 'm';
         const baseLength = isGpWire ? material.quantity / 3 : null;
-        
         return (
           <div
             key={material.id}
