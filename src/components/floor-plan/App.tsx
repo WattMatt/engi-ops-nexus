@@ -667,8 +667,10 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
     };
     setLines(prev => [...prev, newLine]);
     
-    // Auto-assign cable to selected circuit if one is selected via the dialog or panel
-    const circuitId = details.dbCircuitId || selectedCircuit?.id;
+    // Auto-assign cable to selected circuit - use ref for current value, or dialog selection
+    const circuitId = details.dbCircuitId || selectedCircuitRef.current?.id;
+    console.log('handleCircuitCableSubmit - circuitId:', circuitId, 'details.dbCircuitId:', details.dbCircuitId, 'selectedCircuitRef:', selectedCircuitRef.current);
+    
     if (circuitId) {
       try {
         await createCircuitMaterial.mutateAsync({
@@ -680,14 +682,17 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
           install_rate: details.installRate,
           boq_item_code: details.boqItemCode,
         });
+        toast.success(`Circuit cable ${details.circuitRef} added and assigned to circuit`);
       } catch (error: any) {
         console.error('Failed to assign cable to circuit:', error);
+        toast.error('Cable added but failed to assign to circuit');
       }
+    } else {
+      toast.success(`Circuit cable ${details.circuitRef} added (not assigned to circuit)`);
     }
     
     setIsCircuitCableModalOpen(false);
     setPendingCircuitCable(null);
-    toast.success(`Circuit cable ${details.circuitRef} added`);
   };
   
   const handleContainmentDrawComplete = useCallback((line: { points: Point[]; length: number; type: ContainmentType; }) => {
