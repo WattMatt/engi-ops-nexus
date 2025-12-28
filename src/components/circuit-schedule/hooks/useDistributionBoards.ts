@@ -111,6 +111,50 @@ export function useCircuitMaterials(circuitId: string | null) {
   });
 }
 
+// Fetch all circuit materials for a floor plan (via distribution boards and circuits)
+export function useFloorPlanCircuitMaterials(floorPlanId: string | null, projectId: string | null) {
+  return useQuery({
+    queryKey: ["floor-plan-circuit-materials", floorPlanId, projectId],
+    queryFn: async () => {
+      if (!floorPlanId || !projectId) return [];
+      
+      // Get all distribution boards for this floor plan
+      const { data: boards, error: boardsError } = await supabase
+        .from("distribution_boards")
+        .select("id")
+        .eq("floor_plan_id", floorPlanId)
+        .eq("project_id", projectId);
+      
+      if (boardsError) throw boardsError;
+      if (!boards || boards.length === 0) return [];
+      
+      const boardIds = boards.map(b => b.id);
+      
+      // Get all circuits for these boards
+      const { data: circuits, error: circuitsError } = await supabase
+        .from("db_circuits")
+        .select("id")
+        .in("distribution_board_id", boardIds);
+      
+      if (circuitsError) throw circuitsError;
+      if (!circuits || circuits.length === 0) return [];
+      
+      const circuitIds = circuits.map(c => c.id);
+      
+      // Get all materials for these circuits
+      const { data: materials, error: materialsError } = await supabase
+        .from("db_circuit_materials")
+        .select("*")
+        .in("circuit_id", circuitIds)
+        .order("created_at", { ascending: true });
+      
+      if (materialsError) throw materialsError;
+      return materials as DbCircuitMaterial[] || [];
+    },
+    enabled: !!floorPlanId && !!projectId,
+  });
+}
+
 export function useCreateDistributionBoard() {
   const queryClient = useQueryClient();
   
