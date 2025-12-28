@@ -20,23 +20,36 @@ interface FloorPlanReport {
 interface SavedReportsListProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  projectId?: string | null;
 }
 
-export const SavedReportsList = ({ open, onOpenChange }: SavedReportsListProps) => {
+export const SavedReportsList = ({ open, onOpenChange, projectId }: SavedReportsListProps) => {
   const [previewingReport, setPreviewingReport] = useState<FloorPlanReport | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   const { data: reports, isLoading, refetch } = useQuery({
-    queryKey: ['floor-plan-reports'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('floor_plan_reports')
-        .select('*')
-        .order('created_at', { ascending: false });
+    queryKey: ['floor-plan-reports', projectId],
+    queryFn: async (): Promise<FloorPlanReport[]> => {
+      // Filter by project if projectId is provided
+      if (projectId) {
+        const { data, error } = await supabase
+          .from('floor_plan_reports')
+          .select('id, project_name, file_path, report_revision, created_at, comments')
+          .eq('project_id', projectId)
+          .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      return data as FloorPlanReport[];
+        if (error) throw error;
+        return (data || []) as unknown as FloorPlanReport[];
+      } else {
+        const { data, error } = await supabase
+          .from('floor_plan_reports')
+          .select('id, project_name, file_path, report_revision, created_at, comments')
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+        return (data || []) as unknown as FloorPlanReport[];
+      }
     },
     enabled: open,
   });

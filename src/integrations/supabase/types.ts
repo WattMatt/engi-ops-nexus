@@ -4413,6 +4413,7 @@ export type Database = {
           created_at: string
           file_path: string
           id: string
+          project_id: string | null
           project_name: string
           report_revision: number
           user_id: string
@@ -4422,6 +4423,7 @@ export type Database = {
           created_at?: string
           file_path: string
           id?: string
+          project_id?: string | null
           project_name: string
           report_revision?: number
           user_id: string
@@ -4431,11 +4433,20 @@ export type Database = {
           created_at?: string
           file_path?: string
           id?: string
+          project_id?: string | null
           project_name?: string
           report_revision?: number
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "floor_plan_reports_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       floor_plan_tasks: {
         Row: {

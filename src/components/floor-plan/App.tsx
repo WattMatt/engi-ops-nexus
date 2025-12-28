@@ -1324,7 +1324,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
         currentProjectId={currentProjectId}
       />
       <TaskModal isOpen={isTaskModalOpen} onClose={() => { setIsTaskModalOpen(false); setEditingTask(null); }} onSubmit={handleTaskSubmit} task={editingTask} assigneeList={assigneeList} />
-      <SavedReportsList open={isSavedReportsModalOpen} onOpenChange={setIsSavedReportsModalOpen} />
+      <SavedReportsList open={isSavedReportsModalOpen} onOpenChange={setIsSavedReportsModalOpen} projectId={currentProjectId} />
       <LinkToFinalAccountDialog
         isOpen={isLinkDialogOpen}
         onClose={() => setIsLinkDialogOpen(false)}
