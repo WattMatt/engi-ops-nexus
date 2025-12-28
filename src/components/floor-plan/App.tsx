@@ -39,7 +39,7 @@ import { useTakeoffCounts } from './hooks/useTakeoffCounts';
 import { CircuitSchedulePanel } from './components/CircuitSchedulePanel';
 import { CircuitScheduleRightPanel } from './components/CircuitScheduleRightPanel';
 import { RegionSelectionOverlay } from '@/components/circuit-schedule/RegionSelectionOverlay';
-import { DbCircuit, useCreateCircuitMaterial } from '@/components/circuit-schedule/hooks/useDistributionBoards';
+import { DbCircuit, useCreateCircuitMaterial, useDistributionBoards } from '@/components/circuit-schedule/hooks/useDistributionBoards';
 import { useAICircuitScan } from '@/components/circuit-schedule/hooks/useAICircuitScan';
 
 
@@ -205,6 +205,14 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
   const [isSelectingRegion, setIsSelectingRegion] = useState(false);
   const [selectedRegion, setSelectedRegion] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
   const [debugCapturedImage, setDebugCapturedImage] = useState<string | null>(null); // For debugging region capture
+
+  // Fetch boards to get the selected board name
+  const { data: distributionBoards } = useDistributionBoards(currentProjectId);
+  const selectedBoardName = useMemo(() => {
+    if (!selectedCircuit || !distributionBoards) return undefined;
+    const board = distributionBoards.find(b => b.id === selectedCircuit.distribution_board_id);
+    return board?.name;
+  }, [selectedCircuit, distributionBoards]);
 
   // Keep ref in sync with state
   useEffect(() => {
@@ -1189,6 +1197,8 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
         existingCableTypes={uniqueCableTypes}
         configCableTypes={purposeConfig?.cableTypes || []}
         projectId={currentProjectId || undefined}
+        selectedCircuit={selectedCircuit}
+        selectedBoardName={selectedBoardName}
       />
       <ExportPreviewModal isOpen={isExportModalOpen} onClose={() => setIsExportModalOpen(false)} onConfirm={handleConfirmExport} equipment={equipment} lines={lines} zones={zones} containment={containment} pvPanelConfig={pvPanelConfig} pvArrays={pvArrays} />
       <PVConfigModal isOpen={isPvConfigModalOpen} onClose={() => setIsPvConfigModalOpen(false)} onSubmit={handlePvConfigSubmit} />

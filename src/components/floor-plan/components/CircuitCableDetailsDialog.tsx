@@ -20,6 +20,8 @@ interface CircuitCableDetailsDialogProps {
   existingCableTypes: string[];
   configCableTypes: string[];
   projectId?: string;
+  selectedCircuit?: DbCircuit | null;
+  selectedBoardName?: string;
 }
 
 export interface CircuitCableFormData {
@@ -79,6 +81,8 @@ const CircuitCableDetailsDialog: React.FC<CircuitCableDetailsDialogProps> = ({
   existingCableTypes,
   configCableTypes,
   projectId,
+  selectedCircuit,
+  selectedBoardName,
 }) => {
   const [circuitRef, setCircuitRef] = useState('');
   const [circuitType, setCircuitType] = useState<CircuitCableFormData['circuitType']>('lighting');
@@ -169,31 +173,54 @@ const CircuitCableDetailsDialog: React.FC<CircuitCableDetailsDialogProps> = ({
     ).slice(0, 20);
   }, [finalAccountItems, faSearch]);
 
-  // Reset form when dialog opens
+  // Reset form when dialog opens, pre-populate if circuit is already selected
   useEffect(() => {
     if (isOpen) {
-      setCircuitRef('');
+      // Reset to defaults first
       setCircuitType('lighting');
       setCableType('');
       setCustomCableType('');
-      setFrom('');
-      setTo('');
       setContainmentType('');
       setStartHeight(0);
       setEndHeight(0);
       setBoqItemCode('');
       setNotes('');
       setActiveTab('circuit');
-      setSelectedDbCircuitId('');
-      setSelectedBoardId('');
       setMaterialSearch('');
       setSelectedMaterialId('');
       setSelectedMaterial(null);
       setFaSearch('');
       setSelectedFaItemId('');
       setSelectedFaItem(null);
+      
+      // Pre-populate from selected circuit if available
+      if (selectedCircuit) {
+        setSelectedDbCircuitId(selectedCircuit.id);
+        setCircuitRef(selectedCircuit.circuit_ref);
+        setCircuitType(inferCircuitType(selectedCircuit.circuit_ref, selectedCircuit.description || undefined));
+        if (selectedCircuit.cable_size) {
+          setCableType(selectedCircuit.cable_size);
+        }
+        if (selectedBoardName) {
+          setFrom(selectedBoardName);
+        }
+        if (selectedCircuit.description) {
+          setTo(selectedCircuit.description);
+        }
+        // Find the board ID for the circuit
+        const board = boards?.find(b => b.id === selectedCircuit.distribution_board_id);
+        if (board) {
+          setSelectedBoardId(board.id);
+        }
+      } else {
+        setSelectedDbCircuitId('');
+        setSelectedBoardId('');
+        setCircuitRef('');
+        setFrom('');
+        setTo('');
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, selectedCircuit, selectedBoardName, boards]);
 
   // When a circuit is selected, populate form fields
   const handleCircuitSelect = (circuit: DbCircuit) => {
