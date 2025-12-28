@@ -234,55 +234,68 @@ const CircuitMaterialsList: React.FC<{
       )}
 
       {/* Materials list */}
-      {materials.map((material) => (
-        <div
-          key={material.id}
-          className={cn(
-            "flex items-center gap-2 px-2 py-2 rounded-md text-sm transition-colors",
-            selectedMaterials.has(material.id) ? "bg-primary/10" : "bg-muted/50 hover:bg-muted"
-          )}
-        >
-          <button
-            onClick={() => toggleMaterial(material.id)}
-            className="flex-shrink-0"
-          >
-            {selectedMaterials.has(material.id) ? (
-              <CheckSquare className="h-4 w-4 text-primary" />
-            ) : (
-              <Square className="h-4 w-4 text-muted-foreground" />
+      {materials.map((material) => {
+        // Check if this is a GP wire - show breakdown for 3 conductors
+        const isGpWire = material.description?.includes('GP') && material.unit === 'm';
+        const baseLength = isGpWire ? material.quantity / 3 : null;
+        
+        return (
+          <div
+            key={material.id}
+            className={cn(
+              "flex items-center gap-2 px-2 py-2 rounded-md text-sm transition-colors",
+              selectedMaterials.has(material.id) ? "bg-primary/10" : "bg-muted/50 hover:bg-muted"
             )}
-          </button>
-          
-          <span className="truncate flex-grow text-xs">{material.description}</span>
-          
-          <span className="text-xs font-mono text-muted-foreground flex-shrink-0">
-            {material.quantity} {material.unit}
-          </span>
-          
-          {/* Single item reassign dropdown */}
-          {otherCircuits.length > 0 && (
-            <Select onValueChange={(value) => handleReassignSingle(material.id, value)}>
-              <SelectTrigger className="h-6 w-6 p-0 border-none bg-transparent">
-                <ArrowRight className="h-3 w-3 text-muted-foreground" />
-              </SelectTrigger>
-              <SelectContent>
-                {otherCircuits.map((circuit) => (
-                  <SelectItem key={circuit.id} value={circuit.id} className="text-xs">
-                    {circuit.circuit_ref}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-          
-          <button
-            onClick={() => handleDelete(material.id)}
-            className="flex-shrink-0 text-muted-foreground hover:text-destructive transition-colors"
           >
-            <Trash2 className="h-3 w-3" />
-          </button>
-        </div>
-      ))}
+            <button
+              onClick={() => toggleMaterial(material.id)}
+              className="flex-shrink-0"
+            >
+              {selectedMaterials.has(material.id) ? (
+                <CheckSquare className="h-4 w-4 text-primary" />
+              ) : (
+                <Square className="h-4 w-4 text-muted-foreground" />
+              )}
+            </button>
+            
+            <div className="flex-grow min-w-0">
+              <span className="truncate block text-xs">{material.description}</span>
+              {isGpWire && baseLength && (
+                <span className="text-[10px] text-muted-foreground">
+                  {baseLength.toFixed(2)}m × 3 (L+E+N)
+                </span>
+              )}
+            </div>
+            
+            <span className="text-xs font-mono text-muted-foreground flex-shrink-0">
+              {material.quantity.toFixed(2)} {material.unit}
+            </span>
+            
+            {/* Single item reassign dropdown */}
+            {otherCircuits.length > 0 && (
+              <Select onValueChange={(value) => handleReassignSingle(material.id, value)}>
+                <SelectTrigger className="h-6 w-6 p-0 border-none bg-transparent">
+                  <ArrowRight className="h-3 w-3 text-muted-foreground" />
+                </SelectTrigger>
+                <SelectContent>
+                  {otherCircuits.map((circuit) => (
+                    <SelectItem key={circuit.id} value={circuit.id} className="text-xs">
+                      {circuit.circuit_ref}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            
+            <button
+              onClick={() => handleDelete(material.id)}
+              className="flex-shrink-0 text-muted-foreground hover:text-destructive transition-colors"
+            >
+              <Trash2 className="h-3 w-3" />
+            </button>
+          </div>
+        );
+      })}
     </div>
   );
 };
