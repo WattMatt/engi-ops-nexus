@@ -88,7 +88,7 @@ const toolIconMap: Partial<Record<Tool, React.ElementType<LucideProps>>> = {
 
 const categoryLabels: Record<MarkupToolCategory, { label: string; icon: React.ElementType<LucideProps> }> = {
     general: { label: 'General', icon: Wrench },
-    drawing: { label: 'Drawing', icon: Edit },
+    drawing: { label: 'Conductor', icon: Cable },
     equipment: { label: 'Equipment', icon: Power },
     containment: { label: 'Containment', icon: Server },
     lighting_sockets: { label: 'Lighting & Sockets', icon: Plug },

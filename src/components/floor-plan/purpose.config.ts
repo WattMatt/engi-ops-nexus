@@ -37,7 +37,8 @@ const budgetMarkupConfig: PurposeConfig = {
     ],
     toolCategories: {
         [Tool.SELECT]: 'general', [Tool.PAN]: 'general', [Tool.SCALE]: 'general',
-        [Tool.LINE_MV]: 'drawing', [Tool.LINE_LV]: 'drawing', [Tool.ZONE]: 'drawing',
+        [Tool.ZONE]: 'general',
+        [Tool.LINE_MV]: 'drawing', [Tool.LINE_LV]: 'drawing',
         [Tool.TOOL_CABLE_TRAY]: 'containment', [Tool.TOOL_TELKOM_BASKET]: 'containment', [Tool.TOOL_SECURITY_BASKET]: 'containment',
         [Tool.PLACE_RMU]: 'equipment', [Tool.PLACE_SUBSTATION]: 'equipment', [Tool.PLACE_MAIN_BOARD]: 'equipment',
         [Tool.PLACE_SUB_BOARD]: 'equipment', [Tool.PLACE_GENERATOR]: 'equipment', [Tool.PLACE_POLE_LIGHT]: 'equipment',
@@ -92,7 +93,8 @@ const pvDesignConfig: PurposeConfig = {
     ],
     toolCategories: {
         [Tool.SELECT]: 'general', [Tool.PAN]: 'general', [Tool.SCALE]: 'general',
-        [Tool.TOOL_ROOF_MASK]: 'drawing', [Tool.LINE_DC]: 'drawing', [Tool.LINE_LV]: 'drawing', [Tool.ZONE]: 'drawing',
+        [Tool.ZONE]: 'general', [Tool.TOOL_ROOF_MASK]: 'general',
+        [Tool.LINE_DC]: 'drawing', [Tool.LINE_LV]: 'drawing',
         [Tool.TOOL_CABLE_TRAY]: 'containment', [Tool.TOOL_WALKWAY]: 'containment',
         [Tool.TOOL_PV_ARRAY]: 'equipment', [Tool.PLACE_INVERTER]: 'equipment', [Tool.PLACE_DC_COMBINER]: 'equipment',
         [Tool.PLACE_AC_DISCONNECT]: 'equipment', [Tool.PLACE_MAIN_BOARD]: 'equipment',
@@ -150,7 +152,8 @@ const lineShopMarkupConfig: PurposeConfig = {
     ],
     toolCategories: {
         [Tool.SELECT]: 'general', [Tool.PAN]: 'general', [Tool.SCALE]: 'general',
-        [Tool.LINE_LV]: 'drawing', [Tool.ZONE]: 'drawing',
+        [Tool.ZONE]: 'general',
+        [Tool.LINE_LV]: 'drawing',
         [Tool.TOOL_SLEEVES]: 'containment', [Tool.TOOL_POWERSKIRTING]: 'containment',
         [Tool.TOOL_P2000_TRUNKING]: 'containment', [Tool.TOOL_P8000_TRUNKING]: 'containment', [Tool.TOOL_P9000_TRUNKING]: 'containment',
         [Tool.TOOL_CONDUIT_20MM]: 'containment', [Tool.TOOL_CONDUIT_25MM]: 'containment',
@@ -268,7 +271,8 @@ const cableScheduleMarkupConfig: PurposeConfig = {
     ],
     toolCategories: {
         [Tool.SELECT]: 'general', [Tool.PAN]: 'general', [Tool.SCALE]: 'general',
-        [Tool.LINE_MV]: 'drawing', [Tool.LINE_LV]: 'drawing', [Tool.CIRCUIT_CABLE]: 'drawing', [Tool.ZONE]: 'drawing',
+        [Tool.ZONE]: 'general',
+        [Tool.LINE_MV]: 'drawing', [Tool.LINE_LV]: 'drawing', [Tool.CIRCUIT_CABLE]: 'drawing',
         [Tool.PLACE_MAIN_BOARD]: 'equipment', [Tool.PLACE_SUB_BOARD]: 'equipment',
     },
     toolLabels: {
