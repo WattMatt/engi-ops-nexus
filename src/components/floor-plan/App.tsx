@@ -646,7 +646,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
       setIsCircuitCableModalOpen(true);
   }, []);
 
-  const handleCircuitCableSubmit = (details: CircuitCableFormData) => {
+  const handleCircuitCableSubmit = async (details: CircuitCableFormData) => {
     if (!pendingCircuitCable) return;
     const totalLength = pendingCircuitCable.length + details.startHeight + details.endHeight;
     
@@ -666,6 +666,24 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
       endHeight: details.endHeight,
     };
     setLines(prev => [...prev, newLine]);
+    
+    // Auto-assign cable to selected circuit if one is selected via the dialog or panel
+    const circuitId = details.dbCircuitId || selectedCircuit?.id;
+    if (circuitId) {
+      try {
+        await createCircuitMaterial.mutateAsync({
+          circuit_id: circuitId,
+          description: `${details.cableType} - ${details.from} to ${details.to}`,
+          quantity: Math.round(totalLength * 100) / 100,
+          unit: 'm',
+          supply_rate: details.supplyRate,
+          install_rate: details.installRate,
+          boq_item_code: details.boqItemCode,
+        });
+      } catch (error: any) {
+        console.error('Failed to assign cable to circuit:', error);
+      }
+    }
     
     setIsCircuitCableModalOpen(false);
     setPendingCircuitCable(null);
