@@ -304,20 +304,54 @@ const CircuitCableDetailsDialog: React.FC<CircuitCableDetailsDialogProps> = ({
           </DialogTitle>
         </DialogHeader>
 
-        {/* Length Summary */}
-        <div className="bg-muted/50 rounded-lg p-3 mb-4">
-          <div className="grid grid-cols-3 gap-4 text-sm">
-            <div>
+        {/* Length Summary with inline height inputs */}
+        <div className="bg-muted/50 rounded-lg p-3 mb-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="text-sm">
               <span className="text-muted-foreground">Measured:</span>
               <span className="ml-2 font-medium">{measuredLength.toFixed(2)}m</span>
             </div>
-            <div>
-              <span className="text-muted-foreground">Heights:</span>
-              <span className="ml-2 font-medium">+{(startHeight + endHeight).toFixed(2)}m</span>
-            </div>
-            <div>
+            <div className="text-sm">
               <span className="text-muted-foreground">Total:</span>
-              <span className="ml-2 font-bold text-primary">{totalLength.toFixed(2)}m</span>
+              <span className="ml-2 font-bold text-primary text-base">{totalLength.toFixed(2)}m</span>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex items-center gap-2">
+              <Label htmlFor="startHeightInline" className="text-xs text-muted-foreground whitespace-nowrap flex items-center gap-1">
+                <ArrowUpDown className="h-3 w-3" />
+                Start Drop:
+              </Label>
+              <div className="relative flex-1">
+                <Input
+                  id="startHeightInline"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  value={startHeight}
+                  onChange={(e) => setStartHeight(parseFloat(e.target.value) || 0)}
+                  className="h-8 pr-6 text-sm"
+                />
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">m</span>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <Label htmlFor="endHeightInline" className="text-xs text-muted-foreground whitespace-nowrap flex items-center gap-1">
+                <ArrowUpDown className="h-3 w-3" />
+                End Drop:
+              </Label>
+              <div className="relative flex-1">
+                <Input
+                  id="endHeightInline"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  value={endHeight}
+                  onChange={(e) => setEndHeight(parseFloat(e.target.value) || 0)}
+                  className="h-8 pr-6 text-sm"
+                />
+                <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">m</span>
+              </div>
             </div>
           </div>
         </div>
@@ -465,38 +499,6 @@ const CircuitCableDetailsDialog: React.FC<CircuitCableDetailsDialogProps> = ({
                   placeholder="e.g., Sub DB 1"
                   value={to}
                   onChange={(e) => setTo(e.target.value)}
-                />
-              </div>
-            </div>
-
-            {/* Height inputs on Circuit tab for easy access */}
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="startHeightCircuit" className="flex items-center gap-1">
-                  <ArrowUpDown className="h-3 w-3" />
-                  Start Drop Height (m)
-                </Label>
-                <Input
-                  id="startHeightCircuit"
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  value={startHeight}
-                  onChange={(e) => setStartHeight(parseFloat(e.target.value) || 0)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="endHeightCircuit" className="flex items-center gap-1">
-                  <ArrowUpDown className="h-3 w-3" />
-                  End Drop Height (m)
-                </Label>
-                <Input
-                  id="endHeightCircuit"
-                  type="number"
-                  step="0.1"
-                  min="0"
-                  value={endHeight}
-                  onChange={(e) => setEndHeight(parseFloat(e.target.value) || 0)}
                 />
               </div>
             </div>
