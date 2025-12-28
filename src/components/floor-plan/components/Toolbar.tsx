@@ -202,15 +202,6 @@ const Toolbar: React.FC<ToolbarProps> = ({
           />
         )}
         
-        {/* Circuit Schedule Button */}
-        {onOpenCircuitSchedule && (
-          <GlobalToolButton 
-            icon={CircuitBoard} 
-            label="Circuit Schedule" 
-            onClick={onOpenCircuitSchedule} 
-            disabled={!hasProjectId} 
-          />
-        )}
         
       </div>
       
