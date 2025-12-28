@@ -21,6 +21,16 @@ interface CableDetailsModalProps {
   purposeConfig: PurposeConfig | null;
   calculatedLength: number;
   projectId?: string;
+  // Edit mode: pre-populate fields
+  editingCable?: {
+    from?: string;
+    to?: string;
+    cableType?: string;
+    terminationCount?: number;
+    startHeight?: number;
+    endHeight?: number;
+    label?: string;
+  } | null;
 }
 
 const CableDetailsModal: React.FC<CableDetailsModalProps> = ({ 
@@ -30,7 +40,8 @@ const CableDetailsModal: React.FC<CableDetailsModalProps> = ({
   existingCableTypes, 
   purposeConfig,
   calculatedLength,
-  projectId 
+  projectId,
+  editingCable,
 }) => {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
@@ -49,17 +60,28 @@ const CableDetailsModal: React.FC<CableDetailsModalProps> = ({
 
   useEffect(() => {
     if (isOpen) {
-      // Reset form fields when modal opens
-      setFrom('');
-      setTo('');
-      setLabel('');
-      setSelectedCableType('');
-      setCustomCableType('');
-      setTerminationCount('2');
-      setStartHeight('3');
-      setEndHeight('3');
+      // Pre-populate from editingCable if available, otherwise reset
+      if (editingCable) {
+        setFrom(editingCable.from || '');
+        setTo(editingCable.to || '');
+        setLabel(editingCable.label || '');
+        setSelectedCableType(editingCable.cableType || '');
+        setCustomCableType('');
+        setTerminationCount(String(editingCable.terminationCount ?? 2));
+        setStartHeight(String(editingCable.startHeight ?? 3));
+        setEndHeight(String(editingCable.endHeight ?? 3));
+      } else {
+        setFrom('');
+        setTo('');
+        setLabel('');
+        setSelectedCableType('');
+        setCustomCableType('');
+        setTerminationCount('2');
+        setStartHeight('3');
+        setEndHeight('3');
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, editingCable]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -91,13 +113,17 @@ const CableDetailsModal: React.FC<CableDetailsModalProps> = ({
   return (
     <div className="fixed inset-0 bg-black bg-opacity-70 flex justify-center items-center z-[9999]">
       <div className="bg-gray-800 rounded-lg shadow-xl p-8 w-full max-w-2xl max-h-[90vh] overflow-y-auto overflow-x-visible">
-        <h2 className="text-2xl font-bold text-white mb-4">LV/AC Cable Details</h2>
+        <h2 className="text-2xl font-bold text-white mb-4">
+          {editingCable ? 'Edit Cable Details' : 'LV/AC Cable Details'}
+        </h2>
         <p className="text-gray-400 mb-6">
           Calculated Length: <span className="text-green-400 font-semibold">{calculatedLength.toFixed(2)}m</span>
         </p>
-        <p className="text-xs text-green-400 mb-4">
-          ✓ Cable will be automatically saved to the latest cable schedule for this project
-        </p>
+        {!editingCable && (
+          <p className="text-xs text-green-400 mb-4">
+            ✓ Cable will be automatically saved to the latest cable schedule for this project
+          </p>
+        )}
         <form onSubmit={handleSubmit} className="space-y-4">
           
           {/* Supply From */}

@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Layers, LayoutGrid, PlusCircle, CheckCircle, Clock, Circle, ChevronDown, Box, CircuitBoard, Zap, Package, ChevronRight, Trash2 } from 'lucide-react';
+import { Layers, LayoutGrid, PlusCircle, CheckCircle, Clock, Circle, ChevronDown, Box, CircuitBoard, Zap, Package, ChevronRight, Trash2, Edit } from 'lucide-react';
 import { EquipmentItem, SupplyLine, SupplyZone, Containment, EquipmentType, DesignPurpose, PVPanelConfig, PVArrayItem, Task, TaskStatus, ScaleInfo } from '../types';
 import { PurposeConfig } from '../purpose.config';
 import { EquipmentIcon } from './EquipmentIcon';
@@ -53,6 +53,8 @@ interface EquipmentPanelProps {
   // Circuit Schedule Props
   selectedCircuit?: DbCircuit | null;
   onSelectCircuit?: (circuit: DbCircuit | null) => void;
+  // Cable editing
+  onEditCable?: (cable: SupplyLine) => void;
 }
 
 type EquipmentPanelTab = 'summary' | 'equipment' | 'cables' | 'containment' | 'zones' | 'tasks';
@@ -206,9 +208,10 @@ const PvArrayDetails: React.FC<{
 const CableDetails: React.FC<{
     item: SupplyLine;
     onDelete: () => void;
+    onEdit?: () => void;
     tasks: Task[];
     onOpenTaskModal: (task: Partial<Task> | null) => void;
-}> = ({ item, onDelete, tasks, onOpenTaskModal }) => {
+}> = ({ item, onDelete, onEdit, tasks, onOpenTaskModal }) => {
     const isGpWire = item.cableType?.includes('GP');
     const calculatedLength = isGpWire ? item.length * 3 : item.length;
     
@@ -254,8 +257,14 @@ const CableDetails: React.FC<{
                 )}
             </div>
             <ItemTasks itemId={item.id} tasks={tasks} onOpenTaskModal={onOpenTaskModal} />
-            <div className="mt-4">
-                <button onClick={onDelete} className="w-full text-center px-4 py-2 bg-destructive/20 text-destructive hover:bg-destructive/40 rounded-md text-sm font-semibold transition-colors">
+            <div className="mt-4 flex gap-2">
+                {onEdit && (
+                    <button onClick={onEdit} className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-primary/20 text-primary hover:bg-primary/40 rounded-md text-sm font-semibold transition-colors">
+                        <Edit className="h-4 w-4" />
+                        Edit
+                    </button>
+                )}
+                <button onClick={onDelete} className={cn("text-center px-4 py-2 bg-destructive/20 text-destructive hover:bg-destructive/40 rounded-md text-sm font-semibold transition-colors", onEdit ? "flex-1" : "w-full")}>
                     Delete Cable
                 </button>
             </div>
@@ -618,6 +627,7 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
     scaleInfo,
     selectedCircuit,
     onSelectCircuit,
+    onEditCable,
 }) => {
   const [activeTab, setActiveTab] = useState<EquipmentPanelTab>('summary');
   const [expandedAssignees, setExpandedAssignees] = useState<Record<string, boolean>>({});
@@ -1087,7 +1097,7 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
                 {selectedEquipment && <SelectionDetails item={selectedEquipment} onUpdate={onEquipmentUpdate} onDelete={onDeleteItem} tasks={tasks} onOpenTaskModal={onOpenTaskModal} />}
                 {selectedZone && <ZoneDetails item={selectedZone} onUpdate={onZoneUpdate} onDelete={onDeleteItem} tasks={tasks} onOpenTaskModal={onOpenTaskModal} />}
                 {selectedPvArray && <PvArrayDetails item={selectedPvArray} pvPanelConfig={pvPanelConfig} onDelete={onDeleteItem} />}
-                {selectedLine && <CableDetails item={selectedLine} onDelete={onDeleteItem} tasks={tasks} onOpenTaskModal={onOpenTaskModal} />}
+                {selectedLine && <CableDetails item={selectedLine} onDelete={onDeleteItem} onEdit={onEditCable ? () => onEditCable(selectedLine) : undefined} tasks={tasks} onOpenTaskModal={onOpenTaskModal} />}
                 {selectedContainment && <ContainmentDetails item={selectedContainment} onDelete={onDeleteItem} />}
             </div>
             

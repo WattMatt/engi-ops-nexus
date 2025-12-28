@@ -187,6 +187,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
   const [pendingLine, setPendingLine] = useState<{ points: Point[]; length: number; } | null>(null);
   const [pendingCircuitCable, setPendingCircuitCable] = useState<{ points: Point[]; length: number; } | null>(null);
   const [pendingContainment, setPendingContainment] = useState<{ points: Point[]; length: number; type: ContainmentType; } | null>(null);
+  const [editingCableId, setEditingCableId] = useState<string | null>(null); // For editing existing cables
 
   // Cloud State
   const [currentDesignId, setCurrentDesignId] = useState<string | null>(null);
@@ -750,99 +751,146 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
       const circuitForAssignment = selectedCircuitRef.current;
       console.log('[handleCableDetailsSubmit] Starting - circuit:', circuitForAssignment?.circuit_ref || 'none', 'id:', circuitForAssignment?.id || 'none');
       
-      let cableEntryId: string | undefined;
+      // Check if we're editing an existing cable
+      const isEditing = !!editingCableId;
+      const existingCable = isEditing ? lines.find(l => l.id === editingCableId) : null;
+      let cableEntryId: string | undefined = existingCable?.cableEntryId;
 
       // Auto-save to database if we have a project ID
       if (projectId) {
         try {
-          // Get the latest cable schedule for this project
-          const { data: schedules } = await supabase
-            .from('cable_schedules')
-            .select('id')
-            .eq('project_id', projectId)
-            .order('created_at', { ascending: false })
-            .limit(1);
+          if (isEditing && existingCable?.cableEntryId) {
+            // Update existing cable_entry
+            const { error: updateError } = await supabase
+              .from('cable_entries')
+              .update({
+                cable_tag: details.label || `${details.from}-${details.to}`,
+                from_location: details.from,
+                to_location: details.to,
+                cable_type: details.cableType,
+                measured_length: details.calculatedLength,
+                extra_length: details.startHeight + details.endHeight,
+                total_length: details.calculatedLength + details.startHeight + details.endHeight,
+                notes: `Terminations: ${details.terminationCount}`,
+              })
+              .eq('id', existingCable.cableEntryId);
 
-          const scheduleId = schedules?.[0]?.id;
+            if (updateError) throw updateError;
+            toast.success('Cable updated');
+          } else {
+            // Create new cable_entry
+            const { data: schedules } = await supabase
+              .from('cable_schedules')
+              .select('id')
+              .eq('project_id', projectId)
+              .order('created_at', { ascending: false })
+              .limit(1);
 
-          // Save to cable_entries (single source of truth)
-          const { data: cableEntry, error: entryError } = await supabase
-            .from('cable_entries')
-            .insert({
-              schedule_id: scheduleId,
+            const scheduleId = schedules?.[0]?.id;
+
+            const { data: cableEntry, error: entryError } = await supabase
+              .from('cable_entries')
+              .insert({
+                schedule_id: scheduleId,
+                floor_plan_id: currentDesignId,
+                created_from: 'floor_plan',
+                cable_tag: details.label || `${details.from}-${details.to}`,
+                from_location: details.from,
+                to_location: details.to,
+                cable_type: details.cableType,
+                measured_length: details.calculatedLength,
+                extra_length: details.startHeight + details.endHeight,
+                total_length: details.calculatedLength + details.startHeight + details.endHeight,
+                notes: `Terminations: ${details.terminationCount}`,
+                installation_method: 'TBD',
+                quantity: 1
+              })
+              .select()
+              .single();
+
+            if (entryError) throw entryError;
+            
+            cableEntryId = cableEntry.id;
+
+            // Save to floor_plan_cables for reference
+            await supabase.from('floor_plan_cables').insert({
               floor_plan_id: currentDesignId,
-              created_from: 'floor_plan',
-              cable_tag: details.label || `${details.from}-${details.to}`,
-              from_location: details.from,
-              to_location: details.to,
               cable_type: details.cableType,
-              measured_length: details.calculatedLength,
-              extra_length: details.startHeight + details.endHeight,
-              total_length: details.calculatedLength + details.startHeight + details.endHeight,
-              notes: `Terminations: ${details.terminationCount}`,
-              installation_method: 'TBD',
-              quantity: 1
-            })
-            .select()
-            .single();
+              points: pendingLine.points as any,
+              length_meters: totalLength,
+              from_label: details.from,
+              to_label: details.to,
+              label: details.label,
+              termination_count: details.terminationCount,
+              start_height: details.startHeight,
+              end_height: details.endHeight,
+              cable_entry_id: cableEntryId
+            });
 
-          if (entryError) throw entryError;
-          
-          cableEntryId = cableEntry.id;
-
-          // Save to floor_plan_cables for reference
-          await supabase.from('floor_plan_cables').insert({
-            floor_plan_id: currentDesignId,
-            cable_type: details.cableType,
-            points: pendingLine.points as any,
-            length_meters: totalLength,
-            from_label: details.from,
-            to_label: details.to,
-            label: details.label,
-            termination_count: details.terminationCount,
-            start_height: details.startHeight,
-            end_height: details.endHeight,
-            cable_entry_id: cableEntryId
-          });
-
-          toast.success('Cable saved to schedule');
+            toast.success('Cable saved to schedule');
+          }
         } catch (error) {
           console.error('Error saving cable:', error);
           toast.error('Failed to save cable to schedule');
         }
       }
 
-      const newLine: SupplyLine = {
-          id: `line-${Date.now()}`, name: `${details.from} to ${details.to}`, type: 'lv' as const, points: pendingLine.points, 
-          length: totalLength, pathLength: pathLength, from: details.from, to: details.to, cableType: details.cableType,
-          terminationCount: details.terminationCount, startHeight: details.startHeight, endHeight: details.endHeight, label: details.label,
-          cableEntryId: cableEntryId
-      };
-      setLines(prev => [...prev, newLine]);
-      
-      // Auto-assign to selected circuit using the captured reference from start
-      console.log('[handleCableDetailsSubmit] About to assign - circuit:', circuitForAssignment?.circuit_ref || 'none');
-      if (circuitForAssignment) {
-        try {
-          console.log('[handleCableDetailsSubmit] Creating material for circuit:', circuitForAssignment.id);
-          await createCircuitMaterial.mutateAsync({
-            circuit_id: circuitForAssignment.id,
-            description: `${details.cableType} - ${details.from} to ${details.to}`,
-            quantity: Math.round(totalLength * 100) / 100,
-            unit: 'm',
-          });
-          console.log('[handleCableDetailsSubmit] Material created successfully');
-          toast.success(`Cable assigned to ${circuitForAssignment.circuit_ref}`);
-        } catch (error: any) {
-          console.error('[handleCableDetailsSubmit] Failed to assign:', error);
-          toast.error('Cable saved but failed to assign to circuit');
-        }
+      if (isEditing && editingCableId) {
+        // Update existing line
+        setLines(prev => prev.map(line => 
+          line.id === editingCableId
+            ? {
+                ...line,
+                name: `${details.from} to ${details.to}`,
+                from: details.from,
+                to: details.to,
+                cableType: details.cableType,
+                terminationCount: details.terminationCount,
+                startHeight: details.startHeight,
+                endHeight: details.endHeight,
+                label: details.label,
+                length: totalLength,
+                pathLength: pathLength,
+                cableEntryId: cableEntryId || line.cableEntryId
+              }
+            : line
+        ));
+        toast.success('Cable updated');
       } else {
-        console.log('[handleCableDetailsSubmit] No circuit selected, skipping assignment');
+        // Create new line
+        const newLine: SupplyLine = {
+            id: `line-${Date.now()}`, name: `${details.from} to ${details.to}`, type: 'lv' as const, points: pendingLine.points, 
+            length: totalLength, pathLength: pathLength, from: details.from, to: details.to, cableType: details.cableType,
+            terminationCount: details.terminationCount, startHeight: details.startHeight, endHeight: details.endHeight, label: details.label,
+            cableEntryId: cableEntryId
+        };
+        setLines(prev => [...prev, newLine]);
+        
+        // Auto-assign to selected circuit using the captured reference from start
+        console.log('[handleCableDetailsSubmit] About to assign - circuit:', circuitForAssignment?.circuit_ref || 'none');
+        if (circuitForAssignment) {
+          try {
+            console.log('[handleCableDetailsSubmit] Creating material for circuit:', circuitForAssignment.id);
+            await createCircuitMaterial.mutateAsync({
+              circuit_id: circuitForAssignment.id,
+              description: `${details.cableType} - ${details.from} to ${details.to}`,
+              quantity: Math.round(totalLength * 100) / 100,
+              unit: 'm',
+            });
+            console.log('[handleCableDetailsSubmit] Material created successfully');
+            toast.success(`Cable assigned to ${circuitForAssignment.circuit_ref}`);
+          } catch (error: any) {
+            console.error('[handleCableDetailsSubmit] Failed to assign:', error);
+            toast.error('Cable saved but failed to assign to circuit');
+          }
+        } else {
+          console.log('[handleCableDetailsSubmit] No circuit selected, skipping assignment');
+        }
       }
       
       setIsCableModalOpen(false);
       setPendingLine(null);
+      setEditingCableId(null);
   };
 
   const handleContainmentDetailsSubmit = (details: { size: string }) => {
@@ -861,6 +909,14 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
   
   const handleEquipmentUpdate = (updatedItem: EquipmentItem) => setEquipment(prev => prev.map(item => item.id === updatedItem.id ? updatedItem : item));
   const handleZoneUpdate = (updatedZone: SupplyZone) => setZones(prev => prev.map(zone => zone.id === updatedZone.id ? updatedZone : zone));
+
+  // Edit an existing cable - opens the modal with pre-populated values
+  const handleEditCable = useCallback((cable: SupplyLine) => {
+    // Set the cable as pending for edit (reusing the pending line flow)
+    setPendingLine({ points: cable.points || [], length: cable.pathLength || cable.length });
+    setEditingCableId(cable.id);
+    setIsCableModalOpen(true);
+  }, []);
 
   const handleJumpToZone = useCallback((zone: SupplyZone) => {
     if (canvasApiRef.current) {
@@ -1205,18 +1261,20 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
         projectId={currentProjectId || undefined}
         selectedCircuit={selectedCircuit}
         onSelectCircuit={setSelectedCircuit}
+        onEditCable={handleEditCable}
       />
       
       {/* Modals */}
       <ScaleModal isOpen={isScaleModalOpen} onClose={() => { setIsScaleModalOpen(false); if (!scaleInfo.ratio) { setScaleLine(null); setActiveTool(Tool.PAN); } }} onSubmit={handleScaleSubmit} />
       <CableDetailsModal 
         isOpen={isCableModalOpen} 
-        onClose={() => { setIsCableModalOpen(false); setPendingLine(null); }} 
+        onClose={() => { setIsCableModalOpen(false); setPendingLine(null); setEditingCableId(null); }} 
         onSubmit={handleCableDetailsSubmit} 
         existingCableTypes={uniqueCableTypes} 
         purposeConfig={purposeConfig}
         calculatedLength={pendingLine ? pendingLine.length : 0}
         projectId={currentProjectId || undefined}
+        editingCable={editingCableId ? lines.find(l => l.id === editingCableId) : null}
       />
       <ContainmentDetailsModal isOpen={isContainmentModalOpen} onClose={() => { setIsContainmentModalOpen(false); setPendingContainment(null); }} onSubmit={handleContainmentDetailsSubmit} purposeConfig={purposeConfig} />
       <CircuitCableDetailsDialog 
