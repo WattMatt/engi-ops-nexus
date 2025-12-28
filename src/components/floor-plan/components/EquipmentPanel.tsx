@@ -1022,16 +1022,24 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
     </div>
   );
 
-  // Simple materials list for the circuit
+  // Simple materials list for the circuit - shows both db materials AND canvas circuit lines
   const CircuitMaterialsListLocal: React.FC<{ circuitId: string }> = ({ circuitId }) => {
     const { data: materials, isLoading } = useCircuitMaterials(circuitId);
     const deleteMutation = useDeleteCircuitMaterial();
+    
+    // Get circuit wiring lines from canvas that match this circuit
+    const circuitWiringLines = useMemo(() => 
+      lines.filter(line => line.dbCircuitId === circuitId && line.id.startsWith('circuit-')),
+      [lines, circuitId]
+    );
 
     if (isLoading) {
       return <div className="text-xs text-muted-foreground text-center py-4">Loading materials...</div>;
     }
 
-    if (!materials || materials.length === 0) {
+    const hasAnyContent = (materials && materials.length > 0) || circuitWiringLines.length > 0;
+    
+    if (!hasAnyContent) {
       return (
         <div className="text-center py-4">
           <Package className="h-8 w-8 mx-auto text-muted-foreground/50 mb-2" />
@@ -1042,8 +1050,45 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
 
     return (
       <div className="space-y-2">
-        {materials.map((material) => {
-          // Check if this is a GP wire - multiply by 3 for L+E+N conductors
+        {/* Show circuit wiring from canvas lines */}
+        {circuitWiringLines.map((line) => {
+          const isGpWire = line.cableType?.toUpperCase().includes('GP');
+          const totalLength = isGpWire ? line.length * 3 : line.length;
+          
+          return (
+            <div
+              key={line.id}
+              className="flex items-center justify-between p-2 rounded-md bg-primary/10 border border-primary/20 text-xs"
+            >
+              <div className="flex-1 min-w-0">
+                <div className="font-medium text-foreground truncate">
+                  {line.cableType || 'Cable'} - {line.from} to {line.to}
+                </div>
+                <div className="text-muted-foreground">
+                  {isGpWire ? (
+                    <span>{line.length.toFixed(2)}m × 3 (L+E+N) = {totalLength.toFixed(2)}m</span>
+                  ) : (
+                    <span>{line.length.toFixed(2)}m</span>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  if (window.confirm('Delete this circuit wiring?')) {
+                    setSelectedItemId(line.id);
+                    setTimeout(() => onDeleteItem(), 100);
+                  }
+                }}
+                className="flex-shrink-0 text-muted-foreground hover:text-destructive transition-colors"
+              >
+                <Trash2 className="h-3 w-3" />
+              </button>
+            </div>
+          );
+        })}
+        
+        {/* Show materials from database (equipment, etc.) */}
+        {materials?.filter(m => !m.canvas_line_id).map((material) => {
           const isGpWire = material.description?.toUpperCase().includes('GP') && material.unit === 'm';
           const totalLength = isGpWire ? material.quantity * 3 : material.quantity;
           

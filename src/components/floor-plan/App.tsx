@@ -657,7 +657,10 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
     if (!pendingCircuitCable) return;
     const totalLength = pendingCircuitCable.length + details.startHeight + details.endHeight;
     
-    // Create as a SupplyLine with circuit cable data for now (can be extended to CircuitCable later)
+    // Get the circuit ID from dialog selection or current selected circuit
+    const circuitId = details.dbCircuitId || selectedCircuitRef.current?.id;
+    
+    // Create as a SupplyLine with circuit cable data
     const newLine: SupplyLine = {
       id: `circuit-${Date.now()}`,
       name: details.circuitRef,
@@ -671,13 +674,11 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
       cableType: details.cableType,
       startHeight: details.startHeight,
       endHeight: details.endHeight,
+      dbCircuitId: circuitId, // Store the circuit ID directly on the line
     };
     setLines(prev => [...prev, newLine]);
     
-    // Auto-assign cable to selected circuit - use ref for current value, or dialog selection
-    const circuitId = details.dbCircuitId || selectedCircuitRef.current?.id;
-    console.log('handleCircuitCableSubmit - circuitId:', circuitId, 'details.dbCircuitId:', details.dbCircuitId, 'selectedCircuitRef:', selectedCircuitRef.current);
-    
+    // Also create a db_circuit_materials record if circuit is assigned
     if (circuitId) {
       try {
         await createCircuitMaterial.mutateAsync({

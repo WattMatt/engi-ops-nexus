@@ -208,6 +208,7 @@ export interface SupplyLine {
   startHeight?: number;
   endHeight?: number;
   cableEntryId?: string; // Link to cable_entries table when saved to schedule
+  dbCircuitId?: string; // Link to db_circuits table for circuit wiring
 }
 
 export interface SupplyZone {

@@ -48,6 +48,7 @@ export interface DbCircuitMaterial {
   total_cost: number;
   final_account_item_id: string | null;
   notes: string | null;
+  canvas_line_id: string | null; // Link to canvas line for sync
   // New fields for electrical tracking
   material_category: MaterialCategory | null;
   boq_section: BOQSection | null;
