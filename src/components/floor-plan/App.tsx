@@ -802,7 +802,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
                 extra_length: details.startHeight + details.endHeight,
                 total_length: details.calculatedLength + details.startHeight + details.endHeight,
                 notes: `Terminations: ${details.terminationCount}`,
-                installation_method: 'TBD',
+                installation_method: 'ducts',
                 quantity: 1
               })
               .select()
