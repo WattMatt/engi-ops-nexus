@@ -746,6 +746,10 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
       const pathLength = pendingLine.length;
       const totalLength = pathLength + details.startHeight + details.endHeight;
       
+      // Capture circuit reference IMMEDIATELY at start of function
+      const circuitForAssignment = selectedCircuitRef.current;
+      console.log('[handleCableDetailsSubmit] Starting - circuit:', circuitForAssignment?.circuit_ref || 'none', 'id:', circuitForAssignment?.id || 'none');
+      
       let cableEntryId: string | undefined;
 
       // Auto-save to database if we have a project ID
@@ -816,10 +820,25 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
       };
       setLines(prev => [...prev, newLine]);
       
-      // Auto-assign to selected circuit using ref
-      const circuit = selectedCircuitRef.current;
-      if (circuit) {
-        handleAutoAssignToCircuit(`${details.cableType} - ${details.from} to ${details.to}`, totalLength, 'm');
+      // Auto-assign to selected circuit using the captured reference from start
+      console.log('[handleCableDetailsSubmit] About to assign - circuit:', circuitForAssignment?.circuit_ref || 'none');
+      if (circuitForAssignment) {
+        try {
+          console.log('[handleCableDetailsSubmit] Creating material for circuit:', circuitForAssignment.id);
+          await createCircuitMaterial.mutateAsync({
+            circuit_id: circuitForAssignment.id,
+            description: `${details.cableType} - ${details.from} to ${details.to}`,
+            quantity: Math.round(totalLength * 100) / 100,
+            unit: 'm',
+          });
+          console.log('[handleCableDetailsSubmit] Material created successfully');
+          toast.success(`Cable assigned to ${circuitForAssignment.circuit_ref}`);
+        } catch (error: any) {
+          console.error('[handleCableDetailsSubmit] Failed to assign:', error);
+          toast.error('Cable saved but failed to assign to circuit');
+        }
+      } else {
+        console.log('[handleCableDetailsSubmit] No circuit selected, skipping assignment');
       }
       
       setIsCableModalOpen(false);
