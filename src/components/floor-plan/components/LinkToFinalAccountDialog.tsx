@@ -837,23 +837,15 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
                     )}
                   </ul>
                   
-                  {/* Circuit Wiring with BOQ categorization */}
+                  {/* Circuit Wiring - Net quantities (measured = installed = claimed) */}
                   {takeoffCounts.circuitWiring && Object.keys(takeoffCounts.circuitWiring).length > 0 && (
                     <div className="mt-3 pt-3 border-t border-border/50">
-                      <div className="font-medium mb-2 text-foreground">Circuit Materials (with wastage):</div>
+                      <div className="font-medium mb-2 text-foreground">Circuit Materials:</div>
                       <ul className="space-y-1 text-muted-foreground">
                         {Object.entries(takeoffCounts.circuitWiring).map(([type, data]) => 
                           data.count > 0 && (
-                            <li key={`wiring-${type}`} className="flex justify-between">
-                              <span>• {type}: {data.count} runs</span>
-                              <span className="text-xs">
-                                Net: {data.totalLength.toFixed(1)}m
-                                {data.grossLength && data.grossLength > data.totalLength && (
-                                  <span className="text-primary ml-1">
-                                    → Gross: {data.grossLength.toFixed(1)}m
-                                  </span>
-                                )}
-                              </span>
+                            <li key={`wiring-${type}`}>
+                              • {type}: {data.count} runs ({data.totalLength.toFixed(1)}m)
                             </li>
                           )
                         )}
