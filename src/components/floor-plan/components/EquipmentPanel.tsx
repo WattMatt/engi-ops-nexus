@@ -966,17 +966,38 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
             </div>
           ) : (
             <>
-              {/* Clear Selection Button */}
-              {selectedCircuit && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full mb-3"
-                  onClick={() => onSelectCircuit?.(null)}
-                >
-                  Clear Selection (General Mode)
-                </Button>
-              )}
+              {/* Unassigned / General Option */}
+              <button
+                onClick={() => onSelectCircuit?.({ 
+                  id: 'unassigned', 
+                  circuit_ref: 'Unassigned', 
+                  description: 'General materials not tied to a circuit',
+                  distribution_board_id: '',
+                  board_id: '',
+                  display_order: 0,
+                  created_at: '',
+                  updated_at: '',
+                  cable_size: null,
+                  breaker_size: null,
+                  load_amps: null,
+                  voltage: null,
+                  power_factor: null,
+                  circuit_type: null,
+                  notes: null,
+                } as DbCircuit)}
+                className={cn(
+                  "w-full text-left px-3 py-3 rounded-md text-sm transition-all flex items-center gap-2 mb-3 border-2 border-dashed",
+                  selectedCircuit?.id === 'unassigned'
+                    ? "bg-amber-500/20 border-amber-500 text-amber-700 dark:text-amber-300"
+                    : "hover:bg-muted border-muted-foreground/30 text-muted-foreground hover:border-muted-foreground/50"
+                )}
+              >
+                <Package className="h-4 w-4 flex-shrink-0" />
+                <div className="flex-grow min-w-0">
+                  <div className="font-medium">Unassigned / General</div>
+                  <div className="text-xs opacity-70">First fix & general materials</div>
+                </div>
+              </button>
 
               {/* Distribution Boards List */}
               {boards.map((board) => (
