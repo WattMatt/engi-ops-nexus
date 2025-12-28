@@ -12,14 +12,15 @@ export interface MaterialCategoryInfo {
   description: string;
 }
 
-// Standard wastage factors per industry best practice
+// Net contract - no wastage factors applied
+// What is measured is what is installed and claimed
 export const WASTAGE_FACTORS: Record<MaterialCategory, number> = {
-  cable: 0.10,        // 10% for cables (cuts, offcuts, damage)
-  containment: 0.05,  // 5% for trunking/conduit
-  termination: 0.02,  // 2% for glands/lugs (spares)
-  accessory: 0.05,    // 5% for cable ties, clips, etc.
-  fitting: 0.00,      // 0% for light fittings (counted items)
-  distribution: 0.00, // 0% for DBs, MCBs (counted items)
+  cable: 0,
+  containment: 0,
+  termination: 0,
+  accessory: 0,
+  fitting: 0,
+  distribution: 0,
 };
 
 // Map material descriptions to categories
@@ -94,14 +95,13 @@ export function categorizeMaterial(description: string): MaterialCategoryInfo {
   };
 }
 
-// Calculate gross quantity with wastage
-export function calculateGrossQuantity(netQuantity: number, wastagePercent: number): {
+// Net contract - gross = net (no wastage calculation)
+export function calculateGrossQuantity(netQuantity: number, _wastagePercent: number): {
   wastageQuantity: number;
   grossQuantity: number;
 } {
-  const wastageQuantity = Math.ceil(netQuantity * wastagePercent * 100) / 100;
-  const grossQuantity = Math.ceil((netQuantity + wastageQuantity) * 100) / 100;
-  return { wastageQuantity, grossQuantity };
+  // No wastage for net contracts
+  return { wastageQuantity: 0, grossQuantity: netQuantity };
 }
 
 // Generate supporting materials for a cable
