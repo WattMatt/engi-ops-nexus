@@ -255,7 +255,7 @@ export function useCreateCircuitMaterial() {
   const queryClient = useQueryClient();
   
   return useMutation({
-    mutationFn: async (data: { circuit_id: string; description: string; unit?: string; quantity?: number; supply_rate?: number; install_rate?: number; boq_item_code?: string; master_material_id?: string }) => {
+    mutationFn: async (data: { circuit_id: string; description: string; unit?: string; quantity?: number; supply_rate?: number; install_rate?: number; boq_item_code?: string; master_material_id?: string; final_account_item_id?: string }) => {
       const { data: result, error } = await supabase
         .from("db_circuit_materials")
         .insert(data)
