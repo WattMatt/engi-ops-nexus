@@ -212,8 +212,16 @@ const CableDetails: React.FC<{
     tasks: Task[];
     onOpenTaskModal: (task: Partial<Task> | null) => void;
 }> = ({ item, onDelete, onEdit, tasks, onOpenTaskModal }) => {
-    const isGpWire = item.cableType?.includes('GP');
-    const calculatedLength = isGpWire ? item.length * 3 : item.length;
+    const isGpWire = item.cableType?.toUpperCase().includes('GP');
+    // For GP wire: pathLength is the horizontal trace, we triple it for L+E+N conductors
+    const pathLength = item.pathLength ?? item.length;
+    const startH = item.startHeight ?? 0;
+    const endH = item.endHeight ?? 0;
+    
+    // GP wire: path × 3 (for 3 conductors) + drops/rises (not multiplied)
+    const calculatedLength = isGpWire 
+        ? (pathLength * 3) + startH + endH 
+        : item.length;
     
     return (
         <div className="mb-6 p-3 bg-muted rounded-lg border border-border">
@@ -241,17 +249,22 @@ const CableDetails: React.FC<{
                     <span>Length:</span> 
                     <span className='font-mono font-semibold text-primary'>{calculatedLength.toFixed(2)}m</span>
                 </div>
+                {isGpWire && (
+                    <div className="text-xs text-muted-foreground bg-primary/10 rounded px-2 py-1 mt-1">
+                        {pathLength.toFixed(2)}m × 3 (L+E+N){(startH > 0 || endH > 0) ? ` + ${(startH + endH).toFixed(2)}m drops` : ''}
+                    </div>
+                )}
                 {item.terminationCount && item.terminationCount > 0 && (
                     <div className="flex justify-between">
                         <span>Terminations:</span> 
                         <span className='font-mono'>{item.terminationCount}x</span>
                     </div>
                 )}
-                {(item.startHeight || item.endHeight) && (
+                {(startH > 0 || endH > 0) && !isGpWire && (
                     <div className="flex justify-between">
                         <span>Rise/Drop:</span> 
                         <span className='font-mono text-xs'>
-                            {item.startHeight?.toFixed(1) || 0}m / {item.endHeight?.toFixed(1) || 0}m
+                            {startH.toFixed(1)}m / {endH.toFixed(1)}m
                         </span>
                     </div>
                 )}
