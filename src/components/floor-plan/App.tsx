@@ -1152,30 +1152,18 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
           )}
       </main>
       
-      {/* Right Sidebar - Circuit Schedule Panel OR Equipment Panel */}
-      {isCircuitPanelOpen && currentProjectId ? (
-        <aside className="w-80 bg-card border-l border-border overflow-hidden flex flex-col">
-          <CircuitScheduleRightPanel
-            projectId={currentProjectId}
-            selectedCircuit={selectedCircuit}
-            onSelectCircuit={setSelectedCircuit}
-            onClose={() => {
-              setIsCircuitPanelOpen(false);
-              setSelectedCircuit(null);
-            }}
-          />
-        </aside>
-      ) : (
-        <EquipmentPanel 
-          equipment={equipment} lines={lines} zones={zones} containment={containment} selectedItemId={selectedItemId}
-          setSelectedItemId={setSelectedItemId} onEquipmentUpdate={handleEquipmentUpdate} onZoneUpdate={handleZoneUpdate}
-          scaleInfo={scaleInfo}
-          purposeConfig={purposeConfig} designPurpose={designPurpose} pvPanelConfig={pvPanelConfig}
-          pvArrays={pvArrays} onDeleteItem={handleDeleteSelectedItem} tasks={tasks} onOpenTaskModal={handleOpenTaskModal}
-          onJumpToZone={handleJumpToZone} modulesPerString={modulesPerString} onModulesPerStringChange={setModulesPerString}
-          projectId={currentProjectId || undefined}
-        />
-      )}
+      {/* Right Sidebar - Unified Panel with Overview and Circuits tabs */}
+      <EquipmentPanel 
+        equipment={equipment} lines={lines} zones={zones} containment={containment} selectedItemId={selectedItemId}
+        setSelectedItemId={setSelectedItemId} onEquipmentUpdate={handleEquipmentUpdate} onZoneUpdate={handleZoneUpdate}
+        scaleInfo={scaleInfo}
+        purposeConfig={purposeConfig} designPurpose={designPurpose} pvPanelConfig={pvPanelConfig}
+        pvArrays={pvArrays} onDeleteItem={handleDeleteSelectedItem} tasks={tasks} onOpenTaskModal={handleOpenTaskModal}
+        onJumpToZone={handleJumpToZone} modulesPerString={modulesPerString} onModulesPerStringChange={setModulesPerString}
+        projectId={currentProjectId || undefined}
+        selectedCircuit={selectedCircuit}
+        onSelectCircuit={setSelectedCircuit}
+      />
       
       {/* Modals */}
       <ScaleModal isOpen={isScaleModalOpen} onClose={() => { setIsScaleModalOpen(false); if (!scaleInfo.ratio) { setScaleLine(null); setActiveTool(Tool.PAN); } }} onSubmit={handleScaleSubmit} />

@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Layers, LayoutGrid, PlusCircle, CheckCircle, Clock, Circle, ChevronDown, Box } from 'lucide-react';
+import { Layers, LayoutGrid, PlusCircle, CheckCircle, Clock, Circle, ChevronDown, Box, CircuitBoard, Zap, Package, ChevronRight, Trash2 } from 'lucide-react';
 import { EquipmentItem, SupplyLine, SupplyZone, Containment, EquipmentType, DesignPurpose, PVPanelConfig, PVArrayItem, Task, TaskStatus, ScaleInfo } from '../types';
 import { PurposeConfig } from '../purpose.config';
 import { EquipmentIcon } from './EquipmentIcon';
@@ -9,6 +9,20 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { CableRoute3DModal } from '@/components/cable-route/CableRoute3DModal';
 import { convertSupplyLinesToCableRoutes } from '@/components/cable-route/utils/routeConverter';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { Button } from '@/components/ui/button';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Badge } from '@/components/ui/badge';
+import { 
+  useDistributionBoards, 
+  useDbCircuits, 
+  useCircuitMaterials,
+  useDeleteCircuitMaterial,
+  useReassignCircuitMaterial,
+  DbCircuit,
+} from '@/components/circuit-schedule/hooks/useDistributionBoards';
+import { cn } from '@/lib/utils';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface EquipmentPanelProps {
   equipment: EquipmentItem[];
@@ -36,9 +50,13 @@ interface EquipmentPanelProps {
   projectId?: string;
   // Scale Info for 3D conversion
   scaleInfo?: ScaleInfo | null;
+  // Circuit Schedule Props
+  selectedCircuit?: DbCircuit | null;
+  onSelectCircuit?: (circuit: DbCircuit | null) => void;
 }
 
 type EquipmentPanelTab = 'summary' | 'equipment' | 'cables' | 'containment' | 'zones' | 'tasks';
+type TopLevelView = 'overview' | 'circuits';
 
 
 const ItemTasks: React.FC<{
@@ -598,10 +616,29 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
     pvPanelConfig, pvArrays, tasks, onOpenTaskModal, onJumpToZone, modulesPerString, onModulesPerStringChange,
     projectId,
     scaleInfo,
+    selectedCircuit,
+    onSelectCircuit,
 }) => {
   const [activeTab, setActiveTab] = useState<EquipmentPanelTab>('summary');
   const [expandedAssignees, setExpandedAssignees] = useState<Record<string, boolean>>({});
   const [show3DModal, setShow3DModal] = useState(false);
+  const [topLevelView, setTopLevelView] = useState<TopLevelView>('overview');
+  const [expandedBoards, setExpandedBoards] = useState<Set<string>>(new Set());
+
+  // Fetch distribution boards for Circuit Schedule view
+  const { data: boards, isLoading: loadingBoards } = useDistributionBoards(projectId || '');
+
+  const toggleBoard = (boardId: string) => {
+    setExpandedBoards(prev => {
+      const next = new Set(prev);
+      if (next.has(boardId)) {
+        next.delete(boardId);
+      } else {
+        next.add(boardId);
+      }
+      return next;
+    });
+  };
 
   // Fetch all cable entries for this project from the database
   const { data: cableEntries = [], isLoading: loadingCables } = useQuery({
@@ -819,29 +856,253 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
     );
   }
 
+  // Sub-component for Board Circuits within this panel
+  const BoardCircuitsLocal: React.FC<{ boardId: string }> = ({ boardId }) => {
+    const { data: circuits, isLoading } = useDbCircuits(boardId);
+    
+    if (isLoading) {
+      return <div className="pl-6 py-2 text-xs text-muted-foreground">Loading circuits...</div>;
+    }
+    
+    if (!circuits || circuits.length === 0) {
+      return <div className="pl-6 py-2 text-xs text-muted-foreground italic">No circuits</div>;
+    }
+    
+    return (
+      <div className="pl-4 space-y-1">
+        {circuits.map((circuit) => {
+          const isSelected = selectedCircuit?.id === circuit.id;
+          return (
+            <button
+              key={circuit.id}
+              onClick={() => onSelectCircuit?.(isSelected ? null : circuit)}
+              className={cn(
+                "w-full text-left px-3 py-2 rounded-md text-sm transition-all flex items-center gap-2",
+                isSelected 
+                  ? "bg-primary text-primary-foreground" 
+                  : "hover:bg-muted/80 text-foreground"
+              )}
+            >
+              <Zap className={cn("h-3 w-3", isSelected ? "text-primary-foreground" : "text-amber-500")} />
+              <div className="flex-1 min-w-0">
+                <div className="font-medium">{circuit.circuit_ref}</div>
+                {circuit.description && (
+                  <div className={cn("text-xs truncate", isSelected ? "text-primary-foreground/80" : "text-muted-foreground")}>
+                    {circuit.description}
+                  </div>
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    );
+  };
+
+  // Render Circuit Schedule View
+  const renderCircuitScheduleView = () => (
+    <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Status Indicator */}
+      <div className="px-4 py-3 border-b border-border bg-muted/30 flex-shrink-0">
+        {selectedCircuit ? (
+          <div className="flex items-center gap-2">
+            <Badge variant="default" className="bg-primary text-primary-foreground">
+              <Zap className="h-3 w-3 mr-1" />
+              {selectedCircuit.circuit_ref}
+            </Badge>
+            <span className="text-xs text-muted-foreground">
+              Trace items to assign
+            </span>
+          </div>
+        ) : (
+          <div className="flex items-center gap-2 text-muted-foreground">
+            <Package className="h-4 w-4" />
+            <span className="text-xs">
+              Select a circuit to assign traced items
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* Boards List */}
+      <ScrollArea className="flex-1">
+        <div className="p-4 space-y-2">
+          {loadingBoards ? (
+            <div className="text-sm text-muted-foreground text-center py-8">
+              Loading distribution boards...
+            </div>
+          ) : !boards || boards.length === 0 ? (
+            <div className="text-center py-8">
+              <CircuitBoard className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
+              <p className="text-sm text-muted-foreground">
+                No distribution boards found.
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Use the Circuit Schedule tool to create boards and circuits.
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* Clear Selection Button */}
+              {selectedCircuit && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full mb-3"
+                  onClick={() => onSelectCircuit?.(null)}
+                >
+                  Clear Selection (General Mode)
+                </Button>
+              )}
+
+              {/* Distribution Boards List */}
+              {boards.map((board) => (
+                <Collapsible
+                  key={board.id}
+                  open={expandedBoards.has(board.id)}
+                  onOpenChange={() => toggleBoard(board.id)}
+                >
+                  <CollapsibleTrigger className="flex items-center gap-2 w-full p-3 rounded-md bg-muted/50 hover:bg-muted transition-colors text-left">
+                    {expandedBoards.has(board.id) ? (
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    )}
+                    <Zap className="h-4 w-4 text-amber-500" />
+                    <span className="font-medium text-sm text-foreground">{board.name}</span>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent className="pt-1 pb-2">
+                    <BoardCircuitsLocal boardId={board.id} />
+                  </CollapsibleContent>
+                </Collapsible>
+              ))}
+            </>
+          )}
+        </div>
+      </ScrollArea>
+
+      {/* Materials Section (shown when circuit is selected) */}
+      {selectedCircuit && (
+        <div className="border-t border-border flex-shrink-0">
+          <div className="px-4 py-2 bg-muted/50">
+            <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+              Assigned Materials
+            </h3>
+          </div>
+          <ScrollArea className="h-48">
+            <div className="p-3">
+              <CircuitMaterialsListLocal circuitId={selectedCircuit.id} />
+            </div>
+          </ScrollArea>
+        </div>
+      )}
+    </div>
+  );
+
+  // Simple materials list for the circuit
+  const CircuitMaterialsListLocal: React.FC<{ circuitId: string }> = ({ circuitId }) => {
+    const { data: materials, isLoading } = useCircuitMaterials(circuitId);
+    const deleteMutation = useDeleteCircuitMaterial();
+
+    if (isLoading) {
+      return <div className="text-xs text-muted-foreground text-center py-4">Loading materials...</div>;
+    }
+
+    if (!materials || materials.length === 0) {
+      return (
+        <div className="text-center py-4">
+          <Package className="h-8 w-8 mx-auto text-muted-foreground/50 mb-2" />
+          <p className="text-xs text-muted-foreground">No materials assigned yet</p>
+        </div>
+      );
+    }
+
+    return (
+      <div className="space-y-2">
+        {materials.map((material) => (
+          <div
+            key={material.id}
+            className="flex items-center justify-between p-2 rounded-md bg-muted/50 text-xs"
+          >
+            <div className="flex-1 min-w-0">
+              <div className="font-medium text-foreground truncate">{material.description}</div>
+              <div className="text-muted-foreground">
+                {material.quantity} {material.unit || 'No'}
+              </div>
+            </div>
+            <button
+              onClick={() => deleteMutation.mutate({ id: material.id, circuitId })}
+              className="flex-shrink-0 text-muted-foreground hover:text-destructive transition-colors"
+            >
+              <Trash2 className="h-3 w-3" />
+            </button>
+          </div>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <aside className="w-96 h-full bg-card flex flex-col shadow-lg border-l border-border flex-shrink-0 overflow-hidden">
-        <div className='p-4 flex-shrink-0'>
-            <h2 className="text-lg font-semibold text-foreground mb-4">Project Overview</h2>
-            {selectedEquipment && <SelectionDetails item={selectedEquipment} onUpdate={onEquipmentUpdate} onDelete={onDeleteItem} tasks={tasks} onOpenTaskModal={onOpenTaskModal} />}
-            {selectedZone && <ZoneDetails item={selectedZone} onUpdate={onZoneUpdate} onDelete={onDeleteItem} tasks={tasks} onOpenTaskModal={onOpenTaskModal} />}
-            {selectedPvArray && <PvArrayDetails item={selectedPvArray} pvPanelConfig={pvPanelConfig} onDelete={onDeleteItem} />}
-            {selectedLine && <CableDetails item={selectedLine} onDelete={onDeleteItem} tasks={tasks} onOpenTaskModal={onOpenTaskModal} />}
-            {selectedContainment && <ContainmentDetails item={selectedContainment} onDelete={onDeleteItem} />}
-        </div>
-        
-        <div className="border-b border-border px-2 flex-shrink-0">
-            <nav className="-mb-px flex flex-wrap" aria-label="Tabs">
-                <TabButton tabId="summary" label="Summary" />
-                <TabButton tabId="equipment" label="Equipment" />
-                <TabButton tabId="cables" label="Cables" disabled={!hasCables} />
-                <TabButton tabId="containment" label="Containment" />
-                <TabButton tabId="zones" label="Zones" />
-                <TabButton tabId="tasks" label="Tasks" count={tasks.length} />
-            </nav>
+        {/* Top-Level View Switcher */}
+        <div className="flex border-b border-border flex-shrink-0">
+          <button
+            onClick={() => setTopLevelView('overview')}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-colors",
+              topLevelView === 'overview'
+                ? "bg-muted text-foreground border-b-2 border-primary"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+            )}
+          >
+            <LayoutGrid className="h-4 w-4" />
+            Overview
+          </button>
+          <button
+            onClick={() => setTopLevelView('circuits')}
+            className={cn(
+              "flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-colors",
+              topLevelView === 'circuits'
+                ? "bg-muted text-foreground border-b-2 border-primary"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+            )}
+          >
+            <CircuitBoard className="h-4 w-4" />
+            Circuits
+            {selectedCircuit && (
+              <Badge variant="secondary" className="ml-1 h-5 px-1.5 text-[10px]">
+                {selectedCircuit.circuit_ref}
+              </Badge>
+            )}
+          </button>
         </div>
 
-        <div className="flex-grow overflow-y-auto p-4">
+        {/* Circuit Schedule View */}
+        {topLevelView === 'circuits' && renderCircuitScheduleView()}
+
+        {/* Project Overview View */}
+        {topLevelView === 'overview' && (
+          <>
+            <div className='p-4 flex-shrink-0'>
+                {selectedEquipment && <SelectionDetails item={selectedEquipment} onUpdate={onEquipmentUpdate} onDelete={onDeleteItem} tasks={tasks} onOpenTaskModal={onOpenTaskModal} />}
+                {selectedZone && <ZoneDetails item={selectedZone} onUpdate={onZoneUpdate} onDelete={onDeleteItem} tasks={tasks} onOpenTaskModal={onOpenTaskModal} />}
+                {selectedPvArray && <PvArrayDetails item={selectedPvArray} pvPanelConfig={pvPanelConfig} onDelete={onDeleteItem} />}
+                {selectedLine && <CableDetails item={selectedLine} onDelete={onDeleteItem} tasks={tasks} onOpenTaskModal={onOpenTaskModal} />}
+                {selectedContainment && <ContainmentDetails item={selectedContainment} onDelete={onDeleteItem} />}
+            </div>
+            
+            <div className="border-b border-border px-2 flex-shrink-0">
+                <nav className="-mb-px flex flex-wrap" aria-label="Tabs">
+                    <TabButton tabId="summary" label="Summary" />
+                    <TabButton tabId="equipment" label="Equipment" />
+                    <TabButton tabId="cables" label="Cables" disabled={!hasCables} />
+                    <TabButton tabId="containment" label="Containment" />
+                    <TabButton tabId="zones" label="Zones" />
+                    <TabButton tabId="tasks" label="Tasks" count={tasks.length} />
+                </nav>
+            </div>
+
+            <div className="flex-grow overflow-y-auto p-4">
             <div style={{display: activeTab === 'summary' ? 'block' : 'none'}}>{renderSummaryTab()}</div>
             <div style={{display: activeTab === 'equipment' ? 'block' : 'none'}}>
                 <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Equipment Quantities</h3>
@@ -1054,6 +1315,8 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
                 ))}
             </div>
         </div>
+          </>
+        )}
 
         {/* 3D Cable Route Analysis Modal */}
         <CableRoute3DModal
