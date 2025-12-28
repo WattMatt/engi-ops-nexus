@@ -468,6 +468,38 @@ const CircuitCableDetailsDialog: React.FC<CircuitCableDetailsDialogProps> = ({
                 />
               </div>
             </div>
+
+            {/* Height inputs on Circuit tab for easy access */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="startHeightCircuit" className="flex items-center gap-1">
+                  <ArrowUpDown className="h-3 w-3" />
+                  Start Drop Height (m)
+                </Label>
+                <Input
+                  id="startHeightCircuit"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  value={startHeight}
+                  onChange={(e) => setStartHeight(parseFloat(e.target.value) || 0)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="endHeightCircuit" className="flex items-center gap-1">
+                  <ArrowUpDown className="h-3 w-3" />
+                  End Drop Height (m)
+                </Label>
+                <Input
+                  id="endHeightCircuit"
+                  type="number"
+                  step="0.1"
+                  min="0"
+                  value={endHeight}
+                  onChange={(e) => setEndHeight(parseFloat(e.target.value) || 0)}
+                />
+              </div>
+            </div>
           </TabsContent>
 
           {/* Routing Tab */}
