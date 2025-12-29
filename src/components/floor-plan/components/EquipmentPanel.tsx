@@ -699,6 +699,11 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
   const [topLevelView, setTopLevelView] = useState<TopLevelView>('overview');
   const [expandedBoards, setExpandedBoards] = useState<Set<string>>(new Set());
 
+  // State for Add DB dialog
+  const [showAddBoardDialog, setShowAddBoardDialog] = useState(false);
+  const [boardFormData, setBoardFormData] = useState({ name: '', location: '', description: '' });
+  const createBoard = useCreateDistributionBoard();
+
   // Fetch distribution boards for Circuit Schedule view
   const { data: boards, isLoading: loadingBoards } = useDistributionBoards(projectId || '');
 
@@ -973,10 +978,6 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
     );
   };
 
-  // State for Add DB dialog
-  const [showAddBoardDialog, setShowAddBoardDialog] = useState(false);
-  const [boardFormData, setBoardFormData] = useState({ name: '', location: '', description: '' });
-  const createBoard = useCreateDistributionBoard();
 
   const handleCreateBoard = async () => {
     if (!boardFormData.name.trim() || !projectId) return;
