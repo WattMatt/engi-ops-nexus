@@ -182,7 +182,8 @@ const insertDesignComponents = async (floorPlanId: string, designData: DesignDat
                     termination_count: d.terminationCount,
                     start_height: d.startHeight,
                     end_height: d.endHeight,
-                    cable_entry_id: cableEntries[index]?.id
+                    cable_entry_id: cableEntries[index]?.id,
+                    db_circuit_id: d.dbCircuitId || null
                 }));
                 
                 return supabase.from('floor_plan_cables').insert(floorPlanCablesData);
@@ -407,7 +408,8 @@ export const loadDesign = async (designId: string): Promise<{ designData: FullDe
         terminationCount: c.termination_count,
         startHeight: c.start_height,
         endHeight: c.end_height,
-        pathLength: c.length_meters
+        pathLength: c.length_meters,
+        dbCircuitId: c.db_circuit_id
     }));
 
     const transformedZones = (zones || []).map((z: any) => ({

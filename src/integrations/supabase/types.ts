@@ -3866,6 +3866,7 @@ export type Database = {
           cable_entry_id: string | null
           cable_type: string
           created_at: string
+          db_circuit_id: string | null
           end_height: number | null
           floor_plan_id: string
           from_label: string | null
@@ -3881,6 +3882,7 @@ export type Database = {
           cable_entry_id?: string | null
           cable_type: string
           created_at?: string
+          db_circuit_id?: string | null
           end_height?: number | null
           floor_plan_id: string
           from_label?: string | null
@@ -3896,6 +3898,7 @@ export type Database = {
           cable_entry_id?: string | null
           cable_type?: string
           created_at?: string
+          db_circuit_id?: string | null
           end_height?: number | null
           floor_plan_id?: string
           from_label?: string | null
@@ -3913,6 +3916,13 @@ export type Database = {
             columns: ["cable_entry_id"]
             isOneToOne: false
             referencedRelation: "cable_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "floor_plan_cables_db_circuit_id_fkey"
+            columns: ["db_circuit_id"]
+            isOneToOne: false
+            referencedRelation: "db_circuits"
             referencedColumns: ["id"]
           },
           {
