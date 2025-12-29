@@ -2456,10 +2456,11 @@ export type Database = {
           boq_item_code: string | null
           boq_section: string | null
           canvas_line_id: string | null
-          circuit_id: string
+          circuit_id: string | null
           created_at: string
           description: string
           final_account_item_id: string | null
+          floor_plan_id: string | null
           gross_quantity: number | null
           id: string
           install_rate: number | null
@@ -2469,6 +2470,7 @@ export type Database = {
           material_category: string | null
           notes: string | null
           parent_material_id: string | null
+          project_id: string | null
           quantity: number | null
           supply_rate: number | null
           total_cost: number | null
@@ -2481,10 +2483,11 @@ export type Database = {
           boq_item_code?: string | null
           boq_section?: string | null
           canvas_line_id?: string | null
-          circuit_id: string
+          circuit_id?: string | null
           created_at?: string
           description: string
           final_account_item_id?: string | null
+          floor_plan_id?: string | null
           gross_quantity?: number | null
           id?: string
           install_rate?: number | null
@@ -2494,6 +2497,7 @@ export type Database = {
           material_category?: string | null
           notes?: string | null
           parent_material_id?: string | null
+          project_id?: string | null
           quantity?: number | null
           supply_rate?: number | null
           total_cost?: number | null
@@ -2506,10 +2510,11 @@ export type Database = {
           boq_item_code?: string | null
           boq_section?: string | null
           canvas_line_id?: string | null
-          circuit_id?: string
+          circuit_id?: string | null
           created_at?: string
           description?: string
           final_account_item_id?: string | null
+          floor_plan_id?: string | null
           gross_quantity?: number | null
           id?: string
           install_rate?: number | null
@@ -2519,6 +2524,7 @@ export type Database = {
           material_category?: string | null
           notes?: string | null
           parent_material_id?: string | null
+          project_id?: string | null
           quantity?: number | null
           supply_rate?: number | null
           total_cost?: number | null
@@ -2540,6 +2546,13 @@ export type Database = {
             columns: ["final_account_item_id"]
             isOneToOne: false
             referencedRelation: "final_account_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "db_circuit_materials_floor_plan_id_fkey"
+            columns: ["floor_plan_id"]
+            isOneToOne: false
+            referencedRelation: "floor_plan_projects"
             referencedColumns: ["id"]
           },
           {
@@ -2575,6 +2588,13 @@ export type Database = {
             columns: ["parent_material_id"]
             isOneToOne: false
             referencedRelation: "db_circuit_materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "db_circuit_materials_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]

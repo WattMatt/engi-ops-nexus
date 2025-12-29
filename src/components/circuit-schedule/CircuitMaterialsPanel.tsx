@@ -15,7 +15,7 @@ interface CircuitMaterialsPanelProps {
 }
 
 export function CircuitMaterialsPanel({ circuitId, projectId }: CircuitMaterialsPanelProps) {
-  const { data: materials = [], isLoading } = useCircuitMaterials(circuitId);
+  const { data: materials = [], isLoading } = useCircuitMaterials(circuitId, { projectId });
   const createMaterial = useCreateCircuitMaterial();
   const updateMaterial = useUpdateCircuitMaterial();
   const deleteMaterial = useDeleteCircuitMaterial();

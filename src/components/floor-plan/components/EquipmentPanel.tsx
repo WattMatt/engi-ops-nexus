@@ -1035,7 +1035,7 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
           </div>
           <ScrollArea className="h-48">
             <div className="p-3">
-              <CircuitMaterialsListLocal circuitId={selectedCircuit.id} />
+              <CircuitMaterialsListLocal circuitId={selectedCircuit.id} projectId={projectId} />
             </div>
           </ScrollArea>
         </div>
@@ -1044,15 +1044,18 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
   );
 
   // Simple materials list for the circuit - shows both db materials AND canvas circuit lines
-  const CircuitMaterialsListLocal: React.FC<{ circuitId: string }> = ({ circuitId }) => {
-    const { data: materials, isLoading } = useCircuitMaterials(circuitId);
+  const CircuitMaterialsListLocal: React.FC<{ circuitId: string; projectId?: string }> = ({ circuitId, projectId: listProjectId }) => {
+    const { data: materials, isLoading } = useCircuitMaterials(circuitId, { projectId: listProjectId });
     const deleteMutation = useDeleteCircuitMaterial();
     
     // Get circuit wiring lines from canvas that match this circuit
-    const circuitWiringLines = useMemo(() => 
-      lines.filter(line => line.dbCircuitId === circuitId && line.id.startsWith('circuit-')),
-      [lines, circuitId]
-    );
+    // For 'unassigned', show lines with no dbCircuitId
+    const circuitWiringLines = useMemo(() => {
+      if (circuitId === 'unassigned') {
+        return lines.filter(line => !line.dbCircuitId && line.id.startsWith('circuit-'));
+      }
+      return lines.filter(line => line.dbCircuitId === circuitId && line.id.startsWith('circuit-'));
+    }, [lines, circuitId]);
 
     if (isLoading) {
       return <div className="text-xs text-muted-foreground text-center py-4">Loading materials...</div>;
