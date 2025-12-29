@@ -537,32 +537,51 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
               </div>
             ) : (
               <div className="p-1">
-                  {filteredItems.map((fa) => (
-                    <div
-                      key={fa.id}
-                      onClick={() => {
-                        onSelect(fa.id, 'final_account');
-                        setOpen(false);
-                        setSearchTerm('');
-                      }}
-                      className={`relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground ${
-                        mappings[item.key]?.itemId === fa.id ? 'bg-accent/50' : ''
-                      }`}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-xs text-muted-foreground shrink-0">{fa.item_code}</span>
-                          <span className="truncate">{fa.description}</span>
+                  {filteredItems.map((fa) => {
+                    // Check if this is a parent/header item (code without decimal like D1, D2, D3)
+                    const isParentItem = fa.item_code && !fa.item_code.includes('.');
+                    
+                    if (isParentItem) {
+                      // Render as a non-clickable header
+                      return (
+                        <div
+                          key={fa.id}
+                          className="px-2 py-2 text-xs font-semibold text-primary bg-muted/30 mt-2 first:mt-0 rounded-sm"
+                        >
+                          <span className="font-mono mr-2">{fa.item_code}</span>
+                          <span className="uppercase">{fa.description}</span>
                         </div>
-                        <div className="text-xs text-muted-foreground">
-                          R{((fa.supply_rate || 0) + (fa.install_rate || 0)).toFixed(2)}/{fa.unit}
+                      );
+                    }
+                    
+                    // Render as a selectable child item
+                    return (
+                      <div
+                        key={fa.id}
+                        onClick={() => {
+                          onSelect(fa.id, 'final_account');
+                          setOpen(false);
+                          setSearchTerm('');
+                        }}
+                        className={`relative flex cursor-pointer select-none items-center rounded-sm pl-6 pr-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground ${
+                          mappings[item.key]?.itemId === fa.id ? 'bg-accent/50' : ''
+                        }`}
+                      >
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-xs text-muted-foreground shrink-0">{fa.item_code}</span>
+                            <span className="truncate">{fa.description}</span>
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            R{((fa.supply_rate || 0) + (fa.install_rate || 0)).toFixed(2)}/{fa.unit}
+                          </div>
                         </div>
+                        {mappings[item.key]?.itemId === fa.id && (
+                          <Check className="h-4 w-4 text-primary shrink-0" />
+                        )}
                       </div>
-                      {mappings[item.key]?.itemId === fa.id && (
-                        <Check className="h-4 w-4 text-primary shrink-0" />
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                   
                   {/* Master Materials section */}
                   {masterMaterials && masterMaterials.length > 0 && (!searchTerm || 
