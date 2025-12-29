@@ -634,15 +634,8 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
       return;
     }
     
-    // If already linked with saved mappings, auto-use them (no need to ask again)
-    if (isAlreadyLinked && hasSavedMappings && hasTakeoffs) {
-      const savedMappings = buildMappingsFromSaved();
-      toast.info('Using existing material mappings to update quantities');
-      linkMutation.mutate(savedMappings);
-      return;
-    }
-    
-    // Show mapping step if there are takeoffs to map
+    // Always show mapping step when there are takeoffs, even if already linked
+    // This allows users to update/add mappings for new equipment types
     if (hasTakeoffs) {
       setStep('map-materials');
     } else {
