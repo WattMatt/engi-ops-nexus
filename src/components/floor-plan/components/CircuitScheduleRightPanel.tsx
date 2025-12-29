@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { ChevronDown, ChevronRight, CircuitBoard, Zap, Package, X, Radio, ArrowRight, Trash2, CheckSquare, Square, Plus, ListPlus } from 'lucide-react';
+import { ChevronDown, ChevronRight, CircuitBoard, Zap, Package, X, Radio, ArrowRight, Trash2, CheckSquare, Square, Plus, ListPlus, FileText } from 'lucide-react';
 import { QuickAddMaterialsDialog } from './QuickAddMaterialsDialog';
+import { CircuitTemplatesDialog } from './CircuitTemplatesDialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -336,6 +337,7 @@ export const CircuitScheduleRightPanel: React.FC<CircuitScheduleRightPanelProps>
   const [showAddBoardDialog, setShowAddBoardDialog] = useState(false);
   const [showAddCircuitDialog, setShowAddCircuitDialog] = useState(false);
   const [showQuickAddDialog, setShowQuickAddDialog] = useState(false);
+  const [showTemplatesDialog, setShowTemplatesDialog] = useState(false);
   const [selectedBoardForCircuit, setSelectedBoardForCircuit] = useState<string | null>(null);
   const [boardFormData, setBoardFormData] = useState({ name: '', location: '', description: '' });
   const [circuitFormData, setCircuitFormData] = useState({ circuit_ref: '', description: '' });
@@ -532,15 +534,26 @@ export const CircuitScheduleRightPanel: React.FC<CircuitScheduleRightPanelProps>
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               Assigned Materials
             </h3>
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-7 text-xs"
-              onClick={() => setShowQuickAddDialog(true)}
-            >
-              <ListPlus className="h-3 w-3 mr-1" />
-              Quick Add
-            </Button>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => setShowTemplatesDialog(true)}
+              >
+                <FileText className="h-3 w-3 mr-1" />
+                Templates
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => setShowQuickAddDialog(true)}
+              >
+                <ListPlus className="h-3 w-3 mr-1" />
+                Quick Add
+              </Button>
+            </div>
           </div>
           <ScrollArea className="h-80">
             <div className="p-3">
@@ -638,6 +651,18 @@ export const CircuitScheduleRightPanel: React.FC<CircuitScheduleRightPanelProps>
         <QuickAddMaterialsDialog
           open={showQuickAddDialog}
           onOpenChange={setShowQuickAddDialog}
+          circuitId={selectedCircuit.id}
+          circuitRef={selectedCircuit.circuit_ref}
+          projectId={projectId}
+          floorPlanId={floorPlanId}
+        />
+      )}
+
+      {/* Circuit Templates Dialog */}
+      {selectedCircuit && (
+        <CircuitTemplatesDialog
+          open={showTemplatesDialog}
+          onOpenChange={setShowTemplatesDialog}
           circuitId={selectedCircuit.id}
           circuitRef={selectedCircuit.circuit_ref}
           projectId={projectId}
