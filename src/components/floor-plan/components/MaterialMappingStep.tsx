@@ -5,10 +5,10 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Loader2, Package, Check, Search, Zap, ChevronRight, X } from 'lucide-react';
-import { Input } from '@/components/ui/input';
+import { Loader2, Package, Zap, Check, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { TakeoffCounts } from './LinkToFinalAccountDialog';
+import { BOQItemSelector } from './BOQItemSelector';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 
@@ -425,201 +425,21 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
     );
   }
 
-  const SearchableItemSelect = ({ item, onSelect }: { item: EquipmentItem; onSelect: (id: string, source: 'final_account' | 'master') => void }) => {
-    const [open, setOpen] = useState(false);
-    const [searchTerm, setSearchTerm] = useState('');
+  const renderItemSelector = (item: EquipmentItem, onSelect: (id: string, source: 'final_account' | 'master') => void) => {
     const mapped = getMappedOption(item.key);
-
-    // Simple filter for items from the selected section
-    const filteredItems = useMemo(() => {
-      if (!finalAccountItems) return [];
-      const search = searchTerm.toLowerCase();
-      
-      if (!search) return finalAccountItems;
-      
-      return finalAccountItems.filter(fa => 
-        fa.description?.toLowerCase().includes(search) || 
-        fa.item_code?.toLowerCase().includes(search)
-      );
-    }, [finalAccountItems, searchTerm]);
-
-    const sectionName = finalAccountItems?.[0]?.section_name || 'Selected Section';
-
+    
     return (
-      <Popover open={open} onOpenChange={setOpen}>
-        <PopoverTrigger asChild>
-          <Button
-            variant="outline"
-            role="combobox"
-            aria-expanded={open}
-            className={`w-full justify-between text-left font-normal h-auto min-h-[40px] py-2 ${mapped ? 'border-primary/50 bg-primary/5' : ''}`}
-          >
-            {mapped ? (
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-2">
-                  <Badge variant="secondary" className="text-[10px] shrink-0">
-                    {mapped.source === 'final_account' ? 'FA' : 'MM'}
-                  </Badge>
-                  <span className="truncate text-sm">{mapped.label}</span>
-                </div>
-                <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2">
-                  {mapped.sectionName && (
-                    <span className="text-primary/70">{mapped.sectionName}</span>
-                  )}
-                  <span>R{mapped.rate.toFixed(2)}/{mapped.unit}</span>
-                </div>
-              </div>
-            ) : (
-              <span className="text-muted-foreground">Select BOQ item...</span>
-            )}
-            <ChevronRight className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent 
-          className="w-[500px] p-0 bg-popover z-[100]" 
-          align="start" 
-          sideOffset={4}
-        >
-          {/* Search input */}
-          <div className="flex items-center border-b px-3 py-2 bg-popover shrink-0">
-            <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
-            <Input
-              placeholder="Search items..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="h-8 border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
-            />
-            {searchTerm && (
-              <Button variant="ghost" size="sm" onClick={() => setSearchTerm('')} className="h-6 w-6 p-0">
-                <X className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-          
-          {/* Section header with count */}
-          <div className="px-3 py-1.5 text-xs font-medium border-b bg-muted/50 text-primary shrink-0">
-            {sectionName} ({filteredItems.length} of {finalAccountItems?.length || 0} items)
-          </div>
-          
-          {/* Scrollable items list - FIXED HEIGHT with native scroll */}
-          <div className="overflow-y-auto" style={{ maxHeight: '350px' }}>
-            {filteredItems.length === 0 ? (
-              <div className="py-6 text-center text-sm text-muted-foreground">
-                {searchTerm ? `No items found matching "${searchTerm}"` : 'No items in this section'}
-              </div>
-            ) : (
-              <div className="p-1">
-                  {filteredItems.map((fa) => {
-                    // Check if this is a parent/header item (code without decimal like J1, J2, D1, D2)
-                    // Parent items have a code that matches pattern: letter(s) + number(s), NO decimal
-                    const hasCode = fa.item_code && fa.item_code.trim().length > 0;
-                    const isParentItem = hasCode && /^[A-Za-z]+\d+$/.test(fa.item_code.trim());
-                    const isChildItem = hasCode && fa.item_code.includes('.');
-                    const isDescriptionRow = !hasCode;
-                    
-                    if (isParentItem) {
-                      // Render as a non-clickable header (e.g., J1 - CONDUIT, D1 - PVC Conduits)
-                      return (
-                        <div
-                          key={fa.id}
-                          className="px-2 py-2 text-xs font-semibold text-primary bg-muted/30 mt-3 first:mt-0 rounded-sm border-l-2 border-primary"
-                        >
-                          <span className="font-mono mr-2 font-bold">{fa.item_code}</span>
-                          <span className="uppercase">{fa.description}</span>
-                        </div>
-                      );
-                    }
-                    
-                    if (isDescriptionRow) {
-                      // Render description-only rows as sub-headers (italic, smaller, not clickable)
-                      return (
-                        <div
-                          key={fa.id}
-                          className="px-3 py-1 text-xs text-muted-foreground italic bg-muted/10 ml-2"
-                        >
-                          {fa.description}
-                        </div>
-                      );
-                    }
-                    
-                    // Render as a selectable child item (e.g., J1.1 - 20mm Ø)
-                    return (
-                      <div
-                        key={fa.id}
-                        onClick={() => {
-                          onSelect(fa.id, 'final_account');
-                          setOpen(false);
-                          setSearchTerm('');
-                        }}
-                        className={`relative flex cursor-pointer select-none items-center rounded-sm pl-6 pr-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground ${
-                          mappings[item.key]?.itemId === fa.id ? 'bg-accent/50' : ''
-                        }`}
-                      >
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono text-xs text-primary font-medium shrink-0">{fa.item_code}</span>
-                            <span className="truncate">{fa.description}</span>
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            R{((fa.supply_rate || 0) + (fa.install_rate || 0)).toFixed(2)}/{fa.unit}
-                          </div>
-                        </div>
-                        {mappings[item.key]?.itemId === fa.id && (
-                          <Check className="h-4 w-4 text-primary shrink-0" />
-                        )}
-                      </div>
-                    );
-                  })}
-                  
-                  {/* Master Materials section */}
-                  {masterMaterials && masterMaterials.length > 0 && (!searchTerm || 
-                    masterMaterials.some(mm => 
-                      mm.material_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                      mm.material_code?.toLowerCase().includes(searchTerm.toLowerCase())
-                    )) && (
-                    <div className="mb-2 border-t pt-2">
-                      <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground sticky top-0 bg-popover">
-                        Master Materials
-                      </div>
-                      {masterMaterials
-                        .filter(mm => !searchTerm || 
-                          mm.material_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          mm.material_code?.toLowerCase().includes(searchTerm.toLowerCase())
-                        )
-                        .slice(0, 100)
-                        .map((mm) => (
-                          <div
-                            key={mm.id}
-                            onClick={() => {
-                              onSelect(mm.id, 'master');
-                              setOpen(false);
-                              setSearchTerm('');
-                            }}
-                            className={`relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground ${
-                              mappings[item.key]?.itemId === mm.id ? 'bg-accent/50' : ''
-                            }`}
-                          >
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className="font-mono text-xs text-muted-foreground shrink-0">{mm.material_code}</span>
-                                <span className="truncate">{mm.material_name}</span>
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                R{((mm.standard_supply_cost || 0) + (mm.standard_install_cost || 0)).toFixed(2)}/{mm.unit}
-                              </div>
-                            </div>
-                            {mappings[item.key]?.itemId === mm.id && (
-                              <Check className="h-4 w-4 text-primary shrink-0" />
-                            )}
-                          </div>
-                        ))}
-                    </div>
-                  )}
-                </div>
-              )}
-          </div>
-        </PopoverContent>
-      </Popover>
+      <BOQItemSelector
+        finalAccountItems={finalAccountItems}
+        masterMaterials={masterMaterials}
+        selectedItemId={mappings[item.key]?.itemId}
+        selectedSource={mappings[item.key]?.source}
+        onSelect={onSelect}
+        mappedLabel={mapped?.label}
+        mappedRate={mapped?.rate}
+        mappedUnit={mapped?.unit}
+        mappedSectionName={mapped?.sectionName}
+      />
     );
   };
 
@@ -773,10 +593,7 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
                     {item.quantity} {item.unit}
                   </Badge>
                 </div>
-                <SearchableItemSelect 
-                  item={item} 
-                  onSelect={(id, source) => handleMappingChange(item.key, id, source)}
-                />
+                {renderItemSelector(item, (id, source) => handleMappingChange(item.key, id, source))}
               </div>
 
               {/* Clear button */}
