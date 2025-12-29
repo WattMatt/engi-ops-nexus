@@ -203,6 +203,17 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
       }
     }
 
+    // Include circuit wiring materials (conductors, earth cables, etc.)
+    if (takeoffCounts?.circuitWiring) {
+      for (const [type, data] of Object.entries(takeoffCounts.circuitWiring)) {
+        if (data.count > 0) {
+          const quantity = data.totalLength > 0 ? Math.round(data.totalLength * 100) / 100 : data.count;
+          const unit = data.unit || (data.totalLength > 0 ? 'm' : 'Nr');
+          items.push({ key: `cable_${type}`, label: type, category: 'cable', quantity, unit });
+        }
+      }
+    }
+
     return items;
   }, [takeoffCounts]);
 
