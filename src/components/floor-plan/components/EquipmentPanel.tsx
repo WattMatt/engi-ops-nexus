@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Layers, LayoutGrid, PlusCircle, CheckCircle, Clock, Circle, ChevronDown, Box, CircuitBoard, Zap, Package, ChevronRight, Trash2, Edit, Plus } from 'lucide-react';
+import { Layers, LayoutGrid, PlusCircle, CheckCircle, Clock, Circle, ChevronDown, Box, CircuitBoard, Zap, Package, ChevronRight, Trash2, Edit, Plus, Sparkles } from 'lucide-react';
 import { EquipmentItem, SupplyLine, SupplyZone, Containment, EquipmentType, DesignPurpose, PVPanelConfig, PVArrayItem, Task, TaskStatus, ScaleInfo } from '../types';
 import { PurposeConfig } from '../purpose.config';
 import { EquipmentIcon } from './EquipmentIcon';
@@ -63,6 +63,9 @@ interface EquipmentPanelProps {
   onSelectCircuit?: (circuit: DbCircuit | null) => void;
   // Cable editing
   onEditCable?: (cable: SupplyLine) => void;
+  // AI Scan Props
+  onStartRegionSelect?: () => void;
+  isSelectingRegion?: boolean;
 }
 
 type EquipmentPanelTab = 'summary' | 'equipment' | 'cables' | 'containment' | 'zones' | 'tasks';
@@ -692,6 +695,8 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
     selectedCircuit,
     onSelectCircuit,
     onEditCable,
+    onStartRegionSelect,
+    isSelectingRegion,
 }) => {
   const [activeTab, setActiveTab] = useState<EquipmentPanelTab>('summary');
   const [expandedAssignees, setExpandedAssignees] = useState<Record<string, boolean>>({});
@@ -995,18 +1000,32 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
   // Render Circuit Schedule View
   const renderCircuitScheduleView = () => (
     <div className="flex-1 flex flex-col overflow-hidden">
-      {/* Header with Add DB button */}
+      {/* Header with Add DB and AI Scan buttons */}
       <div className="px-4 py-2 border-b border-border bg-muted/30 flex-shrink-0 flex items-center justify-between">
         <span className="text-xs font-medium text-muted-foreground">Distribution Boards</span>
-        <Button 
-          variant="outline" 
-          size="sm"
-          onClick={() => setShowAddBoardDialog(true)}
-          className="h-7 text-xs"
-        >
-          <Plus className="h-3 w-3 mr-1" />
-          Add DB
-        </Button>
+        <div className="flex items-center gap-2">
+          {onStartRegionSelect && (
+            <Button 
+              variant={isSelectingRegion ? "default" : "outline"}
+              size="sm"
+              onClick={onStartRegionSelect}
+              disabled={isSelectingRegion}
+              className="h-7 text-xs"
+            >
+              <Sparkles className="h-3 w-3 mr-1" />
+              {isSelectingRegion ? 'Selecting...' : 'AI Scan'}
+            </Button>
+          )}
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setShowAddBoardDialog(true)}
+            className="h-7 text-xs"
+          >
+            <Plus className="h-3 w-3 mr-1" />
+            Add DB
+          </Button>
+        </div>
       </div>
 
       {/* Status Indicator */}
