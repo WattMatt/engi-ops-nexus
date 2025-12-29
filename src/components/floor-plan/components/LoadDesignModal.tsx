@@ -41,6 +41,11 @@ const LoadDesignModal: React.FC<LoadDesignModalProps> = ({
     return Array.from(purposes);
   }, [designs]);
 
+  // Natural sort function for numerical ordering
+  const naturalSort = (a: DesignListing, b: DesignListing) => {
+    return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' });
+  };
+
   // Separate and filter designs
   const { unassignedDesigns, projectDesigns } = useMemo(() => {
     const unassigned: DesignListing[] = [];
@@ -59,7 +64,11 @@ const LoadDesignModal: React.FC<LoadDesignModalProps> = ({
       }
     });
     
-    return { unassignedDesigns: unassigned, projectDesigns: projectSpecific };
+    // Sort both arrays numerically
+    return { 
+      unassignedDesigns: unassigned.sort(naturalSort), 
+      projectDesigns: projectSpecific.sort(naturalSort) 
+    };
   }, [designs, currentProjectId, filterPurpose]);
 
   const handleStartEdit = (design: DesignListing) => {
