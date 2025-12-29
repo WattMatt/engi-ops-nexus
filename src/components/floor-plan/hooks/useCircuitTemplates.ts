@@ -90,10 +90,8 @@ export function useCreateTemplateFromCircuit() {
       projectId?: string;
       materials: Array<{ description: string; quantity: number; unit: string }>;
     }) => {
-      // Get current user
       const { data: { user } } = await supabase.auth.getUser();
       
-      // Create the template
       const { data: template, error: templateError } = await supabase
         .from('circuit_material_templates')
         .insert({
@@ -108,7 +106,6 @@ export function useCreateTemplateFromCircuit() {
       
       if (templateError) throw templateError;
       
-      // Create template items from materials
       const templateItems = materials.map((mat, index) => ({
         template_id: template.id,
         description: mat.description,
@@ -127,6 +124,128 @@ export function useCreateTemplateFromCircuit() {
       }
       
       return template;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['circuit-templates'] });
+    },
+  });
+}
+
+// Create a new template from scratch (independent of circuits)
+export function useCreateTemplateFromItems() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({
+      name,
+      category,
+      projectId,
+      items,
+    }: {
+      name: string;
+      category: string;
+      projectId?: string;
+      items: Array<{ description: string; quantity: number; unit: string }>;
+    }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      const { data: template, error: templateError } = await supabase
+        .from('circuit_material_templates')
+        .insert({
+          name,
+          circuit_type: category,
+          project_id: projectId || null,
+          is_default: false,
+          created_by: user?.id || null,
+        })
+        .select()
+        .single();
+      
+      if (templateError) throw templateError;
+      
+      const templateItems = items.map((item, index) => ({
+        template_id: template.id,
+        description: item.description,
+        material_type: 'custom',
+        quantity_formula: String(item.quantity),
+        unit: item.unit,
+        display_order: index + 1,
+      }));
+      
+      if (templateItems.length > 0) {
+        const { error: itemsError } = await supabase
+          .from('circuit_material_template_items')
+          .insert(templateItems);
+        
+        if (itemsError) throw itemsError;
+      }
+      
+      return template;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['circuit-templates'] });
+    },
+  });
+}
+
+// Update template items (replace all items)
+export function useUpdateTemplateItems() {
+  const queryClient = useQueryClient();
+  
+  return useMutation({
+    mutationFn: async ({
+      templateId,
+      name,
+      category,
+      items,
+    }: {
+      templateId: string;
+      name?: string;
+      category?: string;
+      items: Array<{ description: string; quantity: number; unit: string }>;
+    }) => {
+      // Update template name/category if provided
+      if (name || category) {
+        const updates: Record<string, unknown> = {};
+        if (name) updates.name = name;
+        if (category) updates.circuit_type = category;
+        
+        const { error: updateError } = await supabase
+          .from('circuit_material_templates')
+          .update(updates)
+          .eq('id', templateId)
+          .eq('is_default', false);
+        
+        if (updateError) throw updateError;
+      }
+      
+      // Delete existing items
+      const { error: deleteError } = await supabase
+        .from('circuit_material_template_items')
+        .delete()
+        .eq('template_id', templateId);
+      
+      if (deleteError) throw deleteError;
+      
+      // Insert new items
+      const templateItems = items.map((item, index) => ({
+        template_id: templateId,
+        description: item.description,
+        material_type: 'custom',
+        quantity_formula: String(item.quantity),
+        unit: item.unit,
+        display_order: index + 1,
+      }));
+      
+      if (templateItems.length > 0) {
+        const { error: insertError } = await supabase
+          .from('circuit_material_template_items')
+          .insert(templateItems);
+        
+        if (insertError) throw insertError;
+      }
+      
+      return { templateId };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['circuit-templates'] });
