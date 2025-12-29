@@ -195,13 +195,7 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
       }
     }
 
-    if (takeoffCounts?.cables) {
-      for (const [type, data] of Object.entries(takeoffCounts.cables)) {
-        if (data.count > 0) {
-          items.push({ key: `cable_${type}`, label: type, category: 'cable', quantity: Math.round(data.totalLength * 100) / 100, unit: 'm' });
-        }
-      }
-    }
+    // Individual circuit cables removed - only circuitWiring aggregated totals are used
 
     // Include circuit wiring materials (conductors, earth cables, etc.)
     if (takeoffCounts?.circuitWiring) {
