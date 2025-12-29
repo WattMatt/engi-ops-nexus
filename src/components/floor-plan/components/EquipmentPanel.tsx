@@ -23,6 +23,7 @@ import {
 } from '@/components/circuit-schedule/hooks/useDistributionBoards';
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { CircuitAssignmentSelector } from './CircuitAssignmentSelector';
 
 interface EquipmentPanelProps {
   equipment: EquipmentItem[];
@@ -211,7 +212,10 @@ const CableDetails: React.FC<{
     onEdit?: () => void;
     tasks: Task[];
     onOpenTaskModal: (task: Partial<Task> | null) => void;
-}> = ({ item, onDelete, onEdit, tasks, onOpenTaskModal }) => {
+    projectId?: string;
+    currentCircuitId?: string | null;
+    materialId?: string;
+}> = ({ item, onDelete, onEdit, tasks, onOpenTaskModal, projectId, currentCircuitId, materialId }) => {
     const isGpWire = item.cableType?.toUpperCase().includes('GP');
     // For GP wire: pathLength is the horizontal trace, we triple it for L+E+N conductors
     const pathLength = item.pathLength ?? item.length;
@@ -269,6 +273,22 @@ const CableDetails: React.FC<{
                     </div>
                 )}
             </div>
+            
+            {/* Circuit Assignment Selector */}
+            {projectId && (
+                <CircuitAssignmentSelector
+                    projectId={projectId}
+                    currentCircuitId={currentCircuitId}
+                    materialId={materialId}
+                    materialDetails={!materialId ? {
+                        description: `${item.cableType || 'Cable'} - ${item.from || 'Unknown'} to ${item.to || 'Unknown'}`,
+                        quantity: calculatedLength,
+                        unit: 'm',
+                        canvas_line_id: item.id,
+                    } : undefined}
+                />
+            )}
+            
             <ItemTasks itemId={item.id} tasks={tasks} onOpenTaskModal={onOpenTaskModal} />
             <div className="mt-4 flex gap-2">
                 {onEdit && (
@@ -288,7 +308,10 @@ const CableDetails: React.FC<{
 const ContainmentDetails: React.FC<{
     item: Containment;
     onDelete: () => void;
-}> = ({ item, onDelete }) => {
+    projectId?: string;
+    currentCircuitId?: string | null;
+    materialId?: string;
+}> = ({ item, onDelete, projectId, currentCircuitId, materialId }) => {
     const style = getContainmentStyle(item.type, item.size);
     
     return (
@@ -312,6 +335,22 @@ const ContainmentDetails: React.FC<{
                     <span className='font-mono font-semibold text-primary'>{item.length.toFixed(2)}m</span>
                 </div>
             </div>
+            
+            {/* Circuit Assignment Selector */}
+            {projectId && (
+                <CircuitAssignmentSelector
+                    projectId={projectId}
+                    currentCircuitId={currentCircuitId}
+                    materialId={materialId}
+                    materialDetails={!materialId ? {
+                        description: `${item.type} ${item.size}`,
+                        quantity: item.length,
+                        unit: 'm',
+                        canvas_line_id: item.id,
+                    } : undefined}
+                />
+            )}
+            
             <div className="mt-4">
                 <button onClick={onDelete} className="w-full text-center px-4 py-2 bg-destructive/20 text-destructive hover:bg-destructive/40 rounded-md text-sm font-semibold transition-colors">
                     Delete Containment
@@ -1189,8 +1228,8 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
                 {selectedEquipment && <SelectionDetails item={selectedEquipment} onUpdate={onEquipmentUpdate} onDelete={onDeleteItem} tasks={tasks} onOpenTaskModal={onOpenTaskModal} />}
                 {selectedZone && <ZoneDetails item={selectedZone} onUpdate={onZoneUpdate} onDelete={onDeleteItem} tasks={tasks} onOpenTaskModal={onOpenTaskModal} />}
                 {selectedPvArray && <PvArrayDetails item={selectedPvArray} pvPanelConfig={pvPanelConfig} onDelete={onDeleteItem} />}
-                {selectedLine && <CableDetails item={selectedLine} onDelete={onDeleteItem} onEdit={onEditCable ? () => onEditCable(selectedLine) : undefined} tasks={tasks} onOpenTaskModal={onOpenTaskModal} />}
-                {selectedContainment && <ContainmentDetails item={selectedContainment} onDelete={onDeleteItem} />}
+                {selectedLine && <CableDetails item={selectedLine} onDelete={onDeleteItem} onEdit={onEditCable ? () => onEditCable(selectedLine) : undefined} tasks={tasks} onOpenTaskModal={onOpenTaskModal} projectId={projectId} currentCircuitId={selectedLine.dbCircuitId} />}
+                {selectedContainment && <ContainmentDetails item={selectedContainment} onDelete={onDeleteItem} projectId={projectId} />}
             </div>
             
             <div className="border-b border-border px-2 flex-shrink-0">
