@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { ChevronDown, ChevronRight, CircuitBoard, Zap, Package, X, Radio, ArrowRight, Trash2, CheckSquare, Square, Plus } from 'lucide-react';
+import { ChevronDown, ChevronRight, CircuitBoard, Zap, Package, X, Radio, ArrowRight, Trash2, CheckSquare, Square, Plus, ListPlus } from 'lucide-react';
+import { QuickAddMaterialsDialog } from './QuickAddMaterialsDialog';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -334,6 +335,7 @@ export const CircuitScheduleRightPanel: React.FC<CircuitScheduleRightPanelProps>
   // Dialog states
   const [showAddBoardDialog, setShowAddBoardDialog] = useState(false);
   const [showAddCircuitDialog, setShowAddCircuitDialog] = useState(false);
+  const [showQuickAddDialog, setShowQuickAddDialog] = useState(false);
   const [selectedBoardForCircuit, setSelectedBoardForCircuit] = useState<string | null>(null);
   const [boardFormData, setBoardFormData] = useState({ name: '', location: '', description: '' });
   const [circuitFormData, setCircuitFormData] = useState({ circuit_ref: '', description: '' });
@@ -526,10 +528,19 @@ export const CircuitScheduleRightPanel: React.FC<CircuitScheduleRightPanelProps>
       {/* Materials Section (shown when circuit is selected) */}
       {selectedCircuit && (
         <div className="border-t border-border flex-shrink-0">
-          <div className="px-4 py-2 bg-muted/50">
+          <div className="px-4 py-2 bg-muted/50 flex items-center justify-between">
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
               Assigned Materials
             </h3>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => setShowQuickAddDialog(true)}
+            >
+              <ListPlus className="h-3 w-3 mr-1" />
+              Quick Add
+            </Button>
           </div>
           <ScrollArea className="h-80">
             <div className="p-3">
@@ -621,6 +632,18 @@ export const CircuitScheduleRightPanel: React.FC<CircuitScheduleRightPanelProps>
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Quick Add Materials Dialog */}
+      {selectedCircuit && (
+        <QuickAddMaterialsDialog
+          open={showQuickAddDialog}
+          onOpenChange={setShowQuickAddDialog}
+          circuitId={selectedCircuit.id}
+          circuitRef={selectedCircuit.circuit_ref}
+          projectId={projectId}
+          floorPlanId={floorPlanId}
+        />
+      )}
     </div>
   );
 };
