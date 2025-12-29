@@ -124,26 +124,34 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
   const { data: finalAccountItems, isLoading: loadingFAItems } = useQuery({
     queryKey: ['final-account-items-for-mapping-all', finalAccountId, sectionId],
     queryFn: async () => {
+      console.log('[MaterialMapping] Starting fetch for finalAccountId:', finalAccountId);
+      
       // First get all bills for this final account
-      const { data: bills } = await (supabase as any)
+      const { data: bills, error: billsError } = await (supabase as any)
         .from('final_account_bills')
         .select('id')
         .eq('final_account_id', finalAccountId);
+      
+      console.log('[MaterialMapping] Bills fetched:', bills?.length, 'Error:', billsError);
       
       if (!bills || bills.length === 0) return [];
       
       const billIds = bills.map((b: any) => b.id);
       
       // Get all sections for these bills
-      const { data: sections } = await (supabase as any)
+      const { data: sections, error: sectionsError } = await (supabase as any)
         .from('final_account_sections')
         .select('id, section_name')
         .in('bill_id', billIds);
+      
+      console.log('[MaterialMapping] Sections fetched:', sections?.length, 'Error:', sectionsError);
       
       if (!sections || sections.length === 0) return [];
       
       const sectionMap = new Map(sections.map((s: any) => [s.id, s.section_name]));
       const allSectionIds: string[] = sections.map((s: any) => s.id);
+      
+      console.log('[MaterialMapping] Processing', allSectionIds.length, 'sections');
       
       // Fetch items from EACH section separately to avoid the 1000 row limit
       const allItems: any[] = [];
@@ -154,11 +162,14 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
         const batchSectionIds = allSectionIds.slice(i, i + batchSize);
         
         const batchPromises = batchSectionIds.map(async (secId: string) => {
-          const { data: items } = await (supabase as any)
+          const { data: items, error: itemsError } = await (supabase as any)
             .from('final_account_items')
             .select('id, item_code, description, unit, supply_rate, install_rate, display_order, section_id')
             .eq('section_id', secId)
             .order('item_code', { ascending: true });
+          if (itemsError) {
+            console.error('[MaterialMapping] Error fetching items for section', secId, itemsError);
+          }
           return items || [];
         });
         
@@ -168,8 +179,10 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
         }
       }
       
+      console.log('[MaterialMapping] Total items fetched:', allItems.length);
+      
       // Add section_name to each item and sort selected section first
-      return allItems.map(item => ({
+      const result = allItems.map(item => ({
         ...item,
         section_name: sectionMap.get(item.section_id) || 'Unknown',
         _isSelectedSection: item.section_id === sectionId
@@ -182,6 +195,12 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
         if (sectionCompare !== 0) return sectionCompare;
         return (a.item_code || '').localeCompare(b.item_code || '', undefined, { numeric: true });
       }) as FinalAccountItem[];
+      
+      // Log unique sections in result
+      const uniqueSections = new Set(result.map(r => r.section_name));
+      console.log('[MaterialMapping] Unique sections in result:', Array.from(uniqueSections));
+      
+      return result;
     },
     enabled: !!finalAccountId,
   });
@@ -452,7 +471,51 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
 
   const SearchableItemSelect = ({ item, onSelect }: { item: EquipmentItem; onSelect: (id: string, source: 'final_account' | 'master') => void }) => {
     const [open, setOpen] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
     const mapped = getMappedOption(item.key);
+
+    // Group and filter items based on search
+    const { groupedItems, totalCount } = useMemo(() => {
+      const itemsBySection = new Map<string, FinalAccountItem[]>();
+      let selectedSectionName: string | null = null;
+      const search = searchTerm.toLowerCase();
+      
+      // Filter and group final account items
+      for (const fa of (finalAccountItems || [])) {
+        // Apply search filter
+        if (search && 
+            !fa.description?.toLowerCase().includes(search) && 
+            !fa.item_code?.toLowerCase().includes(search) &&
+            !fa.section_name?.toLowerCase().includes(search)) {
+          continue;
+        }
+        
+        const sectionName = fa.section_name || 'Unknown Section';
+        if (!itemsBySection.has(sectionName)) {
+          itemsBySection.set(sectionName, []);
+        }
+        itemsBySection.get(sectionName)!.push(fa);
+        if (fa._isSelectedSection && !selectedSectionName) {
+          selectedSectionName = sectionName;
+        }
+      }
+      
+      // Sort sections - selected section first, then alphabetically
+      const sortedSections = Array.from(itemsBySection.entries()).sort(([a], [b]) => {
+        if (a === selectedSectionName) return -1;
+        if (b === selectedSectionName) return 1;
+        return a.localeCompare(b);
+      });
+      
+      // Count total items
+      const total = sortedSections.reduce((sum, [, items]) => sum + items.length, 0);
+      
+      return { 
+        groupedItems: sortedSections, 
+        totalCount: total,
+        selectedSectionName 
+      };
+    }, [finalAccountItems, searchTerm]);
 
     return (
       <Popover open={open} onOpenChange={setOpen}>
@@ -484,100 +547,124 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
             <ChevronRight className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[450px] p-0 bg-popover z-[100]" align="start">
-          <Command>
-            <CommandInput placeholder="Search items..." className="h-9" />
-            <CommandList className="max-h-[400px]">
-              <CommandEmpty>No items found.</CommandEmpty>
-              {finalAccountItems && finalAccountItems.length > 0 && (() => {
-                // Group items by section, keeping selected section first
-                const itemsBySection = new Map<string, FinalAccountItem[]>();
-                let selectedSectionName: string | null = null;
-                
-                for (const fa of finalAccountItems) {
-                  const sectionName = fa.section_name || 'Unknown Section';
-                  if (!itemsBySection.has(sectionName)) {
-                    itemsBySection.set(sectionName, []);
-                  }
-                  itemsBySection.get(sectionName)!.push(fa);
-                  // Track selected section name
-                  if (fa._isSelectedSection && !selectedSectionName) {
-                    selectedSectionName = sectionName;
-                  }
-                }
-                
-                // Sort sections so selected section comes first
-                const sortedSections = Array.from(itemsBySection.entries()).sort(([a], [b]) => {
-                  if (a === selectedSectionName) return -1;
-                  if (b === selectedSectionName) return 1;
-                  return a.localeCompare(b);
-                });
-                
-                return sortedSections.map(([sectionName, items]) => (
-                  <CommandGroup 
-                    key={sectionName} 
-                    heading={
-                      <span className={sectionName === selectedSectionName ? 'text-primary font-semibold' : ''}>
-                        {sectionName}
-                        {sectionName === selectedSectionName && ' (Selected)'}
-                      </span>
-                    }
-                  >
-                    {items.map((fa) => (
-                      <CommandItem
-                        key={fa.id}
-                        value={`${sectionName} ${fa.item_code} ${fa.description}`}
-                        onSelect={() => {
-                          onSelect(fa.id, 'final_account');
-                          setOpen(false);
-                        }}
-                      >
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono text-xs text-muted-foreground">{fa.item_code}</span>
-                            <span className="truncate">{fa.description}</span>
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            R{((fa.supply_rate || 0) + (fa.install_rate || 0)).toFixed(2)}/{fa.unit}
-                          </div>
-                        </div>
-                        {mappings[item.key]?.itemId === fa.id && (
-                          <Check className="h-4 w-4 text-primary" />
-                        )}
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                ));
-              })()}
-              {masterMaterials && masterMaterials.length > 0 && (
-                <CommandGroup heading="Master Materials">
-                  {masterMaterials.slice(0, 50).map((mm) => (
-                    <CommandItem
-                      key={mm.id}
-                      value={`${mm.material_code} ${mm.material_name}`}
-                      onSelect={() => {
-                        onSelect(mm.id, 'master');
-                        setOpen(false);
-                      }}
-                    >
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                          <span className="font-mono text-xs text-muted-foreground">{mm.material_code}</span>
-                          <span className="truncate">{mm.material_name}</span>
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          R{((mm.standard_supply_cost || 0) + (mm.standard_install_cost || 0)).toFixed(2)}/{mm.unit}
-                        </div>
-                      </div>
-                      {mappings[item.key]?.itemId === mm.id && (
-                        <Check className="h-4 w-4 text-primary" />
-                      )}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
+        <PopoverContent className="w-[500px] p-0 bg-popover z-[100]" align="start">
+          <div className="flex flex-col">
+            {/* Search input */}
+            <div className="flex items-center border-b px-3 py-2">
+              <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+              <Input
+                placeholder="Search items..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="h-8 border-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+              />
+              {searchTerm && (
+                <Button variant="ghost" size="sm" onClick={() => setSearchTerm('')} className="h-6 w-6 p-0">
+                  <X className="h-4 w-4" />
+                </Button>
               )}
-            </CommandList>
-          </Command>
+            </div>
+            
+            {/* Results count */}
+            <div className="px-3 py-1.5 text-xs text-muted-foreground border-b bg-muted/50">
+              {totalCount} items in {groupedItems.length} sections
+              {finalAccountItems && ` (${finalAccountItems.length} total)`}
+            </div>
+            
+            {/* Scrollable items list */}
+            <ScrollArea className="h-[350px]">
+              {groupedItems.length === 0 ? (
+                <div className="py-6 text-center text-sm text-muted-foreground">
+                  No items found matching "{searchTerm}"
+                </div>
+              ) : (
+                <div className="p-1">
+                  {groupedItems.map(([sectionName, items]) => (
+                    <div key={sectionName} className="mb-2">
+                      <div className={`px-2 py-1.5 text-xs font-medium sticky top-0 bg-popover ${
+                        items[0]?._isSelectedSection ? 'text-primary font-semibold' : 'text-muted-foreground'
+                      }`}>
+                        {sectionName}
+                        {items[0]?._isSelectedSection && ' (Selected)'}
+                        <span className="ml-1 opacity-60">({items.length})</span>
+                      </div>
+                      {items.map((fa) => (
+                        <div
+                          key={fa.id}
+                          onClick={() => {
+                            onSelect(fa.id, 'final_account');
+                            setOpen(false);
+                            setSearchTerm('');
+                          }}
+                          className={`relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground ${
+                            mappings[item.key]?.itemId === fa.id ? 'bg-accent/50' : ''
+                          }`}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="font-mono text-xs text-muted-foreground shrink-0">{fa.item_code}</span>
+                              <span className="truncate">{fa.description}</span>
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              R{((fa.supply_rate || 0) + (fa.install_rate || 0)).toFixed(2)}/{fa.unit}
+                            </div>
+                          </div>
+                          {mappings[item.key]?.itemId === fa.id && (
+                            <Check className="h-4 w-4 text-primary shrink-0" />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                  
+                  {/* Master Materials section */}
+                  {masterMaterials && masterMaterials.length > 0 && (!searchTerm || 
+                    masterMaterials.some(mm => 
+                      mm.material_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                      mm.material_code?.toLowerCase().includes(searchTerm.toLowerCase())
+                    )) && (
+                    <div className="mb-2 border-t pt-2">
+                      <div className="px-2 py-1.5 text-xs font-medium text-muted-foreground sticky top-0 bg-popover">
+                        Master Materials
+                      </div>
+                      {masterMaterials
+                        .filter(mm => !searchTerm || 
+                          mm.material_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          mm.material_code?.toLowerCase().includes(searchTerm.toLowerCase())
+                        )
+                        .slice(0, 100)
+                        .map((mm) => (
+                          <div
+                            key={mm.id}
+                            onClick={() => {
+                              onSelect(mm.id, 'master');
+                              setOpen(false);
+                              setSearchTerm('');
+                            }}
+                            className={`relative flex cursor-pointer select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground ${
+                              mappings[item.key]?.itemId === mm.id ? 'bg-accent/50' : ''
+                            }`}
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2">
+                                <span className="font-mono text-xs text-muted-foreground shrink-0">{mm.material_code}</span>
+                                <span className="truncate">{mm.material_name}</span>
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                R{((mm.standard_supply_cost || 0) + (mm.standard_install_cost || 0)).toFixed(2)}/{mm.unit}
+                              </div>
+                            </div>
+                            {mappings[item.key]?.itemId === mm.id && (
+                              <Check className="h-4 w-4 text-primary shrink-0" />
+                            )}
+                          </div>
+                        ))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </ScrollArea>
+          </div>
         </PopoverContent>
       </Popover>
     );
