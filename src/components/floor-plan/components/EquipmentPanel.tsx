@@ -24,6 +24,7 @@ import {
   useReassignCircuitMaterial,
   useCreateDistributionBoard,
   useCreateCircuit,
+  useDeleteCircuit,
   DbCircuit,
 } from '@/components/circuit-schedule/hooks/useDistributionBoards';
 import { cn } from '@/lib/utils';
@@ -709,6 +710,13 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
   const [boardFormData, setBoardFormData] = useState({ name: '', location: '', description: '' });
   const createBoard = useCreateDistributionBoard();
 
+  // State for Add Circuit dialog
+  const [showAddCircuitDialog, setShowAddCircuitDialog] = useState(false);
+  const [addCircuitBoardId, setAddCircuitBoardId] = useState<string | null>(null);
+  const [circuitFormData, setCircuitFormData] = useState({ circuit_ref: '', description: '', circuit_type: '' });
+  const createCircuit = useCreateCircuit();
+  const deleteCircuit = useDeleteCircuit();
+
   // Fetch distribution boards for Circuit Schedule view
   const { data: boards, isLoading: loadingBoards } = useDistributionBoards(projectId || '');
 
@@ -944,41 +952,82 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
   const BoardCircuitsLocal: React.FC<{ boardId: string }> = ({ boardId }) => {
     const { data: circuits, isLoading } = useDbCircuits(boardId);
     
+    const handleDeleteCircuit = async (e: React.MouseEvent, circuitId: string) => {
+      e.stopPropagation();
+      if (window.confirm('Are you sure you want to delete this circuit?')) {
+        // Clear selection if deleting the selected circuit
+        if (selectedCircuit?.id === circuitId) {
+          onSelectCircuit?.(null);
+        }
+        await deleteCircuit.mutateAsync({ id: circuitId, boardId });
+      }
+    };
+    
+    const handleOpenAddCircuit = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      setAddCircuitBoardId(boardId);
+      setCircuitFormData({ circuit_ref: '', description: '', circuit_type: '' });
+      setShowAddCircuitDialog(true);
+    };
+    
     if (isLoading) {
       return <div className="pl-6 py-2 text-xs text-muted-foreground">Loading circuits...</div>;
     }
     
-    if (!circuits || circuits.length === 0) {
-      return <div className="pl-6 py-2 text-xs text-muted-foreground italic">No circuits</div>;
-    }
-    
     return (
       <div className="pl-4 space-y-1">
-        {circuits.map((circuit) => {
-          const isSelected = selectedCircuit?.id === circuit.id;
-          return (
-            <button
-              key={circuit.id}
-              onClick={() => onSelectCircuit?.(isSelected ? null : circuit)}
-              className={cn(
-                "w-full text-left px-3 py-2 rounded-md text-sm transition-all flex items-center gap-2",
-                isSelected 
-                  ? "bg-primary text-primary-foreground" 
-                  : "hover:bg-muted/80 text-foreground"
-              )}
-            >
-              <Zap className={cn("h-3 w-3", isSelected ? "text-primary-foreground" : "text-amber-500")} />
-              <div className="flex-1 min-w-0">
-                <div className="font-medium">{circuit.circuit_ref}</div>
-                {circuit.description && (
-                  <div className={cn("text-xs truncate", isSelected ? "text-primary-foreground/80" : "text-muted-foreground")}>
-                    {circuit.description}
-                  </div>
+        {/* Add Circuit Button */}
+        <button
+          onClick={handleOpenAddCircuit}
+          className="w-full text-left px-3 py-2 rounded-md text-sm transition-all flex items-center gap-2 border border-dashed border-muted-foreground/30 hover:border-primary hover:bg-primary/5 text-muted-foreground hover:text-primary"
+        >
+          <Plus className="h-3 w-3" />
+          <span>Add Circuit</span>
+        </button>
+        
+        {circuits && circuits.length > 0 ? (
+          circuits.map((circuit) => {
+            const isSelected = selectedCircuit?.id === circuit.id;
+            return (
+              <div
+                key={circuit.id}
+                className={cn(
+                  "w-full rounded-md text-sm transition-all flex items-center gap-2 group",
+                  isSelected 
+                    ? "bg-primary text-primary-foreground" 
+                    : "hover:bg-muted/80 text-foreground"
                 )}
+              >
+                <button
+                  onClick={() => onSelectCircuit?.(isSelected ? null : circuit)}
+                  className="flex-1 text-left px-3 py-2 flex items-center gap-2 min-w-0"
+                >
+                  <Zap className={cn("h-3 w-3 flex-shrink-0", isSelected ? "text-primary-foreground" : "text-amber-500")} />
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium">{circuit.circuit_ref}</div>
+                    {circuit.description && (
+                      <div className={cn("text-xs truncate", isSelected ? "text-primary-foreground/80" : "text-muted-foreground")}>
+                        {circuit.description}
+                      </div>
+                    )}
+                  </div>
+                </button>
+                <button
+                  onClick={(e) => handleDeleteCircuit(e, circuit.id)}
+                  className={cn(
+                    "p-2 opacity-0 group-hover:opacity-100 transition-opacity",
+                    isSelected ? "text-primary-foreground/70 hover:text-primary-foreground" : "text-muted-foreground hover:text-destructive"
+                  )}
+                  title="Delete circuit"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </button>
               </div>
-            </button>
-          );
-        })}
+            );
+          })
+        ) : (
+          <div className="pl-2 py-1 text-xs text-muted-foreground italic">No circuits yet</div>
+        )}
       </div>
     );
   };
@@ -995,6 +1044,19 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
     });
     setBoardFormData({ name: '', location: '', description: '' });
     setShowAddBoardDialog(false);
+  };
+
+  const handleCreateCircuit = async () => {
+    if (!circuitFormData.circuit_ref.trim() || !addCircuitBoardId) return;
+    await createCircuit.mutateAsync({
+      distribution_board_id: addCircuitBoardId,
+      circuit_ref: circuitFormData.circuit_ref,
+      description: circuitFormData.description || undefined,
+      circuit_type: circuitFormData.circuit_type || undefined,
+    });
+    setCircuitFormData({ circuit_ref: '', description: '', circuit_type: '' });
+    setShowAddCircuitDialog(false);
+    setAddCircuitBoardId(null);
   };
 
   // Render Circuit Schedule View
@@ -1584,6 +1646,65 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
               <Button variant="outline" onClick={() => setShowAddBoardDialog(false)}>Cancel</Button>
               <Button onClick={handleCreateBoard} disabled={!boardFormData.name.trim() || createBoard.isPending}>
                 Create
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+
+        {/* Add Circuit Dialog */}
+        <Dialog open={showAddCircuitDialog} onOpenChange={(open) => {
+          setShowAddCircuitDialog(open);
+          if (!open) setAddCircuitBoardId(null);
+        }}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add Circuit</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="circuit-ref">Circuit Reference *</Label>
+                <Input
+                  id="circuit-ref"
+                  placeholder="e.g., L1, P1, AC-1"
+                  value={circuitFormData.circuit_ref}
+                  onChange={(e) => setCircuitFormData(prev => ({ ...prev, circuit_ref: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="circuit-type">Circuit Type</Label>
+                <Select 
+                  value={circuitFormData.circuit_type} 
+                  onValueChange={(value) => setCircuitFormData(prev => ({ ...prev, circuit_type: value }))}
+                >
+                  <SelectTrigger id="circuit-type">
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="lighting">Lighting</SelectItem>
+                    <SelectItem value="power">Power</SelectItem>
+                    <SelectItem value="hvac">HVAC</SelectItem>
+                    <SelectItem value="motor">Motor</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label htmlFor="circuit-desc">Description</Label>
+                <Input
+                  id="circuit-desc"
+                  placeholder="e.g., Lighting circuit 1"
+                  value={circuitFormData.description}
+                  onChange={(e) => setCircuitFormData(prev => ({ ...prev, description: e.target.value }))}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => {
+                setShowAddCircuitDialog(false);
+                setAddCircuitBoardId(null);
+              }}>Cancel</Button>
+              <Button onClick={handleCreateCircuit} disabled={!circuitFormData.circuit_ref.trim() || createCircuit.isPending}>
+                Add Circuit
               </Button>
             </DialogFooter>
           </DialogContent>
