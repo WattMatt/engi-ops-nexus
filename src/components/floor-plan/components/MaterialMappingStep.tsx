@@ -83,7 +83,7 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
 }) => {
   const queryClient = useQueryClient();
   const [mappings, setMappings] = useState<Record<string, { itemId: string; source: 'final_account' | 'master' }>>({});
-  const [activeCategory, setActiveCategory] = useState<'equipment' | 'containment' | 'cable'>('equipment');
+  // Removed category tabs - all items shown in one list
   const [bulkMappingOpen, setBulkMappingOpen] = useState(false);
   const [selectedForBulk, setSelectedForBulk] = useState<string[]>([]);
 
@@ -235,25 +235,7 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
     }
   }, [existingMappings, equipmentList]);
 
-  // Set initial active category based on available items
-  React.useEffect(() => {
-    if (equipmentList.length > 0) {
-      const hasEquipment = equipmentList.some(i => i.category === 'equipment');
-      const hasContainment = equipmentList.some(i => i.category === 'containment');
-      const hasCables = equipmentList.some(i => i.category === 'cable');
-      
-      if (hasEquipment) setActiveCategory('equipment');
-      else if (hasContainment) setActiveCategory('containment');
-      else if (hasCables) setActiveCategory('cable');
-    }
-  }, [equipmentList]);
-
-  // Group items by category
-  const groupedItems = useMemo(() => ({
-    equipment: equipmentList.filter(i => i.category === 'equipment'),
-    containment: equipmentList.filter(i => i.category === 'containment'),
-    cable: equipmentList.filter(i => i.category === 'cable'),
-  }), [equipmentList]);
+  // All items in one flat list - no category grouping
 
   // Combined item list for dropdown with search
   const combinedItemOptions = useMemo((): CombinedOption[] => {
@@ -321,9 +303,8 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
     );
   };
 
-  const selectAllInCategory = () => {
-    const categoryItems = groupedItems[activeCategory].map(i => i.key);
-    const unmappedItems = categoryItems.filter(k => !mappings[k]);
+  const selectAllUnmapped = () => {
+    const unmappedItems = equipmentList.filter(i => !mappings[i.key]).map(i => i.key);
     setSelectedForBulk(unmappedItems);
   };
 
@@ -396,20 +377,7 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
   const mappedCount = Object.keys(mappings).length;
   const totalCount = equipmentList.length;
 
-  const categoryStats = useMemo(() => ({
-    equipment: {
-      total: groupedItems.equipment.length,
-      mapped: groupedItems.equipment.filter(i => mappings[i.key]).length,
-    },
-    containment: {
-      total: groupedItems.containment.length,
-      mapped: groupedItems.containment.filter(i => mappings[i.key]).length,
-    },
-    cable: {
-      total: groupedItems.cable.length,
-      mapped: groupedItems.cable.filter(i => mappings[i.key]).length,
-    },
-  }), [groupedItems, mappings]);
+  // Removed category stats - all items in one list
 
   if (loadingFAItems || loadingMaterials) {
     return (
@@ -469,45 +437,17 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
         </Badge>
       </div>
 
-      {/* Category Tabs */}
-      <div className="flex gap-2 border-b pb-2">
-        {(['equipment', 'containment', 'cable'] as const).map((cat) => {
-          const stats = categoryStats[cat];
-          if (stats.total === 0) return null;
-          
-          const labels = { equipment: 'Equipment', containment: 'Containment', cable: 'Cables' };
-          const isComplete = stats.mapped === stats.total;
-          
-          return (
-            <button
-              key={cat}
-              onClick={() => setActiveCategory(cat)}
-              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm transition-colors ${
-                activeCategory === cat 
-                  ? 'bg-primary text-primary-foreground' 
-                  : 'hover:bg-muted'
-              }`}
-            >
-              {labels[cat]}
-              <span className={`text-xs ${activeCategory === cat ? 'opacity-80' : 'text-muted-foreground'}`}>
-                {stats.mapped}/{stats.total}
-              </span>
-              {isComplete && <Check className="h-3 w-3" />}
-            </button>
-          );
-        })}
-      </div>
 
       {/* Bulk Action Bar */}
-      {groupedItems[activeCategory].length > 1 && (
+      {equipmentList.length > 1 && (
         <div className="flex items-center justify-between bg-muted/50 rounded-lg p-2">
           <div className="flex items-center gap-2">
             <input
               type="checkbox"
-              checked={selectedForBulk.length === groupedItems[activeCategory].filter(i => !mappings[i.key]).length && selectedForBulk.length > 0}
+              checked={selectedForBulk.length === equipmentList.filter(i => !mappings[i.key]).length && selectedForBulk.length > 0}
               onChange={(e) => {
                 if (e.target.checked) {
-                  selectAllInCategory();
+                  selectAllUnmapped();
                 } else {
                   setSelectedForBulk([]);
                 }
@@ -571,10 +511,10 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
         </div>
       )}
 
-      {/* Items List */}
-      <ScrollArea className="h-[280px]">
+      {/* Items List - All items in one flat list */}
+      <ScrollArea className="h-[350px]">
         <div className="space-y-2 pr-4">
-          {groupedItems[activeCategory].map(item => (
+          {equipmentList.map(item => (
             <div 
               key={item.key} 
               className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${
