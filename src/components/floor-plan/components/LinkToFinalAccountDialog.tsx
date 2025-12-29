@@ -108,7 +108,7 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
   const [selectedBillId, setSelectedBillId] = useState<string>('');
   const [selectedSectionId, setSelectedSectionId] = useState<string>('');
   const [selectedShopId, setSelectedShopId] = useState<string>('');
-  const [transferTakeoffs, setTransferTakeoffs] = useState(false);
+  // Always transfer takeoffs when linking - no need for a toggle
   const [materialMappings, setMaterialMappings] = useState<MaterialMapping[]>([]);
   const [isAlreadyLinked, setIsAlreadyLinked] = useState(false);
 
@@ -118,7 +118,7 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
     setSelectedBillId('');
     setSelectedSectionId('');
     setSelectedShopId('');
-    setTransferTakeoffs(false);
+    // transferTakeoffs is now derived from hasTakeoffs
     setMaterialMappings([]);
     setIsAlreadyLinked(false);
     onClose();
@@ -233,8 +233,8 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
           shop_subsection_id: selectedShopId || null,
           floor_plan_id: floorPlanId,
           drawing_name: floorPlanName || 'Floor Plan',
-          takeoffs_transferred: transferTakeoffs,
-          transferred_at: transferTakeoffs ? new Date().toISOString() : null,
+          takeoffs_transferred: hasTakeoffs,
+          transferred_at: hasTakeoffs ? new Date().toISOString() : null,
           created_by: user.user?.id,
         })
         .select()
@@ -254,9 +254,9 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
 
       if (updateError) throw updateError;
 
-      // Transfer take-offs if requested - use passed mappings (from MaterialMappingStep) or state mappings
+      // Transfer take-offs automatically when there are items - use passed mappings (from MaterialMappingStep) or state mappings
       const mappingsToUse = passedMappings || materialMappings;
-      if (transferTakeoffs && takeoffCounts && selectedSectionId) {
+      if (hasTakeoffs && takeoffCounts && selectedSectionId) {
         await transferTakeoffsToFinalAccount(
           selectedSectionId,
           selectedShopId || null,
@@ -271,7 +271,7 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
     },
     onSuccess: () => {
       toast.success(
-        transferTakeoffs 
+        hasTakeoffs 
           ? 'Floor plan linked and take-offs transferred!' 
           : 'Floor plan linked as reference drawing!'
       );
@@ -662,8 +662,8 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
       return;
     }
     
-    // Only show mapping step if we need new mappings
-    if (transferTakeoffs && hasTakeoffs) {
+    // Show mapping step if there are takeoffs to map
+    if (hasTakeoffs) {
       setStep('map-materials');
     } else {
       linkMutation.mutate(undefined);
@@ -809,31 +809,10 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
                 </div>
               )}
 
-              {/* Transfer Take-offs Toggle - only show if NOT already linked with mappings */}
-              {selectedSectionId && !(isAlreadyLinked && hasSavedMappings && hasTakeoffs) && (
-                <div className="flex items-center justify-between rounded-lg border p-4">
-                  <div className="space-y-0.5">
-                    <Label className="flex items-center gap-2">
-                      <Send className="h-4 w-4" />
-                      Transfer Take-offs
-                    </Label>
-                    <p className="text-sm text-muted-foreground">
-                      {hasTakeoffs 
-                        ? 'Auto-populate Final Account items with quantities from this drawing'
-                        : 'No equipment/containment/cables marked on this drawing yet'
-                      }
-                    </p>
-                  </div>
-                  <Switch
-                    checked={transferTakeoffs}
-                    onCheckedChange={setTransferTakeoffs}
-                    disabled={!hasTakeoffs}
-                  />
-                </div>
-              )}
+              {/* Take-offs will automatically transfer when there are items marked */}
 
               {/* Take-off Preview for new mappings */}
-              {transferTakeoffs && takeoffCounts && !(isAlreadyLinked && hasSavedMappings) && (
+              {hasTakeoffs && takeoffCounts && !(isAlreadyLinked && hasSavedMappings) && (
                 <div className="rounded-lg border bg-muted/50 p-3 text-sm">
                   <div className="font-medium mb-2">Items to transfer:</div>
                   <ul className="space-y-1 text-muted-foreground">
@@ -864,11 +843,9 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
                     </div>
                   )}
                   
-                  {transferTakeoffs && (
-                    <p className="mt-2 text-xs text-primary">
-                      Next step: Map items to BOQ entries for accurate rates
-                    </p>
-                  )}
+                  <p className="mt-2 text-xs text-primary">
+                    Next step: Map items to BOQ entries for accurate rates
+                  </p>
                 </div>
               )}
             </>
@@ -883,7 +860,7 @@ export const LinkToFinalAccountDialog: React.FC<LinkToFinalAccountDialogProps> =
           >
             {linkMutation.isPending ? (
               <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Linking...</>
-            ) : transferTakeoffs && hasTakeoffs ? (
+            ) : hasTakeoffs ? (
               <>Next: Map Materials <ArrowRight className="h-4 w-4 ml-2" /></>
             ) : (
               <><Link2 className="h-4 w-4 mr-2" /> Link Drawing</>
