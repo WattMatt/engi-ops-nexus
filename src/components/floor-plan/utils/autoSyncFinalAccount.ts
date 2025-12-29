@@ -3,9 +3,17 @@ import { supabase } from '@/integrations/supabase/client';
 /**
  * Automatically syncs floor plan takeoff quantities to final account items
  * based on existing material mappings. Called after floor plan save.
+ * 
+ * The sync works by:
+ * 1. Calculating current quantities from the floor plan (equipment, containment, cables)
+ * 2. Looking up which final_account_items are mapped via floor_plan_material_mappings
+ * 3. Updating the final_account_items with the new quantities directly (replacing floor plan contribution)
+ * 4. Tracking contributions in floor_plan_quantity_contributions for delta calculations
  */
 export const autoSyncToFinalAccount = async (floorPlanId: string): Promise<{ synced: boolean; itemsUpdated: number }> => {
   try {
+    console.log('[AutoSync] Starting sync for floor plan:', floorPlanId);
+    
     // Get floor plan project info
     const { data: floorPlan } = await supabase
       .from('floor_plan_projects')
@@ -14,6 +22,7 @@ export const autoSyncToFinalAccount = async (floorPlanId: string): Promise<{ syn
       .single();
 
     if (!floorPlan?.project_id) {
+      console.log('[AutoSync] No project linked to floor plan');
       return { synced: false, itemsUpdated: 0 };
     }
 
@@ -27,26 +36,59 @@ export const autoSyncToFinalAccount = async (floorPlanId: string): Promise<{ syn
       .eq('project_id', projectId);
 
     if (!mappings || mappings.length === 0) {
+      console.log('[AutoSync] No mappings found for floor plan');
       return { synced: false, itemsUpdated: 0 };
     }
 
+    console.log('[AutoSync] Found', mappings.length, 'mappings');
+
     // Get current takeoff counts from the floor plan
     const counts = await calculateTakeoffCounts(floorPlanId);
+    console.log('[AutoSync] Takeoff counts:', counts);
 
-    // Build mapping lookup: equipment_label -> array of finalAccountItemIds
-    const mappingsByEquipment = new Map<string, string[]>();
+    // Build a map of equipment_label -> total quantity from floor plan
+    const floorPlanQuantities = new Map<string, number>();
+    
+    // Equipment counts
+    for (const [label, count] of Object.entries(counts.equipment)) {
+      floorPlanQuantities.set(`equipment_${label}`, count);
+    }
+    
+    // Containment lengths
+    for (const [label, length] of Object.entries(counts.containment)) {
+      floorPlanQuantities.set(`containment_${label}`, Math.round(length * 100) / 100);
+    }
+    
+    // Cable lengths
+    for (const [cableType, data] of Object.entries(counts.cables)) {
+      floorPlanQuantities.set(`cable_${cableType}`, Math.round(data.totalLength * 100) / 100);
+    }
+
+    console.log('[AutoSync] Floor plan quantities:', Object.fromEntries(floorPlanQuantities));
+
+    // Group mappings by final_account_item_id, sum up quantity_per_unit for each equipment_label
+    const itemMappings = new Map<string, { labels: string[]; quantityPerUnit: number }>();
+    
     for (const m of mappings) {
       if (m.final_account_item_id) {
         const key = `${m.equipment_type}_${m.equipment_label}`;
-        const existing = mappingsByEquipment.get(key) || [];
-        if (!existing.includes(m.final_account_item_id)) {
-          existing.push(m.final_account_item_id);
+        if (!itemMappings.has(m.final_account_item_id)) {
+          itemMappings.set(m.final_account_item_id, { labels: [], quantityPerUnit: 1 });
         }
-        mappingsByEquipment.set(key, existing);
+        const existing = itemMappings.get(m.final_account_item_id)!;
+        if (!existing.labels.includes(key)) {
+          existing.labels.push(key);
+        }
+        // Use quantity_per_unit if specified
+        if (m.quantity_per_unit && m.quantity_per_unit !== 1) {
+          existing.quantityPerUnit = m.quantity_per_unit;
+        }
       }
     }
 
-    // Get previous contributions
+    console.log('[AutoSync] Item mappings:', Object.fromEntries(itemMappings));
+
+    // Get previous contributions for this floor plan
     const { data: existingContributions } = await (supabase as any)
       .from('floor_plan_quantity_contributions')
       .select('*')
@@ -59,57 +101,28 @@ export const autoSyncToFinalAccount = async (floorPlanId: string): Promise<{ syn
       }
     }
 
-    // Calculate new quantities for mapped items
-    const mappedItemQuantities = new Map<string, number>();
-
-    // Process equipment
-    for (const [equipType, count] of Object.entries(counts.equipment)) {
-      if (count <= 0) continue;
-      const key = `equipment_${equipType}`;
-      const mappedItemIds = mappingsByEquipment.get(key);
-      if (mappedItemIds && mappedItemIds.length > 0) {
-        for (const itemId of mappedItemIds) {
-          const current = mappedItemQuantities.get(itemId) || 0;
-          mappedItemQuantities.set(itemId, current + count);
-        }
-      }
-    }
-
-    // Process containment
-    for (const [containType, length] of Object.entries(counts.containment)) {
-      if (length <= 0) continue;
-      const key = `containment_${containType}`;
-      const mappedItemIds = mappingsByEquipment.get(key);
-      const qty = Math.round(length * 100) / 100;
-      if (mappedItemIds && mappedItemIds.length > 0) {
-        for (const itemId of mappedItemIds) {
-          const current = mappedItemQuantities.get(itemId) || 0;
-          mappedItemQuantities.set(itemId, current + qty);
-        }
-      }
-    }
-
-    // Process cables
-    for (const [cableType, data] of Object.entries(counts.cables)) {
-      if (data.count <= 0) continue;
-      const key = `cable_${cableType}`;
-      const mappedItemIds = mappingsByEquipment.get(key);
-      const qty = Math.round(data.totalLength * 100) / 100;
-      if (mappedItemIds && mappedItemIds.length > 0) {
-        for (const itemId of mappedItemIds) {
-          const current = mappedItemQuantities.get(itemId) || 0;
-          mappedItemQuantities.set(itemId, current + qty);
-        }
-      }
-    }
+    console.log('[AutoSync] Previous contributions:', Object.fromEntries(previousContributions));
 
     let itemsUpdated = 0;
+    const allAffectedItemIds = new Set<string>();
 
-    // Update mapped BOQ items - calculate delta from previous contribution
-    for (const [itemId, newQtyFromFloorPlan] of mappedItemQuantities) {
+    // Calculate new quantities for each mapped final_account_item
+    for (const [itemId, mapping] of itemMappings) {
+      allAffectedItemIds.add(itemId);
+      
+      // Sum quantities from all labels mapped to this item
+      let newQtyFromFloorPlan = 0;
+      for (const label of mapping.labels) {
+        const labelQty = floorPlanQuantities.get(label) || 0;
+        newQtyFromFloorPlan += labelQty * mapping.quantityPerUnit;
+      }
+
       const previousQty = previousContributions.get(itemId) || 0;
       const qtyDelta = newQtyFromFloorPlan - previousQty;
 
+      console.log(`[AutoSync] Item ${itemId}: labels=${mapping.labels.join(',')}, newQty=${newQtyFromFloorPlan}, prevQty=${previousQty}, delta=${qtyDelta}`);
+
+      // Get current final_account_item
       const { data: existing } = await supabase
         .from('final_account_items')
         .select('final_quantity, supply_rate, install_rate, contract_quantity')
@@ -127,6 +140,8 @@ export const autoSyncToFinalAccount = async (floorPlanId: string): Promise<{ syn
         const contractAmount = contractQty * (supplyRate + installRate);
         const variationAmount = finalAmount - contractAmount;
 
+        console.log(`[AutoSync] Updating item ${itemId}: finalQty ${currentFinalQty} -> ${newFinalQty}`);
+
         await supabase
           .from('final_account_items')
           .update({
@@ -138,22 +153,24 @@ export const autoSyncToFinalAccount = async (floorPlanId: string): Promise<{ syn
           .eq('id', itemId);
 
         itemsUpdated++;
-      }
 
-      // Upsert contribution record
-      await (supabase as any)
-        .from('floor_plan_quantity_contributions')
-        .upsert({
-          floor_plan_id: floorPlanId,
-          final_account_item_id: itemId,
-          quantity_contributed: newQtyFromFloorPlan,
-          updated_at: new Date().toISOString(),
-        }, { onConflict: 'floor_plan_id,final_account_item_id' });
+        // Upsert contribution record
+        await (supabase as any)
+          .from('floor_plan_quantity_contributions')
+          .upsert({
+            floor_plan_id: floorPlanId,
+            final_account_item_id: itemId,
+            quantity_contributed: newQtyFromFloorPlan,
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'floor_plan_id,final_account_item_id' });
+      }
     }
 
-    // Handle items that were previously contributed but are no longer mapped
+    // Handle items that were previously contributed but are no longer in mappings
     for (const [itemId, previousQty] of previousContributions) {
-      if (!mappedItemQuantities.has(itemId)) {
+      if (!allAffectedItemIds.has(itemId)) {
+        console.log(`[AutoSync] Removing previous contribution for unmapped item ${itemId}: ${previousQty}`);
+        
         const { data: existing } = await supabase
           .from('final_account_items')
           .select('final_quantity, supply_rate, install_rate, contract_quantity')
@@ -193,9 +210,10 @@ export const autoSyncToFinalAccount = async (floorPlanId: string): Promise<{ syn
       }
     }
 
+    console.log('[AutoSync] Completed. Items updated:', itemsUpdated);
     return { synced: true, itemsUpdated };
   } catch (error) {
-    console.error('Auto-sync to final account failed:', error);
+    console.error('[AutoSync] Failed:', error);
     return { synced: false, itemsUpdated: 0 };
   }
 };
