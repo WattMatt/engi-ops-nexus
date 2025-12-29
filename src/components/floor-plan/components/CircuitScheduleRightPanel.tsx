@@ -532,7 +532,7 @@ export const CircuitScheduleRightPanel: React.FC<CircuitScheduleRightPanelProps>
         <div className="border-t border-border flex-shrink-0">
           <div className="px-4 py-2 bg-muted/50 flex items-center justify-between">
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Assigned Materials
+              {selectedCircuit.id === 'unassigned' ? 'Unassigned Materials' : 'Assigned Materials'}
             </h3>
             <div className="flex items-center gap-1">
               <Button
@@ -544,24 +544,45 @@ export const CircuitScheduleRightPanel: React.FC<CircuitScheduleRightPanelProps>
                 <FileText className="h-3 w-3 mr-1" />
                 Templates
               </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 text-xs"
-                onClick={() => setShowQuickAddDialog(true)}
-              >
-                <ListPlus className="h-3 w-3 mr-1" />
-                Quick Add
-              </Button>
+              {selectedCircuit.id !== 'unassigned' && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs"
+                  onClick={() => setShowQuickAddDialog(true)}
+                >
+                  <ListPlus className="h-3 w-3 mr-1" />
+                  Quick Add
+                </Button>
+              )}
             </div>
           </div>
           <ScrollArea className="h-80">
             <div className="p-3">
-              <CircuitMaterialsList 
-                circuitId={selectedCircuit.id} 
-                projectId={projectId}
-                allBoards={boardsList}
-              />
+              {selectedCircuit.id === 'unassigned' ? (
+                <div className="text-center py-8">
+                  <FileText className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
+                  <p className="text-sm text-muted-foreground">
+                    Use Templates to design standard material sets
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1 mb-4">
+                    Create templates here and apply them to circuits across shops
+                  </p>
+                  <Button 
+                    size="sm" 
+                    onClick={() => setShowTemplatesDialog(true)}
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Open Template Library
+                  </Button>
+                </div>
+              ) : (
+                <CircuitMaterialsList 
+                  circuitId={selectedCircuit.id} 
+                  projectId={projectId}
+                  allBoards={boardsList}
+                />
+              )}
             </div>
           </ScrollArea>
         </div>
