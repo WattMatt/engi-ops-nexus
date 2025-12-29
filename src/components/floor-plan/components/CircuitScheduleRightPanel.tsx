@@ -93,7 +93,7 @@ const CircuitMaterialsList: React.FC<{
   projectId: string;
   allBoards: Array<{ id: string; name: string }>;
 }> = ({ circuitId, projectId, allBoards }) => {
-  const { data: materials, isLoading } = useCircuitMaterials(circuitId);
+  const { data: materials, isLoading } = useCircuitMaterials(circuitId, { projectId });
   const deleteMaterial = useDeleteCircuitMaterial();
   const reassignMaterial = useReassignCircuitMaterial();
   const [selectedMaterials, setSelectedMaterials] = useState<Set<string>>(new Set());

@@ -111,11 +111,34 @@ export function useDbCircuits(boardId: string | null) {
   });
 }
 
-export function useCircuitMaterials(circuitId: string | null) {
+export function useCircuitMaterials(circuitId: string | null, options?: { floorPlanId?: string; projectId?: string }) {
   return useQuery({
-    queryKey: ["circuit-materials", circuitId],
+    queryKey: ["circuit-materials", circuitId, options?.floorPlanId, options?.projectId],
     queryFn: async () => {
       if (!circuitId) return [];
+      
+      // Handle "unassigned" pseudo-circuit - query for materials with NULL circuit_id
+      if (circuitId === 'unassigned') {
+        if (!options?.floorPlanId && !options?.projectId) return [];
+        
+        let query = supabase
+          .from("db_circuit_materials")
+          .select("*")
+          .is("circuit_id", null);
+        
+        if (options?.floorPlanId) {
+          query = query.eq("floor_plan_id", options.floorPlanId);
+        }
+        if (options?.projectId) {
+          query = query.eq("project_id", options.projectId);
+        }
+        
+        const { data, error } = await query.order("created_at", { ascending: true });
+        if (error) throw error;
+        return (data || []) as unknown as DbCircuitMaterial[];
+      }
+      
+      // Normal circuit materials query
       const { data, error } = await supabase
         .from("db_circuit_materials")
         .select("*")
@@ -314,7 +337,7 @@ export function useDeleteCircuit() {
 }
 
 export interface CreateCircuitMaterialInput {
-  circuit_id: string;
+  circuit_id: string | null; // null for unassigned materials
   description: string;
   unit?: string;
   quantity?: number;
@@ -328,6 +351,9 @@ export interface CreateCircuitMaterialInput {
   material_category?: MaterialCategory;
   boq_section?: BOQSection;
   skip_supporting_materials?: boolean;
+  // For unassigned materials - required when circuit_id is null
+  project_id?: string;
+  floor_plan_id?: string;
 }
 
 export function useCreateCircuitMaterial() {
@@ -345,8 +371,8 @@ export function useCreateCircuitMaterial() {
       const { wastageQuantity, grossQuantity } = calculateGrossQuantity(netQuantity, categoryInfo.wastagePercent);
       
       // Prepare the main material insert
-      const materialData = {
-        circuit_id: data.circuit_id,
+      const materialData: Record<string, unknown> = {
+        circuit_id: data.circuit_id === 'unassigned' ? null : data.circuit_id,
         description: data.description,
         unit: data.unit,
         quantity: netQuantity,
@@ -365,9 +391,15 @@ export function useCreateCircuitMaterial() {
         is_auto_generated: false,
       };
       
+      // Add project_id and floor_plan_id for unassigned materials
+      if (data.circuit_id === 'unassigned' || data.circuit_id === null) {
+        if (data.project_id) materialData.project_id = data.project_id;
+        if (data.floor_plan_id) materialData.floor_plan_id = data.floor_plan_id;
+      }
+      
       const { data: result, error } = await supabase
         .from("db_circuit_materials")
-        .insert(materialData)
+        .insert(materialData as any)
         .select()
         .single();
       
@@ -384,8 +416,8 @@ export function useCreateCircuitMaterial() {
         
         // Insert supporting materials with reference to parent
         for (const support of supportingMaterials) {
-          await supabase.from("db_circuit_materials").insert({
-            circuit_id: data.circuit_id,
+          const supportData: Record<string, unknown> = {
+            circuit_id: data.circuit_id === 'unassigned' ? null : data.circuit_id,
             description: support.description,
             unit: support.unit,
             quantity: support.quantity,
@@ -397,7 +429,13 @@ export function useCreateCircuitMaterial() {
             wastage_factor: 0,
             wastage_quantity: 0,
             gross_quantity: support.quantity,
-          });
+          };
+          // Add project/floor_plan for unassigned
+          if (data.circuit_id === 'unassigned' || data.circuit_id === null) {
+            if (data.project_id) supportData.project_id = data.project_id;
+            if (data.floor_plan_id) supportData.floor_plan_id = data.floor_plan_id;
+          }
+          await supabase.from("db_circuit_materials").insert(supportData as any);
         }
       }
       
