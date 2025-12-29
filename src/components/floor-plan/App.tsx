@@ -622,17 +622,20 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
     
     try {
       console.log('Creating circuit material for circuit:', circuit.id);
+      const isUnassigned = circuit.id === 'unassigned';
       await createCircuitMaterial.mutateAsync({
-        circuit_id: circuit.id,
+        circuit_id: isUnassigned ? null : circuit.id,
         description,
         quantity,
         unit,
+        // Include project_id for unassigned materials (required by RLS)
+        ...(isUnassigned && currentProjectId ? { project_id: currentProjectId } : {}),
       });
       console.log('Circuit material created successfully');
     } catch (error: any) {
       console.error('Failed to auto-assign material:', error);
     }
-  }, [createCircuitMaterial]);
+  }, [createCircuitMaterial, currentProjectId]);
 
   // Handle equipment placement - auto-assign to selected circuit
   const handleEquipmentPlaced = useCallback((equipmentType: string) => {
@@ -681,8 +684,9 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
     // Also create a db_circuit_materials record if circuit is assigned
     if (circuitId) {
       try {
+        const isUnassigned = circuitId === 'unassigned';
         await createCircuitMaterial.mutateAsync({
-          circuit_id: circuitId,
+          circuit_id: isUnassigned ? null : circuitId,
           description: `${details.cableType} - ${details.from} to ${details.to}`,
           quantity: Math.round(totalLength * 100) / 100,
           unit: 'm',
@@ -692,6 +696,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
           master_material_id: details.masterMaterialId,
           final_account_item_id: details.finalAccountItemId,
           canvas_line_id: newLine.id, // Link for sync deletion when line is removed
+          ...(isUnassigned && currentProjectId ? { project_id: currentProjectId } : {}),
         });
         toast.success(`Circuit cable ${details.circuitRef} added and assigned to circuit`);
       } catch (error: any) {
@@ -881,11 +886,13 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
         if (circuitForAssignment) {
           try {
             console.log('[handleCableDetailsSubmit] Creating material for circuit:', circuitForAssignment.id);
+            const isUnassigned = circuitForAssignment.id === 'unassigned';
             await createCircuitMaterial.mutateAsync({
-              circuit_id: circuitForAssignment.id,
+              circuit_id: isUnassigned ? null : circuitForAssignment.id,
               description: `${details.cableType} - ${details.from} to ${details.to}`,
               quantity: Math.round(totalLength * 100) / 100,
               unit: 'm',
+              ...(isUnassigned && currentProjectId ? { project_id: currentProjectId } : {}),
             });
             console.log('[handleCableDetailsSubmit] Material created successfully');
             toast.success(`Cable assigned to ${circuitForAssignment.circuit_ref}`);
