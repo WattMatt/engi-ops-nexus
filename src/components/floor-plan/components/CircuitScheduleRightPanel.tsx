@@ -464,7 +464,7 @@ export const CircuitScheduleRightPanel: React.FC<CircuitScheduleRightPanelProps>
               Assigned Materials
             </h3>
           </div>
-          <ScrollArea className="h-56">
+          <ScrollArea className="h-80">
             <div className="p-3">
               <CircuitMaterialsList 
                 circuitId={selectedCircuit.id} 
