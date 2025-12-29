@@ -49,6 +49,8 @@ interface EquipmentPanelProps {
   onJumpToZone: (zone: SupplyZone) => void;
   // Project ID
   projectId?: string;
+  // Floor Plan ID for grouping unassigned materials per layout/shop
+  floorPlanId?: string;
   // Scale Info for 3D conversion
   scaleInfo?: ScaleInfo | null;
   // Circuit Schedule Props
@@ -213,9 +215,10 @@ const CableDetails: React.FC<{
     tasks: Task[];
     onOpenTaskModal: (task: Partial<Task> | null) => void;
     projectId?: string;
+    floorPlanId?: string;
     currentCircuitId?: string | null;
     materialId?: string;
-}> = ({ item, onDelete, onEdit, tasks, onOpenTaskModal, projectId, currentCircuitId, materialId }) => {
+}> = ({ item, onDelete, onEdit, tasks, onOpenTaskModal, projectId, floorPlanId, currentCircuitId, materialId }) => {
     const isGpWire = item.cableType?.toUpperCase().includes('GP');
     // For GP wire: pathLength is the horizontal trace, we triple it for L+E+N conductors
     const pathLength = item.pathLength ?? item.length;
@@ -278,6 +281,7 @@ const CableDetails: React.FC<{
             {projectId && (
                 <CircuitAssignmentSelector
                     projectId={projectId}
+                    floorPlanId={floorPlanId}
                     currentCircuitId={currentCircuitId}
                     materialId={materialId}
                     materialDetails={!materialId ? {
@@ -309,9 +313,10 @@ const ContainmentDetails: React.FC<{
     item: Containment;
     onDelete: () => void;
     projectId?: string;
+    floorPlanId?: string;
     currentCircuitId?: string | null;
     materialId?: string;
-}> = ({ item, onDelete, projectId, currentCircuitId, materialId }) => {
+}> = ({ item, onDelete, projectId, floorPlanId, currentCircuitId, materialId }) => {
     const style = getContainmentStyle(item.type, item.size);
     
     return (
@@ -340,6 +345,7 @@ const ContainmentDetails: React.FC<{
             {projectId && (
                 <CircuitAssignmentSelector
                     projectId={projectId}
+                    floorPlanId={floorPlanId}
                     currentCircuitId={currentCircuitId}
                     materialId={materialId}
                     materialDetails={!materialId ? {
@@ -676,6 +682,7 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
     onEquipmentUpdate, onZoneUpdate, onDeleteItem, purposeConfig, designPurpose,
     pvPanelConfig, pvArrays, tasks, onOpenTaskModal, onJumpToZone, modulesPerString, onModulesPerStringChange,
     projectId,
+    floorPlanId,
     scaleInfo,
     selectedCircuit,
     onSelectCircuit,
@@ -1228,8 +1235,8 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
                 {selectedEquipment && <SelectionDetails item={selectedEquipment} onUpdate={onEquipmentUpdate} onDelete={onDeleteItem} tasks={tasks} onOpenTaskModal={onOpenTaskModal} />}
                 {selectedZone && <ZoneDetails item={selectedZone} onUpdate={onZoneUpdate} onDelete={onDeleteItem} tasks={tasks} onOpenTaskModal={onOpenTaskModal} />}
                 {selectedPvArray && <PvArrayDetails item={selectedPvArray} pvPanelConfig={pvPanelConfig} onDelete={onDeleteItem} />}
-                {selectedLine && <CableDetails item={selectedLine} onDelete={onDeleteItem} onEdit={onEditCable ? () => onEditCable(selectedLine) : undefined} tasks={tasks} onOpenTaskModal={onOpenTaskModal} projectId={projectId} currentCircuitId={selectedLine.dbCircuitId} />}
-                {selectedContainment && <ContainmentDetails item={selectedContainment} onDelete={onDeleteItem} projectId={projectId} />}
+                {selectedLine && <CableDetails item={selectedLine} onDelete={onDeleteItem} onEdit={onEditCable ? () => onEditCable(selectedLine) : undefined} tasks={tasks} onOpenTaskModal={onOpenTaskModal} projectId={projectId} floorPlanId={floorPlanId} currentCircuitId={selectedLine.dbCircuitId} />}
+                {selectedContainment && <ContainmentDetails item={selectedContainment} onDelete={onDeleteItem} projectId={projectId} floorPlanId={floorPlanId} />}
             </div>
             
             <div className="border-b border-border px-2 flex-shrink-0">

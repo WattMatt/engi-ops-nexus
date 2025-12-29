@@ -1286,6 +1286,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
         pvArrays={pvArrays} onDeleteItem={handleDeleteSelectedItem} tasks={tasks} onOpenTaskModal={handleOpenTaskModal}
         onJumpToZone={handleJumpToZone} modulesPerString={modulesPerString} onModulesPerStringChange={setModulesPerString}
         projectId={currentProjectId || undefined}
+        floorPlanId={currentDesignId || undefined}
         selectedCircuit={selectedCircuit}
         onSelectCircuit={setSelectedCircuit}
         onEditCable={handleEditCable}

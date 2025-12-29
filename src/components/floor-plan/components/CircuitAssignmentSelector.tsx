@@ -15,6 +15,8 @@ import { cn } from '@/lib/utils';
 
 interface CircuitAssignmentSelectorProps {
   projectId: string;
+  /** Floor plan ID for grouping unassigned materials per layout/shop */
+  floorPlanId?: string;
   /** Current circuit this material is assigned to (null/undefined = unassigned) */
   currentCircuitId?: string | null;
   /** The db_circuit_material ID if already exists */
@@ -34,6 +36,7 @@ interface CircuitAssignmentSelectorProps {
 
 export const CircuitAssignmentSelector: React.FC<CircuitAssignmentSelectorProps> = ({
   projectId,
+  floorPlanId,
   currentCircuitId,
   materialId,
   onAssigned,
@@ -114,7 +117,7 @@ export const CircuitAssignmentSelector: React.FC<CircuitAssignmentSelectorProps>
           quantity: materialDetails.quantity,
           unit: materialDetails.unit,
           canvas_line_id: materialDetails.canvas_line_id,
-          ...(isUnassigned ? { project_id: projectId } : {}),
+          ...(isUnassigned ? { project_id: projectId, floor_plan_id: floorPlanId } : {}),
         });
         toast.success('Material assigned to circuit');
       }
