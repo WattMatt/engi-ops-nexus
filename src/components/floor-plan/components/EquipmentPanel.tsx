@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Layers, LayoutGrid, PlusCircle, CheckCircle, Clock, Circle, ChevronDown, Box, CircuitBoard, Zap, Package, ChevronRight, Trash2, Edit } from 'lucide-react';
+import { Layers, LayoutGrid, PlusCircle, CheckCircle, Clock, Circle, ChevronDown, Box, CircuitBoard, Zap, Package, ChevronRight, Trash2, Edit, Plus } from 'lucide-react';
 import { EquipmentItem, SupplyLine, SupplyZone, Containment, EquipmentType, DesignPurpose, PVPanelConfig, PVArrayItem, Task, TaskStatus, ScaleInfo } from '../types';
 import { PurposeConfig } from '../purpose.config';
 import { EquipmentIcon } from './EquipmentIcon';
@@ -13,12 +13,17 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { 
   useDistributionBoards, 
   useDbCircuits, 
   useCircuitMaterials,
   useDeleteCircuitMaterial,
   useReassignCircuitMaterial,
+  useCreateDistributionBoard,
+  useCreateCircuit,
   DbCircuit,
 } from '@/components/circuit-schedule/hooks/useDistributionBoards';
 import { cn } from '@/lib/utils';
@@ -968,9 +973,41 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
     );
   };
 
+  // State for Add DB dialog
+  const [showAddBoardDialog, setShowAddBoardDialog] = useState(false);
+  const [boardFormData, setBoardFormData] = useState({ name: '', location: '', description: '' });
+  const createBoard = useCreateDistributionBoard();
+
+  const handleCreateBoard = async () => {
+    if (!boardFormData.name.trim() || !projectId) return;
+    await createBoard.mutateAsync({
+      project_id: projectId,
+      name: boardFormData.name,
+      location: boardFormData.location || undefined,
+      description: boardFormData.description || undefined,
+      floor_plan_id: floorPlanId,
+    });
+    setBoardFormData({ name: '', location: '', description: '' });
+    setShowAddBoardDialog(false);
+  };
+
   // Render Circuit Schedule View
   const renderCircuitScheduleView = () => (
     <div className="flex-1 flex flex-col overflow-hidden">
+      {/* Header with Add DB button */}
+      <div className="px-4 py-2 border-b border-border bg-muted/30 flex-shrink-0 flex items-center justify-between">
+        <span className="text-xs font-medium text-muted-foreground">Distribution Boards</span>
+        <Button 
+          variant="outline" 
+          size="sm"
+          onClick={() => setShowAddBoardDialog(true)}
+          className="h-7 text-xs"
+        >
+          <Plus className="h-3 w-3 mr-1" />
+          Add DB
+        </Button>
+      </div>
+
       {/* Status Indicator */}
       <div className="px-4 py-3 border-b border-border bg-muted/30 flex-shrink-0">
         {selectedCircuit ? (
@@ -1006,9 +1043,13 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
               <p className="text-sm text-muted-foreground">
                 No distribution boards found.
               </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Use the Circuit Schedule tool to create boards and circuits.
+              <p className="text-xs text-muted-foreground mt-1 mb-4">
+                Create a distribution board to start adding circuits.
               </p>
+              <Button size="sm" onClick={() => setShowAddBoardDialog(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Create Distribution Board
+              </Button>
             </div>
           ) : (
             <>
@@ -1483,6 +1524,50 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
           isOpen={show3DModal}
           onClose={() => setShow3DModal(false)}
         />
+
+        {/* Add Distribution Board Dialog */}
+        <Dialog open={showAddBoardDialog} onOpenChange={setShowAddBoardDialog}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create Distribution Board</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="db-name">Name *</Label>
+                <Input
+                  id="db-name"
+                  placeholder="e.g., DB-1, DB-1A"
+                  value={boardFormData.name}
+                  onChange={(e) => setBoardFormData(prev => ({ ...prev, name: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="db-location">Location</Label>
+                <Input
+                  id="db-location"
+                  placeholder="e.g., Shop 1, Common Area"
+                  value={boardFormData.location}
+                  onChange={(e) => setBoardFormData(prev => ({ ...prev, location: e.target.value }))}
+                />
+              </div>
+              <div>
+                <Label htmlFor="db-desc">Description</Label>
+                <Input
+                  id="db-desc"
+                  placeholder="Optional description"
+                  value={boardFormData.description}
+                  onChange={(e) => setBoardFormData(prev => ({ ...prev, description: e.target.value }))}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setShowAddBoardDialog(false)}>Cancel</Button>
+              <Button onClick={handleCreateBoard} disabled={!boardFormData.name.trim() || createBoard.isPending}>
+                Create
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
     </aside>
   );
 };

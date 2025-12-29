@@ -1,10 +1,13 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { ChevronDown, ChevronRight, CircuitBoard, Zap, Package, X, Radio, ArrowRight, Trash2, CheckSquare, Square } from 'lucide-react';
+import { ChevronDown, ChevronRight, CircuitBoard, Zap, Package, X, Radio, ArrowRight, Trash2, CheckSquare, Square, Plus } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { supabase } from '@/integrations/supabase/client';
 import { 
   useDistributionBoards, 
@@ -12,12 +15,15 @@ import {
   useCircuitMaterials,
   useDeleteCircuitMaterial,
   useReassignCircuitMaterial,
+  useCreateDistributionBoard,
+  useCreateCircuit,
   DbCircuit,
 } from '@/components/circuit-schedule/hooks/useDistributionBoards';
 import { cn } from '@/lib/utils';
 
 interface CircuitScheduleRightPanelProps {
   projectId: string;
+  floorPlanId?: string;
   selectedCircuit: DbCircuit | null;
   onSelectCircuit: (circuit: DbCircuit | null) => void;
   onClose: () => void;
@@ -315,12 +321,22 @@ const CircuitMaterialsList: React.FC<{
 
 export const CircuitScheduleRightPanel: React.FC<CircuitScheduleRightPanelProps> = ({
   projectId,
+  floorPlanId,
   selectedCircuit,
   onSelectCircuit,
   onClose
 }) => {
   const { data: boards, isLoading } = useDistributionBoards(projectId);
+  const createBoard = useCreateDistributionBoard();
+  const createCircuit = useCreateCircuit();
   const [expandedBoards, setExpandedBoards] = useState<Set<string>>(new Set());
+  
+  // Dialog states
+  const [showAddBoardDialog, setShowAddBoardDialog] = useState(false);
+  const [showAddCircuitDialog, setShowAddCircuitDialog] = useState(false);
+  const [selectedBoardForCircuit, setSelectedBoardForCircuit] = useState<string | null>(null);
+  const [boardFormData, setBoardFormData] = useState({ name: '', location: '', description: '' });
+  const [circuitFormData, setCircuitFormData] = useState({ circuit_ref: '', description: '' });
 
   const toggleBoard = (boardId: string) => {
     setExpandedBoards(prev => {
@@ -332,6 +348,39 @@ export const CircuitScheduleRightPanel: React.FC<CircuitScheduleRightPanelProps>
       }
       return next;
     });
+  };
+
+  const handleCreateBoard = async () => {
+    if (!boardFormData.name.trim()) return;
+    await createBoard.mutateAsync({
+      project_id: projectId,
+      name: boardFormData.name,
+      location: boardFormData.location || undefined,
+      description: boardFormData.description || undefined,
+      floor_plan_id: floorPlanId,
+    });
+    setBoardFormData({ name: '', location: '', description: '' });
+    setShowAddBoardDialog(false);
+  };
+
+  const handleCreateCircuit = async () => {
+    if (!circuitFormData.circuit_ref.trim() || !selectedBoardForCircuit) return;
+    await createCircuit.mutateAsync({
+      distribution_board_id: selectedBoardForCircuit,
+      circuit_ref: circuitFormData.circuit_ref,
+      description: circuitFormData.description || undefined,
+    });
+    setCircuitFormData({ circuit_ref: '', description: '' });
+    setShowAddCircuitDialog(false);
+    setSelectedBoardForCircuit(null);
+    // Expand the board to show the new circuit
+    setExpandedBoards(prev => new Set([...prev, selectedBoardForCircuit]));
+  };
+
+  const openAddCircuitDialog = (boardId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedBoardForCircuit(boardId);
+    setShowAddCircuitDialog(true);
   };
 
   const boardsList = useMemo(() => 
@@ -347,9 +396,20 @@ export const CircuitScheduleRightPanel: React.FC<CircuitScheduleRightPanelProps>
           <CircuitBoard className="h-5 w-5 text-primary" />
           <h2 className="font-semibold text-foreground">Circuit Schedule</h2>
         </div>
-        <Button variant="ghost" size="icon" onClick={onClose}>
-          <X className="h-4 w-4" />
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={() => setShowAddBoardDialog(true)}
+            className="h-8 text-xs"
+          >
+            <Plus className="h-3 w-3 mr-1" />
+            Add DB
+          </Button>
+          <Button variant="ghost" size="icon" onClick={onClose}>
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       {/* Status Indicator */}
@@ -387,9 +447,16 @@ export const CircuitScheduleRightPanel: React.FC<CircuitScheduleRightPanelProps>
               <p className="text-sm text-muted-foreground">
                 No distribution boards found.
               </p>
-              <p className="text-xs text-muted-foreground mt-1">
-                Use the Circuit Schedule tool to create boards and circuits.
+              <p className="text-xs text-muted-foreground mt-1 mb-4">
+                Create a distribution board to start adding circuits.
               </p>
+              <Button 
+                size="sm" 
+                onClick={() => setShowAddBoardDialog(true)}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Create Distribution Board
+              </Button>
             </div>
           ) : (
             <>
@@ -475,6 +542,85 @@ export const CircuitScheduleRightPanel: React.FC<CircuitScheduleRightPanelProps>
           </ScrollArea>
         </div>
       )}
+
+      {/* Add Distribution Board Dialog */}
+      <Dialog open={showAddBoardDialog} onOpenChange={setShowAddBoardDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Create Distribution Board</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="db-name">Name *</Label>
+              <Input
+                id="db-name"
+                placeholder="e.g., DB-1, DB-1A"
+                value={boardFormData.name}
+                onChange={(e) => setBoardFormData(prev => ({ ...prev, name: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label htmlFor="db-location">Location</Label>
+              <Input
+                id="db-location"
+                placeholder="e.g., Shop 1, Common Area"
+                value={boardFormData.location}
+                onChange={(e) => setBoardFormData(prev => ({ ...prev, location: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label htmlFor="db-desc">Description</Label>
+              <Input
+                id="db-desc"
+                placeholder="Optional description"
+                value={boardFormData.description}
+                onChange={(e) => setBoardFormData(prev => ({ ...prev, description: e.target.value }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddBoardDialog(false)}>Cancel</Button>
+            <Button onClick={handleCreateBoard} disabled={!boardFormData.name.trim() || createBoard.isPending}>
+              Create
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Circuit Dialog */}
+      <Dialog open={showAddCircuitDialog} onOpenChange={setShowAddCircuitDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add Circuit</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="circuit-ref">Circuit Reference *</Label>
+              <Input
+                id="circuit-ref"
+                placeholder="e.g., L1, S1, DB-1/1"
+                value={circuitFormData.circuit_ref}
+                onChange={(e) => setCircuitFormData(prev => ({ ...prev, circuit_ref: e.target.value }))}
+              />
+            </div>
+            <div>
+              <Label htmlFor="circuit-desc">Description</Label>
+              <Input
+                id="circuit-desc"
+                placeholder="e.g., Lighting circuit 1, Socket circuit"
+                value={circuitFormData.description}
+                onChange={(e) => setCircuitFormData(prev => ({ ...prev, description: e.target.value }))}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowAddCircuitDialog(false)}>Cancel</Button>
+            <Button onClick={handleCreateCircuit} disabled={!circuitFormData.circuit_ref.trim() || createCircuit.isPending}>
+              Add Circuit
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
