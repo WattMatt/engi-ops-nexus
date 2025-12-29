@@ -79,10 +79,11 @@ export function MapAllToFinalAccountDialog({ open, onOpenChange, projectId }: Ma
     enabled: open && !!projectId,
   });
 
-  // Fetch final account items for linking
-  const { data: finalAccountItems = [] } = useQuery({
+  // Fetch final account items for linking (properly filtered by project)
+  const { data: finalAccountItems = [], isLoading: loadingFinalItems } = useQuery({
     queryKey: ["final-account-items-for-bulk-linking", projectId],
-    queryFn: async () => {
+    queryFn: async (): Promise<Array<{ id: string; item_code: string | null; description: string | null; section_id: string }>> => {
+      // Get the final account for this project
       const { data: account } = await supabase
         .from("final_accounts")
         .select("id")
@@ -91,12 +92,19 @@ export function MapAllToFinalAccountDialog({ open, onOpenChange, projectId }: Ma
       
       if (!account) return [];
 
-      const { data: items } = await supabase
-        .from("final_account_items")
-        .select("id, item_code, description, section_id")
-        .order("item_code");
+      // Get all section IDs for this final account
+      const sectionQuery: any = supabase.from("final_account_sections").select("id");
+      const { data: sections } = await sectionQuery.eq("final_account_id", account.id);
       
-      return items || [];
+      if (!sections || sections.length === 0) return [];
+
+      const sectionIds: string[] = sections.map((s: { id: string }) => s.id);
+
+      // Get all items for these sections
+      const itemQuery = supabase.from("final_account_items").select("id, item_code, description, section_id");
+      const { data: items } = await itemQuery.in("section_id", sectionIds).order("item_code");
+      
+      return (items || []) as Array<{ id: string; item_code: string | null; description: string | null; section_id: string }>;
     },
     enabled: open && !!projectId,
   });
