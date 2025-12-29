@@ -538,23 +538,39 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
             ) : (
               <div className="p-1">
                   {filteredItems.map((fa) => {
-                    // Check if this is a parent/header item (code without decimal like D1, D2, D3)
-                    const isParentItem = fa.item_code && !fa.item_code.includes('.');
+                    // Check if this is a parent/header item (code without decimal like J1, J2, D1, D2)
+                    // Parent items have a code that matches pattern: letter(s) + number(s), NO decimal
+                    const hasCode = fa.item_code && fa.item_code.trim().length > 0;
+                    const isParentItem = hasCode && /^[A-Za-z]+\d+$/.test(fa.item_code.trim());
+                    const isChildItem = hasCode && fa.item_code.includes('.');
+                    const isDescriptionRow = !hasCode;
                     
                     if (isParentItem) {
-                      // Render as a non-clickable header
+                      // Render as a non-clickable header (e.g., J1 - CONDUIT, D1 - PVC Conduits)
                       return (
                         <div
                           key={fa.id}
-                          className="px-2 py-2 text-xs font-semibold text-primary bg-muted/30 mt-2 first:mt-0 rounded-sm"
+                          className="px-2 py-2 text-xs font-semibold text-primary bg-muted/30 mt-3 first:mt-0 rounded-sm border-l-2 border-primary"
                         >
-                          <span className="font-mono mr-2">{fa.item_code}</span>
+                          <span className="font-mono mr-2 font-bold">{fa.item_code}</span>
                           <span className="uppercase">{fa.description}</span>
                         </div>
                       );
                     }
                     
-                    // Render as a selectable child item
+                    if (isDescriptionRow) {
+                      // Render description-only rows as sub-headers (italic, smaller, not clickable)
+                      return (
+                        <div
+                          key={fa.id}
+                          className="px-3 py-1 text-xs text-muted-foreground italic bg-muted/10 ml-2"
+                        >
+                          {fa.description}
+                        </div>
+                      );
+                    }
+                    
+                    // Render as a selectable child item (e.g., J1.1 - 20mm Ø)
                     return (
                       <div
                         key={fa.id}
@@ -569,7 +585,7 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
                       >
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="font-mono text-xs text-muted-foreground shrink-0">{fa.item_code}</span>
+                            <span className="font-mono text-xs text-primary font-medium shrink-0">{fa.item_code}</span>
                             <span className="truncate">{fa.description}</span>
                           </div>
                           <div className="text-xs text-muted-foreground">
