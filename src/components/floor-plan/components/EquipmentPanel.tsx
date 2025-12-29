@@ -1107,7 +1107,15 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
       return <div className="text-xs text-muted-foreground text-center py-4">Loading materials...</div>;
     }
 
-    const hasAnyContent = (materials && materials.length > 0) || circuitWiringLines.length > 0;
+    // Filter out consumable/ancillary items that shouldn't clutter the assigned materials list
+    const EXCLUDED_MATERIAL_PATTERNS = ['cable tie', 'cable saddle', 'cable clip', 'cable identification marker'];
+    
+    const filteredMaterials = materials?.filter(m => {
+      const desc = m.description?.toLowerCase() || '';
+      return !EXCLUDED_MATERIAL_PATTERNS.some(pattern => desc.includes(pattern));
+    }) || [];
+
+    const hasAnyContent = filteredMaterials.length > 0 || circuitWiringLines.length > 0;
     
     if (!hasAnyContent) {
       return (
@@ -1157,8 +1165,8 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
           );
         })}
         
-        {/* Show materials from database (equipment, etc.) */}
-        {materials?.filter(m => !m.canvas_line_id).map((material) => {
+        {/* Show materials from database (equipment, etc.) - already filtered above */}
+        {filteredMaterials.filter(m => !m.canvas_line_id).map((material) => {
           const isGpWire = material.description?.toUpperCase().includes('GP') && material.unit === 'm';
           const totalLength = isGpWire ? material.quantity * 3 : material.quantity;
           
