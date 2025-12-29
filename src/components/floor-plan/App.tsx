@@ -30,6 +30,7 @@ import {
     assignDesignToProject,
     type DesignListing,
 } from './utils/supabase';
+import { autoSyncToFinalAccount } from './utils/autoSyncFinalAccount';
 import { Building, Loader } from 'lucide-react';
 import { SavedReportsList } from './components/SavedReportsList';
 import { SavedDesignsGallery } from './components/SavedDesignsGallery';
@@ -346,10 +347,13 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
 
     setGlobalLoadingMessage("Saving design to cloud...");
     
+    let savedDesignId: string | null = null;
+    
     try {
         if (currentDesignId) {
             // Update existing design
             await updateDesign(currentDesignId, designData);
+            savedDesignId = currentDesignId;
             toast.success(`Design '${currentDesignName}' updated successfully!`);
         } else {
             // Create new design
@@ -362,7 +366,16 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
             const newDesignId = await saveDesign(designName, designData, pdfFile, currentProjectId);
             setCurrentDesignId(newDesignId);
             setCurrentDesignName(designName);
+            savedDesignId = newDesignId;
             toast.success(`Design '${designName}' saved successfully!`);
+        }
+        
+        // Auto-sync to final account if mappings exist
+        if (savedDesignId) {
+            const syncResult = await autoSyncToFinalAccount(savedDesignId);
+            if (syncResult.synced && syncResult.itemsUpdated > 0) {
+                toast.success(`Final account updated: ${syncResult.itemsUpdated} items synced`);
+            }
         }
     } catch (error) {
         console.error("Error saving design:", error);
