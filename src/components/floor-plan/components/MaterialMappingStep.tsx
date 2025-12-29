@@ -43,6 +43,7 @@ interface FinalAccountItem {
   install_rate: number;
   section_id: string;
   section_name?: string;
+  _isSelectedSection?: boolean;
 }
 
 interface MasterMaterial {
@@ -119,11 +120,11 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
     enabled: !!finalAccountId,
   });
 
-  // Fetch final account items from ALL sections in the final account - so containment can map to correct section
+  // Fetch final account items - prioritize selected section, then fetch others
   const { data: finalAccountItems, isLoading: loadingFAItems } = useQuery({
-    queryKey: ['final-account-items-for-mapping-all', finalAccountId],
+    queryKey: ['final-account-items-for-mapping-all', finalAccountId, sectionId],
     queryFn: async () => {
-      // First get all sections for this final account
+      // First get all bills for this final account
       const { data: bills } = await (supabase as any)
         .from('final_account_bills')
         .select('id')
@@ -133,6 +134,7 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
       
       const billIds = bills.map((b: any) => b.id);
       
+      // Get all sections for these bills
       const { data: sections } = await (supabase as any)
         .from('final_account_sections')
         .select('id, section_name')
@@ -141,21 +143,54 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
       if (!sections || sections.length === 0) return [];
       
       const sectionMap = new Map(sections.map((s: any) => [s.id, s.section_name]));
-      const sectionIds = sections.map((s: any) => s.id);
+      const allSectionIds = sections.map((s: any) => s.id);
       
-      const { data, error } = await (supabase as any)
-        .from('final_account_items')
-        .select('id, item_code, description, unit, supply_rate, install_rate, display_order, section_id')
-        .in('section_id', sectionIds)
-        .order('display_order', { ascending: true });
+      // Fetch items from selected section first (if provided), then other sections
+      // Use multiple queries to avoid the 1000 row limit hitting us
+      const allItems: any[] = [];
       
-      if (error) throw error;
+      // If we have a selected section, fetch those items first
+      if (sectionId && allSectionIds.includes(sectionId)) {
+        const { data: selectedSectionItems } = await (supabase as any)
+          .from('final_account_items')
+          .select('id, item_code, description, unit, supply_rate, install_rate, display_order, section_id')
+          .eq('section_id', sectionId)
+          .order('item_code', { ascending: true });
+        
+        if (selectedSectionItems) {
+          allItems.push(...selectedSectionItems);
+        }
+      }
       
-      // Add section_name to each item
-      return ((data || []) as any[]).map(item => ({
+      // Then fetch items from other sections (limit to avoid performance issues)
+      const otherSectionIds = allSectionIds.filter((id: string) => id !== sectionId);
+      if (otherSectionIds.length > 0) {
+        const { data: otherItems } = await (supabase as any)
+          .from('final_account_items')
+          .select('id, item_code, description, unit, supply_rate, install_rate, display_order, section_id')
+          .in('section_id', otherSectionIds)
+          .order('item_code', { ascending: true })
+          .limit(2000); // Increase limit to get more items
+        
+        if (otherItems) {
+          allItems.push(...otherItems);
+        }
+      }
+      
+      // Add section_name to each item and sort selected section first
+      return allItems.map(item => ({
         ...item,
-        section_name: sectionMap.get(item.section_id) || 'Unknown'
-      })) as FinalAccountItem[];
+        section_name: sectionMap.get(item.section_id) || 'Unknown',
+        _isSelectedSection: item.section_id === sectionId
+      })).sort((a, b) => {
+        // Selected section items first
+        if (a._isSelectedSection && !b._isSelectedSection) return -1;
+        if (!a._isSelectedSection && b._isSelectedSection) return 1;
+        // Then by section name, then by item_code
+        const sectionCompare = (a.section_name || '').localeCompare(b.section_name || '');
+        if (sectionCompare !== 0) return sectionCompare;
+        return (a.item_code || '').localeCompare(b.item_code || '', undefined, { numeric: true });
+      }) as FinalAccountItem[];
     },
     enabled: !!finalAccountId,
   });
@@ -464,18 +499,39 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
             <CommandList>
               <CommandEmpty>No items found.</CommandEmpty>
               {finalAccountItems && finalAccountItems.length > 0 && (() => {
-                // Group items by section
+                // Group items by section, keeping selected section first
                 const itemsBySection = new Map<string, FinalAccountItem[]>();
+                let selectedSectionName: string | null = null;
+                
                 for (const fa of finalAccountItems) {
                   const sectionName = fa.section_name || 'Unknown Section';
                   if (!itemsBySection.has(sectionName)) {
                     itemsBySection.set(sectionName, []);
                   }
                   itemsBySection.get(sectionName)!.push(fa);
+                  // Track selected section name
+                  if (fa._isSelectedSection && !selectedSectionName) {
+                    selectedSectionName = sectionName;
+                  }
                 }
                 
-                return Array.from(itemsBySection.entries()).map(([sectionName, items]) => (
-                  <CommandGroup key={sectionName} heading={sectionName}>
+                // Sort sections so selected section comes first
+                const sortedSections = Array.from(itemsBySection.entries()).sort(([a], [b]) => {
+                  if (a === selectedSectionName) return -1;
+                  if (b === selectedSectionName) return 1;
+                  return a.localeCompare(b);
+                });
+                
+                return sortedSections.map(([sectionName, items]) => (
+                  <CommandGroup 
+                    key={sectionName} 
+                    heading={
+                      <span className={sectionName === selectedSectionName ? 'text-primary font-semibold' : ''}>
+                        {sectionName}
+                        {sectionName === selectedSectionName && ' (Selected)'}
+                      </span>
+                    }
+                  >
                     {items.map((fa) => (
                       <CommandItem
                         key={fa.id}
