@@ -202,6 +202,16 @@ const Toolbar: React.FC<ToolbarProps> = ({
           />
         )}
         
+        {/* Circuit Schedule with AI Scan */}
+        {onOpenCircuitSchedule && (
+          <GlobalToolButton 
+            icon={CircuitBoard} 
+            label="AI Circuit Scan" 
+            onClick={onOpenCircuitSchedule} 
+            disabled={!hasDesignId || !hasProjectId || !isPdfLoaded} 
+          />
+        )}
+        
         
       </div>
       
