@@ -120,7 +120,7 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
     enabled: !!finalAccountId,
   });
 
-  // Fetch final account items - prioritize selected section, then fetch others
+  // Fetch final account items - fetch ALL items by querying each section separately
   const { data: finalAccountItems, isLoading: loadingFAItems } = useQuery({
     queryKey: ['final-account-items-for-mapping-all', finalAccountId, sectionId],
     queryFn: async () => {
@@ -143,37 +143,28 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
       if (!sections || sections.length === 0) return [];
       
       const sectionMap = new Map(sections.map((s: any) => [s.id, s.section_name]));
-      const allSectionIds = sections.map((s: any) => s.id);
+      const allSectionIds: string[] = sections.map((s: any) => s.id);
       
-      // Fetch items from selected section first (if provided), then other sections
-      // Use multiple queries to avoid the 1000 row limit hitting us
+      // Fetch items from EACH section separately to avoid the 1000 row limit
       const allItems: any[] = [];
       
-      // If we have a selected section, fetch those items first
-      if (sectionId && allSectionIds.includes(sectionId)) {
-        const { data: selectedSectionItems } = await (supabase as any)
-          .from('final_account_items')
-          .select('id, item_code, description, unit, supply_rate, install_rate, display_order, section_id')
-          .eq('section_id', sectionId)
-          .order('item_code', { ascending: true });
+      // Process sections in batches of 5 to avoid too many parallel requests
+      const batchSize = 5;
+      for (let i = 0; i < allSectionIds.length; i += batchSize) {
+        const batchSectionIds = allSectionIds.slice(i, i + batchSize);
         
-        if (selectedSectionItems) {
-          allItems.push(...selectedSectionItems);
-        }
-      }
-      
-      // Then fetch items from other sections (limit to avoid performance issues)
-      const otherSectionIds = allSectionIds.filter((id: string) => id !== sectionId);
-      if (otherSectionIds.length > 0) {
-        const { data: otherItems } = await (supabase as any)
-          .from('final_account_items')
-          .select('id, item_code, description, unit, supply_rate, install_rate, display_order, section_id')
-          .in('section_id', otherSectionIds)
-          .order('item_code', { ascending: true })
-          .limit(2000); // Increase limit to get more items
+        const batchPromises = batchSectionIds.map(async (secId: string) => {
+          const { data: items } = await (supabase as any)
+            .from('final_account_items')
+            .select('id, item_code, description, unit, supply_rate, install_rate, display_order, section_id')
+            .eq('section_id', secId)
+            .order('item_code', { ascending: true });
+          return items || [];
+        });
         
-        if (otherItems) {
-          allItems.push(...otherItems);
+        const batchResults = await Promise.all(batchPromises);
+        for (const items of batchResults) {
+          allItems.push(...items);
         }
       }
       
@@ -493,10 +484,10 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
             <ChevronRight className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-[400px] p-0 bg-popover" align="start">
+        <PopoverContent className="w-[450px] p-0 bg-popover z-[100]" align="start">
           <Command>
             <CommandInput placeholder="Search items..." className="h-9" />
-            <CommandList>
+            <CommandList className="max-h-[400px]">
               <CommandEmpty>No items found.</CommandEmpty>
               {finalAccountItems && finalAccountItems.length > 0 && (() => {
                 // Group items by section, keeping selected section first
