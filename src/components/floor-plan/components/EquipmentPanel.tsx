@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Layers, LayoutGrid, PlusCircle, CheckCircle, Clock, Circle, ChevronDown, Box, CircuitBoard, Zap, Package, ChevronRight, Trash2, Edit, Plus, Sparkles } from 'lucide-react';
+import { Layers, LayoutGrid, PlusCircle, CheckCircle, Clock, Circle, ChevronDown, Box, CircuitBoard, Zap, Package, ChevronRight, Trash2, Edit, Plus, Sparkles, FileText } from 'lucide-react';
 import { EquipmentItem, SupplyLine, SupplyZone, Containment, EquipmentType, DesignPurpose, PVPanelConfig, PVArrayItem, Task, TaskStatus, ScaleInfo } from '../types';
 import { PurposeConfig } from '../purpose.config';
 import { EquipmentIcon } from './EquipmentIcon';
@@ -30,6 +30,7 @@ import {
 import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CircuitAssignmentSelector } from './CircuitAssignmentSelector';
+import { CircuitTemplatesDialog } from './CircuitTemplatesDialog';
 
 interface EquipmentPanelProps {
   equipment: EquipmentItem[];
@@ -717,6 +718,9 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
   const createCircuit = useCreateCircuit();
   const deleteCircuit = useDeleteCircuit();
 
+  // State for Templates dialog
+  const [showTemplatesDialog, setShowTemplatesDialog] = useState(false);
+
   // Fetch distribution boards for Circuit Schedule view
   const { data: boards, isLoading: loadingBoards } = useDistributionBoards(projectId || '');
 
@@ -1197,14 +1201,42 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
       {/* Materials Section (shown when circuit is selected) */}
       {selectedCircuit && (
         <div className="border-t border-border flex-shrink-0">
-          <div className="px-4 py-2 bg-muted/50">
+          <div className="px-4 py-2 bg-muted/50 flex items-center justify-between">
             <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-              Assigned Materials
+              {selectedCircuit.id === 'unassigned' ? 'Template Library' : 'Assigned Materials'}
             </h3>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs"
+              onClick={() => setShowTemplatesDialog(true)}
+            >
+              <FileText className="h-3 w-3 mr-1" />
+              Templates
+            </Button>
           </div>
           <ScrollArea className="h-48">
             <div className="p-3">
-              <CircuitMaterialsListLocal circuitId={selectedCircuit.id} projectId={projectId} />
+              {selectedCircuit.id === 'unassigned' ? (
+                <div className="text-center py-4">
+                  <FileText className="h-10 w-10 mx-auto text-muted-foreground/50 mb-3" />
+                  <p className="text-sm text-muted-foreground font-medium mb-1">
+                    Global Template Library
+                  </p>
+                  <p className="text-xs text-muted-foreground mb-4">
+                    Create & manage templates here, then apply to any circuit
+                  </p>
+                  <Button 
+                    size="sm" 
+                    onClick={() => setShowTemplatesDialog(true)}
+                  >
+                    <FileText className="h-4 w-4 mr-2" />
+                    Open Templates
+                  </Button>
+                </div>
+              ) : (
+                <CircuitMaterialsListLocal circuitId={selectedCircuit.id} projectId={projectId} />
+              )}
             </div>
           </ScrollArea>
         </div>
@@ -1709,6 +1741,16 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
+        {/* Templates Dialog */}
+        <CircuitTemplatesDialog
+          open={showTemplatesDialog}
+          onOpenChange={setShowTemplatesDialog}
+          circuitId={selectedCircuit?.id !== 'unassigned' ? selectedCircuit?.id : undefined}
+          circuitRef={selectedCircuit?.circuit_ref}
+          projectId={projectId}
+          floorPlanId={floorPlanId}
+        />
     </aside>
   );
 };
