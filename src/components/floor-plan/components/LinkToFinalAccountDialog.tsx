@@ -68,10 +68,21 @@ async function fetchSections(billId: string): Promise<SectionResult[]> {
   const { data, error } = await (supabase as any)
     .from('final_account_sections')
     .select('id, section_code, section_name, display_order')
-    .eq('bill_id', billId)
-    .order('display_order');
+    .eq('bill_id', billId);
   if (error) throw error;
-  return data || [];
+  
+  // Sort numerically by section_code (e.g., 1.2 before 1.12)
+  return (data || []).sort((a: SectionResult, b: SectionResult) => {
+    const partsA = (a.section_code || '').split('.').map(p => parseFloat(p) || 0);
+    const partsB = (b.section_code || '').split('.').map(p => parseFloat(p) || 0);
+    
+    for (let i = 0; i < Math.max(partsA.length, partsB.length); i++) {
+      const numA = partsA[i] || 0;
+      const numB = partsB[i] || 0;
+      if (numA !== numB) return numA - numB;
+    }
+    return 0;
+  });
 }
 
 async function fetchShops(sectionId: string): Promise<ShopResult[]> {
