@@ -72,6 +72,11 @@ interface CombinedOption {
   sectionName?: string;
 }
 
+interface SelectedItem {
+  id: string;
+  source: 'final_account' | 'master';
+}
+
 export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
   projectId,
   floorPlanId,
@@ -82,7 +87,7 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
   onBack,
 }) => {
   const queryClient = useQueryClient();
-  const [mappings, setMappings] = useState<Record<string, { itemId: string; source: 'final_account' | 'master' }>>({});
+  const [mappings, setMappings] = useState<Record<string, SelectedItem[]>>({});
   // Removed category tabs - all items shown in one list
   const [bulkMappingOpen, setBulkMappingOpen] = useState(false);
   const [selectedForBulk, setSelectedForBulk] = useState<string[]>([]);
@@ -214,14 +219,17 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
   // Initialize mappings from existing data
   React.useEffect(() => {
     if (existingMappings && existingMappings.length > 0 && equipmentList.length > 0) {
-      const initialMappings: Record<string, { itemId: string; source: 'final_account' | 'master' }> = {};
+      const initialMappings: Record<string, SelectedItem[]> = {};
       
       for (const mapping of existingMappings) {
         const key = `${mapping.equipment_type}_${mapping.equipment_label}`;
+        if (!initialMappings[key]) {
+          initialMappings[key] = [];
+        }
         if (mapping.final_account_item_id) {
-          initialMappings[key] = { itemId: mapping.final_account_item_id, source: 'final_account' };
+          initialMappings[key].push({ id: mapping.final_account_item_id, source: 'final_account' });
         } else if (mapping.master_material_id) {
-          initialMappings[key] = { itemId: mapping.master_material_id, source: 'master' };
+          initialMappings[key].push({ id: mapping.master_material_id, source: 'master' });
         }
       }
       
@@ -265,10 +273,10 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
     return options;
   }, [finalAccountItems, masterMaterials]);
 
-  const handleMappingChange = (equipmentKey: string, optionId: string, source: 'final_account' | 'master') => {
+  const handleMappingChange = (equipmentKey: string, items: SelectedItem[]) => {
     setMappings(prev => ({
       ...prev,
-      [equipmentKey]: { itemId: optionId, source },
+      [equipmentKey]: items,
     }));
   };
 
@@ -280,10 +288,10 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
     });
   };
 
-  const handleBulkMap = (optionId: string, source: 'final_account' | 'master') => {
+  const handleBulkMap = (items: SelectedItem[]) => {
     const newMappings = { ...mappings };
     for (const key of selectedForBulk) {
-      newMappings[key] = { itemId: optionId, source };
+      newMappings[key] = items;
     }
     setMappings(newMappings);
     setSelectedForBulk([]);
@@ -298,7 +306,7 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
   };
 
   const selectAllUnmapped = () => {
-    const unmappedItems = equipmentList.filter(i => !mappings[i.key]).map(i => i.key);
+    const unmappedItems = equipmentList.filter(i => !mappings[i.key] || mappings[i.key].length === 0).map(i => i.key);
     setSelectedForBulk(unmappedItems);
   };
 
@@ -306,28 +314,36 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
   const saveMappingsMutation = useMutation({
     mutationFn: async () => {
       const user = await supabase.auth.getUser();
-      const mappingsToSave = equipmentList.map(item => {
-        const mapping = mappings[item.key];
-        return {
-          project_id: projectId,
-          floor_plan_id: floorPlanId,
-          equipment_type: item.category,
-          equipment_label: item.label,
-          final_account_item_id: mapping?.source === 'final_account' ? mapping.itemId : null,
-          master_material_id: mapping?.source === 'master' ? mapping.itemId : null,
-          quantity_per_unit: 1,
-          created_by: user.data.user?.id,
-        };
-      }).filter(m => m.final_account_item_id || m.master_material_id);
+      // Flatten all equipment items with their selected BOQ items
+      const mappingsToSave: any[] = [];
+      
+      for (const item of equipmentList) {
+        const selectedItems = mappings[item.key] || [];
+        for (const sel of selectedItems) {
+          mappingsToSave.push({
+            project_id: projectId,
+            floor_plan_id: floorPlanId,
+            equipment_type: item.category,
+            equipment_label: item.label,
+            final_account_item_id: sel.source === 'final_account' ? sel.id : null,
+            master_material_id: sel.source === 'master' ? sel.id : null,
+            quantity_per_unit: 1,
+            created_by: user.data.user?.id,
+          });
+        }
+      }
 
       if (mappingsToSave.length > 0) {
-        // Use upsert to handle existing mappings - constraint is on project_id, equipment_type, equipment_label
+        // Delete existing mappings for this floor plan first, then insert new ones
+        await supabase
+          .from('floor_plan_material_mappings')
+          .delete()
+          .eq('project_id', projectId)
+          .eq('floor_plan_id', floorPlanId);
+          
         const { error } = await supabase
           .from('floor_plan_material_mappings')
-          .upsert(mappingsToSave, { 
-            onConflict: 'project_id,equipment_type,equipment_label',
-            ignoreDuplicates: false 
-          });
+          .insert(mappingsToSave);
         if (error) throw error;
       }
 
@@ -337,10 +353,11 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
       queryClient.invalidateQueries({ queryKey: ['floor-plan-material-mappings'] });
       
       const finalMappings: MaterialMapping[] = equipmentList.map(item => {
-        const mapping = mappings[item.key];
-        // Get the section_id from the mapped FA item
-        const faItem = mapping?.source === 'final_account' 
-          ? finalAccountItems?.find(fa => fa.id === mapping.itemId)
+        const selectedItems = mappings[item.key] || [];
+        // Get the first FA item for section_id (backwards compatible)
+        const firstFaItem = selectedItems.find(s => s.source === 'final_account');
+        const faItem = firstFaItem 
+          ? finalAccountItems?.find(fa => fa.id === firstFaItem.id)
           : undefined;
         
         return {
@@ -349,9 +366,9 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
           category: item.category,
           quantity: item.quantity,
           unit: item.unit,
-          finalAccountItemId: mapping?.source === 'final_account' ? mapping.itemId : undefined,
+          finalAccountItemId: firstFaItem?.id,
           finalAccountSectionId: faItem?.section_id,
-          masterMaterialId: mapping?.source === 'master' ? mapping.itemId : undefined,
+          masterMaterialId: selectedItems.find(s => s.source === 'master')?.id,
         };
       });
       
@@ -362,13 +379,19 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
     },
   });
 
-  const getMappedOption = (key: string): CombinedOption | undefined => {
-    const mapping = mappings[key];
-    if (!mapping) return undefined;
-    return combinedItemOptions.find(o => o.id === mapping.itemId);
+  const getMappedOptions = (key: string): CombinedOption[] => {
+    const selectedItems = mappings[key] || [];
+    return selectedItems
+      .map(sel => combinedItemOptions.find(o => o.id === sel.id))
+      .filter((o): o is CombinedOption => o !== undefined);
   };
 
-  const mappedCount = Object.keys(mappings).length;
+  const getMappedTotalRate = (key: string): number => {
+    const options = getMappedOptions(key);
+    return options.reduce((sum, o) => sum + o.rate, 0);
+  };
+
+  const mappedCount = Object.entries(mappings).filter(([_, items]) => items.length > 0).length;
   const totalCount = equipmentList.length;
 
   // Removed category stats - all items in one list
@@ -398,20 +421,18 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
     );
   }
 
-  const renderItemSelector = (item: EquipmentItem, onSelect: (id: string, source: 'final_account' | 'master') => void) => {
-    const mapped = getMappedOption(item.key);
+  const renderItemSelector = (item: EquipmentItem) => {
+    const mappedOptions = getMappedOptions(item.key);
+    const selectedItems = mappings[item.key] || [];
     
     return (
       <BOQItemSelector
         finalAccountItems={finalAccountItems}
         masterMaterials={masterMaterials}
-        selectedItemId={mappings[item.key]?.itemId}
-        selectedSource={mappings[item.key]?.source}
-        onSelect={onSelect}
-        mappedLabel={mapped?.label}
-        mappedRate={mapped?.rate}
-        mappedUnit={mapped?.unit}
-        mappedSectionName={mapped?.sectionName}
+        selectedItems={selectedItems}
+        onSelect={(items) => handleMappingChange(item.key, items)}
+        mappedLabels={mappedOptions.map(o => o.label)}
+        mappedTotalRate={getMappedTotalRate(item.key)}
       />
     );
   };
@@ -471,7 +492,7 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
                           <CommandItem
                             key={fa.id}
                             value={`${fa.item_code} ${fa.description}`}
-                            onSelect={() => handleBulkMap(fa.id, 'final_account')}
+                            onSelect={() => handleBulkMap([{ id: fa.id, source: 'final_account' }])}
                           >
                             <div className="flex-1">
                               <span className="font-mono text-xs text-muted-foreground mr-2">{fa.item_code}</span>
@@ -487,7 +508,7 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
                           <CommandItem
                             key={mm.id}
                             value={`${mm.material_code} ${mm.material_name}`}
-                            onSelect={() => handleBulkMap(mm.id, 'master')}
+                            onSelect={() => handleBulkMap([{ id: mm.id, source: 'master' }])}
                           >
                             <div className="flex-1">
                               <span className="font-mono text-xs text-muted-foreground mr-2">{mm.material_code}</span>
@@ -512,11 +533,11 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
             <div 
               key={item.key} 
               className={`flex items-start gap-3 p-3 rounded-lg border transition-colors ${
-                mappings[item.key] ? 'border-primary/30 bg-primary/5' : 'border-border hover:border-muted-foreground/30'
+                mappings[item.key] && mappings[item.key].length > 0 ? 'border-primary/30 bg-primary/5' : 'border-border hover:border-muted-foreground/30'
               }`}
             >
               {/* Checkbox for bulk selection */}
-              {!mappings[item.key] && (
+              {(!mappings[item.key] || mappings[item.key].length === 0) && (
                 <input
                   type="checkbox"
                   checked={selectedForBulk.includes(item.key)}
@@ -524,7 +545,7 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
                   className="mt-2 rounded border-muted-foreground/50"
                 />
               )}
-              {mappings[item.key] && (
+              {mappings[item.key] && mappings[item.key].length > 0 && (
                 <div className="mt-1.5">
                   <Check className="h-4 w-4 text-primary" />
                 </div>
@@ -538,11 +559,11 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
                     {item.quantity} {item.unit}
                   </Badge>
                 </div>
-                {renderItemSelector(item, (id, source) => handleMappingChange(item.key, id, source))}
+                {renderItemSelector(item)}
               </div>
 
               {/* Clear button */}
-              {mappings[item.key] && (
+              {mappings[item.key] && mappings[item.key].length > 0 && (
                 <Button
                   variant="ghost"
                   size="icon"

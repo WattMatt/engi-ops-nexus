@@ -2,8 +2,8 @@ import React, { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
-import { Check, Search, ChevronRight, X } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { Check, Search, ChevronRight, X, Plus } from 'lucide-react';
 
 interface FinalAccountItem {
   id: string;
@@ -24,33 +24,41 @@ interface MasterMaterial {
   standard_install_cost: number | null;
 }
 
+interface SelectedItem {
+  id: string;
+  source: 'final_account' | 'master';
+}
+
 interface BOQItemSelectorProps {
   finalAccountItems: FinalAccountItem[] | undefined;
   masterMaterials: MasterMaterial[] | undefined;
-  selectedItemId: string | undefined;
-  selectedSource: 'final_account' | 'master' | undefined;
-  onSelect: (id: string, source: 'final_account' | 'master') => void;
-  mappedLabel?: string;
-  mappedRate?: number;
-  mappedUnit?: string;
-  mappedSectionName?: string;
+  selectedItems: SelectedItem[];
+  onSelect: (items: SelectedItem[]) => void;
+  mappedLabels?: string[];
+  mappedTotalRate?: number;
 }
 
 export function BOQItemSelector({
   finalAccountItems,
   masterMaterials,
-  selectedItemId,
-  selectedSource,
+  selectedItems,
   onSelect,
-  mappedLabel,
-  mappedRate,
-  mappedUnit,
-  mappedSectionName,
+  mappedLabels,
+  mappedTotalRate,
 }: BOQItemSelectorProps) {
   const [open, setOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [pendingSelections, setPendingSelections] = useState<SelectedItem[]>([]);
 
   const sectionName = finalAccountItems?.[0]?.section_name || 'Selected Section';
+
+  // Sync pending selections when dialog opens
+  const handleOpenChange = (isOpen: boolean) => {
+    if (isOpen) {
+      setPendingSelections([...selectedItems]);
+    }
+    setOpen(isOpen);
+  };
 
   const filteredItems = useMemo(() => {
     if (!finalAccountItems) return [];
@@ -72,16 +80,35 @@ export function BOQItemSelector({
     );
   }, [masterMaterials, searchTerm]);
 
-  const handleSelect = (id: string, source: 'final_account' | 'master') => {
-    onSelect(id, source);
+  const toggleSelection = (id: string, source: 'final_account' | 'master') => {
+    setPendingSelections(prev => {
+      const existing = prev.find(s => s.id === id && s.source === source);
+      if (existing) {
+        return prev.filter(s => !(s.id === id && s.source === source));
+      } else {
+        return [...prev, { id, source }];
+      }
+    });
+  };
+
+  const isSelected = (id: string, source: 'final_account' | 'master') => {
+    return pendingSelections.some(s => s.id === id && s.source === source);
+  };
+
+  const handleConfirm = () => {
+    onSelect(pendingSelections);
     setOpen(false);
     setSearchTerm('');
   };
 
-  const isMapped = selectedItemId && selectedSource;
+  const handleClear = () => {
+    setPendingSelections([]);
+  };
+
+  const isMapped = selectedItems.length > 0;
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button
           variant="outline"
@@ -89,29 +116,31 @@ export function BOQItemSelector({
         >
           {isMapped ? (
             <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <Badge variant="secondary" className="text-[10px] shrink-0">
-                  {selectedSource === 'final_account' ? 'FA' : 'MM'}
+                  {selectedItems.length} item{selectedItems.length > 1 ? 's' : ''}
                 </Badge>
-                <span className="truncate text-sm">{mappedLabel}</span>
+                <span className="truncate text-sm">
+                  {mappedLabels?.slice(0, 2).join(', ')}
+                  {(mappedLabels?.length || 0) > 2 && ` +${(mappedLabels?.length || 0) - 2} more`}
+                </span>
               </div>
-              <div className="text-xs text-muted-foreground mt-0.5 flex items-center gap-2">
-                {mappedSectionName && (
-                  <span className="text-primary/70">{mappedSectionName}</span>
-                )}
-                <span>R{(mappedRate || 0).toFixed(2)}/{mappedUnit}</span>
-              </div>
+              {mappedTotalRate !== undefined && (
+                <div className="text-xs text-muted-foreground mt-0.5">
+                  Total: R{mappedTotalRate.toFixed(2)}
+                </div>
+              )}
             </div>
           ) : (
-            <span className="text-muted-foreground">Select BOQ item...</span>
+            <span className="text-muted-foreground">Select BOQ item(s)...</span>
           )}
           <ChevronRight className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </DialogTrigger>
       <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col p-0 gap-0" aria-describedby={undefined}>
         <DialogHeader className="px-4 py-3 border-b shrink-0">
-          <DialogTitle>Select BOQ Item</DialogTitle>
-          <DialogDescription className="sr-only">Choose an item from the Final Account or Master Materials list</DialogDescription>
+          <DialogTitle>Select BOQ Items</DialogTitle>
+          <DialogDescription>Select one or more items to map. Click items to toggle selection.</DialogDescription>
         </DialogHeader>
         
         {/* Search input */}
@@ -130,13 +159,25 @@ export function BOQItemSelector({
           )}
         </div>
 
-        {/* Section header with count */}
-        <div className="px-4 py-2 text-xs font-medium border-b bg-muted/50 text-primary shrink-0">
-          {sectionName} ({filteredItems.length} of {finalAccountItems?.length || 0} items)
+        {/* Selection count bar */}
+        <div className="px-4 py-2 text-xs font-medium border-b bg-muted/50 flex items-center justify-between shrink-0">
+          <span className="text-primary">
+            {sectionName} ({filteredItems.length} of {finalAccountItems?.length || 0} items)
+          </span>
+          {pendingSelections.length > 0 && (
+            <div className="flex items-center gap-2">
+              <Badge variant="default" className="text-xs">
+                {pendingSelections.length} selected
+              </Badge>
+              <Button variant="ghost" size="sm" onClick={handleClear} className="h-6 text-xs px-2">
+                Clear
+              </Button>
+            </div>
+          )}
         </div>
 
         {/* Scrollable items list */}
-        <div className="flex-1 overflow-y-auto min-h-0" style={{ maxHeight: '50vh' }}>
+        <div className="flex-1 overflow-y-auto min-h-0" style={{ maxHeight: '45vh' }}>
           {filteredItems.length === 0 && filteredMasterMaterials.length === 0 ? (
             <div className="py-6 text-center text-sm text-muted-foreground">
               {searchTerm ? `No items found matching "${searchTerm}"` : 'No items in this section'}
@@ -173,13 +214,13 @@ export function BOQItemSelector({
                 }
 
                 // Child item - selectable
-                const isSelected = selectedItemId === fa.id && selectedSource === 'final_account';
+                const selected = isSelected(fa.id, 'final_account');
                 return (
                   <div
                     key={fa.id}
-                    onClick={() => handleSelect(fa.id, 'final_account')}
+                    onClick={() => toggleSelection(fa.id, 'final_account')}
                     className={`relative flex cursor-pointer select-none items-center rounded-sm pl-8 pr-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground ${
-                      isSelected ? 'bg-accent/50' : ''
+                      selected ? 'bg-primary/10 border-l-2 border-primary' : ''
                     }`}
                   >
                     <div className="flex-1 min-w-0">
@@ -191,7 +232,7 @@ export function BOQItemSelector({
                         R{((fa.supply_rate || 0) + (fa.install_rate || 0)).toFixed(2)}/{fa.unit}
                       </div>
                     </div>
-                    {isSelected && <Check className="h-4 w-4 text-primary shrink-0" />}
+                    {selected && <Check className="h-4 w-4 text-primary shrink-0" />}
                   </div>
                 );
               })}
@@ -203,13 +244,13 @@ export function BOQItemSelector({
                     Master Materials
                   </div>
                   {filteredMasterMaterials.map((mm) => {
-                    const isSelected = selectedItemId === mm.id && selectedSource === 'master';
+                    const selected = isSelected(mm.id, 'master');
                     return (
                       <div
                         key={mm.id}
-                        onClick={() => handleSelect(mm.id, 'master')}
+                        onClick={() => toggleSelection(mm.id, 'master')}
                         className={`relative flex cursor-pointer select-none items-center rounded-sm px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground ${
-                          isSelected ? 'bg-accent/50' : ''
+                          selected ? 'bg-primary/10 border-l-2 border-primary' : ''
                         }`}
                       >
                         <div className="flex-1 min-w-0">
@@ -223,7 +264,7 @@ export function BOQItemSelector({
                             R{((mm.standard_supply_cost || 0) + (mm.standard_install_cost || 0)).toFixed(2)}/{mm.unit}
                           </div>
                         </div>
-                        {isSelected && <Check className="h-4 w-4 text-primary shrink-0" />}
+                        {selected && <Check className="h-4 w-4 text-primary shrink-0" />}
                       </div>
                     );
                   })}
@@ -232,6 +273,15 @@ export function BOQItemSelector({
             </div>
           )}
         </div>
+
+        {/* Footer with confirm button */}
+        <DialogFooter className="px-4 py-3 border-t shrink-0">
+          <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+          <Button onClick={handleConfirm}>
+            <Plus className="h-4 w-4 mr-1" />
+            Confirm {pendingSelections.length > 0 && `(${pendingSelections.length})`}
+          </Button>
+        </DialogFooter>
       </DialogContent>
     </Dialog>
   );
