@@ -317,8 +317,13 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
       // Flatten all equipment items with their selected BOQ items
       const mappingsToSave: any[] = [];
       
+      console.log('[MaterialMappingStep] Saving mappings...');
+      console.log('[MaterialMappingStep] Equipment list:', equipmentList.map(e => e.key));
+      console.log('[MaterialMappingStep] Current mappings state:', mappings);
+      
       for (const item of equipmentList) {
         const selectedItems = mappings[item.key] || [];
+        console.log(`[MaterialMappingStep] Item ${item.key}: ${selectedItems.length} selections`);
         for (const sel of selectedItems) {
           mappingsToSave.push({
             project_id: projectId,
@@ -333,18 +338,31 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
         }
       }
 
+      console.log('[MaterialMappingStep] Mappings to save:', mappingsToSave.length);
+
       if (mappingsToSave.length > 0) {
         // Delete existing mappings for this floor plan first, then insert new ones
-        await supabase
+        const { error: deleteError } = await supabase
           .from('floor_plan_material_mappings')
           .delete()
           .eq('project_id', projectId)
           .eq('floor_plan_id', floorPlanId);
+        
+        if (deleteError) {
+          console.error('[MaterialMappingStep] Delete error:', deleteError);
+        }
           
         const { error } = await supabase
           .from('floor_plan_material_mappings')
           .insert(mappingsToSave);
-        if (error) throw error;
+        if (error) {
+          console.error('[MaterialMappingStep] Insert error:', error);
+          throw error;
+        }
+        
+        console.log('[MaterialMappingStep] Successfully saved', mappingsToSave.length, 'mappings');
+      } else {
+        console.warn('[MaterialMappingStep] No mappings to save - user did not select any BOQ items');
       }
 
       return mappingsToSave;
