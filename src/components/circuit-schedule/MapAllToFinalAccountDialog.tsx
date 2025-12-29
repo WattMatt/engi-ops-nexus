@@ -34,7 +34,7 @@ export function MapAllToFinalAccountDialog({ open, onOpenChange, projectId }: Ma
   const [checkedItems, setCheckedItems] = useState<Set<string>>(new Set());
   const [isMapping, setIsMapping] = useState(false);
 
-  // Fetch all circuit materials for this project
+  // Fetch all circuit materials for this project (including unassigned/general items)
   const { data: allMaterials = [], isLoading: loadingMaterials } = useQuery({
     queryKey: ["all-circuit-materials", projectId],
     queryFn: async () => {
@@ -44,23 +44,37 @@ export function MapAllToFinalAccountDialog({ open, onOpenChange, projectId }: Ma
         .select("id")
         .eq("project_id", projectId);
       
-      if (!boards || boards.length === 0) return [];
-
-      // Get all circuits for these boards
-      const { data: circuits } = await supabase
-        .from("db_circuits")
-        .select("id, distribution_board_id")
-        .in("distribution_board_id", boards.map(b => b.id));
+      const boardIds = boards?.map(b => b.id) || [];
       
-      if (!circuits || circuits.length === 0) return [];
+      // Get all circuits for these boards
+      let circuitIds: string[] = [];
+      if (boardIds.length > 0) {
+        const { data: circuits } = await supabase
+          .from("db_circuits")
+          .select("id")
+          .in("distribution_board_id", boardIds);
+        circuitIds = circuits?.map(c => c.id) || [];
+      }
 
-      // Get all materials for these circuits
-      const { data: materials } = await supabase
+      // Get materials assigned to circuits
+      let circuitMaterials: any[] = [];
+      if (circuitIds.length > 0) {
+        const { data: materials } = await supabase
+          .from("db_circuit_materials")
+          .select("*")
+          .in("circuit_id", circuitIds);
+        circuitMaterials = materials || [];
+      }
+
+      // Get unassigned/general materials for this project (circuit_id is null)
+      const { data: unassignedMaterials } = await supabase
         .from("db_circuit_materials")
         .select("*")
-        .in("circuit_id", circuits.map(c => c.id));
-      
-      return materials || [];
+        .eq("project_id", projectId)
+        .is("circuit_id", null);
+
+      // Combine both sets
+      return [...circuitMaterials, ...(unassignedMaterials || [])];
     },
     enabled: open && !!projectId,
   });
