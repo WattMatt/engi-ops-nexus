@@ -2,7 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from '@/components/ui/dialog';
 import { Check, Search, ChevronRight, X } from 'lucide-react';
 
 interface FinalAccountItem {
@@ -108,9 +108,10 @@ export function BOQItemSelector({
           <ChevronRight className="ml-2 h-4 w-4 shrink-0 opacity-50" />
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col p-0 gap-0">
+      <DialogContent className="max-w-2xl max-h-[80vh] flex flex-col p-0 gap-0" aria-describedby={undefined}>
         <DialogHeader className="px-4 py-3 border-b shrink-0">
           <DialogTitle>Select BOQ Item</DialogTitle>
+          <DialogDescription className="sr-only">Choose an item from the Final Account or Master Materials list</DialogDescription>
         </DialogHeader>
         
         {/* Search input */}
