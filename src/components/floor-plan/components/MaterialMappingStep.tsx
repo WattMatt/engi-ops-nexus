@@ -502,8 +502,8 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
             {sectionName} ({filteredItems.length} of {finalAccountItems?.length || 0} items)
           </div>
           
-          {/* Scrollable items list */}
-          <div style={{ maxHeight: '350px', overflowY: 'auto' }}>
+{/* Scrollable items list */}
+          <ScrollArea className="h-[400px]">
             {filteredItems.length === 0 ? (
               <div className="py-6 text-center text-sm text-muted-foreground">
                 {searchTerm ? `No items found matching "${searchTerm}"` : 'No items in this section'}
@@ -618,7 +618,7 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
                   )}
                 </div>
               )}
-            </div>
+          </ScrollArea>
         </PopoverContent>
       </Popover>
     );
