@@ -183,10 +183,28 @@ const insertDesignComponents = async (floorPlanId: string, designData: DesignDat
                     start_height: d.startHeight,
                     end_height: d.endHeight,
                     cable_entry_id: cableEntries[index]?.id,
-                    db_circuit_id: d.dbCircuitId || null
+                    db_circuit_id: d.dbCircuitId || null,
+                    original_canvas_id: id // Preserve original canvas ID for db_circuit_materials linking
                 }));
                 
-                return supabase.from('floor_plan_cables').insert(floorPlanCablesData);
+                const insertResult = await supabase.from('floor_plan_cables').insert(floorPlanCablesData).select();
+                
+                // Update db_circuit_materials canvas_line_id to point to new floor_plan_cables IDs
+                if (insertResult.data && insertResult.data.length > 0) {
+                    for (let i = 0; i < lines.length; i++) {
+                        const originalId = lines[i].id;
+                        const newCableId = insertResult.data[i]?.id;
+                        if (originalId && newCableId) {
+                            // Update any db_circuit_materials that reference the old canvas ID
+                            await supabase
+                                .from('db_circuit_materials')
+                                .update({ canvas_line_id: newCableId })
+                                .eq('canvas_line_id', originalId);
+                        }
+                    }
+                }
+                
+                return insertResult;
             }
         }));
     }
@@ -397,7 +415,7 @@ export const loadDesign = async (designId: string): Promise<{ designData: FullDe
     }));
 
     const transformedLines = (cables || []).map((c: any) => ({
-        id: c.id,
+        id: c.original_canvas_id || c.id, // Preserve original canvas ID for db_circuit_materials linking
         type: c.cable_type,
         cableType: c.cable_type,
         points: c.points,

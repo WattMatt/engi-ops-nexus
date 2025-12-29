@@ -3873,6 +3873,7 @@ export type Database = {
           id: string
           label: string | null
           length_meters: number | null
+          original_canvas_id: string | null
           points: Json
           start_height: number | null
           termination_count: number | null
@@ -3889,6 +3890,7 @@ export type Database = {
           id?: string
           label?: string | null
           length_meters?: number | null
+          original_canvas_id?: string | null
           points: Json
           start_height?: number | null
           termination_count?: number | null
@@ -3905,6 +3907,7 @@ export type Database = {
           id?: string
           label?: string | null
           length_meters?: number | null
+          original_canvas_id?: string | null
           points?: Json
           start_height?: number | null
           termination_count?: number | null
