@@ -1303,6 +1303,8 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
         selectedCircuit={selectedCircuit}
         onSelectCircuit={setSelectedCircuit}
         onEditCable={handleEditCable}
+        onStartRegionSelect={pdfDoc ? handleStartRegionSelect : undefined}
+        isSelectingRegion={isSelectingRegion}
       />
       
       {/* Modals */}
