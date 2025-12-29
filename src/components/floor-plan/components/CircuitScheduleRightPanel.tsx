@@ -139,12 +139,23 @@ const CircuitMaterialsList: React.FC<{
     });
   };
 
+  // Patterns for consumable items to exclude from display
+  const EXCLUDED_MATERIAL_PATTERNS = ['cable tie', 'cable saddle', 'cable clip', 'cable identification marker'];
+  
+  const getFilteredMaterials = () => {
+    return materials?.filter(m => {
+      const desc = m.description?.toLowerCase() || '';
+      return !EXCLUDED_MATERIAL_PATTERNS.some(pattern => desc.includes(pattern));
+    }) || [];
+  };
+
   const toggleAll = () => {
-    if (!materials) return;
-    if (selectedMaterials.size === materials.length) {
+    const filtered = getFilteredMaterials();
+    if (filtered.length === 0) return;
+    if (selectedMaterials.size === filtered.length) {
       setSelectedMaterials(new Set());
     } else {
-      setSelectedMaterials(new Set(materials.map(m => m.id)));
+      setSelectedMaterials(new Set(filtered.map(m => m.id)));
     }
   };
 
@@ -178,7 +189,9 @@ const CircuitMaterialsList: React.FC<{
     return <div className="text-xs text-muted-foreground p-2">Loading materials...</div>;
   }
 
-  if (!materials || materials.length === 0) {
+  const filteredMaterials = getFilteredMaterials();
+
+  if (filteredMaterials.length === 0) {
     return (
       <div className="text-xs text-muted-foreground text-center p-4 italic">
         No materials assigned yet. Trace items on the canvas to add them.
@@ -191,13 +204,13 @@ const CircuitMaterialsList: React.FC<{
   return (
     <div className="space-y-2">
       {/* Bulk actions bar */}
-      {materials.length > 0 && (
+      {filteredMaterials.length > 0 && (
         <div className="flex items-center gap-2 pb-2 border-b border-border">
           <button
             onClick={toggleAll}
             className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
           >
-            {selectedMaterials.size === materials.length ? (
+            {selectedMaterials.size === filteredMaterials.length ? (
               <CheckSquare className="h-4 w-4" />
             ) : (
               <Square className="h-4 w-4" />
@@ -234,7 +247,7 @@ const CircuitMaterialsList: React.FC<{
       )}
 
       {/* Materials list */}
-      {materials.map((material) => {
+      {filteredMaterials.map((material) => {
         // Check if this is a GP wire - multiply by 3 for L+E+N conductors
         const isGpWire = material.description?.toUpperCase().includes('GP') && material.unit === 'm';
         const totalLength = isGpWire ? material.quantity * 3 : material.quantity;
