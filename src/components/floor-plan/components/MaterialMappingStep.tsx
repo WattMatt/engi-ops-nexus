@@ -148,40 +148,13 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
       
       console.log(`[MaterialMapping] Fetched ${items?.length || 0} items from section: ${sectionName}`);
       
-      // Add section name to each item and sort numerically by item_code
+      // Add section name to each item - keep original display_order from database
+      // The display_order already has the correct hierarchical structure:
+      // D1 (header), description row, D1.1 (child), D1.2 (child), D2 (header), etc.
       const result = (items || []).map(item => ({
         ...item,
         section_name: sectionName
       }));
-      
-      // Sort numerically by item_code (e.g., D1.1, D1.2, D1.10, D2.1)
-      result.sort((a, b) => {
-        const codeA = a.item_code || '';
-        const codeB = b.item_code || '';
-        
-        // Extract prefix (letters) and numeric parts
-        const partsA = codeA.split(/[.\s]+/).map(p => {
-          const num = parseFloat(p.replace(/[^0-9.]/g, ''));
-          return isNaN(num) ? p : num;
-        });
-        const partsB = codeB.split(/[.\s]+/).map(p => {
-          const num = parseFloat(p.replace(/[^0-9.]/g, ''));
-          return isNaN(num) ? p : num;
-        });
-        
-        for (let i = 0; i < Math.max(partsA.length, partsB.length); i++) {
-          const partA = partsA[i] ?? '';
-          const partB = partsB[i] ?? '';
-          
-          if (typeof partA === 'number' && typeof partB === 'number') {
-            if (partA !== partB) return partA - partB;
-          } else {
-            const strCompare = String(partA).localeCompare(String(partB));
-            if (strCompare !== 0) return strCompare;
-          }
-        }
-        return 0;
-      });
       
       return result as FinalAccountItem[];
     },
