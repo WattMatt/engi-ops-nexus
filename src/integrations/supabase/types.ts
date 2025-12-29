@@ -4427,6 +4427,41 @@ export type Database = {
           },
         ]
       }
+      floor_plan_quantity_contributions: {
+        Row: {
+          created_at: string
+          final_account_item_id: string
+          floor_plan_id: string
+          id: string
+          quantity_contributed: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          final_account_item_id: string
+          floor_plan_id: string
+          id?: string
+          quantity_contributed?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          final_account_item_id?: string
+          floor_plan_id?: string
+          id?: string
+          quantity_contributed?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "floor_plan_quantity_contributions_final_account_item_id_fkey"
+            columns: ["final_account_item_id"]
+            isOneToOne: false
+            referencedRelation: "final_account_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       floor_plan_reports: {
         Row: {
           comments: string | null
