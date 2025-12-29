@@ -503,9 +503,9 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-[500px] p-0 bg-popover z-[100]" align="start" sideOffset={4}>
-          <div className="flex flex-col max-h-[400px]">
+          <div className="flex flex-col">
             {/* Search input */}
-            <div className="flex items-center border-b px-3 py-2 shrink-0">
+            <div className="flex items-center border-b px-3 py-2">
               <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
               <Input
                 placeholder="Search items..."
@@ -521,12 +521,12 @@ export const MaterialMappingStep: React.FC<MaterialMappingStepProps> = ({
             </div>
             
             {/* Section header with count */}
-            <div className="px-3 py-1.5 text-xs font-medium border-b bg-muted/50 text-primary shrink-0">
+            <div className="px-3 py-1.5 text-xs font-medium border-b bg-muted/50 text-primary">
               {sectionName} ({filteredItems.length} of {finalAccountItems?.length || 0} items)
             </div>
             
-            {/* Scrollable items list */}
-            <div className="overflow-y-auto flex-1 min-h-0">
+            {/* Scrollable items list - explicit max-height for scroll */}
+            <div className="max-h-[350px] overflow-y-auto">
               {filteredItems.length === 0 ? (
                 <div className="py-6 text-center text-sm text-muted-foreground">
                   {searchTerm ? `No items found matching "${searchTerm}"` : 'No items in this section'}
