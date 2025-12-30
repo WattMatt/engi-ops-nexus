@@ -14,6 +14,15 @@ import { cn } from '@/lib/utils';
 import { EquipmentItem, SupplyLine, Containment, EquipmentType, ContainmentType, ScaleInfo } from '../types';
 import { Isometric3DViewer } from './Isometric3DViewer';
 import { CableSchedule } from './CableSchedule';
+// Enhanced Schedule Components
+import { 
+  ElectricalFixtureSchedule,
+  ElectricalEquipmentSchedule,
+  LightingFixtureSchedule,
+  ConduitRunSchedule,
+  ContainmentSchedule,
+} from './schedules/EnhancedScheduleSection';
+import { LightingDeviceSchedule } from './schedules/LightingDeviceSchedule';
 
 // Circuit type categories for layer filtering
 const CIRCUIT_TYPE_CATEGORIES: Record<string, {
@@ -153,7 +162,9 @@ export function DrawingSheetView({
     new Set(Object.keys(CIRCUIT_TYPE_CATEGORIES) as CircuitCategory[])
   );
   const [activeScheduleTab, setActiveScheduleTab] = useState('fixtures');
-  const [expandedSchedules, setExpandedSchedules] = useState<Set<string>>(new Set(['fixtures', 'equipment', 'cables']));
+  const [expandedSchedules, setExpandedSchedules] = useState<Set<string>>(
+    new Set(['fixtures', 'equipment', 'lighting', 'devices', 'cables', 'conduit', 'containment'])
+  );
 
   // Toggle layer visibility
   const toggleLayer = useCallback((category: CircuitCategory) => {
@@ -478,39 +489,32 @@ export function DrawingSheetView({
           </div>
           <ScrollArea className="flex-1">
             <div className="p-2 space-y-2">
-              {/* Electrical Fixture Schedule */}
-              <ScheduleSection
-                title="Electrical Fixture Schedule"
-                items={schedules.fixtures}
+              {/* Electrical Fixture Schedule - Enhanced */}
+              <ElectricalFixtureSchedule
+                equipment={equipment}
                 isExpanded={expandedSchedules.has('fixtures')}
                 onToggle={() => toggleSchedule('fixtures')}
               />
 
-              {/* Electrical Equipment Schedule */}
-              <ScheduleSection
-                title="Electrical Equipment Schedule"
-                items={schedules.equipment}
+              {/* Electrical Equipment Schedule - Enhanced */}
+              <ElectricalEquipmentSchedule
+                equipment={equipment}
                 isExpanded={expandedSchedules.has('equipment')}
                 onToggle={() => toggleSchedule('equipment')}
-                showPanelName
               />
 
-              {/* Lighting Fixture Schedule */}
-              <ScheduleSection
-                title="Lighting Fixture Schedule"
-                items={schedules.lighting}
+              {/* Lighting Fixture Schedule - Enhanced */}
+              <LightingFixtureSchedule
+                equipment={equipment}
                 isExpanded={expandedSchedules.has('lighting')}
                 onToggle={() => toggleSchedule('lighting')}
-                showTypeMark
               />
 
-              {/* Conduit Run Schedule */}
-              <ScheduleSection
-                title="Conduit Run Schedule"
-                items={schedules.conduit}
-                isExpanded={expandedSchedules.has('conduit')}
-                onToggle={() => toggleSchedule('conduit')}
-                showLength
+              {/* Lighting Device Schedule - NEW */}
+              <LightingDeviceSchedule
+                equipment={equipment}
+                isExpanded={expandedSchedules.has('devices')}
+                onToggle={() => toggleSchedule('devices')}
               />
 
               {/* Cable Schedule */}
@@ -521,13 +525,18 @@ export function DrawingSheetView({
                 onToggle={() => toggleSchedule('cables')}
               />
 
-              {/* Containment Schedule */}
-              <ScheduleSection
-                title="Containment Schedule"
-                items={schedules.containment}
+              {/* Conduit Run Schedule - Enhanced */}
+              <ConduitRunSchedule
+                containment={containment}
+                isExpanded={expandedSchedules.has('conduit')}
+                onToggle={() => toggleSchedule('conduit')}
+              />
+
+              {/* Containment Schedule - Enhanced */}
+              <ContainmentSchedule
+                containment={containment}
                 isExpanded={expandedSchedules.has('containment')}
                 onToggle={() => toggleSchedule('containment')}
-                showLength
               />
             </div>
           </ScrollArea>
