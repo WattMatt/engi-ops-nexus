@@ -13,6 +13,7 @@ import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { EquipmentItem, SupplyLine, Containment, EquipmentType, ContainmentType, ScaleInfo } from '../types';
 import { Isometric3DViewer } from './Isometric3DViewer';
+import { CableSchedule } from './CableSchedule';
 
 // Circuit type categories for layer filtering
 const CIRCUIT_TYPE_CATEGORIES: Record<string, {
@@ -152,7 +153,7 @@ export function DrawingSheetView({
     new Set(Object.keys(CIRCUIT_TYPE_CATEGORIES) as CircuitCategory[])
   );
   const [activeScheduleTab, setActiveScheduleTab] = useState('fixtures');
-  const [expandedSchedules, setExpandedSchedules] = useState<Set<string>>(new Set(['fixtures', 'equipment']));
+  const [expandedSchedules, setExpandedSchedules] = useState<Set<string>>(new Set(['fixtures', 'equipment', 'cables']));
 
   // Toggle layer visibility
   const toggleLayer = useCallback((category: CircuitCategory) => {
@@ -510,6 +511,14 @@ export function DrawingSheetView({
                 isExpanded={expandedSchedules.has('conduit')}
                 onToggle={() => toggleSchedule('conduit')}
                 showLength
+              />
+
+              {/* Cable Schedule */}
+              <CableSchedule
+                equipment={equipment}
+                containment={containment}
+                isExpanded={expandedSchedules.has('cables')}
+                onToggle={() => toggleSchedule('cables')}
               />
 
               {/* Containment Schedule */}
