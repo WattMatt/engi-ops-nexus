@@ -469,8 +469,6 @@ export function DrawingSheetView({
                   containment={filteredContainment}
                   lines={lines}
                   scaleInfo={scaleInfo}
-                  roomWidth={10}
-                  roomDepth={8}
                   ceilingHeight={2.7}
                   selectedItemId={selectedItemId}
                   onItemSelect={onItemSelect}

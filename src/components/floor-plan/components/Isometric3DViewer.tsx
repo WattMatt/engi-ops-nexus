@@ -1,16 +1,15 @@
-import React, { useState, useMemo, useCallback, Suspense } from 'react';
+import React, { useState, useMemo, Suspense } from 'react';
 import { Canvas } from '@react-three/fiber';
-import { OrbitControls, Grid, Line, Html, Box, Edges } from '@react-three/drei';
+import { OrbitControls, Grid, Line, Html, Edges } from '@react-three/drei';
 import * as THREE from 'three';
-import { EquipmentItem, SupplyLine, Containment, ScaleInfo, EquipmentType, ContainmentType } from '../types';
+import { EquipmentItem, SupplyLine, Containment, ScaleInfo, EquipmentType } from '../types';
+import { useRoomBounds, RoomBounds } from '../hooks/useRoomBounds';
 
 interface Isometric3DViewerProps {
   equipment: EquipmentItem[];
   containment: Containment[];
   lines: SupplyLine[];
   scaleInfo: ScaleInfo;
-  roomWidth?: number;
-  roomDepth?: number;
   ceilingHeight?: number;
   selectedItemId?: string | null;
   onItemSelect?: (id: string | null) => void;
@@ -271,19 +270,28 @@ export function Isometric3DViewer({
   containment,
   lines,
   scaleInfo,
-  roomWidth = 10,
-  roomDepth = 8,
   ceilingHeight = 2.7,
   selectedItemId,
   onItemSelect,
 }: Isometric3DViewerProps) {
   const [cameraPreset, setCameraPreset] = useState<'iso' | 'top' | 'front'>('iso');
 
-  const cameraPositions = {
-    iso: [roomWidth * 1.5, ceilingHeight * 3, roomDepth * 1.5] as [number, number, number],
-    top: [roomWidth / 2, ceilingHeight * 4, roomDepth / 2] as [number, number, number],
-    front: [roomWidth / 2, ceilingHeight, roomDepth * 2.5] as [number, number, number],
-  };
+  // Calculate dynamic room bounds based on equipment and containment
+  const roomBounds = useRoomBounds(equipment, containment, scaleInfo);
+  const roomWidth = roomBounds.width;
+  const roomDepth = roomBounds.depth;
+
+  // Auto-scale camera distance based on room size
+  const cameraDistance = useMemo(() => {
+    const maxDimension = Math.max(roomWidth, roomDepth);
+    return Math.max(maxDimension * 1.2, 8); // Ensure minimum distance
+  }, [roomWidth, roomDepth]);
+
+  const cameraPositions = useMemo(() => ({
+    iso: [cameraDistance, ceilingHeight * 2.5, cameraDistance] as [number, number, number],
+    top: [roomWidth / 2, cameraDistance * 2, roomDepth / 2] as [number, number, number],
+    front: [roomWidth / 2, ceilingHeight, cameraDistance * 1.5] as [number, number, number],
+  }), [cameraDistance, roomWidth, roomDepth, ceilingHeight]);
 
   // Calculate scale ratio
   const scaleRatio = useMemo(() => {
@@ -293,6 +301,13 @@ export function Isometric3DViewer({
 
   return (
     <div className="w-full h-full min-h-[400px] relative">
+      {/* Room dimensions display */}
+      <div className="absolute top-2 left-2 z-10 bg-background/80 backdrop-blur-sm border border-border rounded px-2 py-1 text-[10px]">
+        <span className="text-muted-foreground">Room: </span>
+        <span className="font-medium">{roomWidth.toFixed(1)}m × {roomDepth.toFixed(1)}m</span>
+        {roomBounds.isEmpty && <span className="text-muted-foreground ml-1">(default)</span>}
+      </div>
+
       {/* Camera preset buttons */}
       <div className="absolute top-12 right-2 z-10 flex flex-col gap-1">
         {(['iso', 'top', 'front'] as const).map((preset) => (
