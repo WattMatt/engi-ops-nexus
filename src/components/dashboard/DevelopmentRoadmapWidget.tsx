@@ -82,9 +82,9 @@ export function DevelopmentRoadmapWidget() {
     }
   };
 
-  // Group phases: Foundation (1-5) and Import/Reporting (6-10)
-  const foundationPhases = developmentPhases.filter(p => p.number <= 5);
-  const importReportingPhases = developmentPhases.filter(p => p.number >= 6);
+  // Group phases: Core Development (1-3) and Visualization & Export (4-5)
+  const coreDevelopmentPhases = developmentPhases.filter(p => p.number <= 3);
+  const visualizationExportPhases = developmentPhases.filter(p => p.number >= 4);
 
   const renderPhaseGroup = (phases: typeof developmentPhases, title: string, description: string) => (
     <div className="space-y-3">
@@ -296,10 +296,10 @@ export function DevelopmentRoadmapWidget() {
           <div>
             <CardTitle className="flex items-center gap-2">
               <FileCode className="h-5 w-5" />
-              Development Roadmap
+              Drawing Sheet View Development
             </CardTitle>
             <CardDescription>
-              Track progress and copy prompts for each development phase
+              Track progress for Enhanced Drawing Sheet View implementation
             </CardDescription>
           </div>
           <Button variant="outline" size="sm" onClick={handleResetAll}>
@@ -336,14 +336,14 @@ export function DevelopmentRoadmapWidget() {
         <ScrollArea className="h-[500px] pr-4">
           <div className="space-y-6">
             {renderPhaseGroup(
-              foundationPhases, 
-              "Foundation Phases (1-5)", 
-              "Structure, bills, items, subsections, and prime costs"
+              coreDevelopmentPhases, 
+              "Core Development (1-3)", 
+              "Cable schedules, schedule enhancements, room sizing"
             )}
             {renderPhaseGroup(
-              importReportingPhases, 
-              "Import & Reporting Phases (6-10)", 
-              "BOQ import, discrepancies, variations, and reporting"
+              visualizationExportPhases, 
+              "Visualization & Export (4-5)", 
+              "3D isometric view and PDF generator"
             )}
           </div>
         </ScrollArea>
