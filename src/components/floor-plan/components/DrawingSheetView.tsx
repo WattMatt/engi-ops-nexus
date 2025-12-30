@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 import { EquipmentItem, SupplyLine, Containment, EquipmentType, ContainmentType, ScaleInfo } from '../types';
 import { Isometric3DViewer } from './Isometric3DViewer';
 import { CableSchedule } from './CableSchedule';
+import { DrawingSheet2DCanvas } from './DrawingSheet2DCanvas';
 // Enhanced Schedule Components
 import { 
   ElectricalFixtureSchedule,
@@ -441,16 +442,22 @@ export function DrawingSheetView({
             {/* 2D View */}
             {(viewMode === '2d' || viewMode === 'split') && (
               <div className={cn(
-                "bg-muted/30 rounded-lg overflow-hidden border border-border",
+                "bg-muted/30 rounded-lg overflow-hidden border border-border relative",
                 viewMode === 'split' ? "flex-1" : "w-full h-full"
               )}>
                 <div className="absolute top-2 left-2 z-10 bg-background/80 backdrop-blur-sm px-2 py-1 rounded text-xs font-medium">
                   2D LAYOUT • 1:100
                 </div>
                 {canvas2DElement || (
-                  <div className="flex items-center justify-center h-full text-muted-foreground">
-                    <p className="text-sm">2D Canvas will appear here</p>
-                  </div>
+                  <DrawingSheet2DCanvas
+                    equipment={filteredEquipment}
+                    lines={lines}
+                    containment={filteredContainment}
+                    scaleInfo={scaleInfo}
+                    selectedItemId={selectedItemId}
+                    onItemSelect={onItemSelect}
+                    visibleCategories={activeLayers}
+                  />
                 )}
               </div>
             )}
