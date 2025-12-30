@@ -42,6 +42,7 @@ import { CircuitScheduleRightPanel } from './components/CircuitScheduleRightPane
 import { RegionSelectionOverlay } from '@/components/circuit-schedule/RegionSelectionOverlay';
 import { DbCircuit, useCreateCircuitMaterial, useDistributionBoards, useFloorPlanCircuitMaterials, useDeleteCircuitMaterialByCanvasLine } from '@/components/circuit-schedule/hooks/useDistributionBoards';
 import { useAICircuitScan } from '@/components/circuit-schedule/hooks/useAICircuitScan';
+import { DrawingSheetView } from './components/DrawingSheetView';
 
 
 // Set PDF.js worker source
@@ -202,6 +203,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
   const [isLinkDialogOpen, setIsLinkDialogOpen] = useState(false);
   const [isCircuitScheduleOpen, setIsCircuitScheduleOpen] = useState(false);
   const [isCircuitPanelOpen, setIsCircuitPanelOpen] = useState(false);
+  const [isDrawingSheetOpen, setIsDrawingSheetOpen] = useState(false);
   const [selectedCircuit, setSelectedCircuit] = useState<DbCircuit | null>(null);
   const selectedCircuitRef = useRef<DbCircuit | null>(null);
   const [isSelectingRegion, setIsSelectingRegion] = useState(false);
@@ -1225,6 +1227,7 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
         onLinkToFinalAccount={() => setIsLinkDialogOpen(true)}
         onOpenCircuitSchedule={() => setIsCircuitScheduleOpen(true)}
         onOpenCircuitPanel={() => setIsCircuitPanelOpen(true)}
+        onOpenDrawingSheet={() => setIsDrawingSheetOpen(true)}
         hasDesignId={!!currentDesignId}
         hasProjectId={!!currentProjectId}
       />
@@ -1372,6 +1375,29 @@ const MainApp: React.FC<MainAppProps> = ({ user, projectId }) => {
           // The hook's scanResult will be cleared when next scan starts
         }}
       />
+      
+      {/* Drawing Sheet View Modal */}
+      {isDrawingSheetOpen && (
+        <div className="fixed inset-0 z-[100] bg-background">
+          <div className="absolute top-2 right-2 z-10">
+            <button
+              onClick={() => setIsDrawingSheetOpen(false)}
+              className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90 font-medium text-sm"
+            >
+              Close Drawing Sheet
+            </button>
+          </div>
+          <DrawingSheetView
+            equipment={equipment}
+            lines={lines}
+            containment={containment}
+            scaleInfo={scaleInfo}
+            projectName={currentDesignName || 'Floor Plan Design'}
+            roomName={currentDesignName || 'Layout'}
+            roomArea={undefined}
+          />
+        </div>
+      )}
       
       {/* Debug Preview of Captured Image */}
       {debugCapturedImage && (
