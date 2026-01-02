@@ -185,12 +185,21 @@ export interface Point {
   y: number;
 }
 
+// Assembly modifications for Smart Assemblies
+export interface AssemblyModification {
+  componentId: string;
+  excluded: boolean;
+  quantityOverride?: number;
+  notes?: string;
+}
+
 export interface EquipmentItem {
   id: string;
   type: EquipmentType;
   position: Point;
   rotation: number; // in degrees
   name?: string;
+  assemblyModifications?: AssemblyModification[]; // Per-item assembly customizations
 }
 
 export interface SupplyLine {
