@@ -1783,6 +1783,7 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
         {/* Bulk Assembly Editor */}
         <BulkAssemblyEditor
           equipment={equipment}
+          zones={zones}
           open={showBulkAssemblyEditor}
           onOpenChange={setShowBulkAssemblyEditor}
           onBulkUpdate={handleBulkAssemblyUpdate}
