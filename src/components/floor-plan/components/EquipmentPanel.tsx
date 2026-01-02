@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { Layers, LayoutGrid, PlusCircle, CheckCircle, Clock, Circle, ChevronDown, Box, CircuitBoard, Zap, Package, ChevronRight, Trash2, Edit, Plus, Sparkles, FileText } from 'lucide-react';
+import { Layers, LayoutGrid, PlusCircle, CheckCircle, Clock, Circle, ChevronDown, Box, CircuitBoard, Zap, Package, ChevronRight, Trash2, Edit, Plus, Sparkles, FileText, Settings2 } from 'lucide-react';
 import { EquipmentItem, SupplyLine, SupplyZone, Containment, EquipmentType, DesignPurpose, PVPanelConfig, PVArrayItem, Task, TaskStatus, ScaleInfo } from '../types';
 import { PurposeConfig } from '../purpose.config';
 import { EquipmentIcon } from './EquipmentIcon';
@@ -31,6 +31,9 @@ import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CircuitAssignmentSelector } from './CircuitAssignmentSelector';
 import { CircuitTemplatesDialog } from './CircuitTemplatesDialog';
+import { AssemblyInspector } from './AssemblyInspector';
+import { BulkAssemblyEditor } from './BulkAssemblyEditor';
+import { AssemblyModification } from '@/data/assemblies';
 
 interface EquipmentPanelProps {
   equipment: EquipmentItem[];
@@ -140,6 +143,10 @@ const SelectionDetails: React.FC<{
                     placeholder="e.g., DB-GF-01"
                 />
             </div>
+            
+            {/* Smart Assembly Inspector */}
+            <AssemblyInspector item={item} onUpdate={onUpdate} />
+            
             <ItemTasks itemId={item.id} tasks={tasks} onOpenTaskModal={onOpenTaskModal} />
             <div className="mt-4">
                 <button onClick={onDelete} className="w-full text-center px-4 py-2 bg-destructive/20 text-destructive hover:bg-destructive/40 rounded-md text-sm font-semibold transition-colors">
@@ -149,6 +156,7 @@ const SelectionDetails: React.FC<{
         </div>
     )
 }
+
 
 const ZoneDetails: React.FC<{
     item: SupplyZone;
@@ -720,8 +728,17 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
 
   // State for Templates dialog
   const [showTemplatesDialog, setShowTemplatesDialog] = useState(false);
+  const [showBulkAssemblyEditor, setShowBulkAssemblyEditor] = useState(false);
 
-  // Fetch distribution boards for Circuit Schedule view
+  // Handle bulk assembly updates
+  const handleBulkAssemblyUpdate = (updates: { id: string; assemblyModifications: AssemblyModification[] }[]) => {
+    updates.forEach(update => {
+      const item = equipment.find(e => e.id === update.id);
+      if (item) {
+        onEquipmentUpdate({ ...item, assemblyModifications: update.assemblyModifications });
+      }
+    });
+  };
   const { data: boards, isLoading: loadingBoards } = useDistributionBoards(projectId || '');
 
   const toggleBoard = (boardId: string) => {
