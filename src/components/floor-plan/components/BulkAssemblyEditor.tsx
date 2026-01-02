@@ -16,6 +16,8 @@ import {
   getAssemblyForType, 
   getAssemblyEquipmentTypes,
   AssemblyModification,
+  COMPONENT_VARIANTS,
+  ComponentVariant,
 } from '@/data/assemblies';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -91,8 +93,9 @@ export const BulkAssemblyEditor: React.FC<BulkAssemblyEditorProps> = ({
   const [selectedType, setSelectedType] = useState<EquipmentType | 'all'>('all');
   const [selectedZone, setSelectedZone] = useState<string>('all');
   
-  // Component exclusions and selection
+  // Component exclusions, selection, and variant choices
   const [componentExclusions, setComponentExclusions] = useState<Record<string, boolean>>({});
+  const [componentVariants, setComponentVariants] = useState<Record<string, string>>({});
   const [selectedItemIds, setSelectedItemIds] = useState<Set<string>>(new Set());
 
   // Presets state
@@ -196,6 +199,14 @@ export const BulkAssemblyEditor: React.FC<BulkAssemblyEditorProps> = ({
     }));
   };
 
+  // Change component variant selection
+  const changeComponentVariant = (componentId: string, variantId: string) => {
+    setComponentVariants(prev => ({
+      ...prev,
+      [componentId]: variantId,
+    }));
+  };
+
   // Add to history
   const addToHistory = useCallback((entry: Omit<HistoryEntry, 'id' | 'timestamp'>) => {
     const newEntry: HistoryEntry = {
@@ -241,7 +252,7 @@ export const BulkAssemblyEditor: React.FC<BulkAssemblyEditorProps> = ({
       const existingMods: AssemblyModification[] = item.assemblyModifications || [];
       const newMods: AssemblyModification[] = [...existingMods];
 
-      // Apply new exclusions
+      // Apply new exclusions and variant selections
       Object.entries(componentExclusions).forEach(([componentId, excluded]) => {
         const componentExists = assembly.components.some(c => c.id === componentId);
         if (!componentExists) return;
@@ -255,6 +266,19 @@ export const BulkAssemblyEditor: React.FC<BulkAssemblyEditorProps> = ({
           }
         } else if (excluded) {
           newMods.push({ componentId, excluded: true });
+        }
+      });
+
+      // Apply variant selections
+      Object.entries(componentVariants).forEach(([componentId, selectedVariantId]) => {
+        const component = assembly.components.find(c => c.id === componentId);
+        if (!component?.variantGroupId) return;
+
+        const modIndex = newMods.findIndex(m => m.componentId === componentId);
+        if (modIndex >= 0) {
+          newMods[modIndex] = { ...newMods[modIndex], selectedVariantId };
+        } else {
+          newMods.push({ componentId, excluded: false, selectedVariantId });
         }
       });
 
@@ -275,6 +299,7 @@ export const BulkAssemblyEditor: React.FC<BulkAssemblyEditorProps> = ({
     
     // Reset state
     setComponentExclusions({});
+    setComponentVariants({});
     setSelectedItemIds(new Set());
     setSelectedType('all');
     setSelectedZone('all');
@@ -687,46 +712,89 @@ export const BulkAssemblyEditor: React.FC<BulkAssemblyEditorProps> = ({
                   ) : selectedAssembly ? (
                     <div className="space-y-2">
                       <p className="text-xs text-muted-foreground mb-3">
-                        Uncheck components to exclude them from selected items
+                        Uncheck components to exclude, or select variants for components with options
                       </p>
                       
                       {selectedAssembly.components.map(component => {
                         const isExcluded = componentExclusions[component.id] || false;
+                        const hasVariants = component.variantGroupId && COMPONENT_VARIANTS[component.variantGroupId];
+                        const variants = hasVariants ? COMPONENT_VARIANTS[component.variantGroupId] : [];
+                        const selectedVariant = componentVariants[component.id] || component.defaultVariantId;
+                        const currentVariant = variants.find(v => v.id === selectedVariant);
                         
                         return (
                           <div
                             key={component.id}
-                            onClick={() => toggleComponentExclusion(component.id)}
                             className={cn(
-                              "flex items-center gap-3 p-3 rounded-md border cursor-pointer transition-all",
+                              "p-3 rounded-md border transition-all",
                               isExcluded 
                                 ? "bg-destructive/10 border-destructive/30" 
-                                : "bg-muted/30 border-border hover:border-primary/50"
+                                : "bg-muted/30 border-border"
                             )}
                           >
-                            <Checkbox checked={!isExcluded} />
-                            
-                            <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-2">
-                                <span className={cn(
-                                  "text-sm font-medium",
-                                  isExcluded && "line-through text-muted-foreground"
-                                )}>
-                                  {component.name}
-                                </span>
-                                <Badge 
-                                  variant="outline" 
-                                  className={cn("text-[10px]", categoryColors[component.category])}
-                                >
-                                  {component.category}
-                                </Badge>
+                            <div 
+                              className="flex items-center gap-3 cursor-pointer"
+                              onClick={() => toggleComponentExclusion(component.id)}
+                            >
+                              <Checkbox checked={!isExcluded} />
+                              
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <span className={cn(
+                                    "text-sm font-medium",
+                                    isExcluded && "line-through text-muted-foreground"
+                                  )}>
+                                    {component.name}
+                                  </span>
+                                  <Badge 
+                                    variant="outline" 
+                                    className={cn("text-[10px]", categoryColors[component.category])}
+                                  >
+                                    {component.category}
+                                  </Badge>
+                                  {hasVariants && (
+                                    <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30">
+                                      {variants.length} options
+                                    </Badge>
+                                  )}
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                  {currentVariant?.description || component.description}
+                                </p>
                               </div>
-                              <p className="text-xs text-muted-foreground">{component.description}</p>
-                            </div>
 
-                            <span className="text-xs font-mono text-muted-foreground">
-                              {component.quantity} {component.unit}
-                            </span>
+                              <span className="text-xs font-mono text-muted-foreground">
+                                {component.quantity} {component.unit}
+                              </span>
+                            </div>
+                            
+                            {/* Variant Selection Dropdown */}
+                            {hasVariants && !isExcluded && (
+                              <div className="mt-2 ml-8" onClick={(e) => e.stopPropagation()}>
+                                <Select 
+                                  value={selectedVariant}
+                                  onValueChange={(v) => changeComponentVariant(component.id, v)}
+                                >
+                                  <SelectTrigger className="h-8 text-xs bg-background">
+                                    <SelectValue placeholder="Select variant" />
+                                  </SelectTrigger>
+                                  <SelectContent className="bg-popover border shadow-lg z-50">
+                                    {variants.map(variant => (
+                                      <SelectItem 
+                                        key={variant.id} 
+                                        value={variant.id}
+                                        className="text-xs"
+                                      >
+                                        <div className="flex flex-col">
+                                          <span className="font-medium">{variant.name}</span>
+                                          <span className="text-[10px] text-muted-foreground">{variant.description}</span>
+                                        </div>
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            )}
                           </div>
                         );
                       })}
