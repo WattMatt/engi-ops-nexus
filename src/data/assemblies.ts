@@ -1,5 +1,15 @@
 import { EquipmentType } from '@/components/floor-plan/types';
 
+// Component variant for selectable options
+export interface ComponentVariant {
+  id: string;
+  name: string;
+  description: string;
+  boqCode?: string;
+  supplyRate?: number;
+  installRate?: number;
+}
+
 export interface AssemblyComponent {
   id: string;
   name: string;
@@ -10,6 +20,9 @@ export interface AssemblyComponent {
   boqCode?: string;
   supplyRate?: number;
   installRate?: number;
+  // Optional variants for user selection
+  variantGroupId?: string; // Links to COMPONENT_VARIANTS
+  defaultVariantId?: string; // Default selected variant
 }
 
 export interface SmartAssembly {
@@ -25,6 +38,38 @@ export interface AssemblyModification {
   excluded: boolean;
   quantityOverride?: number;
   notes?: string;
+  selectedVariantId?: string; // Selected variant override
+}
+
+// Component variant groups - shared across assemblies
+export const COMPONENT_VARIANTS: Record<string, ComponentVariant[]> = {
+  'draw-box': [
+    { id: 'box-50-pvc', name: '50mm PVC Draw Box', description: '50mm square PVC flush box', boqCode: 'E-BOX-50-PVC' },
+    { id: 'box-50-steel', name: '50mm Steel Draw Box', description: '50mm square steel flush box', boqCode: 'E-BOX-50-STL' },
+    { id: 'box-65-pvc', name: '65mm Deep PVC Box', description: '65mm deep PVC box for extra wiring', boqCode: 'E-BOX-65-PVC' },
+    { id: 'box-75-pvc', name: '75mm PVC Draw Box', description: '75mm square PVC flush box', boqCode: 'E-BOX-75-PVC' },
+    { id: 'box-surface', name: 'Surface Mount Box', description: 'Surface mount PVC box', boqCode: 'E-BOX-SURF' },
+    { id: 'box-dry-wall', name: 'Dry Wall Box', description: 'Plasterboard/drywall box with wings', boqCode: 'E-BOX-DRY' },
+    { id: 'box-100-pvc', name: '100mm PVC Draw Box', description: '100mm square PVC flush box (double gang)', boqCode: 'E-BOX-100-PVC' },
+    { id: 'box-none', name: 'No Draw Box', description: 'Exclude draw box (pre-installed)', boqCode: '' },
+  ],
+  'junction-box': [
+    { id: 'jb-ip20', name: 'IP20 Junction Box', description: 'Indoor junction box', boqCode: 'E-JB-IP20' },
+    { id: 'jb-ip55', name: 'IP55 Junction Box', description: 'Splash-proof junction box', boqCode: 'E-JB-IP55' },
+    { id: 'jb-ip65', name: 'IP65 Junction Box', description: 'Weatherproof junction box', boqCode: 'E-JB-IP65' },
+    { id: 'jb-ip66', name: 'IP66 Junction Box', description: 'Heavy duty outdoor junction box', boqCode: 'E-JB-IP66' },
+  ],
+  'ceiling-rose': [
+    { id: 'rose-std', name: 'Standard Ceiling Rose', description: 'Standard plastic ceiling rose', boqCode: 'E-ROSE-STD' },
+    { id: 'rose-hook', name: 'Ceiling Rose with Hook', description: 'Ceiling rose with pendant hook', boqCode: 'E-ROSE-HOOK' },
+    { id: 'rose-dcl', name: 'DCL Connector', description: 'DCL quick-connect ceiling rose', boqCode: 'E-ROSE-DCL' },
+    { id: 'rose-none', name: 'No Ceiling Rose', description: 'Direct connection (no rose)', boqCode: '' },
+  ],
+};
+
+// Helper to get variants for a group
+export function getVariantsForGroup(groupId: string): ComponentVariant[] {
+  return COMPONENT_VARIANTS[groupId] || [];
 }
 
 // Smart Assembly definitions for each equipment type
@@ -35,7 +80,7 @@ export const SMART_ASSEMBLIES: Record<string, SmartAssembly> = {
     description: 'Complete 16A switched socket installation',
     components: [
       { id: 'socket-16a-unit', name: '16A Switched Socket', description: 'Single pole 16A socket outlet', unit: 'No', quantity: 1, category: 'material', boqCode: 'E-SOC-16A' },
-      { id: 'socket-16a-box', name: 'Draw Box', description: '50mm square draw box', unit: 'No', quantity: 1, category: 'accessory', boqCode: 'E-BOX-50' },
+      { id: 'socket-16a-box', name: 'Draw Box', description: '50mm PVC Draw Box', unit: 'No', quantity: 1, category: 'accessory', boqCode: 'E-BOX-50-PVC', variantGroupId: 'draw-box', defaultVariantId: 'box-50-pvc' },
       { id: 'socket-16a-labor', name: 'Install Labor', description: 'Socket installation labor', unit: 'No', quantity: 1, category: 'labor', boqCode: 'L-SOC-INST' },
     ],
   },
@@ -45,7 +90,7 @@ export const SMART_ASSEMBLIES: Record<string, SmartAssembly> = {
     description: 'Complete double switched socket installation',
     components: [
       { id: 'socket-double-unit', name: 'Double Switched Socket', description: 'Double pole 16A socket outlet', unit: 'No', quantity: 1, category: 'material', boqCode: 'E-SOC-DBL' },
-      { id: 'socket-double-box', name: 'Draw Box', description: '100mm square draw box', unit: 'No', quantity: 1, category: 'accessory', boqCode: 'E-BOX-100' },
+      { id: 'socket-double-box', name: 'Draw Box', description: '100mm PVC Draw Box', unit: 'No', quantity: 1, category: 'accessory', boqCode: 'E-BOX-100-PVC', variantGroupId: 'draw-box', defaultVariantId: 'box-100-pvc' },
       { id: 'socket-double-labor', name: 'Install Labor', description: 'Double socket installation labor', unit: 'No', quantity: 1, category: 'labor', boqCode: 'L-SOC-INST' },
     ],
   },
@@ -55,7 +100,7 @@ export const SMART_ASSEMBLIES: Record<string, SmartAssembly> = {
     description: 'Complete light switch installation',
     components: [
       { id: 'switch-unit', name: 'Light Switch', description: 'Single pole light switch', unit: 'No', quantity: 1, category: 'material', boqCode: 'E-SW-1G' },
-      { id: 'switch-box', name: 'Draw Box', description: '50mm square draw box', unit: 'No', quantity: 1, category: 'accessory', boqCode: 'E-BOX-50' },
+      { id: 'switch-box', name: 'Draw Box', description: '50mm PVC Draw Box', unit: 'No', quantity: 1, category: 'accessory', boqCode: 'E-BOX-50-PVC', variantGroupId: 'draw-box', defaultVariantId: 'box-50-pvc' },
       { id: 'switch-labor', name: 'Install Labor', description: 'Switch installation labor', unit: 'No', quantity: 1, category: 'labor', boqCode: 'L-SW-INST' },
     ],
   },
@@ -65,7 +110,7 @@ export const SMART_ASSEMBLIES: Record<string, SmartAssembly> = {
     description: 'Complete 2-way light switch installation',
     components: [
       { id: '2way-switch-unit', name: '2-Way Light Switch', description: 'Two-way intermediate switch', unit: 'No', quantity: 1, category: 'material', boqCode: 'E-SW-2W' },
-      { id: '2way-switch-box', name: 'Draw Box', description: '50mm square draw box', unit: 'No', quantity: 1, category: 'accessory', boqCode: 'E-BOX-50' },
+      { id: '2way-switch-box', name: 'Draw Box', description: '50mm PVC Draw Box', unit: 'No', quantity: 1, category: 'accessory', boqCode: 'E-BOX-50-PVC', variantGroupId: 'draw-box', defaultVariantId: 'box-50-pvc' },
       { id: '2way-switch-labor', name: 'Install Labor', description: '2-way switch installation labor', unit: 'No', quantity: 1, category: 'labor', boqCode: 'L-SW-INST' },
     ],
   },
@@ -75,7 +120,7 @@ export const SMART_ASSEMBLIES: Record<string, SmartAssembly> = {
     description: 'Complete dimmer switch installation',
     components: [
       { id: 'dimmer-unit', name: 'Dimmer Switch', description: 'Rotary/push dimmer switch', unit: 'No', quantity: 1, category: 'material', boqCode: 'E-SW-DIM' },
-      { id: 'dimmer-box', name: 'Draw Box', description: '50mm square draw box', unit: 'No', quantity: 1, category: 'accessory', boqCode: 'E-BOX-50' },
+      { id: 'dimmer-box', name: 'Draw Box', description: '50mm PVC Draw Box', unit: 'No', quantity: 1, category: 'accessory', boqCode: 'E-BOX-50-PVC', variantGroupId: 'draw-box', defaultVariantId: 'box-50-pvc' },
       { id: 'dimmer-labor', name: 'Install Labor', description: 'Dimmer installation labor', unit: 'No', quantity: 1, category: 'labor', boqCode: 'L-SW-INST' },
     ],
   },
@@ -85,7 +130,7 @@ export const SMART_ASSEMBLIES: Record<string, SmartAssembly> = {
     description: 'Complete data socket installation',
     components: [
       { id: 'data-socket-unit', name: 'Data Socket Outlet', description: 'RJ45 CAT6 data socket', unit: 'No', quantity: 1, category: 'material', boqCode: 'E-DATA-CAT6' },
-      { id: 'data-socket-box', name: 'Draw Box', description: '50mm square draw box', unit: 'No', quantity: 1, category: 'accessory', boqCode: 'E-BOX-50' },
+      { id: 'data-socket-box', name: 'Draw Box', description: '50mm PVC Draw Box', unit: 'No', quantity: 1, category: 'accessory', boqCode: 'E-BOX-50-PVC', variantGroupId: 'draw-box', defaultVariantId: 'box-50-pvc' },
       { id: 'data-patch-lead', name: 'Patch Lead', description: '1m CAT6 patch lead', unit: 'No', quantity: 1, category: 'accessory', boqCode: 'E-PATCH-1M' },
       { id: 'data-socket-labor', name: 'Install Labor', description: 'Data socket installation labor', unit: 'No', quantity: 1, category: 'labor', boqCode: 'L-DATA-INST' },
     ],
@@ -96,7 +141,7 @@ export const SMART_ASSEMBLIES: Record<string, SmartAssembly> = {
     description: 'Complete telephone outlet installation',
     components: [
       { id: 'tel-outlet-unit', name: 'Telephone Outlet', description: 'RJ11 telephone outlet', unit: 'No', quantity: 1, category: 'material', boqCode: 'E-TEL-RJ11' },
-      { id: 'tel-outlet-box', name: 'Draw Box', description: '50mm square draw box', unit: 'No', quantity: 1, category: 'accessory', boqCode: 'E-BOX-50' },
+      { id: 'tel-outlet-box', name: 'Draw Box', description: '50mm PVC Draw Box', unit: 'No', quantity: 1, category: 'accessory', boqCode: 'E-BOX-50-PVC', variantGroupId: 'draw-box', defaultVariantId: 'box-50-pvc' },
       { id: 'tel-outlet-labor', name: 'Install Labor', description: 'Telephone outlet installation labor', unit: 'No', quantity: 1, category: 'labor', boqCode: 'L-TEL-INST' },
     ],
   },
@@ -106,7 +151,7 @@ export const SMART_ASSEMBLIES: Record<string, SmartAssembly> = {
     description: 'Complete TV outlet installation',
     components: [
       { id: 'tv-outlet-unit', name: 'TV Outlet', description: 'Coaxial TV outlet', unit: 'No', quantity: 1, category: 'material', boqCode: 'E-TV-COAX' },
-      { id: 'tv-outlet-box', name: 'Draw Box', description: '50mm square draw box', unit: 'No', quantity: 1, category: 'accessory', boqCode: 'E-BOX-50' },
+      { id: 'tv-outlet-box', name: 'Draw Box', description: '50mm PVC Draw Box', unit: 'No', quantity: 1, category: 'accessory', boqCode: 'E-BOX-50-PVC', variantGroupId: 'draw-box', defaultVariantId: 'box-50-pvc' },
       { id: 'tv-outlet-labor', name: 'Install Labor', description: 'TV outlet installation labor', unit: 'No', quantity: 1, category: 'labor', boqCode: 'L-TV-INST' },
     ],
   },
@@ -116,7 +161,7 @@ export const SMART_ASSEMBLIES: Record<string, SmartAssembly> = {
     description: 'Complete ceiling light installation',
     components: [
       { id: 'ceiling-light-unit', name: 'Ceiling Light Fitting', description: 'Ceiling mounted light fixture', unit: 'No', quantity: 1, category: 'material', boqCode: 'E-LT-CEIL' },
-      { id: 'ceiling-light-hook', name: 'Ceiling Rose/Hook', description: 'Ceiling rose with hook', unit: 'No', quantity: 1, category: 'accessory', boqCode: 'E-ROSE-STD' },
+      { id: 'ceiling-light-hook', name: 'Ceiling Rose/Hook', description: 'Standard Ceiling Rose', unit: 'No', quantity: 1, category: 'accessory', boqCode: 'E-ROSE-STD', variantGroupId: 'ceiling-rose', defaultVariantId: 'rose-std' },
       { id: 'ceiling-light-labor', name: 'Install Labor', description: 'Ceiling light installation labor', unit: 'No', quantity: 1, category: 'labor', boqCode: 'L-LT-INST' },
     ],
   },
@@ -149,7 +194,7 @@ export const SMART_ASSEMBLIES: Record<string, SmartAssembly> = {
     components: [
       { id: 'flood-unit', name: 'LED Floodlight', description: 'LED floodlight fixture', unit: 'No', quantity: 1, category: 'material', boqCode: 'E-LT-FLOOD' },
       { id: 'flood-bracket', name: 'Mounting Bracket', description: 'Adjustable mounting bracket', unit: 'No', quantity: 1, category: 'accessory', boqCode: 'E-BKT-FLOOD' },
-      { id: 'flood-junction', name: 'Junction Box', description: 'IP65 junction box', unit: 'No', quantity: 1, category: 'accessory', boqCode: 'E-JB-IP65' },
+      { id: 'flood-junction', name: 'Junction Box', description: 'IP65 junction box', unit: 'No', quantity: 1, category: 'accessory', boqCode: 'E-JB-IP65', variantGroupId: 'junction-box', defaultVariantId: 'jb-ip65' },
       { id: 'flood-labor', name: 'Install Labor', description: 'Floodlight installation labor', unit: 'No', quantity: 1, category: 'labor', boqCode: 'L-LT-FLOOD' },
     ],
   },
@@ -159,7 +204,7 @@ export const SMART_ASSEMBLIES: Record<string, SmartAssembly> = {
     description: 'Complete motion sensor installation',
     components: [
       { id: 'motion-unit', name: 'PIR Motion Sensor', description: 'Ceiling mounted PIR sensor', unit: 'No', quantity: 1, category: 'material', boqCode: 'E-PIR-CEIL' },
-      { id: 'motion-box', name: 'Junction Box', description: 'Ceiling junction box', unit: 'No', quantity: 1, category: 'accessory', boqCode: 'E-JB-CEIL' },
+      { id: 'motion-box', name: 'Junction Box', description: 'IP20 junction box', unit: 'No', quantity: 1, category: 'accessory', boqCode: 'E-JB-IP20', variantGroupId: 'junction-box', defaultVariantId: 'jb-ip20' },
       { id: 'motion-labor', name: 'Install Labor', description: 'Motion sensor installation labor', unit: 'No', quantity: 1, category: 'labor', boqCode: 'L-PIR-INST' },
     ],
   },
@@ -182,7 +227,7 @@ export const SMART_ASSEMBLIES: Record<string, SmartAssembly> = {
     components: [
       { id: 'cctv-camera', name: 'IP Camera', description: 'IP dome/bullet camera', unit: 'No', quantity: 1, category: 'material', boqCode: 'E-CAM-IP' },
       { id: 'cctv-mount', name: 'Camera Mount', description: 'Wall/ceiling mount bracket', unit: 'No', quantity: 1, category: 'accessory', boqCode: 'E-MNT-CAM' },
-      { id: 'cctv-junction', name: 'Junction Box', description: 'IP66 junction box', unit: 'No', quantity: 1, category: 'accessory', boqCode: 'E-JB-IP66' },
+      { id: 'cctv-junction', name: 'Junction Box', description: 'IP66 junction box', unit: 'No', quantity: 1, category: 'accessory', boqCode: 'E-JB-IP66', variantGroupId: 'junction-box', defaultVariantId: 'jb-ip66' },
       { id: 'cctv-labor', name: 'Install Labor', description: 'Camera installation and commissioning', unit: 'No', quantity: 1, category: 'labor', boqCode: 'L-CAM-INST' },
     ],
   },
@@ -208,13 +253,31 @@ export function getAssemblyForType(type: EquipmentType): SmartAssembly | null {
 export function getEffectiveComponents(
   assembly: SmartAssembly,
   modifications: AssemblyModification[] = []
-): (AssemblyComponent & { excluded: boolean; effectiveQuantity: number })[] {
+): (AssemblyComponent & { 
+  excluded: boolean; 
+  effectiveQuantity: number;
+  selectedVariant?: ComponentVariant;
+  availableVariants?: ComponentVariant[];
+})[] {
   return assembly.components.map(component => {
     const mod = modifications.find(m => m.componentId === component.id);
+    
+    // Get variant info if component has variants
+    let selectedVariant: ComponentVariant | undefined;
+    let availableVariants: ComponentVariant[] | undefined;
+    
+    if (component.variantGroupId) {
+      availableVariants = COMPONENT_VARIANTS[component.variantGroupId] || [];
+      const selectedId = mod?.selectedVariantId || component.defaultVariantId;
+      selectedVariant = availableVariants.find(v => v.id === selectedId);
+    }
+    
     return {
       ...component,
       excluded: mod?.excluded || false,
       effectiveQuantity: mod?.excluded ? 0 : (mod?.quantityOverride ?? component.quantity),
+      selectedVariant,
+      availableVariants,
     };
   });
 }
@@ -222,4 +285,32 @@ export function getEffectiveComponents(
 // Get all equipment types that have assemblies defined
 export function getAssemblyEquipmentTypes(): EquipmentType[] {
   return Object.keys(SMART_ASSEMBLIES) as EquipmentType[];
+}
+
+// Get component with applied variant
+export function getComponentWithVariant(
+  component: AssemblyComponent,
+  modifications: AssemblyModification[] = []
+): AssemblyComponent & { selectedVariant?: ComponentVariant } {
+  const mod = modifications.find(m => m.componentId === component.id);
+  
+  if (component.variantGroupId) {
+    const variants = COMPONENT_VARIANTS[component.variantGroupId] || [];
+    const selectedId = mod?.selectedVariantId || component.defaultVariantId;
+    const selectedVariant = variants.find(v => v.id === selectedId);
+    
+    if (selectedVariant) {
+      return {
+        ...component,
+        name: selectedVariant.name,
+        description: selectedVariant.description,
+        boqCode: selectedVariant.boqCode || component.boqCode,
+        supplyRate: selectedVariant.supplyRate ?? component.supplyRate,
+        installRate: selectedVariant.installRate ?? component.installRate,
+        selectedVariant,
+      };
+    }
+  }
+  
+  return { ...component };
 }
