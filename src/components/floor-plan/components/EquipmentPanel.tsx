@@ -33,6 +33,7 @@ import { CircuitAssignmentSelector } from './CircuitAssignmentSelector';
 import { CircuitTemplatesDialog } from './CircuitTemplatesDialog';
 import { AssemblyInspector } from './AssemblyInspector';
 import { BulkAssemblyEditor } from './BulkAssemblyEditor';
+import { AssembliesTab } from './AssembliesTab';
 import { AssemblyModification } from '@/data/assemblies';
 
 interface EquipmentPanelProps {
@@ -73,7 +74,7 @@ interface EquipmentPanelProps {
   isSelectingRegion?: boolean;
 }
 
-type EquipmentPanelTab = 'summary' | 'equipment' | 'cables' | 'containment' | 'zones' | 'tasks';
+type EquipmentPanelTab = 'summary' | 'equipment' | 'assemblies' | 'cables' | 'containment' | 'zones' | 'tasks';
 type TopLevelView = 'overview' | 'circuits';
 
 
@@ -1423,6 +1424,7 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
                 <nav className="-mb-px flex flex-wrap" aria-label="Tabs">
                     <TabButton tabId="summary" label="Summary" />
                     <TabButton tabId="equipment" label="Equipment" />
+                    <TabButton tabId="assemblies" label="Assemblies" />
                     <TabButton tabId="cables" label="Cables" disabled={!hasCables} />
                     <TabButton tabId="containment" label="Containment" />
                     <TabButton tabId="zones" label="Zones" />
@@ -1458,6 +1460,17 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
                     {equipmentCounts.filter(([_, count]) => count > 0).length === 0 && <p className="text-gray-500 text-xs text-center p-4">No equipment placed.</p>}
                 </div>
             </div>
+            
+            {/* Assemblies Tab */}
+            <div style={{display: activeTab === 'assemblies' ? 'block' : 'none'}}>
+                <AssembliesTab 
+                  equipment={equipment}
+                  zones={zones}
+                  onEquipmentUpdate={onEquipmentUpdate}
+                  onOpenBulkEditor={() => setShowBulkAssemblyEditor(true)}
+                />
+            </div>
+
              <div style={{display: activeTab === 'cables' ? 'block' : 'none'}}>
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Cable Schedule</h3>
