@@ -1433,7 +1433,18 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
             <div className="flex-grow overflow-y-auto p-4">
             <div style={{display: activeTab === 'summary' ? 'block' : 'none'}}>{renderSummaryTab()}</div>
             <div style={{display: activeTab === 'equipment' ? 'block' : 'none'}}>
-                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Equipment Quantities</h3>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Equipment Quantities</h3>
+                  {equipment.length > 0 && (
+                    <button
+                      onClick={() => setShowBulkAssemblyEditor(true)}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-primary text-primary-foreground rounded-md text-xs font-medium hover:bg-primary/90 transition-colors"
+                    >
+                      <Settings2 size={14} />
+                      Bulk Edit Assemblies
+                    </button>
+                  )}
+                </div>
                 <div className="space-y-1.5 text-sm max-h-[60vh] overflow-y-auto pr-1">
                     {equipmentCounts.filter(([, count]) => count > 0).map(([type, count]) => (
                         <div key={type} className="flex justify-between items-center bg-gray-700/50 p-2 rounded-md">
@@ -1767,6 +1778,14 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
           circuitRef={selectedCircuit?.circuit_ref}
           projectId={projectId}
           floorPlanId={floorPlanId}
+        />
+
+        {/* Bulk Assembly Editor */}
+        <BulkAssemblyEditor
+          equipment={equipment}
+          open={showBulkAssemblyEditor}
+          onOpenChange={setShowBulkAssemblyEditor}
+          onBulkUpdate={handleBulkAssemblyUpdate}
         />
     </aside>
   );
