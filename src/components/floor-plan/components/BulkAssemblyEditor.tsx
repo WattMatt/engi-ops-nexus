@@ -262,6 +262,18 @@ export const BulkAssemblyEditor: React.FC<BulkAssemblyEditorProps> = ({
     toast.success('Custom variant deleted');
   };
 
+  // Import custom variants (merge with existing)
+  const handleImportCustomVariants = (imported: Record<string, ComponentVariant[]>) => {
+    setCustomVariants(prev => {
+      const updated = { ...prev };
+      for (const [groupId, variants] of Object.entries(imported)) {
+        updated[groupId] = [...(updated[groupId] || []), ...variants];
+      }
+      saveCustomVariants(updated);
+      return updated;
+    });
+  };
+
   // Get combined variants (built-in + custom)
   const getCombinedVariants = useCallback((groupId: string): ComponentVariant[] => {
     const builtIn = COMPONENT_VARIANTS[groupId] || [];
@@ -949,6 +961,7 @@ export const BulkAssemblyEditor: React.FC<BulkAssemblyEditorProps> = ({
                   <CustomVariantsManager
                     customVariants={customVariants}
                     onDeleteVariant={handleDeleteCustomVariant}
+                    onImportVariants={handleImportCustomVariants}
                     variantGroupNames={VARIANT_GROUP_NAMES}
                   />
                 </div>
