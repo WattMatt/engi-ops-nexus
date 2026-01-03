@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { Package, Filter, Check, X, AlertTriangle, Settings2, History, Save, Bookmark, Undo2, Redo2, Trash2, Layers } from 'lucide-react';
+import { Package, Filter, Check, X, AlertTriangle, Settings2, History, Save, Bookmark, Undo2, Redo2, Trash2, Layers, Plus, Wrench } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -18,9 +18,11 @@ import {
   AssemblyModification,
   COMPONENT_VARIANTS,
   ComponentVariant,
+  VARIANT_GROUP_NAMES,
 } from '@/data/assemblies';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { CustomVariantDialog, CustomVariantsManager } from './CustomVariantDialog';
 
 // Preset modification pattern
 interface ModificationPreset {
@@ -56,8 +58,9 @@ const categoryColors: Record<string, string> = {
   accessory: 'bg-purple-500/20 text-purple-400 border-purple-500/30',
 };
 
-// LocalStorage key for presets
+// LocalStorage keys
 const PRESETS_STORAGE_KEY = 'assembly-modification-presets';
+const CUSTOM_VARIANTS_STORAGE_KEY = 'assembly-custom-variants';
 
 // Load presets from localStorage
 const loadPresets = (): ModificationPreset[] => {
@@ -79,6 +82,28 @@ const savePresets = (presets: ModificationPreset[]) => {
     localStorage.setItem(PRESETS_STORAGE_KEY, JSON.stringify(presets));
   } catch (e) {
     console.error('Failed to save presets:', e);
+  }
+};
+
+// Load custom variants from localStorage
+const loadCustomVariants = (): Record<string, ComponentVariant[]> => {
+  try {
+    const stored = localStorage.getItem(CUSTOM_VARIANTS_STORAGE_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (e) {
+    console.error('Failed to load custom variants:', e);
+  }
+  return {};
+};
+
+// Save custom variants to localStorage
+const saveCustomVariants = (variants: Record<string, ComponentVariant[]>) => {
+  try {
+    localStorage.setItem(CUSTOM_VARIANTS_STORAGE_KEY, JSON.stringify(variants));
+  } catch (e) {
+    console.error('Failed to save custom variants:', e);
   }
 };
 
@@ -104,12 +129,17 @@ export const BulkAssemblyEditor: React.FC<BulkAssemblyEditorProps> = ({
   const [newPresetDesc, setNewPresetDesc] = useState('');
   const [showSavePreset, setShowSavePreset] = useState(false);
 
+  // Custom variants state
+  const [customVariants, setCustomVariants] = useState<Record<string, ComponentVariant[]>>(() => loadCustomVariants());
+  const [showCustomVariantDialog, setShowCustomVariantDialog] = useState(false);
+  const [customVariantGroupId, setCustomVariantGroupId] = useState<string>('');
+
   // History state for undo/redo
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
 
   // Active tab
-  const [activeTab, setActiveTab] = useState<'items' | 'presets' | 'history'>('items');
+  const [activeTab, setActiveTab] = useState<'items' | 'custom-variants' | 'presets' | 'history'>('items');
 
   // Get equipment types that have assemblies
   const assemblyTypes = useMemo(() => getAssemblyEquipmentTypes(), []);
@@ -205,6 +235,44 @@ export const BulkAssemblyEditor: React.FC<BulkAssemblyEditorProps> = ({
       ...prev,
       [componentId]: variantId,
     }));
+  };
+
+  // Add custom variant
+  const handleAddCustomVariant = (groupId: string, variant: ComponentVariant) => {
+    setCustomVariants(prev => {
+      const updated = {
+        ...prev,
+        [groupId]: [...(prev[groupId] || []), variant],
+      };
+      saveCustomVariants(updated);
+      return updated;
+    });
+  };
+
+  // Delete custom variant
+  const handleDeleteCustomVariant = (groupId: string, variantId: string) => {
+    setCustomVariants(prev => {
+      const updated = {
+        ...prev,
+        [groupId]: (prev[groupId] || []).filter(v => v.id !== variantId),
+      };
+      saveCustomVariants(updated);
+      return updated;
+    });
+    toast.success('Custom variant deleted');
+  };
+
+  // Get combined variants (built-in + custom)
+  const getCombinedVariants = useCallback((groupId: string): ComponentVariant[] => {
+    const builtIn = COMPONENT_VARIANTS[groupId] || [];
+    const custom = customVariants[groupId] || [];
+    return [...builtIn, ...custom];
+  }, [customVariants]);
+
+  // Open custom variant dialog
+  const openCustomVariantDialog = (groupId: string) => {
+    setCustomVariantGroupId(groupId);
+    setShowCustomVariantDialog(true);
   };
 
   // Add to history
@@ -494,18 +562,22 @@ export const BulkAssemblyEditor: React.FC<BulkAssemblyEditorProps> = ({
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="flex-1 flex flex-col min-h-0">
-          <TabsList className="grid grid-cols-3 w-full max-w-md">
+          <TabsList className="grid grid-cols-4 w-full max-w-lg">
             <TabsTrigger value="items" className="flex items-center gap-1.5">
               <Package className="h-4 w-4" />
               Items
             </TabsTrigger>
+            <TabsTrigger value="custom-variants" className="flex items-center gap-1.5">
+              <Wrench className="h-4 w-4" />
+              Custom
+            </TabsTrigger>
             <TabsTrigger value="presets" className="flex items-center gap-1.5">
               <Bookmark className="h-4 w-4" />
-              Presets ({presets.length})
+              Presets
             </TabsTrigger>
             <TabsTrigger value="history" className="flex items-center gap-1.5">
               <History className="h-4 w-4" />
-              History ({history.length})
+              History
             </TabsTrigger>
           </TabsList>
 
@@ -717,8 +789,9 @@ export const BulkAssemblyEditor: React.FC<BulkAssemblyEditorProps> = ({
                       
                       {selectedAssembly.components.map(component => {
                         const isExcluded = componentExclusions[component.id] || false;
-                        const hasVariants = component.variantGroupId && COMPONENT_VARIANTS[component.variantGroupId];
-                        const variants = hasVariants ? COMPONENT_VARIANTS[component.variantGroupId] : [];
+                        const hasVariants = component.variantGroupId && (COMPONENT_VARIANTS[component.variantGroupId] || customVariants[component.variantGroupId]);
+                        const variants = hasVariants ? getCombinedVariants(component.variantGroupId!) : [];
+                        const customCount = (customVariants[component.variantGroupId!] || []).length;
                         const selectedVariant = componentVariants[component.id] || component.defaultVariantId;
                         const currentVariant = variants.find(v => v.id === selectedVariant);
                         
@@ -754,7 +827,7 @@ export const BulkAssemblyEditor: React.FC<BulkAssemblyEditorProps> = ({
                                   </Badge>
                                   {hasVariants && (
                                     <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30">
-                                      {variants.length} options
+                                      {variants.length} options{customCount > 0 && ` (${customCount} custom)`}
                                     </Badge>
                                   )}
                                 </div>
@@ -768,18 +841,19 @@ export const BulkAssemblyEditor: React.FC<BulkAssemblyEditorProps> = ({
                               </span>
                             </div>
                             
-                            {/* Variant Selection Dropdown */}
+                            {/* Variant Selection Dropdown with Add Custom Button */}
                             {hasVariants && !isExcluded && (
-                              <div className="mt-2 ml-8" onClick={(e) => e.stopPropagation()}>
+                              <div className="mt-2 ml-8 flex gap-2" onClick={(e) => e.stopPropagation()}>
                                 <Select 
                                   value={selectedVariant}
                                   onValueChange={(v) => changeComponentVariant(component.id, v)}
                                 >
-                                  <SelectTrigger className="h-8 text-xs bg-background">
+                                  <SelectTrigger className="h-8 text-xs bg-background flex-1">
                                     <SelectValue placeholder="Select variant" />
                                   </SelectTrigger>
                                   <SelectContent className="bg-popover border shadow-lg z-50">
-                                    {variants.map(variant => (
+                                    {/* Built-in variants */}
+                                    {(COMPONENT_VARIANTS[component.variantGroupId!] || []).map(variant => (
                                       <SelectItem 
                                         key={variant.id} 
                                         value={variant.id}
@@ -791,8 +865,42 @@ export const BulkAssemblyEditor: React.FC<BulkAssemblyEditorProps> = ({
                                         </div>
                                       </SelectItem>
                                     ))}
+                                    {/* Custom variants separator and items */}
+                                    {(customVariants[component.variantGroupId!] || []).length > 0 && (
+                                      <>
+                                        <Separator className="my-1" />
+                                        <div className="px-2 py-1 text-[10px] font-medium text-muted-foreground">Custom Variants</div>
+                                        {(customVariants[component.variantGroupId!] || []).map(variant => (
+                                          <SelectItem 
+                                            key={variant.id} 
+                                            value={variant.id}
+                                            className="text-xs"
+                                          >
+                                            <div className="flex flex-col">
+                                              <div className="flex items-center gap-1">
+                                                <span className="font-medium">{variant.name}</span>
+                                                <Badge variant="outline" className="text-[8px] h-4 px-1 bg-green-500/10 text-green-400 border-green-500/30">
+                                                  custom
+                                                </Badge>
+                                              </div>
+                                              <span className="text-[10px] text-muted-foreground">{variant.description}</span>
+                                            </div>
+                                          </SelectItem>
+                                        ))}
+                                      </>
+                                    )}
                                   </SelectContent>
                                 </Select>
+                                
+                                {/* Add Custom Variant Button */}
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-8 px-2 text-xs"
+                                  onClick={() => openCustomVariantDialog(component.variantGroupId!)}
+                                >
+                                  <Plus className="h-3.5 w-3.5" />
+                                </Button>
                               </div>
                             )}
                           </div>
@@ -823,6 +931,34 @@ export const BulkAssemblyEditor: React.FC<BulkAssemblyEditorProps> = ({
                   )}
                 </div>
               </ScrollArea>
+            </div>
+          </TabsContent>
+
+          {/* Custom Variants Tab */}
+          <TabsContent value="custom-variants" className="flex-1 overflow-hidden mt-4">
+            <div className="h-full border rounded-lg bg-background">
+              <div className="p-3 border-b bg-muted/30">
+                <h4 className="text-sm font-medium">Custom Component Variants</h4>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Define your own variants for draw boxes, junction boxes, and other components
+                </p>
+              </div>
+              
+              <ScrollArea className="h-[400px]">
+                <div className="p-3">
+                  <CustomVariantsManager
+                    customVariants={customVariants}
+                    onDeleteVariant={handleDeleteCustomVariant}
+                    variantGroupNames={VARIANT_GROUP_NAMES}
+                  />
+                </div>
+              </ScrollArea>
+              
+              <div className="p-3 border-t bg-muted/20">
+                <p className="text-xs text-muted-foreground mb-2">
+                  Add custom variants by clicking the <Plus className="h-3 w-3 inline mx-0.5" /> button next to any component dropdown in the Items tab.
+                </p>
+              </div>
             </div>
           </TabsContent>
 
@@ -981,6 +1117,15 @@ export const BulkAssemblyEditor: React.FC<BulkAssemblyEditorProps> = ({
             Apply to {selectedItemIds.size} Items
           </Button>
         </DialogFooter>
+
+        {/* Custom Variant Dialog */}
+        <CustomVariantDialog
+          open={showCustomVariantDialog}
+          onOpenChange={setShowCustomVariantDialog}
+          variantGroupId={customVariantGroupId}
+          variantGroupName={VARIANT_GROUP_NAMES[customVariantGroupId] || customVariantGroupId}
+          onAddVariant={handleAddCustomVariant}
+        />
       </DialogContent>
     </Dialog>
   );
