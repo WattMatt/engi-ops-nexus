@@ -36,12 +36,13 @@ export const CustomVariantDialog: React.FC<CustomVariantDialogProps> = ({
   const [installRate, setInstallRate] = useState<string>('');
   const [selectedFinalAccountItemId, setSelectedFinalAccountItemId] = useState<string>('');
 
-  // Fetch Final Account items for linking
-  const { data: finalAccountItems = [] } = useQuery({
+  // Fetch Final Account items for linking - properly join through the hierarchy
+  const { data: finalAccountItems = [], isLoading: isLoadingItems } = useQuery({
     queryKey: ['final-account-items-for-variant', projectId],
     queryFn: async () => {
       if (!projectId) return [];
       
+      // Get the final account for this project
       const { data: account } = await supabase
         .from('final_accounts')
         .select('id')
@@ -50,12 +51,39 @@ export const CustomVariantDialog: React.FC<CustomVariantDialogProps> = ({
       
       if (!account) return [];
 
+      // Get bills for this account
+      const { data: bills } = await supabase
+        .from('final_account_bills')
+        .select('id')
+        .eq('final_account_id', account.id);
+      
+      if (!bills || bills.length === 0) return [];
+      
+      const billIds = bills.map(b => b.id);
+
+      // Get sections for these bills
+      const { data: sections } = await supabase
+        .from('final_account_sections')
+        .select('id, section_code, section_name')
+        .in('bill_id', billIds);
+      
+      if (!sections || sections.length === 0) return [];
+      
+      const sectionIds = sections.map(s => s.id);
+      const sectionMap = new Map(sections.map(s => [s.id, s]));
+
+      // Get items for these sections
       const { data: items } = await supabase
         .from('final_account_items')
-        .select('id, item_code, description, unit, supply_rate, install_rate')
+        .select('id, item_code, description, unit, supply_rate, install_rate, section_id')
+        .in('section_id', sectionIds)
         .order('item_code');
       
-      return items || [];
+      // Enrich items with section info
+      return (items || []).map(item => ({
+        ...item,
+        section: sectionMap.get(item.section_id),
+      }));
     },
     enabled: open && !!projectId,
   });
@@ -131,30 +159,47 @@ export const CustomVariantDialog: React.FC<CustomVariantDialogProps> = ({
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Final Account Item Selector */}
-          {projectId && finalAccountItems.length > 0 && (
+          {projectId && (
             <div className="space-y-2">
               <Label htmlFor="final-account-item" className="flex items-center gap-2">
                 <Link className="h-3.5 w-3.5 text-primary" />
-                Link to Final Account Item
+                Link to Final Account BOQ Item
               </Label>
               <Select value={selectedFinalAccountItemId} onValueChange={handleFinalAccountSelect}>
                 <SelectTrigger className="bg-background">
-                  <SelectValue placeholder="Select Final Account item to link..." />
+                  <SelectValue placeholder={
+                    isLoadingItems 
+                      ? "Loading BOQ items..." 
+                      : finalAccountItems.length === 0 
+                        ? "No BOQ items found for this project"
+                        : "Select BOQ item to link..."
+                  } />
                 </SelectTrigger>
                 <SelectContent className="max-h-[300px]">
                   <SelectItem value="none">No link</SelectItem>
                   {finalAccountItems.map((item: any) => (
                     <SelectItem key={item.id} value={item.id}>
-                      <span className="font-mono text-xs mr-2">{item.item_code}</span>
-                      <span className="text-muted-foreground">
-                        {item.description?.slice(0, 40)}{item.description?.length > 40 ? '...' : ''}
-                      </span>
+                      <div className="flex flex-col gap-0.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs font-medium">{item.item_code || '—'}</span>
+                          {item.section && (
+                            <Badge variant="outline" className="text-[9px] px-1 py-0">
+                              {item.section.section_code}
+                            </Badge>
+                          )}
+                        </div>
+                        <span className="text-xs text-muted-foreground truncate max-w-[280px]">
+                          {item.description}
+                        </span>
+                      </div>
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
               <p className="text-xs text-muted-foreground">
-                Selecting an item will auto-fill the fields below
+                {finalAccountItems.length > 0 
+                  ? `${finalAccountItems.length} items available • Selecting auto-fills fields`
+                  : "Upload a BOQ to Final Accounts first to link items"}
               </p>
             </div>
           )}
