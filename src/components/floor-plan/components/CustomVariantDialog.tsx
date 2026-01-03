@@ -1,12 +1,16 @@
 import React, { useState, useRef } from 'react';
-import { Plus, Trash2, Download, Upload } from 'lucide-react';
+import { Plus, Trash2, Download, Upload, Link } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { toast } from 'sonner';
 import { ComponentVariant } from '@/data/assemblies';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { Badge } from '@/components/ui/badge';
 
 export interface CustomVariantDialogProps {
   open: boolean;
@@ -14,6 +18,7 @@ export interface CustomVariantDialogProps {
   variantGroupId: string;
   variantGroupName: string;
   onAddVariant: (groupId: string, variant: ComponentVariant) => void;
+  projectId?: string;
 }
 
 export const CustomVariantDialog: React.FC<CustomVariantDialogProps> = ({
@@ -22,12 +27,54 @@ export const CustomVariantDialog: React.FC<CustomVariantDialogProps> = ({
   variantGroupId,
   variantGroupName,
   onAddVariant,
+  projectId,
 }) => {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [boqCode, setBoqCode] = useState('');
   const [supplyRate, setSupplyRate] = useState<string>('');
   const [installRate, setInstallRate] = useState<string>('');
+  const [selectedFinalAccountItemId, setSelectedFinalAccountItemId] = useState<string>('');
+
+  // Fetch Final Account items for linking
+  const { data: finalAccountItems = [] } = useQuery({
+    queryKey: ['final-account-items-for-variant', projectId],
+    queryFn: async () => {
+      if (!projectId) return [];
+      
+      const { data: account } = await supabase
+        .from('final_accounts')
+        .select('id')
+        .eq('project_id', projectId)
+        .single();
+      
+      if (!account) return [];
+
+      const { data: items } = await supabase
+        .from('final_account_items')
+        .select('id, item_code, description, unit, supply_rate, install_rate')
+        .order('item_code');
+      
+      return items || [];
+    },
+    enabled: open && !!projectId,
+  });
+
+  // Auto-fill fields when a Final Account item is selected
+  const handleFinalAccountSelect = (itemId: string) => {
+    setSelectedFinalAccountItemId(itemId);
+    
+    if (itemId && itemId !== 'none') {
+      const item = finalAccountItems.find((i: any) => i.id === itemId);
+      if (item) {
+        if (!name) setName(item.item_code || '');
+        if (!description) setDescription(item.description || '');
+        setBoqCode(item.item_code || '');
+        if (item.supply_rate) setSupplyRate(item.supply_rate.toString());
+        if (item.install_rate) setInstallRate(item.install_rate.toString());
+      }
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -49,6 +96,9 @@ export const CustomVariantDialog: React.FC<CustomVariantDialogProps> = ({
       boqCode: boqCode.trim() || undefined,
       supplyRate: supplyRate ? parseFloat(supplyRate) : undefined,
       installRate: installRate ? parseFloat(installRate) : undefined,
+      finalAccountItemId: selectedFinalAccountItemId && selectedFinalAccountItemId !== 'none' 
+        ? selectedFinalAccountItemId 
+        : undefined,
     };
 
     onAddVariant(variantGroupId, variant);
@@ -59,6 +109,7 @@ export const CustomVariantDialog: React.FC<CustomVariantDialogProps> = ({
     setBoqCode('');
     setSupplyRate('');
     setInstallRate('');
+    setSelectedFinalAccountItemId('');
     onOpenChange(false);
     
     toast.success(`Added custom ${variantGroupName} variant`);
@@ -74,11 +125,40 @@ export const CustomVariantDialog: React.FC<CustomVariantDialogProps> = ({
           </DialogTitle>
           <DialogDescription>
             Create your own custom variant for {variantGroupName.toLowerCase()}. 
-            This will be saved and available for future use.
+            You can optionally link it to a Final Account item.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Final Account Item Selector */}
+          {projectId && finalAccountItems.length > 0 && (
+            <div className="space-y-2">
+              <Label htmlFor="final-account-item" className="flex items-center gap-2">
+                <Link className="h-3.5 w-3.5 text-primary" />
+                Link to Final Account Item
+              </Label>
+              <Select value={selectedFinalAccountItemId} onValueChange={handleFinalAccountSelect}>
+                <SelectTrigger className="bg-background">
+                  <SelectValue placeholder="Select Final Account item to link..." />
+                </SelectTrigger>
+                <SelectContent className="max-h-[300px]">
+                  <SelectItem value="none">No link</SelectItem>
+                  {finalAccountItems.map((item: any) => (
+                    <SelectItem key={item.id} value={item.id}>
+                      <span className="font-mono text-xs mr-2">{item.item_code}</span>
+                      <span className="text-muted-foreground">
+                        {item.description?.slice(0, 40)}{item.description?.length > 40 ? '...' : ''}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Selecting an item will auto-fill the fields below
+              </p>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="variant-name">Name *</Label>
             <Input
@@ -317,7 +397,15 @@ export const CustomVariantsManager: React.FC<CustomVariantsManagerProps> = ({
                     className="flex items-center justify-between p-2 bg-muted/30 border rounded-md"
                   >
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{variant.name}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium truncate">{variant.name}</p>
+                        {variant.finalAccountItemId && (
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                            <Link className="h-2.5 w-2.5 mr-1" />
+                            Linked
+                          </Badge>
+                        )}
+                      </div>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
                         <span className="truncate">{variant.description}</span>
                         {variant.boqCode && (

@@ -50,6 +50,7 @@ interface BulkAssemblyEditorProps {
   equipment: EquipmentItem[];
   zones?: SupplyZone[];
   onBulkUpdate: (updates: { id: string; assemblyModifications: AssemblyModification[] }[]) => void;
+  projectId?: string;
 }
 
 const categoryColors: Record<string, string> = {
@@ -113,6 +114,7 @@ export const BulkAssemblyEditor: React.FC<BulkAssemblyEditorProps> = ({
   equipment,
   zones = [],
   onBulkUpdate,
+  projectId,
 }) => {
   // Type and zone filters
   const [selectedType, setSelectedType] = useState<EquipmentType | 'all'>('all');
@@ -1138,6 +1140,7 @@ export const BulkAssemblyEditor: React.FC<BulkAssemblyEditorProps> = ({
           variantGroupId={customVariantGroupId}
           variantGroupName={VARIANT_GROUP_NAMES[customVariantGroupId] || customVariantGroupId}
           onAddVariant={handleAddCustomVariant}
+          projectId={projectId}
         />
       </DialogContent>
     </Dialog>
