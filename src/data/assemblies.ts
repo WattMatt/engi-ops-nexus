@@ -8,6 +8,7 @@ export interface ComponentVariant {
   boqCode?: string;
   supplyRate?: number;
   installRate?: number;
+  finalAccountItemId?: string; // Link to final_account_items table
 }
 
 export interface AssemblyComponent {

@@ -1800,6 +1800,7 @@ const EquipmentPanel: React.FC<EquipmentPanelProps> = ({
           open={showBulkAssemblyEditor}
           onOpenChange={setShowBulkAssemblyEditor}
           onBulkUpdate={handleBulkAssemblyUpdate}
+          projectId={projectId}
         />
     </aside>
   );
