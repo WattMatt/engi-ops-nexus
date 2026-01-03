@@ -30,6 +30,7 @@ import {
 } from "@/utils/pdfQualitySettings";
 import { prepareCostReportTemplateData } from "@/utils/prepareCostReportTemplateData";
 import { generateStandardizedPDFFilename, generateStorageFilename } from "@/utils/pdfFilenameGenerator";
+import { usePDFProgress, PDFProgressIndicator, captureCostReportCharts, addChartsToPDF, waitForChartsToRender } from "./pdf-export";
 
 interface ExportPDFButtonProps {
   report: any;
@@ -39,7 +40,6 @@ interface ExportPDFButtonProps {
 export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonProps) => {
   const { toast } = useToast();
   const [loading, setLoading] = useState(false);
-  const [currentSection, setCurrentSection] = useState<string>("");
   const [previewReport, setPreviewReport] = useState<any>(null);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [margins, setMargins] = useState<PDFMargins>(DEFAULT_MARGINS);
@@ -48,6 +48,10 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
   const [validationMismatches, setValidationMismatches] = useState<string[]>([]);
   const [pendingExport, setPendingExport] = useState(false);
   const [selectedContactId, setSelectedContactId] = useState<string>('');
+  const [currentSection, setCurrentSection] = useState<string>("");
+  
+  // Enhanced progress tracking
+  const { progress, isExporting, startExport, updateProgress, completeExport, resetProgress } = usePDFProgress(sections);
 
   // Check for Word template availability (both cover page and full report)
   const { data: templates } = useQuery({
@@ -223,7 +227,9 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
 
   const exportPDF = async () => {
     setLoading(true);
+    startExport();
     setCurrentSection("Initializing PDF export...");
+    updateProgress('init');
 
     try {
       const { data: company } = await supabase
@@ -254,6 +260,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
 
       // Fetch all necessary data
       setCurrentSection("Fetching report data...");
+      updateProgress('data');
       
       const { data: categoriesData } = await supabase
         .from("cost_categories")
@@ -363,6 +370,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       };
 
       setCurrentSection("Generating cover page...");
+      updateProgress('coverPage');
       // ========== COVER PAGE ==========
       if (useSections.coverPage) {
         // Check if we have a cover page template
@@ -562,6 +570,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       }
 
       setCurrentSection("Creating table of contents...");
+      updateProgress('tableOfContents');
       // ========== TABLE OF CONTENTS ==========
       let tocPage = 0;
       if (useSections.tableOfContents) {
@@ -746,6 +755,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       }
 
       setCurrentSection("Generating executive summary...");
+      updateProgress('executiveSummary');
       // ========== EXECUTIVE SUMMARY PAGE ==========
       if (useSections.executiveSummary) {
         doc.addPage();
@@ -861,6 +871,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       }
 
       setCurrentSection("Adding project information...");
+      updateProgress('projectInfo');
       // ========== PROJECT INFORMATION PAGE ==========
       if (useSections.projectInfo) {
       doc.addPage();
@@ -1075,6 +1086,28 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         }
       });
 
+      // ========== VISUAL SUMMARY (CHARTS) ==========
+      if (useSections.visualSummary) {
+        setCurrentSection("Capturing charts...");
+        updateProgress('charts');
+        
+        // Wait for charts to be rendered
+        await waitForChartsToRender(500);
+        
+        // Capture charts from the overview component
+        const capturedCharts = await captureCostReportCharts();
+        
+        if (capturedCharts.length > 0) {
+          await addChartsToPDF(doc, capturedCharts, {
+            pageWidth,
+            pageHeight,
+            margin: useMargins.left,
+            contentStartY: contentStartY,
+          });
+          tocSections.push({ title: "Visual Summary", page: doc.getCurrentPageInfo().pageNumber });
+        }
+      }
+
       // ========== VARIATIONS PAGE - REMOVED ==========
       // This section was removed as variations are now shown in:
       // 1. Detailed Line Items - VARIATIONS page (created below)
@@ -1083,6 +1116,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       // Instead, create a proper Detailed Line Items - VARIATIONS page
       if (sortedVariations.length > 0) {
         setCurrentSection("Adding variations detailed page...");
+        updateProgress('variations');
         doc.addPage();
         tocSections.push({ title: "Detailed Line Items - VARIATIONS", page: doc.getCurrentPageInfo().pageNumber });
         
@@ -1412,11 +1446,12 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       }
 
       setCurrentSection("Adding page numbers...");
+      updateProgress('pageNumbers');
       // Add standardized page numbers
       addPageNumbers(doc, 2, exportOptions.quality);
 
       setCurrentSection("Saving PDF...");
-      
+      updateProgress('save');
       // Check if we need to merge cover page from template
       let finalPdfBlob: Blob;
       
@@ -1509,6 +1544,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
     } finally {
       setLoading(false);
       setCurrentSection("");
+      completeExport();
     }
   };
   
@@ -1544,7 +1580,13 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
           </Button>
         </div>
         
-        {loading && currentSection && (
+        {/* Enhanced Progress Indicator */}
+        {isExporting && (
+          <PDFProgressIndicator progress={progress} isExporting={isExporting} />
+        )}
+        
+        {/* Legacy progress fallback */}
+        {loading && !isExporting && currentSection && (
           <div className="flex items-center gap-3 px-4 py-2.5 bg-muted/50 rounded-lg border border-border/50 animate-in fade-in slide-in-from-left-2 duration-300">
             <div className="flex items-center gap-2.5">
               <div className="relative">
