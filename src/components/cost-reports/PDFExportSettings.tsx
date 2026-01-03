@@ -35,6 +35,7 @@ export interface PDFSectionOptions {
   detailedLineItems: boolean;
   variations: boolean;
   visualSummary: boolean; // Charts integration
+  previewBeforeExport: boolean; // Preview before saving
 }
 
 interface PDFExportSettingsProps {
@@ -86,6 +87,7 @@ export const DEFAULT_SECTIONS: PDFSectionOptions = {
   detailedLineItems: true,
   variations: true,
   visualSummary: true, // Charts and graphs
+  previewBeforeExport: true, // Preview before saving
 };
 
 export const PDFExportSettings = ({
@@ -191,6 +193,7 @@ export const PDFExportSettings = ({
       detailedLineItems: false,
       variations: false,
       visualSummary: false,
+      previewBeforeExport: false,
     });
   };
 
@@ -395,6 +398,26 @@ export const PDFExportSettings = ({
                   Visual Summary (Charts)
                 </label>
               </div>
+            </div>
+            
+            {/* Preview Option */}
+            <div className="mt-4 p-3 bg-muted/50 rounded-lg border">
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="preview-before-export"
+                  checked={localSections.previewBeforeExport}
+                  onCheckedChange={() => handleSectionToggle('previewBeforeExport')}
+                />
+                <label
+                  htmlFor="preview-before-export"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                >
+                  Preview before saving
+                </label>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1 ml-6">
+                Review the PDF before it's saved to your reports
+              </p>
             </div>
           </div>
           

@@ -30,7 +30,7 @@ import {
 } from "@/utils/pdfQualitySettings";
 import { prepareCostReportTemplateData } from "@/utils/prepareCostReportTemplateData";
 import { generateStandardizedPDFFilename, generateStorageFilename } from "@/utils/pdfFilenameGenerator";
-import { usePDFProgress, PDFProgressIndicator, captureCostReportCharts, addChartsToPDF, waitForChartsToRender } from "./pdf-export";
+import { usePDFProgress, PDFProgressIndicator, PDFPreviewBeforeExport, captureCostReportCharts, addChartsToPDF, waitForChartsToRender } from "./pdf-export";
 
 interface ExportPDFButtonProps {
   report: any;
@@ -49,6 +49,18 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
   const [pendingExport, setPendingExport] = useState(false);
   const [selectedContactId, setSelectedContactId] = useState<string>('');
   const [currentSection, setCurrentSection] = useState<string>("");
+  
+  // Preview before export state
+  const [previewBlob, setPreviewBlob] = useState<Blob | null>(null);
+  const [previewFileName, setPreviewFileName] = useState<string>("");
+  const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
+  const [isSavingAfterPreview, setIsSavingAfterPreview] = useState(false);
+  const [pendingPdfData, setPendingPdfData] = useState<{
+    blob: Blob;
+    fileName: string;
+    filePath: string;
+    storageFileName: string;
+  } | null>(null);
   
   // Enhanced progress tracking
   const { progress, isExporting, startExport, updateProgress, completeExport, resetProgress } = usePDFProgress(sections);
@@ -105,6 +117,78 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
     },
     enabled: !!report.project_id,
   });
+
+  // Helper function to save PDF to storage and database
+  const savePdfToStorage = async (pdfBlob: Blob, filePath: string, fileName: string) => {
+    const { error: uploadError } = await supabase.storage
+      .from("cost-report-pdfs")
+      .upload(filePath, pdfBlob, { upsert: true });
+
+    if (uploadError) throw uploadError;
+
+    // Save PDF record
+    const { data: pdfRecord, error: recordError } = await supabase
+      .from("cost_report_pdfs")
+      .insert({
+        cost_report_id: report.id,
+        project_id: report.project_id,
+        file_path: filePath,
+        file_name: fileName,
+        file_size: pdfBlob.size,
+        revision: `Report ${report.report_number}`,
+        generated_by: (await supabase.auth.getUser()).data.user?.id
+      })
+      .select()
+      .single();
+
+    if (recordError) throw recordError;
+
+    toast({
+      title: "Success",
+      description: "PDF generated and saved successfully",
+    });
+
+    setPreviewReport(pdfRecord);
+    onReportGenerated?.();
+    setPendingExport(false);
+  };
+
+  // Handle preview confirmation - save the PDF
+  const handlePreviewConfirm = async () => {
+    if (!pendingPdfData) return;
+
+    setIsSavingAfterPreview(true);
+    try {
+      await savePdfToStorage(
+        pendingPdfData.blob, 
+        pendingPdfData.filePath, 
+        pendingPdfData.fileName
+      );
+      setPreviewDialogOpen(false);
+      setPendingPdfData(null);
+      setPreviewBlob(null);
+    } catch (error: any) {
+      console.error('Error saving PDF:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save PDF",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingAfterPreview(false);
+    }
+  };
+
+  // Handle preview cancel
+  const handlePreviewCancel = () => {
+    setPendingPdfData(null);
+    setPreviewBlob(null);
+    setPreviewFileName("");
+    toast({
+      title: "Export cancelled",
+      description: "PDF was not saved",
+    });
+  };
 
   const exportWithTemplate = async () => {
     setLoading(true);
@@ -1450,7 +1534,7 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       // Add standardized page numbers
       addPageNumbers(doc, 2, exportOptions.quality);
 
-      setCurrentSection("Saving PDF...");
+      setCurrentSection("Preparing PDF...");
       updateProgress('save');
       // Check if we need to merge cover page from template
       let finalPdfBlob: Blob;
@@ -1502,37 +1586,26 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
       
       const filePath = `${report.project_id}/${storageFilename}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from("cost-report-pdfs")
-        .upload(filePath, finalPdfBlob);
+      // Check if preview before export is enabled
+      if (useSections.previewBeforeExport) {
+        // Store the PDF data for later saving
+        setPendingPdfData({
+          blob: finalPdfBlob,
+          fileName: downloadFilename,
+          filePath: filePath,
+          storageFileName: storageFilename,
+        });
+        setPreviewBlob(finalPdfBlob);
+        setPreviewFileName(downloadFilename);
+        setPreviewDialogOpen(true);
+        setLoading(false);
+        setCurrentSection("");
+        completeExport();
+        return; // Exit here, save will happen after user confirms
+      }
 
-      if (uploadError) throw uploadError;
-
-      // Save PDF record
-      const { data: pdfRecord, error: recordError } = await supabase
-        .from("cost_report_pdfs")
-        .insert({
-          cost_report_id: report.id,
-          project_id: report.project_id,
-          file_path: filePath,
-          file_name: downloadFilename,
-          file_size: finalPdfBlob.size,
-          revision: `Report ${report.report_number}`,
-          generated_by: (await supabase.auth.getUser()).data.user?.id
-        })
-        .select()
-        .single();
-
-      if (recordError) throw recordError;
-
-      toast({
-        title: "Success",
-        description: "PDF generated successfully",
-      });
-
-      setPreviewReport(pdfRecord);
-      onReportGenerated?.();
-      setPendingExport(false);
+      // Direct save (no preview)
+      await savePdfToStorage(finalPdfBlob, filePath, downloadFilename);
 
     } catch (error: any) {
       console.error('Error generating PDF:', error);
@@ -1620,6 +1693,17 @@ export const ExportPDFButton = ({ report, onReportGenerated }: ExportPDFButtonPr
         onOpenChange={setValidationDialogOpen}
         mismatches={validationMismatches}
         onProceed={handleValidationProceed}
+      />
+      
+      {/* PDF Preview Before Export Dialog */}
+      <PDFPreviewBeforeExport
+        open={previewDialogOpen}
+        onOpenChange={setPreviewDialogOpen}
+        pdfBlob={previewBlob}
+        fileName={previewFileName}
+        onConfirm={handlePreviewConfirm}
+        onCancel={handlePreviewCancel}
+        isSaving={isSavingAfterPreview}
       />
       
       {previewReport && (
