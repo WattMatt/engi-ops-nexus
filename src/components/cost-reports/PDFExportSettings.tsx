@@ -34,6 +34,7 @@ export interface PDFSectionOptions {
   costSummary: boolean;
   detailedLineItems: boolean;
   variations: boolean;
+  visualSummary: boolean; // Charts integration
 }
 
 interface PDFExportSettingsProps {
@@ -84,6 +85,7 @@ export const DEFAULT_SECTIONS: PDFSectionOptions = {
   costSummary: false,
   detailedLineItems: true,
   variations: true,
+  visualSummary: true, // Charts and graphs
 };
 
 export const PDFExportSettings = ({
@@ -188,6 +190,7 @@ export const PDFExportSettings = ({
       costSummary: false,
       detailedLineItems: false,
       variations: false,
+      visualSummary: false,
     });
   };
 
@@ -376,6 +379,20 @@ export const PDFExportSettings = ({
                   className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
                 >
                   Variations
+                </label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Checkbox
+                  id="visual-summary"
+                  checked={localSections.visualSummary}
+                  onCheckedChange={() => handleSectionToggle('visualSummary')}
+                />
+                <label
+                  htmlFor="visual-summary"
+                  className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                >
+                  Visual Summary (Charts)
                 </label>
               </div>
             </div>
