@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Plus, Trash2, Download, Upload } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -157,65 +157,191 @@ export const CustomVariantDialog: React.FC<CustomVariantDialogProps> = ({
   );
 };
 
-// Component for managing custom variants (view/delete)
+// Component for managing custom variants (view/delete/export/import)
 export interface CustomVariantsManagerProps {
   customVariants: Record<string, ComponentVariant[]>;
   onDeleteVariant: (groupId: string, variantId: string) => void;
+  onImportVariants: (variants: Record<string, ComponentVariant[]>) => void;
   variantGroupNames: Record<string, string>;
 }
 
 export const CustomVariantsManager: React.FC<CustomVariantsManagerProps> = ({
   customVariants,
   onDeleteVariant,
+  onImportVariants,
   variantGroupNames,
 }) => {
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const hasAnyVariants = Object.values(customVariants).some(v => v.length > 0);
 
-  if (!hasAnyVariants) {
-    return (
-      <div className="text-center py-6">
-        <p className="text-sm text-muted-foreground">No custom variants defined yet</p>
-        <p className="text-xs text-muted-foreground mt-1">
-          Click "+ Add Custom" when editing a component to create your own variants
-        </p>
-      </div>
-    );
-  }
+  // Export custom variants to JSON file
+  const handleExport = () => {
+    if (!hasAnyVariants) {
+      toast.error('No custom variants to export');
+      return;
+    }
+
+    const exportData = {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      customVariants,
+    };
+
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `custom-variants-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast.success('Custom variants exported successfully');
+  };
+
+  // Import custom variants from JSON file
+  const handleImport = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const content = e.target?.result as string;
+        const data = JSON.parse(content);
+
+        // Validate structure
+        if (!data.customVariants || typeof data.customVariants !== 'object') {
+          toast.error('Invalid file format: missing customVariants');
+          return;
+        }
+
+        // Validate each variant group
+        let totalImported = 0;
+        const validatedVariants: Record<string, ComponentVariant[]> = {};
+
+        for (const [groupId, variants] of Object.entries(data.customVariants)) {
+          if (!Array.isArray(variants)) continue;
+
+          const validVariants: ComponentVariant[] = [];
+          for (const variant of variants as ComponentVariant[]) {
+            if (variant.id && variant.name && variant.description) {
+              // Regenerate ID to avoid conflicts
+              validVariants.push({
+                ...variant,
+                id: `custom-${groupId}-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+              });
+              totalImported++;
+            }
+          }
+
+          if (validVariants.length > 0) {
+            validatedVariants[groupId] = validVariants;
+          }
+        }
+
+        if (totalImported === 0) {
+          toast.error('No valid variants found in file');
+          return;
+        }
+
+        onImportVariants(validatedVariants);
+        toast.success(`Imported ${totalImported} custom variant(s)`);
+      } catch (error) {
+        console.error('Import error:', error);
+        toast.error('Failed to parse import file');
+      }
+    };
+
+    reader.readAsText(file);
+    
+    // Reset input so same file can be selected again
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
 
   return (
     <div className="space-y-4">
-      {Object.entries(customVariants).map(([groupId, variants]) => {
-        if (variants.length === 0) return null;
-        
-        return (
-          <div key={groupId} className="space-y-2">
-            <h4 className="text-sm font-medium text-foreground">
-              {variantGroupNames[groupId] || groupId}
-            </h4>
-            <div className="space-y-1">
-              {variants.map(variant => (
-                <div 
-                  key={variant.id}
-                  className="flex items-center justify-between p-2 bg-muted/30 border rounded-md"
-                >
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium truncate">{variant.name}</p>
-                    <p className="text-xs text-muted-foreground truncate">{variant.description}</p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 p-0 text-destructive hover:text-destructive"
-                    onClick={() => onDeleteVariant(groupId, variant.id)}
+      {/* Export/Import buttons */}
+      <div className="flex gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleExport}
+          disabled={!hasAnyVariants}
+          className="flex-1"
+        >
+          <Download className="h-4 w-4 mr-2" />
+          Export
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => fileInputRef.current?.click()}
+          className="flex-1"
+        >
+          <Upload className="h-4 w-4 mr-2" />
+          Import
+        </Button>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".json"
+          onChange={handleImport}
+          className="hidden"
+        />
+      </div>
+
+      {!hasAnyVariants ? (
+        <div className="text-center py-6">
+          <p className="text-sm text-muted-foreground">No custom variants defined yet</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Click the + button next to a component dropdown to create your own variants
+          </p>
+        </div>
+      ) : (
+        Object.entries(customVariants).map(([groupId, variants]) => {
+          if (variants.length === 0) return null;
+          
+          return (
+            <div key={groupId} className="space-y-2">
+              <h4 className="text-sm font-medium text-foreground">
+                {variantGroupNames[groupId] || groupId}
+              </h4>
+              <div className="space-y-1">
+                {variants.map(variant => (
+                  <div 
+                    key={variant.id}
+                    className="flex items-center justify-between p-2 bg-muted/30 border rounded-md"
                   >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                </div>
-              ))}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">{variant.name}</p>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span className="truncate">{variant.description}</span>
+                        {variant.boqCode && (
+                          <span className="text-[10px] font-mono bg-muted px-1 rounded">
+                            {variant.boqCode}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0 text-destructive hover:text-destructive"
+                      onClick={() => onDeleteVariant(groupId, variant.id)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
             </div>
-          </div>
-        );
-      })}
+          );
+        })
+      )}
     </div>
   );
 };
