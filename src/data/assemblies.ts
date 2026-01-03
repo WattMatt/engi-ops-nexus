@@ -67,6 +67,13 @@ export const COMPONENT_VARIANTS: Record<string, ComponentVariant[]> = {
   ],
 };
 
+// Variant group display names
+export const VARIANT_GROUP_NAMES: Record<string, string> = {
+  'draw-box': 'Draw Box',
+  'junction-box': 'Junction Box',
+  'ceiling-rose': 'Ceiling Rose',
+};
+
 // Helper to get variants for a group
 export function getVariantsForGroup(groupId: string): ComponentVariant[] {
   return COMPONENT_VARIANTS[groupId] || [];
