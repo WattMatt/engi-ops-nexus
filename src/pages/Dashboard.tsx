@@ -106,77 +106,86 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="flex-1 space-y-4 px-6 pt-6 pb-6">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold mb-2">Project Overview</h1>
-        <p className="text-muted-foreground">
-          Selected Project: <span className="font-semibold">{projectName || "None"}</span>
-        </p>
-      </div>
+    <div className="flex-1 overflow-auto">
+      <div className="mx-auto w-full max-w-[1600px] px-6 py-6 space-y-6">
+        <div className="pb-2">
+          <h1 className="text-3xl font-bold tracking-tight text-foreground mb-2">Project Overview</h1>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Selected Project: <span className="font-semibold text-foreground">{projectName || "None"}</span>
+          </p>
+        </div>
 
       {/* Project Completion Card - Prominent Position */}
       {projectId && (
-        <div className="mb-6">
+        <div>
           <ProjectCompletionCard projectId={projectId} />
         </div>
       )}
 
       {/* Quick Stats - More Compact */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => navigate("/dashboard/cost-reports")}>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <Card className="cursor-pointer hover:shadow-md hover:border-primary/20 transition-all duration-200 border-border/50" onClick={() => navigate("/dashboard/cost-reports")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Cost Reports</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
+            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <FileText className="h-4 w-4 text-primary" />
+            </div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{costReports.length}</div>
-            <p className="text-xs text-muted-foreground">Active reports</p>
+            <p className="text-xs text-muted-foreground mt-1">Active reports</p>
           </CardContent>
         </Card>
 
-        <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => navigate("/dashboard/budgets/electrical")}>
+        <Card className="cursor-pointer hover:shadow-md hover:border-primary/20 transition-all duration-200 border-border/50" onClick={() => navigate("/dashboard/budgets/electrical")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Budgets</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <DollarSign className="h-4 w-4 text-primary" />
+            </div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{budgets.length}</div>
-            <p className="text-xs text-muted-foreground">Electrical budgets</p>
+            <p className="text-xs text-muted-foreground mt-1">Electrical budgets</p>
           </CardContent>
         </Card>
 
-        <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => navigate("/dashboard/cable-schedules")}>
+        <Card className="cursor-pointer hover:shadow-md hover:border-primary/20 transition-all duration-200 border-border/50" onClick={() => navigate("/dashboard/cable-schedules")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Cable Schedules</CardTitle>
-            <Cable className="h-4 w-4 text-muted-foreground" />
+            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Cable className="h-4 w-4 text-primary" />
+            </div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{cableSchedules.length}</div>
-            <p className="text-xs text-muted-foreground">Active schedules</p>
+            <p className="text-xs text-muted-foreground mt-1">Active schedules</p>
           </CardContent>
         </Card>
 
-        <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => navigate("/dashboard/project-settings")}>
+        <Card className="cursor-pointer hover:shadow-md hover:border-primary/20 transition-all duration-200 border-border/50" onClick={() => navigate("/dashboard/project-settings")}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Project Settings</CardTitle>
-            <Settings className="h-4 w-4 text-muted-foreground" />
+            <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+              <Settings className="h-4 w-4 text-primary" />
+            </div>
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">Configure</div>
-            <p className="text-xs text-muted-foreground">Manage project</p>
+            <p className="text-xs text-muted-foreground mt-1">Manage project</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Issues & Incomplete Items Widget */}
       {projectId && (
-        <div className="mb-6">
+        <div>
           <IssuesIncompleteWidget projectId={projectId} />
         </div>
       )}
 
       {/* Status Widgets Grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {/* Left column - Tenant Changes */}
         <div className="lg:col-span-1">
           <TenantChangesWidget />
@@ -198,13 +207,15 @@ const Dashboard = () => {
       </div>
 
       {/* Secondary Row */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
         {/* Right column with stacked cards */}
-        <div className="lg:col-span-1 space-y-4">
-          <Card>
+        <div className="lg:col-span-1">
+          <Card className="border-border/50 shadow-sm">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Activity className="h-5 w-5" />
+              <CardTitle className="flex items-center gap-2 text-base">
+                <div className="h-8 w-8 rounded-lg bg-primary/10 flex items-center justify-center">
+                  <Activity className="h-4 w-4 text-primary" />
+                </div>
                 Project Activity
               </CardTitle>
             </CardHeader>
@@ -212,14 +223,14 @@ const Dashboard = () => {
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Documentation</span>
-                  <span className="font-medium">{totalDocuments} items</span>
+                  <span className="font-medium text-foreground">{totalDocuments} items</span>
                 </div>
                 <Progress value={totalDocuments > 0 ? 65 : 0} />
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-muted-foreground">Technical Drawings</span>
-                  <span className="font-medium">{cableSchedules.length} schedules</span>
+                  <span className="font-medium text-foreground">{cableSchedules.length} schedules</span>
                 </div>
                 <Progress value={cableSchedules.length > 0 ? 45 : 0} />
               </div>
@@ -227,7 +238,7 @@ const Dashboard = () => {
           </Card>
         </div>
       </div>
-
+      </div>
     </div>
   );
 };

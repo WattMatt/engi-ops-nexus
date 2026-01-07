@@ -104,7 +104,7 @@ const DashboardLayout = () => {
         
         <div className="flex-1 flex flex-col">
           {/* Header */}
-          <header className="h-14 border-b bg-card flex items-center justify-between px-6 sticky top-0 z-10">
+          <header className="h-16 border-b bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 flex items-center justify-between px-6 sticky top-0 z-50 shadow-sm">
             <div className="flex items-center gap-4">
               <SidebarTrigger />
             </div>
@@ -112,9 +112,9 @@ const DashboardLayout = () => {
             <div className="flex items-center gap-3">
               <MessageNotificationBell />
               <ProjectDropdown />
-              <Button variant="outline" size="sm" onClick={handleLogout}>
-                <LogOut className="h-4 w-4 mr-2" />
-                Logout
+              <Button variant="outline" size="sm" onClick={handleLogout} className="gap-2">
+                <LogOut className="h-4 w-4" />
+                <span className="hidden sm:inline">Logout</span>
               </Button>
             </div>
           </header>
@@ -126,7 +126,7 @@ const DashboardLayout = () => {
           />
 
           {/* Main Content */}
-          <main className="flex-1 bg-background overflow-hidden">
+          <main className="flex-1 bg-gradient-to-b from-background to-muted/20 overflow-auto">
             <Outlet />
           </main>
         </div>

@@ -139,28 +139,67 @@ export function BOQExcelImportDialog({
 
         if (items.length === 0) continue;
 
-        // Extract section code from sheet name or use sheet name
-        const sectionCodeMatch = sheetName.match(/([A-Z]\d*\.?\d*)/);
-        const sectionCode = sectionCodeMatch ? sectionCodeMatch[1] : sheetName.substring(0, 10);
-        const sectionName = sheetName.replace(/^[A-Z]\d*\.?\d*\s*-?\s*/, '').substring(0, 50) || sheetName;
+        // Extract section code from sheet name
+        // Try multiple patterns to match various section code formats:
+        // - Single letter: A, B, C
+        // - Letter with numbers: A1, B2.1, C3.2.1
+        // - Numbers with dots: 1.1, 1.2.3
+        // - Alphanumeric: AA1, AB-1, etc.
+        // - Patterns like "B1-A", "Section-A", etc.
+        let sectionCodeMatch = sheetName.match(/^([A-Za-z]\d*\.?\d*)/); // Letter followed by optional numbers/dots
+        if (!sectionCodeMatch) {
+          sectionCodeMatch = sheetName.match(/^(\d+\.?\d*)/); // Number(s) with optional dots
+        }
+        if (!sectionCodeMatch) {
+          sectionCodeMatch = sheetName.match(/([A-Za-z]+-?\d*\.?\d*)/); // Alphanumeric with optional dash
+        }
+        if (!sectionCodeMatch) {
+          // Try to extract from patterns like "B1-A", "Section-A", etc.
+          sectionCodeMatch = sheetName.match(/([A-Za-z0-9]+(?:\.[A-Za-z0-9]+)*)/);
+        }
+        
+        // Normalize to uppercase and use first 20 chars as fallback
+        const sectionCode = sectionCodeMatch 
+          ? sectionCodeMatch[1].toUpperCase().trim() 
+          : sheetName.substring(0, 20).toUpperCase().trim().replace(/[^A-Za-z0-9.]/g, '');
+        
+        // Extract section name by removing the code prefix
+        const sectionName = sheetName
+          .replace(/^[A-Za-z0-9]+(?:\.[A-Za-z0-9]+)*\s*-?\s*/i, '') // Remove code prefix
+          .substring(0, 50)
+          .trim() || sheetName.substring(0, 50);
 
         // Get or create section
-        const { data: existingSection } = await supabase
+        const { data: existingSection, error: sectionCheckError } = await supabase
           .from("boq_project_sections")
           .select("id")
           .eq("bill_id", billId)
           .eq("section_code", sectionCode)
-          .single();
+          .maybeSingle();
+        
+        if (sectionCheckError) throw sectionCheckError;
 
         let sectionId = existingSection?.id;
         if (!sectionId) {
+          // Get current max display_order for this bill to append new section at the end
+          const { data: existingSections } = await supabase
+            .from("boq_project_sections")
+            .select("display_order")
+            .eq("bill_id", billId)
+            .order("display_order", { ascending: false })
+            .limit(1);
+
+          const displayOrder = existingSections && existingSections.length > 0
+            ? (existingSections[0].display_order || 0) + 1
+            : 0;
+
           const { data: newSection, error: sectionError } = await supabase
             .from("boq_project_sections")
             .insert({
               bill_id: billId,
               section_code: sectionCode,
               section_name: sectionName,
-              display_order: 0,
+              display_order: displayOrder,
             })
             .select()
             .single();

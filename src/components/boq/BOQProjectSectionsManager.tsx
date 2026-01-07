@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -109,6 +109,11 @@ export function BOQProjectSectionsManager({ billId, boqId }: BOQProjectSectionsM
     setExpandedSections(newExpanded);
   };
 
+  // Memoize existing section codes to prevent unnecessary re-renders in child component
+  const existingSectionCodes = useMemo(() => {
+    return sections.map(s => s.section_code);
+  }, [sections]);
+
   if (isLoading) {
     return <div className="text-center py-4 text-muted-foreground text-sm">Loading sections...</div>;
   }
@@ -195,7 +200,7 @@ export function BOQProjectSectionsManager({ billId, boqId }: BOQProjectSectionsM
         }}
         billId={billId}
         editingSection={editingSection}
-        existingSectionCodes={sections.map(s => s.section_code)}
+        existingSectionCodes={existingSectionCodes}
         onSuccess={() => {
           setAddDialogOpen(false);
           setEditingSection(null);

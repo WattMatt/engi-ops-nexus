@@ -33,6 +33,13 @@ export function AddBOQBillDialog({
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Memoize the max bill number to avoid recalculating on every render
+  const nextBillNumber = useMemo(() => {
+    return existingBillNumbers.length > 0 
+      ? Math.max(...existingBillNumbers) + 1 
+      : 1;
+  }, [existingBillNumbers]);
+
   useEffect(() => {
     if (editingBill) {
       setFormData({
@@ -41,27 +48,50 @@ export function AddBOQBillDialog({
         description: editingBill.description || "",
       });
     } else {
-      const nextBillNumber = existingBillNumbers.length > 0 
-        ? Math.max(...existingBillNumbers) + 1 
-        : 1;
       setFormData({
         bill_number: nextBillNumber.toString(),
         bill_name: "",
         description: "",
       });
     }
-  }, [editingBill, open, existingBillNumbers]);
+  }, [editingBill, open, nextBillNumber]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
+    const billNumber = parseInt(formData.bill_number);
+
+    // Validate duplicate bill numbers
+    if (editingBill) {
+      // Check if bill number has changed and if the new number already exists
+      const numberChanged = billNumber !== editingBill.bill_number;
+      if (numberChanged && existingBillNumbers.includes(billNumber)) {
+        toast.error("Bill number already exists");
+        setIsSubmitting(false);
+        return;
+      }
+    } else {
+      // Check if bill number already exists for new bills
+      if (existingBillNumbers.includes(billNumber)) {
+        toast.error("Bill number already exists");
+        setIsSubmitting(false);
+        return;
+      }
+    }
+
+    // For new bills, use bill_number as display_order
+    // For editing, preserve the original display_order (including 0)
+    const displayOrder = editingBill 
+      ? (editingBill.display_order ?? billNumber)
+      : billNumber;
+
     const billData = {
       project_boq_id: boqId,
-      bill_number: parseInt(formData.bill_number),
+      bill_number: billNumber,
       bill_name: formData.bill_name,
       description: formData.description || null,
-      display_order: parseInt(formData.bill_number),
+      display_order: displayOrder,
     };
 
     try {

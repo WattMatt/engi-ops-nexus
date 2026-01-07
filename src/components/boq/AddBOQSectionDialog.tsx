@@ -81,6 +81,14 @@ export function AddBOQSectionDialog({
 
     try {
       if (editingSection) {
+        // Check if section code has changed and if the new code already exists
+        const codeChanged = formData.section_code !== editingSection.section_code;
+        if (codeChanged && existingSectionCodes.includes(formData.section_code)) {
+          toast.error("Section code already exists");
+          setIsSubmitting(false);
+          return;
+        }
+
         const { error } = await supabase
           .from("boq_project_sections")
           .update(sectionData)
