@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
   Dialog,
@@ -16,14 +16,14 @@ import {
   FileSpreadsheet, 
   CheckCircle2,
   AlertCircle,
-  AlertTriangle,
+  Database,
   ChevronRight,
   ChevronDown
 } from "lucide-react";
-import { format } from "date-fns";
 import { formatCurrency } from "@/utils/formatters";
 import { cn } from "@/lib/utils";
-import * as XLSX from "xlsx";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Card, CardContent } from "@/components/ui/card";
 
 interface UnifiedBOQImportProps {
   open: boolean;
@@ -32,509 +32,57 @@ interface UnifiedBOQImportProps {
   projectId: string;
 }
 
-interface ParsedBOQItem {
-  rowIndex: number;
-  itemCode: string;
-  description: string;
-  unit: string;
-  quantity: number;
-  supplyRate: number;
-  installRate: number;
-  totalRate: number;
-  amount: number;
-  sectionCode: string;
-  sectionName: string;
-  billNumber: number;
-  billName: string;
-  isPrimeCost?: boolean;
-  pcProfitAttendancePercent?: number;
-  // P&A item tracking
-  isPAItem?: boolean;
-  paParentItemCode?: string;
-  paPercentage?: number;
+interface BOQStructure {
+  boqId: string;
+  boqName: string;
+  bills: {
+    id: string;
+    billNumber: number;
+    billName: string;
+    totalAmount: number;
+    sections: {
+      id: string;
+      sectionCode: string;
+      sectionName: string;
+      description: string | null;
+      totalAmount: number;
+      items: {
+        id: string;
+        itemCode: string;
+        description: string;
+        unit: string;
+        quantity: number;
+        supplyRate: number;
+        installRate: number;
+        totalAmount: number;
+        displayOrder: number;
+        itemType: string | null;
+        primeCostAmount: number | null;
+      }[];
+    }[];
+  }[];
 }
 
-interface BOQSectionSummary {
-  sectionCode: string;
-  sectionName: string;
-  billNumber: number;
-  billName: string;
-  itemCount: number;
-  boqTotal: number;
-  calculatedTotal: number;
-  items: ParsedBOQItem[];
-  primeCostItems: ParsedBOQItem[];
-}
-
-// ===== PARSING UTILITIES =====
-
-const PRIME_COST_PATTERNS = [
-  /prime\s*cost/i,
-  /\bP\.?C\.?\b/,
-  /provisional\s*sum/i,
-  /\bP\.?S\.?\b/,
-  /^PC\s+/i,
-  /^PS\s+/i,
-  /allow(?:ance)?\s+for/i,
-  /contingency/i,
-  /provisional\s+amount/i,
-];
-
-function isPrimeCostItem(description: string, itemCode: string): boolean {
-  const textToCheck = `${itemCode} ${description}`;
-  return PRIME_COST_PATTERNS.some(pattern => pattern.test(textToCheck));
-}
-
-// Detect P&A rows - these reference a parent item and contain a percentage
-// Returns the referenced item code and percentage
-function detectPARow(
-  description: string, 
-  itemCode: string,
-  quantity: number, 
-  unit: string,
-  rawRowData: string[]
-): { referencedItemCode: string | null; percentage: number } | null {
-  // Must contain "profit" or "P&A" to be a P&A row
-  // Patterns: "Allow profit...", "Add profit...", "Profit and attendance", "P&A"
-  const isPARow = /(?:allow|add)\s*(?:for\s*)?profit|profit\s*(?:and|&)?\s*attendance|P\.?&\.?A\.?|profit\s+(?:to|on)\s+item/i.test(description);
-  if (!isPARow) return null;
-  
-  // Extract referenced item code: "Allow profit to item B1.1"
-  let referencedItemCode: string | null = null;
-  const refMatch = description.match(/(?:to|on|for)\s*(?:item\s*)?([A-Z]\d+(?:\.\d+)*)/i);
-  if (refMatch) {
-    referencedItemCode = refMatch[1].toUpperCase();
-  }
-  
-  // Helper to parse percentage - handles Excel decimals (0.1 = 10%) and strings ("10,00%")
-  const parsePercentage = (val: any): number => {
-    if (val === null || val === undefined) return 0;
-    
-    // If it's already a number (from Excel), check if it's a decimal percentage
-    if (typeof val === 'number') {
-      // Excel stores 10% as 0.1, so values between 0 and 1 are likely percentages
-      if (val > 0 && val < 1) {
-        return val * 100; // Convert 0.1 to 10
-      }
-      return val > 0 && val <= 100 ? val : 0;
-    }
-    
-    const str = String(val);
-    if (!str) return 0;
-    
-    // Remove % sign and trim
-    let cleaned = str.replace('%', '').trim();
-    // Handle South African format: "10,00" means 10.00
-    if (/,\d{2}$/.test(cleaned)) {
-      cleaned = cleaned.replace(',', '.');
-    } else {
-      cleaned = cleaned.replace(/,/g, '');
-    }
-    const num = parseFloat(cleaned);
-    if (isNaN(num) || num <= 0) return 0;
-    
-    // If parsed value is between 0 and 1, it's likely a decimal percentage
-    if (num > 0 && num < 1) {
-      return num * 100;
-    }
-    return num <= 100 ? num : 0;
-  };
-  
-  // Extract percentage - check multiple sources
-  let percentage = 0;
-  
-  // 1. From description: Look for patterns like "% 10,00%" or just "10,00%"
-  const descPctMatches = description.match(/(\d+(?:[.,]\d+)?)\s*%/g);
-  if (descPctMatches) {
-    // Take the last percentage match (usually the actual value)
-    for (const match of descPctMatches) {
-      const val = parsePercentage(match);
-      if (val > 0) percentage = val;
-    }
-  }
-  
-  console.log(`[P&A Parse] desc="${description}", unit="${unit}", qty=${quantity}, found pct=${percentage}`);
-  
-  // 2. From unit column if it contains percentage: "10,00%" 
-  if (!percentage && unit) {
-    percentage = parsePercentage(unit);
-    if (percentage > 0) {
-      console.log(`[P&A Parse] Found percentage ${percentage} from unit column`);
-    }
-  }
-  
-  // 3. From quantity - could be decimal (0.1 = 10%) or whole number (10 = 10%)
-  if (!percentage && quantity > 0) {
-    if (quantity > 0 && quantity < 1) {
-      percentage = quantity * 100; // Excel decimal: 0.1 -> 10%
-      console.log(`[P&A Parse] Converted quantity decimal ${quantity} to ${percentage}%`);
-    } else if (quantity >= 1 && quantity <= 100) {
-      percentage = quantity;
-      console.log(`[P&A Parse] Using quantity ${quantity} as percentage`);
-    }
-  }
-  
-  // 4. Scan raw row data for percentage pattern
-  if (!percentage && rawRowData) {
-    for (const cell of rawRowData) {
-      const cellStr = String(cell || '').trim();
-      // Skip empty, very long, or currency values
-      if (!cellStr || cellStr.length > 20 || /^R\s*[\d,.\s]+$/.test(cellStr)) continue;
-      const val = parsePercentage(cellStr);
-      if (val > 0) {
-        percentage = val;
-        console.log(`[P&A Parse] Found percentage ${percentage} from raw cell: "${cellStr}"`);
-        break;
-      }
-    }
-  }
-  
-  console.log(`[P&A Parse] Final percentage for "${description}": ${percentage}%`);
-  return { referencedItemCode, percentage };
-}
-
-// Parse number from various formats
-function parseNumber(value: any): number {
-  if (typeof value === 'number') return value;
-  if (!value) return 0;
-  
-  let str = String(value).trim();
-  str = str.replace(/^R\s*/i, '').replace(/\s/g, '');
-  
-  // South African format: comma as decimal
-  if (/,\d{2}$/.test(str)) {
-    str = str.replace(/,/g, '.');
-  } else {
-    str = str.replace(/,/g, '');
-  }
-  
-  const num = parseFloat(str);
-  return isNaN(num) ? 0 : num;
-}
-
-// Check if row is header/subtotal (should be excluded from totals)
-// Headers are: single letter "A", "B" or letter with period "A.", "B."
-// NOT headers: "A1", "B1", "A1.1" - these are actual line items
-function isHeaderOrSubtotalRow(itemCode: string, description: string): boolean {
-  if (!itemCode) return false;
-  // Single letter only (A, B, C) - these are section headers
-  if (/^[A-Z]$/i.test(itemCode)) return true;
-  // Letter followed by period (A., B.) - these are section headers
-  if (/^[A-Z]\.$/i.test(itemCode)) return true;
-  // Check description for subtotal patterns
-  if (/\b(sub)?total\b/i.test(description)) return true;
-  if (/\b(carried|brought)\s*(forward|f\/w|fwd)\b/i.test(description)) return true;
-  return false;
-}
-
-// Find column indices from header row
-function findColumnsInRow(values: string[]): Record<string, number> {
-  const patterns: Record<string, RegExp> = {
-    description: /desc|particular|item\s*description|work\s*description/i,
-    quantity: /qty|quantity|qnty/i,
-    unit: /^unit$|^uom$/i,
-    supplyRate: /supply|material/i,
-    installRate: /install|labour|labor/i,
-    rate: /^rate$|unit\s*rate|total\s*rate/i,
-    amount: /tender\s*price|amount|^total$|value|sum/i,
-    itemCode: /^no$|^item$|^code$|^ref$|item\s*no|item\s*code/i,
-  };
-  
-  const colMap: Record<string, number> = {};
-  
-  values.forEach((val, idx) => {
-    const v = (val || "").toLowerCase().trim();
-    if (!v || v.startsWith("column_")) return;
-    
-    for (const [key, pattern] of Object.entries(patterns)) {
-      if (colMap[key] === undefined && pattern.test(v)) {
-        colMap[key] = idx;
-      }
-    }
-  });
-  
-  return colMap;
-}
-
-// Parse section info from sheet name
-function parseSectionFromSheetName(sheetName: string): { sectionCode: string; sectionName: string; billNumber: number } {
-  const trimmed = sheetName.trim();
-  
-  // "1.2 Medium Voltage" -> code: "1.2", name: "Medium Voltage"
-  const numericDotPattern = trimmed.match(/^(\d+(?:\.\d+)?)\s+(.+)$/);
-  if (numericDotPattern) {
-    return {
-      sectionCode: numericDotPattern[1],
-      sectionName: numericDotPattern[2].trim(),
-      billNumber: parseInt(numericDotPattern[1].split('.')[0]) || 1,
-    };
-  }
-  
-  // "4 Boxer" -> code: "4", name: "Boxer"
-  const numericSpacePattern = trimmed.match(/^(\d+)\s+(.+)$/);
-  if (numericSpacePattern) {
-    return {
-      sectionCode: numericSpacePattern[1],
-      sectionName: numericSpacePattern[2].trim(),
-      billNumber: parseInt(numericSpacePattern[1]) >= 3 ? 2 : 1,
-    };
-  }
-  
-  return { sectionCode: trimmed, sectionName: trimmed, billNumber: 1 };
-}
-
-// Main parsing function for a single sheet
-function parseSheet(worksheet: XLSX.WorkSheet, sheetName: string): BOQSectionSummary {
-  const { sectionCode, sectionName, billNumber } = parseSectionFromSheetName(sheetName);
-  
-  const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
-  const allRows: string[][] = [];
-  
-  for (let r = range.s.r; r <= range.e.r; r++) {
-    const row: string[] = [];
-    for (let c = range.s.c; c <= range.e.c; c++) {
-      const cell = worksheet[XLSX.utils.encode_cell({ r, c })];
-      row.push(cell ? String(cell.v ?? "").trim() : "");
-    }
-    allRows.push(row);
-  }
-  
-  if (allRows.length === 0) {
-    return { sectionCode, sectionName, billNumber, billName: sheetName, itemCount: 0, boqTotal: 0, calculatedTotal: 0, items: [], primeCostItems: [] };
-  }
-  
-  // Find header row
-  let headerRowIdx = -1;
-  let colMap: Record<string, number> = {};
-  
-  for (let i = 0; i < Math.min(30, allRows.length); i++) {
-    const row = allRows[i];
-    const testMap = findColumnsInRow(row);
-    if (testMap.description !== undefined) {
-      headerRowIdx = i;
-      colMap = testMap;
-      break;
-    }
-  }
-  
-  if (headerRowIdx === -1) {
-    return { sectionCode, sectionName, billNumber, billName: sheetName, itemCount: 0, boqTotal: 0, calculatedTotal: 0, items: [], primeCostItems: [] };
-  }
-  
-  const items: ParsedBOQItem[] = [];
-  // Map to track all items by item code for P&A reference matching
-  const itemsByCode: Map<string, ParsedBOQItem> = new Map();
-  // Track prime cost items in order they appear
-  const primeCostItems: ParsedBOQItem[] = [];
-  // Store P&A rows to process after all items are parsed
-  const paRows: { rowIdx: number; referencedCode: string | null; percentage: number }[] = [];
-  
-  // Patterns to identify total rows - capture their amounts
-  const totalPatterns = [
-    /^(sub)?total/i, /^section\s+total/i, /^bill\s+total/i,
-    /total\s+for\s+section/i, /total\s+to\s+collection/i,
-    /^total\s+carried/i, /carried\s+to\s+summary/i,
-    /^total$/i, /^totaal$/i, // Simple "Total"
-    /total\s+r\s*$/i, // "Total R" at end
-    /total\s+amount/i,
-  ];
-  const skipPatterns = [
-    /^carried\s+forward/i, /^brought\s+forward/i, 
-    /^page\s+(total|sub)/i, /^grand\s+total/i, /c\/fwd/i, /b\/fwd/i,
-  ];
-  
-  // Track the BOQ stated total (from total row) - scan from bottom to find last total
-  let boqStatedTotal: number | null = null;
-  
-  // Pre-scan from bottom to find the stated total row
-  for (let i = allRows.length - 1; i >= headerRowIdx + 1; i--) {
-    const row = allRows[i];
-    const description = colMap.description !== undefined ? String(row[colMap.description] || "").trim() : "";
-    const itemCode = colMap.itemCode !== undefined ? String(row[colMap.itemCode] || "").trim() : "";
-    const parsedAmount = colMap.amount !== undefined ? parseNumber(row[colMap.amount]) : 0;
-    
-    if (!description && !itemCode) continue;
-    
-    const textToCheck = `${itemCode} ${description}`.toLowerCase();
-    
-    // Check if this looks like a total row
-    if (totalPatterns.some(pattern => pattern.test(description) || pattern.test(textToCheck) || pattern.test(itemCode))) {
-      if (parsedAmount > 0) {
-        boqStatedTotal = parsedAmount;
-        console.log(`[Parse] Found BOQ stated total: ${parsedAmount} from row ${i}: "${description || itemCode}"`);
-        break;
-      }
-      // Also check other cells in the row for large amounts
-      for (let c = row.length - 1; c >= 0; c--) {
-        const val = parseNumber(row[c]);
-        if (val > 1000) {
-          boqStatedTotal = val;
-          console.log(`[Parse] Found BOQ stated total from cell: ${val} from row ${i}`);
-          break;
-        }
-      }
-      if (boqStatedTotal !== null) break;
-    }
-  }
-  
-  // First pass: Parse all rows and identify P&A rows
-  for (let i = headerRowIdx + 1; i < allRows.length; i++) {
-    const row = allRows[i];
-    const description = colMap.description !== undefined ? String(row[colMap.description] || "").trim() : "";
-    let itemCode = colMap.itemCode !== undefined ? String(row[colMap.itemCode] || "").trim() : "";
-    const unitRaw = colMap.unit !== undefined ? String(row[colMap.unit] || "").trim() : "";
-    const quantity = colMap.quantity !== undefined ? parseNumber(row[colMap.quantity]) : 0;
-    const supplyRate = colMap.supplyRate !== undefined ? parseNumber(row[colMap.supplyRate]) : 0;
-    const installRate = colMap.installRate !== undefined ? parseNumber(row[colMap.installRate]) : 0;
-    const totalRate = colMap.rate !== undefined ? parseNumber(row[colMap.rate]) : supplyRate + installRate;
-    const parsedAmount = colMap.amount !== undefined ? parseNumber(row[colMap.amount]) : 0;
-    const calculatedAmount = quantity * (totalRate || supplyRate + installRate);
-    const amount = parsedAmount > 0 ? parsedAmount : calculatedAmount;
-    
-    // Validate item code
-    if (itemCode && !/^[A-Z]/i.test(itemCode)) {
-      itemCode = "";
-    }
-    
-    // Skip completely empty rows
-    if (!itemCode && !description) continue;
-    
-    const textToCheck = `${itemCode} ${description}`.toLowerCase();
-    
-    // Skip total rows (already captured stated total above)
-    if (totalPatterns.some(pattern => pattern.test(description) || pattern.test(textToCheck) || pattern.test(itemCode))) {
-      continue;
-    }
-    
-    // Skip other non-item rows
-    if (skipPatterns.some(pattern => pattern.test(itemCode) || pattern.test(description) || pattern.test(textToCheck))) {
-      continue;
-    }
-    
-    // Check if this is a P&A row BEFORE adding to items
-    const paInfo = detectPARow(description, itemCode, quantity, unitRaw, row);
-    const isPARow = paInfo && paInfo.percentage > 0;
-    if (isPARow) {
-      paRows.push({
-        rowIdx: i,
-        referencedCode: paInfo.referencedItemCode,
-        percentage: paInfo.percentage,
-      });
-    }
-    
-    // Check if this is a Prime Cost item
-    const isPrimeC = !isPARow && isPrimeCostItem(description, itemCode);
-    
-    const item: ParsedBOQItem = {
-      rowIndex: i,
-      itemCode: itemCode || "",
-      description: description || "",
-      unit: unitRaw || "",
-      quantity,
-      supplyRate,
-      installRate,
-      totalRate: totalRate || supplyRate + installRate,
-      amount,
-      sectionCode,
-      sectionName,
-      billNumber,
-      billName: sheetName,
-      isPrimeCost: isPrimeC,
-      pcProfitAttendancePercent: 0,
-      // Mark P&A items - will link to parent in second pass
-      isPAItem: isPARow,
-      paPercentage: isPARow ? paInfo.percentage : 0,
-    };
-    
-    items.push(item);
-    
-    // Track by item code for reference matching
-    if (itemCode) {
-      itemsByCode.set(itemCode.toUpperCase(), item);
-    }
-    
-    // Track PC items in order
-    if (isPrimeC) {
-      primeCostItems.push(item);
-    }
-  }
-  
-  // Second pass: Link P&A items to their parent PC items
-  for (const pa of paRows) {
-    // Find the P&A item in the items array
-    const paItem = items.find(item => item.rowIndex === pa.rowIdx && item.isPAItem);
-    if (!paItem) continue;
-    
-    let parentCode: string | null = null;
-    
-    // First try: Match by explicit item code reference
-    if (pa.referencedCode) {
-      const parentItem = itemsByCode.get(pa.referencedCode);
-      if (parentItem && parentItem.isPrimeCost) {
-        parentCode = parentItem.itemCode;
-        parentItem.pcProfitAttendancePercent = pa.percentage;
-        console.log(`[P&A] Linked P&A row ${pa.rowIdx} to ${parentItem.itemCode} (code reference match)`);
-      }
-    }
-    
-    // Second try: Find the closest preceding PC item by row index
-    if (!parentCode && primeCostItems.length > 0) {
-      const precedingPCs = primeCostItems.filter(pc => pc.rowIndex < pa.rowIdx);
-      if (precedingPCs.length > 0) {
-        const nearestPC = precedingPCs[precedingPCs.length - 1];
-        parentCode = nearestPC.itemCode;
-        nearestPC.pcProfitAttendancePercent = pa.percentage;
-        console.log(`[P&A] Linked P&A row ${pa.rowIdx} to ${nearestPC.itemCode} (nearest preceding PC)`);
-      }
-    }
-    
-    // Store the parent reference on the P&A item
-    if (parentCode) {
-      paItem.paParentItemCode = parentCode;
-    } else {
-      console.log(`[P&A] Warning: Could not find parent PC for P&A row ${pa.rowIdx}`);
-    }
-  }
-  
-  // Calculate totals excluding headers
-  const calculatedTotal = items
-    .filter(item => !isHeaderOrSubtotalRow(item.itemCode, item.description))
-    .reduce((sum, item) => sum + item.amount, 0);
-  
-  return {
-    sectionCode,
-    sectionName,
-    billNumber,
-    billName: sheetName,
-    itemCount: items.length,
-    boqTotal: boqStatedTotal ?? calculatedTotal, // Use stated total if found, otherwise calculated
-    calculatedTotal,
-    items,
-    primeCostItems,
-  };
-}
-
-// ===== MAIN COMPONENT =====
-
-type Phase = 'select' | 'parsed' | 'importing' | 'complete';
+type Phase = 'select' | 'preview' | 'importing' | 'complete';
 
 export function UnifiedBOQImport({ open, onOpenChange, accountId, projectId }: UnifiedBOQImportProps) {
   const [phase, setPhase] = useState<Phase>('select');
   const [selectedBoqId, setSelectedBoqId] = useState<string | null>(null);
-  const [parsing, setParsing] = useState(false);
-  const [sections, setSections] = useState<BOQSectionSummary[]>([]);
-  const [expandedSection, setExpandedSection] = useState<string | null>(null);
+  const [boqStructure, setBoqStructure] = useState<BOQStructure | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [expandedBills, setExpandedBills] = useState<Set<string>>(new Set());
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
   const [importProgress, setImportProgress] = useState({ current: 0, total: 0 });
   const [importResult, setImportResult] = useState<{ success: number; failed: number } | null>(null);
   const queryClient = useQueryClient();
 
-  // Fetch BOQ uploads
-  const { data: boqUploads = [], isLoading } = useQuery({
-    queryKey: ["boq-uploads-unified", projectId],
+  // Fetch existing project BOQs (structured BOQ data)
+  const { data: projectBoqs = [], isLoading: loadingBoqs } = useQuery({
+    queryKey: ["project-boqs-for-import", projectId],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("boq_uploads")
-        .select("*")
+        .from("project_boqs")
+        .select("id, boq_name, boq_number, created_at")
         .eq("project_id", projectId)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -543,96 +91,137 @@ export function UnifiedBOQImport({ open, onOpenChange, accountId, projectId }: U
     enabled: open,
   });
 
-  // Parse BOQ file
-  const handleSelectBoq = useCallback(async (boq: any) => {
-    setSelectedBoqId(boq.id);
-    setParsing(true);
+  // Load BOQ structure when selected
+  const loadBoqStructure = useCallback(async (boqId: string) => {
+    setLoading(true);
+    setSelectedBoqId(boqId);
     
     try {
-      const { data: fileData, error: downloadError } = await supabase.storage
-        .from("boq-uploads")
-        .download(boq.file_path);
-      
-      if (downloadError) throw downloadError;
-      
-      const arrayBuffer = await fileData.arrayBuffer();
-      const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
-      
-      const parsedSections: BOQSectionSummary[] = [];
-      
-      for (const sheetName of workbook.SheetNames) {
-        // Skip summary/cover sheets
-        if (/summary|cover|note|qualification|index|contents/i.test(sheetName)) {
-          continue;
+      // Get BOQ info
+      const { data: boq, error: boqError } = await supabase
+        .from("project_boqs")
+        .select("id, boq_name")
+        .eq("id", boqId)
+        .single();
+      if (boqError) throw boqError;
+
+      // Get bills
+      const { data: bills, error: billsError } = await supabase
+        .from("boq_bills")
+        .select("id, bill_number, bill_name, total_amount")
+        .eq("project_boq_id", boqId)
+        .order("bill_number", { ascending: true });
+      if (billsError) throw billsError;
+
+      const structure: BOQStructure = {
+        boqId: boq.id,
+        boqName: boq.boq_name,
+        bills: [],
+      };
+
+      // Get sections and items for each bill
+      for (const bill of bills || []) {
+        const { data: sections, error: sectionsError } = await supabase
+          .from("boq_project_sections")
+          .select("id, section_code, section_name, description, total_amount")
+          .eq("bill_id", bill.id)
+          .order("display_order", { ascending: true });
+        if (sectionsError) throw sectionsError;
+
+        const billData = {
+          id: bill.id,
+          billNumber: bill.bill_number,
+          billName: bill.bill_name,
+          totalAmount: bill.total_amount || 0,
+          sections: [] as BOQStructure['bills'][0]['sections'],
+        };
+
+        for (const section of sections || []) {
+          const { data: items, error: itemsError } = await supabase
+            .from("boq_items")
+            .select("id, item_code, description, unit, quantity, supply_rate, install_rate, total_amount, display_order, item_type, prime_cost_amount")
+            .eq("section_id", section.id)
+            .order("display_order", { ascending: true });
+          if (itemsError) throw itemsError;
+
+          billData.sections.push({
+            id: section.id,
+            sectionCode: section.section_code,
+            sectionName: section.section_name,
+            description: section.description,
+            totalAmount: section.total_amount || 0,
+            items: (items || []).map(item => ({
+              id: item.id,
+              itemCode: item.item_code || "",
+              description: item.description,
+              unit: item.unit || "",
+              quantity: item.quantity || 0,
+              supplyRate: item.supply_rate || 0,
+              installRate: item.install_rate || 0,
+              totalAmount: item.total_amount || 0,
+              displayOrder: item.display_order || 0,
+              itemType: item.item_type,
+              primeCostAmount: item.prime_cost_amount,
+            })),
+          });
         }
-        
-        const worksheet = workbook.Sheets[sheetName];
-        const section = parseSheet(worksheet, sheetName);
-        
-        if (section.items.length > 0) {
-          parsedSections.push(section);
-        }
+
+        structure.bills.push(billData);
       }
+
+      setBoqStructure(structure);
+      setPhase('preview');
       
-      // Sort by bill number then section code
-      parsedSections.sort((a, b) => {
-        if (a.billNumber !== b.billNumber) return a.billNumber - b.billNumber;
-        const aParts = a.sectionCode.split('.').map(p => parseInt(p) || 0);
-        const bParts = b.sectionCode.split('.').map(p => parseInt(p) || 0);
-        for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
-          if ((aParts[i] || 0) !== (bParts[i] || 0)) return (aParts[i] || 0) - (bParts[i] || 0);
-        }
-        return a.sectionCode.localeCompare(b.sectionCode);
-      });
-      
-      setSections(parsedSections);
-      setPhase('parsed');
-      
-      const totalItems = parsedSections.reduce((sum, s) => sum + s.itemCount, 0);
-      const totalPC = parsedSections.reduce((sum, s) => sum + s.primeCostItems.length, 0);
-      toast.success(`Parsed ${parsedSections.length} sections with ${totalItems} items (${totalPC} Prime Costs)`);
+      const totalSections = structure.bills.reduce((sum, b) => sum + b.sections.length, 0);
+      const totalItems = structure.bills.reduce((sum, b) => 
+        sum + b.sections.reduce((sSum, s) => sSum + s.items.length, 0), 0);
+      toast.success(`Loaded ${structure.bills.length} bills, ${totalSections} sections, ${totalItems} items`);
       
     } catch (error) {
-      console.error("Failed to parse BOQ:", error);
-      toast.error("Failed to parse BOQ file");
+      console.error("Failed to load BOQ structure:", error);
+      toast.error("Failed to load BOQ data");
     } finally {
-      setParsing(false);
+      setLoading(false);
     }
   }, []);
 
-  // Import all sections
-  const handleImportAll = async () => {
-    if (sections.length === 0) return;
+  // Import from BOQ structure
+  const handleImport = async () => {
+    if (!boqStructure) return;
     
     setPhase('importing');
-    setImportProgress({ current: 0, total: sections.length });
+    const totalSections = boqStructure.bills.reduce((sum, b) => sum + b.sections.length, 0);
+    setImportProgress({ current: 0, total: totalSections });
     
     let successCount = 0;
     let failedCount = 0;
-    
-    for (let i = 0; i < sections.length; i++) {
-      const section = sections[i];
-      setImportProgress({ current: i + 1, total: sections.length });
-      
+    let sectionIndex = 0;
+
+    for (const bill of boqStructure.bills) {
       try {
-        // Create or get bill
+        // Create or get final account bill
         const { data: existingBill } = await supabase
           .from("final_account_bills")
           .select("id")
           .eq("final_account_id", accountId)
-          .eq("bill_number", section.billNumber)
+          .eq("bill_number", bill.billNumber)
           .maybeSingle();
 
         let billId: string;
         if (existingBill) {
           billId = existingBill.id;
+          // Update bill name if changed
+          await supabase
+            .from("final_account_bills")
+            .update({ bill_name: bill.billName })
+            .eq("id", billId);
         } else {
           const { data: newBill, error: billError } = await supabase
             .from("final_account_bills")
             .insert({
               final_account_id: accountId,
-              bill_number: section.billNumber,
-              bill_name: section.billName,
+              bill_number: bill.billNumber,
+              bill_name: bill.billName,
             })
             .select()
             .single();
@@ -640,147 +229,166 @@ export function UnifiedBOQImport({ open, onOpenChange, accountId, projectId }: U
           billId = newBill.id;
         }
 
-        // Create or replace section
-        const { data: existingSection } = await supabase
-          .from("final_account_sections")
-          .select("id")
-          .eq("bill_id", billId)
-          .eq("section_code", section.sectionCode)
-          .maybeSingle();
+        for (const section of bill.sections) {
+          sectionIndex++;
+          setImportProgress({ current: sectionIndex, total: totalSections });
 
-        let sectionId: string;
-        if (existingSection) {
-          await supabase.from("final_account_items").delete().eq("section_id", existingSection.id);
-          sectionId = existingSection.id;
-          await supabase.from("final_account_sections")
-            .update({ section_name: section.sectionName })
-            .eq("id", sectionId);
-        } else {
-          const { data: newSection, error: sectionError } = await supabase
-            .from("final_account_sections")
-            .insert({
-              bill_id: billId,
-              section_code: section.sectionCode,
-              section_name: section.sectionName,
-              display_order: section.sectionCode.charCodeAt(0) - 64,
-            })
-            .select()
-            .single();
-          if (sectionError) throw sectionError;
-          sectionId = newSection.id;
-        }
+          try {
+            // Create or replace section
+            const { data: existingSection } = await supabase
+              .from("final_account_sections")
+              .select("id")
+              .eq("bill_id", billId)
+              .eq("section_code", section.sectionCode)
+              .maybeSingle();
 
-        // Insert items - first pass without P&A parent links
-        const itemsToInsert = section.items.map((item, index) => {
-          const isHeader = isHeaderOrSubtotalRow(item.itemCode, item.description);
-          const amount = isHeader ? 0 : item.amount;
-          
-          return {
-            section_id: sectionId,
-            item_code: item.itemCode || "",
-            description: item.description,
-            unit: item.unit || "",
-            contract_quantity: isHeader ? 0 : item.quantity,
-            final_quantity: 0,
-            supply_rate: isHeader ? 0 : item.supplyRate,
-            install_rate: isHeader ? 0 : item.installRate,
-            contract_amount: amount,
-            final_amount: 0,
-            display_order: index + 1,
-            is_prime_cost: item.isPrimeCost || false,
-            pc_allowance: item.isPrimeCost ? amount : 0,
-            pc_actual_cost: 0,
-            pc_profit_attendance_percent: item.pcProfitAttendancePercent || 0,
-            // P&A fields
-            is_pa_item: item.isPAItem || false,
-            pa_percentage: item.paPercentage || 0,
-            // pa_parent_item_id will be set in second pass
-          };
-        });
-
-        const { data: insertedItems, error: itemsError } = await supabase
-          .from("final_account_items")
-          .insert(itemsToInsert)
-          .select("id, item_code, is_prime_cost, display_order");
-        if (itemsError) throw itemsError;
-
-        // Second pass: Link P&A items to their parent PC items by matching item codes
-        if (insertedItems) {
-          const pcItemsById: Map<string, string> = new Map();
-          insertedItems.forEach(item => {
-            if (item.is_prime_cost && item.item_code) {
-              pcItemsById.set(item.item_code.toUpperCase(), item.id);
+            let sectionId: string;
+            if (existingSection) {
+              // Clear existing items
+              await supabase.from("final_account_items").delete().eq("section_id", existingSection.id);
+              sectionId = existingSection.id;
+              await supabase.from("final_account_sections")
+                .update({ 
+                  section_name: section.sectionName,
+                  description: section.description,
+                })
+                .eq("id", sectionId);
+            } else {
+              const { data: newSection, error: sectionError } = await supabase
+                .from("final_account_sections")
+                .insert({
+                  bill_id: billId,
+                  section_code: section.sectionCode,
+                  section_name: section.sectionName,
+                  description: section.description,
+                  display_order: section.sectionCode.charCodeAt(0) - 64,
+                })
+                .select()
+                .single();
+              if (sectionError) throw sectionError;
+              sectionId = newSection.id;
             }
-          });
 
-          // Find P&A items that need linking
-          const paItemsToUpdate: { id: string; parentId: string }[] = [];
-          section.items.forEach((parseItem, index) => {
-            if (parseItem.isPAItem && parseItem.paParentItemCode) {
-              const insertedItem = insertedItems.find(i => i.display_order === index + 1);
-              const parentId = pcItemsById.get(parseItem.paParentItemCode.toUpperCase());
-              if (insertedItem && parentId) {
-                paItemsToUpdate.push({ id: insertedItem.id, parentId });
-              }
+            // Insert items from BOQ structure - maintains exact mapping
+            const itemsToInsert = section.items.map((item) => ({
+              section_id: sectionId,
+              item_code: item.itemCode,
+              description: item.description,
+              unit: item.unit,
+              contract_quantity: item.quantity,
+              final_quantity: 0,
+              supply_rate: item.supplyRate,
+              install_rate: item.installRate,
+              contract_amount: item.totalAmount,
+              final_amount: 0,
+              display_order: item.displayOrder,
+              is_prime_cost: item.itemType === 'prime_cost' || item.primeCostAmount != null,
+              pc_allowance: item.primeCostAmount || 0,
+              pc_actual_cost: 0,
+              pc_profit_attendance_percent: 0,
+              source_boq_item_id: item.id, // Link to source BOQ item!
+            }));
+
+            if (itemsToInsert.length > 0) {
+              const { error: itemsError } = await supabase
+                .from("final_account_items")
+                .insert(itemsToInsert);
+              if (itemsError) throw itemsError;
             }
-          });
 
-          // Update P&A items with parent references
-          for (const update of paItemsToUpdate) {
+            // Update section totals
+            const contractTotal = section.items.reduce((sum, i) => sum + i.totalAmount, 0);
             await supabase
-              .from("final_account_items")
-              .update({ pa_parent_item_id: update.parentId })
-              .eq("id", update.id);
+              .from("final_account_sections")
+              .update({
+                contract_total: contractTotal,
+                final_total: 0,
+              })
+              .eq("id", sectionId);
+
+            successCount++;
+          } catch (error) {
+            console.error(`Failed to import section ${section.sectionCode}:`, error);
+            failedCount++;
           }
         }
-
-        // Update section totals
-        await supabase
-          .from("final_account_sections")
-          .update({
-            contract_total: section.calculatedTotal,
-            boq_stated_total: section.boqTotal,
-            final_total: 0,
-          })
-          .eq("id", sectionId);
-
-        successCount++;
       } catch (error) {
-        console.error(`Failed to import section ${section.sectionCode}:`, error);
-        failedCount++;
+        console.error(`Failed to import bill ${bill.billNumber}:`, error);
+        failedCount += bill.sections.length;
       }
     }
-    
-    // Update source reference
-    if (selectedBoqId) {
+
+    // Update bill totals
+    const { data: finalBills } = await supabase
+      .from("final_account_bills")
+      .select("id")
+      .eq("final_account_id", accountId);
+
+    for (const bill of finalBills || []) {
+      const { data: sections } = await supabase
+        .from("final_account_sections")
+        .select("contract_total, final_total")
+        .eq("bill_id", bill.id);
+      
+      const contractTotal = sections?.reduce((sum, s) => sum + (s.contract_total || 0), 0) || 0;
+      const finalTotal = sections?.reduce((sum, s) => sum + (s.final_total || 0), 0) || 0;
+      
       await supabase
-        .from("final_accounts")
-        .update({ source_boq_upload_id: selectedBoqId })
-        .eq("id", accountId);
+        .from("final_account_bills")
+        .update({
+          contract_total: contractTotal,
+          final_total: finalTotal,
+          variation_total: finalTotal - contractTotal,
+        })
+        .eq("id", bill.id);
     }
-    
+
     queryClient.invalidateQueries({ queryKey: ["final-account-bills"] });
     queryClient.invalidateQueries({ queryKey: ["final-account-sections"] });
     queryClient.invalidateQueries({ queryKey: ["final-account-items"] });
-    
+
     setImportResult({ success: successCount, failed: failedCount });
     setPhase('complete');
   };
 
   // Computed values
   const totals = useMemo(() => {
-    const totalItems = sections.reduce((sum, s) => sum + s.itemCount, 0);
-    const totalAmount = sections.reduce((sum, s) => sum + s.calculatedTotal, 0);
-    const totalPC = sections.reduce((sum, s) => sum + s.primeCostItems.length, 0);
-    const pcWithPA = sections.flatMap(s => s.primeCostItems).filter(i => i.pcProfitAttendancePercent > 0).length;
-    return { totalItems, totalAmount, totalPC, pcWithPA };
-  }, [sections]);
+    if (!boqStructure) return { bills: 0, sections: 0, items: 0, amount: 0 };
+    return {
+      bills: boqStructure.bills.length,
+      sections: boqStructure.bills.reduce((sum, b) => sum + b.sections.length, 0),
+      items: boqStructure.bills.reduce((sum, b) => 
+        sum + b.sections.reduce((sSum, s) => sSum + s.items.length, 0), 0),
+      amount: boqStructure.bills.reduce((sum, b) => sum + b.totalAmount, 0),
+    };
+  }, [boqStructure]);
+
+  const toggleBill = (billId: string) => {
+    const newExpanded = new Set(expandedBills);
+    if (newExpanded.has(billId)) {
+      newExpanded.delete(billId);
+    } else {
+      newExpanded.add(billId);
+    }
+    setExpandedBills(newExpanded);
+  };
+
+  const toggleSection = (sectionId: string) => {
+    const newExpanded = new Set(expandedSections);
+    if (newExpanded.has(sectionId)) {
+      newExpanded.delete(sectionId);
+    } else {
+      newExpanded.add(sectionId);
+    }
+    setExpandedSections(newExpanded);
+  };
 
   const handleClose = () => {
     setPhase('select');
     setSelectedBoqId(null);
-    setSections([]);
-    setExpandedSection(null);
+    setBoqStructure(null);
+    setExpandedBills(new Set());
+    setExpandedSections(new Set());
     setImportResult(null);
     onOpenChange(false);
   };
@@ -789,152 +397,156 @@ export function UnifiedBOQImport({ open, onOpenChange, accountId, projectId }: U
     <Dialog open={open} onOpenChange={handleClose}>
       <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle>Import BOQ to Final Account</DialogTitle>
+          <DialogTitle>Import from BOQ</DialogTitle>
           <DialogDescription>
-            {phase === 'select' && "Select a BOQ file to parse and import"}
-            {phase === 'parsed' && "Review parsed data, then click Import All to proceed"}
+            {phase === 'select' && "Select the BOQ structure to import into Final Account"}
+            {phase === 'preview' && "Review the data, then click Import to proceed"}
             {phase === 'importing' && "Importing sections..."}
             {phase === 'complete' && "Import complete"}
           </DialogDescription>
         </DialogHeader>
 
-        <div className="flex-1 overflow-hidden flex flex-col">
+        <div className="flex-1 overflow-hidden">
           {/* Phase: Select BOQ */}
-          {phase === 'select' && !parsing && (
-            <ScrollArea className="flex-1">
-              {isLoading ? (
+          {phase === 'select' && (
+            <div className="space-y-4">
+              {loadingBoqs ? (
                 <div className="flex items-center justify-center py-12">
                   <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
                 </div>
-              ) : boqUploads.length === 0 ? (
+              ) : projectBoqs.length === 0 ? (
                 <div className="text-center py-12 text-muted-foreground">
-                  <FileSpreadsheet className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                  <p className="text-lg">No BOQ uploads found</p>
-                  <p className="text-sm mt-2">Upload a BOQ in the Master Library first</p>
+                  <Database className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                  <p>No BOQ found for this project.</p>
+                  <p className="text-sm mt-2">Please create a BOQ first in the BOQ module.</p>
                 </div>
               ) : (
-                <div className="space-y-2 p-1">
-                  {boqUploads.map((boq) => (
-                    <div
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Select a BOQ to import its structure (bills, sections, and items) into the Final Account:
+                  </p>
+                  {projectBoqs.map((boq) => (
+                    <Card
                       key={boq.id}
-                      onClick={() => handleSelectBoq(boq)}
-                      className="p-4 border rounded-lg cursor-pointer transition-colors hover:border-primary hover:bg-primary/5"
+                      className={cn(
+                        "cursor-pointer transition-colors hover:bg-muted/50",
+                        selectedBoqId === boq.id && loading && "border-primary"
+                      )}
+                      onClick={() => loadBoqStructure(boq.id)}
                     >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <p className="font-medium">{boq.file_name}</p>
-                          <p className="text-sm text-muted-foreground">
-                            {format(new Date(boq.created_at), "MMM d, yyyy")}
-                            {boq.contractor_name && ` • ${boq.contractor_name}`}
-                          </p>
+                      <CardContent className="p-4 flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <Database className="h-5 w-5 text-muted-foreground" />
+                          <div>
+                            <p className="font-medium">{boq.boq_name}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {boq.boq_number}
+                            </p>
+                          </div>
                         </div>
-                        <ChevronRight className="h-5 w-5 text-muted-foreground" />
-                      </div>
-                    </div>
+                        {loading && selectedBoqId === boq.id ? (
+                          <Loader2 className="h-5 w-5 animate-spin" />
+                        ) : (
+                          <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                        )}
+                      </CardContent>
+                    </Card>
                   ))}
                 </div>
               )}
-            </ScrollArea>
-          )}
-
-          {/* Parsing indicator */}
-          {parsing && (
-            <div className="flex flex-col items-center justify-center py-16 gap-4">
-              <Loader2 className="h-12 w-12 animate-spin text-primary" />
-              <p className="text-lg font-medium">Parsing BOQ file...</p>
-              <p className="text-sm text-muted-foreground">Extracting sections, items, and Prime Costs</p>
             </div>
           )}
 
-          {/* Phase: Parsed - Show summary and sections */}
-          {phase === 'parsed' && (
-            <>
+          {/* Phase: Preview */}
+          {phase === 'preview' && boqStructure && (
+            <div className="space-y-4">
               {/* Summary */}
-              <div className="bg-muted/50 rounded-lg p-4 mb-4">
-                <div className="grid grid-cols-4 gap-4 text-center">
-                  <div>
-                    <p className="text-2xl font-bold">{sections.length}</p>
-                    <p className="text-xs text-muted-foreground">Sections</p>
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">{totals.totalItems}</p>
-                    <p className="text-xs text-muted-foreground">Items</p>
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">{formatCurrency(totals.totalAmount)}</p>
-                    <p className="text-xs text-muted-foreground">Total Amount</p>
-                  </div>
-                  <div>
-                    <p className="text-2xl font-bold">{totals.totalPC}</p>
-                    <p className="text-xs text-muted-foreground">Prime Costs ({totals.pcWithPA} with P&A)</p>
-                  </div>
+              <div className="grid grid-cols-4 gap-4 p-4 bg-muted rounded-lg">
+                <div className="text-center">
+                  <p className="text-2xl font-bold">{totals.bills}</p>
+                  <p className="text-sm text-muted-foreground">Bills</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold">{totals.sections}</p>
+                  <p className="text-sm text-muted-foreground">Sections</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold">{totals.items}</p>
+                  <p className="text-sm text-muted-foreground">Items</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-2xl font-bold">{formatCurrency(totals.amount)}</p>
+                  <p className="text-sm text-muted-foreground">Total Amount</p>
                 </div>
               </div>
 
-              {/* Sections list */}
-              <ScrollArea className="flex-1">
-                <div className="space-y-1">
-                  {sections.map((section) => (
-                    <div key={`${section.billNumber}-${section.sectionCode}`} className="border rounded-lg overflow-hidden">
-                      <div
-                        onClick={() => setExpandedSection(expandedSection === section.sectionCode ? null : section.sectionCode)}
-                        className="flex items-center justify-between p-3 cursor-pointer hover:bg-muted/50"
+              {/* Structure preview */}
+              <ScrollArea className="h-[400px] border rounded-lg">
+                <div className="p-4 space-y-2">
+                  {boqStructure.bills.map((bill) => (
+                    <div key={bill.id} className="border rounded-lg overflow-hidden">
+                      <button
+                        className="w-full p-3 flex items-center justify-between bg-muted/30 hover:bg-muted/50 transition-colors"
+                        onClick={() => toggleBill(bill.id)}
                       >
                         <div className="flex items-center gap-2">
-                          {expandedSection === section.sectionCode ? (
+                          {expandedBills.has(bill.id) ? (
                             <ChevronDown className="h-4 w-4" />
                           ) : (
                             <ChevronRight className="h-4 w-4" />
                           )}
-                          <span className="font-medium">{section.sectionCode}</span>
-                          <span className="text-muted-foreground">- {section.sectionName}</span>
+                          <span className="font-medium">
+                            Bill No. {bill.billNumber} - {bill.billName}
+                          </span>
                         </div>
-                        <div className="flex items-center gap-4 text-sm">
-                          <span className="text-muted-foreground">{section.itemCount} items</span>
-                          <span className="font-medium">{formatCurrency(section.calculatedTotal)}</span>
-                          {section.primeCostItems.length > 0 && (
-                            <span className="text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 px-2 py-0.5 rounded">
-                              {section.primeCostItems.length} PC
-                            </span>
-                          )}
-                        </div>
-                      </div>
+                        <span className="text-sm text-muted-foreground">
+                          {bill.sections.length} sections • {formatCurrency(bill.totalAmount)}
+                        </span>
+                      </button>
                       
-                      {/* Expanded section details */}
-                      {expandedSection === section.sectionCode && (
-                        <div className="bg-muted/30 p-3 border-t">
-                          <div className="max-h-[200px] overflow-auto space-y-1 text-xs">
-                            {section.items.slice(0, 25).map((item, idx) => (
-                              <div 
-                                key={idx} 
-                                className={cn(
-                                  "flex justify-between gap-2 py-1 px-2 rounded",
-                                  isHeaderOrSubtotalRow(item.itemCode, item.description) 
-                                    ? "bg-muted text-muted-foreground italic" 
-                                    : "bg-background",
-                                  item.isPrimeCost ? "border-l-2 border-blue-500" : ""
-                                )}
+                      {expandedBills.has(bill.id) && (
+                        <div className="pl-6 pr-2 py-2 space-y-1">
+                          {bill.sections.map((section) => (
+                            <div key={section.id}>
+                              <button
+                                className="w-full p-2 flex items-center justify-between hover:bg-muted/30 rounded transition-colors text-sm"
+                                onClick={() => toggleSection(section.id)}
                               >
-                                <span className="flex-1 truncate">
-                                  <span className="font-mono text-muted-foreground mr-2">{item.itemCode || '-'}</span>
-                                  {item.description.substring(0, 60)}
-                                  {item.isPrimeCost && (
-                                    <span className="ml-2 text-blue-600">
-                                      [PC: {item.pcProfitAttendancePercent || 0}% P&A]
-                                    </span>
+                                <div className="flex items-center gap-2">
+                                  {expandedSections.has(section.id) ? (
+                                    <ChevronDown className="h-3 w-3" />
+                                  ) : (
+                                    <ChevronRight className="h-3 w-3" />
                                   )}
+                                  <span>
+                                    {section.sectionCode} - {section.sectionName}
+                                  </span>
+                                </div>
+                                <span className="text-muted-foreground">
+                                  {section.items.length} items • {formatCurrency(section.totalAmount)}
                                 </span>
-                                <span className="font-medium shrink-0">
-                                  {formatCurrency(item.amount)}
-                                </span>
-                              </div>
-                            ))}
-                            {section.items.length > 25 && (
-                              <p className="text-muted-foreground py-1 text-center">
-                                ...and {section.items.length - 25} more items
-                              </p>
-                            )}
-                          </div>
+                              </button>
+                              
+                              {expandedSections.has(section.id) && (
+                                <div className="pl-6 py-1 space-y-1">
+                                  {section.items.slice(0, 10).map((item) => (
+                                    <div key={item.id} className="text-xs text-muted-foreground py-1 flex justify-between">
+                                      <span className="truncate flex-1">
+                                        {item.itemCode && <span className="font-mono mr-2">{item.itemCode}</span>}
+                                        {item.description}
+                                      </span>
+                                      <span className="ml-2 tabular-nums">{formatCurrency(item.totalAmount)}</span>
+                                    </div>
+                                  ))}
+                                  {section.items.length > 10 && (
+                                    <p className="text-xs text-muted-foreground italic">
+                                      ...and {section.items.length - 10} more items
+                                    </p>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          ))}
                         </div>
                       )}
                     </div>
@@ -942,93 +554,50 @@ export function UnifiedBOQImport({ open, onOpenChange, accountId, projectId }: U
                 </div>
               </ScrollArea>
 
-              {/* Prime Cost warning */}
-              {totals.totalPC > 0 && totals.pcWithPA < totals.totalPC && (
-                <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-3 mt-4">
-                  <div className="flex items-center gap-2">
-                    <AlertTriangle className="h-4 w-4 text-amber-600" />
-                    <p className="text-sm text-amber-700 dark:text-amber-300">
-                      {totals.totalPC - totals.pcWithPA} of {totals.totalPC} Prime Cost items have 0% P&A. 
-                      You may need to manually update these after import.
-                    </p>
-                  </div>
-                </div>
-              )}
-            </>
+              <div className="flex justify-between">
+                <Button variant="outline" onClick={() => setPhase('select')}>
+                  Back
+                </Button>
+                <Button onClick={handleImport}>
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Import to Final Account
+                </Button>
+              </div>
+            </div>
           )}
 
           {/* Phase: Importing */}
           {phase === 'importing' && (
-            <div className="flex flex-col items-center justify-center py-16 gap-6">
-              <div className="relative">
-                <svg className="w-32 h-32 transform -rotate-90">
-                  <circle className="text-muted stroke-current" strokeWidth="8" fill="transparent" r="56" cx="64" cy="64" />
-                  <circle
-                    className="text-primary stroke-current transition-all duration-300"
-                    strokeWidth="8"
-                    strokeLinecap="round"
-                    fill="transparent"
-                    r="56"
-                    cx="64"
-                    cy="64"
-                    strokeDasharray={`${2 * Math.PI * 56}`}
-                    strokeDashoffset={`${2 * Math.PI * 56 * (1 - importProgress.current / Math.max(importProgress.total, 1))}`}
-                  />
-                </svg>
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <span className="text-3xl font-bold">
-                    {Math.round((importProgress.current / Math.max(importProgress.total, 1)) * 100)}%
-                  </span>
-                </div>
-              </div>
-              <p className="text-lg font-medium">
-                Importing {importProgress.current} of {importProgress.total} sections
+            <div className="flex flex-col items-center justify-center py-12">
+              <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+              <p className="text-lg font-medium">Importing...</p>
+              <p className="text-sm text-muted-foreground">
+                Section {importProgress.current} of {importProgress.total}
               </p>
+              <div className="w-64 h-2 bg-muted rounded-full mt-4 overflow-hidden">
+                <div
+                  className="h-full bg-primary transition-all duration-300"
+                  style={{ width: `${(importProgress.current / importProgress.total) * 100}%` }}
+                />
+              </div>
             </div>
           )}
 
           {/* Phase: Complete */}
           {phase === 'complete' && importResult && (
-            <div className="flex flex-col items-center justify-center py-16 gap-6">
-              <div className={cn(
-                "w-20 h-20 rounded-full flex items-center justify-center",
-                importResult.failed === 0 ? "bg-green-100 dark:bg-green-900/30" : "bg-amber-100 dark:bg-amber-900/30"
-              )}>
-                {importResult.failed === 0 ? (
-                  <CheckCircle2 className="h-10 w-10 text-green-600" />
-                ) : (
-                  <AlertCircle className="h-10 w-10 text-amber-600" />
-                )}
-              </div>
-              <div className="text-center">
-                <p className="text-xl font-bold">
-                  {importResult.failed === 0 ? 'Import Successful!' : 'Import Completed with Issues'}
-                </p>
-                <p className="text-muted-foreground mt-2">
-                  Imported <strong>{importResult.success}</strong> of{' '}
-                  <strong>{importResult.success + importResult.failed}</strong> sections
-                </p>
+            <div className="flex flex-col items-center justify-center py-12">
+              <CheckCircle2 className="h-16 w-16 text-green-500 mb-4" />
+              <p className="text-xl font-medium mb-2">Import Complete!</p>
+              <div className="text-center text-muted-foreground">
+                <p>{importResult.success} sections imported successfully</p>
                 {importResult.failed > 0 && (
-                  <p className="text-amber-600 text-sm mt-1">
-                    {importResult.failed} section(s) failed
-                  </p>
+                  <p className="text-destructive">{importResult.failed} sections failed</p>
                 )}
               </div>
+              <Button onClick={handleClose} className="mt-6">
+                Close
+              </Button>
             </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="flex justify-between pt-4 border-t">
-          <Button variant="outline" onClick={handleClose}>
-            {phase === 'complete' ? 'Done' : 'Cancel'}
-          </Button>
-          
-          {phase === 'parsed' && (
-            <Button onClick={handleImportAll} disabled={sections.length === 0}>
-              <FileSpreadsheet className="h-4 w-4 mr-2" />
-              Import All ({sections.length} sections)
-            </Button>
           )}
         </div>
       </DialogContent>
