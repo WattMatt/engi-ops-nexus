@@ -218,134 +218,163 @@ export function BOQExcelImportDialog({
       const arrayBuffer = await file.arrayBuffer();
       const workbook = XLSX.read(new Uint8Array(arrayBuffer), { type: 'array' });
 
-      // Get or create a default bill
+      // Get existing max bill number
       const { data: existingBills } = await supabase
         .from("boq_bills")
-        .select("id")
+        .select("bill_number")
         .eq("project_boq_id", boqId)
+        .order("bill_number", { ascending: false })
         .limit(1);
 
-      let billId = existingBills?.[0]?.id;
-      if (!billId) {
-        const { data: newBill, error: billError } = await supabase
-          .from("boq_bills")
-          .insert({
-            project_boq_id: boqId,
-            bill_number: 1,
-            bill_name: "Imported Bill",
-            display_order: 0,
-          })
-          .select()
-          .single();
-        if (billError) throw billError;
-        billId = newBill.id;
-      }
-
+      let nextBillNumber = (existingBills?.[0]?.bill_number || 0) + 1;
       let totalImported = 0;
+      let billsCreated = 0;
 
-      // Process each sheet
-      for (const sheetName of workbook.SheetNames) {
+      // Process each sheet as a separate BILL (not section)
+      for (let sheetIdx = 0; sheetIdx < workbook.SheetNames.length; sheetIdx++) {
+        const sheetName = workbook.SheetNames[sheetIdx];
         const worksheet = workbook.Sheets[sheetName];
         const items = parseSheet(worksheet, sheetName);
 
         if (items.length === 0) continue;
 
-        // Extract section code from sheet name
-        // Try multiple patterns to match various section code formats:
-        // - Single letter: A, B, C
-        // - Letter with numbers: A1, B2.1, C3.2.1
-        // - Numbers with dots: 1.1, 1.2.3
-        // - Alphanumeric: AA1, AB-1, etc.
-        // - Patterns like "B1-A", "Section-A", etc.
-        let sectionCodeMatch = sheetName.match(/^([A-Za-z]\d*\.?\d*)/); // Letter followed by optional numbers/dots
-        if (!sectionCodeMatch) {
-          sectionCodeMatch = sheetName.match(/^(\d+\.?\d*)/); // Number(s) with optional dots
-        }
-        if (!sectionCodeMatch) {
-          sectionCodeMatch = sheetName.match(/([A-Za-z]+-?\d*\.?\d*)/); // Alphanumeric with optional dash
-        }
-        if (!sectionCodeMatch) {
-          // Try to extract from patterns like "B1-A", "Section-A", etc.
-          sectionCodeMatch = sheetName.match(/([A-Za-z0-9]+(?:\.[A-Za-z0-9]+)*)/);
-        }
+        // Parse bill info from sheet name
+        // Patterns: "1 - Mall", "Bill 1 Mall", "1-Mall", "1.Mall", "Mall"
+        let billNumber = nextBillNumber;
+        let billName = sheetName.trim();
         
-        // Normalize to uppercase and use first 20 chars as fallback
-        const sectionCode = sectionCodeMatch 
-          ? sectionCodeMatch[1].toUpperCase().trim() 
-          : sheetName.substring(0, 20).toUpperCase().trim().replace(/[^A-Za-z0-9.]/g, '');
-        
-        // Extract section name by removing the code prefix
-        const sectionName = sheetName
-          .replace(/^[A-Za-z0-9]+(?:\.[A-Za-z0-9]+)*\s*-?\s*/i, '') // Remove code prefix
-          .substring(0, 50)
-          .trim() || sheetName.substring(0, 50);
+        // Try to extract bill number from sheet name
+        const billNumberMatch = sheetName.match(/^(?:Bill\s*)?(\d+)[\s\-\.]+(.+)/i);
+        if (billNumberMatch) {
+          billNumber = parseInt(billNumberMatch[1], 10);
+          billName = billNumberMatch[2].trim();
+        } else {
+          // Check if sheet name starts with a number
+          const startsWithNumber = sheetName.match(/^(\d+)\s*(.*)$/);
+          if (startsWithNumber) {
+            billNumber = parseInt(startsWithNumber[1], 10);
+            billName = startsWithNumber[2].trim() || `Bill ${billNumber}`;
+          }
+        }
 
-        // Get or create section
-        const { data: existingSection, error: sectionCheckError } = await supabase
-          .from("boq_project_sections")
+        // Check if bill already exists
+        const { data: existingBill } = await supabase
+          .from("boq_bills")
           .select("id")
-          .eq("bill_id", billId)
-          .eq("section_code", sectionCode)
+          .eq("project_boq_id", boqId)
+          .eq("bill_number", billNumber)
           .maybeSingle();
-        
-        if (sectionCheckError) throw sectionCheckError;
 
-        let sectionId = existingSection?.id;
-        if (!sectionId) {
-          // Get current max display_order for this bill to append new section at the end
-          const { data: existingSections } = await supabase
-            .from("boq_project_sections")
-            .select("display_order")
-            .eq("bill_id", billId)
-            .order("display_order", { ascending: false })
-            .limit(1);
-
-          const displayOrder = existingSections && existingSections.length > 0
-            ? (existingSections[0].display_order || 0) + 1
-            : 0;
-
-          const { data: newSection, error: sectionError } = await supabase
-            .from("boq_project_sections")
+        let billId: string;
+        if (existingBill) {
+          billId = existingBill.id;
+          // Update bill name
+          await supabase.from("boq_bills").update({ bill_name: billName }).eq("id", billId);
+        } else {
+          const { data: newBill, error: billError } = await supabase
+            .from("boq_bills")
             .insert({
-              bill_id: billId,
-              section_code: sectionCode,
-              section_name: sectionName,
-              display_order: displayOrder,
+              project_boq_id: boqId,
+              bill_number: billNumber,
+              bill_name: billName || `Bill ${billNumber}`,
+              display_order: sheetIdx,
             })
             .select()
             .single();
-          if (sectionError) throw sectionError;
-          sectionId = newSection.id;
+          if (billError) throw billError;
+          billId = newBill.id;
+          billsCreated++;
+          if (billNumber >= nextBillNumber) {
+            nextBillNumber = billNumber + 1;
+          }
         }
 
-        // Get max display order
-        const { data: existingItems } = await supabase
-          .from("boq_items")
-          .select("display_order")
-          .eq("section_id", sectionId)
-          .order("display_order", { ascending: false })
-          .limit(1);
+        // Create a default section for items (or group by item codes if they indicate sections)
+        // First, analyze items to see if there are section patterns in item codes
+        const sectionGroups = new Map<string, typeof items>();
+        
+        for (const item of items) {
+          // Try to extract section from item code (e.g., "1.2.1" -> section "1.2", "A1.2" -> section "A1")
+          let sectionCode = "1"; // Default section
+          const itemCode = item.item_code || "";
+          
+          // Pattern: Major.Minor.Item (e.g., 1.2.3)
+          const numericMatch = itemCode.match(/^(\d+\.\d+)/);
+          if (numericMatch) {
+            sectionCode = numericMatch[1];
+          } else {
+            // Pattern: Letter + Number (e.g., A1, B2)
+            const alphaMatch = itemCode.match(/^([A-Za-z]\d+)/);
+            if (alphaMatch) {
+              sectionCode = alphaMatch[1].toUpperCase();
+            } else if (itemCode) {
+              // Use first part before any dots/dashes
+              const firstPart = itemCode.split(/[\.\-]/)[0];
+              if (firstPart) sectionCode = firstPart.toUpperCase();
+            }
+          }
+          
+          if (!sectionGroups.has(sectionCode)) {
+            sectionGroups.set(sectionCode, []);
+          }
+          sectionGroups.get(sectionCode)!.push(item);
+        }
 
-        let displayOrder = existingItems?.[0]?.display_order || 0;
+        // Create sections and insert items
+        let sectionDisplayOrder = 0;
+        for (const [sectionCode, sectionItems] of sectionGroups) {
+          // Derive section name from first item or use section code
+          const firstItem = sectionItems[0];
+          const sectionName = firstItem?.description?.split(/[\-\:]/)[0]?.trim()?.substring(0, 50) || 
+                             `Section ${sectionCode}`;
 
-        // Insert items - exclude computed columns (total_rate, supply_cost, install_cost, total_amount)
-        const itemsToInsert = items.map((item) => ({
-          section_id: sectionId,
-          item_code: item.item_code,
-          description: item.description,
-          unit: item.unit,
-          quantity: item.quantity,
-          supply_rate: item.supply_rate,
-          install_rate: item.install_rate,
-          display_order: ++displayOrder,
-        }));
+          // Get or create section
+          const { data: existingSection } = await supabase
+            .from("boq_project_sections")
+            .select("id")
+            .eq("bill_id", billId)
+            .eq("section_code", sectionCode)
+            .maybeSingle();
 
-        const { error: itemsError } = await supabase
-          .from("boq_items")
-          .insert(itemsToInsert);
+          let sectionId: string;
+          if (existingSection) {
+            sectionId = existingSection.id;
+            // Clear existing items to replace
+            await supabase.from("boq_items").delete().eq("section_id", sectionId);
+          } else {
+            const { data: newSection, error: sectionError } = await supabase
+              .from("boq_project_sections")
+              .insert({
+                bill_id: billId,
+                section_code: sectionCode,
+                section_name: sectionName,
+                display_order: sectionDisplayOrder++,
+              })
+              .select()
+              .single();
+            if (sectionError) throw sectionError;
+            sectionId = newSection.id;
+          }
 
-        if (itemsError) throw itemsError;
-        totalImported += items.length;
+          // Insert items
+          const itemsToInsert = sectionItems.map((item, idx) => ({
+            section_id: sectionId,
+            item_code: item.item_code,
+            description: item.description,
+            unit: item.unit,
+            quantity: item.quantity,
+            supply_rate: item.supply_rate,
+            install_rate: item.install_rate,
+            display_order: idx + 1,
+          }));
+
+          const { error: itemsError } = await supabase
+            .from("boq_items")
+            .insert(itemsToInsert);
+
+          if (itemsError) throw itemsError;
+          totalImported += sectionItems.length;
+        }
       }
 
       queryClient.invalidateQueries({ queryKey: ["boq-bills", boqId] });
@@ -354,7 +383,7 @@ export function BOQExcelImportDialog({
 
       toast({
         title: "Success",
-        description: `Imported ${totalImported} items from Excel`,
+        description: `Imported ${totalImported} items across ${billsCreated} bills from Excel`,
       });
 
       onOpenChange(false);
