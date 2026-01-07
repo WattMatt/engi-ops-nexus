@@ -71,23 +71,8 @@ export function BOQItemsSpreadsheetTable({ sectionId, billId }: BOQItemsSpreadsh
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, field, value }: { id: string; field: string; value: any }) => {
-      const item = items.find(i => i.id === id);
-      if (!item) throw new Error("Item not found");
-
+      // Only update editable fields - generated columns are calculated by the database
       const updates: any = { [field]: value };
-      
-      // Recalculate totals when quantity or rates change
-      const amountFields = ['quantity', 'supply_rate', 'install_rate'];
-      if (amountFields.includes(field)) {
-        const quantity = field === 'quantity' ? (value || 0) : (item.quantity || 0);
-        const supplyRate = field === 'supply_rate' ? (value || 0) : (item.supply_rate || 0);
-        const installRate = field === 'install_rate' ? (value || 0) : (item.install_rate || 0);
-        
-        updates.total_rate = supplyRate + installRate;
-        updates.supply_cost = quantity * supplyRate;
-        updates.install_cost = quantity * installRate;
-        updates.total_amount = updates.supply_cost + updates.install_cost;
-      }
 
       const { error } = await supabase
         .from("boq_items")
@@ -117,10 +102,6 @@ export function BOQItemsSpreadsheetTable({ sectionId, billId }: BOQItemsSpreadsh
           quantity: 0,
           supply_rate: 0,
           install_rate: 0,
-          total_rate: 0,
-          supply_cost: 0,
-          install_cost: 0,
-          total_amount: 0,
           display_order: maxOrder + 1,
         });
       if (error) throw error;
