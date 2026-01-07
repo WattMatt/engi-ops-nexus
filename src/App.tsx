@@ -34,6 +34,8 @@ import TenantTracker from "./pages/TenantTracker";
 import FinalAccounts from "./pages/FinalAccounts";
 import FinalAccountDetail from "./pages/FinalAccountDetail";
 import BOQDetail from "./pages/BOQDetail";
+import BOQs from "./pages/BOQs";
+import BOQProjectDetail from "./pages/BOQProjectDetail";
 import GeneratorReport from "./pages/GeneratorReport";
 import LightingReport from "./pages/LightingReport";
 import ProjectOutline from "./pages/ProjectOutline";
@@ -122,6 +124,8 @@ const App = () => (
             <Route path="floor-plan" element={<FloorPlan />} />
             <Route path="final-accounts" element={<FinalAccounts />} />
             <Route path="final-accounts/:accountId" element={<FinalAccountDetail />} />
+            <Route path="boqs" element={<BOQs />} />
+            <Route path="boqs/:boqId" element={<BOQProjectDetail />} />
             <Route path="boq/:uploadId" element={<BOQDetail />} />
             <Route path="messages" element={<Messages />} />
             <Route path="projects-report/generator" element={<GeneratorReport />} />
