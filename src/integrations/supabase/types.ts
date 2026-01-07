@@ -375,6 +375,50 @@ export type Database = {
         }
         Relationships: []
       }
+      boq_bills: {
+        Row: {
+          bill_name: string
+          bill_number: number
+          created_at: string
+          description: string | null
+          display_order: number | null
+          id: string
+          project_boq_id: string
+          total_amount: number | null
+          updated_at: string
+        }
+        Insert: {
+          bill_name: string
+          bill_number: number
+          created_at?: string
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          project_boq_id: string
+          total_amount?: number | null
+          updated_at?: string
+        }
+        Update: {
+          bill_name?: string
+          bill_number?: number
+          created_at?: string
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          project_boq_id?: string
+          total_amount?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boq_bills_project_boq_id_fkey"
+            columns: ["project_boq_id"]
+            isOneToOne: false
+            referencedRelation: "project_boqs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       boq_extracted_items: {
         Row: {
           added_material_id: string | null
@@ -544,6 +588,146 @@ export type Database = {
             columns: ["upload_id"]
             isOneToOne: false
             referencedRelation: "boq_uploads"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      boq_items: {
+        Row: {
+          created_at: string
+          description: string
+          display_order: number | null
+          id: string
+          install_cost: number | null
+          install_rate: number | null
+          item_code: string | null
+          master_material_id: string | null
+          notes: string | null
+          quantity: number | null
+          section_id: string
+          supply_cost: number | null
+          supply_rate: number | null
+          total_amount: number | null
+          total_rate: number | null
+          unit: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          display_order?: number | null
+          id?: string
+          install_cost?: number | null
+          install_rate?: number | null
+          item_code?: string | null
+          master_material_id?: string | null
+          notes?: string | null
+          quantity?: number | null
+          section_id: string
+          supply_cost?: number | null
+          supply_rate?: number | null
+          total_amount?: number | null
+          total_rate?: number | null
+          unit?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          display_order?: number | null
+          id?: string
+          install_cost?: number | null
+          install_rate?: number | null
+          item_code?: string | null
+          master_material_id?: string | null
+          notes?: string | null
+          quantity?: number | null
+          section_id?: string
+          supply_cost?: number | null
+          supply_rate?: number | null
+          total_amount?: number | null
+          total_rate?: number | null
+          unit?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boq_items_master_material_id_fkey"
+            columns: ["master_material_id"]
+            isOneToOne: false
+            referencedRelation: "master_materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "boq_items_master_material_id_fkey"
+            columns: ["master_material_id"]
+            isOneToOne: false
+            referencedRelation: "material_rate_analytics"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "boq_items_master_material_id_fkey"
+            columns: ["master_material_id"]
+            isOneToOne: false
+            referencedRelation: "material_rate_by_contractor"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "boq_items_master_material_id_fkey"
+            columns: ["master_material_id"]
+            isOneToOne: false
+            referencedRelation: "material_rate_by_province"
+            referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "boq_items_section_id_fkey"
+            columns: ["section_id"]
+            isOneToOne: false
+            referencedRelation: "boq_project_sections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      boq_project_sections: {
+        Row: {
+          bill_id: string
+          created_at: string
+          description: string | null
+          display_order: number | null
+          id: string
+          section_code: string
+          section_name: string
+          total_amount: number | null
+          updated_at: string
+        }
+        Insert: {
+          bill_id: string
+          created_at?: string
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          section_code: string
+          section_name: string
+          total_amount?: number | null
+          updated_at?: string
+        }
+        Update: {
+          bill_id?: string
+          created_at?: string
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          section_code?: string
+          section_name?: string
+          total_amount?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boq_project_sections_bill_id_fkey"
+            columns: ["bill_id"]
+            isOneToOne: false
+            referencedRelation: "boq_bills"
             referencedColumns: ["id"]
           },
         ]
@@ -7575,6 +7759,56 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      project_boqs: {
+        Row: {
+          boq_name: string
+          boq_number: string
+          created_at: string
+          created_by: string | null
+          id: string
+          notes: string | null
+          project_id: string
+          status: string | null
+          total_amount: number | null
+          updated_at: string
+          version: string | null
+        }
+        Insert: {
+          boq_name: string
+          boq_number: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          project_id: string
+          status?: string | null
+          total_amount?: number | null
+          updated_at?: string
+          version?: string | null
+        }
+        Update: {
+          boq_name?: string
+          boq_number?: string
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          notes?: string | null
+          project_id?: string
+          status?: string | null
+          total_amount?: number | null
+          updated_at?: string
+          version?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_boqs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: true
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       project_contacts: {
         Row: {
