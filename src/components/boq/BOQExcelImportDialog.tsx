@@ -279,8 +279,16 @@ export function BOQExcelImportDialog({
         const billNumber = billNumbers[bi];
         const sections = billGroups.get(billNumber)!;
         
-        // Use first section's name as bill name, or derive from bill number
-        const billName = sections[0]?.sectionName || `Bill ${billNumber}`;
+        // Bill name should be a summary (e.g., "Main Summary", "Anchor Tenants"), not the first section name
+        // If all sections have numeric codes like 1.2, 1.3, then it's Bill 1 = "Main Summary"
+        // If sections are named like "Boxer", "Dischem", those are typically anchor tenant bills
+        const hasDottedSections = sections.some(s => /^\d+\.\d+/.test(s.sectionCode));
+        const billName = hasDottedSections 
+          ? (billNumber === 1 ? "Main Summary" : `Bill ${billNumber} Summary`)
+          : sections.length === 1 
+            ? sections[0].sectionName 
+            : `Bill ${billNumber}`;
+        
         setProgressText(`Importing Bill ${billNumber}: ${billName}...`);
 
         // Create bill
