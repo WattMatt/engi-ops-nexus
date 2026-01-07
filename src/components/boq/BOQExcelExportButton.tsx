@@ -27,6 +27,7 @@ export function BOQExcelExportButton({ boqId, projectId }: BOQExcelExportButtonP
       if (error) throw error;
       return data;
     },
+    enabled: !!boqId,
   });
 
   const { data: bills = [] } = useQuery({

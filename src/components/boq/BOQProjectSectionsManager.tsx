@@ -41,9 +41,34 @@ export function BOQProjectSectionsManager({ billId, boqId }: BOQProjectSectionsM
           return isNaN(num) ? p : num;
         });
         
-        for (let i = 0; i < Math.max(aParts.length, bParts.length); i++) {
-          const aVal = aParts[i] || '';
-          const bVal = bParts[i] || '';
+        const maxLength = Math.max(aParts.length, bParts.length);
+        for (let i = 0; i < maxLength; i++) {
+          const aVal = aParts[i];
+          const bVal = bParts[i];
+          
+          // Handle missing parts: if one is missing, treat it as 0 for numeric comparison
+          // or empty string for string comparison
+          if (aVal === undefined && bVal === undefined) {
+            continue;
+          }
+          
+          if (aVal === undefined) {
+            // a is shorter, so it should come first if b is numeric, or compare as strings
+            if (typeof bVal === 'number') {
+              return -1; // Shorter numeric codes come first (e.g., "1" before "1.2")
+            }
+            return String('').localeCompare(String(bVal));
+          }
+          
+          if (bVal === undefined) {
+            // b is shorter
+            if (typeof aVal === 'number') {
+              return 1; // Shorter numeric codes come first
+            }
+            return String(aVal).localeCompare(String(''));
+          }
+          
+          // Both values exist, compare them
           if (aVal !== bVal) {
             if (typeof aVal === 'number' && typeof bVal === 'number') {
               return aVal - bVal;
@@ -51,7 +76,7 @@ export function BOQProjectSectionsManager({ billId, boqId }: BOQProjectSectionsM
             return String(aVal).localeCompare(String(bVal));
           }
         }
-        return a.section_code.localeCompare(b.section_code);
+        return 0; // Codes are identical
       });
     },
   });
