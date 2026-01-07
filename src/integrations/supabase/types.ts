@@ -592,6 +592,62 @@ export type Database = {
           },
         ]
       }
+      boq_item_templates: {
+        Row: {
+          created_at: string | null
+          default_install_rate: number | null
+          default_percentage: number | null
+          default_quantity: number | null
+          default_supply_rate: number | null
+          description: string
+          display_order: number | null
+          id: string
+          item_code: string
+          item_type: string | null
+          reference_item_code: string | null
+          section_template_id: string | null
+          unit: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          default_install_rate?: number | null
+          default_percentage?: number | null
+          default_quantity?: number | null
+          default_supply_rate?: number | null
+          description: string
+          display_order?: number | null
+          id?: string
+          item_code: string
+          item_type?: string | null
+          reference_item_code?: string | null
+          section_template_id?: string | null
+          unit?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          default_install_rate?: number | null
+          default_percentage?: number | null
+          default_quantity?: number | null
+          default_supply_rate?: number | null
+          description?: string
+          display_order?: number | null
+          id?: string
+          item_code?: string
+          item_type?: string | null
+          reference_item_code?: string | null
+          section_template_id?: string | null
+          unit?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "boq_item_templates_section_template_id_fkey"
+            columns: ["section_template_id"]
+            isOneToOne: false
+            referencedRelation: "boq_section_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       boq_items: {
         Row: {
           created_at: string
@@ -601,9 +657,13 @@ export type Database = {
           install_cost: number | null
           install_rate: number | null
           item_code: string | null
+          item_type: string | null
           master_material_id: string | null
           notes: string | null
+          percentage_value: number | null
+          prime_cost_amount: number | null
           quantity: number | null
+          reference_item_id: string | null
           section_id: string
           supply_cost: number | null
           supply_rate: number | null
@@ -620,9 +680,13 @@ export type Database = {
           install_cost?: number | null
           install_rate?: number | null
           item_code?: string | null
+          item_type?: string | null
           master_material_id?: string | null
           notes?: string | null
+          percentage_value?: number | null
+          prime_cost_amount?: number | null
           quantity?: number | null
+          reference_item_id?: string | null
           section_id: string
           supply_cost?: number | null
           supply_rate?: number | null
@@ -639,9 +703,13 @@ export type Database = {
           install_cost?: number | null
           install_rate?: number | null
           item_code?: string | null
+          item_type?: string | null
           master_material_id?: string | null
           notes?: string | null
+          percentage_value?: number | null
+          prime_cost_amount?: number | null
           quantity?: number | null
+          reference_item_id?: string | null
           section_id?: string
           supply_cost?: number | null
           supply_rate?: number | null
@@ -678,6 +746,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "material_rate_by_province"
             referencedColumns: ["material_id"]
+          },
+          {
+            foreignKeyName: "boq_items_reference_item_id_fkey"
+            columns: ["reference_item_id"]
+            isOneToOne: false
+            referencedRelation: "boq_items"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "boq_items_section_id_fkey"
@@ -731,6 +806,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      boq_section_templates: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          description: string | null
+          display_order: number | null
+          id: string
+          is_standard: boolean | null
+          section_code: string
+          section_name: string
+          updated_at: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          is_standard?: boolean | null
+          section_code: string
+          section_name: string
+          updated_at?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          is_standard?: boolean | null
+          section_code?: string
+          section_name?: string
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       boq_sections: {
         Row: {

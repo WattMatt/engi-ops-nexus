@@ -5,6 +5,13 @@ import { toast } from "sonner";
 import { formatCurrency } from "@/utils/formatters";
 import { Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface BOQItemsSpreadsheetTableProps {
   sectionId: string;
@@ -25,29 +32,42 @@ interface BOQItemRow {
   total_amount: number | null;
   notes: string | null;
   display_order: number;
+  item_type: 'quantity' | 'prime_cost' | 'percentage' | 'sub_header';
+  percentage_value: number | null;
+  reference_item_id: string | null;
+  prime_cost_amount: number | null;
 }
 
-type EditableField = 'item_code' | 'description' | 'unit' | 'quantity' | 'supply_rate' | 'install_rate' | 'notes';
+type EditableField = 'item_code' | 'description' | 'unit' | 'quantity' | 'supply_rate' | 'install_rate' | 'notes' | 'percentage_value' | 'prime_cost_amount';
+
+const ITEM_TYPE_LABELS: Record<string, string> = {
+  quantity: 'Quantity',
+  prime_cost: 'Prime Cost',
+  percentage: 'Percentage',
+  sub_header: 'Sub-Header',
+};
 
 const COLUMNS: { 
-  key: EditableField | 'total_rate' | 'supply_cost' | 'install_cost' | 'total_amount' | 'actions'; 
+  key: EditableField | 'item_type' | 'total_rate' | 'supply_cost' | 'install_cost' | 'total_amount' | 'actions' | 'reference_item'; 
   label: string; 
   width: string; 
   editable: boolean; 
-  type: 'text' | 'number' | 'currency'; 
-  align: 'left' | 'right' | 'center' 
+  type: 'text' | 'number' | 'currency' | 'select'; 
+  align: 'left' | 'right' | 'center';
+  showFor?: string[];
 }[] = [
-  { key: 'item_code', label: 'Code', width: 'w-[140px] shrink-0', editable: true, type: 'text', align: 'left' },
-  { key: 'description', label: 'Description', width: 'flex-1 min-w-[360px]', editable: true, type: 'text', align: 'left' },
-  { key: 'unit', label: 'Unit', width: 'w-[100px] shrink-0', editable: true, type: 'text', align: 'center' },
-  { key: 'quantity', label: 'Quantity', width: 'w-[120px] shrink-0', editable: true, type: 'number', align: 'right' },
-  { key: 'supply_rate', label: 'Supply Rate', width: 'w-[140px] shrink-0', editable: true, type: 'currency', align: 'right' },
-  { key: 'install_rate', label: 'Install Rate', width: 'w-[140px] shrink-0', editable: true, type: 'currency', align: 'right' },
-  { key: 'total_rate', label: 'Total Rate', width: 'w-[130px] shrink-0', editable: false, type: 'currency', align: 'right' },
-  { key: 'supply_cost', label: 'Supply Cost', width: 'w-[140px] shrink-0', editable: false, type: 'currency', align: 'right' },
-  { key: 'install_cost', label: 'Install Cost', width: 'w-[140px] shrink-0', editable: false, type: 'currency', align: 'right' },
-  { key: 'total_amount', label: 'Total Amount', width: 'w-[150px] shrink-0', editable: false, type: 'currency', align: 'right' },
-  { key: 'actions', label: '', width: 'w-[64px] shrink-0', editable: false, type: 'text', align: 'center' },
+  { key: 'item_code', label: 'Code', width: 'w-[100px] shrink-0', editable: true, type: 'text', align: 'left' },
+  { key: 'item_type', label: 'Type', width: 'w-[100px] shrink-0', editable: false, type: 'select', align: 'center' },
+  { key: 'description', label: 'Description', width: 'flex-1 min-w-[280px]', editable: true, type: 'text', align: 'left' },
+  { key: 'unit', label: 'Unit', width: 'w-[80px] shrink-0', editable: true, type: 'text', align: 'center', showFor: ['quantity', 'prime_cost'] },
+  { key: 'quantity', label: 'Qty', width: 'w-[80px] shrink-0', editable: true, type: 'number', align: 'right', showFor: ['quantity'] },
+  { key: 'percentage_value', label: '%', width: 'w-[70px] shrink-0', editable: true, type: 'number', align: 'right', showFor: ['percentage'] },
+  { key: 'reference_item', label: 'Ref', width: 'w-[100px] shrink-0', editable: false, type: 'select', align: 'center', showFor: ['percentage'] },
+  { key: 'supply_rate', label: 'Supply', width: 'w-[100px] shrink-0', editable: true, type: 'currency', align: 'right', showFor: ['quantity'] },
+  { key: 'install_rate', label: 'Install', width: 'w-[100px] shrink-0', editable: true, type: 'currency', align: 'right', showFor: ['quantity'] },
+  { key: 'prime_cost_amount', label: 'Amount', width: 'w-[120px] shrink-0', editable: true, type: 'currency', align: 'right', showFor: ['prime_cost'] },
+  { key: 'total_amount', label: 'Total', width: 'w-[120px] shrink-0', editable: false, type: 'currency', align: 'right' },
+  { key: 'actions', label: '', width: 'w-[50px] shrink-0', editable: false, type: 'text', align: 'center' },
 ];
 
 export function BOQItemsSpreadsheetTable({ sectionId, billId }: BOQItemsSpreadsheetTableProps) {
@@ -208,10 +228,40 @@ export function BOQItemsSpreadsheetTable({ sectionId, billId }: BOQItemsSpreadsh
     }
   }, [activeCell]);
 
+  const shouldShowColumn = (column: typeof COLUMNS[0], itemType: string) => {
+    if (!column.showFor) return true;
+    return column.showFor.includes(itemType);
+  };
+
+  const handleItemTypeChange = (itemId: string, newType: string) => {
+    updateMutation.mutate({ id: itemId, field: 'item_type', value: newType });
+  };
+
+  const handleReferenceChange = (itemId: string, refId: string) => {
+    updateMutation.mutate({ id: itemId, field: 'reference_item_id', value: refId || null });
+  };
+
+  // Get items that can be referenced (non-header, non-percentage items above current item)
+  const getReferenceableItems = (currentItemId: string) => {
+    const currentIndex = items.findIndex(i => i.id === currentItemId);
+    return items.filter((item, idx) => 
+      idx < currentIndex && 
+      item.item_type !== 'sub_header' && 
+      item.item_type !== 'percentage' &&
+      item.item_code
+    );
+  };
+
   const renderCell = (item: BOQItemRow, column: typeof COLUMNS[0]) => {
     const isActive = activeCell?.rowId === item.id && activeCell?.field === column.key;
     const value = item[column.key as keyof BOQItemRow];
+    const itemType = item.item_type || 'quantity';
     
+    // Don't render columns that don't apply to this item type
+    if (!shouldShowColumn(column, itemType)) {
+      return <div className="px-1.5 py-1 text-xs text-muted-foreground/30">-</div>;
+    }
+
     if (column.key === 'actions') {
       return (
         <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100">
@@ -223,6 +273,53 @@ export function BOQItemsSpreadsheetTable({ sectionId, billId }: BOQItemsSpreadsh
             <Trash2 className="h-3.5 w-3.5" />
           </button>
         </div>
+      );
+    }
+
+    // Item type selector
+    if (column.key === 'item_type') {
+      return (
+        <Select
+          value={itemType}
+          onValueChange={(val) => handleItemTypeChange(item.id, val)}
+        >
+          <SelectTrigger className="h-6 text-xs border-0 bg-transparent px-1">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {Object.entries(ITEM_TYPE_LABELS).map(([value, label]) => (
+              <SelectItem key={value} value={value} className="text-xs">
+                {label}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      );
+    }
+
+    // Reference item selector for percentage type
+    if (column.key === 'reference_item') {
+      const referenceableItems = getReferenceableItems(item.id);
+      const currentRef = items.find(i => i.id === item.reference_item_id);
+      
+      return (
+        <Select
+          value={item.reference_item_id || ''}
+          onValueChange={(val) => handleReferenceChange(item.id, val)}
+        >
+          <SelectTrigger className="h-6 text-xs border-0 bg-transparent px-1">
+            <SelectValue placeholder="Select">
+              {currentRef?.item_code || 'Select'}
+            </SelectValue>
+          </SelectTrigger>
+          <SelectContent>
+            {referenceableItems.map((refItem) => (
+              <SelectItem key={refItem.id} value={refItem.id} className="text-xs">
+                {refItem.item_code}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       );
     }
     
@@ -266,10 +363,11 @@ export function BOQItemsSpreadsheetTable({ sectionId, billId }: BOQItemsSpreadsh
       <div
         onClick={() => column.editable && startEditing(item.id, column.key)}
         className={cn(
-          "px-1.5 py-1 text-xs truncate",
+          "px-1.5 py-1 text-xs truncate w-full",
           column.editable && "cursor-cell hover:bg-muted/50",
           column.align === 'right' && "text-right",
-          column.align === 'center' && "text-center"
+          column.align === 'center' && "text-center",
+          itemType === 'sub_header' && column.key === 'description' && "font-semibold"
         )}
         title={typeof value === 'string' ? value : undefined}
       >
@@ -346,26 +444,16 @@ export function BOQItemsSpreadsheetTable({ sectionId, billId }: BOQItemsSpreadsh
       {items.length > 0 && (
         <div className="flex bg-muted/50 border-t font-semibold">
           <div className={cn("px-1.5 py-2 text-xs border-r", COLUMNS[0].width)}></div>
-          <div className={cn("px-1.5 py-2 text-xs border-r font-semibold", COLUMNS[1].width)}>
+          <div className={cn("px-1.5 py-2 text-xs border-r", COLUMNS[1].width)}></div>
+          <div className={cn("px-1.5 py-2 text-xs border-r font-semibold", COLUMNS[2].width)}>
             TOTAL ({items.length} items)
           </div>
-          <div className={cn("px-1.5 py-2 text-xs border-r", COLUMNS[2].width)}></div>
-          <div className={cn("px-1.5 py-2 text-xs border-r text-right", COLUMNS[3].width)}>
-            {totals.quantity.toFixed(2)}
-          </div>
-          <div className={cn("px-1.5 py-2 text-xs border-r", COLUMNS[4].width)}></div>
-          <div className={cn("px-1.5 py-2 text-xs border-r", COLUMNS[5].width)}></div>
-          <div className={cn("px-1.5 py-2 text-xs border-r", COLUMNS[6].width)}></div>
-          <div className={cn("px-1.5 py-2 text-xs border-r text-right", COLUMNS[7].width)}>
-            {formatCurrency(totals.supplyTotal)}
-          </div>
-          <div className={cn("px-1.5 py-2 text-xs border-r text-right", COLUMNS[8].width)}>
-            {formatCurrency(totals.installTotal)}
-          </div>
-          <div className={cn("px-1.5 py-2 text-xs border-r text-right font-bold", COLUMNS[9].width)}>
-            {formatCurrency(totals.grandTotal)}
-          </div>
-          <div className={cn("px-1.5 py-2 text-xs", COLUMNS[10].width)}></div>
+          {COLUMNS.slice(3, -1).map((col) => (
+            <div key={col.key} className={cn("px-1.5 py-2 text-xs border-r", col.width, col.align === 'right' && "text-right")}>
+              {col.key === 'total_amount' ? formatCurrency(totals.grandTotal) : ''}
+            </div>
+          ))}
+          <div className={cn("px-1.5 py-2 text-xs", COLUMNS[COLUMNS.length - 1].width)}></div>
         </div>
       )}
       
