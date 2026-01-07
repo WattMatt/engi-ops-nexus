@@ -24,14 +24,18 @@ interface ParsedItem {
   quantity: number;
   supply_rate: number;
   install_rate: number;
-  amount: number;
 }
 
 interface ParsedSection {
   sectionCode: string;
   sectionName: string;
-  billNumber: number;
   items: ParsedItem[];
+}
+
+interface ParsedBill {
+  billNumber: number;
+  billName: string;
+  sections: ParsedSection[];
 }
 
 export function BOQExcelImportDialog({
@@ -54,35 +58,52 @@ export function BOQExcelImportDialog({
     }
   };
 
-  // Parse section code and name from sheet name - same logic as Final Account
-  const parseSectionFromSheetName = (sheetName: string): { sectionCode: string; sectionName: string; billNumber: number } => {
+  /**
+   * Parse section code and name from sheet name
+   * Examples:
+   * - "1.2 Medium Voltage" -> code: "1.2", name: "Medium Voltage", billNumber: 1
+   * - "1.3 Low Voltage" -> code: "1.3", name: "Low Voltage", billNumber: 1
+   * - "4 Boxer" -> code: "4", name: "Boxer", billNumber: 4
+   * - "P&G" -> code: "P&G", name: "P&G", billNumber: 1
+   */
+  const parseSectionFromSheetName = (sheetName: string): { 
+    sectionCode: string; 
+    sectionName: string; 
+    billNumber: number;
+    isSubSection: boolean; // true for 1.2, 1.3 etc (part of Main Summary)
+  } => {
     const trimmed = sheetName.trim();
     
-    // Pattern: "1.2 Medium Voltage" -> code: "1.2", name: "Medium Voltage"
-    const numericDotPattern = trimmed.match(/^(\d+(?:\.\d+)?)\s+(.+)$/);
-    if (numericDotPattern) {
+    // Pattern: "1.2 Medium Voltage" -> sub-section of Bill 1
+    const dottedPattern = trimmed.match(/^(\d+\.\d+)\s+(.+)$/);
+    if (dottedPattern) {
+      const billNum = parseInt(dottedPattern[1].split('.')[0]) || 1;
       return {
-        sectionCode: numericDotPattern[1],
-        sectionName: numericDotPattern[2].trim(),
-        billNumber: parseInt(numericDotPattern[1].split('.')[0]) || 1,
+        sectionCode: dottedPattern[1],
+        sectionName: dottedPattern[2].trim(),
+        billNumber: billNum,
+        isSubSection: true,
       };
     }
     
-    // Pattern: "4 Boxer" -> code: "4", name: "Boxer"
-    const numericSpacePattern = trimmed.match(/^(\d+)\s+(.+)$/);
-    if (numericSpacePattern) {
+    // Pattern: "4 Boxer" -> standalone bill for anchor tenant
+    const standalonePattern = trimmed.match(/^(\d+)\s+(.+)$/);
+    if (standalonePattern) {
+      const billNum = parseInt(standalonePattern[1]);
       return {
-        sectionCode: numericSpacePattern[1],
-        sectionName: numericSpacePattern[2].trim(),
-        billNumber: parseInt(numericSpacePattern[1]) || 1,
+        sectionCode: standalonePattern[1],
+        sectionName: standalonePattern[2].trim(),
+        billNumber: billNum,
+        isSubSection: false,
       };
     }
     
-    // Pattern: "P&G" or just a name -> code is the name
+    // Pattern: "P&G" or other text - treat as part of Bill 1
     return {
       sectionCode: trimmed,
       sectionName: trimmed,
       billNumber: 1,
+      isSubSection: true, // group with Bill 1
     };
   };
 
@@ -93,9 +114,9 @@ export function BOQExcelImportDialog({
     return isNaN(parsed) ? 0 : parsed;
   };
 
-  // Parse a single sheet - treat entire sheet as ONE section (same as Final Account)
+  // Parse a single sheet - extract items with column detection
   const parseSheet = (worksheet: XLSX.WorkSheet, sheetName: string): ParsedSection | null => {
-    const { sectionCode, sectionName, billNumber } = parseSectionFromSheetName(sheetName);
+    const { sectionCode, sectionName, billNumber, isSubSection } = parseSectionFromSheetName(sheetName);
     
     // Get all data from the sheet
     const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
@@ -112,7 +133,7 @@ export function BOQExcelImportDialog({
     
     if (allRows.length === 0) return null;
     
-    // Find columns by patterns
+    // Column detection patterns (same as Final Account)
     const patterns: Record<string, RegExp> = {
       description: /desc|particular|item\s*description|work\s*description/i,
       quantity: /qty|quantity|qnty/i,
@@ -170,10 +191,6 @@ export function BOQExcelImportDialog({
       const quantity = colMap.quantity !== undefined ? parseNumber(row[colMap.quantity]) : 0;
       const supplyRate = colMap.supplyRate !== undefined ? parseNumber(row[colMap.supplyRate]) : 0;
       const installRate = colMap.installRate !== undefined ? parseNumber(row[colMap.installRate]) : 0;
-      const totalRate = colMap.rate !== undefined ? parseNumber(row[colMap.rate]) : supplyRate + installRate;
-      const parsedAmount = colMap.amount !== undefined ? parseNumber(row[colMap.amount]) : 0;
-      const calculatedAmount = quantity * (totalRate || supplyRate + installRate);
-      const amount = parsedAmount > 0 ? parsedAmount : calculatedAmount;
       
       // Skip empty rows
       if (!itemCode && !description) continue;
@@ -189,15 +206,22 @@ export function BOQExcelImportDialog({
         quantity,
         supply_rate: supplyRate,
         install_rate: installRate,
-        amount,
       });
     }
     
     if (items.length === 0) return null;
     
-    console.log(`[BOQ Import] Sheet "${sheetName}" -> Section "${sectionCode}: ${sectionName}" with ${items.length} items`);
+    console.log(`[BOQ Import] Sheet "${sheetName}" -> Section "${sectionCode}: ${sectionName}" with ${items.length} items (Bill ${billNumber}, isSubSection: ${isSubSection})`);
     
-    return { sectionCode, sectionName, billNumber, items };
+    // Attach metadata for bill grouping
+    return { 
+      sectionCode, 
+      sectionName, 
+      items,
+      // @ts-ignore - extending for internal use
+      _billNumber: billNumber,
+      _isSubSection: isSubSection,
+    };
   };
 
   const handleImport = async () => {
@@ -217,14 +241,14 @@ export function BOQExcelImportDialog({
       setProgress(10);
       setProgressText("Parsing sheets...");
 
-      // Parse all sheets - each sheet becomes ONE section
-      const parsedSections: ParsedSection[] = [];
+      // Parse all sheets
+      const parsedSections: (ParsedSection & { _billNumber: number; _isSubSection: boolean })[] = [];
 
       for (const sheetName of workbook.SheetNames) {
         const worksheet = workbook.Sheets[sheetName];
         const section = parseSheet(worksheet, sheetName);
         if (section) {
-          parsedSections.push(section);
+          parsedSections.push(section as any);
         }
       }
 
@@ -233,7 +257,66 @@ export function BOQExcelImportDialog({
       }
 
       setProgress(20);
-      setProgressText(`Found ${parsedSections.length} sections, importing...`);
+      setProgressText(`Found ${parsedSections.length} sections, organizing into bills...`);
+
+      // Group sections into bills
+      // Logic: 
+      // - Sub-sections (isSubSection=true with same billNumber) go into one bill (e.g. Bill 1 = "Main Summary")
+      // - Standalone sections (isSubSection=false) each become their own bill
+      const bills: ParsedBill[] = [];
+      const billMap = new Map<number, { sections: typeof parsedSections; isSubSection: boolean }>();
+
+      for (const section of parsedSections) {
+        const billNum = section._billNumber;
+        const existing = billMap.get(billNum);
+        
+        if (existing) {
+          existing.sections.push(section);
+        } else {
+          billMap.set(billNum, { 
+            sections: [section], 
+            isSubSection: section._isSubSection 
+          });
+        }
+      }
+
+      // Convert to bills array with proper naming
+      for (const [billNumber, { sections, isSubSection }] of billMap) {
+        let billName: string;
+        
+        if (isSubSection && sections.length > 1) {
+          // Multiple sub-sections = Main Summary bill
+          billName = billNumber === 1 ? "Main Summary" : `Bill ${billNumber} Summary`;
+        } else if (isSubSection && sections.length === 1) {
+          // Single sub-section still part of Main Summary
+          billName = billNumber === 1 ? "Main Summary" : `Bill ${billNumber} Summary`;
+        } else {
+          // Standalone section = use section name as bill name (anchor tenant)
+          billName = sections[0].sectionName;
+        }
+        
+        bills.push({
+          billNumber,
+          billName,
+          sections: sections.map(s => ({
+            sectionCode: s.sectionCode,
+            sectionName: s.sectionName,
+            items: s.items,
+          })),
+        });
+      }
+
+      // Sort bills by number
+      bills.sort((a, b) => a.billNumber - b.billNumber);
+
+      console.log("[BOQ Import] Bills structure:", bills.map(b => ({
+        number: b.billNumber,
+        name: b.billName,
+        sections: b.sections.map(s => s.sectionCode),
+      })));
+
+      setProgress(25);
+      setProgressText("Clearing existing data...");
 
       // Delete existing bills/sections/items for this BOQ
       const { data: existingBills } = await supabase
@@ -260,44 +343,21 @@ export function BOQExcelImportDialog({
 
       setProgress(30);
 
-      // Group sections by bill number
-      const billGroups = new Map<number, ParsedSection[]>();
-      for (const section of parsedSections) {
-        const billNum = section.billNumber;
-        if (!billGroups.has(billNum)) {
-          billGroups.set(billNum, []);
-        }
-        billGroups.get(billNum)!.push(section);
-      }
-
       let totalItems = 0;
-      const billNumbers = Array.from(billGroups.keys()).sort((a, b) => a - b);
-      const progressPerBill = 60 / billNumbers.length;
+      const progressPerBill = 60 / bills.length;
 
-      // Process each bill
-      for (let bi = 0; bi < billNumbers.length; bi++) {
-        const billNumber = billNumbers[bi];
-        const sections = billGroups.get(billNumber)!;
-        
-        // Bill name should be a summary (e.g., "Main Summary", "Anchor Tenants"), not the first section name
-        // If all sections have numeric codes like 1.2, 1.3, then it's Bill 1 = "Main Summary"
-        // If sections are named like "Boxer", "Dischem", those are typically anchor tenant bills
-        const hasDottedSections = sections.some(s => /^\d+\.\d+/.test(s.sectionCode));
-        const billName = hasDottedSections 
-          ? (billNumber === 1 ? "Main Summary" : `Bill ${billNumber} Summary`)
-          : sections.length === 1 
-            ? sections[0].sectionName 
-            : `Bill ${billNumber}`;
-        
-        setProgressText(`Importing Bill ${billNumber}: ${billName}...`);
+      // Create each bill with its sections and items
+      for (let bi = 0; bi < bills.length; bi++) {
+        const bill = bills[bi];
+        setProgressText(`Importing Bill ${bill.billNumber}: ${bill.billName}...`);
 
         // Create bill
         const { data: newBill, error: billError } = await supabase
           .from("boq_bills")
           .insert({
             project_boq_id: boqId,
-            bill_number: billNumber,
-            bill_name: billName,
+            bill_number: bill.billNumber,
+            bill_name: bill.billName,
             display_order: bi,
           })
           .select()
@@ -306,8 +366,8 @@ export function BOQExcelImportDialog({
         if (billError) throw billError;
 
         // Create sections and items for this bill
-        for (let si = 0; si < sections.length; si++) {
-          const section = sections[si];
+        for (let si = 0; si < bill.sections.length; si++) {
+          const section = bill.sections[si];
           
           // Create section
           const { data: newSection, error: sectionError } = await supabase
@@ -323,7 +383,7 @@ export function BOQExcelImportDialog({
 
           if (sectionError) throw sectionError;
 
-          // Insert items in batches (total_rate, supply_cost, install_cost, total_amount are generated columns)
+          // Insert items in batches
           const itemsToInsert = section.items.map((item, idx) => ({
             section_id: newSection.id,
             item_code: item.item_code,
@@ -359,7 +419,7 @@ export function BOQExcelImportDialog({
       
       toast({
         title: "Success",
-        description: `Imported ${totalItems} items across ${billNumbers.length} bills and ${parsedSections.length} sections`,
+        description: `Imported ${totalItems} items across ${bills.length} bills and ${parsedSections.length} sections`,
       });
 
       onOpenChange(false);
@@ -395,7 +455,8 @@ export function BOQExcelImportDialog({
               disabled={loading}
             />
             <p className="text-sm text-muted-foreground">
-              Each sheet becomes a section. Sheet names like "1.2 Medium Voltage" are parsed into section codes.
+              Each sheet becomes a section. Sheets like "1.2 Medium Voltage" go into Bill 1 (Main Summary). 
+              Sheets like "4 Boxer" become their own bill.
             </p>
           </div>
 
