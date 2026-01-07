@@ -32,7 +32,7 @@ serve(async (req) => {
     // Fetch all projects
     const { data: projects, error: projectsError } = await supabase
       .from('projects')
-      .select('id, name, project_number, client_name, city, province')
+      .select('id, name, project_number, client_name, city, province, logo_url')
       .order('project_number');
 
     if (projectsError) {
