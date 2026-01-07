@@ -328,10 +328,15 @@ export function BOQExcelImportDialog({
 
         let displayOrder = existingItems?.[0]?.display_order || 0;
 
-        // Insert items
+        // Insert items - exclude computed columns (total_rate, supply_cost, install_cost, total_amount)
         const itemsToInsert = items.map((item) => ({
           section_id: sectionId,
-          ...item,
+          item_code: item.item_code,
+          description: item.description,
+          unit: item.unit,
+          quantity: item.quantity,
+          supply_rate: item.supply_rate,
+          install_rate: item.install_rate,
           display_order: ++displayOrder,
         }));
 
