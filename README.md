@@ -60,6 +60,11 @@ This project is built with:
 - shadcn-ui
 - Tailwind CSS
 
+## Documentation
+
+- **API / components reference (generated)**: `docs/API_REFERENCE.md`
+- **Regenerate docs**: `npm run docs:generate`
+
 ## How can I deploy this project?
 
 Simply open [Lovable](https://lovable.dev/projects/1482f7a4-8f2d-4aec-bff2-3708d2dac760) and click on Share -> Publish.
