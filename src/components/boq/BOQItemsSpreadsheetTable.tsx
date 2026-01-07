@@ -23,7 +23,6 @@ interface BOQItemRow {
   supply_cost: number | null;
   install_cost: number | null;
   total_amount: number | null;
-  is_rate_only: boolean;
   notes: string | null;
   display_order: number;
 }
@@ -279,7 +278,7 @@ export function BOQItemsSpreadsheetTable({ sectionId, billId }: BOQItemsSpreadsh
         displayValue = value.toString();
       }
     } else {
-      displayValue = value || '';
+      displayValue = (value as string) || '';
     }
     
     return (
