@@ -241,10 +241,28 @@ export function BOQExcelImportDialog({
       setProgress(10);
       setProgressText("Parsing sheets...");
 
-      // Parse all sheets
+      // Parse all sheets - skip summary/notes sheets
       const parsedSections: (ParsedSection & { _billNumber: number; _isSubSection: boolean })[] = [];
+      
+      // Sheets to skip (summary/notes sheets that don't contain actual BOQ items)
+      const skipPatterns = [
+        /^main\s*summary$/i,
+        /^summary$/i,
+        /notes/i,
+        /qualifications/i,
+        /cover/i,
+        /^p\s*&\s*g$/i,  // P&G is often preliminaries summary
+        /^preliminaries$/i,
+      ];
 
       for (const sheetName of workbook.SheetNames) {
+        // Check if this sheet should be skipped
+        const shouldSkip = skipPatterns.some(pattern => pattern.test(sheetName.trim()));
+        if (shouldSkip) {
+          console.log(`[BOQ Import] Skipping sheet "${sheetName}" (summary/notes sheet)`);
+          continue;
+        }
+        
         const worksheet = workbook.Sheets[sheetName];
         const section = parseSheet(worksheet, sheetName);
         if (section) {
