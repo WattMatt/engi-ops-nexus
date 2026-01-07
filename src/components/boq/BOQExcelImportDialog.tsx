@@ -37,43 +37,153 @@ export function BOQExcelImportDialog({
   const parseSheet = (worksheet: XLSX.WorkSheet, sheetName: string) => {
     const data = XLSX.utils.sheet_to_json(worksheet, { header: 1, raw: false }) as any[][];
     
-    // Find header row (look for "Item Code" or similar)
+    console.log(`Parsing sheet: ${sheetName}, rows: ${data.length}`);
+    console.log('First 5 rows:', data.slice(0, 5));
+    
+    // Find header row by looking for common BOQ header patterns
     let headerRowIndex = -1;
-    for (let i = 0; i < Math.min(10, data.length); i++) {
+    let columnMapping: { [key: string]: number } = {};
+    
+    const headerPatterns = [
+      { key: 'item_code', patterns: ['item code', 'code', 'item', 'ref', 'no.', 'item no'] },
+      { key: 'description', patterns: ['description', 'desc', 'particulars', 'item description'] },
+      { key: 'unit', patterns: ['unit', 'uom', 'u/m'] },
+      { key: 'quantity', patterns: ['quantity', 'qty', 'qnty'] },
+      { key: 'supply_rate', patterns: ['supply rate', 'supply', 'material rate', 'rate supply'] },
+      { key: 'install_rate', patterns: ['install rate', 'install', 'labour rate', 'rate install', 'labor'] },
+      { key: 'total_rate', patterns: ['total rate', 'rate', 'unit rate'] },
+      { key: 'supply_cost', patterns: ['supply cost', 'supply amount', 'material cost'] },
+      { key: 'install_cost', patterns: ['install cost', 'install amount', 'labour cost', 'labor cost'] },
+      { key: 'total_amount', patterns: ['total', 'amount', 'total amount', 'value'] },
+    ];
+
+    // Search first 15 rows for headers
+    for (let i = 0; i < Math.min(15, data.length); i++) {
       const row = data[i];
-      if (!row) continue;
-      const rowStr = row.map(cell => String(cell || '').toLowerCase()).join(' ');
-      if (rowStr.includes('item code') || (rowStr.includes('code') && rowStr.includes('description'))) {
+      if (!row || row.length < 2) continue;
+      
+      const rowCells = row.map(cell => String(cell || '').toLowerCase().trim());
+      
+      // Check if this row has enough header-like content
+      let matchCount = 0;
+      const tempMapping: { [key: string]: number } = {};
+      
+      for (let colIdx = 0; colIdx < rowCells.length; colIdx++) {
+        const cellValue = rowCells[colIdx];
+        if (!cellValue) continue;
+        
+        for (const hp of headerPatterns) {
+          if (hp.patterns.some(p => cellValue.includes(p))) {
+            if (!tempMapping[hp.key]) {
+              tempMapping[hp.key] = colIdx;
+              matchCount++;
+            }
+            break;
+          }
+        }
+      }
+      
+      // If we found at least description column, use this as header row
+      if (tempMapping['description'] !== undefined || matchCount >= 2) {
         headerRowIndex = i;
+        columnMapping = tempMapping;
+        console.log(`Found header at row ${i}:`, columnMapping);
         break;
       }
     }
 
-    if (headerRowIndex === -1) return [];
+    // If no header found, try to parse assuming standard column order
+    if (headerRowIndex === -1) {
+      console.log('No header found, using default column order');
+      // Default: A=code, B=description, C=unit, D=qty, E=supply, F=install, G=rate, H-J=costs
+      headerRowIndex = 0;
+      columnMapping = {
+        item_code: 0,
+        description: 1,
+        unit: 2,
+        quantity: 3,
+        supply_rate: 4,
+        install_rate: 5,
+        total_rate: 6,
+        supply_cost: 7,
+        install_cost: 8,
+        total_amount: 9,
+      };
+      
+      // Check if first row looks like headers (contains text without numbers)
+      const firstRow = data[0];
+      if (firstRow) {
+        const firstRowStr = firstRow.map(c => String(c || '').toLowerCase()).join(' ');
+        if (firstRowStr.includes('description') || firstRowStr.includes('code') || firstRowStr.includes('unit')) {
+          headerRowIndex = 0; // Skip the header row
+        } else {
+          headerRowIndex = -1; // No header, start from row 0
+        }
+      }
+    }
+
+    const getCol = (key: string): number => columnMapping[key] ?? -1;
+    const parseNumeric = (value: any, fallback: number = 0): number => {
+      if (value === null || value === undefined || value === '') return fallback;
+      // Remove currency symbols, spaces, and commas
+      const cleaned = String(value).replace(/[R$€£,\s]/g, '').trim();
+      const parsed = parseFloat(cleaned);
+      return isNaN(parsed) ? fallback : parsed;
+    };
 
     const items: any[] = [];
-    for (let i = headerRowIndex + 1; i < data.length; i++) {
+    const startRow = headerRowIndex + 1;
+    
+    console.log(`Starting data parsing from row ${startRow}`);
+    
+    for (let i = startRow; i < data.length; i++) {
       const row = data[i];
       if (!row || row.length === 0) continue;
 
-      const itemCode = String(row[0] || '').trim();
-      const description = String(row[1] || '').trim();
+      // Get description from mapped column or fallback to column 1
+      const descCol = getCol('description') >= 0 ? getCol('description') : 1;
+      const description = String(row[descCol] || '').trim();
       
-      // Skip empty rows or totals
-      if (!description || description.toLowerCase().includes('total')) continue;
+      // Skip empty rows, section totals, or footer rows
+      if (!description) continue;
+      const descLower = description.toLowerCase();
+      if (descLower.includes('total') && !descLower.includes('sub')) continue;
+      if (descLower === 'total' || descLower === 'grand total') continue;
 
-      const unit = String(row[2] || '').trim();
-      const parseNumeric = (value: any, fallback: number = 0): number => {
-        const parsed = parseFloat(String(value || '0'));
-        return isNaN(parsed) ? fallback : parsed;
-      };
-      const quantity = parseNumeric(row[3]);
-      const supplyRate = parseNumeric(row[4]);
-      const installRate = parseNumeric(row[5]);
-      const totalRate = parseNumeric(row[6], supplyRate + installRate);
-      const supplyCost = parseNumeric(row[7], quantity * supplyRate);
-      const installCost = parseNumeric(row[8], quantity * installRate);
-      const totalAmount = parseNumeric(row[9], supplyCost + installCost);
+      // Get item code
+      const codeCol = getCol('item_code') >= 0 ? getCol('item_code') : 0;
+      const itemCode = String(row[codeCol] || '').trim();
+
+      // Get unit
+      const unitCol = getCol('unit') >= 0 ? getCol('unit') : 2;
+      const unit = String(row[unitCol] || '').trim();
+
+      // Get numeric values with flexible column mapping
+      const quantity = parseNumeric(row[getCol('quantity') >= 0 ? getCol('quantity') : 3]);
+      const supplyRate = parseNumeric(row[getCol('supply_rate') >= 0 ? getCol('supply_rate') : 4]);
+      const installRate = parseNumeric(row[getCol('install_rate') >= 0 ? getCol('install_rate') : 5]);
+      
+      // Calculate rates if not directly available
+      let totalRate = parseNumeric(row[getCol('total_rate') >= 0 ? getCol('total_rate') : 6]);
+      if (totalRate === 0 && (supplyRate > 0 || installRate > 0)) {
+        totalRate = supplyRate + installRate;
+      }
+
+      // Get costs or calculate them
+      let supplyCost = parseNumeric(row[getCol('supply_cost') >= 0 ? getCol('supply_cost') : 7]);
+      let installCost = parseNumeric(row[getCol('install_cost') >= 0 ? getCol('install_cost') : 8]);
+      let totalAmount = parseNumeric(row[getCol('total_amount') >= 0 ? getCol('total_amount') : 9]);
+
+      // Calculate if needed
+      if (supplyCost === 0 && supplyRate > 0 && quantity > 0) {
+        supplyCost = quantity * supplyRate;
+      }
+      if (installCost === 0 && installRate > 0 && quantity > 0) {
+        installCost = quantity * installRate;
+      }
+      if (totalAmount === 0) {
+        totalAmount = supplyCost + installCost || quantity * totalRate;
+      }
 
       items.push({
         item_code: itemCode,
@@ -89,6 +199,7 @@ export function BOQExcelImportDialog({
       });
     }
 
+    console.log(`Parsed ${items.length} items from sheet ${sheetName}`);
     return items;
   };
 
