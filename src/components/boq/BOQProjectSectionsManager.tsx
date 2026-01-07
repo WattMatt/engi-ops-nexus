@@ -295,47 +295,54 @@ export function BOQProjectSectionsManager({ billId, boqId }: BOQProjectSectionsM
             onOpenChange={() => toggleSection(section.id)}
           >
             <div className="border rounded-lg">
-              <div className="flex items-center justify-between p-3 bg-muted/30">
-                <CollapsibleTrigger className="flex items-center gap-2 hover:text-primary transition-colors">
-                  {expandedSections.has(section.id) ? (
-                    <ChevronDown className="h-4 w-4" />
-                  ) : (
-                    <ChevronRight className="h-4 w-4" />
-                  )}
-                  <span className="font-medium">
-                    {section.section_code} - {section.section_name}
-                  </span>
-                </CollapsibleTrigger>
-                <div className="flex items-center gap-4">
-                  <span className="text-sm text-muted-foreground">
-                    Total: <span className="font-medium">{formatCurrency(section.total_amount)}</span>
-                  </span>
-                  <div className="flex gap-1">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setEditingSection(section);
-                        setAddDialogOpen(true);
-                      }}
-                    >
-                      <Pencil className="h-3 w-3" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (confirm('Delete this section and all its items?')) {
-                          deleteMutation.mutate(section.id);
-                        }
-                      }}
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </Button>
+              <div className="p-3 bg-muted/30">
+                <div className="flex items-center justify-between">
+                  <CollapsibleTrigger className="flex items-center gap-2 hover:text-primary transition-colors">
+                    {expandedSections.has(section.id) ? (
+                      <ChevronDown className="h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4" />
+                    )}
+                    <span className="font-medium">
+                      {section.section_code} - {section.section_name}
+                    </span>
+                  </CollapsibleTrigger>
+                  <div className="flex items-center gap-4">
+                    <span className="text-sm text-muted-foreground">
+                      Total: <span className="font-medium">{formatCurrency(section.total_amount)}</span>
+                    </span>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingSection(section);
+                          setAddDialogOpen(true);
+                        }}
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm('Delete this section and all its items?')) {
+                            deleteMutation.mutate(section.id);
+                          }
+                        }}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    </div>
                   </div>
                 </div>
+                {section.description && (
+                  <p className="mt-2 ml-6 text-sm text-muted-foreground italic">
+                    {section.description}
+                  </p>
+                )}
               </div>
               <CollapsibleContent>
                 <div className="p-4">
