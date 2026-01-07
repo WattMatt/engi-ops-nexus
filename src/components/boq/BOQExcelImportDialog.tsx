@@ -43,7 +43,7 @@ export function BOQExcelImportDialog({
       const row = data[i];
       if (!row) continue;
       const rowStr = row.map(cell => String(cell || '').toLowerCase()).join(' ');
-      if (rowStr.includes('item code') || rowStr.includes('code') && rowStr.includes('description')) {
+      if (rowStr.includes('item code') || (rowStr.includes('code') && rowStr.includes('description'))) {
         headerRowIndex = i;
         break;
       }
@@ -63,13 +63,17 @@ export function BOQExcelImportDialog({
       if (!description || description.toLowerCase().includes('total')) continue;
 
       const unit = String(row[2] || '').trim();
-      const quantity = parseFloat(String(row[3] || '0')) || 0;
-      const supplyRate = parseFloat(String(row[4] || '0')) || 0;
-      const installRate = parseFloat(String(row[5] || '0')) || 0;
-      const totalRate = parseFloat(String(row[6] || '0')) || supplyRate + installRate;
-      const supplyCost = parseFloat(String(row[7] || '0')) || quantity * supplyRate;
-      const installCost = parseFloat(String(row[8] || '0')) || quantity * installRate;
-      const totalAmount = parseFloat(String(row[9] || '0')) || supplyCost + installCost;
+      const parseNumeric = (value: any, fallback: number = 0): number => {
+        const parsed = parseFloat(String(value || '0'));
+        return isNaN(parsed) ? fallback : parsed;
+      };
+      const quantity = parseNumeric(row[3]);
+      const supplyRate = parseNumeric(row[4]);
+      const installRate = parseNumeric(row[5]);
+      const totalRate = parseNumeric(row[6], supplyRate + installRate);
+      const supplyCost = parseNumeric(row[7], quantity * supplyRate);
+      const installCost = parseNumeric(row[8], quantity * installRate);
+      const totalAmount = parseNumeric(row[9], supplyCost + installCost);
 
       items.push({
         item_code: itemCode,

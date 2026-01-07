@@ -53,17 +53,23 @@ export function AddBOQSectionDialog({
     e.preventDefault();
     setIsSubmitting(true);
 
-    // Get current max display_order
-    const { data: sections } = await supabase
-      .from("boq_project_sections")
-      .select("display_order")
-      .eq("bill_id", billId)
-      .order("display_order", { ascending: false })
-      .limit(1);
+    // For new sections, get current max display_order and increment
+    // For editing, preserve the existing display_order
+    let displayOrder: number;
+    if (editingSection) {
+      displayOrder = editingSection.display_order || 0;
+    } else {
+      const { data: sections } = await supabase
+        .from("boq_project_sections")
+        .select("display_order")
+        .eq("bill_id", billId)
+        .order("display_order", { ascending: false })
+        .limit(1);
 
-    const displayOrder = sections && sections.length > 0 
-      ? (sections[0].display_order || 0) + 1 
-      : 0;
+      displayOrder = sections && sections.length > 0 
+        ? (sections[0].display_order || 0) + 1 
+        : 0;
+    }
 
     const sectionData = {
       bill_id: billId,
