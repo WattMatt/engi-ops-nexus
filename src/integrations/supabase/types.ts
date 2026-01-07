@@ -8276,6 +8276,7 @@ export type Database = {
           electrical_standard: string | null
           id: string
           load_category: string | null
+          logo_url: string | null
           metering_requirements: string | null
           name: string
           practical_completion_date: string | null
@@ -8311,6 +8312,7 @@ export type Database = {
           electrical_standard?: string | null
           id?: string
           load_category?: string | null
+          logo_url?: string | null
           metering_requirements?: string | null
           name: string
           practical_completion_date?: string | null
@@ -8346,6 +8348,7 @@ export type Database = {
           electrical_standard?: string | null
           id?: string
           load_category?: string | null
+          logo_url?: string | null
           metering_requirements?: string | null
           name?: string
           practical_completion_date?: string | null
