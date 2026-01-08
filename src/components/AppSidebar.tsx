@@ -50,6 +50,11 @@ const mainModules = [
     icon: PieChart,
   },
   {
+    title: "Project Outline",
+    url: "/dashboard/project-outline",
+    icon: ClipboardList,
+  },
+  {
     title: "Tenant Tracker",
     url: "/dashboard/tenant-tracker",
     icon: UsersRound,
@@ -88,7 +93,6 @@ const projectsReportModule = {
   items: [
     { title: "Generator Report", url: "/dashboard/projects-report/generator" },
     { title: "Lighting", url: "/dashboard/projects-report/lighting" },
-    { title: "Project Outline", url: "/dashboard/projects-report/outline" },
     { title: "Handover Documents", url: "/dashboard/projects-report/handover" },
   ],
 };

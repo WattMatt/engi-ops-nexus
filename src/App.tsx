@@ -128,9 +128,9 @@ const App = () => (
             <Route path="boqs/:boqId" element={<BOQProjectDetail />} />
             <Route path="boq/:uploadId" element={<BOQDetail />} />
             <Route path="messages" element={<Messages />} />
+            <Route path="project-outline" element={<ProjectOutline />} />
             <Route path="projects-report/generator" element={<GeneratorReport />} />
             <Route path="projects-report/lighting" element={<LightingReport />} />
-            <Route path="projects-report/outline" element={<ProjectOutline />} />
             <Route path="projects-report/handover" element={<HandoverDocuments />} />
             <Route path="bulk-services" element={<BulkServices />} />
             <Route path="master-library" element={<MasterLibrary />} />
