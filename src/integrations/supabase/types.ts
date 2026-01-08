@@ -8539,6 +8539,75 @@ export type Database = {
           },
         ]
       }
+      project_roadmap_items: {
+        Row: {
+          comments: string | null
+          completed_at: string | null
+          completed_by: string | null
+          created_at: string
+          description: string | null
+          id: string
+          is_completed: boolean | null
+          link_label: string | null
+          link_url: string | null
+          parent_id: string | null
+          phase: string | null
+          project_id: string
+          sort_order: number | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          comments?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_completed?: boolean | null
+          link_label?: string | null
+          link_url?: string | null
+          parent_id?: string | null
+          phase?: string | null
+          project_id: string
+          sort_order?: number | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          comments?: string | null
+          completed_at?: string | null
+          completed_by?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_completed?: boolean | null
+          link_label?: string | null
+          link_url?: string | null
+          parent_id?: string | null
+          phase?: string | null
+          project_id?: string
+          sort_order?: number | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "project_roadmap_items_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "project_roadmap_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "project_roadmap_items_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       project_specifications: {
         Row: {
           client_logo_url: string | null
