@@ -224,6 +224,8 @@ export const ProjectRoadmapWidget = ({ projectId }: ProjectRoadmapWidgetProps) =
   // Group items by phase, with children nested under parents
   const phases = [...new Set(items.filter(i => !i.parent_id).map(i => i.phase || "General"))];
   const rootItems = items.filter(i => !i.parent_id);
+  
+  // Build a map of all children by parent_id - this includes all levels
   const childrenByParent = items.reduce((acc, item) => {
     if (item.parent_id) {
       if (!acc[item.parent_id]) acc[item.parent_id] = [];
@@ -231,6 +233,11 @@ export const ProjectRoadmapWidget = ({ projectId }: ProjectRoadmapWidgetProps) =
     }
     return acc;
   }, {} as Record<string, RoadmapItemData[]>);
+  
+  // Sort children by sort_order
+  Object.keys(childrenByParent).forEach(key => {
+    childrenByParent[key].sort((a, b) => a.sort_order - b.sort_order);
+  });
 
   const completedCount = items.filter(i => i.is_completed).length;
   const progress = items.length > 0 ? Math.round((completedCount / items.length) * 100) : 0;
@@ -343,6 +350,7 @@ export const ProjectRoadmapWidget = ({ projectId }: ProjectRoadmapWidgetProps) =
                                 key={item.id}
                                 item={item}
                                 children={childrenByParent[item.id] || []}
+                                allChildrenByParent={childrenByParent}
                                 onToggleComplete={(id, isCompleted) => 
                                   toggleComplete.mutate({ id, isCompleted })
                                 }
