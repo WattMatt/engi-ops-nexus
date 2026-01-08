@@ -9,7 +9,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Plus, Calendar, Cloud, ListTodo, GanttChart, Bell, X, User, Download, Edit, CheckCircle2, Clock, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
@@ -25,6 +24,7 @@ import { MondayBoardView } from "@/components/site-diary/board/MondayBoardView";
 import { TeamDashboard } from "@/components/site-diary/dashboard/TeamDashboard";
 import { ProjectOverview } from "@/components/site-diary/overview/ProjectOverview";
 import { TaskDetailsModal } from "@/components/site-diary/task-views/TaskDetailsModal";
+import { DiaryEntryFormDialog } from "@/components/site-diary/entry-form/DiaryEntryFormDialog";
 import { LayoutDashboard, Users } from "lucide-react";
 
 interface SubEntry {
