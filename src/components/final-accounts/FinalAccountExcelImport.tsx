@@ -34,6 +34,12 @@ interface ParsedSection {
   _sectionNumber: number; // For ordering
 }
 
+interface ParsedBill {
+  billNumber: number;
+  billName: string;
+  sections: ParsedSection[];
+}
+
 export function FinalAccountExcelImport({
   open,
   onOpenChange,
@@ -55,79 +61,82 @@ export function FinalAccountExcelImport({
 
   /**
    * Parse section code and name from sheet name
-   * CORRECT structure from Excel (Prince Buthelezi Mall example):
-   * - This is ONE BILL with multiple SECTIONS
-   * - "1.1 P&G" or "1.2 Medium Voltage" -> Sub-sections of "Mall Portion" (section 1)
-   * - "1 Mall Portion" -> Main section header (skip, sub-sections handle this)
-   * - "3 ASJ", "4 Boxer", etc -> Section 3, Section 4, etc. under the same bill
-   * ALL belong to the SAME BILL (project tender)
+   * CORRECT structure (as per project 636):
+   * - "1 Mall Portion", "1.1 P&G", "1.2 Medium Voltage" -> Bill 1 (Mall) with sub-sections
+   * - "3 ASJ", "4 Boxer", etc -> SEPARATE bills (Bill 3, Bill 4, etc.)
    */
   const parseSectionFromSheetName = (sheetName: string): { 
+    billNumber: number;
+    billName: string;
     sectionCode: string; 
     sectionName: string; 
-    sectionNumber: number; // For ordering
-    isMallSubSection: boolean; // True for "1.x" patterns
+    sectionNumber: number; // For ordering within bill
     isBillHeader: boolean;
   } => {
     const trimmed = sheetName.trim();
     
-    // Pattern: "1.2 Medium Voltage" -> Sub-section of Mall Portion (section 1)
+    // Pattern: "1.2 Medium Voltage" -> Bill 1 (Mall), Section 1.2
     const dottedPattern = trimmed.match(/^(\d+)\.(\d+)\s+(.+)$/);
     if (dottedPattern) {
-      const mainSection = parseInt(dottedPattern[1]) || 1;
+      const billNum = parseInt(dottedPattern[1]) || 1;
       const subSection = dottedPattern[2];
       return {
-        sectionCode: `${mainSection}.${subSection}`,
+        billNumber: billNum,
+        billName: billNum === 1 ? "Mall" : `Bill ${billNum}`,
+        sectionCode: `${billNum}.${subSection}`,
         sectionName: dottedPattern[3].trim(),
-        sectionNumber: mainSection * 100 + parseInt(subSection), // For ordering: 1.2 = 102
-        isMallSubSection: mainSection === 1,
+        sectionNumber: parseInt(subSection), // For ordering: 1 = first, 2 = second
         isBillHeader: false,
       };
     }
     
-    // Pattern: "1 Mall Portion" -> Skip this header sheet (sub-sections provide the detail)
+    // Pattern: "1 Mall Portion" -> Bill 1 header (skip, sub-sections provide detail)
     if (/^1\s+(Mall|Portion|Mall\s*Portion)/i.test(trimmed)) {
       return {
+        billNumber: 1,
+        billName: "Mall",
         sectionCode: "1",
         sectionName: "Mall Portion",
-        sectionNumber: 100,
-        isMallSubSection: false,
+        sectionNumber: 0,
         isBillHeader: true, // Skip
       };
     }
     
-    // Pattern: "3 ASJ", "4 Boxer", etc -> Section 3, Section 4 in the main bill
+    // Pattern: "3 ASJ", "4 Boxer" -> SEPARATE BILL (Bill 3, Bill 4) with ONE section
     const standalonePattern = trimmed.match(/^(\d+)\s+(.+)$/);
     if (standalonePattern) {
-      const sectionNum = parseInt(standalonePattern[1]);
+      const billNum = parseInt(standalonePattern[1]);
       const name = standalonePattern[2].trim();
       return {
-        sectionCode: String(sectionNum),
+        billNumber: billNum,
+        billName: name, // "ASJ", "Boxer", etc.
+        sectionCode: String(billNum),
         sectionName: name,
-        sectionNumber: sectionNum * 100, // 3 = 300, 4 = 400, etc.
-        isMallSubSection: false,
+        sectionNumber: 1, // Only section in this bill
         isBillHeader: false,
       };
     }
     
-    // Pattern: "P&G" standalone -> Section 1.1
+    // Pattern: "P&G" standalone -> Bill 1, Section 1.1
     if (/^p\s*&\s*g$/i.test(trimmed) || /^preliminaries$/i.test(trimmed)) {
       return {
+        billNumber: 1,
+        billName: "Mall",
         sectionCode: "1.1",
         sectionName: "Preliminaries & General",
-        sectionNumber: 101,
-        isMallSubSection: true,
+        sectionNumber: 1,
         isBillHeader: false,
       };
     }
     
     // Unrecognized pattern - skip
     return {
+      billNumber: 0,
+      billName: "",
       sectionCode: trimmed,
       sectionName: trimmed,
-      sectionNumber: 9999, // Will be filtered out
-      isMallSubSection: false,
-      isBillHeader: false,
+      sectionNumber: 0,
+      isBillHeader: true, // Skip unrecognized
     };
   };
 
@@ -138,14 +147,11 @@ export function FinalAccountExcelImport({
     return isNaN(parsed) ? 0 : parsed;
   };
 
-  const parseSheet = (worksheet: XLSX.WorkSheet, sheetName: string): ParsedSection | null => {
-    const { sectionCode, sectionName, sectionNumber, isBillHeader } = parseSectionFromSheetName(sheetName);
+  const parseSheet = (worksheet: XLSX.WorkSheet, sheetName: string): { section: ParsedSection; billNumber: number; billName: string } | null => {
+    const parsed = parseSectionFromSheetName(sheetName);
     
-    // Skip bill headers that don't have their own items (e.g., "1 Mall Portion" summary sheet)
-    if (isBillHeader) return null;
-    
-    // Skip invalid sections
-    if (sectionNumber === 9999) return null;
+    // Skip bill headers that don't have their own items
+    if (parsed.isBillHeader) return null;
     
     const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
     const allRows: string[][] = [];
@@ -211,7 +217,6 @@ export function FinalAccountExcelImport({
       const quantity = colMap.quantity !== undefined ? parseNumber(row[colMap.quantity]) : 0;
       const supplyRate = colMap.supplyRate !== undefined ? parseNumber(row[colMap.supplyRate]) : 0;
       const installRate = colMap.installRate !== undefined ? parseNumber(row[colMap.installRate]) : 0;
-      // Use the pre-calculated AMOUNT from Excel - this is critical for accuracy
       const amount = colMap.amount !== undefined ? parseNumber(row[colMap.amount]) : 0;
       
       if (!itemCode && !description) continue;
@@ -226,17 +231,21 @@ export function FinalAccountExcelImport({
         quantity,
         supply_rate: supplyRate,
         install_rate: installRate,
-        amount, // Use Excel's pre-calculated amount
+        amount,
       });
     }
     
     if (items.length === 0) return null;
     
     return { 
-      sectionCode, 
-      sectionName, 
-      items,
-      _sectionNumber: sectionNumber,
+      section: {
+        sectionCode: parsed.sectionCode, 
+        sectionName: parsed.sectionName, 
+        items,
+        _sectionNumber: parsed.sectionNumber,
+      },
+      billNumber: parsed.billNumber,
+      billName: parsed.billName,
     };
   };
 
@@ -257,7 +266,8 @@ export function FinalAccountExcelImport({
       setProgress(10);
       setProgressText("Parsing sheets...");
 
-      const parsedSections: ParsedSection[] = [];
+      // Group sections by bill
+      const billsMap = new Map<number, ParsedBill>();
       
       const skipPatterns = [
         /^main\s*summary$/i,
@@ -265,7 +275,6 @@ export function FinalAccountExcelImport({
         /notes/i,
         /qualifications/i,
         /cover/i,
-        // DON'T skip P&G - it should be included as Bill 1's section 1.1
       ];
 
       for (const sheetName of workbook.SheetNames) {
@@ -273,24 +282,35 @@ export function FinalAccountExcelImport({
         if (shouldSkip) continue;
         
         const worksheet = workbook.Sheets[sheetName];
-        const section = parseSheet(worksheet, sheetName);
-        if (section) {
-          parsedSections.push(section);
+        const result = parseSheet(worksheet, sheetName);
+        if (result) {
+          const { section, billNumber, billName } = result;
+          
+          if (!billsMap.has(billNumber)) {
+            billsMap.set(billNumber, {
+              billNumber,
+              billName,
+              sections: [],
+            });
+          }
+          billsMap.get(billNumber)!.sections.push(section);
         }
       }
 
-      if (parsedSections.length === 0) {
+      // Convert to array and sort by bill number
+      const parsedBills = Array.from(billsMap.values()).sort((a, b) => a.billNumber - b.billNumber);
+
+      if (parsedBills.length === 0) {
         throw new Error("No valid data found in Excel file");
       }
 
+      // Sort sections within each bill
+      parsedBills.forEach(bill => {
+        bill.sections.sort((a, b) => a._sectionNumber - b._sectionNumber);
+      });
+
       setProgress(20);
-      setProgressText(`Found ${parsedSections.length} sections, creating single bill...`);
-
-      // Sort sections by their section number for proper ordering
-      parsedSections.sort((a, b) => a._sectionNumber - b._sectionNumber);
-
-      setProgress(25);
-      setProgressText("Clearing existing data...");
+      setProgressText(`Found ${parsedBills.length} bills, clearing existing data...`);
 
       // Delete existing bills/sections/items for this Final Account
       const { data: existingBills } = await supabase
@@ -316,94 +336,99 @@ export function FinalAccountExcelImport({
       }
 
       setProgress(30);
-      setProgressText("Creating bill and sections...");
+      setProgressText("Creating bills and sections...");
 
       let totalItems = 0;
+      let totalSections = 0;
+      const progressPerBill = 60 / parsedBills.length;
 
-      // Create a SINGLE bill for the entire Excel file
-      const { data: newBill, error: billError } = await supabase
-        .from("final_account_bills")
-        .insert({
-          final_account_id: accountId,
-          bill_number: 1,
-          bill_name: "Prince Buthelezi Mall", // Can be customized later
-        })
-        .select()
-        .single();
+      for (let bi = 0; bi < parsedBills.length; bi++) {
+        const bill = parsedBills[bi];
+        setProgressText(`Importing Bill ${bill.billNumber}: ${bill.billName}...`);
 
-      if (billError) throw billError;
-
-      let billContractTotal = 0;
-      const progressPerSection = 60 / parsedSections.length;
-
-      for (let si = 0; si < parsedSections.length; si++) {
-        const section = parsedSections[si];
-        setProgressText(`Importing Section ${section.sectionCode}: ${section.sectionName}...`);
-        
-        // Create section
-        const { data: newSection, error: sectionError } = await supabase
-          .from("final_account_sections")
+        // Create bill
+        const { data: newBill, error: billError } = await supabase
+          .from("final_account_bills")
           .insert({
-            bill_id: newBill.id,
-            section_code: section.sectionCode,
-            section_name: section.sectionName,
-            display_order: si,
+            final_account_id: accountId,
+            bill_number: bill.billNumber,
+            bill_name: bill.billName,
           })
           .select()
           .single();
 
-        if (sectionError) throw sectionError;
+        if (billError) throw billError;
 
-        // Insert items - USE the pre-calculated amount from Excel for accuracy
-        let sectionTotal = 0;
-        const itemsToInsert = section.items.map((item, idx) => {
-          // Use Excel's AMOUNT column directly - this is the actual tender price
-          const contractAmount = item.amount;
-          sectionTotal += contractAmount;
+        let billContractTotal = 0;
+
+        for (let si = 0; si < bill.sections.length; si++) {
+          const section = bill.sections[si];
           
-          return {
-            section_id: newSection.id,
-            item_code: item.item_code,
-            description: item.description,
-            unit: item.unit,
-            contract_quantity: item.quantity,
-            final_quantity: 0,
-            supply_rate: item.supply_rate,
-            install_rate: item.install_rate,
-            contract_amount: contractAmount, // Use Excel's pre-calculated amount
-            final_amount: 0,
-            display_order: idx + 1,
-          };
-        });
+          // Create section
+          const { data: newSection, error: sectionError } = await supabase
+            .from("final_account_sections")
+            .insert({
+              bill_id: newBill.id,
+              section_code: section.sectionCode,
+              section_name: section.sectionName,
+              display_order: si,
+            })
+            .select()
+            .single();
 
-        const chunkSize = 100;
-        for (let i = 0; i < itemsToInsert.length; i += chunkSize) {
-          const chunk = itemsToInsert.slice(i, i + chunkSize);
-          const { error: itemsError } = await supabase.from("final_account_items").insert(chunk);
-          if (itemsError) throw itemsError;
+          if (sectionError) throw sectionError;
+
+          // Insert items
+          let sectionTotal = 0;
+          const itemsToInsert = section.items.map((item, idx) => {
+            const contractAmount = item.amount;
+            sectionTotal += contractAmount;
+            
+            return {
+              section_id: newSection.id,
+              item_code: item.item_code,
+              description: item.description,
+              unit: item.unit,
+              contract_quantity: item.quantity,
+              final_quantity: 0,
+              supply_rate: item.supply_rate,
+              install_rate: item.install_rate,
+              contract_amount: contractAmount,
+              final_amount: 0,
+              display_order: idx + 1,
+            };
+          });
+
+          const chunkSize = 100;
+          for (let i = 0; i < itemsToInsert.length; i += chunkSize) {
+            const chunk = itemsToInsert.slice(i, i + chunkSize);
+            const { error: itemsError } = await supabase.from("final_account_items").insert(chunk);
+            if (itemsError) throw itemsError;
+          }
+
+          // Update section totals
+          await supabase
+            .from("final_account_sections")
+            .update({ contract_total: sectionTotal, final_total: 0 })
+            .eq("id", newSection.id);
+
+          billContractTotal += sectionTotal;
+          totalItems += itemsToInsert.length;
+          totalSections++;
         }
 
-        // Update section totals
+        // Update bill totals
         await supabase
-          .from("final_account_sections")
-          .update({ contract_total: sectionTotal, final_total: 0 })
-          .eq("id", newSection.id);
+          .from("final_account_bills")
+          .update({ 
+            contract_total: billContractTotal, 
+            final_total: 0,
+            variation_total: -billContractTotal 
+          })
+          .eq("id", newBill.id);
 
-        billContractTotal += sectionTotal;
-        totalItems += itemsToInsert.length;
-        
-        setProgress(30 + (si + 1) * progressPerSection);
+        setProgress(30 + (bi + 1) * progressPerBill);
       }
-
-      // Update bill totals
-      await supabase
-        .from("final_account_bills")
-        .update({ 
-          contract_total: billContractTotal, 
-          final_total: 0,
-          variation_total: -billContractTotal 
-        })
-        .eq("id", newBill.id);
 
       setProgress(95);
       setProgressText("Refreshing data...");
@@ -414,7 +439,7 @@ export function FinalAccountExcelImport({
 
       setProgress(100);
       
-      toast.success(`Imported ${totalItems} items across ${parsedSections.length} sections`);
+      toast.success(`Imported ${totalItems} items across ${totalSections} sections in ${parsedBills.length} bills`);
 
       onOpenChange(false);
       setFile(null);
