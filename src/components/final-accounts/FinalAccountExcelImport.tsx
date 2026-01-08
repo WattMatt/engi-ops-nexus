@@ -31,6 +31,7 @@ interface ParsedSection {
   sectionCode: string;
   sectionName: string;
   items: ParsedItem[];
+  boqStatedTotal: number; // The stated total from Excel summary row
   _sectionNumber: number; // For ordering
 }
 
@@ -207,6 +208,7 @@ export function FinalAccountExcelImport({
     if (headerRowIdx === -1) return null;
     
     const items: ParsedItem[] = [];
+    let boqStatedTotal = 0; // Extract from summary/total row
     
     for (let i = headerRowIdx + 1; i < allRows.length; i++) {
       const row = allRows[i];
@@ -222,7 +224,15 @@ export function FinalAccountExcelImport({
       if (!itemCode && !description) continue;
       
       const textToCheck = `${itemCode} ${description}`.toLowerCase();
-      if (/total|carried|brought|summary|sub-total|subtotal/i.test(textToCheck)) continue;
+      
+      // Check if this is a summary/total row - extract the stated total
+      if (/total|carried|brought|summary|sub-total|subtotal/i.test(textToCheck)) {
+        // This row contains the BOQ stated total for this section
+        if (amount > 0 && amount > boqStatedTotal) {
+          boqStatedTotal = amount;
+        }
+        continue; // Don't add as item
+      }
       
       items.push({
         item_code: itemCode,
@@ -242,6 +252,7 @@ export function FinalAccountExcelImport({
         sectionCode: parsed.sectionCode, 
         sectionName: parsed.sectionName, 
         items,
+        boqStatedTotal, // The stated total from Excel
         _sectionNumber: parsed.sectionNumber,
       },
       billNumber: parsed.billNumber,
@@ -406,10 +417,14 @@ export function FinalAccountExcelImport({
             if (itemsError) throw itemsError;
           }
 
-          // Update section totals
+          // Update section totals - include boq_stated_total for discrepancy detection
           await supabase
             .from("final_account_sections")
-            .update({ contract_total: sectionTotal, final_total: 0 })
+            .update({ 
+              contract_total: sectionTotal, 
+              final_total: 0,
+              boq_stated_total: section.boqStatedTotal > 0 ? section.boqStatedTotal : sectionTotal, // Use stated if found, otherwise calculated
+            })
             .eq("id", newSection.id);
 
           billContractTotal += sectionTotal;
