@@ -1,6 +1,20 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -38,6 +52,17 @@ export const ProjectRoadmapWidget = ({ projectId }: ProjectRoadmapWidgetProps) =
   const [addDialogOpen, setAddDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<RoadmapItemData | null>(null);
   const [parentId, setParentId] = useState<string | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   const { data: items = [], isLoading } = useQuery({
     queryKey: ["roadmap-items", projectId],
@@ -134,6 +159,43 @@ export const ProjectRoadmapWidget = ({ projectId }: ProjectRoadmapWidgetProps) =
       toast.success("Item deleted");
     },
   });
+
+  const reorderItems = useMutation({
+    mutationFn: async (updates: { id: string; sort_order: number }[]) => {
+      for (const update of updates) {
+        const { error } = await supabase
+          .from("project_roadmap_items")
+          .update({ sort_order: update.sort_order })
+          .eq("id", update.id);
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["roadmap-items", projectId] });
+    },
+  });
+
+  const handleDragEnd = (event: DragEndEvent, itemList: RoadmapItemData[]) => {
+    const { active, over } = event;
+    
+    if (!over || active.id === over.id) return;
+
+    const oldIndex = itemList.findIndex((item) => item.id === active.id);
+    const newIndex = itemList.findIndex((item) => item.id === over.id);
+
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reorderedItems = [...itemList];
+    const [movedItem] = reorderedItems.splice(oldIndex, 1);
+    reorderedItems.splice(newIndex, 0, movedItem);
+
+    const updates = reorderedItems.map((item, index) => ({
+      id: item.id,
+      sort_order: index,
+    }));
+
+    reorderItems.mutate(updates);
+  };
 
   const togglePhase = (phase: string) => {
     setExpandedPhases((prev) => {
@@ -266,21 +328,33 @@ export const ProjectRoadmapWidget = ({ projectId }: ProjectRoadmapWidgetProps) =
                     </button>
 
                     {isExpanded && (
-                      <div className="p-2 space-y-1">
-                        {phaseItems.map((item) => (
-                          <RoadmapItem
-                            key={item.id}
-                            item={item}
-                            children={childrenByParent[item.id] || []}
-                            onToggleComplete={(id, isCompleted) => 
-                              toggleComplete.mutate({ id, isCompleted })
-                            }
-                            onEdit={handleEditItem}
-                            onDelete={(id) => deleteItem.mutate(id)}
-                            onAddChild={(parentId) => handleAddItem(parentId)}
-                          />
-                        ))}
-                      </div>
+                      <DndContext
+                        sensors={sensors}
+                        collisionDetection={closestCenter}
+                        onDragEnd={(event) => handleDragEnd(event, phaseItems)}
+                      >
+                        <SortableContext
+                          items={phaseItems.map((item) => item.id)}
+                          strategy={verticalListSortingStrategy}
+                        >
+                          <div className="p-2 space-y-1">
+                            {phaseItems.map((item) => (
+                              <RoadmapItem
+                                key={item.id}
+                                item={item}
+                                children={childrenByParent[item.id] || []}
+                                onToggleComplete={(id, isCompleted) => 
+                                  toggleComplete.mutate({ id, isCompleted })
+                                }
+                                onEdit={handleEditItem}
+                                onDelete={(id) => deleteItem.mutate(id)}
+                                onAddChild={(parentId) => handleAddItem(parentId)}
+                                onReorderChildren={(updates) => reorderItems.mutate(updates)}
+                              />
+                            ))}
+                          </div>
+                        </SortableContext>
+                      </DndContext>
                     )}
                   </div>
                 );
