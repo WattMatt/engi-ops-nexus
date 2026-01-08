@@ -48,10 +48,13 @@ import {
   ExternalLink,
   GripVertical,
   MessagesSquare,
+  Calendar,
+  AlertTriangle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RoadmapItemDiscussion } from "./RoadmapItemDiscussion";
 import { useRoadmapComments } from "@/hooks/useRoadmapComments";
+import { format, isPast, isToday } from "date-fns";
 
 interface RoadmapItemData {
   id: string;
@@ -67,6 +70,8 @@ interface RoadmapItemData {
   link_url: string | null;
   link_label: string | null;
   comments: string | null;
+  due_date: string | null;
+  priority: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -83,6 +88,13 @@ interface RoadmapItemProps {
   depth?: number;
 }
 
+const priorityConfig = {
+  low: { label: "Low", className: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400" },
+  medium: { label: "Medium", className: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400" },
+  high: { label: "High", className: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400" },
+  critical: { label: "Critical", className: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400" },
+};
+
 export const RoadmapItem = ({
   item,
   children,
@@ -98,7 +110,6 @@ export const RoadmapItem = ({
   const [discussionOpen, setDiscussionOpen] = useState(false);
   const hasChildren = children.length > 0;
   
-  // Get comment count for badge
   const { comments: itemComments } = useRoadmapComments(item.id);
   const commentCount = itemComments?.length || 0;
 
@@ -150,6 +161,9 @@ export const RoadmapItem = ({
     opacity: isDragging ? 0.5 : 1,
   };
 
+  const isOverdue = item.due_date && !item.is_completed && isPast(new Date(item.due_date)) && !isToday(new Date(item.due_date));
+  const isDueToday = item.due_date && !item.is_completed && isToday(new Date(item.due_date));
+
   return (
     <div 
       ref={setNodeRef} 
@@ -160,10 +174,10 @@ export const RoadmapItem = ({
         className={cn(
           "flex items-start gap-2 p-2 rounded-md hover:bg-muted/50 transition-colors",
           item.is_completed && "opacity-60",
-          isDragging && "bg-muted shadow-lg"
+          isDragging && "bg-muted shadow-lg",
+          isOverdue && !item.is_completed && "bg-red-50 dark:bg-red-950/20"
         )}
       >
-        {/* Drag handle */}
         <button
           {...attributes}
           {...listeners}
@@ -171,7 +185,7 @@ export const RoadmapItem = ({
         >
           <GripVertical className="h-4 w-4" />
         </button>
-        {/* Expand/collapse button for items with children */}
+        
         {hasChildren ? (
           <Collapsible open={isOpen} onOpenChange={setIsOpen}>
             <CollapsibleTrigger asChild>
@@ -188,14 +202,12 @@ export const RoadmapItem = ({
           <div className="w-5" />
         )}
 
-        {/* Completion checkbox */}
         <Checkbox
           checked={item.is_completed}
           onCheckedChange={(checked) => onToggleComplete(item.id, checked as boolean)}
           className="mt-0.5"
         />
 
-        {/* Content */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <span
@@ -206,6 +218,30 @@ export const RoadmapItem = ({
             >
               {item.title}
             </span>
+            
+            {/* Priority badge */}
+            {item.priority && priorityConfig[item.priority as keyof typeof priorityConfig] && (
+              <Badge variant="outline" className={cn("h-5 px-1.5", priorityConfig[item.priority as keyof typeof priorityConfig].className)}>
+                {priorityConfig[item.priority as keyof typeof priorityConfig].label}
+              </Badge>
+            )}
+            
+            {/* Due date badge */}
+            {item.due_date && !item.is_completed && (
+              <Badge 
+                variant="outline" 
+                className={cn(
+                  "h-5 px-1.5 gap-1",
+                  isOverdue && "bg-red-100 text-red-700 border-red-300 dark:bg-red-900/30 dark:text-red-400",
+                  isDueToday && "bg-orange-100 text-orange-700 border-orange-300 dark:bg-orange-900/30 dark:text-orange-400"
+                )}
+              >
+                {isOverdue && <AlertTriangle className="h-3 w-3" />}
+                <Calendar className="h-3 w-3" />
+                <span className="text-xs">{format(new Date(item.due_date), "MMM d")}</span>
+              </Badge>
+            )}
+            
             {item.link_url && (
               <a
                 href={item.link_url}
@@ -224,7 +260,7 @@ export const RoadmapItem = ({
                 <span className="text-xs">Note</span>
               </Badge>
             )}
-            {/* Discussion button with live comment count */}
+            
             <Dialog open={discussionOpen} onOpenChange={setDiscussionOpen}>
               <DialogTrigger asChild>
                 <Button
@@ -261,7 +297,6 @@ export const RoadmapItem = ({
           )}
         </div>
 
-        {/* Actions */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button
@@ -292,7 +327,6 @@ export const RoadmapItem = ({
         </DropdownMenu>
       </div>
 
-      {/* Render children */}
       {hasChildren && (
         <Collapsible open={isOpen} onOpenChange={setIsOpen}>
           <CollapsibleContent>

@@ -36,6 +36,8 @@ interface RoadmapItemData {
   link_url: string | null;
   link_label: string | null;
   comments: string | null;
+  due_date: string | null;
+  priority: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -59,6 +61,13 @@ const PHASES = [
   "General",
 ];
 
+const PRIORITIES = [
+  { value: "low", label: "Low", color: "text-blue-600" },
+  { value: "medium", label: "Medium", color: "text-yellow-600" },
+  { value: "high", label: "High", color: "text-orange-600" },
+  { value: "critical", label: "Critical", color: "text-red-600" },
+];
+
 export const AddRoadmapItemDialog = ({
   open,
   onOpenChange,
@@ -73,6 +82,8 @@ export const AddRoadmapItemDialog = ({
   const [linkUrl, setLinkUrl] = useState("");
   const [linkLabel, setLinkLabel] = useState("");
   const [comments, setComments] = useState("");
+  const [dueDate, setDueDate] = useState("");
+  const [priority, setPriority] = useState<string>("");
 
   useEffect(() => {
     if (editingItem) {
@@ -82,6 +93,8 @@ export const AddRoadmapItemDialog = ({
       setLinkUrl(editingItem.link_url || "");
       setLinkLabel(editingItem.link_label || "");
       setComments(editingItem.comments || "");
+      setDueDate(editingItem.due_date || "");
+      setPriority(editingItem.priority || "");
     } else {
       setTitle("");
       setDescription("");
@@ -89,6 +102,8 @@ export const AddRoadmapItemDialog = ({
       setLinkUrl("");
       setLinkLabel("");
       setComments("");
+      setDueDate("");
+      setPriority("");
     }
   }, [editingItem, open]);
 
@@ -100,16 +115,20 @@ export const AddRoadmapItemDialog = ({
       link_url: string;
       link_label: string;
       comments: string;
+      due_date: string;
+      priority: string;
     }) => {
       const { error } = await supabase.from("project_roadmap_items").insert({
         project_id: projectId,
         parent_id: parentId,
         title: data.title,
         description: data.description || null,
-        phase: parentId ? null : data.phase, // Only root items have phases
+        phase: parentId ? null : data.phase,
         link_url: data.link_url || null,
         link_label: data.link_label || null,
         comments: data.comments || null,
+        due_date: data.due_date || null,
+        priority: data.priority || null,
       });
       if (error) throw error;
     },
@@ -132,6 +151,8 @@ export const AddRoadmapItemDialog = ({
       link_url: string;
       link_label: string;
       comments: string;
+      due_date: string;
+      priority: string;
     }) => {
       const { error } = await supabase
         .from("project_roadmap_items")
@@ -142,6 +163,8 @@ export const AddRoadmapItemDialog = ({
           link_url: data.link_url || null,
           link_label: data.link_label || null,
           comments: data.comments || null,
+          due_date: data.due_date || null,
+          priority: data.priority || null,
         })
         .eq("id", data.id);
       if (error) throw error;
@@ -172,6 +195,8 @@ export const AddRoadmapItemDialog = ({
         link_url: linkUrl,
         link_label: linkLabel,
         comments,
+        due_date: dueDate,
+        priority,
       });
     } else {
       createMutation.mutate({
@@ -181,6 +206,8 @@ export const AddRoadmapItemDialog = ({
         link_url: linkUrl,
         link_label: linkLabel,
         comments,
+        due_date: dueDate,
+        priority,
       });
     }
   };
@@ -241,6 +268,33 @@ export const AddRoadmapItemDialog = ({
               </Select>
             </div>
           )}
+
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="dueDate">Due Date</Label>
+              <Input
+                id="dueDate"
+                type="date"
+                value={dueDate}
+                onChange={(e) => setDueDate(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="priority">Priority</Label>
+              <Select value={priority} onValueChange={setPriority}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select priority" />
+                </SelectTrigger>
+                <SelectContent>
+                  {PRIORITIES.map((p) => (
+                    <SelectItem key={p.value} value={p.value}>
+                      <span className={p.color}>{p.label}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
