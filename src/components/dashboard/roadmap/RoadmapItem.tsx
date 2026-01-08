@@ -1,4 +1,20 @@
 import { useState } from "react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
@@ -23,6 +39,7 @@ import {
   Link,
   MessageSquare,
   ExternalLink,
+  GripVertical,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -51,6 +68,7 @@ interface RoadmapItemProps {
   onEdit: (item: RoadmapItemData) => void;
   onDelete: (id: string) => void;
   onAddChild: (parentId: string) => void;
+  onReorderChildren?: (updates: { id: string; sort_order: number }[]) => void;
   depth?: number;
 }
 
@@ -61,19 +79,81 @@ export const RoadmapItem = ({
   onEdit,
   onDelete,
   onAddChild,
+  onReorderChildren,
   depth = 0,
 }: RoadmapItemProps) => {
   const [isOpen, setIsOpen] = useState(true);
   const hasChildren = children.length > 0;
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 8,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
+
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: item.id });
+
+  const handleChildDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (!over || active.id === over.id || !onReorderChildren) return;
+
+    const oldIndex = children.findIndex((c) => c.id === active.id);
+    const newIndex = children.findIndex((c) => c.id === over.id);
+
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const reordered = [...children];
+    const [moved] = reordered.splice(oldIndex, 1);
+    reordered.splice(newIndex, 0, moved);
+
+    const updates = reordered.map((c, index) => ({
+      id: c.id,
+      sort_order: index,
+    }));
+
+    onReorderChildren(updates);
+  };
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+  };
+
   return (
-    <div className={cn("group", depth > 0 && "ml-6 border-l-2 border-muted pl-3")}>
+    <div 
+      ref={setNodeRef} 
+      style={style}
+      className={cn("group", depth > 0 && "ml-6 border-l-2 border-muted pl-3")}
+    >
       <div
         className={cn(
           "flex items-start gap-2 p-2 rounded-md hover:bg-muted/50 transition-colors",
-          item.is_completed && "opacity-60"
+          item.is_completed && "opacity-60",
+          isDragging && "bg-muted shadow-lg"
         )}
       >
+        {/* Drag handle */}
+        <button
+          {...attributes}
+          {...listeners}
+          className="cursor-grab active:cursor-grabbing p-0.5 mt-0.5 text-muted-foreground hover:text-foreground touch-none"
+        >
+          <GripVertical className="h-4 w-4" />
+        </button>
         {/* Expand/collapse button for items with children */}
         {hasChildren ? (
           <Collapsible open={isOpen} onOpenChange={setIsOpen}>
@@ -174,19 +254,32 @@ export const RoadmapItem = ({
       {/* Render children */}
       {hasChildren && (
         <Collapsible open={isOpen} onOpenChange={setIsOpen}>
-          <CollapsibleContent className="space-y-1">
-            {children.map((child) => (
-              <RoadmapItem
-                key={child.id}
-                item={child}
-                children={[]} // We only support 2 levels for now
-                onToggleComplete={onToggleComplete}
-                onEdit={onEdit}
-                onDelete={onDelete}
-                onAddChild={onAddChild}
-                depth={depth + 1}
-              />
-            ))}
+          <CollapsibleContent>
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleChildDragEnd}
+            >
+              <SortableContext
+                items={children.map((c) => c.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-1">
+                  {children.map((child) => (
+                    <RoadmapItem
+                      key={child.id}
+                      item={child}
+                      children={[]} // We only support 2 levels for now
+                      onToggleComplete={onToggleComplete}
+                      onEdit={onEdit}
+                      onDelete={onDelete}
+                      onAddChild={onAddChild}
+                      depth={depth + 1}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
           </CollapsibleContent>
         </Collapsible>
       )}
