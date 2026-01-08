@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -7,6 +7,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,19 +19,18 @@ import { toast } from "sonner";
 import { Send, Copy, Trash2, Link2, Clock, Mail } from "lucide-react";
 import { format } from "date-fns";
 
-interface ShareRoadmapDialogProps {
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
+export interface ShareRoadmapDialogProps {
   projectId: string;
   projectName?: string;
+  children?: ReactNode;
 }
 
 export function ShareRoadmapDialog({
-  open,
-  onOpenChange,
   projectId,
   projectName,
+  children,
 }: ShareRoadmapDialogProps) {
+  const [open, setOpen] = useState(false);
   const queryClient = useQueryClient();
   const [reviewerName, setReviewerName] = useState("");
   const [reviewerEmail, setReviewerEmail] = useState("");
@@ -151,7 +151,8 @@ export function ShareRoadmapDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={setOpen}>
+      {children && <DialogTrigger asChild>{children}</DialogTrigger>}
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
