@@ -25,6 +25,8 @@ interface ParsedItem {
   supply_rate: number;
   install_rate: number;
   amount: number; // Pre-calculated amount from Excel - use this as contract_amount
+  is_prime_cost: boolean;
+  item_type: 'standard' | 'prime_cost' | 'percentage';
 }
 
 interface ParsedSection {
@@ -234,6 +236,17 @@ export function FinalAccountExcelImport({
         continue; // Don't add as item
       }
       
+      // Detect Prime Cost items - common patterns in BOQ
+      const isPrimeCost = /prime\s*cost|^pc\s|p\.?c\.?\s*amount|allowance\s*for|provisional\s*sum/i.test(description) 
+        || unitRaw.toLowerCase() === 'sum' && /supply|delivery|cost|amount/i.test(description);
+      
+      // Detect percentage-based items (P&A - Profit & Attendance)
+      const isPercentage = /profit\s*(and|&)?\s*attendance|p\s*&\s*a|markup|percentage/i.test(description)
+        || (unitRaw === '%' || /^\d+(\.\d+)?%$/.test(unitRaw));
+      
+      const itemType: 'standard' | 'prime_cost' | 'percentage' = 
+        isPrimeCost ? 'prime_cost' : isPercentage ? 'percentage' : 'standard';
+      
       items.push({
         item_code: itemCode,
         description,
@@ -242,6 +255,8 @@ export function FinalAccountExcelImport({
         supply_rate: supplyRate,
         install_rate: installRate,
         amount,
+        is_prime_cost: isPrimeCost,
+        item_type: itemType,
       });
     }
     
@@ -407,6 +422,10 @@ export function FinalAccountExcelImport({
               contract_amount: contractAmount,
               final_amount: 0,
               display_order: idx + 1,
+              // Prime Cost fields
+              is_prime_cost: item.is_prime_cost,
+              item_type: item.item_type,
+              pc_allowance: item.is_prime_cost ? contractAmount : null,
             };
           });
 
