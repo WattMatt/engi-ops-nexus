@@ -9289,48 +9289,90 @@ export type Database = {
           attendees: Json | null
           created_at: string
           created_by: string
+          delays_disruptions: string | null
+          deliveries: Json | null
+          design_decisions: Json | null
           entry_date: string
+          entry_type: string | null
           id: string
+          instructions_issued: Json | null
+          instructions_received: Json | null
+          linked_documents: Json | null
           meeting_minutes: string | null
           notes: string | null
+          photos: Json | null
+          plant_equipment: Json | null
           project_id: string
+          quality_issues: string | null
           queries: string | null
+          safety_observations: string | null
+          shift_type: string | null
           site_progress: string | null
           sub_entries: Json | null
           updated_at: string
+          visitors: Json | null
           weather_conditions: string | null
+          workforce_details: Json | null
         }
         Insert: {
           attachments?: Json | null
           attendees?: Json | null
           created_at?: string
           created_by: string
+          delays_disruptions?: string | null
+          deliveries?: Json | null
+          design_decisions?: Json | null
           entry_date: string
+          entry_type?: string | null
           id?: string
+          instructions_issued?: Json | null
+          instructions_received?: Json | null
+          linked_documents?: Json | null
           meeting_minutes?: string | null
           notes?: string | null
+          photos?: Json | null
+          plant_equipment?: Json | null
           project_id: string
+          quality_issues?: string | null
           queries?: string | null
+          safety_observations?: string | null
+          shift_type?: string | null
           site_progress?: string | null
           sub_entries?: Json | null
           updated_at?: string
+          visitors?: Json | null
           weather_conditions?: string | null
+          workforce_details?: Json | null
         }
         Update: {
           attachments?: Json | null
           attendees?: Json | null
           created_at?: string
           created_by?: string
+          delays_disruptions?: string | null
+          deliveries?: Json | null
+          design_decisions?: Json | null
           entry_date?: string
+          entry_type?: string | null
           id?: string
+          instructions_issued?: Json | null
+          instructions_received?: Json | null
+          linked_documents?: Json | null
           meeting_minutes?: string | null
           notes?: string | null
+          photos?: Json | null
+          plant_equipment?: Json | null
           project_id?: string
+          quality_issues?: string | null
           queries?: string | null
+          safety_observations?: string | null
+          shift_type?: string | null
           site_progress?: string | null
           sub_entries?: Json | null
           updated_at?: string
+          visitors?: Json | null
           weather_conditions?: string | null
+          workforce_details?: Json | null
         }
         Relationships: [
           {
