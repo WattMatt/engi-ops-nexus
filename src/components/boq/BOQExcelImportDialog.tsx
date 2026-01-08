@@ -199,6 +199,24 @@ export function BOQExcelImportDialog({
       const textToCheck = `${itemCode} ${description}`.toLowerCase();
       if (/total|carried|brought|summary|sub-total|subtotal/i.test(textToCheck)) continue;
       
+      // Detect section header rows - these have a single letter code (A, B, C, etc.),
+      // a descriptive header, an amount but no unit, quantity, or rates
+      // These should NOT be imported as items - they're section summaries
+      const amount = colMap.amount !== undefined ? parseNumber(row[colMap.amount]) : 0;
+      const isSectionHeader = (
+        /^[A-Z]$/i.test(itemCode) && // Single letter item code
+        amount > 0 && // Has an amount (section total)
+        !unitRaw && // No unit specified
+        quantity === 0 && // No quantity
+        supplyRate === 0 && // No supply rate
+        installRate === 0 // No install rate
+      );
+      
+      if (isSectionHeader) {
+        console.log(`[BOQ Import] Skipping section header row: ${itemCode} - ${description}`);
+        continue;
+      }
+      
       items.push({
         item_code: itemCode,
         description,
@@ -248,10 +266,13 @@ export function BOQExcelImportDialog({
       const skipPatterns = [
         /^main\s*summary$/i,
         /^summary$/i,
+        /mall\s*summary$/i,      // Skip "Mall Summary" sheets
+        /bill\s*summary$/i,      // Skip bill summary sheets
         /notes/i,
         /qualifications/i,
         /cover/i,
-        /^p\s*&\s*g$/i,  // P&G is often preliminaries summary
+        /^index$/i,              // Skip index sheets
+        /^p\s*&\s*g$/i,          // P&G is often preliminaries summary
         /^preliminaries$/i,
       ];
 
