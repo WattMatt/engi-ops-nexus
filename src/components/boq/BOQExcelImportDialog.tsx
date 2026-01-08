@@ -24,6 +24,9 @@ interface ParsedItem {
   quantity: number;
   supply_rate: number;
   install_rate: number;
+  direct_amount: number; // For Sum items that have an amount but no rates
+  item_type: 'quantity' | 'sum' | 'percentage' | 'prime_cost';
+  prime_cost_amount?: number;
 }
 
 interface ParsedSection {
@@ -221,6 +224,8 @@ export function BOQExcelImportDialog({
       const supplyRate = colMap.supplyRate !== undefined ? parseNumber(row[colMap.supplyRate]) : 0;
       const installRate = colMap.installRate !== undefined ? parseNumber(row[colMap.installRate]) : 0;
       const amount = colMap.amount !== undefined ? parseNumber(row[colMap.amount]) : 0;
+      // Also check for single "rate" column (some sheets use this instead of supply/install split)
+      const singleRate = colMap.rate !== undefined ? parseNumber(row[colMap.rate]) : 0;
       
       if (!itemCode && !description) continue;
       
@@ -251,13 +256,46 @@ export function BOQExcelImportDialog({
         continue;
       }
       
+      // Determine item type based on unit and values
+      const unitLower = unitRaw.toLowerCase();
+      const isPrimeCost = /prime\s*cost|^pc\s|p\.?c\.?\s*amount|allowance\s*for/i.test(description);
+      const isSum = unitLower === 'sum' || (
+        quantity === 0 && supplyRate === 0 && installRate === 0 && singleRate === 0 && amount > 0
+      );
+      const isPercentage = unitLower === '%' || /^allow\s*profit|add\s*profit|^%$/i.test(description);
+      
+      let itemType: 'quantity' | 'sum' | 'percentage' | 'prime_cost' = 'quantity';
+      if (isPrimeCost) itemType = 'prime_cost';
+      else if (isPercentage) itemType = 'percentage';
+      else if (isSum) itemType = 'sum';
+      
+      // For Sum items: set quantity=1, use amount as install_rate so generated total_amount works
+      let finalQuantity = quantity;
+      let finalSupplyRate = supplyRate;
+      let finalInstallRate = installRate;
+      
+      // Handle single rate column (when supply/install not split)
+      if (singleRate > 0 && supplyRate === 0 && installRate === 0) {
+        // Put single rate into install_rate for calculation
+        finalInstallRate = singleRate;
+      }
+      
+      // For Sum/PC items with only amount (no rates), use quantity=1, install_rate=amount
+      if ((itemType === 'sum' || itemType === 'prime_cost') && amount > 0 && finalSupplyRate === 0 && finalInstallRate === 0) {
+        finalQuantity = 1;
+        finalInstallRate = amount;
+      }
+      
       items.push({
         item_code: itemCode,
         description,
         unit: unitRaw || 'No.',
-        quantity,
-        supply_rate: supplyRate,
-        install_rate: installRate,
+        quantity: finalQuantity,
+        supply_rate: finalSupplyRate,
+        install_rate: finalInstallRate,
+        direct_amount: amount,
+        item_type: itemType,
+        prime_cost_amount: isPrimeCost ? amount : undefined,
       });
     }
     
@@ -419,7 +457,8 @@ export function BOQExcelImportDialog({
           if (sectionError) throw sectionError;
 
           // Insert items in batches
-          // Note: total_rate and total_amount are generated columns
+          // Note: total_rate and total_amount are generated columns based on quantity * (supply_rate + install_rate)
+          // For Sum items, we set quantity=1 and put the amount in install_rate so the generated formula works
           const itemsToInsert = section.items.map((item, idx) => ({
             section_id: newSection.id,
             item_code: item.item_code,
@@ -428,6 +467,8 @@ export function BOQExcelImportDialog({
             quantity: item.quantity,
             supply_rate: item.supply_rate,
             install_rate: item.install_rate,
+            item_type: item.item_type,
+            prime_cost_amount: item.prime_cost_amount || null,
             display_order: idx + 1,
           }));
 
