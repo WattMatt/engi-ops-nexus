@@ -4,10 +4,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Plus, Map, ChevronDown, ChevronRight } from "lucide-react";
+import { Plus, Map, ChevronDown, ChevronRight, FileDown } from "lucide-react";
 import { toast } from "sonner";
 import { RoadmapItem } from "./RoadmapItem";
 import { AddRoadmapItemDialog } from "./AddRoadmapItemDialog";
+import { defaultRoadmapTemplate } from "./roadmapTemplates";
 
 interface ProjectRoadmapWidgetProps {
   projectId: string;
@@ -50,6 +51,57 @@ export const ProjectRoadmapWidget = ({ projectId }: ProjectRoadmapWidgetProps) =
       return data as RoadmapItemData[];
     },
     enabled: !!projectId,
+  });
+
+  const loadTemplateMutation = useMutation({
+    mutationFn: async () => {
+      // Insert all parent items first
+      const parentItems = defaultRoadmapTemplate.map((item) => ({
+        project_id: projectId,
+        title: item.title,
+        phase: item.phase,
+        sort_order: item.sort_order,
+        is_completed: false,
+      }));
+
+      const { data: insertedParents, error: parentError } = await supabase
+        .from("project_roadmap_items")
+        .insert(parentItems)
+        .select();
+
+      if (parentError) throw parentError;
+
+      // Now insert children with parent references
+      const childItems: any[] = [];
+      defaultRoadmapTemplate.forEach((templateItem, index) => {
+        if (templateItem.children && insertedParents[index]) {
+          templateItem.children.forEach((child) => {
+            childItems.push({
+              project_id: projectId,
+              parent_id: insertedParents[index].id,
+              title: child.title,
+              phase: null,
+              sort_order: child.sort_order,
+              is_completed: false,
+            });
+          });
+        }
+      });
+
+      if (childItems.length > 0) {
+        const { error: childError } = await supabase
+          .from("project_roadmap_items")
+          .insert(childItems);
+        if (childError) throw childError;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["roadmap-items", projectId] });
+      toast.success("Baseline roadmap loaded successfully");
+    },
+    onError: (error: any) => {
+      toast.error(error.message || "Failed to load template");
+    },
   });
 
   const toggleComplete = useMutation({
@@ -166,8 +218,16 @@ export const ProjectRoadmapWidget = ({ projectId }: ProjectRoadmapWidgetProps) =
           {items.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
               <Map className="h-12 w-12 mx-auto mb-3 opacity-50" />
-              <p className="text-sm">No roadmap items yet</p>
-              <p className="text-xs mt-1">Add items to track your project phases and milestones</p>
+              <p className="text-sm font-medium">No roadmap items yet</p>
+              <p className="text-xs mt-1 mb-4">Start with our baseline project roadmap or add your own items</p>
+              <Button 
+                onClick={() => loadTemplateMutation.mutate()} 
+                disabled={loadTemplateMutation.isPending}
+                className="gap-2"
+              >
+                <FileDown className="h-4 w-4" />
+                {loadTemplateMutation.isPending ? "Loading..." : "Load Baseline Roadmap"}
+              </Button>
             </div>
           ) : (
             <div className="space-y-2">
