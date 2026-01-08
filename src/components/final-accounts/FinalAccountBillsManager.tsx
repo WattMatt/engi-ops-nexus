@@ -3,13 +3,20 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, ChevronDown, ChevronRight, Trash2, Pencil, FileSpreadsheet } from "lucide-react";
+import { Plus, ChevronDown, ChevronRight, Trash2, Pencil, FileSpreadsheet, Database, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { AddBillDialog } from "./AddBillDialog";
 import { FinalAccountSectionsManager } from "./FinalAccountSectionsManager";
 import { UnifiedBOQImport } from "./UnifiedBOQImport";
+import { FinalAccountExcelImport } from "./FinalAccountExcelImport";
 import { formatCurrency } from "@/utils/formatters";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface FinalAccountBillsManagerProps {
   projectId: string;
@@ -18,7 +25,8 @@ interface FinalAccountBillsManagerProps {
 
 export function FinalAccountBillsManager({ accountId, projectId }: FinalAccountBillsManagerProps) {
   const [addDialogOpen, setAddDialogOpen] = useState(false);
-  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [boqImportDialogOpen, setBoqImportDialogOpen] = useState(false);
+  const [excelImportDialogOpen, setExcelImportDialogOpen] = useState(false);
   const [editingBill, setEditingBill] = useState<any>(null);
   const [expandedBills, setExpandedBills] = useState<Set<string>>(new Set());
   const queryClient = useQueryClient();
@@ -83,10 +91,24 @@ export function FinalAccountBillsManager({ accountId, projectId }: FinalAccountB
         <CardHeader className="flex flex-row items-center justify-between py-4">
           <CardTitle className="text-lg">Bills Summary</CardTitle>
           <div className="flex gap-2">
-            <Button onClick={() => setImportDialogOpen(true)} size="sm" variant="outline">
-              <FileSpreadsheet className="h-4 w-4 mr-2" />
-              Import from BOQ
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button size="sm" variant="outline">
+                  <Upload className="h-4 w-4 mr-2" />
+                  Import
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setExcelImportDialogOpen(true)}>
+                  <FileSpreadsheet className="h-4 w-4 mr-2" />
+                  Import from Excel
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => setBoqImportDialogOpen(true)}>
+                  <Database className="h-4 w-4 mr-2" />
+                  Import from BOQ
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button onClick={() => setAddDialogOpen(true)} size="sm">
               <Plus className="h-4 w-4 mr-2" />
               Add Bill
@@ -213,8 +235,15 @@ export function FinalAccountBillsManager({ accountId, projectId }: FinalAccountB
       />
 
       <UnifiedBOQImport
-        open={importDialogOpen}
-        onOpenChange={setImportDialogOpen}
+        open={boqImportDialogOpen}
+        onOpenChange={setBoqImportDialogOpen}
+        accountId={accountId}
+        projectId={projectId}
+      />
+
+      <FinalAccountExcelImport
+        open={excelImportDialogOpen}
+        onOpenChange={setExcelImportDialogOpen}
         accountId={accountId}
         projectId={projectId}
       />
