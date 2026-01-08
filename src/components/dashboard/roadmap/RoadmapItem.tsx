@@ -25,6 +25,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
   Collapsible,
   CollapsibleContent,
   CollapsibleTrigger,
@@ -40,8 +47,11 @@ import {
   MessageSquare,
   ExternalLink,
   GripVertical,
+  MessagesSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { RoadmapItemDiscussion } from "./RoadmapItemDiscussion";
+import { useRoadmapComments } from "@/hooks/useRoadmapComments";
 
 interface RoadmapItemData {
   id: string;
@@ -85,7 +95,12 @@ export const RoadmapItem = ({
   depth = 0,
 }: RoadmapItemProps) => {
   const [isOpen, setIsOpen] = useState(true);
+  const [discussionOpen, setDiscussionOpen] = useState(false);
   const hasChildren = children.length > 0;
+  
+  // Get comment count for badge
+  const { comments: itemComments } = useRoadmapComments(item.id);
+  const commentCount = itemComments?.length || 0;
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -206,9 +221,33 @@ export const RoadmapItem = ({
             {item.comments && (
               <Badge variant="outline" className="h-5 px-1.5 gap-1">
                 <MessageSquare className="h-3 w-3" />
-                <span className="text-xs">Comment</span>
+                <span className="text-xs">Note</span>
               </Badge>
             )}
+            {/* Discussion button with live comment count */}
+            <Dialog open={discussionOpen} onOpenChange={setDiscussionOpen}>
+              <DialogTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-5 px-1.5 gap-1 text-muted-foreground hover:text-foreground"
+                >
+                  <MessagesSquare className="h-3 w-3" />
+                  <span className="text-xs">
+                    {commentCount > 0 ? `${commentCount}` : "Discuss"}
+                  </span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-lg">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    <MessagesSquare className="h-5 w-5" />
+                    Discussion
+                  </DialogTitle>
+                </DialogHeader>
+                <RoadmapItemDiscussion itemId={item.id} itemTitle={item.title} />
+              </DialogContent>
+            </Dialog>
           </div>
           {item.description && (
             <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">
