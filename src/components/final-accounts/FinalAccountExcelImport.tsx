@@ -31,13 +31,14 @@ interface ParsedSection {
   sectionName: string;
   items: ParsedItem[];
   _billNumber: number;
+  _billName: string;
   _isSubSection: boolean;
 }
 
 interface ParsedBill {
   billNumber: number;
   billName: string;
-  sections: Omit<ParsedSection, '_billNumber' | '_isSubSection'>[];
+  sections: Omit<ParsedSection, '_billNumber' | '_billName' | '_isSubSection'>[];
 }
 
 export function FinalAccountExcelImport({
@@ -61,49 +62,55 @@ export function FinalAccountExcelImport({
 
   /**
    * Parse section code and name from sheet name
-   * Examples:
-   * - "1.2 Medium Voltage" -> code: "1.2", name: "Medium Voltage", billNumber: 1
-   * - "1.3 Low Voltage" -> code: "1.3", name: "Low Voltage", billNumber: 1
-   * - "4 Boxer" -> code: "4", name: "Boxer", billNumber: 4
-   * - "P&G" -> code: "P&G", name: "P&G", billNumber: 1
+   * CORRECT structure from Excel:
+   * - "1 Mall Portion" or "1.2 Medium Voltage" -> Bill 1 (Mall Portion) sections
+   * - "3 ASJ" -> Bill 3 = ASJ (note: no Bill 2 in source Excel!)
+   * - "4 Boxer" -> Bill 4 = Boxer
+   * Each numbered sheet is a BILL with sections within it
    */
   const parseSectionFromSheetName = (sheetName: string): { 
     sectionCode: string; 
     sectionName: string; 
     billNumber: number;
+    billName: string;
     isSubSection: boolean;
   } => {
     const trimmed = sheetName.trim();
     
-    // Pattern: "1.2 Medium Voltage" -> sub-section of Bill 1
-    const dottedPattern = trimmed.match(/^(\d+\.\d+)\s+(.+)$/);
+    // Pattern: "1.2 Medium Voltage" -> section within Bill 1 "Mall Portion"
+    const dottedPattern = trimmed.match(/^(\d+)\.(\d+)\s+(.+)$/);
     if (dottedPattern) {
-      const billNum = parseInt(dottedPattern[1].split('.')[0]) || 1;
+      const billNum = parseInt(dottedPattern[1]) || 1;
+      const sectionNum = dottedPattern[2];
       return {
-        sectionCode: dottedPattern[1],
-        sectionName: dottedPattern[2].trim(),
+        sectionCode: `${billNum}.${sectionNum}`,
+        sectionName: dottedPattern[3].trim(),
         billNumber: billNum,
+        billName: billNum === 1 ? "Mall Portion" : `Bill ${billNum}`,
         isSubSection: true,
       };
     }
     
-    // Pattern: "4 Boxer" -> standalone bill for anchor tenant
+    // Pattern: "4 Boxer" -> Bill 4 = Boxer (this is the bill name)
     const standalonePattern = trimmed.match(/^(\d+)\s+(.+)$/);
     if (standalonePattern) {
       const billNum = parseInt(standalonePattern[1]);
+      const name = standalonePattern[2].trim();
       return {
-        sectionCode: standalonePattern[1],
-        sectionName: standalonePattern[2].trim(),
+        sectionCode: "1",
+        sectionName: name,
         billNumber: billNum,
+        billName: name,  // Use the tenant name as the bill name
         isSubSection: false,
       };
     }
     
-    // Pattern: "P&G" or other text - treat as part of Bill 1
+    // Pattern: "P&G" or other text - skip these
     return {
       sectionCode: trimmed,
       sectionName: trimmed,
-      billNumber: 1,
+      billNumber: 0,  // Will be filtered out
+      billName: trimmed,
       isSubSection: true,
     };
   };
@@ -116,7 +123,7 @@ export function FinalAccountExcelImport({
   };
 
   const parseSheet = (worksheet: XLSX.WorkSheet, sheetName: string): ParsedSection | null => {
-    const { sectionCode, sectionName, billNumber, isSubSection } = parseSectionFromSheetName(sheetName);
+    const { sectionCode, sectionName, billNumber, billName, isSubSection } = parseSectionFromSheetName(sheetName);
     
     const range = XLSX.utils.decode_range(worksheet['!ref'] || 'A1');
     const allRows: string[][] = [];
@@ -205,6 +212,7 @@ export function FinalAccountExcelImport({
       sectionName, 
       items,
       _billNumber: billNumber,
+      _billName: billName,
       _isSubSection: isSubSection,
     };
   };
@@ -258,10 +266,14 @@ export function FinalAccountExcelImport({
 
       // Group sections into bills
       const bills: ParsedBill[] = [];
-      const billMap = new Map<number, { sections: ParsedSection[]; isSubSection: boolean }>();
+      const billMap = new Map<number, { sections: ParsedSection[]; billName: string }>();
 
       for (const section of parsedSections) {
         const billNum = section._billNumber;
+        
+        // Skip sections with billNumber 0 (invalid patterns like P&G)
+        if (billNum === 0) continue;
+        
         const existing = billMap.get(billNum);
         
         if (existing) {
@@ -269,20 +281,12 @@ export function FinalAccountExcelImport({
         } else {
           billMap.set(billNum, { 
             sections: [section], 
-            isSubSection: section._isSubSection 
+            billName: section._billName,
           });
         }
       }
 
-      for (const [billNumber, { sections, isSubSection }] of billMap) {
-        let billName: string;
-        
-        if (isSubSection) {
-          billName = billNumber === 1 ? "Main Summary" : `Bill ${billNumber} Summary`;
-        } else {
-          billName = sections[0].sectionName;
-        }
-        
+      for (const [billNumber, { sections, billName }] of billMap) {
         bills.push({
           billNumber,
           billName,
@@ -458,8 +462,8 @@ export function FinalAccountExcelImport({
               disabled={loading}
             />
             <p className="text-sm text-muted-foreground">
-              Each sheet becomes a section. Sheets like "1.2 Medium Voltage" go into Bill 1 (Main Summary). 
-              Sheets like "4 Boxer" become their own bill.
+              Sheets like "1.2 Medium Voltage" become sections within Bill 1 (Mall Portion). 
+              Sheets like "3 ASJ" or "4 Boxer" become their own bills with the tenant name.
             </p>
           </div>
 
